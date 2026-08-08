@@ -202,7 +202,10 @@ export default function HospitalAdminDashboard() {
   });
   const [scheduleDeleteTarget, setScheduleDeleteTarget] = useState<TrainingScheduleListRow | null>(null);
   const [savingAttendanceForStaffId, setSavingAttendanceForStaffId] = useState<number | null>(null);
-  const [selectedProgressProgram, setSelectedProgressProgram] = useState<"all" | "bls" | "acls" | "pals" | "fellowship">("all");
+  const [selectedProgressProgram, setSelectedProgressProgram] = useState<"all" | "bls" | "acls" | "pals" | "fellowship" | "nrp" | "heartsaver" | "instructor">("all");
+  const [selectedDivision, setSelectedDivision] = useState<string>("all");
+  const [selectedSubDept, setSelectedSubDept] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [manualStaff, setManualStaff] = useState({
     staffName: "",
     staffEmail: "",
@@ -309,6 +312,90 @@ export default function HospitalAdminDashboard() {
     }
     return acc;
   }, [trainingSchedules]);
+
+  const parsedProgramStaff = useMemo(() => {
+    if (!programStaffData) return [];
+    return programStaffData.map((person) => {
+      const parts = (person.department || "").split(": ");
+      const division = parts[0] || "General";
+      const subDept = parts[1] || "";
+      return {
+        ...person,
+        division,
+        subDept,
+      };
+    });
+  }, [programStaffData]);
+
+  const { divisionsList, subDeptsList } = useMemo(() => {
+    const divs = new Set<string>();
+    const subs = new Set<string>();
+    for (const p of parsedProgramStaff) {
+      if (p.division) divs.add(p.division);
+      if (p.subDept) subs.add(p.subDept);
+    }
+    return {
+      divisionsList: Array.from(divs).sort(),
+      subDeptsList: Array.from(subs).sort(),
+    };
+  }, [parsedProgramStaff]);
+
+  const filteredProgramStaff = useMemo(() => {
+    return parsedProgramStaff.filter((person) => {
+      if (selectedDivision !== "all" && person.division !== selectedDivision) {
+        return false;
+      }
+      if (selectedSubDept !== "all" && person.subDept !== selectedSubDept) {
+        return false;
+      }
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const nameMatch = person.name.toLowerCase().includes(query);
+        const emailMatch = person.email.toLowerCase().includes(query);
+        if (!nameMatch && !emailMatch) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [parsedProgramStaff, selectedDivision, selectedSubDept, searchQuery]);
+
+  const ahaBoardMetrics = useMemo(() => {
+    const total = filteredProgramStaff.length;
+    let cogComplete = 0;
+    let cogInProgress = 0;
+    let practicalComplete = 0;
+    let fullyCertified = 0;
+
+    for (const p of filteredProgramStaff) {
+      const cog = !!p.cognitiveModulesComplete;
+      const prac = !!p.practicalSkillsSignedOff;
+      const progress = p.progressPercentage || 0;
+
+      if (cog && prac) {
+        fullyCertified++;
+      }
+      if (cog) {
+        cogComplete++;
+      } else if (progress > 0 && progress < 100) {
+        cogInProgress++;
+      }
+      if (prac) {
+        practicalComplete++;
+      }
+    }
+
+    return {
+      total,
+      cogComplete,
+      cogCompletePct: total > 0 ? Math.round((cogComplete / total) * 100) : 0,
+      cogInProgress,
+      practicalComplete,
+      practicalCompletePct: total > 0 ? Math.round((practicalComplete / total) * 100) : 0,
+      fullyCertified,
+      fullyCertifiedPct: total > 0 ? Math.round((fullyCertified / total) * 100) : 0,
+    };
+  }, [filteredProgramStaff]);
 
   const { data: incidentsList, isLoading: incidentsLoading } = trpc.institution.getIncidents.useQuery(
     { institutionId: institutionId!, limit: 100 },
@@ -2250,11 +2337,100 @@ export default function HospitalAdminDashboard() {
                     <option value="bls">BLS Program Learners</option>
                     <option value="acls">ACLS Program Learners</option>
                     <option value="pals">PALS Program Learners</option>
+                    <option value="nrp">NRP Program Learners</option>
                     <option value="fellowship">Fellowship Program Learners</option>
                   </select>
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Filters Row */}
+                {selectedProgressProgram !== "all" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+                    <div>
+                      <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Division (Parent Dept)</label>
+                      <select
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-2xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
+                        value={selectedDivision}
+                        onChange={(e) => {
+                          setSelectedDivision(e.target.value);
+                          setSelectedSubDept("all"); // reset sub-dept when division changes
+                        }}
+                      >
+                        <option value="all">All Divisions</option>
+                        {divisionsList.map((div) => (
+                          <option key={div} value={div}>{div}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Department (Sub Dept)</label>
+                      <select
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-2xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
+                        value={selectedSubDept}
+                        onChange={(e) => setSelectedSubDept(e.target.value)}
+                        disabled={selectedDivision === "all"}
+                      >
+                        <option value="all">All Departments</option>
+                        {subDeptsList
+                          .filter((sub) => {
+                            if (selectedDivision === "all") return true;
+                            // Find any staff matching this subDept to see if they belong to selectedDivision
+                            return parsedProgramStaff.some(
+                              (p) => p.division === selectedDivision && p.subDept === sub
+                            );
+                          })
+                          .map((sub) => (
+                            <option key={sub} value={sub}>{sub}</option>
+                          ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Search Staff / Guest</label>
+                      <input
+                        type="text"
+                        placeholder="Search by name or email..."
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-2xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* AHA Training Board Component Analytics Board */}
+                {selectedProgressProgram !== "all" && !programStaffLoading && filteredProgramStaff.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                    <Card className="border-border/60 bg-muted/20">
+                      <CardContent className="p-3">
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground">Cognitive Complete</p>
+                        <p className="text-xl font-bold text-slate-900 mt-1">{ahaBoardMetrics.cogComplete}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{ahaBoardMetrics.cogCompletePct}% of enrolled</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-border/60 bg-muted/20">
+                      <CardContent className="p-3">
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground">Cognitive In Progress</p>
+                        <p className="text-xl font-bold text-slate-900 mt-1">{ahaBoardMetrics.cogInProgress}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">Active modules</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-border/60 bg-muted/20">
+                      <CardContent className="p-3">
+                        <p className="text-[10px] uppercase font-semibold text-muted-foreground">Practical Skills Passed</p>
+                        <p className="text-xl font-bold text-slate-900 mt-1">{ahaBoardMetrics.practicalComplete}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{ahaBoardMetrics.practicalCompletePct}% of enrolled</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-emerald-100 bg-emerald-50/50 dark:border-emerald-950 dark:bg-emerald-950/20">
+                      <CardContent className="p-3">
+                        <p className="text-[10px] uppercase font-semibold text-emerald-800 dark:text-emerald-300">Fully Certified</p>
+                        <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{ahaBoardMetrics.fullyCertified}</p>
+                        <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">{ahaBoardMetrics.fullyCertifiedPct}% of enrolled</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
                 {selectedProgressProgram === "all" ? (
                   staffLoading ? (
                     <p className="text-sm text-muted-foreground">Loading staff…</p>
@@ -2296,34 +2472,36 @@ export default function HospitalAdminDashboard() {
                   )
                 ) : programStaffLoading ? (
                   <p className="text-sm text-muted-foreground">Loading program learners…</p>
-                ) : !programStaffData?.length ? (
-                  <p className="text-sm text-muted-foreground">No platform-linked learners found for this program.</p>
+                ) : !filteredProgramStaff.length ? (
+                  <p className="text-sm text-muted-foreground">No platform-linked learners match the selected filters.</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left">
                       <thead>
                         <tr className="border-b bg-muted/40 text-muted-foreground font-semibold">
                           <th className="py-2.5 px-3">Name / Email</th>
-                          <th className="py-2.5 px-3">Cadre & Department</th>
+                          <th className="py-2.5 px-3">Division & Department</th>
                           <th className="py-2.5 px-3 text-center">Census Scope</th>
-                          <th className="py-2.5 px-3 text-center">Program Status</th>
+                          <th className="py-2.5 px-3 text-center">Cognitive Modules</th>
+                          <th className="py-2.5 px-3 text-center">Phase 2 / Practical</th>
+                          <th className="py-2.5 px-3 text-center">Certification Status</th>
                           <th className="py-2.5 px-3">Training Date</th>
                           <th className="py-2.5 px-3 text-right">Payment</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {programStaffData.map((person) => {
-                          let statusColor = "bg-slate-100 text-slate-800";
+                        {filteredProgramStaff.map((person) => {
+                          let statusColor = "bg-slate-100 text-slate-800 border-slate-200";
                           let statusLabel = "Not Enrolled";
                           if (person.status === "completed") {
-                            statusColor = "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
-                            statusLabel = "Completed";
+                            statusColor = "bg-emerald-105 bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300";
+                            statusLabel = "Certified";
                           } else if (person.status === "cognitive_completed") {
-                            statusColor = "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+                            statusColor = "bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300";
                             statusLabel = "Cognitive Pass";
                           } else if (person.status === "enrolled") {
-                            statusColor = "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
-                            statusLabel = "Enrolled";
+                            statusColor = "bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300";
+                            statusLabel = "In Progress";
                           }
 
                           return (
@@ -2333,8 +2511,8 @@ export default function HospitalAdminDashboard() {
                                 <div className="text-[10px] text-muted-foreground">{person.email}</div>
                               </td>
                               <td className="py-2.5 px-3">
-                                <div className="capitalize">{person.role.replace("_", " ")}</div>
-                                <div className="text-[10px] text-muted-foreground">{person.department || "General"}</div>
+                                <div className="font-medium text-slate-700 dark:text-slate-300">{person.division}</div>
+                                <div className="text-[10px] text-muted-foreground">{person.subDept || "General"}</div>
                               </td>
                               <td className="py-2.5 px-3 text-center">
                                 {person.isRoster && person.isCpd ? (
@@ -2345,8 +2523,32 @@ export default function HospitalAdminDashboard() {
                                   <Badge variant="outline" className="text-[10px] border-amber-200 bg-amber-50 text-amber-700">CPD Guest</Badge>
                                 )}
                               </td>
+                              <td className="py-2.5 px-3">
+                                <div className="flex flex-col items-center justify-center min-w-[100px]">
+                                  {person.cognitiveModulesComplete ? (
+                                    <Badge variant="outline" className="text-[10px] border-green-200 bg-green-50 text-green-700">100% Complete</Badge>
+                                  ) : person.progressPercentage > 0 ? (
+                                    <div className="w-full space-y-1">
+                                      <div className="flex justify-between text-[9px] text-muted-foreground">
+                                        <span>Cognitive</span>
+                                        <span>{person.progressPercentage}%</span>
+                                      </div>
+                                      <Progress value={person.progressPercentage} className="h-1.5 w-full bg-slate-200" />
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-[10px]">Not Started</span>
+                                  )}
+                                </div>
+                              </td>
                               <td className="py-2.5 px-3 text-center">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColor}`}>
+                                {person.practicalSkillsSignedOff ? (
+                                  <Badge variant="outline" className="text-[10px] border-green-200 bg-green-50 text-green-700">Signed Off</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] border-amber-200 bg-amber-50 text-amber-700">Pending</Badge>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${statusColor}`}>
                                   {statusLabel}
                                 </span>
                               </td>

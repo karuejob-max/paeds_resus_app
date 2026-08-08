@@ -52,6 +52,7 @@ import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_cor
 import { assertInstitutionAccess, getAdministeredInstitutionIds } from "../lib/institution-access";
 import { getCohortProgressStats } from "../lib/cohort-progress";
 import { ensureCourseCatalogForSchedule } from "../lib/ensure-course-catalog-for-schedule";
+import { computeAhaEnrollmentProgress } from "../lib/compute-aha-enrollment-progress";
 import {
   rollupInstitutionalAnalyticsForAccount,
   rollupAllInstitutionalAccounts,
@@ -3066,7 +3067,7 @@ export const institutionRouter = router({
     .input(
       z.object({
         institutionId: z.number().int().positive(),
-        programType: z.enum(["bls", "acls", "pals", "fellowship"]),
+        programType: z.enum(["bls", "acls", "pals", "nrp", "fellowship", "heartsaver", "instructor"]),
       })
     )
     .query(async ({ input, ctx }) => {
@@ -3172,6 +3173,8 @@ export const institutionRouter = router({
             cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
             practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
             trainingDate: enrollments.trainingDate,
+            programType: enrollments.programType,
+            courseId: enrollments.courseId,
           })
           .from(enrollments)
           .where(
@@ -3182,8 +3185,22 @@ export const institutionRouter = router({
           );
       }
 
-      const enrollmentMap = new Map<number, typeof programEnrollments[number]>();
-      for (const e of programEnrollments) {
+      // Enrich with progress percentage
+      const enrichedEnrollments = await Promise.all(
+        programEnrollments.map(async (e) => {
+          const pct = await computeAhaEnrollmentProgress(db, e.userId, {
+            id: e.id,
+            userId: e.userId,
+            programType: e.programType,
+            courseId: e.courseId,
+            cognitiveModulesComplete: e.cognitiveModulesComplete,
+          });
+          return { ...e, progressPercentage: pct };
+        })
+      );
+
+      const enrollmentMap = new Map<number, typeof enrichedEnrollments[number]>();
+      for (const e of enrichedEnrollments) {
         enrollmentMap.set(e.userId, e);
       }
 
@@ -3216,6 +3233,9 @@ export const institutionRouter = router({
           status,
           trainingDate: enrollment?.trainingDate ?? null,
           paymentStatus: enrollment?.paymentStatus ?? null,
+          progressPercentage: enrollment?.progressPercentage ?? 0,
+          cognitiveModulesComplete: enrollment?.cognitiveModulesComplete ?? false,
+          practicalSkillsSignedOff: enrollment?.practicalSkillsSignedOff ?? false,
         };
       });
     }),
