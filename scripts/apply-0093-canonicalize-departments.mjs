@@ -1,14 +1,16 @@
 /**
- * Canonical Clinical Department Directory & Helpers.
- * Used across CPD registration, institutional dashboards, and staff management.
+ * Migration 0093 -- Canonicalize department names.
+ * Scans providerProfiles, institutionalStaffMembers, cpdAttendees, and cpdEvents,
+ * and normalizes any dirty/arbitrary department names using alias and keyword matching.
+ * Idempotent.
+ *
+ * Run: pnpm run db:apply-0093
  */
+import "dotenv/config";
+import mysql from "mysql2/promise";
+import { createMysqlConnection } from "./db-connection-config.mjs";
 
-export interface ParentDepartmentOption {
-  name: string;
-  subs: string[];
-}
-
-export const GLOBAL_DEPARTMENTS: ParentDepartmentOption[] = [
+const GLOBAL_DEPARTMENTS = [
   {
     name: "Paediatrics and Child Health",
     subs: ["Paediatric Ward", "New Born Unit (NBU)"]
@@ -49,50 +51,34 @@ export const GLOBAL_DEPARTMENTS: ParentDepartmentOption[] = [
   }
 ];
 
-export interface ClinicalDepartmentOption {
-  id: string;
-  name: string;
-  category: "clinical" | "diagnostic" | "support" | "other";
-}
+const DEPARTMENT_ALIASES = {
+  "Paediatrics and Child Health": ["pediatric", "pediatrics", "paediatric", "paediatrics", "child", "children", "baby", "babies", "nursery"],
+  "Paediatric Ward": ["pediatric", "pediatrics", "paediatric", "paediatrics", "child", "children", "peds"],
+  "New Born Unit (NBU)": ["newborn", "new born", "nbu", "neonatal", "neonatology", "scbu", "nicu", "nursery"],
+  "Internal Medicine": ["medical", "medicine", "physician", "adult", "physicians"],
+  "Female Medical Ward": ["female medical", "female adult", "medical ward"],
+  "Male Medical Ward": ["male medical", "male adult", "medical ward"],
+  "Private Ward": ["private", "paying", "vip"],
+  "Surgery": ["surgical", "surgery", "theatre", "or", "operation", "operating", "surgeon", "surgeons"],
+  "Male Surgical": ["male surgical", "male surgery", "surgical ward"],
+  "Female Surgical": ["female surgical", "female surgery", "surgical ward"],
+  "Theatre": ["theatre", "or", "operating", "operation", "ot"],
+  "Obstetrics and Gyenocology (Maternity)": ["obstetrics", "gynecology", "gynaecology", "maternity", "obs", "gyn", "obgyn", "delivery", "labour"],
+  "Maternity": ["maternity", "delivery", "labour", "postnatal", "antenatal", "obs", "gyn", "obgyn"],
+  "Critical Care": ["icu", "hdu", "nicus", "picus", "critical", "intensive"],
+  "ICU": ["icu", "intensive care", "itu"],
+  "HDU": ["hdu", "high dependency"],
+  "NICU": ["nicu", "neonatal icu"],
+  "PICU": ["picu", "paediatric icu", "pediatric icu"],
+  "Out Patient Department": ["opd", "outpatient", "out-patient", "casualty", "emergency", "accident"],
+  "Accident and Emergency / Casualty": ["accident", "emergency", "casualty", "a&e", "ae", "er"],
+  "Clinics": ["clinic", "outpatient clinic"],
+  "MCH": ["mch", "maternal", "child health", "immunization", "vaccine", "anc", "pnc"],
+  "ENT": ["ent", "ear", "nose", "throat"],
+  "Ophthalmology": ["eye", "ophthalmology", "ophthalmic"]
+};
 
-// Flat list for legacy backwards compatibility
-export const CANONICAL_CLINICAL_DEPARTMENTS: ClinicalDepartmentOption[] = [
-  { id: "paediatrics", name: "Paediatrics and Child Health", category: "clinical" },
-  { id: "paediatric_ward", name: "Paediatric Ward", category: "clinical" },
-  { id: "nbu", name: "New Born Unit (NBU)", category: "clinical" },
-  { id: "internal_medicine", name: "Internal Medicine", category: "clinical" },
-  { id: "surgery", name: "Surgery", category: "clinical" },
-  { id: "obstetrics", name: "Obstetrics and Gyenocology (Maternity)", category: "clinical" },
-  { id: "maternity", name: "Maternity", category: "clinical" },
-  { id: "critical_care", name: "Critical Care", category: "clinical" },
-  { id: "icu", name: "ICU", category: "clinical" },
-  { id: "hdu", name: "HDU", category: "clinical" },
-  { id: "nicu", name: "NICU", category: "clinical" },
-  { id: "picu", name: "PICU", category: "clinical" },
-  { id: "opd", name: "Out Patient Department", category: "clinical" },
-  { id: "accident_emergency", name: "Accident and Emergency / Casualty", category: "clinical" },
-  { id: "clinics", name: "Clinics", category: "clinical" },
-  { id: "medical_school", name: "Medical School/College", category: "support" },
-  { id: "other", name: "Other", category: "other" }
-];
-
-export const CLINICAL_DEPARTMENT_NAMES = CANONICAL_CLINICAL_DEPARTMENTS.map((d) => d.name);
-
-export function isCanonicalDepartment(dept: string): boolean {
-  return CANONICAL_CLINICAL_DEPARTMENTS.some(
-    (d) => d.name.toLowerCase() === dept.toLowerCase() && d.id !== "other"
-  );
-}
-
-export interface ParsedDepartment {
-  parent: string;
-  sub: string;
-  isCustomParent: boolean;
-  isCustomSub: boolean;
-}
-
-/** Parses a stored department string into its parent and sub parts */
-export function parseDepartmentString(deptStr: string | null | undefined): ParsedDepartment {
+function parseDepartmentString(deptStr) {
   if (!deptStr) {
     return { parent: "", sub: "", isCustomParent: false, isCustomSub: false };
   }
@@ -102,7 +88,6 @@ export function parseDepartmentString(deptStr: string | null | undefined): Parse
     return { parent: "", sub: "", isCustomParent: false, isCustomSub: false };
   }
 
-  // Case 1: Contains colon separator
   if (trimmed.includes(":")) {
     const parts = trimmed.split(":");
     const parentPart = parts[0].trim();
@@ -134,8 +119,6 @@ export function parseDepartmentString(deptStr: string | null | undefined): Parse
     }
   }
 
-  // Case 2: Legacy single string check
-  // Check if it matches any sub-department of our global list to resolve parent
   for (const dept of GLOBAL_DEPARTMENTS) {
     const matchedSub = dept.subs.find(
       (s) => s.toLowerCase() === trimmed.toLowerCase() ||
@@ -157,7 +140,6 @@ export function parseDepartmentString(deptStr: string | null | undefined): Parse
     }
   }
 
-  // Check if it matches any parent department name
   const parentMatch = GLOBAL_DEPARTMENTS.find(
     (d) => d.name.toLowerCase() === trimmed.toLowerCase() ||
            trimmed.toLowerCase().includes("paediatric") ||
@@ -172,7 +154,6 @@ export function parseDepartmentString(deptStr: string | null | undefined): Parse
     };
   }
 
-  // Case 3: Totally custom text
   return {
     parent: trimmed,
     sub: "Other",
@@ -181,8 +162,7 @@ export function parseDepartmentString(deptStr: string | null | undefined): Parse
   };
 }
 
-/** Formats a parent and sub department choice into the saved string */
-export function formatDepartmentString(parent: string, sub: string): string {
+function formatDepartmentString(parent, sub) {
   const p = parent.trim();
   const s = sub.trim();
   if (!p) return "";
@@ -190,51 +170,16 @@ export function formatDepartmentString(parent: string, sub: string): string {
   return `${p}: ${s}`;
 }
 
-export interface DepartmentMatch {
-  parent: string;
-  sub: string;
-}
-
-export const DEPARTMENT_ALIASES: Record<string, string[]> = {
-  "Paediatrics and Child Health": ["pediatric", "pediatrics", "paediatric", "paediatrics", "child", "children", "baby", "babies", "nursery"],
-  "Paediatric Ward": ["pediatric", "pediatrics", "paediatric", "paediatrics", "child", "children", "peds"],
-  "New Born Unit (NBU)": ["newborn", "new born", "nbu", "neonatal", "neonatology", "scbu", "nicu", "nursery"],
-  "Internal Medicine": ["medical", "medicine", "physician", "adult", "physicians"],
-  "Female Medical Ward": ["female medical", "female adult", "medical ward"],
-  "Male Medical Ward": ["male medical", "male adult", "medical ward"],
-  "Private Ward": ["private", "paying", "vip"],
-  "Surgery": ["surgical", "surgery", "theatre", "or", "operation", "operating", "surgeon", "surgeons"],
-  "Male Surgical": ["male surgical", "male surgery", "surgical ward"],
-  "Female Surgical": ["female surgical", "female surgery", "surgical ward"],
-  "Theatre": ["theatre", "or", "operating", "operation", "ot"],
-  "Obstetrics and Gyenocology (Maternity)": ["obstetrics", "gynecology", "gynaecology", "maternity", "obs", "gyn", "obgyn", "delivery", "labour"],
-  "Maternity": ["maternity", "delivery", "labour", "postnatal", "antenatal", "obs", "gyn", "obgyn"],
-  "Critical Care": ["icu", "hdu", "nicus", "picus", "critical", "intensive"],
-  "ICU": ["icu", "intensive care", "itu"],
-  "HDU": ["hdu", "high dependency"],
-  "NICU": ["nicu", "neonatal icu"],
-  "PICU": ["picu", "paediatric icu", "pediatric icu"],
-  "Out Patient Department": ["opd", "outpatient", "out-patient", "casualty", "emergency", "accident"],
-  "Accident and Emergency / Casualty": ["accident", "emergency", "casualty", "a&e", "ae", "er"],
-  "Clinics": ["clinic", "outpatient clinic"],
-  "MCH": ["mch", "maternal", "child health", "immunization", "vaccine", "anc", "pnc"],
-  "ENT": ["ent", "ear", "nose", "throat"],
-  "Ophthalmology": ["eye", "ophthalmology", "ophthalmic"]
-};
-
-/** Finds any canonical pre-listed departments matching user-entered text. */
-export function findMatchingCanonicalDepartments(userInput: string): DepartmentMatch[] {
+function findMatchingCanonicalDepartments(userInput) {
   if (!userInput) return [];
   const cleanInput = userInput.trim().toLowerCase();
   if (cleanInput.length < 2) return [];
 
-  const matches: DepartmentMatch[] = [];
-
-  // Stop words to ignore during word-by-word token matching
+  const matches = [];
   const stopWords = new Set(["ward", "staff", "department", "dept", "unit", "and", "or", "of", "centre", "center", "clinic", "clinics", "general", "other", "specify", "please"]);
   const inputWords = cleanInput.split(/[\s,:/()]+/).map(w => w.trim()).filter(w => w.length > 1 && !stopWords.has(w));
 
-  const hasWord = (input: string, word: string): boolean => {
+  const hasWord = (input, word) => {
     const words = input.toLowerCase().split(/[\s,:/()]+/).map(w => w.trim());
     return words.includes(word.toLowerCase());
   };
@@ -247,7 +192,6 @@ export function findMatchingCanonicalDepartments(userInput: string): DepartmentM
       const subLower = sub.toLowerCase();
       const subAliases = DEPARTMENT_ALIASES[sub] || [];
 
-      // Check direct substring matches
       const isDirectMatch = 
         (cleanInput.length >= 4 && parentLower.includes(cleanInput)) ||
         (parentLower.length >= 4 && cleanInput.includes(parentLower)) ||
@@ -261,7 +205,6 @@ export function findMatchingCanonicalDepartments(userInput: string): DepartmentM
         continue;
       }
 
-      // Check aliases matches
       const allAliases = [...parentAliases, ...subAliases];
       const isAliasMatch = allAliases.some(alias => {
         const aliasLower = alias.toLowerCase();
@@ -275,7 +218,6 @@ export function findMatchingCanonicalDepartments(userInput: string): DepartmentM
         continue;
       }
 
-      // Check word-by-word token overlap
       const subWords = subLower.split(/[\s,:/()]+/).map(w => w.trim()).filter(w => w.length > 1 && !stopWords.has(w));
       const parentWords = parentLower.split(/[\s,:/()]+/).map(w => w.trim()).filter(w => w.length > 1 && !stopWords.has(w));
 
@@ -301,9 +243,8 @@ export function findMatchingCanonicalDepartments(userInput: string): DepartmentM
     }
   }
 
-  // Deduplicate matches
-  const uniqueMatches: DepartmentMatch[] = [];
-  const seen = new Set<string>();
+  const uniqueMatches = [];
+  const seen = new Set();
   for (const m of matches) {
     const key = `${m.parent}:${m.sub}`;
     if (!seen.has(key)) {
@@ -312,22 +253,19 @@ export function findMatchingCanonicalDepartments(userInput: string): DepartmentM
     }
   }
 
-  return uniqueMatches.slice(0, 5);
+  return uniqueMatches;
 }
 
-/** Normalizes a dirty/arbitrary department string to standard "Parent: Sub" format if it matches aliases. */
-export function normalizeDepartmentString(deptStr: string | null | undefined): string {
+function normalizeDepartmentString(deptStr) {
   if (!deptStr) return "";
   const trimmed = deptStr.trim();
   if (!trimmed) return "";
 
-  // Check if it's already a canonical "Parent: Sub"
   const parsed = parseDepartmentString(trimmed);
   if (!parsed.isCustomParent && !parsed.isCustomSub && parsed.parent && parsed.sub) {
     return formatDepartmentString(parsed.parent, parsed.sub);
   }
 
-  // Try matching
   const matches = findMatchingCanonicalDepartments(trimmed);
   if (matches.length > 0) {
     return formatDepartmentString(matches[0].parent, matches[0].sub);
@@ -335,3 +273,81 @@ export function normalizeDepartmentString(deptStr: string | null | undefined): s
 
   return trimmed;
 }
+
+async function main() {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    console.error("[0093] DATABASE_URL is required.");
+    process.exit(1);
+  }
+
+  const conn = await createMysqlConnection(databaseUrl, mysql);
+  try {
+    console.log("[0093] Running department canonicalization migration...");
+
+    // 1. Normalize providerProfiles
+    const [profiles] = await conn.query("SELECT id, department FROM `providerProfiles` WHERE department IS NOT NULL AND department != ''");
+    console.log(`[0093]   Scanning ${profiles.length} providerProfiles...`);
+    let profileUpdatedCount = 0;
+    for (const row of profiles) {
+      const orig = row.department;
+      const normalized = normalizeDepartmentString(orig);
+      if (normalized && normalized !== orig) {
+        await conn.query("UPDATE `providerProfiles` SET department = ? WHERE id = ?", [normalized, row.id]);
+        profileUpdatedCount++;
+      }
+    }
+    console.log(`[0093]   ✓ Normalized ${profileUpdatedCount} providerProfiles.`);
+
+    // 2. Normalize institutionalStaffMembers
+    const [staff] = await conn.query("SELECT id, department FROM `institutionalStaffMembers` WHERE department IS NOT NULL AND department != ''");
+    console.log(`[0093]   Scanning ${staff.length} institutionalStaffMembers...`);
+    let staffUpdatedCount = 0;
+    for (const row of staff) {
+      const orig = row.department;
+      const normalized = normalizeDepartmentString(orig);
+      if (normalized && normalized !== orig) {
+        await conn.query("UPDATE `institutionalStaffMembers` SET department = ? WHERE id = ?", [normalized, row.id]);
+        staffUpdatedCount++;
+      }
+    }
+    console.log(`[0093]   ✓ Normalized ${staffUpdatedCount} institutionalStaffMembers.`);
+
+    // 3. Normalize cpdAttendees
+    const [attendees] = await conn.query("SELECT id, department FROM `cpdAttendees` WHERE department IS NOT NULL AND department != ''");
+    console.log(`[0093]   Scanning ${attendees.length} cpdAttendees...`);
+    let attendeesUpdatedCount = 0;
+    for (const row of attendees) {
+      const orig = row.department;
+      const normalized = normalizeDepartmentString(orig);
+      if (normalized && normalized !== orig) {
+        await conn.query("UPDATE `cpdAttendees` SET department = ? WHERE id = ?", [normalized, row.id]);
+        attendeesUpdatedCount++;
+      }
+    }
+    console.log(`[0093]   ✓ Normalized ${attendeesUpdatedCount} cpdAttendees.`);
+
+    // 4. Normalize cpdEvents (presenterDepartment)
+    const [events] = await conn.query("SELECT id, presenterDepartment FROM `cpdEvents` WHERE presenterDepartment IS NOT NULL AND presenterDepartment != ''");
+    console.log(`[0093]   Scanning ${events.length} cpdEvents...`);
+    let eventsUpdatedCount = 0;
+    for (const row of events) {
+      const orig = row.presenterDepartment;
+      const normalized = normalizeDepartmentString(orig);
+      if (normalized && normalized !== orig) {
+        await conn.query("UPDATE `cpdEvents` SET presenterDepartment = ? WHERE id = ?", [normalized, row.id]);
+        eventsUpdatedCount++;
+      }
+    }
+    console.log(`[0093]   ✓ Normalized ${eventsUpdatedCount} cpdEvents.`);
+
+    console.log("[0093] Done.");
+  } finally {
+    await conn.end();
+  }
+}
+
+main().catch((err) => {
+  console.error("[0093] Fatal error:", err);
+  process.exit(1);
+});
