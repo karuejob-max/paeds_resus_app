@@ -3,7 +3,15 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { getProgramIdentity } from "@shared/program-identity";
@@ -167,6 +175,15 @@ export default function LearnerDashboard() {
     { institutionId: institutionId! },
     { enabled: !!institutionId && selectedRole === "institution" }
   );
+
+  const [drilldownType, setDrilldownType] = useState<"roster" | "certified" | "completion" | null>(null);
+  const [rosterFilter, setRosterFilter] = useState<"all" | "enrolled" | "completed">("all");
+
+  const staffListQuery = trpc.institution.getStaffMembers.useQuery(
+    { institutionId: institutionId! },
+    { enabled: !!institutionId && selectedRole === "institution" && !!drilldownType }
+  );
+  const staffList = staffListQuery.data ?? [];
 
   const renewalAttention = myCertificates.filter((c) => {
     const d = daysUntilExpiry(c.expiryDate);
@@ -684,7 +701,10 @@ export default function LearnerDashboard() {
             ) : null}
             {instStats && (
               <div className="grid md:grid-cols-3 gap-6">
-                <Card>
+                <Card 
+                  className="cursor-pointer hover:shadow-md hover:border-orange-300 transition-all select-none"
+                  onClick={() => setDrilldownType("roster")}
+                >
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Users className="w-5 h-5" />
@@ -698,7 +718,10 @@ export default function LearnerDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card 
+                  className="cursor-pointer hover:shadow-md hover:border-green-300 transition-all select-none"
+                  onClick={() => setDrilldownType("completion")}
+                >
                   <CardHeader>
                     <CardTitle>Completion rate</CardTitle>
                   </CardHeader>
@@ -708,7 +731,10 @@ export default function LearnerDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card 
+                  className="cursor-pointer hover:shadow-md hover:border-purple-300 transition-all select-none"
+                  onClick={() => setDrilldownType("certified")}
+                >
                   <CardHeader>
                     <CardTitle>Certifications</CardTitle>
                   </CardHeader>
@@ -730,6 +756,120 @@ export default function LearnerDashboard() {
           </div>
         )}
       </div>
+
+      {/* Institutional Metrics Drilldown Modal */}
+      <Dialog open={drilldownType !== null} onOpenChange={(open) => { if (!open) setDrilldownType(null); }}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              {drilldownType === "roster" && "Institutional Staff Roster"}
+              {drilldownType === "certified" && "Certified Staff Roster"}
+              {drilldownType === "completion" && "Training Completion Details"}
+            </DialogTitle>
+            <DialogDescription>
+              {drilldownType === "roster" && "Detailed list of all staff members registered in this facility's roster."}
+              {drilldownType === "certified" && "Roster members who currently hold active, verified course certifications."}
+              {drilldownType === "completion" && "Roster members who have completed all required cognitive and simulation steps."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-4">
+            {/* Roster Filters */}
+            {drilldownType === "roster" && (
+              <div className="flex gap-2">
+                {(["all", "enrolled", "completed"] as const).map((filter) => (
+                  <Button
+                    key={filter}
+                    size="sm"
+                    variant={rosterFilter === filter ? "default" : "outline"}
+                    onClick={() => setRosterFilter(filter)}
+                    className="capitalize text-xs"
+                  >
+                    {filter === "all" ? "All Staff" : filter === "enrolled" ? "Actively Enrolled" : "Completed Training"}
+                  </Button>
+                ))}
+              </div>
+            )}
+
+            {staffListQuery.isLoading ? (
+              <div className="flex justify-center py-8 text-muted-foreground items-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" /> Loading list...
+              </div>
+            ) : (
+              <div className="border rounded-md overflow-x-auto">
+                <table className="w-full text-sm text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-900 border-b">
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider">Staff Name</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider">Email</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider">Cadre / Role</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider">Department</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider text-center">Enrollment Status</th>
+                      <th className="p-3 font-semibold text-xs uppercase tracking-wider text-center">Roster Link Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const list = staffList ?? [];
+                      let filtered = list;
+                      if (drilldownType === "roster") {
+                        if (rosterFilter === "enrolled") {
+                          filtered = list.filter(s => s.enrollmentStatus === "enrolled");
+                        } else if (rosterFilter === "completed") {
+                          filtered = list.filter(s => s.enrollmentStatus === "completed");
+                        }
+                      } else if (drilldownType === "certified") {
+                        filtered = list.filter(s => s.certificationStatus === "certified");
+                      } else if (drilldownType === "completion") {
+                        filtered = list.filter(s => s.enrollmentStatus === "completed");
+                      }
+
+                      if (filtered.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={6} className="p-6 text-center text-muted-foreground">No matching roster records found.</td>
+                          </tr>
+                        );
+                      }
+
+                      return filtered.map((s) => (
+                        <tr key={s.id} className="border-b hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
+                          <td className="p-3 font-medium">{s.staffName || "—"}</td>
+                          <td className="p-3 text-xs text-muted-foreground">{s.staffEmail || "—"}</td>
+                          <td className="p-3 text-xs capitalize">{s.staffRole?.replace("_", " ") || "—"}</td>
+                          <td className="p-3 text-xs">{s.department || "—"}</td>
+                          <td className="p-3 text-center">
+                            <Badge 
+                              variant={s.enrollmentStatus === "completed" ? "default" : s.enrollmentStatus === "enrolled" ? "secondary" : "outline"}
+                              className="capitalize text-[10px]"
+                            >
+                              {s.enrollmentStatus?.replace("_", " ") || "Not Enrolled"}
+                            </Badge>
+                          </td>
+                          <td className="p-3 text-center">
+                            <Badge 
+                              className={`text-[10px] ${
+                                s.facilityLinkStatus === "linked" 
+                                  ? "bg-green-50 text-green-700 hover:bg-green-50 border-green-200" 
+                                  : s.facilityLinkStatus === "pending"
+                                  ? "bg-amber-50 text-amber-700 hover:bg-amber-50 border-amber-200"
+                                  : "bg-slate-50 text-slate-700 hover:bg-slate-50 border-slate-200"
+                              }`}
+                              variant="outline"
+                            >
+                              {s.facilityLinkStatus || "unlinked"}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
