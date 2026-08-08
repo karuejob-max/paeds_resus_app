@@ -877,6 +877,7 @@ function Phase1ProofReviewWidget({ institutionId }: { institutionId: number }) {
 function AccountAdminsWidget({ institutionId }: { institutionId: number }) {
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.institutionAdmins.list.useQuery({ institutionId });
+  const { user } = useAuth();
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
@@ -956,7 +957,7 @@ function AccountAdminsWidget({ institutionId }: { institutionId: number }) {
                       <Badge variant="outline">{a.isOriginalOwner ? "Founding admin" : "Admin"}</Badge>
                     </td>
                     <td className="py-2 px-3 text-right">
-                      {!a.isOriginalOwner && (
+                      {a.userId !== user?.id && (
                         <Button
                           size="sm"
                           variant="outline"

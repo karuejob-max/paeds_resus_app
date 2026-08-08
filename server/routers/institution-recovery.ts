@@ -6,8 +6,10 @@ import {
   institutionalRecoveryRequests,
   institutionalAdminInvites,
   institutionalAccounts,
+  users,
+  institutionalAccountAdmins,
 } from "../../drizzle/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, ne, or, like } from "drizzle-orm";
 
 /**
  * North Star v2.0 §6.1: "Account recovery requires institutional identity
@@ -149,6 +151,84 @@ export const institutionRecoveryRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Matched institution not found" });
       }
 
+      // Check if a user with the requester's email already exists
+      const [existingUser] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, request.requesterEmail))
+        .limit(1);
+
+      // Clean up/revoke all existing pending invites for this institution
+      await db
+        .update(institutionalAdminInvites)
+        .set({ status: "revoked" })
+        .where(
+          and(
+            eq(institutionalAdminInvites.institutionalAccountId, input.matchedInstitutionalAccountId),
+            eq(institutionalAdminInvites.status, "pending")
+          )
+        );
+
+      if (existingUser) {
+        // Assign the existing verified user as admin directly
+        const [alreadyAdmin] = await db
+          .select({ id: institutionalAccountAdmins.id })
+          .from(institutionalAccountAdmins)
+          .where(
+            and(
+              eq(institutionalAccountAdmins.institutionalAccountId, input.matchedInstitutionalAccountId),
+              eq(institutionalAccountAdmins.userId, existingUser.id)
+            )
+          )
+          .limit(1);
+
+        if (!alreadyAdmin) {
+          await db.insert(institutionalAccountAdmins).values({
+            institutionalAccountId: input.matchedInstitutionalAccountId,
+            userId: existingUser.id,
+            addedByUserId: ctx.user.id,
+          });
+        }
+
+        // Set the primary owner (founding admin) to the new admin
+        await db
+          .update(institutionalAccounts)
+          .set({ userId: existingUser.id })
+          .where(eq(institutionalAccounts.id, input.matchedInstitutionalAccountId));
+
+        // Remove all former admins (excluding the newly added admin) to secure the account
+        await db
+          .delete(institutionalAccountAdmins)
+          .where(
+            and(
+              eq(institutionalAccountAdmins.institutionalAccountId, input.matchedInstitutionalAccountId),
+              ne(institutionalAccountAdmins.userId, existingUser.id)
+            )
+          );
+      } else {
+        // Set the primary owner to 0 (unreachable) to secure the account immediately
+        await db
+          .update(institutionalAccounts)
+          .set({ userId: 0 })
+          .where(eq(institutionalAccounts.id, input.matchedInstitutionalAccountId));
+
+        // Remove all former admins to secure the account immediately
+        await db
+          .delete(institutionalAccountAdmins)
+          .where(eq(institutionalAccountAdmins.institutionalAccountId, input.matchedInstitutionalAccountId));
+
+        // Create a pending recovery invite
+        await db.insert(institutionalAdminInvites).values({
+          institutionalAccountId: input.matchedInstitutionalAccountId,
+          invitedEmail: request.requesterEmail,
+          invitedName: request.requesterName,
+          invitedPhone: request.requesterPhone,
+          invitedByUserId: null,
+          source: "recovery_approval",
+          status: "pending",
+        });
+      }
+
       await db
         .update(institutionalRecoveryRequests)
         .set({
@@ -160,16 +240,38 @@ export const institutionRecoveryRouter = router({
         })
         .where(eq(institutionalRecoveryRequests.id, input.requestId));
 
-      await db.insert(institutionalAdminInvites).values({
-        institutionalAccountId: input.matchedInstitutionalAccountId,
-        invitedEmail: request.requesterEmail,
-        invitedName: request.requesterName,
-        invitedPhone: request.requesterPhone,
-        invitedByUserId: null,
-        source: "recovery_approval",
-        status: "pending",
-      });
-
       return { success: true, status: "approved" as const };
+    }),
+
+  /** Search institutions by companyName or registrationNumber. Admin only. */
+  searchInstitutions: adminProcedure
+    .input(z.object({ query: z.string() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      }
+
+      if (!input.query.trim()) {
+        return { institutions: [] };
+      }
+
+      const match = `%${input.query}%`;
+      const rows = await db
+        .select({
+          id: institutionalAccounts.id,
+          companyName: institutionalAccounts.companyName,
+          registrationNumber: institutionalAccounts.registrationNumber,
+        })
+        .from(institutionalAccounts)
+        .where(
+          or(
+            like(institutionalAccounts.companyName, match),
+            like(institutionalAccounts.registrationNumber, match)
+          )
+        )
+        .limit(20);
+
+      return { institutions: rows };
     }),
 });
