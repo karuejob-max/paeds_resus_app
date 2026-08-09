@@ -63,6 +63,8 @@ import { trackEvent } from "../services/analytics.service";
 
 const SUMMATIVE_IDEMPOTENT_WINDOW_MS = 30_000;
 
+const SEEDED_COURSES = new Set<string>();
+
 function answersArrayToMap(
   answers: { questionId: number; answer: string }[]
 ): Record<number, string> {
@@ -230,25 +232,28 @@ export const learningRouter = router({
       }
 
       const pt = courseRow.programType as string;
-      if (pt === "bls") {
-        await ensureBlsCatalog(db);
-      } else if (pt === "acls") {
-        await ensureAclsCatalog(db);
-      } else if (pt === "heartsaver") {
-        await ensureHeartsaverCatalog(db);
-      } else if (pt === "pals") {
-        await ensurePalsAhaCatalog(db);
-        try {
-          await ensurePals2025Content(db);
-        } catch (e) {
-          console.error("[learning.getCourseDetails] ensure PALS 2025 content:", e);
+      if (pt && !SEEDED_COURSES.has(pt)) {
+        if (pt === "bls") {
+          await ensureBlsCatalog(db);
+        } else if (pt === "acls") {
+          await ensureAclsCatalog(db);
+        } else if (pt === "heartsaver") {
+          await ensureHeartsaverCatalog(db);
+        } else if (pt === "pals") {
+          await ensurePalsAhaCatalog(db);
+          try {
+            await ensurePals2025Content(db);
+          } catch (e) {
+            console.error("[learning.getCourseDetails] ensure PALS 2025 content:", e);
+          }
+        } else if (pt === "nrp") {
+          const { ensureNrpCatalog } = await import("../lib/ensure-nrp-catalog");
+          await ensureNrpCatalog(db);
+        } else if (pt === "instructor") {
+          const { ensureInstructorCourseCatalog } = await import("../lib/ensure-instructor-course-catalog");
+          await ensureInstructorCourseCatalog(db);
         }
-      } else if (pt === "nrp") {
-        const { ensureNrpCatalog } = await import("../lib/ensure-nrp-catalog");
-        await ensureNrpCatalog(db);
-      } else if (pt === "instructor") {
-        const { ensureInstructorCourseCatalog } = await import("../lib/ensure-instructor-course-catalog");
-        await ensureInstructorCourseCatalog(db);
+        SEEDED_COURSES.add(pt);
       }
 
       const courseModules = await (db as any)
