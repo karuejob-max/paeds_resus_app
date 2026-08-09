@@ -30,6 +30,8 @@ import { BulkEnrollmentPanel } from "@/components/BulkEnrollmentPanel";
 import { PendingLinkRequestsWidget } from "@/components/PendingLinkRequestsWidget";
 import { Phase1ProofReviewWidget } from "@/components/Phase1ProofReviewWidget";
 import { AccountAdminsWidget } from "@/components/AccountAdminsWidget";
+import { InstitutionDetailsCard } from "@/components/InstitutionDetailsCard";
+import { InstitutionContractsTable } from "@/components/InstitutionContractsTable";
 import { GuidelineAuditDashboard } from "@/components/GuidelineAuditDashboard";
 import { AiPatternInbox } from "@/components/AiPatternInbox";
 import { ResusGpsAuditPanel } from "@/components/ResusGpsAuditPanel";
@@ -900,6 +902,15 @@ export default function HospitalAdminDashboard() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
+            {institutionId && myInstitution?.institution && (
+              <InstitutionDetailsCard
+                institutionId={institutionId}
+                companyName={myInstitution.institution.companyName}
+                contactPhone={myInstitution.institution.contactPhone}
+                contactEmail={myInstitution.institution.contactEmail}
+                staffCount={myInstitution.institution.staffCount}
+              />
+            )}
             <IermsImplementationTrackerWidget institutionId={institutionId} />
             <Card>
               <CardHeader>
@@ -2224,6 +2235,8 @@ export default function HospitalAdminDashboard() {
                 setPhone={setQuotePhone}
               />
             )}
+
+            {institutionId && <InstitutionContractsTable institutionId={institutionId} />}
           </TabsContent>
 
           <TabsContent value="admins" className="space-y-6">
