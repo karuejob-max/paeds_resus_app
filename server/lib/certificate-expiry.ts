@@ -7,21 +7,24 @@ export const AHA_CERTIFICATION_PROGRAM_TYPES = new Set([
   "pals",
   "heartsaver",
   "nrp",
+  "instructor",
   "bls_cognitive",
   "acls_cognitive",
   "pals_cognitive",
   "heartsaver_cognitive",
   "nrp_cognitive",
+  "instructor_cognitive",
 ]);
 
 /** Fellowship micro-course certificates (programType fellowship). */
 export const MICRO_COURSE_CERT_PROGRAM_TYPES = new Set(["fellowship"]);
 
 /** Certificates with a printed 2-year validity period. */
-export const TWO_YEAR_CERTIFICATE_PROGRAM_TYPES = new Set([
-  ...AHA_CERTIFICATION_PROGRAM_TYPES,
-  ...MICRO_COURSE_CERT_PROGRAM_TYPES,
-]);
+export const TWO_YEAR_CERTIFICATE_PROGRAM_TYPES = new Set(
+  Array.from(AHA_CERTIFICATION_PROGRAM_TYPES)
+    .concat(Array.from(MICRO_COURSE_CERT_PROGRAM_TYPES))
+    .filter((pt) => pt !== "instructor" && pt !== "instructor_cognitive")
+);
 
 export type CertificateExpiryStatus = "valid" | "expired" | "unknown";
 
