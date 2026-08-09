@@ -31,6 +31,7 @@ import { ResourceGapWidget } from "@/components/ResourceGapWidget";
 import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWidget";
 import { FacilityCareSignalDashboard } from "@/components/FacilityCareSignalDashboard";
 import { FacilityCodeSignalDashboard } from "@/components/FacilityCodeSignalDashboard";
+import { CodeSignalParticipationRoster } from "@/components/CodeSignalParticipationRoster";
 import { IermsAuditScorecardPanel } from "@/components/IermsAuditScorecardPanel";
 import { ErtRosterPanel } from "@/components/ErtRosterPanel";
 import { EquipmentAuditPanel } from "@/components/EquipmentAuditPanel";
@@ -55,7 +56,6 @@ import {
   Ban,
   Loader2,
   ClipboardList,
-  Lightbulb,
 } from "lucide-react";
 import { getLoginUrl } from "@/const";
 import { buildIncidentsGovernanceCsv, downloadCsv } from "@/lib/incidentsCsv";
@@ -203,15 +203,7 @@ export default function HospitalAdminDashboard() {
   });
   const [scheduleDeleteTarget, setScheduleDeleteTarget] = useState<TrainingScheduleListRow | null>(null);
   const [savingAttendanceForStaffId, setSavingAttendanceForStaffId] = useState<number | null>(null);
-  const [selectedProgressProgram, setSelectedProgressProgram] = useState<"all" | "bls" | "acls" | "pals" | "fellowship" | "nrp" | "heartsaver" | "instructor">("all");
-  const [selectedDivision, setSelectedDivision] = useState<string>("all");
-  const [selectedSubDept, setSelectedSubDept] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [selectedStatsDivision, setSelectedStatsDivision] = useState<string>("all");
-  const [selectedStatsSubDept, setSelectedStatsSubDept] = useState<string>("all");
-  const [selectedStatsCadre, setSelectedStatsCadre] = useState<string>("all");
-  const [rankingGroupBy, setRankingGroupBy] = useState<"department" | "cadre">("department");
-  const [rankingMetric, setRankingMetric] = useState<"cognitive" | "practical" | "certified">("certified");
+  const [selectedProgressProgram, setSelectedProgressProgram] = useState<"all" | "bls" | "acls" | "pals" | "fellowship">("all");
   const [manualStaff, setManualStaff] = useState({
     staffName: "",
     staffEmail: "",
@@ -278,11 +270,6 @@ export default function HospitalAdminDashboard() {
     { enabled: !!institutionId && selectedProgressProgram !== "all" }
   );
 
-  const { data: progressStatsData, isLoading: progressStatsLoading } = trpc.institution.getPlatformStaffProgressStats.useQuery(
-    { institutionId: institutionId! },
-    { enabled: !!institutionId }
-  );
-
   const { data: quotations, isLoading: quotationsLoading } = trpc.institution.getQuotations.useQuery(
     { institutionId: institutionId! },
     { enabled: !!institutionId }
@@ -323,242 +310,6 @@ export default function HospitalAdminDashboard() {
     }
     return acc;
   }, [trainingSchedules]);
-
-  const parsedProgramStaff = useMemo(() => {
-    if (!programStaffData) return [];
-    return programStaffData.map((person) => {
-      const parts = (person.department || "").split(": ");
-      const division = parts[0] || "General";
-      const subDept = parts[1] || "";
-      return {
-        ...person,
-        division,
-        subDept,
-      };
-    });
-  }, [programStaffData]);
-
-  const { divisionsList, subDeptsList } = useMemo(() => {
-    const divs = new Set<string>();
-    const subs = new Set<string>();
-    for (const p of parsedProgramStaff) {
-      if (p.division) divs.add(p.division);
-      if (p.subDept) subs.add(p.subDept);
-    }
-    return {
-      divisionsList: Array.from(divs).sort(),
-      subDeptsList: Array.from(subs).sort(),
-    };
-  }, [parsedProgramStaff]);
-
-  const filteredProgramStaff = useMemo(() => {
-    return parsedProgramStaff.filter((person) => {
-      if (selectedDivision !== "all" && person.division !== selectedDivision) {
-        return false;
-      }
-      if (selectedSubDept !== "all" && person.subDept !== selectedSubDept) {
-        return false;
-      }
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const nameMatch = person.name.toLowerCase().includes(query);
-        const emailMatch = person.email.toLowerCase().includes(query);
-        if (!nameMatch && !emailMatch) {
-          return false;
-        }
-      }
-      return true;
-    });
-  }, [parsedProgramStaff, selectedDivision, selectedSubDept, searchQuery]);
-
-  const ahaBoardMetrics = useMemo(() => {
-    const total = filteredProgramStaff.length;
-    let cogComplete = 0;
-    let cogInProgress = 0;
-    let practicalComplete = 0;
-    let fullyCertified = 0;
-
-    for (const p of filteredProgramStaff) {
-      const cog = !!p.cognitiveModulesComplete;
-      const prac = !!p.practicalSkillsSignedOff;
-      const progress = p.progressPercentage || 0;
-
-      if (cog && prac) {
-        fullyCertified++;
-      }
-      if (cog) {
-        cogComplete++;
-      } else if (progress > 0 && progress < 100) {
-        cogInProgress++;
-      }
-      if (prac) {
-        practicalComplete++;
-      }
-    }
-
-    return {
-      total,
-      cogComplete,
-      cogCompletePct: total > 0 ? Math.round((cogComplete / total) * 100) : 0,
-      cogInProgress,
-      practicalComplete,
-      practicalCompletePct: total > 0 ? Math.round((practicalComplete / total) * 100) : 0,
-      fullyCertified,
-      fullyCertifiedPct: total > 0 ? Math.round((fullyCertified / total) * 100) : 0,
-    };
-  }, [filteredProgramStaff]);
-
-  const parsedStatsStaff = useMemo(() => {
-    if (!progressStatsData) return [];
-    return progressStatsData.map((p) => {
-      let division = "Other";
-      let subDept = p.department || "Other";
-      if (p.department && p.department.includes(": ")) {
-        const parts = p.department.split(": ");
-        division = parts[0];
-        subDept = parts[1];
-      } else if (p.department) {
-        division = p.department;
-      }
-      return {
-        ...p,
-        division,
-        subDept,
-      };
-    });
-  }, [progressStatsData]);
-
-  const filteredStatsStaff = useMemo(() => {
-    return parsedStatsStaff.filter((p) => {
-      if (selectedStatsDivision !== "all" && p.division !== selectedStatsDivision) return false;
-      if (selectedStatsSubDept !== "all" && p.subDept !== selectedStatsSubDept) return false;
-      if (selectedStatsCadre !== "all" && p.role !== selectedStatsCadre) return false;
-      return true;
-    });
-  }, [parsedStatsStaff, selectedStatsDivision, selectedStatsSubDept, selectedStatsCadre]);
-
-  const courseAggregates = useMemo(() => {
-    const progs = ["bls", "acls", "pals", "nrp", "heartsaver", "instructor"] as const;
-    const stats: Record<string, {
-      enrolled: number;
-      phase1Complete: number;
-      phase2Complete: number;
-      phase3Complete: number;
-      avgProgress: number;
-    }> = {};
-
-    for (const prog of progs) {
-      stats[prog] = { enrolled: 0, phase1Complete: 0, phase2Complete: 0, phase3Complete: 0, avgProgress: 0 };
-    }
-
-    if (filteredStatsStaff.length === 0) return stats;
-
-    for (const p of filteredStatsStaff) {
-      for (const prog of progs) {
-        const ps = p.programStats[prog];
-        if (ps && ps.enrolled) {
-          stats[prog].enrolled++;
-          if (ps.cognitiveModulesComplete) stats[prog].phase1Complete++;
-          if (ps.practicalSkillsSignedOff) stats[prog].phase2Complete++;
-          if (ps.cognitiveModulesComplete && ps.practicalSkillsSignedOff) stats[prog].phase3Complete++;
-          stats[prog].avgProgress += ps.progressPercentage;
-        }
-      }
-    }
-
-    for (const prog of progs) {
-      const s = stats[prog];
-      if (s.enrolled > 0) {
-        s.avgProgress = Math.round(s.avgProgress / s.enrolled);
-      }
-    }
-
-    return stats;
-  }, [filteredStatsStaff]);
-
-  const rankedEntities = useMemo(() => {
-    const groups: Record<string, {
-      name: string;
-      total: number;
-      cognitiveComplete: number;
-      practicalComplete: number;
-      certified: number;
-      score: number;
-    }> = {};
-
-    const keyExtractor = (p: typeof parsedStatsStaff[number]) => {
-      if (rankingGroupBy === "department") {
-        return p.department || "Other";
-      } else {
-        return p.role || "Other";
-      }
-    };
-
-    for (const p of parsedStatsStaff) {
-      const key = keyExtractor(p);
-      if (!groups[key]) {
-        groups[key] = {
-          name: key,
-          total: 0,
-          cognitiveComplete: 0,
-          practicalComplete: 0,
-          certified: 0,
-          score: 0,
-        };
-      }
-      
-      const g = groups[key];
-      g.total++;
-      
-      const coreProgs = ["bls", "acls", "pals", "nrp"];
-      let hasCognitive = false;
-      let hasPractical = false;
-      let hasCertified = false;
-      
-      for (const prog of coreProgs) {
-        const ps = p.programStats[prog];
-        if (ps && ps.enrolled) {
-          if (ps.cognitiveModulesComplete) hasCognitive = true;
-          if (ps.practicalSkillsSignedOff) hasPractical = true;
-          if (ps.cognitiveModulesComplete && ps.practicalSkillsSignedOff) hasCertified = true;
-        }
-      }
-      
-      if (hasCognitive) g.cognitiveComplete++;
-      if (hasPractical) g.practicalComplete++;
-      if (hasCertified) g.certified++;
-    }
-
-    const list = Object.values(groups);
-    for (const g of list) {
-      if (g.total > 0) {
-        if (rankingMetric === "cognitive") {
-          g.score = Math.round((g.cognitiveComplete / g.total) * 100);
-        } else if (rankingMetric === "practical") {
-          g.score = Math.round((g.practicalComplete / g.total) * 100);
-        } else {
-          g.score = Math.round((g.certified / g.total) * 100);
-        }
-      }
-    }
-
-    return list.sort((a, b) => b.score - a.score || b.total - a.total);
-  }, [parsedStatsStaff, rankingGroupBy, rankingMetric]);
-
-  const statsDivisionsList = useMemo(() => {
-    const set = new Set(parsedStatsStaff.map((p) => p.division));
-    return Array.from(set).filter(Boolean).sort();
-  }, [parsedStatsStaff]);
-
-  const statsSubDeptsList = useMemo(() => {
-    const set = new Set(parsedStatsStaff.map((p) => p.subDept));
-    return Array.from(set).filter(Boolean).sort();
-  }, [parsedStatsStaff]);
-
-  const statsCadresList = useMemo(() => {
-    const set = new Set(parsedStatsStaff.map((p) => p.role));
-    return Array.from(set).filter(Boolean).sort();
-  }, [parsedStatsStaff]);
 
   const { data: incidentsList, isLoading: incidentsLoading } = trpc.institution.getIncidents.useQuery(
     { institutionId: institutionId!, limit: 100 },
@@ -2500,100 +2251,11 @@ export default function HospitalAdminDashboard() {
                     <option value="bls">BLS Program Learners</option>
                     <option value="acls">ACLS Program Learners</option>
                     <option value="pals">PALS Program Learners</option>
-                    <option value="nrp">NRP Program Learners</option>
                     <option value="fellowship">Fellowship Program Learners</option>
                   </select>
                 </div>
               </CardHeader>
               <CardContent>
-                {/* Filters Row */}
-                {selectedProgressProgram !== "all" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-                    <div>
-                      <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Division (Parent Dept)</label>
-                      <select
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-2xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
-                        value={selectedDivision}
-                        onChange={(e) => {
-                          setSelectedDivision(e.target.value);
-                          setSelectedSubDept("all"); // reset sub-dept when division changes
-                        }}
-                      >
-                        <option value="all">All Divisions</option>
-                        {divisionsList.map((div) => (
-                          <option key={div} value={div}>{div}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Department (Sub Dept)</label>
-                      <select
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-2xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
-                        value={selectedSubDept}
-                        onChange={(e) => setSelectedSubDept(e.target.value)}
-                        disabled={selectedDivision === "all"}
-                      >
-                        <option value="all">All Departments</option>
-                        {subDeptsList
-                          .filter((sub) => {
-                            if (selectedDivision === "all") return true;
-                            // Find any staff matching this subDept to see if they belong to selectedDivision
-                            return parsedProgramStaff.some(
-                              (p) => p.division === selectedDivision && p.subDept === sub
-                            );
-                          })
-                          .map((sub) => (
-                            <option key={sub} value={sub}>{sub}</option>
-                          ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Search Staff / Guest</label>
-                      <input
-                        type="text"
-                        placeholder="Search by name or email..."
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-2xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* AHA Training Board Component Analytics Board */}
-                {selectedProgressProgram !== "all" && !programStaffLoading && filteredProgramStaff.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                    <Card className="border-border/60 bg-muted/20">
-                      <CardContent className="p-3">
-                        <p className="text-[10px] uppercase font-semibold text-muted-foreground">Cognitive Complete</p>
-                        <p className="text-xl font-bold text-slate-900 mt-1">{ahaBoardMetrics.cogComplete}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{ahaBoardMetrics.cogCompletePct}% of enrolled</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="border-border/60 bg-muted/20">
-                      <CardContent className="p-3">
-                        <p className="text-[10px] uppercase font-semibold text-muted-foreground">Cognitive In Progress</p>
-                        <p className="text-xl font-bold text-slate-900 mt-1">{ahaBoardMetrics.cogInProgress}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">Active modules</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="border-border/60 bg-muted/20">
-                      <CardContent className="p-3">
-                        <p className="text-[10px] uppercase font-semibold text-muted-foreground">Practical Skills Passed</p>
-                        <p className="text-xl font-bold text-slate-900 mt-1">{ahaBoardMetrics.practicalComplete}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{ahaBoardMetrics.practicalCompletePct}% of enrolled</p>
-                      </CardContent>
-                    </Card>
-                    <Card className="border-emerald-100 bg-emerald-50/50 dark:border-emerald-950 dark:bg-emerald-950/20">
-                      <CardContent className="p-3">
-                        <p className="text-[10px] uppercase font-semibold text-emerald-800 dark:text-emerald-300">Fully Certified</p>
-                        <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{ahaBoardMetrics.fullyCertified}</p>
-                        <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">{ahaBoardMetrics.fullyCertifiedPct}% of enrolled</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
-
                 {selectedProgressProgram === "all" ? (
                   staffLoading ? (
                     <p className="text-sm text-muted-foreground">Loading staff…</p>
@@ -2635,36 +2297,34 @@ export default function HospitalAdminDashboard() {
                   )
                 ) : programStaffLoading ? (
                   <p className="text-sm text-muted-foreground">Loading program learners…</p>
-                ) : !filteredProgramStaff.length ? (
-                  <p className="text-sm text-muted-foreground">No platform-linked learners match the selected filters.</p>
+                ) : !programStaffData?.length ? (
+                  <p className="text-sm text-muted-foreground">No platform-linked learners found for this program.</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left">
                       <thead>
                         <tr className="border-b bg-muted/40 text-muted-foreground font-semibold">
                           <th className="py-2.5 px-3">Name / Email</th>
-                          <th className="py-2.5 px-3">Division & Department</th>
+                          <th className="py-2.5 px-3">Cadre & Department</th>
                           <th className="py-2.5 px-3 text-center">Census Scope</th>
-                          <th className="py-2.5 px-3 text-center">Cognitive Modules</th>
-                          <th className="py-2.5 px-3 text-center">Phase 2 / Practical</th>
-                          <th className="py-2.5 px-3 text-center">Certification Status</th>
+                          <th className="py-2.5 px-3 text-center">Program Status</th>
                           <th className="py-2.5 px-3">Training Date</th>
                           <th className="py-2.5 px-3 text-right">Payment</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredProgramStaff.map((person) => {
-                          let statusColor = "bg-slate-100 text-slate-800 border-slate-200";
+                        {programStaffData.map((person) => {
+                          let statusColor = "bg-slate-100 text-slate-800";
                           let statusLabel = "Not Enrolled";
                           if (person.status === "completed") {
-                            statusColor = "bg-emerald-105 bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300";
-                            statusLabel = "Certified";
+                            statusColor = "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+                            statusLabel = "Completed";
                           } else if (person.status === "cognitive_completed") {
-                            statusColor = "bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300";
+                            statusColor = "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
                             statusLabel = "Cognitive Pass";
                           } else if (person.status === "enrolled") {
-                            statusColor = "bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300";
-                            statusLabel = "In Progress";
+                            statusColor = "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
+                            statusLabel = "Enrolled";
                           }
 
                           return (
@@ -2674,8 +2334,8 @@ export default function HospitalAdminDashboard() {
                                 <div className="text-[10px] text-muted-foreground">{person.email}</div>
                               </td>
                               <td className="py-2.5 px-3">
-                                <div className="font-medium text-slate-700 dark:text-slate-300">{person.division}</div>
-                                <div className="text-[10px] text-muted-foreground">{person.subDept || "General"}</div>
+                                <div className="capitalize">{person.role.replace("_", " ")}</div>
+                                <div className="text-[10px] text-muted-foreground">{person.department || "General"}</div>
                               </td>
                               <td className="py-2.5 px-3 text-center">
                                 {person.isRoster && person.isCpd ? (
@@ -2686,32 +2346,8 @@ export default function HospitalAdminDashboard() {
                                   <Badge variant="outline" className="text-[10px] border-amber-200 bg-amber-50 text-amber-700">CPD Guest</Badge>
                                 )}
                               </td>
-                              <td className="py-2.5 px-3">
-                                <div className="flex flex-col items-center justify-center min-w-[100px]">
-                                  {person.cognitiveModulesComplete ? (
-                                    <Badge variant="outline" className="text-[10px] border-green-200 bg-green-50 text-green-700">100% Complete</Badge>
-                                  ) : person.progressPercentage > 0 ? (
-                                    <div className="w-full space-y-1">
-                                      <div className="flex justify-between text-[9px] text-muted-foreground">
-                                        <span>Cognitive</span>
-                                        <span>{person.progressPercentage}%</span>
-                                      </div>
-                                      <Progress value={person.progressPercentage} className="h-1.5 w-full bg-slate-200" />
-                                    </div>
-                                  ) : (
-                                    <span className="text-muted-foreground text-[10px]">Not Started</span>
-                                  )}
-                                </div>
-                              </td>
                               <td className="py-2.5 px-3 text-center">
-                                {person.practicalSkillsSignedOff ? (
-                                  <Badge variant="outline" className="text-[10px] border-green-200 bg-green-50 text-green-700">Signed Off</Badge>
-                                ) : (
-                                  <Badge variant="outline" className="text-[10px] border-amber-200 bg-amber-50 text-amber-700">Pending</Badge>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-center">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${statusColor}`}>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColor}`}>
                                   {statusLabel}
                                 </span>
                               </td>
@@ -2730,261 +2366,6 @@ export default function HospitalAdminDashboard() {
                         })}
                       </tbody>
                     </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Life Support Training (AHA) Analytics Dashboard */}
-            <Card className="border-border/80 shadow-sm mt-6">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-indigo-500" />
-                  Life Support (AHA) Training Analytics Dashboard
-                </CardTitle>
-                <CardDescription>
-                  Cross-cutting statistics of BLS, ACLS, PALS, NRP, and Heartsaver completions pulled directly from staff learning pathways.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Stats Filters Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-4 rounded-xl border bg-muted/20 border-border/40">
-                  <div>
-                    <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Division (Parent Dept)</label>
-                    <select
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-2xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
-                      value={selectedStatsDivision}
-                      onChange={(e) => {
-                        setSelectedStatsDivision(e.target.value);
-                        setSelectedStatsSubDept("all");
-                      }}
-                    >
-                      <option value="all">All Divisions</option>
-                      {statsDivisionsList.map((div) => (
-                        <option key={div} value={div}>{div}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Department (Sub Dept)</label>
-                    <select
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-2xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
-                      value={selectedStatsSubDept}
-                      onChange={(e) => setSelectedStatsSubDept(e.target.value)}
-                      disabled={selectedStatsDivision === "all"}
-                    >
-                      <option value="all">All Departments</option>
-                      {statsSubDeptsList
-                        .filter((sub) => {
-                          if (selectedStatsDivision === "all") return true;
-                          return parsedStatsStaff.some(
-                            (p) => p.division === selectedStatsDivision && p.subDept === sub
-                          );
-                        })
-                        .map((sub) => (
-                          <option key={sub} value={sub}>{sub}</option>
-                        ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Cadre (Staff Role)</label>
-                    <select
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-2xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
-                      value={selectedStatsCadre}
-                      onChange={(e) => setSelectedStatsCadre(e.target.value)}
-                    >
-                      <option value="all">All Cadres</option>
-                      {statsCadresList.map((cadre) => (
-                        <option key={cadre} value={cadre}>{cadre.replace("_", " ")}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-end">
-                    <Button
-                      variant="outline"
-                      className="w-full text-xs h-9"
-                      onClick={() => {
-                        setSelectedStatsDivision("all");
-                        setSelectedStatsSubDept("all");
-                        setSelectedStatsCadre("all");
-                      }}
-                    >
-                      Reset Filters
-                    </Button>
-                  </div>
-                </div>
-
-                {progressStatsLoading ? (
-                  <div className="text-center py-6">
-                    <p className="text-sm text-muted-foreground">Calculating statistics across staff accounts...</p>
-                  </div>
-                ) : filteredStatsStaff.length === 0 ? (
-                  <div className="text-center py-6 border border-dashed rounded-lg">
-                    <p className="text-sm text-muted-foreground">No staff matched the selected filters.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* Course Summary Table */}
-                    <div className="rounded-md border overflow-hidden">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="bg-muted/50 border-b border-border font-medium text-muted-foreground">
-                            <th className="py-2.5 px-3">Course / Program</th>
-                            <th className="py-2.5 px-3 text-center">Enrolled</th>
-                            <th className="py-2.5 px-3 text-center">Phase 1 (Cognitive)</th>
-                            <th className="py-2.5 px-3 text-center">Phase 2 (Simulations)</th>
-                            <th className="py-2.5 px-3 text-center">Phase 3 (Certified)</th>
-                            <th className="py-2.5 px-3 text-center">Avg Progress</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(["bls", "acls", "pals", "nrp", "heartsaver", "instructor"] as const).map((prog) => {
-                            const data = courseAggregates[prog];
-                            const phase1Pct = data.enrolled > 0 ? Math.round((data.phase1Complete / data.enrolled) * 100) : 0;
-                            const phase2Pct = data.enrolled > 0 ? Math.round((data.phase2Complete / data.enrolled) * 100) : 0;
-                            const phase3Pct = data.enrolled > 0 ? Math.round((data.phase3Complete / data.enrolled) * 100) : 0;
-                            return (
-                              <tr key={prog} className="border-b hover:bg-muted/10">
-                                <td className="py-3 px-3 font-semibold text-foreground capitalize">
-                                  {prog === "nrp" ? "NRP" : prog === "bls" ? "BLS" : prog === "acls" ? "ACLS" : prog === "pals" ? "PALS" : prog}
-                                </td>
-                                <td className="py-3 px-3 text-center font-medium">{data.enrolled}</td>
-                                <td className="py-3 px-3 text-center">
-                                  <span className="font-semibold">{data.phase1Complete}</span>
-                                  <span className="text-muted-foreground ml-1">({phase1Pct}%)</span>
-                                </td>
-                                <td className="py-3 px-3 text-center">
-                                  <span className="font-semibold">{data.phase2Complete}</span>
-                                  <span className="text-muted-foreground ml-1">({phase2Pct}%)</span>
-                                </td>
-                                <td className="py-3 px-3 text-center">
-                                  <Badge
-                                    variant={data.phase3Complete > 0 ? "default" : "secondary"}
-                                    className={`text-[10px] ${data.phase3Complete > 0 ? "bg-emerald-50 text-emerald-700 border-emerald-200" : ""}`}
-                                  >
-                                    {data.phase3Complete} ({phase3Pct}%)
-                                  </Badge>
-                                </td>
-                                <td className="py-3 px-3">
-                                  <div className="flex items-center gap-2 max-w-[120px] mx-auto">
-                                    <Progress value={data.avgProgress} className="h-1.5 w-full" />
-                                    <span className="text-[10px] text-muted-foreground">{data.avgProgress}%</span>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Ranked status */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Card className="border-border/60 shadow-xs">
-                        <CardHeader className="p-4 flex flex-row items-center justify-between pb-2 border-b">
-                          <div>
-                            <CardTitle className="text-sm font-bold">Ranked Completion Leaderboard</CardTitle>
-                            <CardDescription className="text-[10px]">Identify high performing areas and bottlenecks</CardDescription>
-                          </div>
-                          <div className="flex gap-2">
-                            <select
-                              className="h-7 rounded border border-input bg-background px-2 text-[10px]"
-                              value={rankingGroupBy}
-                              onChange={(e) => setRankingGroupBy(e.target.value as any)}
-                            >
-                              <option value="department">By Department</option>
-                              <option value="cadre">By Cadre</option>
-                            </select>
-                            <select
-                              className="h-7 rounded border border-input bg-background px-2 text-[10px]"
-                              value={rankingMetric}
-                              onChange={(e) => setRankingMetric(e.target.value as any)}
-                            >
-                              <option value="certified">Certified %</option>
-                              <option value="cognitive">Cognitive %</option>
-                              <option value="practical">Practical %</option>
-                            </select>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="p-0 max-h-[300px] overflow-y-auto">
-                          {rankedEntities.length === 0 ? (
-                            <p className="text-xs text-muted-foreground p-4 text-center">No ranking data available.</p>
-                          ) : (
-                            <div className="divide-y divide-border">
-                              {rankedEntities.map((item, idx) => {
-                                let badgeColor = "bg-red-50 text-red-700 border-red-200";
-                                if (item.score >= 75) {
-                                  badgeColor = "bg-green-50 text-green-700 border-green-200";
-                                } else if (item.score >= 50) {
-                                  badgeColor = "bg-amber-50 text-amber-700 border-amber-200";
-                                }
-                                return (
-                                  <div key={item.name} className="flex items-center justify-between p-3 text-xs hover:bg-muted/10">
-                                    <div className="flex items-center gap-2.5">
-                                      <span className="font-mono text-muted-foreground w-4 text-right">#{idx + 1}</span>
-                                      <div>
-                                        <p className="font-semibold capitalize">{item.name.replace("_", " ")}</p>
-                                        <p className="text-[10px] text-muted-foreground">{item.total} staff members</p>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                      <div className="hidden sm:block w-[80px]">
-                                        <Progress value={item.score} className="h-1" />
-                                      </div>
-                                      <span className={`inline-flex px-2 py-0.5 rounded border text-[10px] font-semibold ${badgeColor}`}>
-                                        {item.score}%
-                                      </span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      {/* Decision Support Insights */}
-                      <Card className="border-border/60 shadow-xs bg-indigo-50/10 dark:bg-indigo-950/5">
-                        <CardHeader className="p-4 border-b">
-                          <CardTitle className="text-sm font-bold flex items-center gap-1.5 text-indigo-900 dark:text-indigo-200">
-                            <Lightbulb className="h-4 w-4 text-indigo-500" />
-                            Workforce Decision Support & Insights
-                          </CardTitle>
-                          <CardDescription className="text-[10px]">Data-driven recommendations for facility training administrators</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-4 space-y-3 text-xs text-indigo-950/80 dark:text-indigo-300">
-                          {(() => {
-                            const lowCertified = rankedEntities.filter(r => r.score < 50);
-                            const topPerf = rankedEntities[0];
-                            return (
-                              <>
-                                {topPerf && topPerf.score >= 75 && (
-                                  <div className="flex gap-2">
-                                    <span className="text-emerald-500 font-bold">✓</span>
-                                    <p><strong>Top Performing Team:</strong> The <strong>{topPerf.name}</strong> cadre/department is leading in certifications ({topPerf.score}%). Consider leveraging them for peer-mentorship roles during hands-on training sessions.</p>
-                                  </div>
-                                )}
-                                {lowCertified.length > 0 ? (
-                                  <div className="flex gap-2">
-                                    <span className="text-amber-500 font-bold">!</span>
-                                    <p><strong>Targeted Simulations Required:</strong> The following teams have less than 50% certification: <strong>{lowCertified.slice(0, 2).map(l => l.name).join(", ")}</strong>. Schedule dedicated Phase 2 simulation slots to bridge this gap.</p>
-                                  </div>
-                                ) : (
-                                  <div className="flex gap-2">
-                                    <span className="text-emerald-500 font-bold">✓</span>
-                                    <p>All departments and cadres have achieved a healthy baseline completion rate. Continue monitoring weekly cohort progress.</p>
-                                  </div>
-                                )}
-                                <div className="flex gap-2">
-                                  <span className="text-indigo-500 font-bold">i</span>
-                                  <p><strong>AHA Recertification Alerts:</strong> Staff who complete both cognitive and simulation components will automatically receive certificates valid for 2 years. Monitor compliance reports regularly to anticipate expirations.</p>
-                                </div>
-                              </>
-                            );
-                          })()}
-                        </CardContent>
-                      </Card>
-                    </div>
                   </div>
                 )}
               </CardContent>
@@ -3300,6 +2681,10 @@ export default function HospitalAdminDashboard() {
                 )}
               </CardContent>
             </Card>
+
+            {myInstitution?.institution?.companyName ? (
+              <CodeSignalParticipationRoster lastDays={90} />
+            ) : null}
           </TabsContent>
 
           <TabsContent value="cpd" className="space-y-6">

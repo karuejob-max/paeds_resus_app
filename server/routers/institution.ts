@@ -52,7 +52,6 @@ import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_cor
 import { assertInstitutionAccess, getAdministeredInstitutionIds } from "../lib/institution-access";
 import { getCohortProgressStats } from "../lib/cohort-progress";
 import { ensureCourseCatalogForSchedule } from "../lib/ensure-course-catalog-for-schedule";
-import { computeAhaEnrollmentProgress } from "../lib/compute-aha-enrollment-progress";
 import {
   rollupInstitutionalAnalyticsForAccount,
   rollupAllInstitutionalAccounts,
@@ -337,6 +336,86 @@ export const institutionRouter = router({
         facilityId: linkedFacility?.id,
         lastDays: input?.lastDays ?? 90,
       });
+    }),
+
+  /**
+   * Per-provider QI participation count for institutional appraisal use —
+   * CEO-requested 2026-08-08. Deliberately NOT a content/anonymity
+   * mechanism (that's a different problem the fellowshipTokens pattern
+   * solves, for a different party — see WORK_STATUS entry for why that
+   * pattern doesn't fit here). This is a plain count, period-aggregated
+   * only, never per-event or timestamped, and never includes narrative or
+   * failure-domain detail — so an institution can credit "did they
+   * participate" without gaining anything that could be cross-referenced
+   * against a specific incident on a specific shift. Anonymous submissions
+   * (userId null) are excluded entirely — they cannot be attributed by
+   * definition, and that's correct, not a gap.
+   */
+  getCodeSignalParticipationRoster: protectedProcedure
+    .input(z.object({ lastDays: z.number().int().min(7).max(365).default(90) }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+      const adminIds = await getAdministeredInstitutionIds(db, ctx.user.id);
+      const rows = adminIds.length
+        ? await db
+            .select({ id: institutionalAccounts.id })
+            .from(institutionalAccounts)
+            .where(inArray(institutionalAccounts.id, adminIds))
+            .orderBy(desc(institutionalAccounts.id))
+            .limit(1)
+        : [];
+      const inst = rows[0];
+      if (!inst) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "No institution linked to this account" });
+      }
+
+      const [linkedFacility] = await db
+        .select({ id: careFacilities.id })
+        .from(careFacilities)
+        .where(and(eq(careFacilities.institutionalAccountId, inst.id), isNull(careFacilities.mergedIntoId)))
+        .limit(1);
+
+      if (!linkedFacility) {
+        return { lastDays: input?.lastDays ?? 90, roster: [] as { userId: number; name: string | null; count: number }[] };
+      }
+
+      const lastDays = input?.lastDays ?? 90;
+      const since = new Date(Date.now() - lastDays * 24 * 60 * 60 * 1000);
+
+      const namedEvents = await db
+        .select({ userId: codeSignalEvents.userId })
+        .from(codeSignalEvents)
+        .where(
+          and(
+            eq(codeSignalEvents.facilityId, linkedFacility.id),
+            eq(codeSignalEvents.submissionMode, "named"),
+            gte(codeSignalEvents.createdAt, since)
+          )
+        );
+
+      const counts = new Map<number, number>();
+      for (const e of namedEvents) {
+        if (e.userId == null) continue;
+        counts.set(e.userId, (counts.get(e.userId) ?? 0) + 1);
+      }
+
+      if (counts.size === 0) {
+        return { lastDays, roster: [] as { userId: number; name: string | null; count: number }[] };
+      }
+
+      const providerRows = await db
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .where(inArray(users.id, [...counts.keys()]));
+
+      const roster = providerRows
+        .map((p) => ({ userId: p.id, name: p.name, count: counts.get(p.id) ?? 0 }))
+        .sort((a, b) => b.count - a.count);
+
+      return { lastDays, roster };
     }),
 
   /** Public lead capture from /institutional quote form (stored for sales follow-up). */
@@ -1464,7 +1543,7 @@ export const institutionRouter = router({
       // Both email sets are normalized to lowercase for deduplication accuracy.
       // institutionalStaffMembers uses staffEmail (not email).
       const cpdAttendeeEmailRows = await db
-        .select({ email: cpdAttendees.email })
+        .selectDistinct({ email: cpdAttendees.email })
         .from(cpdAttendees)
         .where(eq(cpdAttendees.institutionalAccountId, input.institutionId));
 
@@ -3060,193 +3139,6 @@ export const institutionRouter = router({
     }),
 
   /**
-   * Admin: retrieve all platform-linked staff members (roster + CPD attendees) with their progress
-   * stats across all program types (BLS, ACLS, PALS, NRP, Heartsaver, Instructor) for aggregation.
-   */
-  getPlatformStaffProgressStats: protectedProcedure
-    .input(
-      z.object({
-        institutionId: z.number().int().positive(),
-      })
-    )
-    .query(async ({ input, ctx }) => {
-      const db = await getDb();
-      if (!db) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
-      }
-      await assertInstitutionAccess(db, ctx.user, input.institutionId);
-
-      // 1. Fetch roster staff
-      const rosterStaff = await db
-        .select()
-        .from(institutionalStaffMembers)
-        .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
-
-      // 2. Fetch CPD attendees scoped to this institution
-      const cpdAttendeesList = await db
-        .select({
-          fullName: cpdAttendees.fullName,
-          email: cpdAttendees.email,
-          phone: cpdAttendees.phone,
-          cadre: cpdAttendees.cadre,
-          department: cpdAttendees.department,
-        })
-        .from(cpdAttendees)
-        .where(eq(cpdAttendees.institutionalAccountId, input.institutionId));
-
-      // 3. Normalize emails and merge into unique set
-      const staffMap = new Map<string, {
-        name: string;
-        email: string;
-        phone: string;
-        role: string;
-        department: string;
-        isRoster: boolean;
-        isCpd: boolean;
-      }>();
-
-      for (const s of rosterStaff) {
-        if (s.staffEmail) {
-          const emailKey = s.staffEmail.trim().toLowerCase();
-          staffMap.set(emailKey, {
-            name: s.staffName,
-            email: s.staffEmail,
-            phone: s.staffPhone || "",
-            role: s.staffRole,
-            department: s.department || "",
-            isRoster: true,
-            isCpd: false,
-          });
-        }
-      }
-
-      for (const c of cpdAttendeesList) {
-        if (c.email) {
-          const emailKey = c.email.trim().toLowerCase();
-          if (!staffMap.has(emailKey)) {
-            staffMap.set(emailKey, {
-              name: c.fullName,
-              email: c.email,
-              phone: c.phone || "",
-              role: c.cadre || "other",
-              department: c.department || "",
-              isRoster: false,
-              isCpd: true,
-            });
-          } else {
-            const existing = staffMap.get(emailKey)!;
-            existing.isCpd = true;
-          }
-        }
-      }
-
-      const allEmails = Array.from(staffMap.keys());
-      if (allEmails.length === 0) return [];
-
-      // 4. Resolve platform accounts via users table
-      const platformUsers = await db
-        .select({
-          id: users.id,
-          email: users.email,
-        })
-        .from(users)
-        .where(inArray(sql`LOWER(${users.email})`, allEmails));
-
-      const userEmailMap = new Map<string, number>();
-      for (const u of platformUsers) {
-        if (u.email) {
-          userEmailMap.set(u.email.trim().toLowerCase(), u.id);
-        }
-      }
-
-      const userIds = Array.from(userEmailMap.values());
-
-      // 5. Query ALL enrollments for these userIds across AHA courses
-      const programs = ["bls", "acls", "pals", "nrp", "heartsaver", "instructor"] as const;
-      let allEnrollments: Array<any> = [];
-      if (userIds.length > 0) {
-        allEnrollments = await db
-          .select({
-            id: enrollments.id,
-            userId: enrollments.userId,
-            paymentStatus: enrollments.paymentStatus,
-            cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
-            practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
-            trainingDate: enrollments.trainingDate,
-            programType: enrollments.programType,
-            courseId: enrollments.courseId,
-          })
-          .from(enrollments)
-          .where(
-            and(
-              inArray(enrollments.programType, programs),
-              inArray(enrollments.userId, userIds)
-            )
-          );
-      }
-
-      // Enrich with progress percentage
-      const enrichedEnrollments = await Promise.all(
-        allEnrollments.map(async (e) => {
-          const pct = await computeAhaEnrollmentProgress(db, e.userId, {
-            id: e.id,
-            userId: e.userId,
-            programType: e.programType,
-            courseId: e.courseId,
-            cognitiveModulesComplete: e.cognitiveModulesComplete,
-          });
-          return { ...e, progressPercentage: pct };
-        })
-      );
-
-      // Group enrollments by userId
-      const enrollmentsByUser = new Map<number, typeof enrichedEnrollments>();
-      for (const e of enrichedEnrollments) {
-        if (!enrollmentsByUser.has(e.userId)) {
-          enrollmentsByUser.set(e.userId, []);
-        }
-        enrollmentsByUser.get(e.userId)!.push(e);
-      }
-
-      // 6. Map everything to unified response containing stats for each program
-      return Array.from(staffMap.values()).map((s) => {
-        const emailKey = s.email.trim().toLowerCase();
-        const userId = userEmailMap.get(emailKey) ?? null;
-        const userEnrs = userId ? (enrollmentsByUser.get(userId) ?? []) : [];
-
-        // Build a map of program progress stats
-        const programStats: Record<string, {
-          enrolled: boolean;
-          progressPercentage: number;
-          cognitiveModulesComplete: boolean;
-          practicalSkillsSignedOff: boolean;
-        }> = {};
-
-        for (const prog of programs) {
-          const enr = userEnrs.find((e) => e.programType === prog);
-          programStats[prog] = {
-            enrolled: !!enr,
-            progressPercentage: enr?.progressPercentage ?? 0,
-            cognitiveModulesComplete: enr?.cognitiveModulesComplete ?? false,
-            practicalSkillsSignedOff: enr?.practicalSkillsSignedOff ?? false,
-          };
-        }
-
-        return {
-          name: s.name,
-          email: s.email,
-          phone: s.phone,
-          role: s.role,
-          department: s.department,
-          isRoster: s.isRoster,
-          isCpd: s.isCpd,
-          userId,
-          programStats,
-        };
-      });
-    }),
-
-  /**
    * Admin: retrieve all platform-linked staff members (roster + CPD attendees) for this institution,
    * merged by email, and showing their enrollment status specifically for the given program type.
    */
@@ -3254,7 +3146,7 @@ export const institutionRouter = router({
     .input(
       z.object({
         institutionId: z.number().int().positive(),
-        programType: z.enum(["bls", "acls", "pals", "nrp", "fellowship", "heartsaver", "instructor"]),
+        programType: z.enum(["bls", "acls", "pals", "fellowship"]),
       })
     )
     .query(async ({ input, ctx }) => {
@@ -3360,8 +3252,6 @@ export const institutionRouter = router({
             cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
             practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
             trainingDate: enrollments.trainingDate,
-            programType: enrollments.programType,
-            courseId: enrollments.courseId,
           })
           .from(enrollments)
           .where(
@@ -3372,22 +3262,8 @@ export const institutionRouter = router({
           );
       }
 
-      // Enrich with progress percentage
-      const enrichedEnrollments = await Promise.all(
-        programEnrollments.map(async (e) => {
-          const pct = await computeAhaEnrollmentProgress(db, e.userId, {
-            id: e.id,
-            userId: e.userId,
-            programType: e.programType,
-            courseId: e.courseId,
-            cognitiveModulesComplete: e.cognitiveModulesComplete,
-          });
-          return { ...e, progressPercentage: pct };
-        })
-      );
-
-      const enrollmentMap = new Map<number, typeof enrichedEnrollments[number]>();
-      for (const e of enrichedEnrollments) {
+      const enrollmentMap = new Map<number, typeof programEnrollments[number]>();
+      for (const e of programEnrollments) {
         enrollmentMap.set(e.userId, e);
       }
 
@@ -3420,9 +3296,6 @@ export const institutionRouter = router({
           status,
           trainingDate: enrollment?.trainingDate ?? null,
           paymentStatus: enrollment?.paymentStatus ?? null,
-          progressPercentage: enrollment?.progressPercentage ?? 0,
-          cognitiveModulesComplete: enrollment?.cognitiveModulesComplete ?? false,
-          practicalSkillsSignedOff: enrollment?.practicalSkillsSignedOff ?? false,
         };
       });
     }),
