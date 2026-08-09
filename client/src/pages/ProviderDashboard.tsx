@@ -28,6 +28,7 @@ import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAna
 import { useAfterFirstPaint } from "@/hooks/useAfterFirstPaint";
 import { usePrefetchAhaHub } from "@/hooks/usePrefetchAhaHub";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
+import { MyQiParticipationCard } from "@/components/MyQiParticipationCard";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
@@ -313,6 +314,9 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
             </button>
           </div>
         </div>
+
+        {/* ── My QI Participation ────────────────────────────────────────────── */}
+        <MyQiParticipationCard />
 
         {/* ── Paeds Resus Fellowship ─────────────────────────────────────────── */}
         <Card className="border-violet-200 overflow-hidden">
