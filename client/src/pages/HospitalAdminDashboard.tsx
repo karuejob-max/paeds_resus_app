@@ -38,6 +38,7 @@ import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWid
 import { FacilityCareSignalDashboard } from "@/components/FacilityCareSignalDashboard";
 import { FacilityCodeSignalDashboard } from "@/components/FacilityCodeSignalDashboard";
 import { CodeSignalParticipationRoster } from "@/components/CodeSignalParticipationRoster";
+import { CareSignalParticipationRoster } from "@/components/CareSignalParticipationRoster";
 import { IermsAuditScorecardPanel } from "@/components/IermsAuditScorecardPanel";
 import { ErtRosterPanel } from "@/components/ErtRosterPanel";
 import { EquipmentAuditPanel } from "@/components/EquipmentAuditPanel";
@@ -2690,6 +2691,10 @@ export default function HospitalAdminDashboard() {
             </Card>
 
             {institutionId && <FacilityGapAnalysisPanel institutionId={institutionId} />}
+
+            {myInstitution?.institution?.companyName ? (
+              <CareSignalParticipationRoster lastDays={90} />
+            ) : null}
           </TabsContent>
 
           <TabsContent value="code-signal" className="space-y-6">
