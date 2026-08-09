@@ -418,6 +418,85 @@ export const institutionRouter = router({
       return { lastDays, roster };
     }),
 
+  /**
+   * Care Signal counterpart of getCodeSignalParticipationRoster above —
+   * CEO-requested 2026-08-08 for parity. Same privacy design (period count
+   * only, no content, no timestamps). One real difference from Code
+   * Signal: Care Signal's `submissionMode` has a THIRD value, "pseudonymous"
+   * (tied to `fellowshipTokens`, for portable Fellowship credit — see that
+   * table's own comment). Pseudonymous submissions are deliberately
+   * excluded here too, not just anonymous ones — a provider choosing that
+   * mode is explicitly opting out of institutional attribution in favour
+   * of self-sovereign Fellowship credit; this roster must not defeat that
+   * choice by counting them anyway under "named".
+   */
+  getCareSignalParticipationRoster: protectedProcedure
+    .input(z.object({ lastDays: z.number().int().min(7).max(365).default(90) }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+      const adminIds = await getAdministeredInstitutionIds(db, ctx.user.id);
+      const rows = adminIds.length
+        ? await db
+            .select({ id: institutionalAccounts.id })
+            .from(institutionalAccounts)
+            .where(inArray(institutionalAccounts.id, adminIds))
+            .orderBy(desc(institutionalAccounts.id))
+            .limit(1)
+        : [];
+      const inst = rows[0];
+      if (!inst) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "No institution linked to this account" });
+      }
+
+      const [linkedFacility] = await db
+        .select({ id: careFacilities.id })
+        .from(careFacilities)
+        .where(and(eq(careFacilities.institutionalAccountId, inst.id), isNull(careFacilities.mergedIntoId)))
+        .limit(1);
+
+      if (!linkedFacility) {
+        return { lastDays: input?.lastDays ?? 90, roster: [] as { userId: number; name: string | null; count: number }[] };
+      }
+
+      const lastDays = input?.lastDays ?? 90;
+      const since = new Date(Date.now() - lastDays * 24 * 60 * 60 * 1000);
+
+      const namedEvents = await db
+        .select({ userId: careSignalEvents.userId })
+        .from(careSignalEvents)
+        .where(
+          and(
+            eq(careSignalEvents.facilityId, linkedFacility.id),
+            eq(careSignalEvents.submissionMode, "named"),
+            gte(careSignalEvents.createdAt, since)
+          )
+        );
+
+      const counts = new Map<number, number>();
+      for (const e of namedEvents) {
+        if (e.userId == null) continue;
+        counts.set(e.userId, (counts.get(e.userId) ?? 0) + 1);
+      }
+
+      if (counts.size === 0) {
+        return { lastDays, roster: [] as { userId: number; name: string | null; count: number }[] };
+      }
+
+      const providerRows = await db
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .where(inArray(users.id, [...counts.keys()]));
+
+      const roster = providerRows
+        .map((p) => ({ userId: p.id, name: p.name, count: counts.get(p.id) ?? 0 }))
+        .sort((a, b) => b.count - a.count);
+
+      return { lastDays, roster };
+    }),
+
   /** Public lead capture from /institutional quote form (stored for sales follow-up). */
   submitLeadInquiry: publicProcedure
     .input(
