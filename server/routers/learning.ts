@@ -57,6 +57,7 @@ import {
 } from "../../shared/microcourse-exam-policy";
 import { formatSummativeForbiddenMessage } from "../../shared/summative-retry-display";
 import { parseFellowshipScenarioData } from "../../shared/fellowship-simulation-scenario";
+import { parseStoredQuizCorrectAnswer } from "../../shared/quiz-answer-contract";
 import { TRPCError } from "@trpc/server";
 import { trackEvent } from "../services/analytics.service";
 
@@ -1112,7 +1113,7 @@ export const learningRouter = router({
         );
         if (
           userAnswer &&
-          userAnswer.answer === JSON.parse(question.correctAnswer)
+          userAnswer.answer === parseStoredQuizCorrectAnswer(question.correctAnswer)
         ) {
           correctCount++;
         }
