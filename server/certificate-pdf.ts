@@ -114,11 +114,13 @@ const AHA_CERTIFICATION_PROGRAM_TYPES = new Set([
   "pals",
   "heartsaver",
   "nrp",
+  "instructor",
   "bls_cognitive",
   "acls_cognitive",
   "pals_cognitive",
   "heartsaver_cognitive",
   "nrp_cognitive",
+  "instructor_cognitive",
 ]);
 
 /** Slug for downloaded PDF filename — AHA certs use program type, not linked course title. */

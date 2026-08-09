@@ -245,6 +245,9 @@ export const learningRouter = router({
       } else if (pt === "nrp") {
         const { ensureNrpCatalog } = await import("../lib/ensure-nrp-catalog");
         await ensureNrpCatalog(db);
+      } else if (pt === "instructor") {
+        const { ensureInstructorCourseCatalog } = await import("../lib/ensure-instructor-course-catalog");
+        await ensureInstructorCourseCatalog(db);
       }
 
       const courseModules = await (db as any)
