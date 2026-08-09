@@ -71,6 +71,22 @@ const MODULES: ModuleDef[] = [
           </ul>
         `,
         order: 1,
+      },
+      {
+        title: "Code of Conduct & Professional Boundaries",
+        content: `
+          <h2>Conduct & safety</h2>
+          <p>Teaching in LMIC clinical spaces requires absolute respect for local personnel and patient dignity. Instructors must act as mentors, not critics, avoiding confrontational teaching styles (such as "pimping" or public shaming) and cultivating a psychologically safe environment.</p>
+        `,
+        order: 2,
+      },
+      {
+        title: "Standard Course Equipment & Room Setup",
+        content: `
+          <h2>Equipment & setup</h2>
+          <p>A successful resuscitation course relies on proper preparation of the training environment. Before any session starts, check the availability of neonatal/paediatric bag-mask devices, training manikins, visual feedback timers, and clinical posters. Setup stations to encourage hands-on practice, ensuring optimal trainer-to-learner ratios.</p>
+        `,
+        order: 3,
       }
     ],
     quizTitle: "Check: instructor foundations",
@@ -85,6 +101,36 @@ const MODULES: ModuleDef[] = [
         ],
         correctAnswer: "Support local clinical governance and senior review where applicable",
         explanation: "Training supports professional judgment and local governance.",
+      },
+      {
+        question: "Which teaching approach is best suited for establishing a psychologically safe simulation environment?",
+        options: [
+          "Publicly quizzing learners on advanced concepts to highlight knowledge gaps (pimping)",
+          "Encouraging hands-on practice, acting as a supportive mentor, and treating mistakes as learning opportunities",
+          "Letting learners figure out all errors on their own without active facilitation",
+        ],
+        correctAnswer: "Encouraging hands-on practice, acting as a supportive mentor, and treating mistakes as learning opportunities",
+        explanation: "Psychologically safe learning environments encourage active engagement, whereas public shaming or zero guidance hinders skills acquisition.",
+      },
+      {
+        question: "What should an instructor do prior to the start of a hands-on resuscitation session?",
+        options: [
+          "Wait for the facility staff to set up the manikins and bag-mask ventilators",
+          "Inspect and test all teaching aids, manikins, bag-mask devices, and timers to ensure they are fully functional",
+          "Start the lectures immediately and skip the equipment check to save time",
+        ],
+        correctAnswer: "Inspect and test all teaching aids, manikins, bag-mask devices, and timers to ensure they are fully functional",
+        explanation: "Ensuring equipment readiness before the session starts prevents disruptions and guarantees high-quality practice.",
+      },
+      {
+        question: "How should an instructor address a learner who is struggling during a skills check?",
+        options: [
+          "Interrupt and ask another student to take over immediately",
+          "Provide constructive, real-time coaching and allow them to repeat the step until they master it",
+          "Fail the student immediately without providing feedback",
+        ],
+        correctAnswer: "Provide constructive, real-time coaching and allow them to repeat the step until they master it",
+        explanation: "The instructor's role is to facilitate skill mastery through supportive coaching and practice.",
       },
     ],
   },
@@ -670,7 +716,7 @@ export async function ensureInstructorCourseCatalog(db: any): Promise<void> {
         question: q.question,
         questionType: "multiple_choice",
         options: JSON.stringify(q.options),
-        correctAnswer: JSON.stringify(q.correctAnswer),
+        correctAnswer: typeof q.correctAnswer === "string" ? q.correctAnswer : JSON.stringify(q.correctAnswer),
         explanation: q.explanation,
         order: order++,
       });
