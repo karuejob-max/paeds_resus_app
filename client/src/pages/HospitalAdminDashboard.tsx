@@ -24,6 +24,12 @@ import StaffBulkImport from "@/components/StaffBulkImport";
 import CpdPanel from "@/components/CpdPanel";
 import { DepartmentSelectors } from "@/components/DepartmentSelectors";
 import SafeTruthPanel from "@/components/SafeTruthPanel";
+import { CohortProgressWidget } from "@/components/CohortProgressWidget";
+import { FacilityGapAnalysisPanel } from "@/components/FacilityGapAnalysisPanel";
+import { BulkEnrollmentPanel } from "@/components/BulkEnrollmentPanel";
+import { PendingLinkRequestsWidget } from "@/components/PendingLinkRequestsWidget";
+import { Phase1ProofReviewWidget } from "@/components/Phase1ProofReviewWidget";
+import { AccountAdminsWidget } from "@/components/AccountAdminsWidget";
 import { GuidelineAuditDashboard } from "@/components/GuidelineAuditDashboard";
 import { AiPatternInbox } from "@/components/AiPatternInbox";
 import { ResusGpsAuditPanel } from "@/components/ResusGpsAuditPanel";
@@ -32,7 +38,6 @@ import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWid
 import { FacilityCareSignalDashboard } from "@/components/FacilityCareSignalDashboard";
 import { FacilityCodeSignalDashboard } from "@/components/FacilityCodeSignalDashboard";
 import { CodeSignalParticipationRoster } from "@/components/CodeSignalParticipationRoster";
-import { CareSignalParticipationRoster } from "@/components/CareSignalParticipationRoster";
 import { IermsAuditScorecardPanel } from "@/components/IermsAuditScorecardPanel";
 import { ErtRosterPanel } from "@/components/ErtRosterPanel";
 import { EquipmentAuditPanel } from "@/components/EquipmentAuditPanel";
@@ -144,6 +149,9 @@ export default function HospitalAdminDashboard() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [bulkCourse, setBulkCourse] = useState<"bls" | "acls" | "pals" | "fellowship">("bls");
   const [bulkDate, setBulkDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [quoteCourseType, setQuoteCourseType] = useState<"bls" | "acls" | "pals">("bls");
+  const [quoteTrainingDate, setQuoteTrainingDate] = useState("");
+  const [quotePhone, setQuotePhone] = useState("");
   const [incidentForm, setIncidentForm] = useState({
     incidentDate: new Date().toISOString().slice(0, 16),
     incidentType: "other" as
@@ -749,6 +757,7 @@ export default function HospitalAdminDashboard() {
               subTabs: [
                 { id: "overview", label: "Dashboard & Rollout" },
                 { id: "quotations", label: "Quotations & Billing" },
+                { id: "admins", label: "Account Admins" },
               ],
             },
             {
@@ -1039,6 +1048,8 @@ export default function HospitalAdminDashboard() {
 
           {/* Staff Management Tab */}
           <TabsContent value="staff" className="space-y-6">
+            {institutionId && <PendingLinkRequestsWidget institutionId={institutionId} />}
+            {institutionId && <Phase1ProofReviewWidget institutionId={institutionId} />}
             <StaffBulkImport institutionId={institutionId} />
 
             <Card className="border-border/80 shadow-sm">
@@ -2200,6 +2211,22 @@ export default function HospitalAdminDashboard() {
                 )}
               </CardContent>
             </Card>
+
+            {institutionId && (
+              <BulkEnrollmentPanel
+                institutionId={institutionId}
+                courseType={quoteCourseType}
+                setCourseType={setQuoteCourseType}
+                trainingDate={quoteTrainingDate}
+                setTrainingDate={setQuoteTrainingDate}
+                phone={quotePhone}
+                setPhone={setQuotePhone}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="admins" className="space-y-6">
+            {institutionId && <AccountAdminsWidget institutionId={institutionId} />}
           </TabsContent>
 
           {/* Progress Tracking Tab */}
@@ -2662,9 +2689,7 @@ export default function HospitalAdminDashboard() {
               </CardContent>
             </Card>
 
-            {myInstitution?.institution?.companyName ? (
-              <CareSignalParticipationRoster lastDays={90} />
-            ) : null}
+            {institutionId && <FacilityGapAnalysisPanel institutionId={institutionId} />}
           </TabsContent>
 
           <TabsContent value="code-signal" className="space-y-6">
