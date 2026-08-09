@@ -147,40 +147,55 @@ export const adminStatsRouter = router({
       const lastDays = input?.lastDays ?? 7;
       const analyticsSince = rollingHoursAgo(lastDays);
 
-      // Users by type
-      const allUsers = await db.select({ userType: users.userType }).from(users);
+      // Users by type (aggregated)
+      const usersCount = await db
+        .select({
+          userType: users.userType,
+          count: sql<number>`count(*)`
+        })
+        .from(users)
+        .groupBy(users.userType);
       const usersByType = {
-        individual: allUsers.filter((u) => u.userType === "individual").length,
-        institutional: allUsers.filter((u) => u.userType === "institutional").length,
+        individual: Number(usersCount.find((u) => u.userType === "individual")?.count ?? 0),
+        institutional: Number(usersCount.find((u) => u.userType === "institutional")?.count ?? 0),
       };
+      const totalUsers = usersByType.individual + usersByType.institutional;
 
-      // Enrollments this month (applications by program)
-      const enrollmentsInMonth = await db
-        .select({ programType: enrollments.programType })
+      // Enrollments this month (applications by program, aggregated)
+      const enrollmentsCount = await db
+        .select({
+          programType: enrollments.programType,
+          count: sql<number>`count(*)`
+        })
         .from(enrollments)
-        .where(and(gte(enrollments.createdAt, periodStart), lte(enrollments.createdAt, periodEnd)));
+        .where(and(gte(enrollments.createdAt, periodStart), lte(enrollments.createdAt, periodEnd)))
+        .groupBy(enrollments.programType);
       const enrollmentsThisMonth = {
-        bls: enrollmentsInMonth.filter((e) => e.programType === "bls").length,
-        acls: enrollmentsInMonth.filter((e) => e.programType === "acls").length,
-        pals: enrollmentsInMonth.filter((e) => e.programType === "pals").length,
-        fellowship: enrollmentsInMonth.filter((e) => e.programType === "fellowship").length,
+        bls: Number(enrollmentsCount.find((e) => e.programType === "bls")?.count ?? 0),
+        acls: Number(enrollmentsCount.find((e) => e.programType === "acls")?.count ?? 0),
+        pals: Number(enrollmentsCount.find((e) => e.programType === "pals")?.count ?? 0),
+        fellowship: Number(enrollmentsCount.find((e) => e.programType === "fellowship")?.count ?? 0),
       };
 
-      // Certificates issued this month
-      const certsInMonth = await db
-        .select({ programType: certificates.programType })
+      // Certificates issued this month (aggregated)
+      const certsCount = await db
+        .select({
+          programType: certificates.programType,
+          count: sql<number>`count(*)`
+        })
         .from(certificates)
-        .where(and(gte(certificates.issueDate, periodStart), lte(certificates.issueDate, periodEnd)));
+        .where(and(gte(certificates.issueDate, periodStart), lte(certificates.issueDate, periodEnd)))
+        .groupBy(certificates.programType);
       const certificatesThisMonth = {
-        bls: certsInMonth.filter((c) => c.programType === "bls").length,
-        acls: certsInMonth.filter((c) => c.programType === "acls").length,
-        pals: certsInMonth.filter((c) => c.programType === "pals").length,
-        fellowship: certsInMonth.filter((c) => c.programType === "fellowship").length,
+        bls: Number(certsCount.find((c) => c.programType === "bls")?.count ?? 0),
+        acls: Number(certsCount.find((c) => c.programType === "acls")?.count ?? 0),
+        pals: Number(certsCount.find((c) => c.programType === "pals")?.count ?? 0),
+        fellowship: Number(certsCount.find((c) => c.programType === "fellowship")?.count ?? 0),
       };
 
-      // Parent Safe-Truth submissions this month
-      const parentSubmissions = await db
-        .select({ id: parentSafeTruthSubmissions.id })
+      // Parent Safe-Truth submissions this month (count only)
+      const [parentCount] = await db
+        .select({ count: sql<number>`count(*)` })
         .from(parentSafeTruthSubmissions)
         .where(
           and(
@@ -188,11 +203,11 @@ export const adminStatsRouter = router({
             lte(parentSafeTruthSubmissions.createdAt, periodEnd)
           )
         );
-      const parentSafeTruthThisMonth = parentSubmissions.length;
+      const parentSafeTruthThisMonth = Number(parentCount?.count ?? 0);
 
-      // Clinical referrals this month
-      const referralsInMonth = await db
-        .select({ id: clinicalReferrals.id })
+      // Clinical referrals this month (count only)
+      const [referralsCount] = await db
+        .select({ count: sql<number>`count(*)` })
         .from(clinicalReferrals)
         .where(
           and(
@@ -200,33 +215,35 @@ export const adminStatsRouter = router({
             lte(clinicalReferrals.createdAt, periodEnd)
           )
         );
-      const referralsThisMonth = referralsInMonth.length;
+      const referralsThisMonth = Number(referralsCount?.count ?? 0);
 
-      // Analytics (ResusGPS / app usage) in last N days
+      // Analytics (ResusGPS / app usage) in last N days (aggregated by type/name)
       const analyticsInPeriod = await db
         .select({
           eventType: analyticsEvents.eventType,
           eventName: analyticsEvents.eventName,
+          count: sql<number>`count(*)`
         })
         .from(analyticsEvents)
-        .where(gte(analyticsEvents.createdAt, analyticsSince));
+        .where(gte(analyticsEvents.createdAt, analyticsSince))
+        .groupBy(analyticsEvents.eventType, analyticsEvents.eventName);
       const analyticsLastDaysRollup = rollupAnalyticsLastDays(analyticsInPeriod);
       const resusGpsAnalyticsLastDays = rollupResusGpsLastDays(analyticsInPeriod);
 
-      // Fellowship session stats
-      const fellowshipSessionsInPeriod = await db
-        .select({ id: resusGPSSessions.id })
+      // Fellowship session stats (count only)
+      const [fellowshipSessionsCount] = await db
+        .select({ count: sql<number>`count(*)` })
         .from(resusGPSSessions)
         .where(gte(resusGPSSessions.createdAt, analyticsSince));
       
-      const fellowshipCasesInPeriod = await db
-        .select({ id: resusGPSCases.id })
+      const [fellowshipCasesCount] = await db
+        .select({ count: sql<number>`count(*)` })
         .from(resusGPSCases)
         .where(gte(resusGPSCases.createdAt, analyticsSince));
 
       const fellowshipStatsLastDays = {
-        totalSessions: fellowshipSessionsInPeriod.length,
-        totalCases: fellowshipCasesInPeriod.length,
+        totalSessions: Number(fellowshipSessionsCount?.count ?? 0),
+        totalCases: Number(fellowshipCasesCount?.count ?? 0),
       };
       // Care Signal metrics this month
       const careSignalThisMonth = await db
@@ -264,17 +281,12 @@ export const adminStatsRouter = router({
         topGaps: topCareSignalGaps,
       };
 
-      // Count unique active users in last N days
+      // Count unique active users in last N days (aggregated distinct count)
       const activeUsersResult = await db
-        .selectDistinct({ userId: analyticsEvents.userId })
+        .select({ count: sql<number>`count(distinct ${analyticsEvents.userId})` })
         .from(analyticsEvents)
-        .where(
-          and(
-            gte(analyticsEvents.createdAt, rollingHoursAgo(lastDays)),
-            analyticsEvents.userId
-          )
-        );
-      const activeUsersLastDays = activeUsersResult.filter(r => r.userId !== null).length;
+        .where(gte(analyticsEvents.createdAt, rollingHoursAgo(lastDays)));
+      const activeUsersLastDays = Number(activeUsersResult[0]?.count ?? 0);
 
       // Top protocols viewed (View Protocol button clicks, last N days)
       const viewProtocolEvents = await db
@@ -308,7 +320,7 @@ export const adminStatsRouter = router({
         periodLabel: `${periodStart.toLocaleString("default", { month: "long", timeZone: "Africa/Nairobi" })} ${year} (EAT)`,
         lastDaysLabel: `Rolling last ${lastDays} days (×24h from now)`,
         usersByType,
-        totalUsers: allUsers.length,
+        totalUsers,
         enrollmentsThisMonth,
         totalEnrollmentsThisMonth:
           enrollmentsThisMonth.bls +
