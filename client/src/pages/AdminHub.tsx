@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Shield, TrendingUp, FileText, LineChart, Wallet, GraduationCap, ShieldAlert, Globe, ImageIcon, Loader2, CheckCircle2, Target, Activity, Webhook, Building2 } from "lucide-react";
+import { BarChart3, Shield, FileText, LineChart, Wallet, GraduationCap, ShieldAlert, Globe, ImageIcon, Loader2, CheckCircle2, Target, Activity, Webhook, Building2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/use-toast";
@@ -180,23 +180,6 @@ export default function AdminHub() {
                 </CardTitle>
                 <CardDescription>
                   Institutional metrics, staff, and training overview
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => setLocation("/advanced-analytics")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Advanced Analytics
-                </CardTitle>
-                <CardDescription>
-                  Deeper analytics and reporting
                 </CardDescription>
               </div>
             </CardHeader>

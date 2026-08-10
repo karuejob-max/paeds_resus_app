@@ -2,7 +2,7 @@ import React from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { Home, Users, TrendingUp, Share2, MessageCircle, BarChart3, BookOpen, Siren, Compass } from "lucide-react";
+import { Home, Users, TrendingUp, Share2, MessageCircle, BookOpen, Siren, Compass } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const BottomNav: React.FC = () => {
@@ -33,9 +33,7 @@ export const BottomNav: React.FC = () => {
 
     if (role === "institution") {
       return [
-        { path: "/hospital-admin-dashboard", label: "Home", icon: Home },
-        { path: "/hospital-admin-dashboard", label: "Dashboard", icon: BarChart3 },
-        { path: "/advanced-analytics", label: "Analytics", icon: Users },
+        { path: "/hospital-admin-dashboard", label: "Dashboard", icon: Home },
       ];
     }
 

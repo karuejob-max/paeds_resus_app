@@ -748,9 +748,6 @@ export default function LearnerDashboard() {
             {institutionId ? (
               <div className="flex flex-wrap gap-3">
                 <Button onClick={() => navigate("/hospital-admin-dashboard")}>Open full hospital dashboard</Button>
-                <Button variant="outline" onClick={() => navigate("/advanced-analytics")}>
-                  Analytics
-                </Button>
               </div>
             ) : null}
           </div>
