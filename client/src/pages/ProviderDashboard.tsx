@@ -28,7 +28,6 @@ import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAna
 import { useAfterFirstPaint } from "@/hooks/useAfterFirstPaint";
 import { usePrefetchAhaHub } from "@/hooks/usePrefetchAhaHub";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
-import { MyQiParticipationCard } from "@/components/MyQiParticipationCard";
 import { MyPerformanceScorecard } from "@/components/MyPerformanceScorecard";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -368,10 +367,9 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
           </div>
         </div>
 
-        {/* ── My QI Participation ────────────────────────────────────────────── */}
-        <MyQiParticipationCard />
-
-        {/* ── My Performance (Phase 1 scorecard) ─────────────────────────────── */}
+        {/* ── My Performance (supersedes the standalone QI Participation card —
+             My Performance Scorecard shows the same Care Signal/Code Signal
+             counts as part of a superset, found redundant on this quick pass) */}
         <MyPerformanceScorecard />
 
         {/* ── Paeds Resus Fellowship ─────────────────────────────────────────── */}

@@ -59,7 +59,7 @@ import {
 import { trackEvent } from "../services/analytics.service";
 import { getFacilityCareSignalDashboard } from "../services/facility-care-signal.service";
 import { getFacilityCodeSignalDashboard } from "../services/facility-code-signal.service";
-import { getProviderScorecard, getFacilityMedianQiCount, type ProviderScorecard } from "../services/provider-performance.service";
+import { getProviderScorecard, getFacilityMedianQiCount, getDepartmentMedianQiCount, type ProviderScorecard } from "../services/provider-performance.service";
 import { notifyInstructorSessionAssigned } from "../lib/instructor-session-notification";
 import { ENV } from "../_core/env";
 import { isInstitutionInPilotProgram } from "@shared/pilot-program";
@@ -515,7 +515,7 @@ export const institutionRouter = router({
       const lastDays = input?.lastDays ?? 90;
 
       const [profile] = await db
-        .select({ facilityId: providerProfiles.facilityId })
+        .select({ facilityId: providerProfiles.facilityId, department: providerProfiles.department })
         .from(providerProfiles)
         .where(eq(providerProfiles.userId, ctx.user.id))
         .limit(1);
@@ -530,7 +530,16 @@ export const institutionRouter = router({
         ? await getFacilityMedianQiCount(profile.facilityId, lastDays)
         : null;
 
-      return { lastDays, scorecard, facilityMedianQiCount };
+      // Department median takes precedence when the provider has one set —
+      // added 2026-08-10, see provider-performance.service.ts for why this
+      // wasn't in the original version (it was assumed unavailable; it
+      // wasn't).
+      const departmentMedianQiCount =
+        profile?.facilityId && profile?.department
+          ? await getDepartmentMedianQiCount(profile.facilityId, profile.department, lastDays)
+          : null;
+
+      return { lastDays, scorecard, facilityMedianQiCount, departmentMedianQiCount };
     }),
 
   /**
