@@ -96,7 +96,9 @@ export function MyPerformanceScorecard() {
               <p className="text-lg font-bold">{sc.qi.careSignalCount + sc.qi.codeSignalCount}</p>
               <p className="text-xs text-muted-foreground">
                 QI reports ({sc.qi.careSignalCount} Care Signal, {sc.qi.codeSignalCount} Code Signal)
-                {data?.facilityMedianQiCount != null ? (
+                {data?.departmentMedianQiCount != null ? (
+                  <> · department median: {data.departmentMedianQiCount}</>
+                ) : data?.facilityMedianQiCount != null ? (
                   <> · facility median: {data.facilityMedianQiCount}</>
                 ) : null}
               </p>
