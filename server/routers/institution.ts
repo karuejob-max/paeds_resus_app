@@ -59,6 +59,7 @@ import {
 import { trackEvent } from "../services/analytics.service";
 import { getFacilityCareSignalDashboard } from "../services/facility-care-signal.service";
 import { getFacilityCodeSignalDashboard } from "../services/facility-code-signal.service";
+import { getProviderScorecard, getFacilityMedianQiCount, type ProviderScorecard } from "../services/provider-performance.service";
 import { notifyInstructorSessionAssigned } from "../lib/instructor-session-notification";
 import { ENV } from "../_core/env";
 import { isInstitutionInPilotProgram } from "@shared/pilot-program";
@@ -495,6 +496,105 @@ export const institutionRouter = router({
         .sort((a, b) => b.count - a.count);
 
       return { lastDays, roster };
+    }),
+
+  /**
+   * Phase 1 performance scorecard — CEO-requested 2026-08-09. A provider's
+   * own view: CPD, Life Support cert status, QI reporting, crash cart
+   * audits, plus a PRIVATE facility-median self-comparison (never shown to
+   * peers — see provider-performance.service.ts for the full reasoning and
+   * stated limitations).
+   */
+  getMyPerformanceScorecard: protectedProcedure
+    .input(z.object({ lastDays: z.number().int().min(7).max(365).default(90) }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+      const lastDays = input?.lastDays ?? 90;
+
+      const [profile] = await db
+        .select({ facilityId: providerProfiles.facilityId })
+        .from(providerProfiles)
+        .where(eq(providerProfiles.userId, ctx.user.id))
+        .limit(1);
+
+      const scorecard = await getProviderScorecard({
+        userId: ctx.user.id,
+        institutionalAccountId: null,
+        lastDays,
+      });
+
+      const facilityMedianQiCount = profile?.facilityId
+        ? await getFacilityMedianQiCount(profile.facilityId, lastDays)
+        : null;
+
+      return { lastDays, scorecard, facilityMedianQiCount };
+    }),
+
+  /**
+   * Institutional counterpart — a full staff roster with the same
+   * per-provider scorecard, for an admin's own appraisal/attention-
+   * prioritization use. Deliberately NOT exposed to peers — matches the
+   * "no leaderboard" decision made alongside the QI participation roster.
+   *
+   * Fix 2026-08-10 (CI-caught, TS18047): the empty-array early-return
+   * branches were typed with `Awaited<ReturnType<typeof getProviderScorecard>>[]`,
+   * which is `(ProviderScorecard | null)[]` — that `| null` then leaked
+   * into the whole procedure's inferred output type, even though the real
+   * data path always filters nulls out before returning. Typed both
+   * branches as plain `ProviderScorecard[]` instead, matching what's
+   * actually ever returned.
+   */
+  getStaffPerformanceRoster: protectedProcedure
+    .input(z.object({ lastDays: z.number().int().min(7).max(365).default(90) }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+      const lastDays = input?.lastDays ?? 90;
+
+      const adminIds = await getAdministeredInstitutionIds(db, ctx.user.id);
+      const rows = adminIds.length
+        ? await db
+            .select({ id: institutionalAccounts.id })
+            .from(institutionalAccounts)
+            .where(inArray(institutionalAccounts.id, adminIds))
+            .orderBy(desc(institutionalAccounts.id))
+            .limit(1)
+        : [];
+      const inst = rows[0];
+      if (!inst) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "No institution linked to this account" });
+      }
+
+      const [linkedFacility] = await db
+        .select({ id: careFacilities.id })
+        .from(careFacilities)
+        .where(and(eq(careFacilities.institutionalAccountId, inst.id), isNull(careFacilities.mergedIntoId)))
+        .limit(1);
+
+      if (!linkedFacility) {
+        return { lastDays, roster: [] as ProviderScorecard[] };
+      }
+
+      const facilityProviders = await db
+        .select({ userId: providerProfiles.userId })
+        .from(providerProfiles)
+        .where(eq(providerProfiles.facilityId, linkedFacility.id))
+        .limit(200); // reasonable ceiling for a single-facility roster; revisit if a facility exceeds this
+
+      const roster = await Promise.all(
+        facilityProviders.map((p) =>
+          getProviderScorecard({ userId: p.userId, institutionalAccountId: inst.id, lastDays })
+        )
+      );
+
+      const filteredRoster: ProviderScorecard[] = roster.filter((r): r is ProviderScorecard => r != null);
+
+      return { lastDays, roster: filteredRoster };
     }),
 
   /** Public lead capture from /institutional quote form (stored for sales follow-up). */
