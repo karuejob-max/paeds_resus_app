@@ -57,7 +57,6 @@ const ForInstitutions = lazy(() => import("./pages/ForInstitutions"));
 const ForParents = lazy(() => import("./pages/ForParents"));
 const AHACoursesPublic = lazy(() => import("./pages/AHACoursesPublic"));
 const HospitalAdminDashboard = lazy(() => import("./pages/HospitalAdminDashboard"));
-const AdvancedAnalytics = lazy(() => import("./pages/AdvancedAnalytics"));
 const Enroll = lazy(() => import("./pages/Enroll"));
 const LearnerDashboard = lazy(() => import("./pages/LearnerDashboard"));
 const PatientsList = lazy(() => import("./pages/PatientsList"));
@@ -296,11 +295,6 @@ function Router() {
           <Route path="/hospital-admin-dashboard">{() => (
             <RoleGate allowed={["institution"]}>
               <HospitalAdminDashboard />
-            </RoleGate>
-          )}</Route>
-          <Route path="/advanced-analytics">{() => (
-            <RoleGate allowed={["institution"]}>
-              <AdvancedAnalytics />
             </RoleGate>
           )}</Route>
           <Route path="/care-signal-analytics">{() => (

@@ -30,7 +30,6 @@ export const authenticatedNavItems: NavItem[] = [
 // Admin navigation items - ONLY WORKING PAGES
 export const adminNavItems: NavItem[] = [
   { label: "Hospital Admin", href: "/hospital-admin-dashboard", requiresAdmin: true },
-  { label: "Advanced Analytics", href: "/advanced-analytics", requiresAdmin: true },
   { label: "Kaizen KPI", href: "/kaizen-dashboard", requiresAdmin: true },
 ];
 
@@ -100,7 +99,6 @@ export const breadcrumbMap: Record<string, string[]> = {
   "/home": ["Home", "Dashboard"],
   "/payment": ["Home", "Payment"],
   "/hospital-admin-dashboard": ["Home", "Admin", "Hospital Dashboard"],
-  "/advanced-analytics": ["Home", "Admin", "Analytics"],
   "/kaizen-dashboard": ["Home", "Admin", "Kaizen KPI"],
   "/predictive-intervention": ["Home", "ML", "Predictive Alerts"],
   "/personalized-learning": ["Home", "ML", "Learning Path"],

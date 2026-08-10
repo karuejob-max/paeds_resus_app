@@ -107,8 +107,6 @@ export default function Header() {
     if (r === "institution") {
       return [
         { label: "Dashboard", href: "/hospital-admin-dashboard", icon: "📊" },
-        { label: "Staff", href: "/hospital-admin-dashboard", icon: "👥" },
-        { label: "Analytics", href: "/advanced-analytics", icon: "📈" },
       ];
     }
     return [];
