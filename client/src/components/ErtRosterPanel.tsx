@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Shield, Clock, AlertCircle, Plus, Star } from "lucide-react";
+import { Users, Shield, Clock, AlertCircle, Plus, Star, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import { ErtBillboardWidget } from "./ErtBillboardWidget";
 
 interface ErtRosterPanelProps {
   institutionId: number;
@@ -42,9 +43,13 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const [showNewPoleForm, setShowNewPoleForm] = useState(false);
   const [newDeptName, setNewDeptName] = useState("");
   const [showNewDeptForm, setShowNewDeptForm] = useState(false);
+  
   const todayStr = new Date().toISOString().split("T")[0];
-  const { weekNumber, year } = getIsoWeek(new Date());
-  const { startDate: weekStart, endDate: weekEnd } = getWeekRange(new Date());
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+
+  const targetDateObj = new Date(selectedDate);
+  const { weekNumber, year } = getIsoWeek(targetDateObj);
+  const { startDate: weekStart, endDate: weekEnd } = getWeekRange(targetDateObj);
 
   const { data: poles, isLoading: polesLoading } = trpc.institution.getFacilityPoles.useQuery(
     { institutionId },
@@ -67,7 +72,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
     {
       institutionId,
       poleId: activePoleId ?? 0,
-      shiftDate: todayStr,
+      shiftDate: selectedDate,
       shiftType: selectedShift,
     },
     { enabled: !!institutionId && !!activePoleId }
@@ -115,6 +120,14 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
     onError: (err) => toast.error(err.message || "Failed to update UTL"),
   });
 
+  const signOffMutation = trpc.institution.signOffShiftReadiness.useMutation({
+    onSuccess: () => {
+      toast.success("Readiness checked in and signed off!");
+      void refetchRoster();
+    },
+    onError: (err) => toast.error(err.message || "Failed to sign off readiness"),
+  });
+
   if (polesLoading) {
     return <div className="p-6 text-center text-muted-foreground">Loading ERT Roster Matrix...</div>;
   }
@@ -139,19 +152,31 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
               </CardDescription>
             </div>
 
-            {/* Shift Selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground">Shift:</span>
-              <Select value={selectedShift} onValueChange={(val: any) => setSelectedShift(val)}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="morning">Morning Shift</SelectItem>
-                  <SelectItem value="evening">Evening Shift</SelectItem>
-                  <SelectItem value="night">Night Shift</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Date and Shift Selectors */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground">Date:</span>
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="h-9 text-xs w-[140px]"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-muted-foreground">Shift:</span>
+                <Select value={selectedShift} onValueChange={(val: any) => setSelectedShift(val)}>
+                  <SelectTrigger className="w-[130px] h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="morning">Morning Shift</SelectItem>
+                    <SelectItem value="evening">Evening Shift</SelectItem>
+                    <SelectItem value="night">Night Shift</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -248,13 +273,26 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
         </CardContent>
       </Card>
 
+      {/* ERT Billboard Live Widget */}
+      <ErtBillboardWidget
+        institutionId={institutionId}
+        poleId={activePoleId}
+        shiftDate={selectedDate}
+        shiftType={selectedShift}
+        shiftRosters={shiftRosters}
+        poleDepartments={poleDepartments}
+        staffMembers={staffMembers}
+        ertlDepartmentId={ertlDepartmentId}
+        onCheckInSuccess={() => void refetchRoster()}
+      />
+
       {/* Shift UTL Roster Table */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
           <div>
             <CardTitle className="text-lg font-bold flex items-center gap-2">
               <Clock className="w-5 h-5" />
-              Active ERT Shift Team ({selectedShift.toUpperCase()} - {todayStr})
+              Active ERT Shift Team ({selectedShift.toUpperCase()} - {selectedDate})
             </CardTitle>
             <CardDescription>
               On-duty UTLs representing the departments in this Pole.
@@ -312,6 +350,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                   <TableHead>Assigned Shift UTL Nurse</TableHead>
                   <TableHead>ERT Role Designation</TableHead>
                   <TableHead>Shift Readiness Check</TableHead>
+                  <TableHead>UTL Status</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -345,14 +384,66 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                         )}
                       </TableCell>
                       <TableCell>
-                        {rosterEntry?.readinessSignOffAt ? (
-                          <Badge variant="outline" className="text-emerald-600 border-emerald-600 bg-emerald-50">
-                            Sign-Off Complete
-                          </Badge>
+                        <div className="flex items-center gap-2">
+                          {rosterEntry?.readinessSignOffAt ? (
+                            <Badge variant="outline" className="text-emerald-600 border-emerald-600 bg-emerald-50">
+                              Sign-Off Complete
+                            </Badge>
+                          ) : (
+                            <>
+                              <Badge variant="outline" className="text-amber-600 border-amber-600">
+                                Pending Check-in
+                              </Badge>
+                              {rosterEntry && rosterEntry.status !== "absent" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[10px] px-2"
+                                  onClick={() =>
+                                    signOffMutation.mutate({
+                                      institutionId,
+                                      rosterId: rosterEntry.id,
+                                    })
+                                  }
+                                  disabled={signOffMutation.isPending}
+                                >
+                                  Check In
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {rosterEntry ? (
+                          <Select
+                            value={rosterEntry.status}
+                            onValueChange={(statusVal: "active" | "absent" | "completed") => {
+                              if (activePoleId) {
+                                submitRosterMutation.mutate({
+                                  institutionId,
+                                  poleId: activePoleId,
+                                  departmentId: dept.id,
+                                  shiftDate: selectedDate,
+                                  shiftType: selectedShift,
+                                  utlUserId: rosterEntry.utlUserId,
+                                  isShiftErtl: isErtl,
+                                  status: statusVal,
+                                });
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="w-[110px] h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="absent">Absent</SelectItem>
+                              <SelectItem value="completed">Completed</SelectItem>
+                            </SelectContent>
+                          </Select>
                         ) : (
-                          <Badge variant="outline" className="text-amber-600 border-amber-600">
-                            Pending Check-in
-                          </Badge>
+                          <span className="text-xs text-muted-foreground italic">—</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
@@ -363,7 +454,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                               institutionId,
                               poleId: activePoleId,
                               departmentId: dept.id,
-                              shiftDate: todayStr,
+                              shiftDate: selectedDate,
                               shiftType: selectedShift,
                               utlUserId: parseInt(staffUserId),
                               isShiftErtl: isErtl,
