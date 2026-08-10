@@ -28,10 +28,13 @@
  *    at a CPD event with a different email than their account, or with a
  *    typo. "Sessions presented" is reliable (cpdEvents.presenterUserId is
  *    a real FK) — only "attended" carries this risk.
- * 2. "Facility median" comparison is facility-level, not department-level
- *    — `providerProfiles` has no clean structured department field
- *    (only free-text `department` on individual CPD sign-ins), so
- *    department-level cohorts aren't reliably computable yet.
+ * 2. Department-level median comparison (getDepartmentMedianQiCount below)
+ *    groups by `providerProfiles.department`, which is free text, not a
+ *    canonical FK — inconsistent naming ("ICU" vs "Icu") will fragment a
+ *    cohort that's really one department. Real signal, imperfect data
+ *    hygiene, not a missing feature (see that function's own comment;
+ *    this was originally flagged as entirely unavailable, which was
+ *    wrong — corrected 2026-08-10).
  */
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { getDb } from "../db";
@@ -190,6 +193,27 @@ export async function getProviderScorecard(input: {
 
 /** Facility-level median for a provider's own private self-comparison — never shown to peers, only to the provider themselves and to institution admins. */
 export async function getFacilityMedianQiCount(facilityId: number, lastDays: number): Promise<number> {
+  return computeMedianQiCount({ facilityId }, lastDays);
+}
+
+/**
+ * Department-level median — added 2026-08-10 on a follow-up review. The
+ * original version of this file stated department-level comparison wasn't
+ * possible because `providerProfiles` had no structured department field —
+ * that was wrong. `providerProfiles.department` (migration 0086) already
+ * exists and is confirmed live in production (see WORK_STATUS 2026-08-03/05).
+ * It's free text, not a canonical FK to `facilityDepartments`, so cohorts
+ * are grouped by exact string match — typos or inconsistent naming
+ * ("ICU" vs "Icu" vs "I.C.U.") will fragment a cohort that's really one
+ * department. Real signal, just not perfectly clean; falls back to
+ * facility-level (still available above) when a provider has no
+ * `department` value set.
+ */
+export async function getDepartmentMedianQiCount(facilityId: number, department: string, lastDays: number): Promise<number> {
+  return computeMedianQiCount({ facilityId, department }, lastDays);
+}
+
+async function computeMedianQiCount(scope: { facilityId: number; department?: string }, lastDays: number): Promise<number> {
   const db = await getDb();
   if (!db) return 0;
 
@@ -198,7 +222,11 @@ export async function getFacilityMedianQiCount(facilityId: number, lastDays: num
   const providerIds = await db
     .select({ userId: providerProfiles.userId })
     .from(providerProfiles)
-    .where(eq(providerProfiles.facilityId, facilityId));
+    .where(
+      scope.department
+        ? and(eq(providerProfiles.facilityId, scope.facilityId), eq(providerProfiles.department, scope.department))
+        : eq(providerProfiles.facilityId, scope.facilityId)
+    );
   const ids = providerIds.map((p) => p.userId).filter((id): id is number => id != null);
   if (ids.length === 0) return 0;
 

@@ -59,7 +59,7 @@ import {
 import { trackEvent } from "../services/analytics.service";
 import { getFacilityCareSignalDashboard } from "../services/facility-care-signal.service";
 import { getFacilityCodeSignalDashboard } from "../services/facility-code-signal.service";
-import { getProviderScorecard, getFacilityMedianQiCount, type ProviderScorecard } from "../services/provider-performance.service";
+import { getProviderScorecard, getFacilityMedianQiCount, getDepartmentMedianQiCount, type ProviderScorecard } from "../services/provider-performance.service";
 import { notifyInstructorSessionAssigned } from "../lib/instructor-session-notification";
 import { ENV } from "../_core/env";
 import { isInstitutionInPilotProgram } from "@shared/pilot-program";
@@ -515,7 +515,7 @@ export const institutionRouter = router({
       const lastDays = input?.lastDays ?? 90;
 
       const [profile] = await db
-        .select({ facilityId: providerProfiles.facilityId })
+        .select({ facilityId: providerProfiles.facilityId, department: providerProfiles.department })
         .from(providerProfiles)
         .where(eq(providerProfiles.userId, ctx.user.id))
         .limit(1);
@@ -530,7 +530,16 @@ export const institutionRouter = router({
         ? await getFacilityMedianQiCount(profile.facilityId, lastDays)
         : null;
 
-      return { lastDays, scorecard, facilityMedianQiCount };
+      // Department median takes precedence when the provider has one set —
+      // added 2026-08-10, see provider-performance.service.ts for why this
+      // wasn't in the original version (it was assumed unavailable; it
+      // wasn't).
+      const departmentMedianQiCount =
+        profile?.facilityId && profile?.department
+          ? await getDepartmentMedianQiCount(profile.facilityId, profile.department, lastDays)
+          : null;
+
+      return { lastDays, scorecard, facilityMedianQiCount, departmentMedianQiCount };
     }),
 
   /**
@@ -3050,7 +3059,6 @@ export const institutionRouter = router({
       shiftType: z.enum(["morning", "evening", "night"]),
       utlUserId: z.number(),
       isShiftErtl: z.boolean().default(false),
-      status: z.enum(["active", "completed", "absent"]).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -3070,16 +3078,9 @@ export const institutionRouter = router({
         .limit(1);
 
       if (existing) {
-        // Reset readiness sign-off to null if the assigned UTL user changes (clinical safety gate)
-        const shouldResetSignOff = existing.utlUserId !== input.utlUserId;
         await db
           .update(shiftUtlRosters)
-          .set({
-            utlUserId: input.utlUserId,
-            isShiftErtl: input.isShiftErtl,
-            status: input.status ?? "active",
-            readinessSignOffAt: shouldResetSignOff ? null : existing.readinessSignOffAt,
-          })
+          .set({ utlUserId: input.utlUserId, isShiftErtl: input.isShiftErtl, status: "active" })
           .where(eq(shiftUtlRosters.id, existing.id));
       } else {
         await db.insert(shiftUtlRosters).values({
@@ -3090,40 +3091,8 @@ export const institutionRouter = router({
           shiftType: input.shiftType,
           utlUserId: input.utlUserId,
           isShiftErtl: input.isShiftErtl,
-          status: input.status ?? "active",
         });
       }
-
-      return { success: true };
-    }),
-
-  signOffShiftReadiness: protectedProcedure
-    .input(z.object({
-      institutionId: z.number(),
-      rosterId: z.number(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      await assertInstitutionAccess(db, ctx.user, input.institutionId);
-
-      const [existing] = await db
-        .select()
-        .from(shiftUtlRosters)
-        .where(and(
-          eq(shiftUtlRosters.id, input.rosterId),
-          eq(shiftUtlRosters.institutionId, input.institutionId)
-        ))
-        .limit(1);
-
-      if (!existing) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Roster entry not found" });
-      }
-
-      await db
-        .update(shiftUtlRosters)
-        .set({ readinessSignOffAt: new Date() })
-        .where(eq(shiftUtlRosters.id, input.rosterId));
 
       return { success: true };
     }),
