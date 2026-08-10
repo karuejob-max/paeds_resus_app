@@ -3050,6 +3050,7 @@ export const institutionRouter = router({
       shiftType: z.enum(["morning", "evening", "night"]),
       utlUserId: z.number(),
       isShiftErtl: z.boolean().default(false),
+      status: z.enum(["active", "completed", "absent"]).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -3069,9 +3070,16 @@ export const institutionRouter = router({
         .limit(1);
 
       if (existing) {
+        // Reset readiness sign-off to null if the assigned UTL user changes (clinical safety gate)
+        const shouldResetSignOff = existing.utlUserId !== input.utlUserId;
         await db
           .update(shiftUtlRosters)
-          .set({ utlUserId: input.utlUserId, isShiftErtl: input.isShiftErtl, status: "active" })
+          .set({
+            utlUserId: input.utlUserId,
+            isShiftErtl: input.isShiftErtl,
+            status: input.status ?? "active",
+            readinessSignOffAt: shouldResetSignOff ? null : existing.readinessSignOffAt,
+          })
           .where(eq(shiftUtlRosters.id, existing.id));
       } else {
         await db.insert(shiftUtlRosters).values({
@@ -3082,8 +3090,40 @@ export const institutionRouter = router({
           shiftType: input.shiftType,
           utlUserId: input.utlUserId,
           isShiftErtl: input.isShiftErtl,
+          status: input.status ?? "active",
         });
       }
+
+      return { success: true };
+    }),
+
+  signOffShiftReadiness: protectedProcedure
+    .input(z.object({
+      institutionId: z.number(),
+      rosterId: z.number(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const [existing] = await db
+        .select()
+        .from(shiftUtlRosters)
+        .where(and(
+          eq(shiftUtlRosters.id, input.rosterId),
+          eq(shiftUtlRosters.institutionId, input.institutionId)
+        ))
+        .limit(1);
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Roster entry not found" });
+      }
+
+      await db
+        .update(shiftUtlRosters)
+        .set({ readinessSignOffAt: new Date() })
+        .where(eq(shiftUtlRosters.id, input.rosterId));
 
       return { success: true };
     }),
