@@ -41,6 +41,7 @@ import { FacilityCareSignalDashboard } from "@/components/FacilityCareSignalDash
 import { FacilityCodeSignalDashboard } from "@/components/FacilityCodeSignalDashboard";
 import { CodeSignalParticipationRoster } from "@/components/CodeSignalParticipationRoster";
 import { CareSignalParticipationRoster } from "@/components/CareSignalParticipationRoster";
+import { StaffPerformanceRoster } from "@/components/StaffPerformanceRoster";
 import { IermsAuditScorecardPanel } from "@/components/IermsAuditScorecardPanel";
 import { ErtRosterPanel } from "@/components/ErtRosterPanel";
 import { EquipmentAuditPanel } from "@/components/EquipmentAuditPanel";
@@ -773,6 +774,7 @@ export default function HospitalAdminDashboard() {
                 { id: "schedule", label: "Training Schedule" },
                 { id: "cpd", label: "CPD & Training" },
                 { id: "progress", label: "Staff Progress" },
+                { id: "performance", label: "Staff Performance" },
               ],
             },
             {
@@ -2412,6 +2414,16 @@ export default function HospitalAdminDashboard() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="performance" className="space-y-6">
+            {myInstitution?.institution?.companyName ? (
+              <StaffPerformanceRoster lastDays={90} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Link your hospital account to see staff performance data.
+              </p>
+            )}
           </TabsContent>
 
           {/* Reports Tab */}
