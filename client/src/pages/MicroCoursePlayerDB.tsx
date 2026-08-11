@@ -287,7 +287,7 @@ export default function MicroCoursePlayerDB() {
   }, [isAhaCourse, myAhaEnrollments, myEnrollments, slug, ahaProgram, ahaCourseDetails]);
 
   const microEnrollmentId = (enrollment as { id?: number } | undefined)?.id;
-  const { data: examState } = trpc.learning.getMicroCourseExamState.useQuery(
+  const { data: examState, isLoading: examStateLoading } = trpc.learning.getMicroCourseExamState.useQuery(
     { enrollmentId: microEnrollmentId ?? 0 },
     { enabled: !!microEnrollmentId }
   );
@@ -749,7 +749,21 @@ export default function MicroCoursePlayerDB() {
       }
       window.scrollTo(0, 0);
     } else {
-      // All cognitive modules finished
+      // All cognitive modules finished.
+      // Bug fix (2026-08-10): examState is undefined while its query is
+      // still in flight, and `examState?.capstoneRequired` reads as falsy
+      // during that window -- so a learner who reaches the end of the last
+      // module before this query resolves was dropped straight into the
+      // Summative Exam, then (once examState loaded and the flow "caught
+      // up") routed through the Capstone anyway, then back into the real
+      // Summative Exam again per the design below. Net effect: the exam
+      // appeared to run twice, once spuriously. Block on the loading state
+      // itself here instead of letting "unknown" silently mean "not
+      // required".
+      if (examStateLoading) {
+        toast.info("Checking your course requirements — one moment...");
+        return;
+      }
       // Show Capstone as the next step after the last module for all AHA courses
       if (examState?.capstoneRequired && !examState.capstonePassed) {
         setShowCapstoneSim(true);

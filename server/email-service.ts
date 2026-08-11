@@ -595,7 +595,33 @@ export const emailTemplates: Record<string, EmailTemplate> = {
     text: `Hello {{claimantName}},\\n\\n{{outcomeBody}}\\n\\nView your bookings: {{dashboardUrl}}\\n\\nPaeds Resus Limited`,
     variables: ["claimantName", "outcomeHeading", "outcomeBody", "dashboardUrl"],
   },
+
+  blsCourseContentUpdated: {
+    id: "bls-course-content-updated",
+    name: "BLS course restructured: First Aid modules removed, affected progress reset",
+    subject: "Your BLS course has been updated — a quick note on your progress",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 20px;">Your BLS course has been updated</h1>
+        </div>
+        <div style="padding: 24px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Hello {{learnerName}},</p>
+          <p>We've restructured the BLS Provider course to match the American Heart Association's actual BLS curriculum more closely. The three modules that covered general First Aid topics (First Aid Foundations, Allergic Reactions & Epi-pen, and Bleeding Control & Wounds) have been removed from BLS — that content belongs in our separate Heartsaver course, which already covers it in full.</p>
+          <p>Because your account had progress recorded on one or more of the modules that were reorganized, we've reset that specific progress so your course accurately reflects what you've completed. Any modules unaffected by this change (Foundations, Adult/Infant/Child CPR, AED, and Choking) were not touched.</p>
+          <p>We're sorry for the extra step — this only affects a small part of the course, and picking back up should be quick.</p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="{{courseUrl}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Continue my BLS course</a>
+          </div>
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+        </div>
+      </div>
+    `,
+    text: `Hello {{learnerName}},\\n\\nWe've restructured the BLS Provider course to match the American Heart Association's actual BLS curriculum. The three First Aid modules (First Aid Foundations, Allergic Reactions & Epi-pen, Bleeding Control & Wounds) have been removed from BLS -- that content lives in our separate Heartsaver course instead.\\n\\nBecause your account had progress on one or more of the reorganized modules, we've reset that specific progress. Modules unaffected by this change were not touched.\\n\\nContinue your course: {{courseUrl}}\\n\\nPaeds Resus Limited`,
+    variables: ["learnerName", "courseUrl"],
+  },
 };
+
 
 /**
  * Send email using SendGrid
