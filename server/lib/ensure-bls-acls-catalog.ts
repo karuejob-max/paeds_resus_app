@@ -663,8 +663,8 @@ export async function ensureBlsCatalog(db: any): Promise<void> {
     db,
     "bls",
     "BLS Provider Course — AHA 2025 Guidelines",
-    "American Heart Association Basic Life Support (BLS) Provider Course. Deeply enriched with 2025 Unified Chain of Survival, Heartsaver-level accessibility, healthcare-provider depth, and advanced life-saving skills.",
-    350,
+    "American Heart Association Basic Life Support (BLS) Provider Course. Deeply enriched with 2025 Unified Chain of Survival, healthcare-provider depth, and advanced life-saving skills. First Aid content lives in the separate Heartsaver course, matching AHA's own course structure -- BLS Provider stays focused on resuscitation.",
+    BLS_MODULES.reduce((sum, mod) => sum + mod.duration, 0),
     "intermediate",
     BLS_MODULES
   );
