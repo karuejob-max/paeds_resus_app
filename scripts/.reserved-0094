@@ -1,0 +1,12 @@
+Migration number 0094 reserved.
+
+Description: BLS first aid module removal - reset affected learner progress
+Reserved at: 2026-08-11 11:20:12 +03:00
+
+This is a placeholder, not a real migration. It exists only to make this
+number visible to other sessions the instant it's claimed, closing the
+race-condition window between "checked, it's free" and "PR merged."
+
+Once the real PR (with scripts/apply-0094-*.mjs and its
+package.json entry) has merged to main, this whole branch can be deleted:
+  git push origin --delete migration-reserved-0094
