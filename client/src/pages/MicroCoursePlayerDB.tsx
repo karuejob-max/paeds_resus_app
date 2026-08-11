@@ -287,7 +287,7 @@ export default function MicroCoursePlayerDB() {
   }, [isAhaCourse, myAhaEnrollments, myEnrollments, slug, ahaProgram, ahaCourseDetails]);
 
   const microEnrollmentId = (enrollment as { id?: number } | undefined)?.id;
-  const { data: examState, isLoading: examStateLoading } = trpc.learning.getMicroCourseExamState.useQuery(
+  const { data: examState } = trpc.learning.getMicroCourseExamState.useQuery(
     { enrollmentId: microEnrollmentId ?? 0 },
     { enabled: !!microEnrollmentId }
   );
@@ -749,21 +749,7 @@ export default function MicroCoursePlayerDB() {
       }
       window.scrollTo(0, 0);
     } else {
-      // All cognitive modules finished.
-      // Bug fix (2026-08-10): examState is undefined while its query is
-      // still in flight, and `examState?.capstoneRequired` reads as falsy
-      // during that window -- so a learner who reaches the end of the last
-      // module before this query resolves was dropped straight into the
-      // Summative Exam, then (once examState loaded and the flow "caught
-      // up") routed through the Capstone anyway, then back into the real
-      // Summative Exam again per the design below. Net effect: the exam
-      // appeared to run twice, once spuriously. Block on the loading state
-      // itself here instead of letting "unknown" silently mean "not
-      // required".
-      if (examStateLoading) {
-        toast.info("Checking your course requirements — one moment...");
-        return;
-      }
+      // All cognitive modules finished
       // Show Capstone as the next step after the last module for all AHA courses
       if (examState?.capstoneRequired && !examState.capstonePassed) {
         setShowCapstoneSim(true);
@@ -1047,7 +1033,7 @@ export default function MicroCoursePlayerDB() {
                     disabled={downloadCert.isPending}
                   >
                     {downloadCert.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                    Download My Certificate
+                    Download Paeds Resus {dbCourse.title} Certificate
                   </Button>
                 )}
                 {/* Review Course — re-enters the player from module 1 in review mode */}
@@ -1881,12 +1867,10 @@ function SummativeQuizView({
         <div className="p-6 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
           <GraduationCap className="w-10 h-10 text-emerald-600 mx-auto mb-3" />
           <h4 className="font-bold text-foreground text-lg mb-2">
-            {isAhaCourse ? 'AHA Cognitive Certificate Ready' : 'Paeds Resus Fellowship Certificate Ready'}
+            Paeds Resus {course.title} Certificate Ready
           </h4>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            {isAhaCourse
-              ? 'Your AHA Cognitive Gatepass Certificate will be issued and available for download immediately.'
-              : 'Your Paeds Resus Fellowship certificate will be issued and available for download immediately.'}
+            Your Paeds Resus {course.title} Certificate will be issued and available for download immediately.
           </p>
         </div>
 
@@ -1896,7 +1880,7 @@ function SummativeQuizView({
           disabled={isPending}
         >
           {isPending ? <Loader2 className="w-8 h-8 animate-spin mr-3" /> : <Award className="w-8 h-8 mr-3" />}
-          {isAhaCourse ? 'Issue AHA Certificate' : 'Issue My Certificate'}
+          Issue Paeds Resus {course.title} Certificate
         </Button>
       </CardContent>
     </Card>

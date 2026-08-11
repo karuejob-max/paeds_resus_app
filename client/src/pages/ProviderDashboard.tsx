@@ -28,6 +28,7 @@ import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAna
 import { useAfterFirstPaint } from "@/hooks/useAfterFirstPaint";
 import { usePrefetchAhaHub } from "@/hooks/usePrefetchAhaHub";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
+import { CertificateFolder } from "@/components/CertificateFolder";
 import { MyPerformanceScorecard } from "@/components/MyPerformanceScorecard";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -39,6 +40,19 @@ function daysUntilExpiry(expiryDate: string | Date | null | undefined): number |
   if (Number.isNaN(d.getTime())) return null;
   return Math.ceil((d.getTime() - Date.now()) / 86400000);
 }
+
+/**
+ * Certificate folder grouping for "My Certificates" — CEO-requested
+ * 2026-08-11. Matches the `certificates.programType` enum in
+ * drizzle/schema.ts exactly; if a new program type is ever added there
+ * without updating this list, it falls into "Fellowship Certificates" by
+ * default (see `fellowshipCertificates` below) rather
+ * than silently disappearing.
+ */
+const LIFE_SUPPORT_PROGRAM_TYPES = new Set([
+  "bls", "acls", "pals", "heartsaver", "nrp",
+  "bls_cognitive", "acls_cognitive", "pals_cognitive", "heartsaver_cognitive", "nrp_cognitive",
+]);
 
 export default function ProviderDashboard({ defaultShowCertificates = false }: { defaultShowCertificates?: boolean }) {
   const { user, loading, isAuthenticated } = useAuth();
@@ -136,6 +150,18 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
 
   const myCertificates = certData?.success ? (certData.certificates ?? []) : [];
 
+  const { data: cpdCertData } = trpc.cpd.myCertificates.useQuery(undefined, {
+    enabled: isAuthenticated && afterPaint,
+  });
+  const cpdCertificates = cpdCertData?.records ?? [];
+
+  const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({
+    lifeSupport: true,
+    fellowship: true,
+    cpd: true,
+  });
+  const toggleFolder = (key: string) => setOpenFolders((prev) => ({ ...prev, [key]: !prev[key] }));
+
   const renewalReminderEmail = trpc.certificates.requestRenewalReminderEmail.useMutation({
     onSuccess: (r) => {
       if (r.success) toast.success("Renewal reminder sent to your email.");
@@ -171,6 +197,13 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
     const days = daysUntilExpiry(c.expiryDate);
     return days !== null && days <= 90;
   });
+
+  // "My Certificates" grouped folders — CEO-requested 2026-08-11. Anything
+  // not matched by LIFE_SUPPORT_PROGRAM_TYPES falls into Fellowship by
+  // default (see that constant's own comment for why).
+  const lifeSupportCertificates = myCertificates.filter((c) => LIFE_SUPPORT_PROGRAM_TYPES.has(c.programType));
+  const fellowshipCertificates = myCertificates.filter((c) => !LIFE_SUPPORT_PROGRAM_TYPES.has(c.programType));
+  const totalCertificateCount = myCertificates.length + cpdCertificates.length;
 
   const fellowshipCoursesRequired = fellowshipProgress?.coursesPillar?.required ?? 27;
   const fellowshipCoursesCompleted = fellowshipProgress?.coursesPillar?.completed ?? completedCourses.length;
@@ -239,6 +272,65 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
     setDownloadingCertificateId(certId);
     // Try direct download — backend handles feedback gate
     runCertificateDownload(certNumber, certId);
+  };
+
+  // Shared row renderer for the Life Support and Fellowship folders — same
+  // markup as before the 2026-08-11 grouping change, just extracted so it
+  // isn't duplicated across two folder sections.
+  const renderCertificateRow = (c: (typeof myCertificates)[number]) => {
+    const days = daysUntilExpiry(c.expiryDate);
+    const renewSoon = days !== null && days <= 90;
+    return (
+      <li
+        key={c.id}
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border p-3"
+      >
+        <div>
+          <p className="font-medium text-foreground text-sm">
+            {c.courseTitle?.trim() || c.programType.toUpperCase()}
+          </p>
+          {c.courseTitle?.trim() ? (
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">{c.programType}</p>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            Issued {c.issueDate ? new Date(c.issueDate).toLocaleDateString() : "—"}
+            {c.expiryDate ? ` · Expires ${new Date(c.expiryDate).toLocaleDateString()}` : ""}
+          </p>
+          {renewSoon && (
+            <p className={`text-xs font-medium mt-1 ${days! < 0 ? "text-red-600" : "text-amber-700"}`}>
+              {days! < 0 ? "Expired — renew to stay current" : `Renews in ${days} days`}
+            </p>
+          )}
+          {c.certificateNumber && (
+            <p className="text-xs text-muted-foreground/80 mt-1">No. {c.certificateNumber}</p>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {renewSoon && (
+            <Button size="sm" variant="secondary" onClick={() => setLocation("/enroll")}>
+              Renew
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!c.certificateNumber || downloadingCertificateId === c.id}
+            onClick={() =>
+              handleDownloadCertificate(c.id, c.certificateNumber, c.courseTitle ?? null, c.programType)
+            }
+          >
+            {c.certificateNumber && downloadingCertificateId === c.id ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <Download className="w-4 h-4 mr-1" />
+                Download
+              </>
+            )}
+          </Button>
+        </div>
+      </li>
+    );
   };
 
   useEffect(() => {
@@ -688,11 +780,11 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
               <CardTitle className="text-base flex items-center gap-2">
                 <Award className="h-5 w-5 text-emerald-600" />
                 My Certificates
-                {myCertificates.length > 0 && (
-                  <Badge variant="secondary" className="ml-1">{myCertificates.length}</Badge>
+                {totalCertificateCount > 0 && (
+                  <Badge variant="secondary" className="ml-1">{totalCertificateCount}</Badge>
                 )}
               </CardTitle>
-              {myCertificates.length > 0 && (
+              {totalCertificateCount > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -705,7 +797,7 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
             </div>
           </CardHeader>
           <CardContent className="px-5 pb-4">
-            {myCertificates.length === 0 ? (
+            {totalCertificateCount === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No certificates yet. Complete a course to receive your certificate.
               </p>
@@ -713,7 +805,7 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
                 <p className="text-sm text-slate-600">
-                  You have <strong>{myCertificates.length}</strong> certificate{myCertificates.length > 1 ? "s" : ""}.
+                  You have <strong>{totalCertificateCount}</strong> certificate{totalCertificateCount > 1 ? "s" : ""}.
                   {renewalAttention.length > 0 && (
                     <span className="text-amber-700 font-medium ml-1">
                       {renewalAttention.length} expiring soon.
@@ -722,62 +814,72 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
                 </p>
               </div>
             ) : (
-              <ul className="space-y-3">
-                {myCertificates.map((c) => {
-                  const days = daysUntilExpiry(c.expiryDate);
-                  const renewSoon = days !== null && days <= 90;
-                  return (
-                    <li
-                      key={c.id}
-                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border p-3"
-                    >
-                      <div>
-                        <p className="font-medium text-foreground text-sm">
-                          {c.courseTitle?.trim() || c.programType.toUpperCase()}
-                        </p>
-                        {c.courseTitle?.trim() ? (
-                          <p className="text-xs text-muted-foreground uppercase tracking-wide">{c.programType}</p>
-                        ) : null}
-                        <p className="text-xs text-muted-foreground">
-                          Issued {c.issueDate ? new Date(c.issueDate).toLocaleDateString() : "—"}
-                          {c.expiryDate ? ` · Expires ${new Date(c.expiryDate).toLocaleDateString()}` : ""}
-                        </p>
-                        {renewSoon && (
-                          <p className={`text-xs font-medium mt-1 ${days! < 0 ? "text-red-600" : "text-amber-700"}`}>
-                            {days! < 0 ? "Expired — renew to stay current" : `Renews in ${days} days`}
-                          </p>
-                        )}
-                        {c.certificateNumber && (
-                          <p className="text-xs text-muted-foreground/80 mt-1">No. {c.certificateNumber}</p>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {renewSoon && (
-                          <Button size="sm" variant="secondary" onClick={() => setLocation("/enroll")}>
-                            Renew
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={!c.certificateNumber || downloadingCertificateId === c.id}
-                          onClick={() =>
-                            handleDownloadCertificate(c.id, c.certificateNumber, c.courseTitle ?? null, c.programType)
-                          }
+              <div className="space-y-4">
+                {lifeSupportCertificates.length > 0 && (
+                  <CertificateFolder
+                    label="Life Support Certificates"
+                    count={lifeSupportCertificates.length}
+                    isOpen={openFolders.lifeSupport}
+                    onToggle={() => toggleFolder("lifeSupport")}
+                  >
+                    <ul className="space-y-3">
+                      {lifeSupportCertificates.map((c) => renderCertificateRow(c))}
+                    </ul>
+                  </CertificateFolder>
+                )}
+
+                {fellowshipCertificates.length > 0 && (
+                  <CertificateFolder
+                    label="Fellowship Certificates"
+                    count={fellowshipCertificates.length}
+                    isOpen={openFolders.fellowship}
+                    onToggle={() => toggleFolder("fellowship")}
+                  >
+                    <ul className="space-y-3">
+                      {fellowshipCertificates.map((c) => renderCertificateRow(c))}
+                    </ul>
+                  </CertificateFolder>
+                )}
+
+                {cpdCertificates.length > 0 && (
+                  <CertificateFolder
+                    label="CPD Certificates"
+                    count={cpdCertificates.length}
+                    isOpen={openFolders.cpd}
+                    onToggle={() => toggleFolder("cpd")}
+                  >
+                    <ul className="space-y-3">
+                      {cpdCertificates.map((r) => (
+                        <li
+                          key={r.attendeeId}
+                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border p-3"
                         >
-                          {c.certificateNumber && downloadingCertificateId === c.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>
+                          <div>
+                            <p className="font-medium text-foreground text-sm">{r.eventName}</p>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                              {r.institutionName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {r.eventDate ? new Date(r.eventDate).toLocaleDateString() : ""}
+                              {r.cpdPoints != null ? ` · ${r.cpdPoints} pts` : ""}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(`/api/cpd/certificate/${r.attendeeId}`, "_blank")}
+                            >
                               <Download className="w-4 h-4 mr-1" />
                               Download
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </li>
-                  );
-                })}
+                            </Button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </CertificateFolder>
+                )}
+
                 {renewalAttention.length > 0 && (
                   <div className="pt-1">
                     <Button
@@ -791,7 +893,7 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
                     </Button>
                   </div>
                 )}
-              </ul>
+              </div>
             )}
           </CardContent>
         </Card>
