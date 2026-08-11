@@ -83,10 +83,11 @@ export function MyPerformanceScorecard() {
             <GraduationCap className="h-5 w-5 text-violet-600 shrink-0 mt-0.5" />
             <div>
               <p className="text-lg font-bold">
-                {sc.cpd.sessionsAttended + sc.cpd.sessionsPresented}
+                {sc.cpd.sessionsPresented + sc.cpd.sessionsAttended}
               </p>
               <p className="text-xs text-muted-foreground">
-                CPD sessions ({sc.cpd.sessionsPresented} presented) · {sc.cpd.pointsEarned} pts
+                CPD sessions ({sc.cpd.sessionsPresented} presented, {sc.cpd.sessionsAttended} attended) ·{" "}
+                {sc.cpd.pointsEarned} pts
               </p>
             </div>
           </div>
