@@ -367,9 +367,7 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
           </div>
         </div>
 
-        {/* ── My Performance (supersedes the standalone QI Participation card —
-             My Performance Scorecard shows the same Care Signal/Code Signal
-             counts as part of a superset, found redundant on this quick pass) */}
+        {/* ── My Performance ──────────────────────────────────────────────────── */}
         <MyPerformanceScorecard />
 
         {/* ── Paeds Resus Fellowship ─────────────────────────────────────────── */}
