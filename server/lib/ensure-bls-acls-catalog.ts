@@ -639,7 +639,7 @@ async function ensureCatalog(
 	        question: q.question || (q as any).questionText,
 	        questionType: "multiple_choice",
 	        options: typeof q.options === "string" ? q.options : JSON.stringify(q.options),
-	        correctAnswer: typeof q.correctAnswer === "string" ? q.correctAnswer : JSON.stringify(q.correctAnswer),
+	        correctAnswer: JSON.stringify(q.correctAnswer),
 	        explanation: q.explanation,
 	        order: qOrder,
 	      };
