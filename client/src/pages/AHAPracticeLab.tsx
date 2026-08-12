@@ -107,7 +107,7 @@ export default function AHAPracticeLab() {
         <div className="max-w-lg mx-auto space-y-4">
           <Button variant="ghost" size="sm" onClick={() => setLocation("/aha-courses")} className="gap-2">
             <ArrowLeft className="h-4 w-4" />
-            AHA Hub
+            Life Support Hub
           </Button>
           <Card>
             <CardHeader>
@@ -120,7 +120,7 @@ export default function AHAPracticeLab() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => setLocation("/aha-courses")}>Go to AHA Hub</Button>
+              <Button onClick={() => setLocation("/aha-courses")}>Go to Life Support Hub</Button>
             </CardContent>
           </Card>
         </div>
@@ -142,7 +142,7 @@ export default function AHAPracticeLab() {
           <div className="flex items-start gap-4">
             <Button variant="ghost" size="sm" onClick={() => setLocation("/aha-courses")} className="gap-2 shrink-0">
               <ArrowLeft className="h-4 w-4" />
-              AHA Hub
+              Life Support Hub
             </Button>
             <div>
               <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3">

@@ -96,7 +96,7 @@ export default function Header() {
         { label: "Code Signal", href: "/code-signal", icon: "🫀" },
         { label: "Fellowship", href: "/fellowship", icon: "📚", group: "learn" },
         { label: "Fellowship guide", href: "/fellowship/about", icon: "📖", group: "learn" },
-        { label: "AHA", href: "/aha-courses", icon: "🩺", group: "learn" },
+        { label: "Life Support", href: "/aha-courses", icon: "🩺", group: "learn" },
         { label: "My CPD", href: "/my-cpd-certificates", icon: "📜", group: "learn" },
       ];
       if (instructorStatus?.portalUnlocked) {
