@@ -716,7 +716,7 @@ export async function ensureInstructorCourseCatalog(db: any): Promise<void> {
         question: q.question,
         questionType: "multiple_choice",
         options: JSON.stringify(q.options),
-        correctAnswer: typeof q.correctAnswer === "string" ? q.correctAnswer : JSON.stringify(q.correctAnswer),
+        correctAnswer: JSON.stringify(q.correctAnswer),
         explanation: q.explanation,
         order: order++,
       });

@@ -55,4 +55,34 @@ describe("quiz-answer-contract", () => {
     expect(gradeQuizAnswerAgainstStored("Work of Breathing", "0", opts)).toBe(false);
     expect(gradeQuizAnswerAgainstStored("Appearance", JSON.stringify("Appearance"), opts)).toBe(true);
   });
+
+  it("round-trips a correct answer that itself contains embedded quote characters (regression: Instructor course Module 4, 2026-08-11)", () => {
+    // The seeders in ensure-bls-acls-catalog.ts and ensure-instructor-course-catalog.ts
+    // used to store correctAnswer raw whenever it was already a string, only calling
+    // JSON.stringify() for non-strings -- but correctAnswer is ALWAYS a string per its
+    // type, so that branch never fired. Most answers happened to still grade correctly
+    // by accident, because parseStoredQuizCorrectAnswer falls back to the raw trimmed
+    // string when JSON.parse() throws. This one didn't fall back: an answer that is
+    // itself a quoted phrase (an example line of dialogue) parses as *valid* JSON on
+    // its own, so JSON.parse() silently stripped the surrounding quote characters that
+    // are still part of the visible option text the learner actually clicks -- the two
+    // could never match, so the correct answer was permanently graded as wrong.
+    const answerWithEmbeddedQuotes =
+      '"I noticed the epinephrine was delayed by about two minutes — what was happening for you at that point?"';
+    const options = [
+      '"You\'re not good under pressure."',
+      answerWithEmbeddedQuotes,
+      '"That was a bad round, let\'s move on."',
+    ];
+
+    // The buggy encoding (raw string, not JSON-stringified) fails to round-trip.
+    const buggyStored = answerWithEmbeddedQuotes; // what the old seeder wrote
+    expect(parseStoredQuizCorrectAnswer(buggyStored)).not.toBe(answerWithEmbeddedQuotes);
+
+    // The fixed encoding (always JSON.stringify, matching Heartsaver's seeders and the
+    // documented contract) round-trips correctly and grades the right option as correct.
+    const fixedStored = JSON.stringify(answerWithEmbeddedQuotes);
+    expect(parseStoredQuizCorrectAnswer(fixedStored)).toBe(answerWithEmbeddedQuotes);
+    expect(gradeQuizAnswerAgainstStored(answerWithEmbeddedQuotes, fixedStored, options)).toBe(true);
+  });
 });
