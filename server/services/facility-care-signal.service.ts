@@ -12,6 +12,13 @@ import {
 } from "../../drizzle/schema";
 import { getFacilityById, resolveCanonicalFacilityId } from "./facility-registry.service";
 
+export function calculateFacilityReportingRate(providerIds: number[], reporterIds: Iterable<number>) {
+  if (providerIds.length === 0) return 0;
+  const providers = new Set(providerIds);
+  const facilityReporterCount = new Set([...reporterIds].filter((userId) => providers.has(userId))).size;
+  return Math.min(100, Math.round((facilityReporterCount / providers.size) * 100));
+}
+
 /** Facilities with Care Signal volume (canonical registry). */
 export async function listCareSignalFacilities(options: { limit?: number } = {}) {
   const db = await getDb();
@@ -218,8 +225,13 @@ export async function getFacilityCareSignalDashboard(input: {
           .limit(200)
       : [];
 
+  // Only count reporters who are registered at this facility. Legacy/name-based
+  // events can otherwise include a provider from another facility with the same
+  // name and inflate the rate above 100%.
+  const facilityProviderIds = new Set(providersAtFacility.map((provider) => provider.userId));
+  const facilityReporterIds = new Set([...reporterIds].filter((userId) => facilityProviderIds.has(userId)));
   const providersWithoutSubmission = providersAtFacility.filter(
-    (p) => !reporterIds.has(p.userId)
+    (p) => !facilityReporterIds.has(p.userId)
   );
 
   const topGaps = Object.entries(gapBreakdown)
@@ -246,10 +258,10 @@ export async function getFacilityCareSignalDashboard(input: {
     resusGpsActiveUsers = new Set(resusCases.map((r) => r.userId)).size;
   }
 
-  const reportingRatePercent =
-    providersAtFacility.length > 0
-      ? Math.round((reporterIds.size / providersAtFacility.length) * 100)
-      : 0;
+  const reportingRatePercent = calculateFacilityReportingRate(
+    providersAtFacility.map((provider) => provider.userId),
+    reporterIds,
+  );
   const resusAdoptionPercent =
     providersAtFacility.length > 0
       ? Math.round((resusGpsActiveUsers / providersAtFacility.length) * 100)
@@ -268,7 +280,7 @@ export async function getFacilityCareSignalDashboard(input: {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).length,
     underReviewCount: underReview,
-    uniqueReporters: reporterIds.size,
+    uniqueReporters: facilityReporterIds.size,
     providersRegistered: providersAtFacility.length,
     providersWithoutSubmission: providersWithoutSubmission.length,
     outcomeBreakdown,

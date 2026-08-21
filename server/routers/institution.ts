@@ -33,6 +33,9 @@ import {
   iermsAuditScorecards,
   equipmentAuditLogs,
   iermsImplementationTrackers,
+  institutionMemberships,
+  iersEvidenceRecords,
+  iersActionItems,
   cpdEvents,
   cpdAttendees,
 } from "../../drizzle/schema";
@@ -46,7 +49,7 @@ import {
   type GapRecommendation,
 } from "./care-signal-events";
 import { alias } from "drizzle-orm/mysql-core";
-import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, sql } from "drizzle-orm";
+import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, sql, or } from "drizzle-orm";
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
 import { assertInstitutionAccess, getAdministeredInstitutionIds } from "../lib/institution-access";
@@ -62,6 +65,7 @@ import { getFacilityCodeSignalDashboard } from "../services/facility-code-signal
 import { getProviderScorecard, getFacilityMedianQiCount, getDepartmentMedianQiCount, type ProviderScorecard } from "../services/provider-performance.service";
 import { notifyInstructorSessionAssigned } from "../lib/instructor-session-notification";
 import { ENV } from "../_core/env";
+import { isMissingTableError } from "../lib/is-missing-db-table";
 import { isInstitutionInPilotProgram } from "@shared/pilot-program";
 import {
   isValidActionLogStatusTransition,
@@ -70,6 +74,65 @@ import {
 } from "../lib/institutional-action-log-status";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+
+async function ensureProviderMembershipForStaff(
+  db: DbClient,
+  input: {
+    institutionId: number;
+    staffMemberId: number;
+    email: string;
+    responsibilityRole?: "executive" | "erc_chair" | "erc_member" | "er_coordinator" | "unit_team_leader" | "ert_leader" | "ert_responder" | "general_staff";
+  },
+) {
+  const email = input.email.trim().toLowerCase();
+  const [existingUser] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
+  const [existingMembership] = await db
+    .select({ id: institutionMemberships.id })
+    .from(institutionMemberships)
+    .where(and(
+      eq(institutionMemberships.institutionalAccountId, input.institutionId),
+      eq(institutionMemberships.invitedEmail, email),
+    ))
+    .limit(1);
+
+  const membershipStatus = existingUser ? "active" : "invited";
+  const responsibilityRole = input.responsibilityRole ?? "general_staff";
+  if (existingMembership) {
+    await db
+      .update(institutionMemberships)
+      .set({
+        userId: existingUser?.id ?? null,
+        staffMemberId: input.staffMemberId,
+        membershipStatus,
+        responsibilityRole,
+        acceptedAt: existingUser ? new Date() : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(institutionMemberships.id, existingMembership.id));
+  } else {
+    await db.insert(institutionMemberships).values({
+      institutionalAccountId: input.institutionId,
+      userId: existingUser?.id ?? null,
+      invitedEmail: email,
+      staffMemberId: input.staffMemberId,
+      membershipStatus,
+      responsibilityRole,
+      acceptedAt: existingUser ? new Date() : null,
+    });
+  }
+
+  if (existingUser) {
+    await db
+      .update(institutionalStaffMembers)
+      .set({ userId: existingUser.id, facilityLinkStatus: "linked", updatedAt: new Date() })
+      .where(eq(institutionalStaffMembers.id, input.staffMemberId));
+  }
+}
 
 async function assertApprovedInstructorUser(db: DbClient, userId: number) {
   const [row] = await db
@@ -218,6 +281,251 @@ export const institutionRouter = router({
       institutions: rows,
     };
   }),
+
+  /**
+   * Provider-facing institution memberships and pending invitations. This is
+   * the bridge between the provider workspace and institution operations: a
+   * provider sees only memberships addressed to their own account/email.
+   */
+  getMyMemberships: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+
+    const email = ctx.user.email?.trim().toLowerCase();
+    const membershipFilter = email
+      ? or(eq(institutionMemberships.userId, ctx.user.id), eq(institutionMemberships.invitedEmail, email))
+      : eq(institutionMemberships.userId, ctx.user.id);
+
+    let rows;
+    try {
+      rows = await db
+        .select({
+          id: institutionMemberships.id,
+          institutionalAccountId: institutionMemberships.institutionalAccountId,
+          userId: institutionMemberships.userId,
+          invitedEmail: institutionMemberships.invitedEmail,
+          membershipStatus: institutionMemberships.membershipStatus,
+          responsibilityRole: institutionMemberships.responsibilityRole,
+          staffMemberId: institutionMemberships.staffMemberId,
+          acceptedAt: institutionMemberships.acceptedAt,
+          companyName: institutionalAccounts.companyName,
+          staffName: institutionalStaffMembers.staffName,
+          staffRole: institutionalStaffMembers.staffRole,
+          department: institutionalStaffMembers.department,
+        })
+        .from(institutionMemberships)
+        .innerJoin(institutionalAccounts, eq(institutionalAccounts.id, institutionMemberships.institutionalAccountId))
+        .leftJoin(institutionalStaffMembers, eq(institutionalStaffMembers.id, institutionMemberships.staffMemberId))
+        .where(membershipFilter)
+        .orderBy(desc(institutionMemberships.updatedAt));
+    } catch (error) {
+      if (isMissingTableError(error, "institutionMemberships")) return [];
+      throw error;
+    }
+
+    return rows.map((row) => ({
+      ...row,
+      isPendingInvite: row.userId == null && row.membershipStatus === "invited",
+    }));
+  }),
+
+  /** Institution admin: invite or link a provider into the shared IERS model. */
+  inviteProvider: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      email: z.string().email(),
+      staffName: z.string().trim().min(2).max(255),
+      staffPhone: z.string().trim().max(20).optional(),
+      staffRole: z.enum(["doctor", "nurse", "paramedic", "midwife", "lab_tech", "respiratory_therapist", "support_staff", "other"]).default("other"),
+      responsibilityRole: z.enum(["executive", "erc_chair", "erc_member", "er_coordinator", "unit_team_leader", "ert_leader", "ert_responder", "general_staff"]).default("general_staff"),
+      department: z.string().trim().max(255).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const email = input.email.trim().toLowerCase();
+      const [existingUser] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+
+      const [existingStaff] = await db
+        .select({ id: institutionalStaffMembers.id })
+        .from(institutionalStaffMembers)
+        .where(and(
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+          eq(institutionalStaffMembers.staffEmail, email),
+        ))
+        .limit(1);
+
+      let staffMemberId = existingStaff?.id;
+      if (!staffMemberId) {
+        const staffInsert = await db.insert(institutionalStaffMembers).values({
+          institutionalAccountId: input.institutionId,
+          userId: existingUser?.id ?? null,
+          staffName: input.staffName,
+          staffEmail: email,
+          staffPhone: input.staffPhone || null,
+          staffRole: input.staffRole,
+          department: input.department || null,
+          governanceRole: input.responsibilityRole,
+          enrollmentStatus: "pending",
+          facilityLinkStatus: "pending",
+        });
+        staffMemberId = (staffInsert as unknown as { insertId: number }).insertId;
+      }
+
+      const [existingMembership] = await db
+        .select({ id: institutionMemberships.id })
+        .from(institutionMemberships)
+        .where(and(
+          eq(institutionMemberships.institutionalAccountId, input.institutionId),
+          eq(institutionMemberships.invitedEmail, email),
+        ))
+        .limit(1);
+
+      if (existingMembership) {
+        await db
+          .update(institutionMemberships)
+          .set({
+            userId: existingUser?.id ?? null,
+            staffMemberId,
+            responsibilityRole: input.responsibilityRole,
+            membershipStatus: "invited",
+            invitedByUserId: ctx.user.id,
+            invitedAt: new Date(),
+            acceptedAt: null,
+            suspendedAt: null,
+            endedAt: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(institutionMemberships.id, existingMembership.id));
+        return { success: true, membershipId: existingMembership.id, status: "reinvited" as const };
+      }
+
+      const membershipInsert = await db.insert(institutionMemberships).values({
+        institutionalAccountId: input.institutionId,
+        userId: existingUser?.id ?? null,
+        invitedEmail: email,
+        staffMemberId,
+        responsibilityRole: input.responsibilityRole,
+        membershipStatus: "invited",
+        invitedByUserId: ctx.user.id,
+      });
+
+      return {
+        success: true,
+        membershipId: (membershipInsert as unknown as { insertId: number }).insertId,
+        status: "invited" as const,
+      };
+    }),
+
+  /** Provider: accept an invitation addressed to the authenticated email. */
+  acceptMembershipInvite: protectedProcedure
+    .input(z.object({ membershipId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      if (!ctx.user.email) throw new TRPCError({ code: "BAD_REQUEST", message: "Your account has no email address." });
+
+      const email = ctx.user.email.trim().toLowerCase();
+      const [membership] = await db
+        .select()
+        .from(institutionMemberships)
+        .where(and(
+          eq(institutionMemberships.id, input.membershipId),
+          eq(institutionMemberships.invitedEmail, email),
+          eq(institutionMemberships.membershipStatus, "invited"),
+        ))
+        .limit(1);
+
+      if (!membership) throw new TRPCError({ code: "NOT_FOUND", message: "No matching institution invitation found." });
+
+      await db
+        .update(institutionMemberships)
+        .set({ userId: ctx.user.id, membershipStatus: "active", acceptedAt: new Date(), updatedAt: new Date() })
+        .where(eq(institutionMemberships.id, membership.id));
+
+      if (membership.staffMemberId) {
+        await db
+          .update(institutionalStaffMembers)
+          .set({ userId: ctx.user.id, facilityLinkStatus: "linked", updatedAt: new Date() })
+          .where(eq(institutionalStaffMembers.id, membership.staffMemberId));
+      }
+
+      return { success: true, institutionalAccountId: membership.institutionalAccountId };
+    }),
+
+  /** Institution admin: change a provider's IERS responsibility role. */
+  updateProviderResponsibilityRole: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      membershipId: z.number().int().positive(),
+      responsibilityRole: z.enum(["executive", "erc_chair", "erc_member", "er_coordinator", "unit_team_leader", "ert_leader", "ert_responder", "general_staff"]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      const [membership] = await db
+        .select({ id: institutionMemberships.id, staffMemberId: institutionMemberships.staffMemberId })
+        .from(institutionMemberships)
+        .where(and(
+          eq(institutionMemberships.id, input.membershipId),
+          eq(institutionMemberships.institutionalAccountId, input.institutionId),
+        ))
+        .limit(1);
+      if (!membership) throw new TRPCError({ code: "NOT_FOUND", message: "Institution membership not found." });
+
+      await db
+        .update(institutionMemberships)
+        .set({ responsibilityRole: input.responsibilityRole, updatedAt: new Date() })
+        .where(eq(institutionMemberships.id, membership.id));
+      if (membership.staffMemberId) {
+        await db
+          .update(institutionalStaffMembers)
+          .set({ governanceRole: input.responsibilityRole, updatedAt: new Date() })
+          .where(eq(institutionalStaffMembers.id, membership.staffMemberId));
+      }
+      return { success: true };
+    }),
+
+  /** Institution admin: suspend or end provider participation without deleting history. */
+  updateProviderMembershipStatus: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      membershipId: z.number().int().positive(),
+      status: z.enum(["active", "suspended", "ended"]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const [membership] = await db
+        .select({ id: institutionMemberships.id })
+        .from(institutionMemberships)
+        .where(and(
+          eq(institutionMemberships.id, input.membershipId),
+          eq(institutionMemberships.institutionalAccountId, input.institutionId),
+        ))
+        .limit(1);
+      if (!membership) throw new TRPCError({ code: "NOT_FOUND", message: "Institution membership not found." });
+
+      await db
+        .update(institutionMemberships)
+        .set({
+          membershipStatus: input.status,
+          suspendedAt: input.status === "suspended" ? new Date() : null,
+          endedAt: input.status === "ended" ? new Date() : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(institutionMemberships.id, input.membershipId));
+      return { success: true, status: input.status };
+    }),
 
   searchKmhflFacilities,
 
@@ -996,11 +1304,17 @@ export const institutionRouter = router({
         enrollmentStatus: "pending",
         facilityLinkStatus: "linked", // manual add by admin is auto-approved
       });
+      const staffId = (result as unknown as { insertId: number }).insertId || 1;
+      await ensureProviderMembershipForStaff(db, {
+        institutionId: input.institutionId,
+        staffMemberId: staffId,
+        email: input.staffEmail,
+      });
 
       return {
         success: true,
-        staffId: (result as unknown as { insertId: number }).insertId || 1,
-        message: "Staff member added successfully",
+        staffId,
+        message: "Staff member added and provider responsibility recorded",
       };
     }),
 
@@ -1066,10 +1380,16 @@ export const institutionRouter = router({
             enrollmentStatus: "pending",
             facilityLinkStatus: "linked", // manual bulk import is auto-approved
           });
+          const staffId = (result as unknown as { insertId: number }).insertId || 1;
+          await ensureProviderMembershipForStaff(db, {
+            institutionId: input.institutionId,
+            staffMemberId: staffId,
+            email: staff.staffEmail,
+          });
 
           imported.push({
             staffEmail: staff.staffEmail,
-            staffId: (result as unknown as { insertId: number }).insertId || 1,
+            staffId,
           });
         } catch (error) {
           errors.push({
@@ -2246,6 +2566,17 @@ export const institutionRouter = router({
       });
 
       const insertId = (result as unknown as { insertId: number }).insertId;
+      await db.insert(iersActionItems).values({
+        institutionId: input.institutionId,
+        sourceType: input.careSignalEventId ? "care_signal" : input.codeSignalEventId ? "code_signal" : "manual",
+        sourceId: input.careSignalEventId ?? input.codeSignalEventId ?? insertId,
+        title: input.gapIdentified.trim().slice(0, 255),
+        gapDescription: input.gapIdentified.trim(),
+        priority: "medium",
+        status: input.status === "completed" ? "awaiting_verification" : input.status,
+        closureNote: input.status === "completed" ? input.systemChange.trim() : null,
+        createdByUserId: ctx.user.id,
+      });
 
       return { success: true, id: insertId };
     }),
@@ -3260,24 +3591,50 @@ export const institutionRouter = router({
         deficitsFound: input.deficitsFound,
       });
 
-      // If deficits were found, create an Action Log entry automatically!
-      if (!input.cartSealIntact || !input.hasPaedsAirways || !input.hasPaedsBvm || !input.hasIoNeedles || !input.hasPaedsDefibPads || !input.hasPaedsSuction || input.deficitsFound) {
-        const deficitList = [
-          !input.cartSealIntact ? "Crash cart seal broken" : null,
-          !input.hasPaedsAirways ? "Paediatric oral airways missing" : null,
-          !input.hasPaedsBvm ? "Paediatric bag-valve-mask missing" : null,
-          !input.hasIoNeedles ? "IO needles missing" : null,
-          !input.hasPaedsDefibPads ? "Paediatric defib pads missing" : null,
-          !input.hasPaedsSuction ? "Paediatric suction catheters missing" : null,
-          input.deficitsFound ? `Other deficits: ${input.deficitsFound}` : null,
-        ].filter(Boolean).join("; ");
+      const hasDeficit = !input.cartSealIntact || !input.hasPaedsAirways || !input.hasPaedsBvm || !input.hasIoNeedles || !input.hasPaedsDefibPads || !input.hasPaedsSuction || Boolean(input.deficitsFound);
+      const deficitList = [
+        !input.cartSealIntact ? "Crash cart seal broken" : null,
+        !input.hasPaedsAirways ? "Paediatric oral airways missing" : null,
+        !input.hasPaedsBvm ? "Paediatric bag-valve-mask missing" : null,
+        !input.hasIoNeedles ? "IO needles missing" : null,
+        !input.hasPaedsDefibPads ? "Paediatric defib pads missing" : null,
+        !input.hasPaedsSuction ? "Paediatric suction catheters missing" : null,
+        input.deficitsFound ? `Other deficits: ${input.deficitsFound}` : null,
+      ].filter(Boolean).join("; ");
 
+      await db.insert(iersEvidenceRecords).values({
+        institutionId: input.institutionId,
+        domain: "equipment",
+        criterionCode: "EQ-01",
+        title: `${input.department} ${input.auditType === "daily_seal_check" ? "daily seal check" : "monthly equipment audit"}`,
+        evidenceType: "checklist",
+        description: hasDeficit
+          ? `Equipment audit recorded with deficits: ${deficitList}`
+          : "Equipment audit recorded with all listed paediatric readiness items present.",
+        observedAt: new Date(),
+        submittedByUserId: ctx.user.id,
+        status: "submitted",
+      });
+
+      // Preserve the existing action log and also write to the IERS-owned action queue.
+      if (hasDeficit) {
         await db.insert(institutionalActionLogs).values({
           institutionalAccountId: input.institutionId,
           createdByUserId: ctx.user.id,
           gapIdentified: `[Equipment Deficit - ${input.department}] ${deficitList}`,
           systemChange: `Restock and verify equipment in ${input.department} crash cart.`,
           status: "open",
+        });
+        await db.insert(iersActionItems).values({
+          institutionId: input.institutionId,
+          sourceType: "equipment",
+          sourceId: result.insertId,
+          title: `Restore paediatric equipment readiness in ${input.department}`,
+          gapDescription: deficitList,
+          ownerUserId: ctx.user.id,
+          priority: "high",
+          status: "open",
+          createdByUserId: ctx.user.id,
         });
       }
 

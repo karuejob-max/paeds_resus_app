@@ -9,6 +9,8 @@ import {
   providerProfiles,
   microCourses,
   careSignalRawNarrativeAudit,
+  iersEvidenceRecords,
+  iersActionItems,
 } from "../../drizzle/schema";
 import { trackEvent } from "../services/analytics.service";
 import { syncFellowshipProgressForUser, syncFellowshipTokenProgress } from "../services/fellowship-progress.service";
@@ -503,6 +505,35 @@ export const careSignalEventsRouter = router({
         });
 
         const insertId = (insertResult as unknown as { insertId: number }).insertId;
+        const linkedFacility = resolvedFacilityId ? await getFacilityById(resolvedFacilityId) : null;
+        const linkedInstitutionId = linkedFacility?.institutionalAccountId ?? null;
+        if (linkedInstitutionId) {
+          const gapSummary = input.systemGaps.length ? input.systemGaps.join(", ") : "No structured system gap selected";
+          await db.insert(iersEvidenceRecords).values({
+            institutionId: linkedInstitutionId,
+            domain: "quality_improvement",
+            criterionCode: "QI-01",
+            title: `Care Signal QI event #${insertId}`,
+            evidenceType: "metric",
+            description: `Provider QI event recorded for institutional review. Type: ${input.eventType}; outcome: ${input.outcome}; structured gaps: ${gapSummary}.`,
+            observedAt: new Date(input.eventDate),
+            submittedByUserId: ctx.user.id,
+            status: "submitted",
+          });
+          if (input.systemGaps.length) {
+            await db.insert(iersActionItems).values({
+              institutionId: linkedInstitutionId,
+              sourceType: "care_signal",
+              sourceId: insertId,
+              title: `Review Care Signal gaps from event #${insertId}`,
+              gapDescription: gapSummary,
+              ownerUserId: resolvedSubmissionMode === "named" ? ctx.user.id : null,
+              priority: "medium",
+              status: "open",
+              createdByUserId: ctx.user.id,
+            });
+          }
+        }
 
         const gapDetailsMeta = input.gapDetails as {
           formVersion?: string;
