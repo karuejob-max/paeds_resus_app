@@ -32,6 +32,10 @@ export function isBlsCatalogShapeStale(
   });
 }
 
+export function getBlsModuleDefinition(order: number | null | undefined) {
+  return BLS_MODULES.find((module) => module.order === order);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ACLS CATALOG
 // AHA ACLS Provider curriculum (2020 guidelines):
@@ -466,7 +470,11 @@ async function ensureCatalog(
   courseLevel: "beginner" | "intermediate" | "advanced",
   moduleDefinitions: typeof BLS_MODULES
 ): Promise<void> {
-  // Prefer an existing row that already has modules (ignore empty duplicate test rows).
+  // Use the same canonical-row rule as the learner resolver: repair the
+  // existing course with the richest module catalog, not merely the oldest
+  // duplicate row. Production can contain legacy AHA rows created by earlier
+  // seed paths; choosing the first row can repair the wrong course while the
+  // player continues reading a stale duplicate.
   const existing = await db
     .select({ id: courses.id })
     .from(courses)
@@ -474,19 +482,16 @@ async function ensureCatalog(
     .orderBy(asc(courses.id));
 
   let courseId: number | undefined;
+  let highestModuleCount = -1;
   for (const row of existing) {
-    const mod = await db
+    const moduleRows = await db
       .select({ id: modules.id })
       .from(modules)
-      .where(eq(modules.courseId, row.id))
-      .limit(1);
-    if (mod.length > 0) {
+      .where(eq(modules.courseId, row.id));
+    if (moduleRows.length > highestModuleCount) {
       courseId = row.id;
-      break;
+      highestModuleCount = moduleRows.length;
     }
-  }
-  if (courseId == null && existing.length > 0) {
-    courseId = existing[0].id;
   }
 
 
