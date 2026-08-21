@@ -728,7 +728,10 @@ export const institutionRouter = router({
       z.object({
         institutionName: z.string().min(3),
         institutionType: z.string().min(1),
-        registrationNumber: z.string().min(1).optional(),
+        registrationNumber: z.preprocess(
+          (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+          z.string().trim().min(1).optional()
+        ),
         healthcareStaffCount: z.coerce.number().int().positive(),
         country: z.string().min(1),
         city: z.string().min(1),

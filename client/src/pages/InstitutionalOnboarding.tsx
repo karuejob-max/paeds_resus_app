@@ -112,7 +112,7 @@ export default function InstitutionalOnboarding() {
       await completeOnboarding.mutateAsync({
         institutionName: formData.institutionName,
         institutionType: formData.institutionType,
-        registrationNumber: formData.registrationNumber,
+        registrationNumber: formData.registrationNumber.trim() || undefined,
         healthcareStaffCount: staffCount,
         country: formData.country,
         city: formData.city,

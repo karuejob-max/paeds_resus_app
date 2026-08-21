@@ -174,6 +174,38 @@ describe("Institution Router", () => {
     });
   });
 
+  describe("completeOnboarding", () => {
+    it("accepts a blank optional registration number", async () => {
+      institutionDbMock.mockState.limitRows = [];
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      const result = await caller.institution.completeOnboarding({
+        institutionName: "New Test Hospital",
+        institutionType: "private_hospital",
+        registrationNumber: "",
+        healthcareStaffCount: 25,
+        country: "Kenya",
+        city: "Nairobi",
+        address: "1 Test Street",
+        contactName: "Primary Admin",
+        contactEmail: "primary@new-test-hospital.example",
+        contactPhone: "+254700000001",
+        contactDesignation: "Hospital Administrator",
+        secondAdminName: "Second Admin",
+        secondAdminEmail: "second@new-test-hospital.example",
+        secondAdminPhone: "",
+        programInterest: ["bls"],
+      });
+
+      expect(result).toMatchObject({
+        success: true,
+        institutionId: 1,
+        alreadyRegistered: false,
+      });
+    });
+  });
+
   describe("bulkImportStaff", () => {
     it("should validate staff roles", async () => {
       const ctx = createAuthContext();
