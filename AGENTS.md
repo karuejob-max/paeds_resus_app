@@ -249,6 +249,7 @@ Providers are first-class operators. Institutional administrators configure the 
 | Evidence and closure | Added criterion-level evidence, owned action items, leader verification, closure evidence, and evidence-derived scoring with critical-criteria gating. | Migration `0097`; `iers-criteria.ts` |
 | Drills and learning | Added drills, participation, response timing, debriefs, and conversion of completed operations into reviewable evidence. | Migration `0098`; drill panel |
 | Governance and reporting | Added 30/60/90-day milestones, Care Signal/Code Signal linkage, data-quality correction, and executive snapshots. | Migration `0099`; IERS operating guide |
+| Institutional product control plane | Separated IERS and CPD Portal into independently subscribable products with shared Administration and a managed Connected Services transition area. | Migration `0100`; `INSTITUTIONAL_PORTAL_ARCHITECTURE_V1.md`; `institution-products.ts` |
 
 ### Safe production rollout
 
@@ -262,7 +263,7 @@ Code and database are separate release tracks. A merged PR does not apply SQL to
    pnpm run db:apply-iers
    ```
 
-4. The runner tests the connection, applies migrations `0094` through `0099` in order, stops on the first failure, and runs `db:verify-iers`. Do not continue manually if it stops.
+4. The runner tests the connection, applies migrations `0094` through `0100` in order, stops on the first failure, and runs `db:verify-iers`. Do not continue manually if it stops.
 5. When all migrations have already passed and only verification fails, **do not rerun the migrations**. Deploy the latest verifier fix and run only:
 
    ```bash
@@ -286,6 +287,17 @@ The IERS migrations intentionally preserve the names already deployed. The first
 
 When a production table may differ from the checked-in schema, inspect `information_schema` before constructing a query. Never reference an optional legacy column directly in an `INSERT ... SELECT`. Use an explicit compatibility expression and a safe default. Add a regression test for every discovered schema-drift path.
 
+### 7.2 Institutional portal product architecture
+
+The Institutional Portal is organized into two independently subscribable products plus shared controls:
+
+- **IERS:** emergency readiness, practical competency, team response, drills, evidence, QI, and institutional learning.
+- **CPD Portal:** staff professional-development records, CPD sessions, attendance, certificates, performance, and decision intelligence.
+- **Administration:** people, roles, product access, billing, renewals, exports, and account recovery. It is shared and is not a product subscription.
+- **Connected Services:** Safe Truth, Care Signal/Code Signal entrypoints, individual training, and other transitional capabilities that must remain visible and owned until product placement is decided.
+
+The source of truth for this split is [`docs/institutional/INSTITUTIONAL_PORTAL_ARCHITECTURE_V1.md`](docs/institutional/INSTITUTIONAL_PORTAL_ARCHITECTURE_V1.md). Do not use frontend navigation as the security boundary: IERS and CPD operations must be gated server-side by institution relationship, product entitlement, capability, and renewal state. Expired subscriptions preserve history and necessary exports; active IERS events and safety timelines must not be interrupted by billing state.
+
 ### Definition of true IERS completion
 
 Do not call IERS production-ready merely because the build passes or the migrations exist. The following evidence is required:
@@ -304,7 +316,7 @@ Never paste or send `DATABASE_URL`, passwords, API keys, or `.env` contents. It 
 
 ### Source trail
 
-The implementation and recovery history is recorded in [`docs/WORK_STATUS.md`](docs/WORK_STATUS.md). The canonical product architecture is in [`docs/PLATFORM_SOURCE_OF_TRUTH.md`](docs/PLATFORM_SOURCE_OF_TRUTH.md). The applicable schema scripts are `scripts/apply-0094-institution-memberships.mjs` through `scripts/apply-0099-iers-milestones.mjs`; the guarded runner is `scripts/apply-iers-migrations.mjs`; and the final verifier is `scripts/verify-iers-readiness.mjs`.
+The implementation and recovery history is recorded in [`docs/WORK_STATUS.md`](docs/WORK_STATUS.md). The canonical product architecture is in [`docs/PLATFORM_SOURCE_OF_TRUTH.md`](docs/PLATFORM_SOURCE_OF_TRUTH.md). The institutional portal contract is [`docs/institutional/INSTITUTIONAL_PORTAL_ARCHITECTURE_V1.md`](docs/institutional/INSTITUTIONAL_PORTAL_ARCHITECTURE_V1.md). The applicable schema scripts are `scripts/apply-0094-institution-memberships.mjs` through `scripts/apply-0099-iers-milestones.mjs` plus `scripts/apply-0100-institution-product-entitlements.mjs`; the guarded runner is `scripts/apply-iers-migrations.mjs`; and the final verifier is `scripts/verify-iers-readiness.mjs`.
 
 ---
 
