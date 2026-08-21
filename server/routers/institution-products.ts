@@ -29,6 +29,13 @@ const SUBSCRIPTION_STATUSES: ProductSubscriptionStatus[] = [
   "not_subscribed",
 ];
 
+const CONNECTED_SERVICES = [
+  { serviceKey: "safe_truth", displayName: "Safe Truth", description: "Patient-safety reporting remains available through the provider workflow while its institutional product boundary is reviewed.", owner: "Paeds Resus clinical governance", lifecycleStatus: "transitional", routeKey: "/safe-truth", reviewLabel: "Review product home before pilot expansion" },
+  { serviceKey: "care_code_signal", displayName: "Care Signal & Code Signal", description: "Clinical learning signals feed institutional quality improvement without copying patient identifiers into IERS evidence.", owner: "IERS quality improvement", lifecycleStatus: "connected", routeKey: "/care-signal", reviewLabel: "Connected to IERS QI" },
+  { serviceKey: "training_certification", displayName: "Training & certification", description: "AHA courses and individual learning remain separate from institutional IERS and CPD Portal subscriptions.", owner: "Training operations", lifecycleStatus: "connected", routeKey: "/aha-courses", reviewLabel: "Separate learner product" },
+  { serviceKey: "legacy_dashboard", displayName: "Legacy institutional dashboard", description: "The former all-in-one portal remains available during migration so mature workflows are not orphaned.", owner: "Platform migration", lifecycleStatus: "compatibility", routeKey: "/hospital-admin-dashboard", reviewLabel: "Compatibility route — migrate deliberately" },
+] as const;
+
 const FALLBACK_CATALOG = [
   {
     productKey: "iers" as const,
@@ -115,6 +122,15 @@ async function requireDb() {
 }
 
 export const institutionProductsRouter = router({
+  /** Transitional portfolio read: every non-core service has an owner and an explicit lifecycle state. */
+  getConnectedServices: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      return CONNECTED_SERVICES;
+    }),
+
   /** Shared administration read: product status is visible even when one product is not subscribed. */
   getCatalog: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive() }))

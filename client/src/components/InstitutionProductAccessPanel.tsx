@@ -1,8 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreditCard, ExternalLink, History, ShieldCheck } from "lucide-react";
 
@@ -37,9 +41,22 @@ function dateLabel(value: Date | string | null | undefined): string {
 }
 
 export function InstitutionProductAccessPanel({ institutionId }: { institutionId: number }) {
+  const { user } = useAuth();
+  const utils = trpc.useUtils();
   const { data: catalog, isLoading } = trpc.institutionProducts.getCatalog.useQuery({ institutionId });
   const { data: history } = trpc.institutionProducts.listSubscriptionEvents.useQuery({ institutionId });
   const products = useMemo(() => (catalog ?? []).filter((item) => item.productKey === "iers" || item.productKey === "cpd_portal"), [catalog]);
+  const [adminProduct, setAdminProduct] = useState<"iers" | "cpd_portal">("iers");
+  const [adminStatus, setAdminStatus] = useState<SubscriptionStatus>("active");
+  const [adminReason, setAdminReason] = useState("");
+  const setStatus = trpc.institutionProducts.setSubscriptionStatus.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.institutionProducts.getCatalog.invalidate({ institutionId }),
+        utils.institutionProducts.listSubscriptionEvents.invalidate({ institutionId }),
+      ]);
+    },
+  });
 
   return (
     <Card>
@@ -76,6 +93,19 @@ export function InstitutionProductAccessPanel({ institutionId }: { institutionId
           );
         })}
         <div className="flex items-center gap-2 border-t pt-4 text-xs text-muted-foreground"><History className="h-4 w-4" />{history?.length ?? 0} subscription event(s) recorded for this account.</div>
+        {user?.role === "admin" && (
+          <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50/60 p-4 dark:border-amber-900 dark:bg-amber-950/20">
+            <div className="flex items-center gap-2 font-semibold text-amber-950 dark:text-amber-100"><CreditCard className="h-4 w-4" />Platform-admin scenario control</div>
+            <p className="mt-1 text-xs text-amber-900/80 dark:text-amber-100/80">Use this only for an approved subscription change or controlled access test. It writes an auditable subscription event; it is not an institution self-service grant.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="space-y-1"><Label>Product</Label><Select value={adminProduct} onValueChange={(value) => setAdminProduct(value as typeof adminProduct)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="iers">IERS</SelectItem><SelectItem value="cpd_portal">CPD Portal</SelectItem></SelectContent></Select></div>
+              <div className="space-y-1"><Label>Status</Label><Select value={adminStatus} onValueChange={(value) => setAdminStatus(value as SubscriptionStatus)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{(["trial", "active", "grace", "past_due", "expired", "suspended", "cancelled", "not_subscribed"] as const).map((value) => <SelectItem key={value} value={value}>{statusLabel(value)}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-1 sm:col-span-1"><Label>Reason</Label><Input value={adminReason} onChange={(event) => setAdminReason(event.target.value)} placeholder="At least 3 characters" /></div>
+            </div>
+            <Button className="mt-3" size="sm" disabled={adminReason.trim().length < 3 || setStatus.isPending} onClick={async () => { await setStatus.mutateAsync({ institutionId, productKey: adminProduct, subscriptionStatus: adminStatus, reason: adminReason.trim() }); setAdminReason(""); }}>{setStatus.isPending ? "Saving…" : "Apply status"}</Button>
+            {setStatus.isError && <p className="mt-2 text-xs text-red-700">{setStatus.error.message}</p>}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
