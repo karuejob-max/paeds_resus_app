@@ -195,3 +195,19 @@ export function assertWritableProductAccess(decision: ProductAccessDecision): vo
     });
   }
 }
+
+/**
+ * Emergency continuity guard for activation acknowledgement, response, arrival,
+ * timeline advancement, and closure. Billing state may change the mode from
+ * full to operational_continuity, but it must never turn an active IERS event
+ * into an unwritable record.
+ */
+export function assertIersActivationContinuity(decision: ProductAccessDecision): void {
+  const allowedModes: ProductAccessMode[] = ["full", "operational_continuity", "legacy_fallback"];
+  if (decision.productKey !== "iers" || !decision.capabilityKey.startsWith("iers.activation.") || !allowedModes.includes(decision.mode)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "IERS activation continuity is unavailable in the current product access state.",
+    });
+  }
+}
