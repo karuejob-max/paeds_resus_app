@@ -657,6 +657,7 @@ Every strategic and operational document in this repository is listed here with 
 | [MATURITY_ROADMAP.md](./MATURITY_ROADMAP.md) | Active | CEO-ready 6-phase platform maturity plan — closes 10 objective-gap blockers; aligns with §12 and STRATEGIC_FOUNDATION |
 | [PUBLIC_VISIBILITY_AND_SEO.md](./PUBLIC_VISIBILITY_AND_SEO.md) | Active | Operator guide for Search Console, GBP, keyword targets — expands §23 |
 | [INSTITUTIONAL_ERS_NARRATIVE.md](./INSTITUTIONAL_ERS_NARRATIVE.md) | Active | CEO-ready Hospital ERS narrative — paediatric priority, nurse-led ERT, ERS-first strategy, 90-day metrics — expands [§24](#24-institutional-emergency-readiness-ers) |
+| [INSTITUTIONAL_PRICING_AND_KIIRUA_PROPOSAL.md](./INSTITUTIONAL_PRICING_AND_KIIRUA_PROPOSAL.md) | Active — Confidential Internal | Canonical institutional pricing tiers, Kiirua commercial case, proposal archive, CPD Portal rules, and future-agent routing — expands §15 and §24 |
 | [GBP_PROFILE_COPY.md](./GBP_PROFILE_COPY.md) | Active | Paste-ready Google Business Profile description (no URLs in body) — expands §23 |
 | [legal/PILOT_HOSPITAL_MOU_TEMPLATE.md](./legal/PILOT_HOSPITAL_MOU_TEMPLATE.md) | Active | Pilot hospital MOU + 90-day QI metrics schedule — expands [§24.7](#247-partnership-and-pilot-governance) |
 | [legal/INSTITUTIONAL_B2B_ADDENDUM.md](./legal/INSTITUTIONAL_B2B_ADDENDUM.md) | Active | B2B institutional contract addendum — expands [§24.7](#247-partnership-and-pilot-governance) |

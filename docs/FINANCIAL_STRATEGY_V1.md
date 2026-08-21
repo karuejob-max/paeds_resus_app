@@ -172,6 +172,29 @@ individual attendee and the institution sponsoring the session.
 
 The model: Paeds Resus designs and delivers structured CPD events — simulation days, case review sessions, resuscitation update workshops — for institutional clients on a per-event or annual retainer basis. These events are designed to feed back into the platform: participants are onboarded to ResusGPS and Care Signal as part of the event, so the CPD event generates new platform users and new observation contributors.
 
+### 4.4  CPD Portal Institutional Subscription Pricing
+
+The CPD Portal is the institutional measurement and reporting layer for existing clinical and non-clinical continuing professional development activity. It tracks attendance, participation, targets, evidence, and leadership reports. The client institution owns the underlying CPD content and attendance approval; Paeds Resus provides the portal, tracking, visibility, and reporting layer.
+
+**Canonical volume pricing:** KES 800 per staff per year is a discounted CPD Portal fee for facilities with **301–500 total staff**. It is not the default rate for every institution and it does not automatically extend beyond the 500-staff tier.
+
+| Verified total facility staff | CPD Portal price per staff / year | Commercial interpretation |
+|---:|---:|---|
+| 1–100 | KES 1,000 | Standard small-facility rate |
+| 101–300 | KES 900 | Volume-discounted rate |
+| 301–500 | **KES 800** | **Discounted Kiirua planning tier** |
+| 501+ | Negotiated individually | Large-facility or network pricing; do not assume KES 800 continues |
+
+Rules: use the HR-verified total facility headcount, not only the clinical training cohort; a facility with exactly 500 staff remains in the 301–500 tier; and a facility with 501 or more staff moves to negotiated pricing. CPD Portal fees are separate from BLS/ACLS/PALS/NRP training, IERS activation, official AHA fees, travel, venue, catering, content development, and other out-of-scope services. The CPD Portal must not be described as a full learning-management system unless additional curriculum, accreditation, assessment-authoring, or content-delivery work is separately scoped and priced.
+
+### 4.5  Kiirua Institutional Proposal — Commercial Case Record
+
+The revised St. Theresa Mission Hospital – Kiirua proposal is archived at [`docs/proposals/Kiirua_Institutional_Proposal_Revised.pdf`](./proposals/Kiirua_Institutional_Proposal_Revised.pdf) and indexed in [`INSTITUTIONAL_PRICING_AND_KIIRUA_PROPOSAL.md`](./INSTITUTIONAL_PRICING_AND_KIIRUA_PROPOSAL.md). It is the reference example for applying the ERS-first institutional model to a named hospital opportunity.
+
+The planning case is approximately 200 clinical staff for BLS/ACLS competency training, approximately 500 total staff for CPD Portal access at the 301–500 rate, and a fixed deliverable-based IERS activation fee. The year-one planning total is KES 2,600,000, subject to HR verification and a signed statement of work. The preferred payment schedule links KES 1,100,000 to contract and mobilisation, KES 900,000 to cohort activation, and KES 600,000 to completion and the first leadership report.
+
+The proposal is not a universal price card. Future institutional proposals must preserve the certification distinction, exact deliverables, acceptance evidence, process KPIs, data-governance terms, scope boundaries, and milestone-payment logic before reusing the Kiirua structure.
+
 # SECTION 5: BUSINESS 3 — LEARNING NETWORK
 
 The Learning Network is the most strategically important business and the hardest to build. It is the business that no competitor can replicate without also building the dataset, the Adaptive Learning System, and the institutional relationships simultaneously. It is a three-to-five year horizon from today.
