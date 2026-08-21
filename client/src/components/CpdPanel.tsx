@@ -42,6 +42,7 @@ import {
 import { CANONICAL_CLINICAL_DEPARTMENTS } from "@/lib/clinical-departments";
 import { DepartmentSelectors } from "@/components/DepartmentSelectors";
 import CadreProgressiveSelector from "@/components/CadreProgressiveSelector";
+import { StaffPerformanceRoster } from "@/components/StaffPerformanceRoster";
 import { ALL_STANDARD_SPECIALTIES } from "@/lib/cadre-taxonomy";
 import {
   AlertDialog,
@@ -251,7 +252,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
   const [staffSearch, setStaffSearch] = useState("");
 
   // Navigation Tabs for new users (avoid vertical scrolling fatigue)
-  const [cpdSubTab, setCpdSubTab] = useState<"overview" | "sessions" | "new_session" | "settings">("overview");
+  const [cpdSubTab, setCpdSubTab] = useState<"overview" | "sessions" | "staff_development" | "certificates" | "new_session" | "settings">("overview");
 
   // Delete event state
   const [deleteTargetEvent, setDeleteTargetEvent] = useState<{ id: number; name: string; isOpen: boolean; attendeeCount: number } | null>(null);
@@ -457,6 +458,22 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
         >
           <Calendar className="h-4 w-4" />
           Sessions & Check-In
+        </Button>
+        <Button
+          variant={cpdSubTab === "staff_development" ? "default" : "outline"}
+          onClick={() => setCpdSubTab("staff_development")}
+          className="text-xs font-semibold gap-2"
+        >
+          <UserCheck className="h-4 w-4" />
+          Staff Development
+        </Button>
+        <Button
+          variant={cpdSubTab === "certificates" ? "default" : "outline"}
+          onClick={() => setCpdSubTab("certificates")}
+          className="text-xs font-semibold gap-2"
+        >
+          <Award className="h-4 w-4" />
+          Certificates & Exports
         </Button>
         <Button
           variant={cpdSubTab === "new_session" ? "default" : "outline"}
@@ -757,6 +774,50 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
               </Card>
             )}
           </>
+        )}
+
+        {/* --- STAFF DEVELOPMENT TAB --- */}
+        {cpdSubTab === "staff_development" && (
+          <div className="space-y-6">
+            <Card className="border-indigo-200 bg-indigo-50/40 dark:border-indigo-900 dark:bg-indigo-950/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><UserCheck className="h-5 w-5 text-indigo-700" />Staff Development</CardTitle>
+                <CardDescription>Use CPD participation, QI engagement, crash-cart activity, and life-support status to guide professional-development conversations. This is an appraisal aid, not a public leaderboard.</CardDescription>
+              </CardHeader>
+            </Card>
+            <StaffPerformanceRoster />
+          </div>
+        )}
+
+        {/* --- CERTIFICATES & EXPORTS TAB --- */}
+        {cpdSubTab === "certificates" && (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Award className="h-5 w-5 text-purple-700" />CPD Certificates & Exports</CardTitle>
+                <CardDescription>Choose a session, review attendance, and export only the records belonging to this institution.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="max-w-xl space-y-2">
+                  <Label htmlFor="certificate-event">Session</Label>
+                  <select id="certificate-event" value={effectiveEventId ?? ""} onChange={(event) => setSelectedEventId(event.target.value ? Number(event.target.value) : null)} className="w-full rounded-md border bg-background px-3 py-2 text-sm">
+                    {events.length === 0 ? <option value="">No sessions available</option> : events.map((event) => <option key={event.id} value={event.id}>{event.name} — {event.eventDate}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={downloadCsv} disabled={attendees.length === 0}><Download className="mr-2 h-4 w-4" />Export attendance CSV</Button>
+                  <Button onClick={() => effectiveEventId && window.open(`/api/cpd/certificate/bulk/${effectiveEventId}`, "_blank")} disabled={!effectiveEventId || attendees.length === 0}><FileArchive className="mr-2 h-4 w-4" />Download certificates ZIP</Button>
+                </div>
+                <p className="text-xs text-muted-foreground">{attendees.length} attendee record(s) loaded for the selected session.</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle className="text-base">Certificate register</CardTitle><CardDescription>Individual PDF links are available after attendance has been recorded.</CardDescription></CardHeader>
+              <CardContent>
+                {attendees.length === 0 ? <p className="text-sm text-muted-foreground">No attendance records for this session yet.</p> : <Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Cadre</TableHead><TableHead>Department</TableHead><TableHead className="text-right">Certificate</TableHead></TableRow></TableHeader><TableBody>{attendees.map((attendee) => <TableRow key={attendee.id}><TableCell className="font-medium">{attendee.fullName}</TableCell><TableCell>{attendee.cadre === "Other" ? attendee.cadreOther || "Other" : attendee.cadre}</TableCell><TableCell>{attendee.department}</TableCell><TableCell className="text-right"><Button variant="outline" size="sm" onClick={() => window.open(`/api/cpd/certificate/${attendee.id}`, "_blank")}><Download className="mr-1 h-3.5 w-3.5" />PDF</Button></TableCell></TableRow>)}</TableBody></Table>}
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* --- SESSIONS & CHECK-IN TAB --- */}

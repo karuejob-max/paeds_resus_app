@@ -30,13 +30,13 @@ import { IersDrillPanel } from "@/components/IersDrillPanel";
 import { IersEvidencePanel } from "@/components/IersEvidencePanel";
 import { IersExecutiveReportPanel } from "@/components/IersExecutiveReportPanel";
 import { IersImplementationPlanPanel } from "@/components/IersImplementationPlanPanel";
+import { CohortProgressWidget } from "@/components/CohortProgressWidget";
+import { Phase1ProofReviewWidget } from "@/components/Phase1ProofReviewWidget";
 import { ErtRosterPanel } from "@/components/ErtRosterPanel";
 import { EquipmentAuditPanel } from "@/components/EquipmentAuditPanel";
 import CpdPanel from "@/components/CpdPanel";
-import { AccountAdminsWidget } from "@/components/AccountAdminsWidget";
-import { InstitutionProductAccessPanel } from "@/components/InstitutionProductAccessPanel";
-import { InstitutionContractsTable } from "@/components/InstitutionContractsTable";
-import StaffBulkImport from "@/components/StaffBulkImport";
+import InstitutionAdministrationPanel from "@/components/InstitutionAdministrationPanel";
+import InstitutionConnectedServicesPanel from "@/components/InstitutionConnectedServicesPanel";
 
 const PRODUCT_LABELS = {
   iers: {
@@ -250,6 +250,7 @@ export default function InstitutionWorkspace() {
                   <TabsTrigger value="command">Command centre</TabsTrigger>
                   <TabsTrigger value="evidence">Evidence & actions</TabsTrigger>
                   <TabsTrigger value="drills">Drills & debriefs</TabsTrigger>
+                  <TabsTrigger value="competency">Competency & training</TabsTrigger>
                   <TabsTrigger value="workforce">ERT & equipment</TabsTrigger>
                   <TabsTrigger value="plan">Implementation plan</TabsTrigger>
                   <TabsTrigger value="report">Executive snapshot</TabsTrigger>
@@ -257,6 +258,13 @@ export default function InstitutionWorkspace() {
                 <TabsContent value="command"><IersActivationPanel institutionId={institutionId} /></TabsContent>
                 <TabsContent value="evidence"><IersEvidencePanel institutionId={institutionId} /></TabsContent>
                 <TabsContent value="drills"><IersDrillPanel institutionId={institutionId} /></TabsContent>
+                <TabsContent value="competency" className="space-y-6">
+                  <Card className="border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20">
+                    <CardHeader><CardTitle className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-amber-700" />Competency & training</CardTitle><CardDescription>Track readiness-linked training progress and review phase-one proof. Training completion is not the same as IERS operational readiness; both must be evidenced.</CardDescription></CardHeader>
+                  </Card>
+                  <CohortProgressWidget institutionId={institutionId} />
+                  <Phase1ProofReviewWidget institutionId={institutionId} />
+                </TabsContent>
                 <TabsContent value="workforce" className="grid gap-6 xl:grid-cols-2"><ErtRosterPanel institutionId={institutionId} /><EquipmentAuditPanel institutionId={institutionId} /></TabsContent>
                 <TabsContent value="plan"><IersImplementationPlanPanel institutionId={institutionId} /></TabsContent>
                 <TabsContent value="report"><IersExecutiveReportPanel institutionId={institutionId} /></TabsContent>
@@ -272,27 +280,11 @@ export default function InstitutionWorkspace() {
 
           <TabsContent value="administration" className="space-y-6">
             <AdministrationSummary institutionId={institutionId} catalog={catalog ?? []} />
-            <InstitutionProductAccessPanel institutionId={institutionId} />
-            <div className="grid gap-6 xl:grid-cols-2">
-              <AccountAdminsWidget institutionId={institutionId} />
-              <InstitutionContractsTable institutionId={institutionId} />
-            </div>
-            <StaffBulkImport institutionId={institutionId} />
+            <InstitutionAdministrationPanel institutionId={institutionId} institution={myInstitution.institution} />
           </TabsContent>
 
           <TabsContent value="connected" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Wrench className="h-5 w-5" />Connected Services</CardTitle>
-                <CardDescription>Existing and transitional capabilities are kept visible here until their product ownership is formally decided.</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <ConnectedServiceCard title="Safe Truth" description="Patient-safety reporting remains available through the legacy provider workflow while its institutional product boundary is reviewed." href="/safe-truth" />
-                <ConnectedServiceCard title="Care Signal & Code Signal" description="Clinical learning signals feed IERS quality improvement but remain accessible through their provider entrypoints." href="/care-signal" />
-                <ConnectedServiceCard title="Training and certification" description="AHA courses and individual learning remain separate from institutional IERS and CPD subscriptions." href="/aha-courses" />
-                <ConnectedServiceCard title="Legacy institutional dashboard" description="The former all-in-one portal remains available during migration so no mature workflow is orphaned." href="/hospital-admin-dashboard" />
-              </CardContent>
-            </Card>
+            <InstitutionConnectedServicesPanel institutionId={institutionId} />
           </TabsContent>
         </Tabs>
       </div>
@@ -319,8 +311,9 @@ function AdministrationSummary({ institutionId, catalog }: { institutionId: numb
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" />Shared Administration</CardTitle>
-        <CardDescription>People, roles, contracts, product access, billing, renewals, and recovery belong here—not inside IERS or CPD Portal.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" />Shared Administration</CardTitle>
+            <CardDescription>People, roles, contracts, product access, billing, renewals, and recovery belong here—not inside IERS or CPD Portal.</CardDescription>
+            <p className="mt-1 text-xs text-muted-foreground">Institution ID: {institutionId}</p>
       </CardHeader>
       <CardContent className="grid gap-4 md:grid-cols-3">
         <AdminControl title="People & roles" detail="Invite admins, link providers, and maintain responsibility assignments." icon={Users} />
@@ -345,15 +338,4 @@ function AdministrationSummary({ institutionId, catalog }: { institutionId: numb
 
 function AdminControl({ title, detail, icon: Icon }: { title: string; detail: string; icon: typeof Users }) {
   return <div className="rounded-lg border bg-background p-4"><Icon className="mb-3 h-5 w-5 text-muted-foreground" /><div className="font-semibold">{title}</div><div className="mt-1 text-sm text-muted-foreground">{detail}</div></div>;
-}
-
-function ConnectedServiceCard({ title, description, href }: { title: string; description: string; href: string }) {
-  return (
-    <Card className="border-dashed">
-      <CardContent className="flex items-start gap-3 p-4">
-        <Wrench className="mt-0.5 h-5 w-5 text-muted-foreground" />
-        <div className="min-w-0 flex-1"><div className="font-semibold">{title}</div><p className="mt-1 text-sm text-muted-foreground">{description}</p><a className="mt-3 inline-flex items-center text-sm font-medium text-primary hover:underline" href={href}>Open current service <ExternalLink className="ml-1 h-3.5 w-3.5" /></a></div>
-      </CardContent>
-    </Card>
-  );
 }
