@@ -921,7 +921,20 @@ ERS coordinates **teams across units** rather than implying a single nurse can a
 | **Service region** | Nyeri, Embu, Murang'a, Kerugoya, Nyahururu, Karatina, Naromoru, Nanyuki, Meru, Nkubu, Chuka, Isiolo, Marsabit — and surrounding referral facilities |
 | **Pilot sites** | **Confidential until MOU signed and CEO approves public naming** — do **not** name specific pilot hospitals (e.g. Mathari) in public PSOT copy, marketing pages, or GBP |
 
-### 24.7 Partnership and pilot governance
+### 24.7 Institutional Portal product architecture
+
+The Institutional Portal is one tenant-aware institution workspace with two independent products and one shared control plane:
+
+| Product/surface | Domicile | Subscription rule | Primary users |
+|---|---|---|---|
+| **IERS** | Emergency readiness, practical competency, ERT response, activations, drills, criterion evidence, QI, and institutional learning | Independently subscribable; active emergency timelines and historical evidence remain preserved during renewal states | Providers, unit/team leaders, ERT leaders, coordinators, governance leads, institution admins |
+| **CPD Portal** | Staff professional-development records, CPD events, attendance, certificates, points, performance, and decision intelligence | Independently subscribable; CPD history and certificates remain preserved after expiry | Providers, CPD coordinators, HR/education leads, institution admins |
+| **Administration** | Institution identity, provider memberships, roles, billing, products, renewals, exports, and recovery | Shared account control plane; not itself product-gated | Institution admins and Paeds Resus platform operations |
+| **Connected Services** | Safe Truth, Care Signal/Code Signal entrypoints, individual training, and transitional services | Managed transitional portfolio; never delete or orphan a mature capability during product classification | Users according to each service's existing access contract |
+
+The product registry and entitlement ledger are implemented through migration `0100`, `institutionalProducts`, `institutionProductSubscriptions`, `institutionProductEntitlements`, `institutionProductRoles`, and subscription audit history. Product operations must be gated server-side by institution relationship, product capability, role, and subscription/renewal state; hiding a tab is not a security boundary. See [`docs/institutional/INSTITUTIONAL_PORTAL_ARCHITECTURE_V1.md`](./institutional/INSTITUTIONAL_PORTAL_ARCHITECTURE_V1.md).
+
+### 24.8 Partnership and pilot governance
 
 1. **Readiness conversation** — scope, staffing reality, current ERT (if any)
 2. **Pilot or phased MOU** — 90-day QI framework; process metrics only
@@ -955,4 +968,4 @@ Cross-reference: [§22.3](#223-what-you-must-never-do).
 
 ---
 
-**Last structural update:** 2026-08-21 — Added provider-driven IERS activation, evidence, drill, action-closure, implementation-plan, executive-reporting, and QI integration surfaces; registered the IERS build blueprint and operating guide. Prior: 2026-06-30 — Integrated the five constitutional/engineering documents from the North Star v2.0 cycle: [NORTH_STAR_V2.md](./NORTH_STAR_V2.md), [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md), [FPKB_SCHEMA_V1.md](./FPKB_SCHEMA_V1.md), [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md), [FINANCIAL_STRATEGY_V1.md](./FINANCIAL_STRATEGY_V1.md). Added new §25 (FPKB and Learning Governance), §8.1 (global shared classifiers), updated §7 (actor model migration), §12 (Care Signal v3 as top priority, FPKB migration sequencing, deliberate postponements), §3 (Safe-Truth accountless requirement), §21 (document registry), §22.3 (new anti-patterns). Prior: 2026-05-30 — Added [AGENT_OPERATIONS_PLAYBOOK.md](./AGENT_OPERATIONS_PLAYBOOK.md) to §21 (shipping + prod DB runbooks). Prior: 2026-05-29 — [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md). Prior: §24 (Institutional ERS). Prior: 2026-05-28 — Institutional ERS narrative. Prior: 2026-05-27 — §23. Prior: 2026-05-01 — §19–§22.
+**Last structural update:** 2026-08-22 — Added the independent IERS/CPD Portal institutional architecture, shared Administration control plane, Connected Services transition portfolio, product entitlement schema, server-side IERS/CPD capability gates, and Institution Workspace. Prior: 2026-08-21 — Added provider-driven IERS activation, evidence, drill, action-closure, implementation-plan, executive-reporting, and QI integration surfaces; registered the IERS build blueprint and operating guide. Prior: 2026-06-30 — Integrated the five constitutional/engineering documents from the North Star v2.0 cycle: [NORTH_STAR_V2.md](./NORTH_STAR_V2.md), [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md), [FPKB_SCHEMA_V1.md](./FPKB_SCHEMA_V1.md), [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md), [FINANCIAL_STRATEGY_V1.md](./FINANCIAL_STRATEGY_V1.md). Added new §25 (FPKB and Learning Governance), §8.1 (global shared classifiers), updated §7 (actor model migration), §12 (Care Signal v3 as top priority, FPKB migration sequencing, deliberate postponements), §3 (Safe-Truth accountless requirement), §21 (document registry), §22.3 (new anti-patterns). Prior: 2026-05-30 — Added [AGENT_OPERATIONS_PLAYBOOK.md](./AGENT_OPERATIONS_PLAYBOOK.md) to §21 (shipping + prod DB runbooks). Prior: 2026-05-29 — [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md). Prior: §24 (Institutional ERS). Prior: 2026-05-28 — Institutional ERS narrative. Prior: 2026-05-27 — §23. Prior: 2026-05-01 — §19–§22.
