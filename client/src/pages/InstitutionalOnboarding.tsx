@@ -28,7 +28,7 @@ export default function InstitutionalOnboarding() {
     onSuccess: () => {
       setSuccess(true);
       sessionStorage.setItem("institutionalPortalWelcome", "1");
-      setTimeout(() => navigate("/hospital-admin-dashboard"), 2000);
+      setTimeout(() => navigate("/institution"), 2000);
     },
     onError: (err) => {
       setError(err.message || "Failed to create account");

@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { eq, and, desc, or, like, sql, inArray } from "drizzle-orm";
 import { getDb } from "../db";
 import { assertInstitutionAccess } from "../lib/institution-access";
+import { assertInstitutionProductCapability } from "../lib/institution-entitlements";
 import { institutionalAccounts, cpdEvents, cpdAttendees, cpdCodeRevealLogs, institutionalStaffMembers, users, providerProfiles } from "../../drizzle/schema";
 
 /** Shared cadre validator for input validation, matching the cpdAttendees.cadre column. */
@@ -138,6 +139,7 @@ export const cpdRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.settings.govern");
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await db
         .update(institutionalAccounts)
@@ -151,6 +153,7 @@ export const cpdRouter = router({
     .input(z.object({ institutionId: z.number().int().positive() }))
     .query(async ({ input, ctx }) => {
       const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.workspace.read");
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const [row] = await db
         .select({
@@ -189,6 +192,7 @@ export const cpdRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.settings.govern");
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const value = input.signature && input.signature.trim().length ? input.signature.trim() : null;
       await db
@@ -209,6 +213,7 @@ export const cpdRouter = router({
     .query(async ({ input, ctx }) => {
       const db = await requireDb();
       if (input.institutionId) {
+        await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.workspace.read");
         await assertInstitutionAccess(db, ctx.user, input.institutionId);
       }
       const q = `%${input.query.toLowerCase()}%`;
@@ -266,6 +271,7 @@ export const cpdRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const now = new Date();
       // Close any open events first (only one open event per institution).
@@ -326,6 +332,7 @@ export const cpdRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
       const [event] = await db
@@ -388,6 +395,7 @@ export const cpdRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const [event] = await db
         .select({ id: cpdEvents.id })
@@ -414,6 +422,7 @@ export const cpdRouter = router({
     .input(z.object({ institutionId: z.number().int().positive() }))
     .query(async ({ input, ctx }) => {
       const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.workspace.read");
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const rows = await db
         .select({
@@ -564,6 +573,7 @@ export const cpdRouter = router({
           message: "Registration is closed. No CPD event is currently open.",
         });
       }
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.attendance.operate");
 
       const requiresOther = [
         "Other",
@@ -691,6 +701,7 @@ export const cpdRouter = router({
     )
     .query(async ({ input, ctx }) => {
       const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.workspace.read");
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const whereClause = input.eventId
         ? and(
@@ -716,6 +727,7 @@ export const cpdRouter = router({
     )
     .query(async ({ input, ctx }) => {
       const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.reports.read");
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const whereClause = input.eventId
         ? and(
@@ -768,6 +780,7 @@ export const cpdRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const [event] = await db
         .select({ id: cpdEvents.id })
@@ -969,6 +982,7 @@ export const cpdRouter = router({
     .input(z.object({ institutionId: z.number().int().positive() }))
     .query(async ({ input, ctx }) => {
       const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.reports.read");
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
       const events = await db
@@ -1247,6 +1261,7 @@ export const cpdRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
       // 1. Verify the event belongs to this institution.

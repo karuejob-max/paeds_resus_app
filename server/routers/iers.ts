@@ -20,6 +20,7 @@ import {
   facilityDepartments,
 } from "../../drizzle/schema";
 import { assertInstitutionAccess } from "../lib/institution-access";
+import { assertInstitutionProductCapability } from "../lib/institution-entitlements";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { canAdvanceIersActivation } from "../lib/iers-state";
 import { buildIersEvidenceScorecard } from "../lib/iers-criteria";
@@ -136,6 +137,7 @@ export const iersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.activation.operate");
       const access = await assertInstitutionOrMember(db, ctx.user, input.institutionId);
 
       const eventInsert = await db.insert(iersActivationEvents).values({
@@ -241,6 +243,7 @@ export const iersRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
       await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       return db.select().from(iersDrills).where(eq(iersDrills.institutionId, input.institutionId)).orderBy(desc(iersDrills.scheduledAt)).limit(input.limit);
     }),
@@ -258,6 +261,7 @@ export const iersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.drills.operate");
       const access = await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       if (access.kind === "provider" && !LEAD_ROLES.includes(access.membership?.responsibilityRole as ResponsibilityRole)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only an institution leader can schedule an IERS drill." });
@@ -280,6 +284,7 @@ export const iersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.drills.operate");
       const access = await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       if (access.kind === "provider" && !LEAD_ROLES.includes(access.membership?.responsibilityRole as ResponsibilityRole)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only an institution leader can start an IERS drill." });
@@ -299,6 +304,7 @@ export const iersRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       const [drill] = await db.select().from(iersDrills).where(eq(iersDrills.id, input.drillId)).limit(1);
       if (!drill) throw new TRPCError({ code: "NOT_FOUND", message: "Drill not found." });
+      await assertInstitutionProductCapability(db, drill.institutionId, "iers", "iers.drills.operate");
       await assertProviderCanOperate(db, ctx.user.id, drill.institutionId);
       await db.insert(iersDrillParticipants).values({
         drillId: drill.id,
@@ -321,6 +327,7 @@ export const iersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.drills.operate");
       const access = await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       if (access.kind === "provider" && !LEAD_ROLES.includes(access.membership?.responsibilityRole as ResponsibilityRole)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only an institution leader can close a drill debrief." });
@@ -350,6 +357,7 @@ export const iersRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
       await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       let milestones = await db.select().from(iersImplementationMilestones).where(eq(iersImplementationMilestones.institutionId, input.institutionId)).orderBy(iersImplementationMilestones.phaseOrder);
       if (milestones.length === 0) {
@@ -377,6 +385,7 @@ export const iersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.implementation.govern");
       const access = await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       if (access.kind === "provider" && !LEAD_ROLES.includes(access.membership?.responsibilityRole as ResponsibilityRole)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only an institution leader can update the implementation plan." });
@@ -401,6 +410,7 @@ export const iersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.activation.respond");
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const eventInsert = await db.insert(iersActivationEvents).values({
         institutionalAccountId: input.institutionId,
@@ -480,6 +490,7 @@ export const iersRouter = router({
         .where(and(eq(shiftUtlRosters.id, input.shiftRosterId), eq(shiftUtlRosters.utlUserId, ctx.user.id)))
         .limit(1);
       if (!roster) throw new TRPCError({ code: "NOT_FOUND", message: "Assigned shift not found." });
+      await assertInstitutionProductCapability(db, roster.institutionId, "iers", "iers.team_readiness.operate");
       await assertProviderCanOperate(db, ctx.user.id, roster.institutionId);
       if (roster.status !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: "Only active shifts can be signed off." });
 
@@ -508,6 +519,7 @@ export const iersRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
       await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       const evidence = await db
         .select({ criterionCode: iersEvidenceRecords.criterionCode, status: iersEvidenceRecords.status })
@@ -532,6 +544,7 @@ export const iersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.evidence.submit");
       await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       const result = await db.insert(iersEvidenceRecords).values({
         institutionId: input.institutionId,
@@ -559,6 +572,7 @@ export const iersRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
       await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       const predicates = [eq(iersEvidenceRecords.institutionId, input.institutionId)];
       if (input.domain) predicates.push(eq(iersEvidenceRecords.domain, input.domain));
@@ -581,6 +595,7 @@ export const iersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.evidence.review");
       const access = await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       if (access.kind === "provider" && !LEAD_ROLES.includes(access.membership?.responsibilityRole as ResponsibilityRole)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only an institution leader can review evidence." });
@@ -613,6 +628,7 @@ export const iersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.actions.operate");
       const access = await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       const ownerUserId = access.kind === "provider" ? ctx.user.id : input.ownerUserId ?? null;
       const result = await db.insert(iersActionItems).values({
@@ -635,6 +651,7 @@ export const iersRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
       const access = await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       const predicates = [eq(iersActionItems.institutionId, input.institutionId)];
       if (input.status) predicates.push(eq(iersActionItems.status, input.status));
@@ -656,6 +673,7 @@ export const iersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.actions.operate");
       const access = await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       const [action] = await db.select().from(iersActionItems).where(and(eq(iersActionItems.id, input.actionId), eq(iersActionItems.institutionId, input.institutionId))).limit(1);
       if (!action) throw new TRPCError({ code: "NOT_FOUND", message: "Action item not found." });
@@ -683,6 +701,7 @@ export const iersRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       try {
         return await db
@@ -753,6 +772,7 @@ export const iersRouter = router({
         ))
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "No responder assignment found for this activation." });
+      await assertInstitutionProductCapability(db, assignment.event.institutionalAccountId, "iers", "iers.activation.respond");
 
       const now = new Date();
       if (input.accept) {
@@ -805,6 +825,7 @@ export const iersRouter = router({
         ))
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "No responder assignment found for this activation." });
+      await assertInstitutionProductCapability(db, assignment.event.institutionalAccountId, "iers", "iers.activation.respond");
       if (assignment.responder.notificationStatus !== "acknowledged") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Acknowledge the responder assignment before recording response." });
       }
@@ -852,6 +873,7 @@ export const iersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.activation.operate");
       const access = await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       if (access.kind === "provider" && !LEAD_ROLES.includes(access.membership?.responsibilityRole as ResponsibilityRole)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only an ERTL, UTL, coordinator, or institution admin can advance this activation." });
@@ -914,6 +936,7 @@ export const iersRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
       await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       return db
         .select()

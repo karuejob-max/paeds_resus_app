@@ -1,7 +1,7 @@
 /**
  * Verify the production IERS schema and essential operational columns.
  *
- * Run after applying migrations 0094–0099:
+ * Run after applying migrations 0094–0100:
  *   pnpm run db:verify-iers
  *
  * The first IERS migrations use the repository's existing camelCase table
@@ -46,6 +46,14 @@ export const REQUIRED_TABLES = [
   { key: "drills", label: "drills", names: ["iers_drills", "iersDrills"] },
   { key: "drillParticipants", label: "drill participants", names: ["iers_drill_participants", "iersDrillParticipants"] },
   { key: "milestones", label: "implementation milestones", names: ["iers_implementation_milestones", "iersImplementationMilestones"] },
+  { key: "products", label: "institutional products", names: ["institutionalProducts", "institutional_products"] },
+  { key: "capabilities", label: "product capabilities", names: ["institutionalProductCapabilities", "institutional_product_capabilities"] },
+  { key: "plans", label: "product plans", names: ["institutionalProductPlans", "institutional_product_plans"] },
+  { key: "subscriptions", label: "product subscriptions", names: ["institutionProductSubscriptions", "institution_product_subscriptions"] },
+  { key: "entitlements", label: "product entitlements", names: ["institutionProductEntitlements", "institution_product_entitlements"] },
+  { key: "productRoles", label: "product roles", names: ["institutionProductRoles", "institution_product_roles"] },
+  { key: "subscriptionEvents", label: "subscription events", names: ["institutionSubscriptionEvents", "institution_subscription_events"] },
+  { key: "entitlementAudit", label: "entitlement audit log", names: ["institutionEntitlementAuditLog", "institution_entitlement_audit_log"] },
 ];
 
 export const REQUIRED_COLUMNS = [
@@ -61,6 +69,14 @@ export const REQUIRED_COLUMNS = [
   { tableKey: "actions", label: "action closure evidence", names: ["closure_evidence_id", "closureEvidenceId"] },
   { tableKey: "drills", label: "drill debrief note", names: ["debrief_note", "debriefNote"] },
   { tableKey: "milestones", label: "milestone evidence", names: ["evidence_id", "evidenceId"] },
+  { tableKey: "products", label: "product key", names: ["productKey", "product_key"] },
+  { tableKey: "capabilities", label: "capability key", names: ["capabilityKey", "capability_key"] },
+  { tableKey: "plans", label: "plan key", names: ["planKey", "plan_key"] },
+  { tableKey: "subscriptions", label: "subscription status", names: ["subscriptionStatus", "subscription_status"] },
+  { tableKey: "entitlements", label: "entitlement status", names: ["entitlementStatus", "entitlement_status"] },
+  { tableKey: "productRoles", label: "product role status", names: ["roleStatus", "role_status"] },
+  { tableKey: "subscriptionEvents", label: "subscription event type", names: ["eventType", "event_type"] },
+  { tableKey: "entitlementAudit", label: "entitlement audit decision", names: ["decision"] },
 ];
 
 async function main() {
@@ -106,7 +122,7 @@ async function main() {
     console.error(`\nIERS verification FAILED — ${missing} missing object(s). Do not rerun migrations automatically; investigate the specific missing object(s).`);
     process.exit(1);
   }
-  console.log("\nIERS verification PASSED — provider memberships, activation, evidence, action, drill, and implementation objects are present.");
+  console.log("\nIERS verification PASSED — IERS operational objects and institutional product-entitlement objects are present.");
 }
 
 const isDirectRun = process.argv[1]

@@ -43,12 +43,12 @@ export default function Home() {
     // (role takes precedence over userType from database)
     if (role === "provider") return; // Stay on provider hub
     if (role === "institution") {
-      setLocation("/hospital-admin-dashboard");
+      setLocation("/institution");
       return;
     }
     // If no explicit role chosen yet, use userType from database
     if (userType === "institutional") {
-      setLocation("/hospital-admin-dashboard");
+      setLocation("/institution");
       return;
     }
   }, [user, userType, role, loading, setLocation]);
@@ -64,7 +64,7 @@ export default function Home() {
       { userType: type },
       {
         onSuccess: () => {
-          if (type === "institutional") setLocation("/hospital-admin-dashboard");
+          if (type === "institutional") setLocation("/institution");
         },
       }
     );

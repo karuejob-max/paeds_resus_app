@@ -33,7 +33,7 @@ export const BottomNav: React.FC = () => {
 
     if (role === "institution") {
       return [
-        { path: "/hospital-admin-dashboard", label: "Dashboard", icon: Home },
+        { path: "/institution", label: "Workspace", icon: Home },
       ];
     }
 

@@ -41,7 +41,7 @@ export const learningNavItems: NavItem[] = [
 
 // Institutional Features - ONLY WORKING PAGES
 export const institutionalNavItems: NavItem[] = [
-  { label: "Institutional Dashboard", href: "/hospital-admin-dashboard", description: "Manage your institution" },
+  { label: "Institution Workspace", href: "/institution", description: "IERS, CPD Portal, and administration" },
   { label: "Institutional Onboarding", href: "/institutional-onboarding", description: "Get started" },
 ];
 
@@ -72,7 +72,7 @@ export const footerSections = {
     { label: "BLS Course", href: "/course/bls" },
   ],
   institutional: [
-    { label: "Institutional Dashboard", href: "/hospital-admin-dashboard" },
+    { label: "Institution Workspace", href: "/institution" },
     { label: "Institutional Onboarding", href: "/institutional-onboarding" },
   ],
   // Simulated ML previews — not linked in production nav (see AspirationalSurfaceGate).
@@ -94,11 +94,11 @@ export const breadcrumbMap: Record<string, string[]> = {
   "/parent-safe-truth": ["Home", "Parent Resources"],
   "/course/bls": ["Home", "Courses", "BLS"],
   "/institutional": ["Home", "Institutions"],
-  "/institutional-portal": ["Home", "Institutions", "Portal (legacy redirect)"],
+  "/institutional-portal": ["Home", "Institutions", "Institution Workspace"],
   "/institutional-onboarding": ["Home", "Institutions", "Onboarding"],
   "/home": ["Home", "Dashboard"],
   "/payment": ["Home", "Payment"],
-  "/hospital-admin-dashboard": ["Home", "Admin", "Hospital Dashboard"],
+  "/hospital-admin-dashboard": ["Home", "Admin", "Legacy Hospital Dashboard"],
   "/kaizen-dashboard": ["Home", "Admin", "Kaizen KPI"],
   "/predictive-intervention": ["Home", "ML", "Predictive Alerts"],
   "/personalized-learning": ["Home", "ML", "Learning Path"],

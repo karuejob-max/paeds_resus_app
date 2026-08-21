@@ -1295,6 +1295,165 @@ export const institutionalStaffMembers = mysqlTable("institutionalStaffMembers",
 export type InstitutionalStaffMember = typeof institutionalStaffMembers.$inferSelect;
 export type InsertInstitutionalStaffMember = typeof institutionalStaffMembers.$inferInsert;
 
+/** Canonical institution-facing products. Administration is shared and is not subscription-gated. */
+export const institutionalProducts = mysqlTable("institutionalProducts", {
+  id: int("id").autoincrement().primaryKey(),
+  productKey: varchar("productKey", { length: 64 }).notNull().unique(),
+  displayName: varchar("displayName", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  productKind: mysqlEnum("productKind", ["core", "transitional"]).default("core").notNull(),
+  lifecycleStatus: mysqlEnum("lifecycleStatus", ["active", "pilot", "preview", "coming_soon", "deprecated"]).default("active").notNull(),
+  ownerTeam: varchar("ownerTeam", { length: 255 }).notNull(),
+  privacyClass: varchar("privacyClass", { length: 64 }).default("institutional").notNull(),
+  routeKey: varchar("routeKey", { length: 128 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type InstitutionalProduct = typeof institutionalProducts.$inferSelect;
+export type InsertInstitutionalProduct = typeof institutionalProducts.$inferInsert;
+
+/** Product capabilities are the server-side access vocabulary for route and mutation gates. */
+export const institutionalProductCapabilities = mysqlTable("institutionalProductCapabilities", {
+  id: int("id").autoincrement().primaryKey(),
+  productId: int("productId").notNull(),
+  capabilityKey: varchar("capabilityKey", { length: 128 }).notNull(),
+  capabilityClass: mysqlEnum("capabilityClass", ["read", "operate", "review", "govern", "commercial"]).default("read").notNull(),
+  renewalPolicy: mysqlEnum("renewalPolicy", ["full", "read_only", "operational_continuity", "blocked"]).default("full").notNull(),
+  description: text("description").notNull(),
+  status: mysqlEnum("status", ["active", "retired"]).default("active").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  productCapabilityUnique: uniqueIndex("institutionalProductCapabilities_product_capability_unique").on(table.productId, table.capabilityKey),
+  productStatusIndex: index("institutionalProductCapabilities_product_status_idx").on(table.productId, table.status),
+}));
+export type InstitutionalProductCapability = typeof institutionalProductCapabilities.$inferSelect;
+export type InsertInstitutionalProductCapability = typeof institutionalProductCapabilities.$inferInsert;
+
+/** Commercial plan metadata; prices are snapshots at contract/subscription time. */
+export const institutionalProductPlans = mysqlTable("institutionalProductPlans", {
+  id: int("id").autoincrement().primaryKey(),
+  productId: int("productId").notNull(),
+  planKey: varchar("planKey", { length: 64 }).notNull(),
+  displayName: varchar("displayName", { length: 255 }).notNull(),
+  billingInterval: mysqlEnum("billingInterval", ["monthly", "annual", "custom"]).default("custom").notNull(),
+  billingModel: mysqlEnum("billingModel", ["institution", "per_staff", "per_seat", "custom"]).default("institution").notNull(),
+  currency: varchar("currency", { length: 3 }).default("KES").notNull(),
+  priceAmount: int("priceAmount"),
+  status: mysqlEnum("status", ["active", "retired"]).default("active").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  productPlanUnique: uniqueIndex("institutionalProductPlans_product_plan_unique").on(table.productId, table.planKey),
+  productStatusIndex: index("institutionalProductPlans_product_status_idx").on(table.productId, table.status),
+}));
+export type InstitutionalProductPlan = typeof institutionalProductPlans.$inferSelect;
+export type InsertInstitutionalProductPlan = typeof institutionalProductPlans.$inferInsert;
+
+/** One current commercial relationship per institution/product; history lives in institutionSubscriptionEvents. */
+export const institutionProductSubscriptions = mysqlTable("institutionProductSubscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  productId: int("productId").notNull(),
+  planId: int("planId"),
+  subscriptionStatus: mysqlEnum("subscriptionStatus", ["trial", "active", "grace", "past_due", "expired", "suspended", "cancelled", "legacy_unclassified", "not_subscribed"]).default("legacy_unclassified").notNull(),
+  startsAt: timestamp("startsAt"),
+  renewsAt: timestamp("renewsAt"),
+  expiresAt: timestamp("expiresAt"),
+  graceEndsAt: timestamp("graceEndsAt"),
+  cancelledAt: timestamp("cancelledAt"),
+  source: mysqlEnum("source", ["contract", "quotation", "payment", "pilot", "manual_override", "legacy_migration"]).default("legacy_migration").notNull(),
+  contractId: int("contractId"),
+  quotationId: int("quotationId"),
+  externalReference: varchar("externalReference", { length: 255 }),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionProductUnique: uniqueIndex("institutionProductSubscriptions_institution_product_unique").on(table.institutionalAccountId, table.productId),
+  institutionStatusIndex: index("institutionProductSubscriptions_institution_status_idx").on(table.institutionalAccountId, table.subscriptionStatus),
+  renewalIndex: index("institutionProductSubscriptions_renewal_idx").on(table.subscriptionStatus, table.renewsAt),
+}));
+export type InstitutionProductSubscription = typeof institutionProductSubscriptions.$inferSelect;
+export type InsertInstitutionProductSubscription = typeof institutionProductSubscriptions.$inferInsert;
+
+/** Effective capability grants derived from a product subscription. */
+export const institutionProductEntitlements = mysqlTable("institutionProductEntitlements", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  productId: int("productId").notNull(),
+  subscriptionId: int("subscriptionId"),
+  capabilityKey: varchar("capabilityKey", { length: 128 }).notNull(),
+  entitlementStatus: mysqlEnum("entitlementStatus", ["active", "grace", "read_only", "blocked", "revoked"]).default("active").notNull(),
+  limitValue: int("limitValue"),
+  startsAt: timestamp("startsAt"),
+  endsAt: timestamp("endsAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionCapabilityUnique: uniqueIndex("institutionProductEntitlements_institution_capability_unique").on(table.institutionalAccountId, table.productId, table.capabilityKey),
+  institutionStatusIndex: index("institutionProductEntitlements_institution_status_idx").on(table.institutionalAccountId, table.entitlementStatus),
+}));
+export type InstitutionProductEntitlement = typeof institutionProductEntitlements.$inferSelect;
+export type InsertInstitutionProductEntitlement = typeof institutionProductEntitlements.$inferInsert;
+
+/** Product-specific roles, separate from shared account administration and IERS responsibility roles. */
+export const institutionProductRoles = mysqlTable("institutionProductRoles", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  productId: int("productId").notNull(),
+  userId: int("userId"),
+  invitedEmail: varchar("invitedEmail", { length: 320 }).notNull(),
+  roleKey: varchar("roleKey", { length: 128 }).notNull(),
+  roleStatus: mysqlEnum("roleStatus", ["invited", "active", "suspended", "ended"]).default("invited").notNull(),
+  grantedByUserId: int("grantedByUserId"),
+  grantedAt: timestamp("grantedAt").defaultNow().notNull(),
+  endedAt: timestamp("endedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionEmailRoleUnique: uniqueIndex("institutionProductRoles_institution_product_email_role_unique").on(table.institutionalAccountId, table.productId, table.invitedEmail, table.roleKey),
+  institutionUserIndex: index("institutionProductRoles_institution_user_idx").on(table.institutionalAccountId, table.userId),
+  productStatusIndex: index("institutionProductRoles_product_status_idx").on(table.productId, table.roleStatus),
+}));
+export type InstitutionProductRole = typeof institutionProductRoles.$inferSelect;
+export type InsertInstitutionProductRole = typeof institutionProductRoles.$inferInsert;
+
+/** Append-only commercial and entitlement state history. */
+export const institutionSubscriptionEvents = mysqlTable("institutionSubscriptionEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  productId: int("productId").notNull(),
+  subscriptionId: int("subscriptionId"),
+  eventType: mysqlEnum("eventType", ["created", "activated", "renewed", "payment_succeeded", "payment_failed", "grace_started", "past_due", "expired", "suspended", "resumed", "cancelled", "manual_override", "legacy_migrated"]).notNull(),
+  previousStatus: varchar("previousStatus", { length: 64 }),
+  currentStatus: varchar("currentStatus", { length: 64 }),
+  actorUserId: int("actorUserId"),
+  reason: text("reason"),
+  reference: varchar("reference", { length: 255 }),
+  occurredAt: timestamp("occurredAt").defaultNow().notNull(),
+});
+export type InstitutionSubscriptionEvent = typeof institutionSubscriptionEvents.$inferSelect;
+export type InsertInstitutionSubscriptionEvent = typeof institutionSubscriptionEvents.$inferInsert;
+
+/** Product access decisions and manual overrides for auditability. */
+export const institutionEntitlementAuditLog = mysqlTable("institutionEntitlementAuditLog", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  productId: int("productId").notNull(),
+  capabilityKey: varchar("capabilityKey", { length: 128 }).notNull(),
+  decision: mysqlEnum("decision", ["allowed", "denied", "read_only", "override"]).notNull(),
+  userId: int("userId"),
+  reason: varchar("reason", { length: 512 }),
+  metadata: json("metadata"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  institutionDecisionIndex: index("institutionEntitlementAuditLog_institution_decision_idx").on(table.institutionalAccountId, table.decision),
+  productCreatedIndex: index("institutionEntitlementAuditLog_product_created_idx").on(table.productId, table.createdAt),
+}));
+export type InstitutionEntitlementAuditLog = typeof institutionEntitlementAuditLog.$inferSelect;
+export type InsertInstitutionEntitlementAuditLog = typeof institutionEntitlementAuditLog.$inferInsert;
+
 /**
  * Shared provider–institution membership. This is deliberately separate from
  * institutionalStaffMembers: the latter remains the operational roster and

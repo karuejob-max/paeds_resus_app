@@ -73,6 +73,7 @@ import { institutionAdminsRouter } from "./routers/institution-admins";
 import { institutionRecoveryRouter } from "./routers/institution-recovery";
 import { iersRouter } from "./routers/iers";
 import { cpdRouter } from "./routers/cpd";
+import { institutionProductsRouter } from "./routers/institution-products";
 import { institutionalNotificationsRouter } from "./routers/institutional-notifications";
 import { productionSecurityRouter } from "./routers/production-security";
 import { predictiveAnalyticsRouter } from "./routers/predictive-analytics";
@@ -470,6 +471,7 @@ export const appRouter = router({
   fpkb: fpkbRouter,
   referrals: referralsRouter,
   institution: institutionRouter,
+  institutionProducts: institutionProductsRouter,
   institutionAdmins: institutionAdminsRouter,
   institutionRecovery: institutionRecoveryRouter,
   iers: iersRouter,
