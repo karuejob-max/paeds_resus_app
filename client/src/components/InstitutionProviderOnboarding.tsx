@@ -1,12 +1,18 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, Users, Mail, CheckCircle2, AlertCircle, Download } from "lucide-react";
+import { Upload, Users, Mail, CheckCircle2, AlertCircle, Download, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 
 export default function InstitutionProviderOnboarding() {
   const [step, setStep] = useState<"method" | "import" | "review" | "sent">("method");
   const [importedProviders, setImportedProviders] = useState<any[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<"csv" | "sso" | "manual">("csv");
+  const [isSending, setIsSending] = useState(false);
+  const [sendResult, setSendResult] = useState<{ imported: number; errors: { email: string; error: string }[] } | null>(null);
+  const { data: institutionData } = trpc.institution.getMyInstitution.useQuery();
+  const inviteProvider = trpc.institution.inviteProvider.useMutation();
 
   const downloadTemplate = () => {
     const template = `name,email,phone,providerType,department
@@ -49,6 +55,39 @@ Peter Mwangi,peter.mwangi@hospital.com,+254712345680,paramedic,Ambulance`;
       setStep("review");
     };
     reader.readAsText(file);
+  };
+
+  const handleCreateInvitations = async () => {
+    const institutionId = institutionData?.institution?.id;
+    if (!institutionId) {
+      toast.error("Your institution account could not be loaded. Please refresh and try again.");
+      return;
+    }
+
+    setIsSending(true);
+    const results = await Promise.all(importedProviders.map(async (provider) => {
+      try {
+        await inviteProvider.mutateAsync({
+          institutionId,
+          email: provider.email,
+          staffName: provider.name,
+          staffPhone: provider.phone || undefined,
+          staffRole: provider.providerType,
+          department: provider.department || undefined,
+        });
+        return { ok: true as const, email: provider.email };
+      } catch (error) {
+        return { ok: false as const, email: provider.email, error: error instanceof Error ? error.message : "Could not create invitation" };
+      }
+    }));
+
+    const errors = results.filter((result): result is { ok: false; email: string; error: string } => !result.ok);
+    const imported = results.length - errors.length;
+    setSendResult({ imported, errors });
+    setIsSending(false);
+    setStep("sent");
+    if (errors.length === 0) toast.success(`${imported} provider invitation${imported === 1 ? "" : "s"} created.`);
+    else toast.warning(`${imported} invitations created; ${errors.length} need review.`);
   };
 
   return (
@@ -211,9 +250,11 @@ Peter Mwangi,peter.mwangi@hospital.com,+254712345680,paramedic,Ambulance`;
               </Button>
               <Button
                 className="bg-[#ff6633] hover:bg-[#e55a22]"
-                onClick={() => setStep("sent")}
+                onClick={handleCreateInvitations}
+                disabled={isSending || importedProviders.length === 0}
               >
-                Send Activation Emails
+                {isSending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
+                Create Provider Invitations
               </Button>
             </div>
           </CardContent>
@@ -236,8 +277,8 @@ Peter Mwangi,peter.mwangi@hospital.com,+254712345680,paramedic,Ambulance`;
                 <p className="text-2xl font-bold text-[#1a4d4d]">{importedProviders.length}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Activation Emails Sent</p>
-                <p className="text-2xl font-bold text-[#ff6633]">{importedProviders.length}</p>
+                <p className="text-sm text-gray-600">Invitation Records Created</p>
+                <p className="text-2xl font-bold text-[#ff6633]">{sendResult?.imported ?? 0}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Activation Link Expiry</p>
@@ -248,15 +289,22 @@ Peter Mwangi,peter.mwangi@hospital.com,+254712345680,paramedic,Ambulance`;
             <div className="bg-white p-4 rounded-lg border border-green-200">
               <h3 className="font-semibold text-[#1a4d4d] mb-2">What Happens Next:</h3>
               <ol className="space-y-2 text-sm text-gray-700">
-                <li>1. Each provider receives an activation email with a unique link</li>
-                <li>2. They click the link and create their password</li>
-                <li>3. They're automatically linked to your institution</li>
-                <li>4. They can start enrolling in courses immediately</li>
+                <li>1. Each provider invitation is linked to the provider’s email address</li>
+                <li>2. The provider signs in or creates an account with that same email</li>
+                <li>3. They accept the institutional responsibility invitation in their provider workspace</li>
+                <li>4. Their role and IERS tasks become visible to them</li>
               </ol>
             </div>
 
+            {sendResult && sendResult.errors.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900">
+                <p className="font-semibold mb-1">Provider invitations needing review</p>
+                {sendResult.errors.map((error) => <p key={error.email}>{error.email}: {error.error}</p>)}
+              </div>
+            )}
+
             <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={() => setStep("method")}>
+              <Button variant="outline" onClick={() => { setSendResult(null); setStep("method"); }}>
                 Import More Providers
               </Button>
               <Button className="bg-[#1a4d4d] hover:bg-[#0d3333]">

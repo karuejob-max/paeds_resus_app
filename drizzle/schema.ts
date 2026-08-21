@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, decimal, boolean, date, json } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, decimal, boolean, date, json, uniqueIndex, index } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -1294,6 +1294,118 @@ export const institutionalStaffMembers = mysqlTable("institutionalStaffMembers",
 
 export type InstitutionalStaffMember = typeof institutionalStaffMembers.$inferSelect;
 export type InsertInstitutionalStaffMember = typeof institutionalStaffMembers.$inferInsert;
+
+/**
+ * Shared provider–institution membership. This is deliberately separate from
+ * institutionalStaffMembers: the latter remains the operational roster and
+ * training record, while this table is the identity/permission contract for
+ * provider participation in IERS workflows.
+ */
+export const institutionMemberships = mysqlTable("institutionMemberships", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  userId: int("userId"),
+  invitedEmail: varchar("invitedEmail", { length: 320 }).notNull(),
+  staffMemberId: int("staffMemberId"),
+  membershipStatus: mysqlEnum("membershipStatus", ["invited", "active", "suspended", "ended"]).default("invited").notNull(),
+  responsibilityRole: mysqlEnum("responsibilityRole", [
+    "executive",
+    "erc_chair",
+    "erc_member",
+    "er_coordinator",
+    "unit_team_leader",
+    "ert_leader",
+    "ert_responder",
+    "general_staff",
+  ]).default("general_staff").notNull(),
+  invitedByUserId: int("invitedByUserId"),
+  invitedAt: timestamp("invitedAt").defaultNow().notNull(),
+  acceptedAt: timestamp("acceptedAt"),
+  suspendedAt: timestamp("suspendedAt"),
+  endedAt: timestamp("endedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionEmailUnique: uniqueIndex("institutionMemberships_institution_email_unique").on(table.institutionalAccountId, table.invitedEmail),
+  institutionUserIndex: index("institutionMemberships_institution_user_idx").on(table.institutionalAccountId, table.userId),
+  institutionStatusIndex: index("institutionMemberships_institution_status_idx").on(table.institutionalAccountId, table.membershipStatus),
+}));
+export type InstitutionMembership = typeof institutionMemberships.$inferSelect;
+export type InsertInstitutionMembership = typeof institutionMemberships.$inferInsert;
+
+/** Durable IERS emergency activation record. */
+export const iersActivationEvents = mysqlTable("iersActivationEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  activatedByUserId: int("activatedByUserId").notNull(),
+  activationType: mysqlEnum("activationType", ["code_blue", "code_yellow", "neonatal", "sepsis", "anaphylaxis", "trauma", "other"]).notNull(),
+  priority: mysqlEnum("priority", ["critical", "high", "routine"]).default("critical").notNull(),
+  location: varchar("location", { length: 255 }).notNull(),
+  department: varchar("department", { length: 255 }),
+  source: mysqlEnum("source", ["provider", "unit_team_leader", "ert_leader", "institution_admin", "downtime_reconciliation"]).default("provider").notNull(),
+  status: mysqlEnum("status", ["draft", "triggered", "notifying", "acknowledged", "responding", "at_scene", "stabilized", "recovered", "debrief_pending", "closed", "cancelled", "false_alarm", "downtime_pending_sync", "failed_escalation"]).default("triggered").notNull(),
+  triggeredAt: timestamp("triggeredAt").defaultNow().notNull(),
+  firstAcknowledgedAt: timestamp("firstAcknowledgedAt"),
+  firstResponderAt: timestamp("firstResponderAt"),
+  atSceneAt: timestamp("atSceneAt"),
+  stabilizedAt: timestamp("stabilizedAt"),
+  closedAt: timestamp("closedAt"),
+  closedByUserId: int("closedByUserId"),
+  cancellationReason: text("cancellationReason"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionStatusIndex: index("iersActivationEvents_institution_status_idx").on(table.institutionalAccountId, table.status),
+  institutionTriggeredIndex: index("iersActivationEvents_institution_triggered_idx").on(table.institutionalAccountId, table.triggeredAt),
+}));
+export type IersActivationEvent = typeof iersActivationEvents.$inferSelect;
+export type InsertIersActivationEvent = typeof iersActivationEvents.$inferInsert;
+
+/** Per-provider notification, acknowledgement, escalation, and response evidence. */
+export const iersActivationResponders = mysqlTable("iersActivationResponders", {
+  id: int("id").autoincrement().primaryKey(),
+  activationEventId: int("activationEventId").notNull(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  membershipId: int("membershipId"),
+  userId: int("userId").notNull(),
+  assignmentType: mysqlEnum("assignmentType", ["primary", "backup", "observer"]).default("primary").notNull(),
+  responsibilityRole: mysqlEnum("responsibilityRole", ["ert_leader", "ert_responder", "unit_team_leader", "er_coordinator", "erc_member", "general_staff"]).default("ert_responder").notNull(),
+  notificationStatus: mysqlEnum("notificationStatus", ["pending", "sent", "delivered", "failed", "acknowledged", "declined", "timed_out"]).default("pending").notNull(),
+  notifiedAt: timestamp("notifiedAt"),
+  acknowledgedAt: timestamp("acknowledgedAt"),
+  declinedAt: timestamp("declinedAt"),
+  declineReason: varchar("declineReason", { length: 500 }),
+  responseAt: timestamp("responseAt"),
+  atSceneAt: timestamp("atSceneAt"),
+  handoffAt: timestamp("handoffAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  activationUserUnique: uniqueIndex("iersActivationResponders_activation_user_unique").on(table.activationEventId, table.userId),
+  institutionUserIndex: index("iersActivationResponders_institution_user_idx").on(table.institutionalAccountId, table.userId),
+}));
+export type IersActivationResponder = typeof iersActivationResponders.$inferSelect;
+export type InsertIersActivationResponder = typeof iersActivationResponders.$inferInsert;
+
+/** Append-only state transition log for activation evidence and auditability. */
+export const iersActivationTimeline = mysqlTable("iersActivationTimeline", {
+  id: int("id").autoincrement().primaryKey(),
+  activationEventId: int("activationEventId").notNull(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  actorUserId: int("actorUserId"),
+  eventType: varchar("eventType", { length: 64 }).notNull(),
+  fromStatus: varchar("fromStatus", { length: 64 }),
+  toStatus: varchar("toStatus", { length: 64 }),
+  note: text("note"),
+  metadata: text("metadata"),
+  occurredAt: timestamp("occurredAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  activationTimeIndex: index("iersActivationTimeline_activation_time_idx").on(table.activationEventId, table.occurredAt),
+}));
+export type IersActivationTimeline = typeof iersActivationTimeline.$inferSelect;
+export type InsertIersActivationTimeline = typeof iersActivationTimeline.$inferInsert;
 
 // Fellowship Simulations table
 export const fellowshipSimulations = mysqlTable("fellowshipSimulations", {

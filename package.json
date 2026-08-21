@@ -141,6 +141,8 @@
     "db:apply-0091": "node scripts/apply-0091-code-signal-review-queue.mjs",
     "db:apply-0092": "node scripts/apply-0092-institutional-code-signal-link.mjs",
     "db:apply-0093": "node scripts/apply-0093-canonicalize-departments.mjs",
+    "db:apply-0094": "node scripts/apply-0094-institution-memberships.mjs",
+    "db:apply-0095": "node scripts/apply-0095-iers-activation-spine.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },
