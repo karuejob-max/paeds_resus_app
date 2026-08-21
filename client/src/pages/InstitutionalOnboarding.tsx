@@ -77,6 +77,16 @@ export default function InstitutionalOnboarding() {
     });
   };
 
+  const handleNext = () => {
+    if (step === 1 && formData.institutionName.trim().length < 3) {
+      setError("Enter a facility name with at least 3 characters, or select a facility from the registry.");
+      return;
+    }
+
+    setError("");
+    setStep((currentStep) => currentStep + 1);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -110,7 +120,7 @@ export default function InstitutionalOnboarding() {
     try {
       await acceptB2b.mutateAsync();
       await completeOnboarding.mutateAsync({
-        institutionName: formData.institutionName,
+        institutionName: formData.institutionName.trim(),
         institutionType: formData.institutionType,
         registrationNumber: formData.registrationNumber.trim() || undefined,
         healthcareStaffCount: staffCount,
@@ -202,6 +212,13 @@ export default function InstitutionalOnboarding() {
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-foreground mb-2">Institution details</h2>
                 <p className="text-sm text-muted-foreground mb-4">Country defaults to Kenya; change it if your facility is elsewhere.</p>
+
+                {error && (
+                  <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <AlertCircle className="text-red-600 mt-0.5" size={20} />
+                    <p className="text-red-800">{error}</p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
@@ -518,7 +535,7 @@ export default function InstitutionalOnboarding() {
               </Button>
 
               {step < 4 ? (
-                <Button type="button" variant="cta" onClick={() => setStep(step + 1)} disabled={loading}>
+                <Button type="button" variant="cta" onClick={handleNext} disabled={loading}>
                   Next
                 </Button>
               ) : (
