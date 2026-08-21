@@ -52,6 +52,37 @@ async function main() {
         KEY institutionMemberships_institution_status_idx (institutionalAccountId, membershipStatus)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
+    const [roleColumns] = await conn.query(`
+      SELECT COLUMN_NAME
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'institutionalStaffMembers'
+        AND COLUMN_NAME IN ('governanceRole', 'institutionalRole')
+    `);
+    const availableRoleColumns = new Set(
+      Array.isArray(roleColumns) ? roleColumns.map((row) => row.COLUMN_NAME) : [],
+    );
+
+    // Production may predate the governanceRole column. Never reference a
+    // column that information_schema says is absent: migrations must tolerate
+    // schema drift between the deployed application and the current Drizzle
+    // model. institutionalRole is mapped conservatively; unknown/legacy roles
+    // become general_staff rather than receiving elevated IERS permissions.
+    let responsibilityRoleExpression = "'general_staff'";
+    if (availableRoleColumns.has("governanceRole")) {
+      responsibilityRoleExpression = "COALESCE(s.governanceRole, 'general_staff')";
+    } else if (availableRoleColumns.has("institutionalRole")) {
+      responsibilityRoleExpression = `CASE s.institutionalRole
+        WHEN 'director' THEN 'executive'
+        WHEN 'coordinator' THEN 'er_coordinator'
+        WHEN 'department_head' THEN 'unit_team_leader'
+        ELSE 'general_staff'
+      END`;
+    }
+    console.log(
+      `[0094] Backfill role source: ${availableRoleColumns.size ? [...availableRoleColumns].join(', ') : 'none; defaulting to general_staff'}`,
+    );
+
     await conn.query(`
       INSERT IGNORE INTO institutionMemberships
         (institutionalAccountId, userId, invitedEmail, staffMemberId, membershipStatus, responsibilityRole, acceptedAt)
@@ -61,7 +92,7 @@ async function main() {
         LOWER(s.staffEmail),
         s.id,
         'active',
-        COALESCE(s.governanceRole, 'general_staff'),
+        ${responsibilityRoleExpression},
         CURRENT_TIMESTAMP
       FROM institutionalStaffMembers s
       WHERE s.institutionalAccountId IS NOT NULL
