@@ -726,7 +726,7 @@ export const institutionRouter = router({
   completeOnboarding: protectedProcedure
     .input(
       z.object({
-        institutionName: z.string().min(3),
+        institutionName: z.string().trim().min(3),
         institutionType: z.string().min(1),
         registrationNumber: z.preprocess(
           (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),

@@ -71,6 +71,9 @@ export function FacilityAutocomplete({
     const newValue = e.target.value;
     setQuery(newValue);
     setSelectedFacility(null);
+    // Keep the parent onboarding form synchronized even before a registry result is selected.
+    // Otherwise the final submit can send the initial empty institutionName.
+    onManualEntry(newValue);
     if (newValue.length === 0) {
       setIsOpen(false);
       setResults([]);
