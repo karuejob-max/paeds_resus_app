@@ -143,6 +143,11 @@
     "db:apply-0093": "node scripts/apply-0093-canonicalize-departments.mjs",
     "db:apply-0094": "node scripts/apply-0094-institution-memberships.mjs",
     "db:apply-0095": "node scripts/apply-0095-iers-activation-spine.mjs",
+    "db:apply-0096": "node scripts/apply-0096-iers-shift-signoff.mjs",
+    "db:apply-0097": "node scripts/apply-0097-iers-evidence-actions.mjs",
+    "db:apply-0098": "node scripts/apply-0098-iers-drills.mjs",
+    "db:apply-0099": "node scripts/apply-0099-iers-milestones.mjs",
+    "db:verify-iers": "node scripts/verify-iers-readiness.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
   },

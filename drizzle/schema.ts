@@ -4141,6 +4141,8 @@ export const shiftUtlRosters = mysqlTable("shift_utl_rosters", {
   utlUserId: int("utl_user_id").notNull(),
   isShiftErtl: boolean("is_shift_ertl").default(false).notNull(),
   readinessSignOffAt: timestamp("readiness_signoff_at"),
+  readinessSignedOffByUserId: int("readiness_signed_off_by_user_id"),
+  readinessNote: text("readiness_note"),
   status: mysqlEnum("status", ["active", "completed", "absent"]).default("active").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -4190,6 +4192,125 @@ export const equipmentAuditLogs = mysqlTable("equipment_audit_logs", {
 });
 export type EquipmentAuditLog = typeof equipmentAuditLogs.$inferSelect;
 export type InsertEquipmentAuditLog = typeof equipmentAuditLogs.$inferInsert;
+
+/** Criterion-level evidence for IERS readiness, audit review, and accreditation snapshots. */
+export const iersEvidenceRecords = mysqlTable("iers_evidence_records", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  domain: mysqlEnum("domain", ["leadership", "workforce", "activation", "equipment", "clinical_governance", "quality_improvement", "resusgps", "training"]).notNull(),
+  criterionCode: varchar("criterion_code", { length: 64 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  evidenceType: mysqlEnum("evidence_type", ["checklist", "document", "photo", "drill", "activation", "audit", "metric", "attestation", "external"]).notNull(),
+  description: text("description").notNull(),
+  evidenceUrl: text("evidence_url"),
+  observedAt: timestamp("observed_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+  submittedByUserId: int("submitted_by_user_id").notNull(),
+  status: mysqlEnum("status", ["draft", "submitted", "accepted", "rejected", "expired", "superseded"]).default("submitted").notNull(),
+  reviewedByUserId: int("reviewed_by_user_id"),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNote: text("review_note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionDomainIndex: index("iersEvidenceRecords_institution_domain_idx").on(table.institutionId, table.domain),
+  institutionCriterionIndex: index("iersEvidenceRecords_institution_criterion_idx").on(table.institutionId, table.criterionCode),
+  institutionStatusIndex: index("iersEvidenceRecords_institution_status_idx").on(table.institutionId, table.status),
+}));
+export type IersEvidenceRecord = typeof iersEvidenceRecords.$inferSelect;
+export type InsertIersEvidenceRecord = typeof iersEvidenceRecords.$inferInsert;
+
+/** Owned improvement actions linked to evidence, activations, incidents, and QI signals. */
+export const iersActionItems = mysqlTable("iers_action_items", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  sourceType: mysqlEnum("source_type", ["evidence", "activation", "equipment", "care_signal", "code_signal", "incident", "drill", "manual"]).default("manual").notNull(),
+  sourceId: int("source_id"),
+  title: varchar("title", { length: 255 }).notNull(),
+  gapDescription: text("gap_description").notNull(),
+  ownerUserId: int("owner_user_id"),
+  priority: mysqlEnum("priority", ["critical", "high", "medium", "low"]).default("medium").notNull(),
+  status: mysqlEnum("status", ["open", "in_progress", "blocked", "awaiting_verification", "closed", "cancelled"]).default("open").notNull(),
+  dueDate: date("due_date"),
+  closureNote: text("closure_note"),
+  closureEvidenceId: int("closure_evidence_id"),
+  closedByUserId: int("closed_by_user_id"),
+  closedAt: timestamp("closed_at"),
+  createdByUserId: int("created_by_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionStatusIndex: index("iersActionItems_institution_status_idx").on(table.institutionId, table.status),
+  institutionOwnerIndex: index("iersActionItems_institution_owner_idx").on(table.institutionId, table.ownerUserId),
+  institutionDueDateIndex: index("iersActionItems_institution_due_date_idx").on(table.institutionId, table.dueDate),
+}));
+export type IersActionItem = typeof iersActionItems.$inferSelect;
+export type InsertIersActionItem = typeof iersActionItems.$inferInsert;
+
+/** Scheduled IERS drills with response timing and debrief evidence. */
+export const iersDrills = mysqlTable("iers_drills", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  scenarioType: mysqlEnum("scenario_type", ["code_blue", "code_yellow", "neonatal", "sepsis", "anaphylaxis", "trauma", "other"]).notNull(),
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  status: mysqlEnum("status", ["planned", "in_progress", "completed", "cancelled"]).default("planned").notNull(),
+  facilitatorUserId: int("facilitator_user_id").notNull(),
+  targetResponseSeconds: int("target_response_seconds").default(180).notNull(),
+  startedAt: timestamp("started_at"),
+  endedAt: timestamp("ended_at"),
+  debriefNote: text("debrief_note"),
+  lessonsLearned: text("lessons_learned"),
+  createdByUserId: int("created_by_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionStatusIndex: index("iersDrills_institution_status_idx").on(table.institutionId, table.status),
+  institutionScheduleIndex: index("iersDrills_institution_schedule_idx").on(table.institutionId, table.scheduledAt),
+}));
+export type IersDrill = typeof iersDrills.$inferSelect;
+export type InsertIersDrill = typeof iersDrills.$inferInsert;
+
+/** Drill participants and role-specific attendance evidence. */
+export const iersDrillParticipants = mysqlTable("iers_drill_participants", {
+  id: int("id").autoincrement().primaryKey(),
+  drillId: int("drill_id").notNull(),
+  institutionId: int("institution_id").notNull(),
+  userId: int("user_id").notNull(),
+  role: varchar("role", { length: 128 }).notNull(),
+  joinedAt: timestamp("joined_at"),
+  assessed: boolean("assessed").default(false).notNull(),
+  assessmentNote: text("assessment_note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  drillUserUnique: uniqueIndex("iersDrillParticipants_drill_user_unique").on(table.drillId, table.userId),
+  institutionUserIndex: index("iersDrillParticipants_institution_user_idx").on(table.institutionId, table.userId),
+}));
+export type IersDrillParticipant = typeof iersDrillParticipants.$inferSelect;
+export type InsertIersDrillParticipant = typeof iersDrillParticipants.$inferInsert;
+
+/** 30/60/90-day IERS implementation milestones with explicit owners and proof. */
+export const iersImplementationMilestones = mysqlTable("iers_implementation_milestones", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  phaseOrder: int("phase_order").notNull(),
+  phaseName: varchar("phase_name", { length: 128 }).notNull(),
+  objective: text("objective").notNull(),
+  targetDate: date("target_date"),
+  ownerUserId: int("owner_user_id"),
+  status: mysqlEnum("status", ["not_started", "in_progress", "at_risk", "complete"]).default("not_started").notNull(),
+  riskNote: text("risk_note"),
+  evidenceId: int("evidence_id"),
+  completedAt: timestamp("completed_at"),
+  createdByUserId: int("created_by_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionPhaseUnique: uniqueIndex("iersImplementationMilestones_institution_phase_unique").on(table.institutionId, table.phaseOrder),
+  institutionStatusIndex: index("iersImplementationMilestones_institution_status_idx").on(table.institutionId, table.status),
+}));
+export type IersImplementationMilestone = typeof iersImplementationMilestones.$inferSelect;
+export type InsertIersImplementationMilestone = typeof iersImplementationMilestones.$inferInsert;
 
 // 7. 90-Day Implementation Tracker
 export const iermsImplementationTrackers = mysqlTable("ierms_implementation_trackers", {

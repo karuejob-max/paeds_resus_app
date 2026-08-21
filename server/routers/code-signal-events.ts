@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, count, gte } from "drizzle-orm";
 import { getDb, insertAdminAuditLog } from "../db";
-import { codeSignalEvents, providerProfiles } from "../../drizzle/schema";
+import { codeSignalEvents, providerProfiles, iersEvidenceRecords, iersActionItems } from "../../drizzle/schema";
 import { trackEvent } from "../services/analytics.service";
 import {
   getFacilityById,
@@ -148,6 +148,35 @@ export const codeSignalEventsRouter = router({
         });
 
         const insertId = (insertResult as unknown as { insertId: number }).insertId;
+        const linkedFacility = resolvedFacilityId ? await getFacilityById(resolvedFacilityId) : null;
+        const linkedInstitutionId = linkedFacility?.institutionalAccountId ?? null;
+        if (linkedInstitutionId) {
+          const failureSummary = input.failureModeCodes?.length ? input.failureModeCodes.join(", ") : "No structured failure code selected";
+          await db.insert(iersEvidenceRecords).values({
+            institutionId: linkedInstitutionId,
+            domain: "quality_improvement",
+            criterionCode: "QI-01",
+            title: `Code Signal QI event #${insertId}`,
+            evidenceType: "metric",
+            description: `Whole-hospital QI event recorded for institutional review. Track: ${input.reportTrack}; patient category: ${input.patientCategory}; condition: ${input.conditionCategory}; outcome: ${input.outcomeCategory}.`,
+            observedAt: new Date(input.eventDate),
+            submittedByUserId: ctx.user.id,
+            status: "submitted",
+          });
+          if (input.reportTrack === "FAILURE" && input.failureModeCodes?.length) {
+            await db.insert(iersActionItems).values({
+              institutionId: linkedInstitutionId,
+              sourceType: "code_signal",
+              sourceId: insertId,
+              title: `Review Code Signal failures from event #${insertId}`,
+              gapDescription: failureSummary,
+              ownerUserId: input.submissionMode === "named" ? ctx.user.id : null,
+              priority: "medium",
+              status: "open",
+              createdByUserId: ctx.user.id,
+            });
+          }
+        }
 
         await trackEvent({
           userId: ctx.user.id,

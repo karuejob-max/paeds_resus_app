@@ -47,6 +47,10 @@ import { ErtRosterPanel } from "@/components/ErtRosterPanel";
 import { EquipmentAuditPanel } from "@/components/EquipmentAuditPanel";
 import { IermsImplementationTrackerWidget } from "@/components/IermsImplementationTrackerWidget";
 import { IersActivationPanel } from "@/components/IersActivationPanel";
+import { IersEvidencePanel } from "@/components/IersEvidencePanel";
+import { IersDrillPanel } from "@/components/IersDrillPanel";
+import { IersExecutiveReportPanel } from "@/components/IersExecutiveReportPanel";
+import { IersImplementationPlanPanel } from "@/components/IersImplementationPlanPanel";
 import {
   BarChart3,
   Users,
@@ -783,11 +787,14 @@ export default function HospitalAdminDashboard() {
               label: "Readiness & Audits",
               icon: Award,
               subTabs: [
-                { id: "ierms-audit", label: "IERMS™ 100-Pt Audit" },
+                { id: "ierms-audit", label: "Evidence-derived IERS Score" },
                 { id: "iers-activation", label: "Activation Command Center" },
+                { id: "iers-drills", label: "Drills & Debriefs" },
                 { id: "equipment-audit", label: "Equipment & Cart Audit" },
                 { id: "resusgps-audit", label: "ResusGPS Adoption Audit" },
                 { id: "reports", label: "Institutional Reports" },
+                { id: "iers-report", label: "IERS Executive Snapshot" },
+                { id: "iers-plan", label: "30/60/90-Day Plan" },
               ],
             },
             {
@@ -2786,6 +2793,21 @@ export default function HospitalAdminDashboard() {
           {/* IERS Activation Command Center */}
           <TabsContent value="iers-activation" className="space-y-6">
             {institutionId ? <IersActivationPanel institutionId={institutionId} /> : null}
+          </TabsContent>
+
+          {/* IERS Drills & Debriefs */}
+          <TabsContent value="iers-drills" className="space-y-6">
+            {institutionId ? <IersDrillPanel institutionId={institutionId} /> : null}
+          </TabsContent>
+
+          {/* IERS Executive Snapshot */}
+          <TabsContent value="iers-report" className="space-y-6">
+            {institutionId ? <IersExecutiveReportPanel institutionId={institutionId} /> : null}
+          </TabsContent>
+
+          {/* IERS Implementation Plan */}
+          <TabsContent value="iers-plan" className="space-y-6">
+            {institutionId ? <IersImplementationPlanPanel institutionId={institutionId} /> : null}
           </TabsContent>
 
           {/* 24/7 ERT Roster Tab */}

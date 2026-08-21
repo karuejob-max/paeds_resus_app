@@ -32,6 +32,9 @@ import { CertificateFolder } from "@/components/CertificateFolder";
 import { MyPerformanceScorecard } from "@/components/MyPerformanceScorecard";
 import ProviderInstitutionReadinessCard from "@/components/ProviderInstitutionReadinessCard";
 import ProviderIersActivationCard from "@/components/ProviderIersActivationCard";
+import ProviderShiftReadinessCard from "@/components/ProviderShiftReadinessCard";
+import ProviderIersEvidenceCard from "@/components/ProviderIersEvidenceCard";
+import ProviderIersActionCard from "@/components/ProviderIersActionCard";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
@@ -463,6 +466,9 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
 
         {/* ── Institutional readiness responsibility ──────────────────────────── */}
         <ProviderInstitutionReadinessCard />
+        <ProviderShiftReadinessCard />
+        <ProviderIersEvidenceCard />
+        <ProviderIersActionCard />
         <ProviderIersActivationCard />
 
         {/* ── My Performance ──────────────────────────────────────────────────── */}

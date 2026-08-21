@@ -34,6 +34,8 @@ import {
   equipmentAuditLogs,
   iermsImplementationTrackers,
   institutionMemberships,
+  iersEvidenceRecords,
+  iersActionItems,
   cpdEvents,
   cpdAttendees,
 } from "../../drizzle/schema";
@@ -2564,6 +2566,17 @@ export const institutionRouter = router({
       });
 
       const insertId = (result as unknown as { insertId: number }).insertId;
+      await db.insert(iersActionItems).values({
+        institutionId: input.institutionId,
+        sourceType: input.careSignalEventId ? "care_signal" : input.codeSignalEventId ? "code_signal" : "manual",
+        sourceId: input.careSignalEventId ?? input.codeSignalEventId ?? insertId,
+        title: input.gapIdentified.trim().slice(0, 255),
+        gapDescription: input.gapIdentified.trim(),
+        priority: "medium",
+        status: input.status === "completed" ? "awaiting_verification" : input.status,
+        closureNote: input.status === "completed" ? input.systemChange.trim() : null,
+        createdByUserId: ctx.user.id,
+      });
 
       return { success: true, id: insertId };
     }),
@@ -3578,24 +3591,50 @@ export const institutionRouter = router({
         deficitsFound: input.deficitsFound,
       });
 
-      // If deficits were found, create an Action Log entry automatically!
-      if (!input.cartSealIntact || !input.hasPaedsAirways || !input.hasPaedsBvm || !input.hasIoNeedles || !input.hasPaedsDefibPads || !input.hasPaedsSuction || input.deficitsFound) {
-        const deficitList = [
-          !input.cartSealIntact ? "Crash cart seal broken" : null,
-          !input.hasPaedsAirways ? "Paediatric oral airways missing" : null,
-          !input.hasPaedsBvm ? "Paediatric bag-valve-mask missing" : null,
-          !input.hasIoNeedles ? "IO needles missing" : null,
-          !input.hasPaedsDefibPads ? "Paediatric defib pads missing" : null,
-          !input.hasPaedsSuction ? "Paediatric suction catheters missing" : null,
-          input.deficitsFound ? `Other deficits: ${input.deficitsFound}` : null,
-        ].filter(Boolean).join("; ");
+      const hasDeficit = !input.cartSealIntact || !input.hasPaedsAirways || !input.hasPaedsBvm || !input.hasIoNeedles || !input.hasPaedsDefibPads || !input.hasPaedsSuction || Boolean(input.deficitsFound);
+      const deficitList = [
+        !input.cartSealIntact ? "Crash cart seal broken" : null,
+        !input.hasPaedsAirways ? "Paediatric oral airways missing" : null,
+        !input.hasPaedsBvm ? "Paediatric bag-valve-mask missing" : null,
+        !input.hasIoNeedles ? "IO needles missing" : null,
+        !input.hasPaedsDefibPads ? "Paediatric defib pads missing" : null,
+        !input.hasPaedsSuction ? "Paediatric suction catheters missing" : null,
+        input.deficitsFound ? `Other deficits: ${input.deficitsFound}` : null,
+      ].filter(Boolean).join("; ");
 
+      await db.insert(iersEvidenceRecords).values({
+        institutionId: input.institutionId,
+        domain: "equipment",
+        criterionCode: "EQ-01",
+        title: `${input.department} ${input.auditType === "daily_seal_check" ? "daily seal check" : "monthly equipment audit"}`,
+        evidenceType: "checklist",
+        description: hasDeficit
+          ? `Equipment audit recorded with deficits: ${deficitList}`
+          : "Equipment audit recorded with all listed paediatric readiness items present.",
+        observedAt: new Date(),
+        submittedByUserId: ctx.user.id,
+        status: "submitted",
+      });
+
+      // Preserve the existing action log and also write to the IERS-owned action queue.
+      if (hasDeficit) {
         await db.insert(institutionalActionLogs).values({
           institutionalAccountId: input.institutionId,
           createdByUserId: ctx.user.id,
           gapIdentified: `[Equipment Deficit - ${input.department}] ${deficitList}`,
           systemChange: `Restock and verify equipment in ${input.department} crash cart.`,
           status: "open",
+        });
+        await db.insert(iersActionItems).values({
+          institutionId: input.institutionId,
+          sourceType: "equipment",
+          sourceId: result.insertId,
+          title: `Restore paediatric equipment readiness in ${input.department}`,
+          gapDescription: deficitList,
+          ownerUserId: ctx.user.id,
+          priority: "high",
+          status: "open",
+          createdByUserId: ctx.user.id,
         });
       }
 
