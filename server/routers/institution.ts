@@ -36,6 +36,7 @@ import {
   institutionMemberships,
   iersEvidenceRecords,
   iersActionItems,
+  iersCompetencyRecords,
   cpdEvents,
   cpdAttendees,
 } from "../../drizzle/schema";
@@ -53,6 +54,7 @@ import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, sql, 
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
 import { assertInstitutionAccess, getAdministeredInstitutionIds } from "../lib/institution-access";
+import { assertInstitutionProductCapability, assertWritableProductAccess } from "../lib/institution-entitlements";
 import { getCohortProgressStats } from "../lib/cohort-progress";
 import { ensureCourseCatalogForSchedule } from "../lib/ensure-course-catalog-for-schedule";
 import {
@@ -213,6 +215,62 @@ async function syncTrainingScheduleEnrolledCount(db: DbClient, trainingScheduleI
     .update(trainingSchedules)
     .set({ enrolledCount: n, updatedAt: new Date() })
     .where(eq(trainingSchedules.id, trainingScheduleId));
+}
+
+async function syncIersCompetencyRecord(
+  db: DbClient,
+  input: {
+    trainingAttendanceId: number;
+    trainingScheduleId: number;
+    staffMemberId: number;
+    attendanceStatus: "registered" | "attended" | "absent" | "cancelled";
+  },
+) {
+  const [session] = await db
+    .select({
+      institutionalAccountId: trainingSchedules.institutionalAccountId,
+      programType: courses.programType,
+    })
+    .from(trainingSchedules)
+    .innerJoin(courses, eq(trainingSchedules.courseId, courses.id))
+    .where(eq(trainingSchedules.id, input.trainingScheduleId))
+    .limit(1);
+
+  if (!session?.institutionalAccountId || !["bls", "acls", "pals", "fellowship"].includes(session.programType)) return;
+
+  const competencyStatus = input.attendanceStatus === "attended"
+    ? "attended"
+    : input.attendanceStatus === "absent"
+      ? "absent"
+      : input.attendanceStatus === "cancelled"
+        ? "cancelled"
+        : "pending";
+  const [existing] = await db
+    .select({ id: iersCompetencyRecords.id, competencyStatus: iersCompetencyRecords.competencyStatus })
+    .from(iersCompetencyRecords)
+    .where(eq(iersCompetencyRecords.trainingAttendanceId, input.trainingAttendanceId))
+    .limit(1);
+
+  if (existing) {
+    await db
+      .update(iersCompetencyRecords)
+      .set({
+        competencyStatus,
+        ...(competencyStatus === "attended" ? {} : { verifiedByUserId: null, verifiedAt: null, verificationNotes: null }),
+        updatedAt: new Date(),
+      })
+      .where(eq(iersCompetencyRecords.id, existing.id));
+    return;
+  }
+
+  await db.insert(iersCompetencyRecords).values({
+    institutionalAccountId: session.institutionalAccountId,
+    staffMemberId: input.staffMemberId,
+    trainingScheduleId: input.trainingScheduleId,
+    trainingAttendanceId: input.trainingAttendanceId,
+    programType: session.programType as "bls" | "acls" | "pals" | "fellowship",
+    competencyStatus,
+  });
 }
 
 /**
@@ -1458,6 +1516,7 @@ export const institutionRouter = router({
         });
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
       const instructorUser = alias(users, "instructorUser");
       return await db
         .select({
@@ -1506,6 +1565,7 @@ export const institutionRouter = router({
         });
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
 
       if (input.programType) {
         return await db
@@ -1578,6 +1638,8 @@ export const institutionRouter = router({
         });
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const competencyAccess = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.competency_training.operate");
+      assertWritableProductAccess(competencyAccess);
 
       await ensureCourseCatalogForSchedule(db, input.programType);
 
@@ -1685,6 +1747,8 @@ export const institutionRouter = router({
         });
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const competencyAccess = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.competency_training.operate");
+      assertWritableProductAccess(competencyAccess);
       await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
 
       const [current] = await db
@@ -1827,6 +1891,8 @@ export const institutionRouter = router({
         });
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const competencyAccess = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.competency_training.operate");
+      assertWritableProductAccess(competencyAccess);
       await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
 
       await db
@@ -1856,6 +1922,7 @@ export const institutionRouter = router({
         });
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
       await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
 
       const rows = await db
@@ -1882,6 +1949,39 @@ export const institutionRouter = router({
       return { rows };
     }),
 
+  /** IERS competency projection for this institution, sourced from session attendance. */
+  getIersCompetencyRecords: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      programType: z.enum(["bls", "acls", "pals", "fellowship"]).optional(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
+      const conditions = [eq(iersCompetencyRecords.institutionalAccountId, input.institutionId)];
+      if (input.programType) conditions.push(eq(iersCompetencyRecords.programType, input.programType));
+      return db
+        .select({
+          id: iersCompetencyRecords.id,
+          staffMemberId: iersCompetencyRecords.staffMemberId,
+          staffName: institutionalStaffMembers.staffName,
+          staffRole: institutionalStaffMembers.staffRole,
+          trainingScheduleId: iersCompetencyRecords.trainingScheduleId,
+          programType: iersCompetencyRecords.programType,
+          competencyStatus: iersCompetencyRecords.competencyStatus,
+          verifiedByUserId: iersCompetencyRecords.verifiedByUserId,
+          verifiedAt: iersCompetencyRecords.verifiedAt,
+          verificationNotes: iersCompetencyRecords.verificationNotes,
+          updatedAt: iersCompetencyRecords.updatedAt,
+        })
+        .from(iersCompetencyRecords)
+        .innerJoin(institutionalStaffMembers, eq(iersCompetencyRecords.staffMemberId, institutionalStaffMembers.id))
+        .where(and(...conditions))
+        .orderBy(desc(iersCompetencyRecords.updatedAt));
+    }),
+
   /** HI-B2B-2: Create or update one staff member’s attendance for a session. */
   upsertTrainingAttendance: protectedProcedure
     .input(
@@ -1901,6 +2001,8 @@ export const institutionRouter = router({
         });
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const competencyAccess = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.competency_training.operate");
+      assertWritableProductAccess(competencyAccess);
       await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
 
       const staffOk = await db
@@ -1941,6 +2043,22 @@ export const institutionRouter = router({
         });
       }
 
+      const [attendanceRow] = await db
+        .select({ id: trainingAttendance.id })
+        .from(trainingAttendance)
+        .where(and(
+          eq(trainingAttendance.trainingScheduleId, input.trainingScheduleId),
+          eq(trainingAttendance.staffMemberId, input.staffMemberId),
+        ))
+        .limit(1);
+      if (attendanceRow) {
+        await syncIersCompetencyRecord(db, {
+          trainingAttendanceId: attendanceRow.id,
+          trainingScheduleId: input.trainingScheduleId,
+          staffMemberId: input.staffMemberId,
+          attendanceStatus: input.attendanceStatus,
+        });
+      }
       await syncTrainingScheduleEnrolledCount(db, input.trainingScheduleId);
       await syncStaffRosterFromSessionAttendance(db, input.staffMemberId, input.attendanceStatus);
       return { success: true as const };
@@ -1963,6 +2081,8 @@ export const institutionRouter = router({
         });
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const competencyAccess = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.competency_training.operate");
+      assertWritableProductAccess(competencyAccess);
       await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
 
       const staff = await db
@@ -1988,6 +2108,22 @@ export const institutionRouter = router({
           staffMemberId: s.id,
           attendanceStatus: "registered",
         });
+        const [attendanceRow] = await db
+          .select({ id: trainingAttendance.id })
+          .from(trainingAttendance)
+          .where(and(
+            eq(trainingAttendance.trainingScheduleId, input.trainingScheduleId),
+            eq(trainingAttendance.staffMemberId, s.id),
+          ))
+          .limit(1);
+        if (attendanceRow) {
+          await syncIersCompetencyRecord(db, {
+            trainingAttendanceId: attendanceRow.id,
+            trainingScheduleId: input.trainingScheduleId,
+            staffMemberId: s.id,
+            attendanceStatus: "registered",
+          });
+        }
         added += 1;
       }
 

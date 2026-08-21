@@ -1710,6 +1710,28 @@ export const trainingAttendance = mysqlTable("trainingAttendance", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+/**
+ * IERS-specific competency projection. Raw trainingAttendance remains the
+ * source record for session administration; this table prevents generic staff
+ * enrollment fields from being mistaken for per-program emergency readiness.
+ */
+export const iersCompetencyRecords = mysqlTable("iersCompetencyRecords", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  staffMemberId: int("staffMemberId").notNull(),
+  trainingScheduleId: int("trainingScheduleId").notNull(),
+  trainingAttendanceId: int("trainingAttendanceId").notNull().unique(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship"]).notNull(),
+  competencyStatus: mysqlEnum("competencyStatus", ["pending", "attended", "absent", "cancelled", "verified"]).default("pending").notNull(),
+  verifiedByUserId: int("verifiedByUserId"),
+  verifiedAt: timestamp("verifiedAt"),
+  verificationNotes: text("verificationNotes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type IersCompetencyRecord = typeof iersCompetencyRecords.$inferSelect;
+export type InsertIersCompetencyRecord = typeof iersCompetencyRecords.$inferInsert;
+
 // Retrospective role-fill claims (docs/IERP_NERP_PROGRAM_V2_SPEC.md §4.5,
 // CEO 2026-07-31 respec): when the person who booked a role doesn't show
 // and someone else present (often an observer) actually performs it

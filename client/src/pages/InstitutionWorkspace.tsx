@@ -34,6 +34,7 @@ import { CohortProgressWidget } from "@/components/CohortProgressWidget";
 import { Phase1ProofReviewWidget } from "@/components/Phase1ProofReviewWidget";
 import { ErtRosterPanel } from "@/components/ErtRosterPanel";
 import { EquipmentAuditPanel } from "@/components/EquipmentAuditPanel";
+import { InstitutionIersCompetencyPanel } from "@/components/InstitutionIersCompetencyPanel";
 import CpdPanel from "@/components/CpdPanel";
 import InstitutionAdministrationPanel from "@/components/InstitutionAdministrationPanel";
 import InstitutionConnectedServicesPanel from "@/components/InstitutionConnectedServicesPanel";
@@ -260,8 +261,9 @@ export default function InstitutionWorkspace() {
                 <TabsContent value="drills"><IersDrillPanel institutionId={institutionId} /></TabsContent>
                 <TabsContent value="competency" className="space-y-6">
                   <Card className="border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20">
-                    <CardHeader><CardTitle className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-amber-700" />Competency & training</CardTitle><CardDescription>Track readiness-linked training progress and review phase-one proof. Training completion is not the same as IERS operational readiness; both must be evidenced.</CardDescription></CardHeader>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-amber-700" />Competency & training</CardTitle><CardDescription>Schedule and document emergency-readiness competency, review cohort progress, and review phase-one proof. Training completion is not the same as IERS operational readiness; both must be evidenced.</CardDescription></CardHeader>
                   </Card>
+                  <InstitutionIersCompetencyPanel institutionId={institutionId} />
                   <CohortProgressWidget institutionId={institutionId} />
                   <Phase1ProofReviewWidget institutionId={institutionId} />
                 </TabsContent>
