@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  hasUsableModuleContent,
   splitModuleHtmlIntoSections,
   moduleSectionsStale,
 } from "../../shared/split-module-html-sections";
@@ -31,7 +32,11 @@ import {
   getIntubationSampleCourseId,
 } from "../lib/ensure-intubation-sample-course-catalog";
 import { issueCertificateForEnrollmentIfEligible, markAhaCognitiveComplete } from "../certificates";
-import { ensureBlsCatalog, ensureAclsCatalog } from "../lib/ensure-bls-acls-catalog";
+import {
+  ensureBlsCatalog,
+  ensureAclsCatalog,
+  isBlsCatalogShapeStale,
+} from "../lib/ensure-bls-acls-catalog";
 import { fellowshipSimulations } from "../../drizzle/schema";
 import { ensureHeartsaverCatalog } from "../lib/ensure-heartsaver-catalog";
 import { resolveAhaCourseAnchor, type AhaAnchorProgramType } from "../lib/resolve-aha-course-anchor";
@@ -64,6 +69,16 @@ import { trackEvent } from "../services/analytics.service";
 const SUMMATIVE_IDEMPOTENT_WINDOW_MS = 30_000;
 
 const SEEDED_COURSES = new Set<string>();
+let blsCatalogSyncPromise: Promise<void> | null = null;
+
+function synchronizeBlsCatalog(db: any): Promise<void> {
+  if (!blsCatalogSyncPromise) {
+    blsCatalogSyncPromise = ensureBlsCatalog(db).finally(() => {
+      blsCatalogSyncPromise = null;
+    });
+  }
+  return blsCatalogSyncPromise;
+}
 
 function answersArrayToMap(
   answers: { questionId: number; answer: string }[]
@@ -232,9 +247,19 @@ export const learningRouter = router({
       }
 
       const pt = courseRow.programType as string;
-      if (pt && !SEEDED_COURSES.has(pt)) {
+      let blsCatalogStale = false;
+      if (pt === "bls" && SEEDED_COURSES.has(pt)) {
+        const blsModuleRows = await (db as any)
+          .select({ order: modules.order, title: modules.title })
+          .from(modules)
+          .where(eq(modules.courseId, courseRow.id))
+          .orderBy(modules.order);
+        blsCatalogStale = isBlsCatalogShapeStale(blsModuleRows);
+      }
+
+      if (pt && (!SEEDED_COURSES.has(pt) || blsCatalogStale)) {
         if (pt === "bls") {
-          await ensureBlsCatalog(db);
+          await synchronizeBlsCatalog(db);
         } else if (pt === "acls") {
           await ensureAclsCatalog(db);
         } else if (pt === "heartsaver") {
@@ -273,7 +298,7 @@ export const learningRouter = router({
     .input(z.object({ moduleId: z.number() }))
     .query(async ({ input }) => {
       const db = await getDb();
-      const module = await (db as any)
+      let module = await (db as any)
         .select()
         .from(modules)
         .where(eq(modules.id, input.moduleId))
@@ -289,6 +314,32 @@ export const learningRouter = router({
         .from(moduleSections)
         .where(eq(moduleSections.moduleId, input.moduleId))
         .orderBy(moduleSections.order);
+
+      // Production can contain a legacy BLS row with quizzes but no lesson body.
+      // Repair the catalog once before returning a blank learner experience.
+      if (!hasUsableModuleContent(module[0].content, sections)) {
+        const courseRow = await (db as any)
+          .select({ programType: courses.programType })
+          .from(courses)
+          .where(eq(courses.id, module[0].courseId))
+          .limit(1);
+        if (courseRow[0]?.programType === "bls") {
+          await synchronizeBlsCatalog(db);
+          module = await (db as any)
+            .select()
+            .from(modules)
+            .where(eq(modules.id, input.moduleId))
+            .limit(1);
+          if (!module.length) {
+            throw new Error("Module no longer exists after BLS catalog repair");
+          }
+          sections = await (db as any)
+            .select()
+            .from(moduleSections)
+            .where(eq(moduleSections.moduleId, input.moduleId))
+            .orderBy(moduleSections.order);
+        }
+      }
 
       const moduleHtml = String(module[0].content ?? "");
       if (moduleSectionsStale(moduleHtml, sections)) {
