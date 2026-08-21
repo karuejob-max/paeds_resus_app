@@ -21,6 +21,17 @@ import { courses, modules, moduleSections, quizzes, quizQuestions } from "../../
 
 import { BLS_MODULES } from "./bls-modules-data";
 
+export function isBlsCatalogShapeStale(
+  moduleRows: Array<{ order?: number | null; title?: string | null }>,
+): boolean {
+  if (moduleRows.length !== BLS_MODULES.length) return true;
+
+  return BLS_MODULES.some((expected) => {
+    const actual = moduleRows.find((row) => row.order === expected.order);
+    return actual?.title !== expected.title;
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ACLS CATALOG
 // AHA ACLS Provider curriculum (2020 guidelines):

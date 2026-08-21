@@ -44,6 +44,15 @@ export function splitModuleHtmlIntoSections(html: string): ParsedModuleSection[]
   });
 }
 
+/** True when the module has any lesson HTML available for the learner. */
+export function hasUsableModuleContent(
+  moduleContent: string | null | undefined,
+  sections: { content?: string | null }[],
+): boolean {
+  if ((moduleContent ?? "").trim().length > 0) return true;
+  return sections.some((section) => (section.content ?? "").trim().length > 0);
+}
+
 /** True when legacy moduleSections rows would hide fresher modules.content in the player. */
 export function moduleSectionsStale(
   moduleContent: string,
