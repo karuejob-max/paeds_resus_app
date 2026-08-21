@@ -148,6 +148,7 @@
     "db:apply-0098": "node scripts/apply-0098-iers-drills.mjs",
     "db:apply-0099": "node scripts/apply-0099-iers-milestones.mjs",
     "db:verify-iers": "node scripts/verify-iers-readiness.mjs",
+    "test:iers-verifier": "node --test scripts/verify-iers-readiness.test.mjs",
     "db:apply-iers": "node scripts/apply-iers-migrations.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
     "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
