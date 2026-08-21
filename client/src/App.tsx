@@ -57,6 +57,7 @@ const ForInstitutions = lazy(() => import("./pages/ForInstitutions"));
 const ForParents = lazy(() => import("./pages/ForParents"));
 const AHACoursesPublic = lazy(() => import("./pages/AHACoursesPublic"));
 const HospitalAdminDashboard = lazy(() => import("./pages/HospitalAdminDashboard"));
+const InstitutionWorkspace = lazy(() => import("./pages/InstitutionWorkspace"));
 const Enroll = lazy(() => import("./pages/Enroll"));
 const LearnerDashboard = lazy(() => import("./pages/LearnerDashboard"));
 const PatientsList = lazy(() => import("./pages/PatientsList"));
@@ -200,10 +201,15 @@ function Router() {
               <CodeSignal />
             </RoleGate>
           )}</Route>
-          {/* Single institutional dashboard: hospital admin (portal URL redirects here) */}
+          {/* Institutional Workspace: IERS, CPD Portal, shared Administration, and Connected Services. */}
           <Route path="/institutional-portal">{() => (
             <RoleGate allowed={["institution"]}>
-              <Redirect to="/hospital-admin-dashboard" />
+              <Redirect to="/institution" />
+            </RoleGate>
+          )}</Route>
+          <Route path="/institution">{() => (
+            <RoleGate allowed={["institution"]}>
+              <InstitutionWorkspace />
             </RoleGate>
           )}</Route>
           <Route path="/institutional" component={Institutional} />
@@ -549,7 +555,7 @@ function Router() {
           {/* dashboard → home (provider hub) */}
           <Route path="/dashboard">{() => <Redirect to="/home" />}</Route>
           {/* institutional-dashboard → hospital admin */}
-          <Route path="/institutional-dashboard">{() => <Redirect to="/hospital-admin-dashboard" />}</Route>
+          <Route path="/institutional-dashboard">{() => <Redirect to="/institution" />}</Route>
           {/* pricing/roi calculators live on /institutional */}
           <Route path="/pricing-calculator">{() => <Redirect to="/institutional" />}</Route>
           <Route path="/roi-calculator">{() => <Redirect to="/institutional" />}</Route>
@@ -594,7 +600,7 @@ function mapUserTypeToRole(ut: string | null | undefined): UserRole {
 }
 
 function getRoleHomePath(role: UserRole): string {
-  if (role === "institution") return "/hospital-admin-dashboard";
+  if (role === "institution") return "/institution";
   return "/home";
 }
 
@@ -605,7 +611,7 @@ function getRouteLoadingCopy(pathname: string) {
       description: "Checking sign-in and preparing bedside guidance.",
     };
   }
-  if (pathname.startsWith("/hospital-admin-dashboard") || pathname.startsWith("/institutional-portal")) {
+  if (pathname.startsWith("/hospital-admin-dashboard") || pathname.startsWith("/institutional-portal") || pathname.startsWith("/institution")) {
     return {
       title: "Loading institutional dashboard…",
       description: "Checking your access and preparing your facility workspace.",
@@ -746,7 +752,7 @@ function HomeEntry() {
     const dest = getRoleHomePath(roleForHome);
     if (dest === "/home") void import("./pages/Home");
     else if (dest === "/safe-truth") void import("./pages/SafeTruthV1");
-    else if (dest === "/hospital-admin-dashboard") void import("./pages/HospitalAdminDashboard");
+    else if (dest === "/institution") void import("./pages/InstitutionWorkspace");
     setLocation(dest);
   }, [isAuthenticated, loading, roleForHome, setLocation]);
 

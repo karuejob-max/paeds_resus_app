@@ -106,7 +106,7 @@ export default function Header() {
     }
     if (r === "institution") {
       return [
-        { label: "Dashboard", href: "/hospital-admin-dashboard", icon: "📊" },
+        { label: "Dashboard", href: "/institution", icon: "📊" },
       ];
     }
     return [];
@@ -236,7 +236,7 @@ export default function Header() {
                               return;
                             }
                             if (r === "provider") setLocation("/home");
-                            else setLocation("/hospital-admin-dashboard");
+                            else setLocation("/institution");
                           }}
                           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition text-sm ${
                             effectiveRole === option.value
@@ -395,7 +395,7 @@ export default function Header() {
                             Account settings
                           </div>
                         </Link>
-                        <Link href={effectiveRole === "institution" ? "/hospital-admin-dashboard" : "/home"}>
+                        <Link href={effectiveRole === "institution" ? "/institution" : "/home"}>
                           <div
                             className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
                             onClick={() => setAccountDropdownOpen(false)}
@@ -413,7 +413,7 @@ export default function Header() {
                             </div>
                           </Link>
                         )}
-                        <Link href={effectiveRole === "institution" ? "/hospital-admin-dashboard" : "/provider-profile"}>
+                        <Link href={effectiveRole === "institution" ? "/institution" : "/provider-profile"}>
                           <div
                             className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
                             onClick={() => setAccountDropdownOpen(false)}
@@ -576,7 +576,7 @@ export default function Header() {
                           return;
                         }
                         if (r === "provider") setLocation("/home");
-                        else setLocation("/hospital-admin-dashboard");
+                        else setLocation("/institution");
                       }}
                       className={`w-full text-left px-3 py-2 rounded text-sm ${
                         effectiveRole === option.value

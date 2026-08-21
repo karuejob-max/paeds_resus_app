@@ -18,7 +18,7 @@ function mapUserTypeToRole(userType: string | null | undefined): UserRole {
 }
 
 function getRoleHomePath(role: UserRole): string {
-  if (role === "institution") return "/hospital-admin-dashboard";
+  if (role === "institution") return "/institution";
   return "/home";
 }
 
@@ -28,11 +28,11 @@ function getResusGateCopy(role: UserRole) {
       errorFallback:
         "Try again or return to your institutional dashboard. If you need the provider workspace, switch roles from the account menu first.",
       unavailableCta: "Return to institutional dashboard",
-      unavailableDestination: "/hospital-admin-dashboard",
+      unavailableDestination: "/institution",
       accessAlert:
         "ResusGPS is available from the provider workspace. Use the account menu to switch to Provider when you need bedside guidance.",
       accessCta: "Back to institutional dashboard",
-      accessDestination: "/hospital-admin-dashboard",
+      accessDestination: "/institution",
     };
   }
 
