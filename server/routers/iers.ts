@@ -20,7 +20,7 @@ import {
   facilityDepartments,
 } from "../../drizzle/schema";
 import { assertInstitutionAccess } from "../lib/institution-access";
-import { assertInstitutionProductCapability } from "../lib/institution-entitlements";
+import { assertIersActivationContinuity, assertInstitutionProductCapability } from "../lib/institution-entitlements";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { canAdvanceIersActivation } from "../lib/iers-state";
 import { buildIersEvidenceScorecard } from "../lib/iers-criteria";
@@ -137,7 +137,8 @@ export const iersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
-      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.activation.operate");
+      const continuityDecision = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.activation.operate");
+      assertIersActivationContinuity(continuityDecision);
       const access = await assertInstitutionOrMember(db, ctx.user, input.institutionId);
 
       const eventInsert = await db.insert(iersActivationEvents).values({
@@ -410,7 +411,8 @@ export const iersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
-      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.activation.respond");
+      const continuityDecision = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.activation.respond");
+      assertIersActivationContinuity(continuityDecision);
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const eventInsert = await db.insert(iersActivationEvents).values({
         institutionalAccountId: input.institutionId,
@@ -772,7 +774,8 @@ export const iersRouter = router({
         ))
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "No responder assignment found for this activation." });
-      await assertInstitutionProductCapability(db, assignment.event.institutionalAccountId, "iers", "iers.activation.respond");
+      const continuityDecision = await assertInstitutionProductCapability(db, assignment.event.institutionalAccountId, "iers", "iers.activation.respond");
+      assertIersActivationContinuity(continuityDecision);
 
       const now = new Date();
       if (input.accept) {
@@ -825,7 +828,8 @@ export const iersRouter = router({
         ))
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "No responder assignment found for this activation." });
-      await assertInstitutionProductCapability(db, assignment.event.institutionalAccountId, "iers", "iers.activation.respond");
+      const continuityDecision = await assertInstitutionProductCapability(db, assignment.event.institutionalAccountId, "iers", "iers.activation.respond");
+      assertIersActivationContinuity(continuityDecision);
       if (assignment.responder.notificationStatus !== "acknowledged") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Acknowledge the responder assignment before recording response." });
       }
@@ -873,7 +877,8 @@ export const iersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
-      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.activation.operate");
+      const continuityDecision = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.activation.operate");
+      assertIersActivationContinuity(continuityDecision);
       const access = await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       if (access.kind === "provider" && !LEAD_ROLES.includes(access.membership?.responsibilityRole as ResponsibilityRole)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only an ERTL, UTL, coordinator, or institution admin can advance this activation." });
