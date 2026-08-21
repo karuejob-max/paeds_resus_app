@@ -35,6 +35,7 @@ import { issueCertificateForEnrollmentIfEligible, markAhaCognitiveComplete } fro
 import {
   ensureBlsCatalog,
   ensureAclsCatalog,
+  getBlsModuleDefinition,
   isBlsCatalogShapeStale,
 } from "../lib/ensure-bls-acls-catalog";
 import { fellowshipSimulations } from "../../drizzle/schema";
@@ -324,20 +325,36 @@ export const learningRouter = router({
           .where(eq(courses.id, module[0].courseId))
           .limit(1);
         if (courseRow[0]?.programType === "bls") {
-          await synchronizeBlsCatalog(db);
-          module = await (db as any)
-            .select()
-            .from(modules)
-            .where(eq(modules.id, input.moduleId))
-            .limit(1);
-          if (!module.length) {
-            throw new Error("Module no longer exists after BLS catalog repair");
+          const definition = getBlsModuleDefinition(module[0].order);
+          if (definition?.sections.length) {
+            // Return source content immediately even when the deployed DB seed is
+            // stale. The background sync repairs the database for subsequent loads.
+            sections = definition.sections.map((section, index) => ({
+              id: index + 1,
+              moduleId: input.moduleId,
+              title: section.title,
+              content: section.content,
+              order: section.order,
+            }));
+            void synchronizeBlsCatalog(db).catch((error) => {
+              console.error("[learning.getModuleContent] BLS background sync:", error);
+            });
+          } else {
+            await synchronizeBlsCatalog(db);
+            module = await (db as any)
+              .select()
+              .from(modules)
+              .where(eq(modules.id, input.moduleId))
+              .limit(1);
+            if (!module.length) {
+              throw new Error("Module no longer exists after BLS catalog repair");
+            }
+            sections = await (db as any)
+              .select()
+              .from(moduleSections)
+              .where(eq(moduleSections.moduleId, input.moduleId))
+              .orderBy(moduleSections.order);
           }
-          sections = await (db as any)
-            .select()
-            .from(moduleSections)
-            .where(eq(moduleSections.moduleId, input.moduleId))
-            .orderBy(moduleSections.order);
         }
       }
 
