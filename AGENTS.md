@@ -226,6 +226,88 @@ Paeds Resus (Organisation & Platform)
 
 ---
 
+## 7.1 IERS Build and Production Recovery Playbook
+
+This section records the end-to-end IERS implementation path and the production lessons learned on 2026-08-21. Read it before changing the Institutional Portal, IERS migrations, provider responsibility flows, or production verification scripts. The detailed operating model is in [`docs/institutional/IERS_BUILD_BLUEPRINT_V1.md`](docs/institutional/IERS_BUILD_BLUEPRINT_V1.md), and the operator sequence is in [`docs/institutional/IERS_OPERATING_GUIDE_V1.md`](docs/institutional/IERS_OPERATING_GUIDE_V1.md).
+
+### What the IERS is supposed to be
+
+IERS is not a static hospital scorecard. It is a shared provider–institution operating system:
+
+> **Provider identifies or participates in the event → the institution coordinates → the system records a durable timeline → the team debriefs → evidence is reviewed → actions are owned and verified → readiness score and executive report update.**
+
+Providers are first-class operators. Institutional administrators configure the facility, roles, departments, rosters, evidence requirements, and governance; providers trigger or respond to activations, sign off shifts, submit evidence, report gaps, participate in drills, and progress assigned actions. Leaders verify closure. Never build a provider-passive IERS workflow in which administrators are the only people who can create useful evidence.
+
+### Implementation sequence that worked
+
+| Stage | What was built or verified | Canonical artifacts |
+|---|---|---|
+| Phase 0 | Froze the baseline, safety states, role model, evidence rules, release gates, and the provider responsibility contract. | `IERS_BUILD_BLUEPRINT_V1.md` |
+| Identity | Added provider–institution memberships, invitation/acceptance, explicit responsibility roles, lifecycle state, and existing-staff backfill. | Migration `0094`; `institutionMemberships`; provider responsibility card |
+| Activation | Added provider-triggered activations, responder notification state, acknowledgement/escalation, response timestamps, append-only timeline, and downtime reconciliation. | Migration `0095`; `server/routers/iers.ts` |
+| Shift readiness | Added provider-owned shift sign-off and operational notes. | Migration `0096`; provider shift-readiness card |
+| Evidence and closure | Added criterion-level evidence, owned action items, leader verification, closure evidence, and evidence-derived scoring with critical-criteria gating. | Migration `0097`; `iers-criteria.ts` |
+| Drills and learning | Added drills, participation, response timing, debriefs, and conversion of completed operations into reviewable evidence. | Migration `0098`; drill panel |
+| Governance and reporting | Added 30/60/90-day milestones, Care Signal/Code Signal linkage, data-quality correction, and executive snapshots. | Migration `0099`; IERS operating guide |
+
+### Safe production rollout
+
+Code and database are separate release tracks. A merged PR does not apply SQL to production. For a new environment, use this order from a trusted environment or the Render Web Shell:
+
+1. Deploy the latest `main` and confirm the Shell instance contains the expected commit.
+2. From `/opt/render/project/src`, confirm that `DATABASE_URL` is set without printing its value.
+3. Run the guarded one-command runner:
+
+   ```bash
+   pnpm run db:apply-iers
+   ```
+
+4. The runner tests the connection, applies migrations `0094` through `0099` in order, stops on the first failure, and runs `db:verify-iers`. Do not continue manually if it stops.
+5. When all migrations have already passed and only verification fails, **do not rerun the migrations**. Deploy the latest verifier fix and run only:
+
+   ```bash
+   pnpm run db:verify-iers
+   ```
+
+6. Complete a clearly labelled IERS drill with a linked provider. Never use a real clinical emergency as the first acceptance test.
+
+### Production failures already encountered and their fixes
+
+| Failure | Actual cause | Correct response |
+|---|---|---|
+| `Unknown column 's.governanceRole'` in migration `0094` | Production had schema drift: `institutionalStaffMembers` lacked `governanceRole`. | Stop. Deploy the repaired `0094` migration, which inspects `information_schema`, uses `governanceRole` when present, maps legacy `institutionalRole` when available, and otherwise defaults to `general_staff`. Rerun the guarded runner because `0094` is idempotent. See PR [#467](https://github.com/karuejob-max/paeds_resus_app/pull/467). |
+| Migrations `0094`–`0099` pass but verifier reports 10 missing objects | The verifier expected snake_case names while `0094`–`0095` created the repository's camelCase tables. | Do not rerun migrations. Deploy the corrected verifier and run only `pnpm run db:verify-iers`. See PR [#469](https://github.com/karuejob-max/paeds_resus_app/pull/469). |
+| TLS `DEP0123` warning | Node emitted a deprecation warning while connecting to the Aiven endpoint; the connection still passed. | Treat it as a warning unless the command exits non-zero. Do not misdiagnose it as a migration failure. |
+| Render Web Shell does not paste reliably | The production Shell input can require manual typing. | Keep `pnpm run db:apply-iers` as the single operator command; never require six manually typed migration commands. |
+
+### Naming and schema-drift guardrails
+
+The IERS migrations intentionally preserve the names already deployed. The first operational tables are camelCase: `institutionMemberships`, `iersActivationEvents`, `iersActivationResponders`, and `iersActivationTimeline`. The evidence, actions, drills, and milestone tables are snake_case: `iers_evidence_records`, `iers_action_items`, `iers_drills`, `iers_drill_participants`, and `iers_implementation_milestones`. Any verifier or migration repair must check the actual database contract rather than assume one naming convention.
+
+When a production table may differ from the checked-in schema, inspect `information_schema` before constructing a query. Never reference an optional legacy column directly in an `INSERT ... SELECT`. Use an explicit compatibility expression and a safe default. Add a regression test for every discovered schema-drift path.
+
+### Definition of true IERS completion
+
+Do not call IERS production-ready merely because the build passes or the migrations exist. The following evidence is required:
+
+- `pnpm run check`, the unit gate, and the production build pass.
+- `pnpm run db:verify-iers` reports zero missing tables and columns.
+- At least one provider is linked to the institution with an explicit responsibility role.
+- A labelled drill proves provider acknowledgement, response, arrival, institution monitoring, timeline persistence, and debrief.
+- Criterion evidence is reviewable and an institution leader verifies at least one action closure.
+- The executive snapshot reflects real activation, drill, evidence, and action data.
+- Production logs and user-facing controls do not claim formal accreditation, real-time telecom escalation, or clinical outcome improvement that has not been verified.
+
+### Information-safety rules for Render Shell recovery
+
+Never paste or send `DATABASE_URL`, passwords, API keys, or `.env` contents. It is acceptable to share sanitized command names, exit codes, table names, and error messages. The connection test may show host, port, database, and password length; do not treat the length as a credential and do not share any actual secret. Record the sanitized result in [`docs/WORK_STATUS.md`](docs/WORK_STATUS.md).
+
+### Source trail
+
+The implementation and recovery history is recorded in [`docs/WORK_STATUS.md`](docs/WORK_STATUS.md). The canonical product architecture is in [`docs/PLATFORM_SOURCE_OF_TRUTH.md`](docs/PLATFORM_SOURCE_OF_TRUTH.md). The applicable schema scripts are `scripts/apply-0094-institution-memberships.mjs` through `scripts/apply-0099-iers-milestones.mjs`; the guarded runner is `scripts/apply-iers-migrations.mjs`; and the final verifier is `scripts/verify-iers-readiness.mjs`.
+
+---
+
 ## 8. The Paeds Resus Fellowship — One Fellowship, Three Pillars
 
 **There is exactly one fellowship: the Paeds Resus Fellowship.**
