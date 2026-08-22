@@ -13,6 +13,7 @@ import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
 import { LegalExternalLink } from "@/components/LegalExternalLink";
 import { FacilityAutocomplete } from "@/components/FacilityAutocomplete";
+import { DepartmentSelectors } from "@/components/DepartmentSelectors";
 
 export default function InstitutionalOnboarding() {
   const [, navigate] = useLocation();
@@ -317,7 +318,7 @@ export default function InstitutionalOnboarding() {
                   <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <Label className="text-base">Facility departments *</Label>
-                      <p className="mt-1 text-sm text-muted-foreground">Confirm the departments that will be shared by IERS and the CPD Portal. The IERS Lead will assign each department to a pole after onboarding.</p>
+                      <p className="mt-1 text-sm text-muted-foreground">Choose from the same preset department catalog used by profiles and CPD attendance. Select Other only when your facility has a department that is not in the catalog. The IERS Lead will assign each confirmed department to a pole after onboarding.</p>
                     </div>
                     <Button type="button" variant="outline" size="sm" className="w-full shrink-0 sm:w-auto" onClick={() => setFormData((prev) => ({ ...prev, departmentNames: [...prev.departmentNames, ""] }))}>
                       <Plus className="mr-1.5 h-4 w-4" />Add department
@@ -325,14 +326,11 @@ export default function InstitutionalOnboarding() {
                   </div>
                   <div className="space-y-2">
                     {formData.departmentNames.map((departmentName, index) => (
-                      <div key={`department-${index}`} className="flex min-w-0 items-center gap-2">
-                        <Input
+                      <div key={`department-${index}`} className="flex min-w-0 items-start gap-2">
+                        <DepartmentSelectors
                           value={departmentName}
-                          onChange={(event) => setFormData((prev) => ({ ...prev, departmentNames: prev.departmentNames.map((name, itemIndex) => itemIndex === index ? event.target.value : name) }))}
-                          placeholder={index === 0 ? "e.g., Paediatric Ward" : "Another department"}
-                          aria-label={`Department ${index + 1}`}
-                          required={index === 0}
-                          className="min-w-0"
+                          onChange={(value) => setFormData((prev) => ({ ...prev, departmentNames: prev.departmentNames.map((name, itemIndex) => itemIndex === index ? value : name) }))}
+                          className="min-w-0 flex-1"
                         />
                         {formData.departmentNames.length > 1 && (
                           <Button type="button" variant="ghost" size="icon" aria-label={`Remove department ${index + 1}`} onClick={() => setFormData((prev) => ({ ...prev, departmentNames: prev.departmentNames.filter((_, itemIndex) => itemIndex !== index) }))}>

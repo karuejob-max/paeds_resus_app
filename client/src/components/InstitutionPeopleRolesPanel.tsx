@@ -7,16 +7,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { KeyRound, Loader2, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
+import { CalendarClock, KeyRound, Loader2, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
 
 const GOVERNANCE_ROLES = [
   ["general_staff", "General staff"],
   ["executive", "Hospital executive"],
   ["erc_chair", "ERC chair"],
   ["erc_member", "ERC member"],
-  ["er_coordinator", "ER coordinator"],
-  ["unit_team_leader", "Unit team leader"],
-  ["ert_leader", "ERT leader"],
+  ["er_coordinator", "Emergency Response Coordinator (ERCo)"],
+  ["unit_team_leader", "Unit Team Leader (UTL)"],
+  ["ert_leader", "ERT Team Leader (ERTL)"],
   ["ert_responder", "ERT responder"],
 ] as const;
 
@@ -37,6 +37,20 @@ function roleLabel(role: string | null | undefined): string {
   return GOVERNANCE_ROLES.find(([value]) => value === role)?.[1] ?? "General staff";
 }
 
+function dutyStatusVariant(status: string): "default" | "secondary" | "outline" | "destructive" {
+  if (status === "active") return "default";
+  if (status === "declined" || status === "ended") return "destructive";
+  if (status === "pending_acceptance") return "secondary";
+  return "outline";
+}
+
+function formatDutyDate(value: string | Date | null | undefined): string {
+  if (!value) return "Not dated";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not dated";
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
+}
+
 export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: number }) {
   const utils = trpc.useUtils();
   const [search, setSearch] = useState("");
@@ -50,6 +64,7 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
   const { data: roleDefinitions } = trpc.institutionProducts.getRoleDefinitions.useQuery({ productKey: roleProduct });
   const { data: accountScopes, isLoading: accountScopesLoading, refetch: refetchAccountScopes } = trpc.institutionProducts.listAccountScopes.useQuery({ institutionId });
   const { data: accountScopeDefinitions } = trpc.institutionProducts.getAccountScopeDefinitions.useQuery();
+  const { data: iersDuties, isLoading: iersDutiesLoading, isFetching: iersDutiesFetching, refetch: refetchIersDuties } = trpc.institution.getInstitutionIersDutyAssignments.useQuery({ institutionId });
   const updateRole = trpc.institution.updateStaffGovernanceRole.useMutation({
     onSuccess: async () => {
       toast.success("Responsibility role updated");
@@ -171,8 +186,68 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
 
     <Card>
       <CardHeader>
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+          <div>
+            <CardTitle className="flex items-center gap-2"><CalendarClock className="h-5 w-5" />IERS duty assignments</CardTitle>
+            <CardDescription>Read-only operational visibility for ERCo, backup ERCo, ERTL, and UTL duties. Assignment status and acceptance are shown separately; providers must accept their own dated duty in the Individual portal.</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => void refetchIersDuties()} disabled={iersDutiesFetching}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${iersDutiesFetching ? "animate-spin" : ""}`} />Refresh duties
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {iersDutiesLoading ? (
+          <div className="flex items-center justify-center py-8 text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading IERS duties…</div>
+        ) : !(iersDuties?.erco.length || iersDuties?.ertl.length || iersDuties?.utl.length) ? (
+          <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">No current or pending dated IERS duties are assigned.</div>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            {[
+              ...(iersDuties?.erco ?? []),
+              ...(iersDuties?.ertl ?? []),
+              ...(iersDuties?.utl ?? []),
+            ].map((duty) => {
+              const shiftType = "shiftType" in duty ? duty.shiftType : null;
+              const readinessSignOffAt = "readinessSignOffAt" in duty ? duty.readinessSignOffAt : null;
+              const weekLabel = "weekNumber" in duty && duty.weekNumber && duty.year ? `Week ${duty.weekNumber}, ${duty.year}` : null;
+              return (
+                <div key={`${duty.dutyType}-${duty.id}`} className="min-w-0 rounded-lg border bg-muted/10 p-4">
+                  <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium break-words">{duty.providerName ?? "Provider not linked"}</p>
+                      <p className="break-all text-xs text-muted-foreground">{duty.providerEmail ?? "No provider identity"}</p>
+                    </div>
+                    <div className="flex max-w-full flex-wrap gap-1">
+                      <Badge variant="outline" className="whitespace-normal">{duty.dutyType}</Badge>
+                      <Badge variant={dutyStatusVariant(duty.assignmentStatus)}>{duty.assignmentStatus.replaceAll("_", " ")}</Badge>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid min-w-0 gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                    <span className="break-words"><strong className="text-foreground">Department:</strong> {duty.departmentName ?? "Not assigned"}</span>
+                    <span className="break-words"><strong className="text-foreground">Pole:</strong> {duty.poleName ?? "Not assigned"}</span>
+                    <span><strong className="text-foreground">From:</strong> {formatDutyDate(duty.effectiveFrom)}</span>
+                    <span><strong className="text-foreground">Until:</strong> {formatDutyDate(duty.effectiveUntil)}</span>
+                    {weekLabel && <span><strong className="text-foreground">Rotation:</strong> {weekLabel}</span>}
+                    {shiftType && <span><strong className="text-foreground">Shift:</strong> {shiftType}</span>}
+                    <span><strong className="text-foreground">Accepted:</strong> {formatDutyDate(duty.acceptedAt)}</span>
+                    {readinessSignOffAt && <span><strong className="text-foreground">Readiness:</strong> {formatDutyDate(readinessSignOffAt)}</span>}
+                  </div>
+                  {duty.declineReason && <p className="mt-3 break-words rounded border border-red-200 bg-red-50 p-2 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"><strong>Decline reason:</strong> {duty.declineReason}</p>}
+                  <p className="mt-3 text-xs text-muted-foreground">This view is operational oversight only. A role, roster row, or assignment does not prove provider acceptance, competency, or emergency dispatch.</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
         <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5" />Product permissions</CardTitle>
-        <CardDescription>Assign a separate product role to a linked provider. Shared institutional admin access remains separate from these assignments.</CardDescription>
+                  <CardDescription>Assign a separate IERS or CPD product role to a linked provider. For IERS, the Lead, reviewer, response operator, and viewer roles govern portal access; dated ERCo, ERTL, and UTL duties remain separate and require provider acceptance.</CardDescription>
+
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">

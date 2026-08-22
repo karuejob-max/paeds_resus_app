@@ -77,6 +77,7 @@ import { isInstitutionInPilotProgram } from "@shared/pilot-program";
 import { validateDepartmentErcoAssignment } from "../lib/iers-department-governance";
 import { getIsoWeekKey, getIsoWeekRange, getMonthlyShiftRows, monthStartFromShiftDate, normalizeMonthStart } from "../lib/iers-monthly-rota";
 import { insertCanonicalFacilityDepartments } from "../lib/iers-department-setup";
+import { canonicalizeDepartmentLabel, departmentLabelsMatch, isPresetDepartment } from "../../shared/clinical-departments";
 import {
   evaluateProviderDutyAuthorization,
   type ProviderDutyAuthorizationInput,
@@ -1586,10 +1587,14 @@ export const institutionRouter = router({
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
-      return await db
+      const rows = await db
         .select()
         .from(institutionalStaffMembers)
         .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
+      return rows.map((row) => ({
+        ...row,
+        department: row.department ? canonicalizeDepartmentLabel(row.department) : row.department,
+      }));
     }),
 
   addStaffMember: protectedProcedure
@@ -1633,6 +1638,15 @@ export const institutionRouter = router({
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
+      const department = input.department?.trim() ? canonicalizeDepartmentLabel(input.department) : null;
+      let facilityDepartmentId: number | null = null;
+      if (department) {
+        const departments = await db.select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
+          .from(facilityDepartments)
+          .where(and(eq(facilityDepartments.institutionId, input.institutionId), eq(facilityDepartments.isActive, true)));
+        facilityDepartmentId = departments.find((row) => departmentLabelsMatch(row.departmentName, department))?.id ?? null;
+      }
+
       const result = await db.insert(institutionalStaffMembers).values({
         institutionalAccountId: input.institutionId,
         staffName: input.staffName,
@@ -1640,7 +1654,8 @@ export const institutionRouter = router({
         staffPhone: input.staffPhone || null,
         staffRole: input.staffRole,
         designation: input.designation || "other",
-        department: input.department || null,
+        department,
+        facilityDepartmentId,
         yearsOfExperience: input.yearsOfExperience || 0,
         enrollmentStatus: "pending",
         facilityLinkStatus: "linked", // manual add by admin is auto-approved
@@ -3770,14 +3785,18 @@ export const institutionRouter = router({
       await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
 
       try {
-        return await db
+        const rows = await db
           .select()
           .from(facilityDepartments)
           .where(and(eq(facilityDepartments.institutionId, input.institutionId), eq(facilityDepartments.isActive, true)));
+        return rows.map((row) => {
+          const departmentName = canonicalizeDepartmentLabel(row.departmentName);
+          return { ...row, departmentName, departmentSource: isPresetDepartment(departmentName) ? "preset" as const : "custom" as const };
+        });
       } catch (error) {
         // The application can deploy before guarded migration 0114 runs. Keep the legacy department read available during that window.
         if (!isMissingSchemaColumnError(error)) throw error;
-        return db.select({
+        const legacyRows = await db.select({
           id: facilityDepartments.id,
           institutionId: facilityDepartments.institutionId,
           poleId: facilityDepartments.poleId,
@@ -3787,6 +3806,10 @@ export const institutionRouter = router({
           confirmedByUserId: sql<number | null>`NULL`,
           createdAt: facilityDepartments.createdAt,
         }).from(facilityDepartments).where(eq(facilityDepartments.institutionId, input.institutionId));
+        return legacyRows.map((row) => {
+          const departmentName = canonicalizeDepartmentLabel(row.departmentName);
+          return { ...row, departmentName, departmentSource: isPresetDepartment(departmentName) ? "preset" as const : "custom" as const };
+        });
       }
     }),
 
@@ -3799,16 +3822,20 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
-      const uniqueNames = Array.from(new Set(input.departments.map((item) => item.departmentName.trim().toLowerCase())));
-      if (uniqueNames.length !== input.departments.length) {
+      const normalizedDepartments = input.departments.map((item) => ({
+        ...item,
+        departmentName: canonicalizeDepartmentLabel(item.departmentName),
+      }));
+      const uniqueNames = Array.from(new Set(normalizedDepartments.map((item) => item.departmentName.trim().toLowerCase())));
+      if (uniqueNames.length !== normalizedDepartments.length) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Department names must be unique within an institution." });
       }
       const existing = await db.select().from(facilityDepartments).where(eq(facilityDepartments.institutionId, input.institutionId));
       const existingByName = new Map(existing.map((row) => [row.departmentName.trim().toLowerCase(), row]));
       const retainedIds: number[] = [];
-      for (const item of input.departments) {
+      for (const item of normalizedDepartments) {
         const normalizedName = item.departmentName.trim().toLowerCase();
-        const current = item.departmentId != null ? existing.find((row) => row.id === item.departmentId) : existingByName.get(normalizedName);
+        const current = item.departmentId != null ? existing.find((row) => row.id === item.departmentId) : existing.find((row) => departmentLabelsMatch(row.departmentName, item.departmentName));
         if (item.departmentId != null && !current) throw new TRPCError({ code: "NOT_FOUND", message: "Department not found in this institution." });
         const conflictingRow = existingByName.get(normalizedName);
         if (conflictingRow && (!current || conflictingRow.id !== current.id)) {
@@ -3837,7 +3864,7 @@ export const institutionRouter = router({
         eq(facilityDepartments.institutionId, input.institutionId),
         notInArray(facilityDepartments.id, retainedIds),
       ));
-      return { success: true, confirmedCount: input.departments.length };
+      return { success: true, confirmedCount: normalizedDepartments.length };
     }),
 
   assignDepartmentToPole: protectedProcedure
@@ -3893,6 +3920,122 @@ export const institutionRouter = router({
         isNull(facilityDepartments.poleId),
       ));
       return { success: true, assignedCount: (result as unknown as { affectedRows?: number }).affectedRows ?? 0 };
+    }),
+
+  getInstitutionIersDutyAssignments: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      includeEnded: z.boolean().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+      const includeEnded = input.includeEnded === true;
+      const backupUser = alias(users, "iers_backup_duty_user");
+      const ercoStatus = includeEnded ? undefined : inArray(institutionDepartmentResponseCoordinators.assignmentStatus, ["pending_acceptance", "active", "declined"]);
+      const ertlStatus = includeEnded ? undefined : inArray(ertlWeeklyRotations.assignmentStatus, ["unassigned", "pending_acceptance", "active", "declined"]);
+      const utlStatus = includeEnded ? undefined : inArray(shiftUtlRosters.assignmentStatus, ["unassigned", "pending_acceptance", "active", "declined"]);
+      const ercoPredicates = [eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId), ...(ercoStatus ? [ercoStatus] : [])];
+      const ertlPredicates = [eq(ertlWeeklyRotations.institutionId, input.institutionId), ...(ertlStatus ? [ertlStatus] : [])];
+      const utlPredicates = [eq(shiftUtlRosters.institutionId, input.institutionId), ...(utlStatus ? [utlStatus] : [])];
+
+      const [coordinators, backups, ertl, utl] = await Promise.all([
+        db.select({
+          id: institutionDepartmentResponseCoordinators.id,
+          departmentId: institutionDepartmentResponseCoordinators.departmentId,
+          departmentName: facilityDepartments.departmentName,
+          poleName: facilityPoles.poleName,
+          providerUserId: institutionDepartmentResponseCoordinators.coordinatorUserId,
+          providerName: users.name,
+          providerEmail: users.email,
+          assignmentStatus: institutionDepartmentResponseCoordinators.assignmentStatus,
+          effectiveFrom: institutionDepartmentResponseCoordinators.effectiveFrom,
+          effectiveUntil: institutionDepartmentResponseCoordinators.effectiveUntil,
+          acceptedAt: institutionDepartmentResponseCoordinators.acceptedAt,
+          declinedAt: institutionDepartmentResponseCoordinators.declinedAt,
+          declineReason: institutionDepartmentResponseCoordinators.declineReason,
+        }).from(institutionDepartmentResponseCoordinators)
+          .leftJoin(facilityDepartments, eq(facilityDepartments.id, institutionDepartmentResponseCoordinators.departmentId))
+          .leftJoin(facilityPoles, eq(facilityPoles.id, facilityDepartments.poleId))
+          .leftJoin(users, eq(users.id, institutionDepartmentResponseCoordinators.coordinatorUserId))
+          .where(and(...ercoPredicates)),
+        db.select({
+          id: institutionDepartmentResponseCoordinators.id,
+          departmentId: institutionDepartmentResponseCoordinators.departmentId,
+          departmentName: facilityDepartments.departmentName,
+          poleName: facilityPoles.poleName,
+          providerUserId: institutionDepartmentResponseCoordinators.backupUserId,
+          providerName: backupUser.name,
+          providerEmail: backupUser.email,
+          assignmentStatus: institutionDepartmentResponseCoordinators.assignmentStatus,
+          effectiveFrom: institutionDepartmentResponseCoordinators.effectiveFrom,
+          effectiveUntil: institutionDepartmentResponseCoordinators.effectiveUntil,
+          acceptedAt: institutionDepartmentResponseCoordinators.backupAcceptedAt,
+          declinedAt: institutionDepartmentResponseCoordinators.backupDeclinedAt,
+          declineReason: institutionDepartmentResponseCoordinators.backupDeclineReason,
+        }).from(institutionDepartmentResponseCoordinators)
+          .leftJoin(facilityDepartments, eq(facilityDepartments.id, institutionDepartmentResponseCoordinators.departmentId))
+          .leftJoin(facilityPoles, eq(facilityPoles.id, facilityDepartments.poleId))
+          .leftJoin(backupUser, eq(backupUser.id, institutionDepartmentResponseCoordinators.backupUserId))
+          .where(and(...ercoPredicates, isNotNull(institutionDepartmentResponseCoordinators.backupUserId))),
+        db.select({
+          id: ertlWeeklyRotations.id,
+          departmentId: ertlWeeklyRotations.departmentId,
+          departmentName: facilityDepartments.departmentName,
+          poleName: facilityPoles.poleName,
+          providerUserId: ertlWeeklyRotations.ertlUserId,
+          providerName: users.name,
+          providerEmail: users.email,
+          assignmentStatus: ertlWeeklyRotations.assignmentStatus,
+          effectiveFrom: ertlWeeklyRotations.startDate,
+          effectiveUntil: ertlWeeklyRotations.endDate,
+          acceptedAt: ertlWeeklyRotations.acceptedAt,
+          declinedAt: ertlWeeklyRotations.declinedAt,
+          declineReason: ertlWeeklyRotations.declineReason,
+          weekNumber: ertlWeeklyRotations.weekNumber,
+          year: ertlWeeklyRotations.year,
+        }).from(ertlWeeklyRotations)
+          .leftJoin(facilityDepartments, eq(facilityDepartments.id, ertlWeeklyRotations.departmentId))
+          .leftJoin(facilityPoles, eq(facilityPoles.id, ertlWeeklyRotations.poleId))
+          .leftJoin(users, eq(users.id, ertlWeeklyRotations.ertlUserId))
+          .where(and(...ertlPredicates))
+          .orderBy(desc(ertlWeeklyRotations.startDate))
+          .limit(250),
+        db.select({
+          id: shiftUtlRosters.id,
+          departmentId: shiftUtlRosters.departmentId,
+          departmentName: facilityDepartments.departmentName,
+          poleName: facilityPoles.poleName,
+          providerUserId: shiftUtlRosters.utlUserId,
+          providerName: users.name,
+          providerEmail: users.email,
+          assignmentStatus: shiftUtlRosters.assignmentStatus,
+          effectiveFrom: shiftUtlRosters.shiftDate,
+          effectiveUntil: shiftUtlRosters.shiftDate,
+          acceptedAt: shiftUtlRosters.acceptedAt,
+          declinedAt: shiftUtlRosters.declinedAt,
+          declineReason: shiftUtlRosters.declineReason,
+          shiftType: shiftUtlRosters.shiftType,
+          readinessSignOffAt: shiftUtlRosters.readinessSignOffAt,
+        }).from(shiftUtlRosters)
+          .leftJoin(facilityDepartments, eq(facilityDepartments.id, shiftUtlRosters.departmentId))
+          .leftJoin(facilityPoles, eq(facilityPoles.id, shiftUtlRosters.poleId))
+          .leftJoin(users, eq(users.id, shiftUtlRosters.utlUserId))
+          .where(and(...utlPredicates))
+          .orderBy(desc(shiftUtlRosters.shiftDate))
+          .limit(500),
+      ]);
+
+      return {
+        erco: [
+          ...coordinators.map((row) => ({ ...row, dutyType: "ERCo" as const })),
+          ...backups.map((row) => ({ ...row, dutyType: "Backup ERCo" as const })),
+        ],
+        ertl: ertl.map((row) => ({ ...row, dutyType: "ERTL" as const })),
+        utl: utl.map((row) => ({ ...row, dutyType: "UTL" as const })),
+      };
     }),
 
   getDepartmentResponseCoordinators: protectedProcedure

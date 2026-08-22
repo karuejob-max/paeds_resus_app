@@ -1,11 +1,19 @@
 import { facilityDepartments } from "../../drizzle/schema";
 import type { AppDb } from "./institution-access";
+import { canonicalizeDepartmentLabel } from "../../shared/clinical-departments";
 
 export async function insertCanonicalFacilityDepartments(
   db: AppDb,
   input: { institutionId: number; departmentNames: string[]; confirmedByUserId: number },
 ) {
-  const names = Array.from(new Set(input.departmentNames.map((name) => name.trim()).filter(Boolean)));
+  const names = Array.from(new Set(input.departmentNames
+    .map((name) => canonicalizeDepartmentLabel(name))
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .map((name) => name.toLowerCase())))
+    .map((normalizedName) => input.departmentNames
+      .map((name) => canonicalizeDepartmentLabel(name).trim())
+      .find((name) => name.toLowerCase() === normalizedName) ?? normalizedName);
   if (names.length === 0) return 0;
 
   const enrichedValues = names.map((departmentName) => ({

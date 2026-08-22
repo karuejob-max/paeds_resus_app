@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, ClipboardList, RefreshCw, Shield, Users } from "lucide-react";
 import { toast } from "sonner";
+import { DepartmentSelectors } from "@/components/DepartmentSelectors";
 
 function getCurrentMonthStart() {
   const now = new Date();
@@ -93,14 +94,23 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
       <CardContent className="space-y-5">
         <div className="rounded-lg border bg-muted/20 p-3 text-sm">
           <p className="font-semibold">Step 1 — Confirm or update departments</p>
-          <p className="mt-1 text-muted-foreground">This list is shared by IERS and CPD Portal. Renaming an existing row keeps its canonical identity; add new departments here rather than creating separate CPD text labels.</p>
+          <p className="mt-1 text-muted-foreground">Use the same preset department catalog used by profiles and CPD Portal. Choose Other only when a genuine facility department is missing from the catalog; renaming an existing row keeps its canonical identity.</p>
           <div className="mt-3 space-y-2">
             {(departments ?? []).map((department) => (
-              <Input key={department.id} value={draftNames[department.id] ?? department.departmentName} onChange={(event) => setDraftNames((current) => ({ ...current, [department.id]: event.target.value }))} aria-label={`Department ${department.departmentName}`} className="min-w-0" />
+              <div key={department.id} className="min-w-0 rounded-md border bg-background/70 p-3">
+                <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
+                  <span className="break-words text-xs font-medium text-muted-foreground">Current identity: {department.departmentName}</span>
+                  <Badge variant={department.departmentSource === "preset" ? "default" : "outline"}>{department.departmentSource === "preset" ? "Preset catalog" : "Custom exception"}</Badge>
+                </div>
+                <DepartmentSelectors value={draftNames[department.id] ?? department.departmentName} onChange={(value) => setDraftNames((current) => ({ ...current, [department.id]: value }))} className="min-w-0" labelSize="xs" />
+              </div>
             ))}
-            <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
-              <Input value={newDepartmentName} onChange={(event) => setNewDepartmentName(event.target.value)} placeholder="Add a new canonical department" className="min-w-0" />
-              <Button className="w-full shrink-0 sm:w-auto" onClick={saveDepartmentList} disabled={confirmMutation.isPending || !(departments?.length || newDepartmentName.trim())}> <CheckCircle2 className="mr-2 h-4 w-4" />Confirm department list</Button>
+            <div className="min-w-0 rounded-md border border-dashed bg-background/50 p-3">
+              <p className="mb-2 text-xs font-medium text-muted-foreground">Add department from the shared preset catalog or choose Other for a genuine custom exception.</p>
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+                <DepartmentSelectors value={newDepartmentName} onChange={setNewDepartmentName} className="min-w-0 flex-1" labelSize="xs" />
+                <Button className="w-full shrink-0 sm:w-auto" onClick={saveDepartmentList} disabled={confirmMutation.isPending || !(departments?.length || newDepartmentName.trim())}> <CheckCircle2 className="mr-2 h-4 w-4" />Confirm department list</Button>
+              </div>
             </div>
           </div>
         </div>

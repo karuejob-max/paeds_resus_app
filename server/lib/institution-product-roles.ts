@@ -31,8 +31,8 @@ export const PRODUCT_ROLE_DEFINITIONS: Record<InstitutionalProductKey, Array<{
   description: string;
 }>> = {
   iers: [
-    { roleKey: "iers_coordinator", label: "IERS coordinator", description: "Operates activations, drills, competency, evidence, and improvement actions." },
-    { roleKey: "iers_responder", label: "IERS responder", description: "Acknowledges and records response activity during activations and drills." },
+    { roleKey: "iers_coordinator", label: "IERS Lead", description: "Leads institutional IERS setup, pole allocation, governance, activations, drills, evidence, and improvement actions. This role does not itself prove acceptance of a dated provider duty." },
+    { roleKey: "iers_responder", label: "IERS response operator", description: "Acknowledges and records response activity during activations and drills when assigned and accepted for the relevant duty." },
     { roleKey: "iers_reviewer", label: "IERS reviewer", description: "Reviews evidence and verifies action closure." },
     { roleKey: "iers_governance", label: "IERS governance", description: "Owns milestones, institutional rollout, and governance review." },
     { roleKey: "iers_viewer", label: "IERS viewer", description: "Views readiness, evidence, action, and reporting surfaces." },

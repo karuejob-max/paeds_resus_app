@@ -472,7 +472,7 @@ describe("CPD Router Procedures", () => {
     });
 
     expect(mockValues).toHaveBeenCalledWith(expect.objectContaining({
-      department: "PICU",
+      department: "Critical Care: PICU",
       facilityDepartmentId: 21,
     }));
   });

@@ -7,6 +7,7 @@ import { assertInstitutionAccess } from "../lib/institution-access";
 import { assertInstitutionProductCapability } from "../lib/institution-entitlements";
 import { assertInstitutionProductRole, type InstitutionalProductRoleKey } from "../lib/institution-product-roles";
 import { institutionalAccounts, cpdEvents, cpdAttendees, cpdCodeRevealLogs, institutionalStaffMembers, users, providerProfiles, facilityDepartments } from "../../drizzle/schema";
+import { canonicalizeDepartmentLabel, departmentLabelsMatch } from "../../shared/clinical-departments";
 
 /** Shared cadre validator for input validation, matching the cpdAttendees.cadre column. */
 const cadreEnum = z.string().trim().min(1, "Please select or specify your cadre").max(128);
@@ -500,10 +501,14 @@ export const cpdRouter = router({
 
       let userDepartment: string | null = null;
       let userFacilityDepartmentId: number | null = null;
-      const registrationDepartments = await db
+      const registrationDepartmentRows = await db
         .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
         .from(facilityDepartments)
-        .where(eq(facilityDepartments.institutionId, input.institutionId));
+        .where(and(eq(facilityDepartments.institutionId, input.institutionId), eq(facilityDepartments.isActive, true)));
+      const registrationDepartments = registrationDepartmentRows.map((department) => ({
+        ...department,
+        departmentName: canonicalizeDepartmentLabel(department.departmentName),
+      }));
       if (ctx.user?.id) {
         // 1. Try to fetch from providerProfiles
         const [profile] = await db
@@ -541,7 +546,7 @@ export const cpdRouter = router({
 
       if (userDepartment) {
         const matchingDepartment = registrationDepartments.find(
-          (department) => department.departmentName.trim().toLowerCase() === userDepartment?.trim().toLowerCase(),
+          (department) => departmentLabelsMatch(department.departmentName, userDepartment),
         );
         if (matchingDepartment) {
           userFacilityDepartmentId = userFacilityDepartmentId ?? matchingDepartment.id;
@@ -636,12 +641,12 @@ export const cpdRouter = router({
       const institutionDepartments = await db
         .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
         .from(facilityDepartments)
-        .where(eq(facilityDepartments.institutionId, input.institutionId));
-      let resolvedDepartment = input.department.trim();
+        .where(and(eq(facilityDepartments.institutionId, input.institutionId), eq(facilityDepartments.isActive, true)));
+      let resolvedDepartment = canonicalizeDepartmentLabel(input.department.trim());
       let resolvedFacilityDepartmentId = input.facilityDepartmentId ?? null;
       if (institutionDepartments.length > 0) {
         const selectedDepartment = resolvedFacilityDepartmentId == null
-          ? institutionDepartments.find((department) => department.departmentName.trim().toLowerCase() === resolvedDepartment.toLowerCase())
+          ? institutionDepartments.find((department) => departmentLabelsMatch(department.departmentName, resolvedDepartment))
           : institutionDepartments.find((department) => department.id === resolvedFacilityDepartmentId);
         if (!selectedDepartment) {
           throw new TRPCError({
@@ -650,7 +655,7 @@ export const cpdRouter = router({
           });
         }
         resolvedFacilityDepartmentId = selectedDepartment.id;
-        resolvedDepartment = selectedDepartment.departmentName;
+        resolvedDepartment = canonicalizeDepartmentLabel(selectedDepartment.departmentName);
       }
 
       // Duplicate guard: one registration per email per event.
