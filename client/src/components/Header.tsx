@@ -155,10 +155,10 @@ export default function Header() {
       role="banner"
       aria-label="Site header"
     >
-      <div className="max-w-7xl mx-auto px-4 py-3">
-        <div className="flex items-center justify-between gap-4">
+      <div className="w-full min-w-0 max-w-7xl mx-auto px-3 py-2 sm:px-4 sm:py-3">
+        <div className="flex min-w-0 items-center justify-between gap-2 sm:gap-4">
           {/* Logo + theme */}
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex min-w-0 items-center gap-1 sm:gap-2">
             <Link href="/">
               <div className="flex items-center gap-2 cursor-pointer hover:opacity-90 transition flex-shrink-0 focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg">
                 <img
@@ -184,13 +184,13 @@ export default function Header() {
           {isAuthenticated && effectiveRole && (
             <button
               type="button"
-              className="md:hidden flex items-center gap-1.5 px-2 py-1 rounded-full border border-border text-xs font-medium text-foreground bg-accent/50 hover:bg-accent transition flex-shrink-0"
+              className="md:hidden flex min-w-0 max-w-[7.5rem] items-center gap-1.5 overflow-hidden rounded-full border border-border bg-accent/50 px-2 py-1 text-xs font-medium text-foreground transition hover:bg-accent flex-shrink-0"
               onClick={() => setMobileMenuOpen(true)}
               aria-label={`Current role: ${effectiveRole}. Tap to switch.`}
             >
               {effectiveRole === 'provider' && <Stethoscope className="w-3.5 h-3.5" />}
               {effectiveRole === 'institution' && <Briefcase className="w-3.5 h-3.5" />}
-              <span className="capitalize">{effectiveRole ? roleDisplayLabel[effectiveRole] : ""}</span>
+              <span className="truncate capitalize">{effectiveRole ? roleDisplayLabel[effectiveRole] : ""}</span>
             </button>
           )}
 
@@ -207,7 +207,7 @@ export default function Header() {
               >
                 {effectiveRole === "provider" && <Stethoscope className="w-4 h-4" />}
                 {effectiveRole === "institution" && <Briefcase className="w-4 h-4" />}
-                <span className="capitalize">{effectiveRole ? roleDisplayLabel[effectiveRole] : ""}</span>
+                <span className="truncate capitalize">{effectiveRole ? roleDisplayLabel[effectiveRole] : ""}</span>
                 <ChevronDown className={`w-4 h-4 transition ${roleDropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
@@ -340,7 +340,7 @@ export default function Header() {
           )}
 
           {/* Right Section: Search + Notifications + Account */}
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-2">
             <GlobalSearch />
             {/* Notifications */}
             {isAuthenticated && (
@@ -356,12 +356,12 @@ export default function Header() {
                   aria-haspopup="true"
                   aria-expanded={accountDropdownOpen}
                   aria-label="Account menu"
-                  className="flex items-center gap-2 px-3 py-2 text-foreground hover:bg-accent rounded-lg transition text-sm font-medium focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-foreground transition hover:bg-accent focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:gap-2 sm:px-3 sm:py-2 sm:text-sm sm:font-medium"
                 >
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground sm:h-8 sm:w-8">
                     {user?.name?.charAt(0).toUpperCase()}
                   </div>
-                  <ChevronDown className={`w-4 h-4 transition ${accountDropdownOpen ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`hidden h-4 w-4 transition sm:block ${accountDropdownOpen ? "rotate-180" : ""}`} />
                 </button>
 
                 {accountDropdownOpen && (

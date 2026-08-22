@@ -18,6 +18,7 @@
     "test:clinical": "vitest run -c vitest.clinical.config.ts",
     "test:api": "vitest run server/routers/role-boundary-provider-api.test.ts",
     "test:api:enrollment": "vitest run server/routers/enrollment-payment-flows.test.ts",
+    "test:iers-provider-auth": "vitest run server/lib/iers-provider-duty-fixture.test.ts",
     "test:db": "node scripts/test-db-connection.mjs",
     "check:db-test-coverage": "node scripts/check-db-test-coverage.mjs",
     "check:branch-base": "node scripts/verify-branch-base.mjs",

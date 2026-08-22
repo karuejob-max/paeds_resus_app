@@ -21,6 +21,7 @@
 | [FPKB_SCHEMA_V1.md](./FPKB_SCHEMA_V1.md) | Complete database schema for the Failure Pattern Knowledge Base — 11 tables, indexes, migration sequence, seed data. |
 | [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md) | Field-by-field observation specification for Care Signal v3, Safe-Truth v1, ResusGPS session record, and Fellowship competency record. |
 | [FINANCIAL_STRATEGY_V1.md](./FINANCIAL_STRATEGY_V1.md) | Four-business revenue model, constitutional revenue principle, pricing, sequencing. |
+| [IERS_NEW_USER_ORIENTATION_GUIDE.md](./institutional/IERS_NEW_USER_ORIENTATION_GUIDE.md) | Practical IERS onboarding: portal lanes, role ownership, duty states, drill workflow, and safety boundaries. |
 
 **Strategic foundation (additional context):** [STRATEGIC_FOUNDATION.md](./STRATEGIC_FOUNDATION.md) — clinical origin narrative, LMIC context, Book of the Unforgotten. Does **not** override technical decisions in this file. **Long-range aspirational** scenarios live under [docs/archive/](./archive/) and are **not** near-term commitments.
 

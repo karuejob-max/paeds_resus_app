@@ -27,7 +27,10 @@ import { assertIersActivationContinuity, assertInstitutionProductCapability } fr
 import { assertInstitutionProductRole, type InstitutionalProductRoleKey } from "../lib/institution-product-roles";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { canAdvanceIersActivation } from "../lib/iers-state";
-import { isProviderShiftReadinessEligible } from "../lib/iers-provider-readiness";
+import {
+  evaluateProviderDutyAuthorization,
+  type ProviderDutyAuthorizationInput,
+} from "../lib/iers-provider-duty-authorization";
 import { buildIersEvidenceScorecard } from "../lib/iers-criteria";
 import { evaluateIersPilotReadiness } from "../lib/iers-pilot-readiness";
 import { assertInstitutionProcedureAccess } from "../lib/institution-capabilities";
@@ -62,6 +65,13 @@ type ResponsibilityRole =
 const LEAD_ROLES: ResponsibilityRole[] = ["ert_leader", "unit_team_leader", "er_coordinator", "erc_chair"];
 const RESPONDER_ROLES: ResponsibilityRole[] = ["ert_leader", "ert_responder", "unit_team_leader", "er_coordinator", "erc_member"];
 const IERS_PROVIDER_ROLES: InstitutionalProductRoleKey[] = ["iers_coordinator", "iers_responder", "iers_reviewer", "iers_governance", "iers_viewer"];
+
+function assertProviderDutyDecision(input: ProviderDutyAuthorizationInput) {
+  const decision = evaluateProviderDutyAuthorization(input);
+  if (!decision.allowed) {
+    throw new TRPCError({ code: decision.code, message: decision.reason });
+  }
+}
 
 async function getMembership(db: DbClient, userId: number, institutionId: number) {
   const [membership] = await db
@@ -654,8 +664,18 @@ export const iersRouter = router({
       if (!roster) throw new TRPCError({ code: "NOT_FOUND", message: "Assigned shift not found." });
       await assertInstitutionProductCapability(db, roster.institutionId, "iers", "iers.team_readiness.operate");
       await assertProviderCanOperate(db, ctx.user, roster.institutionId);
-      if (roster.status !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: "Only active shifts can be signed off." });
-      if (!isProviderShiftReadinessEligible(roster)) throw new TRPCError({ code: "BAD_REQUEST", message: "Accept the dated shift assignment before signing off readiness." });
+      assertProviderDutyDecision({
+        action: "sign_off_readiness",
+        requestedInstitutionId: roster.institutionId,
+        assignmentInstitutionId: roster.institutionId,
+        requestingUserId: ctx.user.id,
+        assignedUserId: roster.utlUserId,
+        membershipStatus: "active",
+        iersRoleStatus: "active",
+        assignmentStatus: roster.assignmentStatus,
+        shiftStatus: roster.status,
+        acceptedAt: roster.acceptedAt,
+      });
 
       const signedOffAt = new Date();
       await db

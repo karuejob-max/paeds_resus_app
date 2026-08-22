@@ -252,3 +252,7 @@ Render final-deploy checkpoint: the service overview still shows auto-deploy `48
 Final documentation deploy status: Render still displays `48ee62c` as deploying at the latest read-only refresh. There is no failure marker; the service continues to show the prior `af95295` deploy as live. The documentation-only deploy does not affect the already-live provider-duty code path.
 
 Final final rollout result: Render deployment `48ee62c` is confirmed **live** at 12:33 PM. This completes the protected code, documentation, production migration, verification, smoke-test, and rollout-evidence sequence for the provider-integrated IERS duty slice. No additional production database write was required for PRs #498–#501.
+
+Final documentation deployment observation: after opening the service overview for merge `8d32ba5`, the subsequent browser refresh returned a transient `about:blank`. The overview had already shown the auto-deploy starting; no deployment control or production data was changed. A read-only retry is required before final reporting.
+
+Final deployment confirmation: Render shows `8d32ba5` (`docs(ops): confirm final provider rollout`, PR #502) **live** at 12:40 PM. The protected rollout chain is complete: implementation, guarded migrations, strict verification, labelled smoke-test evidence, membership revalidation, and documentation are all on protected main and deployed.
