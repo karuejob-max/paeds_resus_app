@@ -11,10 +11,12 @@ import {
   institutionSubscriptionEvents,
   institutionalProductCapabilities,
   institutionalProducts,
+  institutionProductRoles,
 } from "../../drizzle/schema";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import type { InstitutionalProductKey, ProductSubscriptionStatus } from "../lib/institution-entitlements";
+import { isKnownProductRole, PRODUCT_ROLE_DEFINITIONS, type InstitutionalProductRoleKey, type InstitutionalProductRoleStatus } from "../lib/institution-product-roles";
 
 const PRODUCT_KEYS: InstitutionalProductKey[] = ["iers", "cpd_portal", "connected_services"];
 const SUBSCRIPTION_STATUSES: ProductSubscriptionStatus[] = [
@@ -218,6 +220,150 @@ export const institutionProductsRouter = router({
         if (isMissingTableError(error)) return [];
         throw error;
       }
+    }),
+
+  /** Product-role catalog used by Administration → People & roles. */
+  getRoleDefinitions: protectedProcedure
+    .input(z.object({ productKey: z.string() }))
+    .query(({ input }) => {
+      const productKey = validProductKey(input.productKey);
+      return PRODUCT_ROLE_DEFINITIONS[productKey];
+    }),
+
+  /** Shared administration read: active, invited, suspended, and ended product roles. */
+  listProductRoles: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), productKey: z.string().optional() }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      try {
+        const predicates = [eq(institutionProductRoles.institutionalAccountId, input.institutionId)];
+        if (input.productKey) {
+          const productKey = validProductKey(input.productKey);
+          const [product] = await db
+            .select({ id: institutionalProducts.id })
+            .from(institutionalProducts)
+            .where(eq(institutionalProducts.productKey, productKey))
+            .limit(1);
+          if (!product) return [];
+          predicates.push(eq(institutionProductRoles.productId, product.id));
+        }
+        return db
+          .select({
+            id: institutionProductRoles.id,
+            productKey: institutionalProducts.productKey,
+            productName: institutionalProducts.displayName,
+            userId: institutionProductRoles.userId,
+            invitedEmail: institutionProductRoles.invitedEmail,
+            roleKey: institutionProductRoles.roleKey,
+            roleStatus: institutionProductRoles.roleStatus,
+            grantedByUserId: institutionProductRoles.grantedByUserId,
+            grantedAt: institutionProductRoles.grantedAt,
+            endedAt: institutionProductRoles.endedAt,
+          })
+          .from(institutionProductRoles)
+          .innerJoin(institutionalProducts, eq(institutionalProducts.id, institutionProductRoles.productId))
+          .where(and(...predicates))
+          .orderBy(desc(institutionProductRoles.updatedAt));
+      } catch (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
+    }),
+
+  /** Institution administrator: grant or reactivate one product role. */
+  grantProductRole: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      productKey: z.string(),
+      invitedEmail: z.string().trim().email().max(320),
+      userId: z.number().int().positive().optional(),
+      roleKey: z.string().trim().min(3).max(128),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const productKey = validProductKey(input.productKey);
+      if (!isKnownProductRole(productKey, input.roleKey)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `Role ${input.roleKey} is not valid for ${productKey}.` });
+      }
+      const [product] = await db
+        .select({ id: institutionalProducts.id })
+        .from(institutionalProducts)
+        .where(eq(institutionalProducts.productKey, productKey))
+        .limit(1);
+      if (!product) throw new TRPCError({ code: "NOT_FOUND", message: "Institutional product is not registered." });
+
+      const invitedEmail = input.invitedEmail.toLowerCase();
+      await db
+        .insert(institutionProductRoles)
+        .values({
+          institutionalAccountId: input.institutionId,
+          productId: product.id,
+          userId: input.userId ?? null,
+          invitedEmail,
+          roleKey: input.roleKey,
+          roleStatus: "active",
+          grantedByUserId: ctx.user.id,
+          grantedAt: new Date(),
+          endedAt: null,
+        })
+        .onDuplicateKeyUpdate({
+          set: {
+            userId: input.userId ?? null,
+            roleStatus: "active",
+            grantedByUserId: ctx.user.id,
+            grantedAt: new Date(),
+            endedAt: null,
+            updatedAt: new Date(),
+          },
+        });
+
+      await db.insert(institutionEntitlementAuditLog).values({
+        institutionalAccountId: input.institutionId,
+        productId: product.id,
+        capabilityKey: `${productKey}.role.${input.roleKey}`,
+        decision: "override",
+        userId: ctx.user.id,
+        reason: "Product role granted or reactivated by institution administrator.",
+        metadata: JSON.stringify({ invitedEmail, userId: input.userId ?? null, roleKey: input.roleKey }),
+      });
+      return { success: true as const, productKey, roleKey: input.roleKey as InstitutionalProductRoleKey, invitedEmail };
+    }),
+
+  /** Institution administrator: suspend or end a product role without deleting its audit history. */
+  setProductRoleStatus: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      roleId: z.number().int().positive(),
+      roleStatus: z.enum(["invited", "active", "suspended", "ended"]),
+      reason: z.string().trim().min(3).max(1000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const [role] = await db
+        .select({ id: institutionProductRoles.id, productId: institutionProductRoles.productId, roleKey: institutionProductRoles.roleKey })
+        .from(institutionProductRoles)
+        .where(and(eq(institutionProductRoles.id, input.roleId), eq(institutionProductRoles.institutionalAccountId, input.institutionId)))
+        .limit(1);
+      if (!role) throw new TRPCError({ code: "NOT_FOUND", message: "Product role not found." });
+
+      await db.update(institutionProductRoles).set({
+        roleStatus: input.roleStatus as InstitutionalProductRoleStatus,
+        endedAt: input.roleStatus === "ended" ? new Date() : null,
+        updatedAt: new Date(),
+      }).where(eq(institutionProductRoles.id, input.roleId));
+      await db.insert(institutionEntitlementAuditLog).values({
+        institutionalAccountId: input.institutionId,
+        productId: role.productId,
+        capabilityKey: `role.${role.roleKey}`,
+        decision: "override",
+        userId: ctx.user.id,
+        reason: input.reason,
+        metadata: JSON.stringify({ roleId: input.roleId, roleStatus: input.roleStatus }),
+      });
+      return { success: true as const, roleStatus: input.roleStatus };
     }),
 
   /** Shared administration mutation: change a subscription only through an auditable status event. */

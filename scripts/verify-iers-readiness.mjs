@@ -80,6 +80,8 @@ export const REQUIRED_COLUMNS = [
   { tableKey: "subscriptions", label: "subscription status", names: ["subscriptionStatus", "subscription_status"] },
   { tableKey: "entitlements", label: "entitlement status", names: ["entitlementStatus", "entitlement_status"] },
   { tableKey: "productRoles", label: "product role status", names: ["roleStatus", "role_status"] },
+  { tableKey: "productRoles", label: "product role key", names: ["roleKey", "role_key"] },
+  { tableKey: "productRoles", label: "product role invite identity", names: ["invitedEmail", "invited_email"] },
   { tableKey: "subscriptionEvents", label: "subscription event type", names: ["eventType", "event_type"] },
   { tableKey: "entitlementAudit", label: "entitlement audit decision", names: ["decision"] },
 ];

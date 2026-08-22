@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Loader2, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
+import { KeyRound, Loader2, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
 
 const GOVERNANCE_ROLES = [
   ["general_staff", "General staff"],
@@ -40,7 +40,12 @@ function roleLabel(role: string | null | undefined): string {
 export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: number }) {
   const utils = trpc.useUtils();
   const [search, setSearch] = useState("");
+  const [roleProduct, setRoleProduct] = useState<"iers" | "cpd_portal">("iers");
+  const [roleStaffEmail, setRoleStaffEmail] = useState("");
+  const [roleKey, setRoleKey] = useState("");
   const { data, isLoading, isFetching, refetch } = trpc.institution.getStaffMembers.useQuery({ institutionId });
+  const { data: productRoles, isLoading: productRolesLoading, refetch: refetchProductRoles } = trpc.institutionProducts.listProductRoles.useQuery({ institutionId });
+  const { data: roleDefinitions } = trpc.institutionProducts.getRoleDefinitions.useQuery({ productKey: roleProduct });
   const updateRole = trpc.institution.updateStaffGovernanceRole.useMutation({
     onSuccess: async () => {
       toast.success("Responsibility role updated");
@@ -48,8 +53,26 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
     },
     onError: (error) => toast.error(error.message || "Could not update responsibility role"),
   });
+  const grantProductRole = trpc.institutionProducts.grantProductRole.useMutation({
+    onSuccess: async () => {
+      toast.success("Product role assigned");
+      setRoleKey("");
+      await utils.institutionProducts.listProductRoles.invalidate({ institutionId });
+      await refetchProductRoles();
+    },
+    onError: (error) => toast.error(error.message || "Could not assign product role"),
+  });
+  const setProductRoleStatus = trpc.institutionProducts.setProductRoleStatus.useMutation({
+    onSuccess: async () => {
+      toast.success("Product role status updated");
+      await utils.institutionProducts.listProductRoles.invalidate({ institutionId });
+      await refetchProductRoles();
+    },
+    onError: (error) => toast.error(error.message || "Could not update product role status"),
+  });
 
   const staff = (data ?? []) as StaffRow[];
+  const selectedRoleStaff = staff.find((member) => member.staffEmail.toLowerCase() === roleStaffEmail.toLowerCase());
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return staff;
@@ -57,7 +80,8 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
   }, [search, staff]);
 
   return (
-    <Card>
+    <div className="space-y-6">
+      <Card>
       <CardHeader>
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
           <div>
@@ -122,6 +146,28 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
         <p className="text-xs text-muted-foreground">Use the roster import or add-staff workflow below to add people. A responsibility role should be assigned only after the institution confirms the provider’s operational scope.</p>
       </CardContent>
     </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5" />Product permissions</CardTitle>
+        <CardDescription>Assign a separate product role to a linked provider. Shared institutional admin access remains separate from these assignments.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="space-y-2"><label className="text-sm font-medium">Product</label><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={roleProduct} onChange={(event) => { setRoleProduct(event.target.value as "iers" | "cpd_portal"); setRoleKey(""); }}><option value="iers">IERS</option><option value="cpd_portal">CPD Portal</option></select></div>
+          <div className="space-y-2"><label className="text-sm font-medium">Staff member</label><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={roleStaffEmail} onChange={(event) => setRoleStaffEmail(event.target.value)}><option value="">Select staff member</option>{staff.map((member) => <option key={member.id} value={member.staffEmail}>{member.staffName} — {member.staffEmail}</option>)}</select></div>
+          <div className="space-y-2"><label className="text-sm font-medium">Product role</label><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={roleKey} onChange={(event) => setRoleKey(event.target.value)}><option value="">Select role</option>{(roleDefinitions ?? []).map((definition) => <option key={definition.roleKey} value={definition.roleKey}>{definition.label}</option>)}</select></div>
+        </div>
+        {roleKey && <p className="text-xs text-muted-foreground">{roleDefinitions?.find((definition) => definition.roleKey === roleKey)?.description}</p>}
+        <Button type="button" onClick={() => selectedRoleStaff && grantProductRole.mutate({ institutionId, productKey: roleProduct, invitedEmail: selectedRoleStaff.staffEmail, userId: selectedRoleStaff.userId ?? undefined, roleKey })} disabled={!selectedRoleStaff || !roleKey || grantProductRole.isPending}><KeyRound className="mr-2 h-4 w-4" />{grantProductRole.isPending ? "Assigning…" : "Assign product role"}</Button>
+
+        <div className="rounded-lg border">
+          <div className="border-b bg-muted/30 px-4 py-3 text-sm font-medium">Assigned and historical product roles</div>
+          {productRolesLoading ? <p className="p-4 text-sm text-muted-foreground">Loading product roles…</p> : !productRoles?.length ? <p className="p-4 text-sm text-muted-foreground">No explicit product roles have been assigned yet. Existing institution administrators retain shared admin access.</p> : <div className="divide-y">{productRoles.map((assignment) => <div key={assignment.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{assignment.invitedEmail}</p><p className="text-xs text-muted-foreground">{assignment.productName} · {assignment.roleKey.replaceAll("_", " ")}</p><p className="mt-1 text-xs"><Badge variant={assignment.roleStatus === "active" ? "default" : assignment.roleStatus === "ended" ? "outline" : "secondary"}>{assignment.roleStatus}</Badge></p></div><div className="flex flex-wrap gap-2">{assignment.roleStatus === "active" && <Button type="button" size="sm" variant="outline" disabled={setProductRoleStatus.isPending} onClick={() => setProductRoleStatus.mutate({ institutionId, roleId: assignment.id, roleStatus: "suspended", reason: "Suspended by institution administrator pending role review." })}>Suspend</Button>}{assignment.roleStatus === "suspended" && <Button type="button" size="sm" variant="outline" disabled={setProductRoleStatus.isPending} onClick={() => setProductRoleStatus.mutate({ institutionId, roleId: assignment.id, roleStatus: "active", reason: "Reactivated by institution administrator after role review." })}>Reactivate</Button>}{assignment.roleStatus !== "ended" && <Button type="button" size="sm" variant="ghost" className="text-red-700" disabled={setProductRoleStatus.isPending} onClick={() => setProductRoleStatus.mutate({ institutionId, roleId: assignment.id, roleStatus: "ended", reason: "Ended by institution administrator." })}>End</Button>}</div></div>)}</div>}
+        </div>
+      </CardContent>
+    </Card>
+    </div>
   );
 }
 
