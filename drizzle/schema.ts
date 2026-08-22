@@ -1510,9 +1510,9 @@ export const institutionSubscriptionPayments = mysqlTable("institutionSubscripti
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
-  paymentIdempotencyUnique: uniqueIndex("institutionSubscriptionPayments_idempotency_unique").on(table.idempotencyKey),
-  paymentReferenceUnique: uniqueIndex("institutionSubscriptionPayments_payment_reference_unique").on(table.paymentReference),
-  institutionProductIndex: index("institutionSubscriptionPayments_institution_product_idx").on(table.institutionalAccountId, table.productId),
+  paymentIdempotencyUnique: uniqueIndex("inst_sub_pay_idem_uq").on(table.idempotencyKey),
+  paymentReferenceUnique: uniqueIndex("inst_sub_pay_ref_uq").on(table.paymentReference),
+  institutionProductIndex: index("inst_sub_pay_prod_idx").on(table.institutionalAccountId, table.productId),
 }));
 export type InstitutionSubscriptionPayment = typeof institutionSubscriptionPayments.$inferSelect;
 export type InsertInstitutionSubscriptionPayment = typeof institutionSubscriptionPayments.$inferInsert;
@@ -1530,7 +1530,7 @@ export const institutionRenewalNotificationPreferences = mysqlTable("institution
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
-  institutionProductUnique: uniqueIndex("institutionRenewalNotificationPreferences_institution_product_unique").on(table.institutionalAccountId, table.productKey),
+  institutionProductUnique: uniqueIndex("inst_renew_pref_inst_prod_uq").on(table.institutionalAccountId, table.productKey),
 }));
 export type InstitutionRenewalNotificationPreference = typeof institutionRenewalNotificationPreferences.$inferSelect;
 export type InsertInstitutionRenewalNotificationPreference = typeof institutionRenewalNotificationPreferences.$inferInsert;
@@ -1556,9 +1556,9 @@ export const institutionRenewalNotifications = mysqlTable("institutionRenewalNot
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
-  dedupeUnique: uniqueIndex("institutionRenewalNotifications_dedupe_unique").on(table.dedupeKey),
-  institutionStatusIndex: index("institutionRenewalNotifications_institution_status_idx").on(table.institutionalAccountId, table.status),
-  scheduledIndex: index("institutionRenewalNotifications_scheduled_idx").on(table.status, table.scheduledFor),
+  dedupeUnique: uniqueIndex("inst_renew_notif_dedupe_uq").on(table.dedupeKey),
+  institutionStatusIndex: index("inst_renew_notif_status_idx").on(table.institutionalAccountId, table.status),
+  scheduledIndex: index("inst_renew_notif_sched_idx").on(table.status, table.scheduledFor),
 }));
 export type InstitutionRenewalNotification = typeof institutionRenewalNotifications.$inferSelect;
 export type InsertInstitutionRenewalNotification = typeof institutionRenewalNotifications.$inferInsert;

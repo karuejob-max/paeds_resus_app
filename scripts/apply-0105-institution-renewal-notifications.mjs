@@ -36,9 +36,9 @@ async function main() {
         metadata JSON NULL,
         createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY institutionSubscriptionPayments_idempotency_unique (idempotencyKey),
-        UNIQUE KEY institutionSubscriptionPayments_payment_reference_unique (paymentReference),
-        KEY institutionSubscriptionPayments_institution_product_idx (institutionalAccountId, productId)
+        UNIQUE KEY inst_sub_pay_idem_uq (idempotencyKey),
+        UNIQUE KEY inst_sub_pay_ref_uq (paymentReference),
+        KEY inst_sub_pay_prod_idx (institutionalAccountId, productId)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
     await conn.query(`
@@ -53,7 +53,7 @@ async function main() {
         updatedByUserId INT NULL,
         createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY institutionRenewalNotificationPreferences_institution_product_unique (institutionalAccountId, productKey)
+        UNIQUE KEY inst_renew_pref_inst_prod_uq (institutionalAccountId, productKey)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
     await conn.query(`
@@ -76,9 +76,9 @@ async function main() {
         attempts INT NOT NULL DEFAULT 0,
         createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY institutionRenewalNotifications_dedupe_unique (dedupeKey),
-        KEY institutionRenewalNotifications_institution_status_idx (institutionalAccountId, status),
-        KEY institutionRenewalNotifications_scheduled_idx (status, scheduledFor)
+        UNIQUE KEY inst_renew_notif_dedupe_uq (dedupeKey),
+        KEY inst_renew_notif_status_idx (institutionalAccountId, status),
+        KEY inst_renew_notif_sched_idx (status, scheduledFor)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
     await conn.query(`
