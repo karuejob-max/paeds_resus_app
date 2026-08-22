@@ -494,6 +494,14 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
       </div>
 
       <div className="space-y-6">
+        <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
+          <CardContent className="grid gap-3 p-4 text-xs sm:grid-cols-4">
+            <div><p className="font-semibold text-blue-950 dark:text-blue-100">Reporting scope</p><p className="text-muted-foreground">Professional development activity only.</p></div>
+            <div><p className="font-semibold text-blue-950 dark:text-blue-100">Primary source</p><p className="text-muted-foreground">CPD sessions, registrations, attendance, and certificates.</p></div>
+            <div><p className="font-semibold text-blue-950 dark:text-blue-100">Freshness</p><p className="text-muted-foreground">Live institution-scoped records; refresh the page after bulk changes.</p></div>
+            <div><p className="font-semibold text-blue-950 dark:text-blue-100">Boundary</p><p className="text-muted-foreground">CPD figures do not certify IERS emergency competency.</p></div>
+          </CardContent>
+        </Card>
         {/* --- OVERVIEW & ANALYTICS TAB --- */}
         {cpdSubTab === "overview" && (
           <>

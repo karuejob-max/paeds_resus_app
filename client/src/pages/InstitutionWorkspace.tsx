@@ -61,6 +61,14 @@ type WorkspaceSection = "overview" | ProductKey | "administration" | "connected"
 
 type ProductStatus = "trial" | "active" | "grace" | "past_due" | "expired" | "suspended" | "cancelled" | "legacy_unclassified" | "not_subscribed";
 
+function getInitialWorkspaceState(): { section: WorkspaceSection; iersTab: string } {
+  if (typeof window === "undefined") return { section: "overview", iersTab: "command" };
+  const params = new URLSearchParams(window.location.search);
+  const requested = params.get("section");
+  const section: WorkspaceSection = requested === "iers" || requested === "cpd_portal" || requested === "administration" || requested === "connected" ? requested : "overview";
+  return { section, iersTab: params.get("iersTab") || "command" };
+}
+
 function canUseProduct(status: ProductStatus | undefined): boolean {
   return status === "trial" || status === "active" || status === "grace" || status === "past_due" || status === "legacy_unclassified";
 }
@@ -90,8 +98,18 @@ function accessBadgeVariant(status: ProductStatus | undefined): "default" | "sec
 export default function InstitutionWorkspace() {
   const { isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
-  const [activeSection, setActiveSection] = useState<WorkspaceSection>("overview");
-  const [activeIersTab, setActiveIersTab] = useState("command");
+  const initialWorkspaceState = getInitialWorkspaceState();
+  const [activeSection, setActiveSection] = useState<WorkspaceSection>(initialWorkspaceState.section);
+  const [activeIersTab, setActiveIersTab] = useState(initialWorkspaceState.iersTab);
+
+  const setSection = (section: WorkspaceSection) => {
+    setActiveSection(section);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("section", section);
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  };
 
   const { data: myInstitution, isLoading: institutionLoading } = trpc.institution.getMyInstitution.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -144,7 +162,7 @@ export default function InstitutionWorkspace() {
   const cpdEnabled = canUseProduct(productStatus.cpd_portal);
 
   const goToProduct = (product: ProductKey) => {
-    setActiveSection(product);
+    setSection(product);
     if (product === "iers") setActiveIersTab("command");
   };
 
@@ -171,7 +189,7 @@ export default function InstitutionWorkspace() {
               One institution account, two products, and one shared administration layer. Providers and institutional leaders work from the same readiness record.
             </p>
           </div>
-          <Button variant="outline" onClick={() => setActiveSection("administration")}>
+          <Button variant="outline" onClick={() => setSection("administration")}>
             <Settings2 className="mr-2 h-4 w-4" /> Administration
           </Button>
         </div>
@@ -207,7 +225,7 @@ export default function InstitutionWorkspace() {
           })}
         </div>
 
-        <Tabs value={activeSection} onValueChange={(value) => setActiveSection(value as WorkspaceSection)}>
+        <Tabs value={activeSection} onValueChange={(value) => setSection(value as WorkspaceSection)}>
           <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-5">
             <TabsTrigger value="overview"><LayoutDashboard className="mr-2 h-4 w-4" />Overview</TabsTrigger>
             <TabsTrigger value="iers"><HeartPulse className="mr-2 h-4 w-4" />IERS</TabsTrigger>
@@ -229,7 +247,7 @@ export default function InstitutionWorkspace() {
                 <Button variant="outline" className="h-auto justify-start p-4 text-left" onClick={() => goToProduct("cpd_portal")}>
                   <div><div className="font-semibold">Manage professional development</div><div className="mt-1 text-xs text-muted-foreground">CPD events, attendance, certificates, and workforce insight.</div></div><ArrowRight className="ml-auto h-4 w-4" />
                 </Button>
-                <Button variant="outline" className="h-auto justify-start p-4 text-left" onClick={() => setActiveSection("administration")}>
+                <Button variant="outline" className="h-auto justify-start p-4 text-left" onClick={() => setSection("administration")}>
                   <div><div className="font-semibold">Manage the account</div><div className="mt-1 text-xs text-muted-foreground">People, roles, contracts, billing, and renewal.</div></div><ArrowRight className="ml-auto h-4 w-4" />
                 </Button>
               </CardContent>
