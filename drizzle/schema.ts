@@ -1454,6 +1454,45 @@ export const institutionEntitlementAuditLog = mysqlTable("institutionEntitlement
 export type InstitutionEntitlementAuditLog = typeof institutionEntitlementAuditLog.$inferSelect;
 export type InsertInstitutionEntitlementAuditLog = typeof institutionEntitlementAuditLog.$inferInsert;
 
+/** Product-scoped retention and legal-hold policy. */
+export const institutionDataLifecyclePolicies = mysqlTable("institutionDataLifecyclePolicies", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  productKey: varchar("productKey", { length: 64 }).notNull(),
+  retentionDays: int("retentionDays").default(3650).notNull(),
+  legalHold: boolean("legalHold").default(false).notNull(),
+  updatedByUserId: int("updatedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionProductUnique: uniqueIndex("institutionDataLifecyclePolicies_institution_product_unique").on(table.institutionalAccountId, table.productKey),
+}));
+export type InstitutionDataLifecyclePolicy = typeof institutionDataLifecyclePolicies.$inferSelect;
+export type InsertInstitutionDataLifecyclePolicy = typeof institutionDataLifecyclePolicies.$inferInsert;
+
+/** Append-only control-plane requests for export, retention, recovery, and offboarding. */
+export const institutionDataLifecycleRequests = mysqlTable("institutionDataLifecycleRequests", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  productKey: varchar("productKey", { length: 64 }).notNull(),
+  requestType: mysqlEnum("requestType", ["export", "retention_change", "recovery", "offboarding"]).notNull(),
+  status: mysqlEnum("status", ["requested", "approved", "in_progress", "completed", "cancelled"]).default("requested").notNull(),
+  requestedByUserId: int("requestedByUserId").notNull(),
+  reviewedByUserId: int("reviewedByUserId"),
+  reason: text("reason").notNull(),
+  format: varchar("format", { length: 32 }),
+  metadata: json("metadata"),
+  exportedAt: timestamp("exportedAt"),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionStatusIndex: index("institutionDataLifecycleRequests_institution_status_idx").on(table.institutionalAccountId, table.status),
+  institutionProductIndex: index("institutionDataLifecycleRequests_institution_product_idx").on(table.institutionalAccountId, table.productKey),
+}));
+export type InstitutionDataLifecycleRequest = typeof institutionDataLifecycleRequests.$inferSelect;
+export type InsertInstitutionDataLifecycleRequest = typeof institutionDataLifecycleRequests.$inferInsert;
+
 /**
  * Shared provider–institution membership. This is deliberately separate from
  * institutionalStaffMembers: the latter remains the operational roster and

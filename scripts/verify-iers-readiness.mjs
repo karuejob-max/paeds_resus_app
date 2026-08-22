@@ -55,6 +55,8 @@ export const REQUIRED_TABLES = [
   { key: "productRoles", label: "product roles", names: ["institutionProductRoles", "institution_product_roles"] },
   { key: "subscriptionEvents", label: "subscription events", names: ["institutionSubscriptionEvents", "institution_subscription_events"] },
   { key: "entitlementAudit", label: "entitlement audit log", names: ["institutionEntitlementAuditLog", "institution_entitlement_audit_log"] },
+  { key: "lifecyclePolicies", label: "data lifecycle policies", names: ["institutionDataLifecyclePolicies", "institution_data_lifecycle_policies"] },
+  { key: "lifecycleRequests", label: "data lifecycle requests", names: ["institutionDataLifecycleRequests", "institution_data_lifecycle_requests"] },
 ];
 
 export const REQUIRED_COLUMNS = [
@@ -84,6 +86,12 @@ export const REQUIRED_COLUMNS = [
   { tableKey: "productRoles", label: "product role invite identity", names: ["invitedEmail", "invited_email"] },
   { tableKey: "subscriptionEvents", label: "subscription event type", names: ["eventType", "event_type"] },
   { tableKey: "entitlementAudit", label: "entitlement audit decision", names: ["decision"] },
+  { tableKey: "lifecyclePolicies", label: "lifecycle policy product", names: ["productKey", "product_key"] },
+  { tableKey: "lifecyclePolicies", label: "lifecycle retention days", names: ["retentionDays", "retention_days"] },
+  { tableKey: "lifecyclePolicies", label: "lifecycle legal hold", names: ["legalHold", "legal_hold"] },
+  { tableKey: "lifecycleRequests", label: "lifecycle request type", names: ["requestType", "request_type"] },
+  { tableKey: "lifecycleRequests", label: "lifecycle request status", names: ["status"] },
+  { tableKey: "lifecycleRequests", label: "lifecycle request reason", names: ["reason"] },
 ];
 
 async function main() {
