@@ -4619,6 +4619,12 @@ export const iersDrills = mysqlTable("iers_drills", {
   institutionId: int("institution_id").notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   scenarioType: mysqlEnum("scenario_type", ["code_blue", "code_yellow", "neonatal", "sepsis", "anaphylaxis", "trauma", "other"]).notNull(),
+  /** Explicit safety attestation; legacy drills remain false until reviewed. */
+  isSimulation: boolean("is_simulation").default(false).notNull(),
+  simulationLabel: varchar("simulation_label", { length: 64 }),
+  simulationAcknowledgedAt: timestamp("simulation_acknowledged_at"),
+  noPatientIdentifiersAcknowledged: boolean("no_patient_identifiers_acknowledged").default(false).notNull(),
+  noPatientIdentifiersAcknowledgedAt: timestamp("no_patient_identifiers_acknowledged_at"),
   scheduledAt: timestamp("scheduled_at").notNull(),
   status: mysqlEnum("status", ["planned", "in_progress", "completed", "cancelled"]).default("planned").notNull(),
   facilitatorUserId: int("facilitator_user_id").notNull(),
