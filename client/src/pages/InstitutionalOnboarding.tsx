@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertCircle, CheckCircle2, FileText, Users, CreditCard, CheckCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileText, Users, CreditCard, CheckCheck, Plus, Trash2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -55,6 +55,7 @@ export default function InstitutionalOnboarding() {
     secondAdminEmail: "",
     secondAdminPhone: "",
     programInterest: [] as string[],
+    departmentNames: [""],
     agreeToTerms: false,
   });
 
@@ -80,6 +81,10 @@ export default function InstitutionalOnboarding() {
   const handleNext = () => {
     if (step === 1 && formData.institutionName.trim().length < 3) {
       setError("Enter a facility name with at least 3 characters, or select a facility from the registry.");
+      return;
+    }
+    if (step === 1 && formData.departmentNames.every((name) => name.trim().length < 2)) {
+      setError("Confirm at least one facility department so IERS and CPD use the same department list.");
       return;
     }
 
@@ -135,6 +140,7 @@ export default function InstitutionalOnboarding() {
         secondAdminEmail: formData.secondAdminEmail,
         secondAdminPhone: formData.secondAdminPhone || undefined,
         programInterest: formData.programInterest,
+        departmentNames: formData.departmentNames.filter((name) => name.trim().length >= 2),
       });
     } catch {
       // onError sets message + loading false
@@ -304,6 +310,37 @@ export default function InstitutionalOnboarding() {
                       placeholder="e.g., Nairobi"
                       required
                     />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-brand-orange/30 bg-brand-surface/50 p-4 sm:p-5">
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <Label className="text-base">Facility departments *</Label>
+                      <p className="mt-1 text-sm text-muted-foreground">Confirm the departments that will be shared by IERS and the CPD Portal. The IERS Lead will assign each department to a pole after onboarding.</p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" className="w-full shrink-0 sm:w-auto" onClick={() => setFormData((prev) => ({ ...prev, departmentNames: [...prev.departmentNames, ""] }))}>
+                      <Plus className="mr-1.5 h-4 w-4" />Add department
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {formData.departmentNames.map((departmentName, index) => (
+                      <div key={`department-${index}`} className="flex min-w-0 items-center gap-2">
+                        <Input
+                          value={departmentName}
+                          onChange={(event) => setFormData((prev) => ({ ...prev, departmentNames: prev.departmentNames.map((name, itemIndex) => itemIndex === index ? event.target.value : name) }))}
+                          placeholder={index === 0 ? "e.g., Paediatric Ward" : "Another department"}
+                          aria-label={`Department ${index + 1}`}
+                          required={index === 0}
+                          className="min-w-0"
+                        />
+                        {formData.departmentNames.length > 1 && (
+                          <Button type="button" variant="ghost" size="icon" aria-label={`Remove department ${index + 1}`} onClick={() => setFormData((prev) => ({ ...prev, departmentNames: prev.departmentNames.filter((_, itemIndex) => itemIndex !== index) }))}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
 

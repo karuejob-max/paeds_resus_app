@@ -4550,6 +4550,9 @@ export const facilityDepartments = mysqlTable("facility_departments", {
   institutionId: int("institution_id").notNull(),
   poleId: int("pole_id"),
   departmentName: varchar("department_name", { length: 128 }).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  confirmedAt: timestamp("confirmed_at"),
+  confirmedByUserId: int("confirmed_by_user_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 export type FacilityDepartment = typeof facilityDepartments.$inferSelect;
@@ -4619,6 +4622,33 @@ export const ertlWeeklyRotations = mysqlTable("ertl_weekly_rotations", {
 export type ErtlWeeklyRotation = typeof ertlWeeklyRotations.$inferSelect;
 export type InsertErtlWeeklyRotation = typeof ertlWeeklyRotations.$inferInsert;
 
+/**
+ * Department-owned monthly UTL rotation. One row is the source of truth for a
+ * department's nominated provider for a calendar month; dated shift rosters
+ * point back to it so future changes can be propagated safely.
+ */
+export const monthlyUtlRotations = mysqlTable("monthly_utl_rotations", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  poleId: int("pole_id").notNull(),
+  departmentId: int("department_id").notNull(),
+  monthStart: date("month_start").notNull(),
+  providerUserId: int("provider_user_id"),
+  assignmentStatus: mysqlEnum("assignment_status", ["unassigned", "pending_acceptance", "active", "declined", "ended"]).default("unassigned").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  declinedAt: timestamp("declined_at"),
+  declineReason: varchar("decline_reason", { length: 500 }),
+  assignedByUserId: int("assigned_by_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionDepartmentMonthUnique: uniqueIndex("monthly_utl_rotation_unique").on(table.institutionId, table.departmentId, table.monthStart),
+  departmentMonthIndex: index("monthly_utl_rotation_department_month_idx").on(table.departmentId, table.monthStart),
+  providerIndex: index("monthly_utl_rotation_provider_idx").on(table.institutionId, table.providerUserId),
+}));
+export type MonthlyUtlRotation = typeof monthlyUtlRotations.$inferSelect;
+export type InsertMonthlyUtlRotation = typeof monthlyUtlRotations.$inferInsert;
+
 // 4. Shift UTL & ERT Roster
 export const shiftUtlRosters = mysqlTable("shift_utl_rosters", {
   id: int("id").autoincrement().primaryKey(),
@@ -4636,6 +4666,7 @@ export const shiftUtlRosters = mysqlTable("shift_utl_rosters", {
   readinessSignOffAt: timestamp("readiness_signoff_at"),
   readinessSignedOffByUserId: int("readiness_signed_off_by_user_id"),
   readinessNote: text("readiness_note"),
+  monthlyUtlRotationId: int("monthly_utl_rotation_id"),
   status: mysqlEnum("status", ["active", "completed", "absent"]).default("active").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

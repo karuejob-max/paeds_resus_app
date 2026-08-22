@@ -178,6 +178,8 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const poleList = poles ?? [];
   const poleDepartments = departments?.filter((d) => d.poleId === activePoleId) ?? [];
   const ertlDepartmentId = weeklyRotation?.departmentId ?? null;
+  const ertlDepartmentProviders = staffMembers?.filter((staff) => staff.userId != null && staff.facilityDepartmentId === ertlDepartmentId) ?? [];
+  const providersForDepartment = (departmentId: number) => staffMembers?.filter((staff) => staff.userId != null && staff.facilityDepartmentId === departmentId) ?? [];
 
   return (
     <div className="space-y-6">
@@ -295,7 +297,8 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                         year,
                         startDate: weekStart,
                         endDate: weekEnd,
-                        ertlUserId: weeklyRotation?.ertlUserId ?? null,
+                        // Omit the provider on department change so the server auto-resolves the first linked provider in that canonical department.
+                        ertlUserId: undefined,
                       })
                     }
                   >
@@ -328,7 +331,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">No named ERTL yet</SelectItem>
-                      {staffMembers?.filter((staff) => staff.userId != null).map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}>{staff.staffName} ({staff.staffRole})</SelectItem>)}
+                      {ertlDepartmentProviders.map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}>{staff.staffName} ({staff.staffRole})</SelectItem>)}
                     </SelectContent>
                   </Select>
                   {ertlDepartmentId && <Badge variant={weeklyRotation?.assignmentStatus === "active" ? "default" : "secondary"}>{weeklyRotation?.ertlUserId ? weeklyRotation.assignmentStatus === "pending_acceptance" ? "ERTL acceptance pending" : "ERTL accepted" : "No named ERTL"}</Badge>}
@@ -484,7 +487,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                           <SelectValue placeholder="Choose provider" />
                         </SelectTrigger>
                         <SelectContent>
-                          {staffMembers?.filter((staff) => staff.userId != null).map((staff) => (
+                          {providersForDepartment(dept.id).map((staff) => (
                             <SelectItem key={staff.userId} value={String(staff.userId)}>
                               {staff.staffName} ({staff.staffRole})
                             </SelectItem>
@@ -581,7 +584,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                             <SelectValue placeholder="Assign UTL Nurse" />
                           </SelectTrigger>
                           <SelectContent>
-                            {staffMembers?.filter((staff) => staff.userId != null).map((staff) => (
+                            {providersForDepartment(dept.id).map((staff) => (
                               <SelectItem key={staff.userId} value={String(staff.userId)}>
                                 {staff.staffName} ({staff.staffRole})
                               </SelectItem>

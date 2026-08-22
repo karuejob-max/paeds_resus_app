@@ -12,6 +12,7 @@ import {
   facilities,
   users,
   institutionalStaffMembers,
+  facilityDepartments,
 } from "../../drizzle/schema";
 import { inferDesignationFromCadre } from "../../shared/cadre-designation-mapping";
 import { DEFAULT_FACILITY_COUNTRY } from "../../shared/kenya-counties";
@@ -302,6 +303,25 @@ export async function syncProviderProfileFacility(
     })
     .where(eq(providerProfiles.userId, userId));
 
+  const [providerProfile] = await db
+    .select({ department: providerProfiles.department })
+    .from(providerProfiles)
+    .where(eq(providerProfiles.userId, userId))
+    .limit(1);
+  let canonicalDepartmentId: number | null = null;
+  if (facility.institutionalAccountId && providerProfile?.department?.trim()) {
+    const [canonicalDepartment] = await db
+      .select({ id: facilityDepartments.id })
+      .from(facilityDepartments)
+      .where(and(
+        eq(facilityDepartments.institutionId, facility.institutionalAccountId),
+        sql`LOWER(TRIM(${facilityDepartments.departmentName})) = LOWER(TRIM(${providerProfile.department.trim()}))`,
+        eq(facilityDepartments.isActive, true),
+      ))
+      .limit(1);
+    canonicalDepartmentId = canonicalDepartment?.id ?? null;
+  }
+
   // If the facility is associated with an institutional account,
   // create a pending institutional link request if one doesn't exist already.
   // Otherwise (2026-08-04, docs/IERP_NERP_PROGRAM_V2_SPEC.md §2): the
@@ -351,10 +371,18 @@ export async function syncProviderProfileFacility(
           // sub-specialty they picked. Falls back to "other" (unchanged
           // behaviour) for anything not covered by inferDesignationFromCadre.
           designation: inferDesignationFromCadre((user as any).cadre) ?? "other",
+          department: providerProfile?.department?.trim() || null,
+          facilityDepartmentId: canonicalDepartmentId,
           facilityLinkStatus: "pending",
           enrollmentStatus: "pending",
         });
       }
+    } else if (providerProfile?.department?.trim()) {
+      await db.update(institutionalStaffMembers).set({
+        department: providerProfile.department.trim(),
+        facilityDepartmentId: canonicalDepartmentId,
+        updatedAt: new Date(),
+      }).where(eq(institutionalStaffMembers.id, existingLink[0].id));
     }
   } else {
     const existingSelfServiceRow = await db

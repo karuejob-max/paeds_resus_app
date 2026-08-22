@@ -13,17 +13,19 @@ import {
   institutionProductEntitlements,
   institutionProductRoles,
   institutionMemberships,
+  institutionalStaffMembers,
   facilityPoles,
   facilityDepartments,
   institutionDepartmentResponseCoordinators,
   institutionDepartmentResponseCoordinatorEvents,
   ertlWeeklyRotations,
+  monthlyUtlRotations,
   shiftUtlRosters,
   iersEvidenceRecords,
 } from "../../drizzle/schema";
 
-const stagingUrl = process.env.IERS_STAGING_DATABASE_URL || process.env.DATABASE_URL || "";
-const isLocalStaging = (() => {
+const stagingUrl = process.env.IERS_STAGING_DATABASE_URL || "";
+const isLocalStaging = process.env.IERS_STAGING_ENABLE === "1" && (() => {
   try {
     const url = new URL(stagingUrl);
     return ["127.0.0.1", "localhost", "::1"].includes(url.hostname) && /staging/i.test(url.pathname);
@@ -39,6 +41,7 @@ type FixtureIds = {
   otherInstitutionId: number;
   adminId: number;
   assignedProviderId: number;
+  staffMemberId: number;
   unrelatedProviderId: number;
   replacementProviderId: number;
   otherTenantProviderId: number;
@@ -95,6 +98,7 @@ async function expectTrpcError(action: () => Promise<unknown>, code: string) {
 describeStaging("real tRPC provider-duty authorization matrix on an ephemeral staging tenant", () => {
   let db: NonNullable<Awaited<ReturnType<typeof getDb>>>;
   let ids: FixtureIds;
+  let adminCaller: ReturnType<typeof appRouter.createCaller>;
   let assignedCaller: ReturnType<typeof appRouter.createCaller>;
   let unrelatedCaller: ReturnType<typeof appRouter.createCaller>;
   let replacementCaller: ReturnType<typeof appRouter.createCaller>;
@@ -259,9 +263,24 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     const [otherPoleInsert] = await db.insert(facilityPoles).values({ institutionId: otherInstitutionId, poleName: "STAGING ZONE BRAVO", description: "Ephemeral authorization fixture", createdAt: now });
     const otherPoleId = Number((otherPoleInsert as unknown as { insertId: number }).insertId);
 
-    const [departmentInsert] = await db.insert(facilityDepartments).values({ institutionId, poleId, departmentName: "STAGING DEPARTMENT ALPHA", createdAt: now });
+    const [departmentInsert] = await db.insert(facilityDepartments).values({ institutionId, poleId, departmentName: "STAGING DEPARTMENT ALPHA", isActive: true, confirmedAt: now, confirmedByUserId: adminId, createdAt: now });
     const departmentId = Number((departmentInsert as unknown as { insertId: number }).insertId);
-    const [otherDepartmentInsert] = await db.insert(facilityDepartments).values({ institutionId: otherInstitutionId, poleId: otherPoleId, departmentName: "STAGING DEPARTMENT BRAVO", createdAt: now });
+    const [staffInsert] = await db.insert(institutionalStaffMembers).values({
+      institutionalAccountId: institutionId,
+      userId: assignedProviderId,
+      staffName: "Staging Assigned Provider",
+      staffEmail: assignedEmail,
+      staffRole: "nurse",
+      governanceRole: "unit_team_leader",
+      department: "STAGING DEPARTMENT ALPHA",
+      facilityDepartmentId: departmentId,
+      facilityLinkStatus: "linked",
+      enrollmentStatus: "enrolled",
+      createdAt: now,
+      updatedAt: now,
+    });
+    const staffMemberId = Number((staffInsert as unknown as { insertId: number }).insertId);
+    const [otherDepartmentInsert] = await db.insert(facilityDepartments).values({ institutionId: otherInstitutionId, poleId: otherPoleId, departmentName: "STAGING DEPARTMENT BRAVO", isActive: true, confirmedAt: now, confirmedByUserId: adminId, createdAt: now });
     const otherDepartmentId = Number((otherDepartmentInsert as unknown as { insertId: number }).insertId);
 
     const [ercoInsert] = await db.insert(institutionDepartmentResponseCoordinators).values({
@@ -355,6 +374,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       otherInstitutionId,
       adminId,
       assignedProviderId,
+      staffMemberId,
       unrelatedProviderId,
       replacementProviderId,
       otherTenantProviderId,
@@ -371,6 +391,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       readinessCapabilityId: capability.id,
     };
 
+    adminCaller = appRouter.createCaller(createContext({ id: adminId, name: "Staging IERS Administrator", email: `staging-admin-${suffix}@example.test` }));
     assignedCaller = appRouter.createCaller(createContext({ id: assignedProviderId, name: "Staging Assigned Provider", email: assignedEmail }));
     unrelatedCaller = appRouter.createCaller(createContext({ id: unrelatedProviderId, name: "Staging Unrelated Provider", email: `staging-unrelated-${suffix}@example.test` }));
     replacementCaller = appRouter.createCaller(createContext({ id: replacementProviderId, name: "Staging Replacement Provider", email: `staging-replacement-${suffix}@example.test` }));
@@ -383,9 +404,11 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     const userIds = [ids.adminId, ids.assignedProviderId, ids.unrelatedProviderId, ids.replacementProviderId, ids.otherTenantProviderId];
     await db.delete(iersEvidenceRecords).where(inArray(iersEvidenceRecords.institutionId, institutionIds));
     await db.delete(shiftUtlRosters).where(inArray(shiftUtlRosters.institutionId, institutionIds));
+    await db.delete(monthlyUtlRotations).where(inArray(monthlyUtlRotations.institutionId, institutionIds));
     await db.delete(ertlWeeklyRotations).where(inArray(ertlWeeklyRotations.institutionId, institutionIds));
     await db.delete(institutionDepartmentResponseCoordinatorEvents).where(inArray(institutionDepartmentResponseCoordinatorEvents.institutionId, institutionIds));
     await db.delete(institutionDepartmentResponseCoordinators).where(inArray(institutionDepartmentResponseCoordinators.institutionId, institutionIds));
+    await db.delete(institutionalStaffMembers).where(inArray(institutionalStaffMembers.institutionalAccountId, institutionIds));
     await db.delete(facilityDepartments).where(inArray(facilityDepartments.institutionId, institutionIds));
     await db.delete(facilityPoles).where(inArray(facilityPoles.institutionId, institutionIds));
     await db.delete(institutionProductEntitlements).where(and(
@@ -433,6 +456,48 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       response: "accept",
     });
     expect(ercoAccepted.assignmentStatus).toBe("active");
+
+    const canonicalDepartmentOptions = await adminCaller.institution.getErtlDepartmentOptions({ institutionId: ids.institutionId, poleId: ids.poleId });
+    expect(canonicalDepartmentOptions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: ids.departmentId, departmentName: "STAGING DEPARTMENT ALPHA" }),
+    ]));
+    const monthlyResult = await assignedCaller.institution.autopopulateMonthlyUtlRota({
+      institutionId: ids.institutionId,
+      poleId: ids.poleId,
+      monthStart: "2026-08-01",
+      departmentIds: [ids.departmentId],
+    });
+    expect(monthlyResult.assignedDepartments).toBe(1);
+    expect(monthlyResult.generatedShifts).toBeGreaterThan(0);
+    const monthlyRows = await adminCaller.institution.getMonthlyUtlRota({ institutionId: ids.institutionId, poleId: ids.poleId, monthStart: "2026-08-01" });
+    expect(monthlyRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ departmentId: ids.departmentId, providerUserId: ids.assignedProviderId, assignmentStatus: "pending_acceptance" }),
+    ]));
+    const generatedRows = await db.select().from(shiftUtlRosters).where(and(
+      eq(shiftUtlRosters.institutionId, ids.institutionId),
+      eq(shiftUtlRosters.departmentId, ids.departmentId),
+      eq(shiftUtlRosters.monthlyUtlRotationId, monthlyRows[0]?.id ?? -1),
+    ));
+    expect(generatedRows.length).toBe(31 * 3);
+
+    const autoErtl = await adminCaller.institution.setWeeklyErtlRotation({
+      institutionId: ids.institutionId,
+      poleId: ids.poleId,
+      departmentId: ids.departmentId,
+      weekNumber: 37,
+      year: 2026,
+      startDate: "2026-08-24",
+      endDate: "2026-08-30",
+      ertlUserId: undefined,
+    });
+    expect(autoErtl.ertlUserId).toBe(ids.assignedProviderId);
+    const autoErtlRotation = await db.select().from(ertlWeeklyRotations).where(and(
+      eq(ertlWeeklyRotations.institutionId, ids.institutionId),
+      eq(ertlWeeklyRotations.poleId, ids.poleId),
+      eq(ertlWeeklyRotations.weekNumber, 37),
+      eq(ertlWeeklyRotations.year, 2026),
+    ));
+    expect(autoErtlRotation[0]?.assignmentStatus).toBe("pending_acceptance");
 
     const utlAccepted = await assignedCaller.institution.respondToShiftUtlRoster({ rosterId: ids.rosterId, response: "accept" });
     expect(utlAccepted.assignmentStatus).toBe("active");
