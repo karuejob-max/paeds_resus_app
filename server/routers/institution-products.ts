@@ -12,13 +12,46 @@ import {
   institutionalProductCapabilities,
   institutionalProducts,
   institutionProductRoles,
+  institutionDataLifecyclePolicies,
+  institutionDataLifecycleRequests,
+  iersActivationEvents,
+  iersEvidenceRecords,
+  iersActionItems,
+  iersDrills,
+  iersImplementationMilestones,
+  cpdEvents,
+  cpdAttendees,
 } from "../../drizzle/schema";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { isMissingTableError } from "../lib/is-missing-db-table";
-import type { InstitutionalProductKey, ProductSubscriptionStatus } from "../lib/institution-entitlements";
+import { assertInstitutionProductCapability, type InstitutionalProductKey, type ProductSubscriptionStatus } from "../lib/institution-entitlements";
 import { isKnownProductRole, PRODUCT_ROLE_DEFINITIONS, type InstitutionalProductRoleKey, type InstitutionalProductRoleStatus } from "../lib/institution-product-roles";
 
 const PRODUCT_KEYS: InstitutionalProductKey[] = ["iers", "cpd_portal", "connected_services"];
+const LIFECYCLE_PRODUCT_KEYS = ["iers", "cpd_portal"] as const;
+type LifecycleProductKey = (typeof LIFECYCLE_PRODUCT_KEYS)[number];
+type LifecycleRequestProductKey = LifecycleProductKey | "all";
+
+function validLifecycleProductKey(value: string): LifecycleProductKey {
+  if (!LIFECYCLE_PRODUCT_KEYS.includes(value as LifecycleProductKey)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Lifecycle controls are available only for IERS or CPD Portal." });
+  }
+  return value as LifecycleProductKey;
+}
+
+function validLifecycleRequestProductKey(value: string): LifecycleRequestProductKey {
+  if (value === "all") return value;
+  return validLifecycleProductKey(value);
+}
+
+function csvCell(value: unknown): string {
+  const text = value === null || value === undefined ? "" : String(value);
+  return /[",\\n\\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+function buildCsv(headers: string[], rows: Array<Record<string, unknown>>): string {
+  return [headers.map(csvCell).join(","), ...rows.map((row) => headers.map((header) => csvCell(row[header])).join(","))].join("\\r\\n");
+}
 const SUBSCRIPTION_STATUSES: ProductSubscriptionStatus[] = [
   "trial",
   "active",
@@ -364,6 +397,134 @@ export const institutionProductsRouter = router({
         metadata: JSON.stringify({ roleId: input.roleId, roleStatus: input.roleStatus }),
       });
       return { success: true as const, roleStatus: input.roleStatus };
+    }),
+
+  /** Read product-scoped retention policies and the append-only lifecycle request history. */
+  getDataLifecycle: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      try {
+        const [policies, requests] = await Promise.all([
+          db.select().from(institutionDataLifecyclePolicies).where(eq(institutionDataLifecyclePolicies.institutionalAccountId, input.institutionId)).orderBy(institutionDataLifecyclePolicies.productKey),
+          db.select().from(institutionDataLifecycleRequests).where(eq(institutionDataLifecycleRequests.institutionalAccountId, input.institutionId)).orderBy(desc(institutionDataLifecycleRequests.createdAt)).limit(100),
+        ]);
+        return { policies, requests };
+      } catch (error) {
+        if (isMissingTableError(error)) return { policies: [], requests: [] };
+        throw error;
+      }
+    }),
+
+  /** Institution administrator: change a product retention policy without deleting records. */
+  updateDataLifecyclePolicy: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      productKey: z.string(),
+      retentionDays: z.number().int().min(30).max(3650),
+      legalHold: z.boolean(),
+      reason: z.string().trim().min(3).max(1000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const productKey = validLifecycleProductKey(input.productKey);
+      await db.insert(institutionDataLifecyclePolicies).values({
+        institutionalAccountId: input.institutionId,
+        productKey,
+        retentionDays: input.retentionDays,
+        legalHold: input.legalHold,
+        updatedByUserId: ctx.user.id,
+      }).onDuplicateKeyUpdate({
+        set: { retentionDays: input.retentionDays, legalHold: input.legalHold, updatedByUserId: ctx.user.id, updatedAt: new Date() },
+      });
+      await db.insert(institutionDataLifecycleRequests).values({
+        institutionalAccountId: input.institutionId,
+        productKey,
+        requestType: "retention_change",
+        status: "completed",
+        requestedByUserId: ctx.user.id,
+        reviewedByUserId: ctx.user.id,
+        reason: input.reason,
+        metadata: JSON.stringify({ retentionDays: input.retentionDays, legalHold: input.legalHold }),
+        completedAt: new Date(),
+      });
+      return { success: true as const, productKey, retentionDays: input.retentionDays, legalHold: input.legalHold };
+    }),
+
+  /** Create a deliberate, reviewable recovery or offboarding request. No data is deleted automatically. */
+  requestDataLifecycle: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      productKey: z.string(),
+      requestType: z.enum(["recovery", "offboarding"]),
+      reason: z.string().trim().min(10).max(2000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const productKey = validLifecycleRequestProductKey(input.productKey);
+      const result = await db.insert(institutionDataLifecycleRequests).values({
+        institutionalAccountId: input.institutionId,
+        productKey,
+        requestType: input.requestType,
+        status: "requested",
+        requestedByUserId: ctx.user.id,
+        reason: input.reason,
+        metadata: JSON.stringify({ destructiveAction: false, requiresPlatformReview: true }),
+      });
+      return { success: true as const, requestId: (result as unknown as { insertId: number }).insertId, status: "requested" as const };
+    }),
+
+  /** Institution administrator or explicit product role: export only the selected product’s structured records. */
+  exportProductData: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), productKey: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const productKey = validLifecycleProductKey(input.productKey);
+      const rows: Array<Record<string, unknown>> = [];
+      if (productKey === "iers") {
+        await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.reports.read");
+        const [events, evidence, actions, drills, milestones] = await Promise.all([
+          db.select().from(iersActivationEvents).where(eq(iersActivationEvents.institutionalAccountId, input.institutionId)),
+          db.select().from(iersEvidenceRecords).where(eq(iersEvidenceRecords.institutionId, input.institutionId)),
+          db.select().from(iersActionItems).where(eq(iersActionItems.institutionId, input.institutionId)),
+          db.select().from(iersDrills).where(eq(iersDrills.institutionId, input.institutionId)),
+          db.select().from(iersImplementationMilestones).where(eq(iersImplementationMilestones.institutionId, input.institutionId)),
+        ]);
+        for (const event of events) rows.push({ record_type: "activation", id: event.id, subtype: event.activationType, status: event.status, priority: event.priority, title: "IERS activation", department: event.department, observed_at: event.triggeredAt, scheduled_at: "", source_type: event.source, source_id: "", due_date: "", closed_at: event.closedAt, reviewed_at: "" });
+        for (const record of evidence) rows.push({ record_type: "evidence", id: record.id, subtype: record.evidenceType, status: record.status, priority: "", title: record.title, department: record.domain, observed_at: record.observedAt, scheduled_at: "", source_type: record.criterionCode, source_id: "", due_date: "", closed_at: "", reviewed_at: record.reviewedAt });
+        for (const action of actions) rows.push({ record_type: "action", id: action.id, subtype: action.sourceType, status: action.status, priority: action.priority, title: action.title, department: "", observed_at: action.createdAt, scheduled_at: "", source_type: action.sourceType, source_id: action.sourceId, due_date: action.dueDate, closed_at: action.closedAt, reviewed_at: "" });
+        for (const drill of drills) rows.push({ record_type: "drill", id: drill.id, subtype: drill.scenarioType, status: drill.status, priority: "", title: drill.title, department: "", observed_at: drill.startedAt, scheduled_at: drill.scheduledAt, source_type: "", source_id: "", due_date: "", closed_at: drill.endedAt, reviewed_at: "" });
+        for (const milestone of milestones) rows.push({ record_type: "milestone", id: milestone.id, subtype: milestone.phaseName, status: milestone.status, priority: "", title: milestone.objective, department: "", observed_at: milestone.completedAt, scheduled_at: milestone.targetDate, source_type: "evidence", source_id: milestone.evidenceId, due_date: milestone.targetDate, closed_at: milestone.completedAt, reviewed_at: "" });
+      } else {
+        await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.reports.read");
+        const [events, attendees] = await Promise.all([
+          db.select().from(cpdEvents).where(eq(cpdEvents.institutionalAccountId, input.institutionId)),
+          db.select().from(cpdAttendees).where(eq(cpdAttendees.institutionalAccountId, input.institutionId)),
+        ]);
+        for (const event of events) rows.push({ record_type: "cpd_event", id: event.id, subtype: event.eventType, status: event.isOpen ? "open" : "closed", priority: "", title: event.name, department: event.presenterDepartment, observed_at: event.openedAt, scheduled_at: event.eventDate, source_type: "", source_id: "", due_date: "", closed_at: event.closedAt, reviewed_at: "" });
+        for (const attendee of attendees) rows.push({ record_type: "cpd_attendee", id: attendee.id, subtype: attendee.roleInEvent, status: attendee.checkInPunctuality, priority: "", title: attendee.fullName, department: attendee.department, observed_at: attendee.submittedAt, scheduled_at: "", source_type: attendee.cadre, source_id: attendee.email, due_date: "", closed_at: "", reviewed_at: "" });
+      }
+
+      const now = new Date();
+      const content = buildCsv(["record_type", "id", "subtype", "status", "priority", "title", "department", "observed_at", "scheduled_at", "source_type", "source_id", "due_date", "closed_at", "reviewed_at"], rows);
+      await db.insert(institutionDataLifecycleRequests).values({
+        institutionalAccountId: input.institutionId,
+        productKey,
+        requestType: "export",
+        status: "completed",
+        requestedByUserId: ctx.user.id,
+        reviewedByUserId: ctx.user.id,
+        reason: `Product-scoped ${productKey} export generated by an authorized institution user.`,
+        format: "csv",
+        metadata: JSON.stringify({ recordCount: rows.length, excludesFreeTextNarrative: true }),
+        exportedAt: now,
+        completedAt: now,
+      });
+      return { success: true as const, productKey, recordCount: rows.length, filename: `institution-${input.institutionId}-${productKey}-export-${now.toISOString().slice(0, 10)}.csv`, content };
     }),
 
   /** Shared administration mutation: change a subscription only through an auditable status event. */

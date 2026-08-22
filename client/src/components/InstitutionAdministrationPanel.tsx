@@ -13,6 +13,7 @@ import StaffBulkImport from "@/components/StaffBulkImport";
 import { BulkEnrollmentPanel } from "@/components/BulkEnrollmentPanel";
 import { SupportTicketForm } from "@/components/SupportTicketForm";
 import { AdminNotificationsDashboard } from "@/components/AdminNotificationsDashboard";
+import { InstitutionDataLifecyclePanel } from "@/components/InstitutionDataLifecyclePanel";
 
 type InstitutionRecord = {
   id: number;
@@ -74,6 +75,7 @@ export function InstitutionAdministrationPanel({ institutionId, institution }: {
             <Button asChild variant="outline"><a href="/institution#cpd_portal">Open CPD Portal records</a></Button>
           </CardContent>
         </Card>
+        <InstitutionDataLifecyclePanel institutionId={institutionId} />
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><LifeBuoy className="h-5 w-5" />Notifications, support & recovery</CardTitle><CardDescription>Review facility alerts and raise support requests for access, billing, data, or product incidents. Never place patient identifiers or secrets in a ticket.</CardDescription></CardHeader>
           <CardContent><SupportTicketForm /></CardContent>
