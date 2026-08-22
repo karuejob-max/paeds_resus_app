@@ -15,6 +15,9 @@ import {
   iersDrillParticipants,
   iersImplementationMilestones,
   institutionalAccounts,
+  institutionalAccountAdmins,
+  institutionalProducts,
+  institutionProductRoles,
   shiftUtlRosters,
   facilityPoles,
   facilityDepartments,
@@ -25,6 +28,7 @@ import { assertInstitutionProductRole, type InstitutionalProductRoleKey } from "
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { canAdvanceIersActivation } from "../lib/iers-state";
 import { buildIersEvidenceScorecard } from "../lib/iers-criteria";
+import { evaluateIersPilotReadiness } from "../lib/iers-pilot-readiness";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 type ActivationStatus =
@@ -252,6 +256,111 @@ export const iersRouter = router({
       return db.select().from(iersDrills).where(eq(iersDrills.institutionId, input.institutionId)).orderBy(desc(iersDrills.scheduledAt)).limit(input.limit);
     }),
 
+  /**
+   * Pilot preflight: expose explicit acceptance gates before a drill is started.
+   * This is advisory for navigation but intentionally truthful about missing evidence.
+   */
+  getPilotReadiness: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
+      await assertInstitutionOrMember(db, ctx.user, input.institutionId);
+
+      const activeMemberships = await db
+        .select({ userId: institutionMemberships.userId })
+        .from(institutionMemberships)
+        .where(and(
+          eq(institutionMemberships.institutionalAccountId, input.institutionId),
+          eq(institutionMemberships.membershipStatus, "active"),
+        ));
+      const activeProviderIds = new Set(activeMemberships.flatMap((row) => row.userId === null ? [] : [row.userId]));
+
+      const [iersProduct] = await db
+        .select({ id: institutionalProducts.id })
+        .from(institutionalProducts)
+        .where(eq(institutionalProducts.productKey, "iers"))
+        .limit(1);
+      const roleRows = iersProduct
+        ? await db
+            .select({ userId: institutionProductRoles.userId, roleKey: institutionProductRoles.roleKey })
+            .from(institutionProductRoles)
+            .where(and(
+              eq(institutionProductRoles.institutionalAccountId, input.institutionId),
+              eq(institutionProductRoles.productId, iersProduct.id),
+              eq(institutionProductRoles.roleStatus, "active"),
+            ))
+        : [];
+      const activeProviderRoleCount = roleRows.filter((row) => row.userId !== null && activeProviderIds.has(row.userId) && IERS_PROVIDER_ROLES.includes(row.roleKey as InstitutionalProductRoleKey)).length;
+
+      const adminRows = await db
+        .select({ userId: institutionalAccountAdmins.userId })
+        .from(institutionalAccountAdmins)
+        .where(eq(institutionalAccountAdmins.institutionalAccountId, input.institutionId));
+      const reviewerIds = new Set<number>(adminRows.map((row) => row.userId));
+      for (const row of roleRows) {
+        if (row.userId !== null && ["iers_reviewer", "iers_governance"].includes(row.roleKey)) reviewerIds.add(row.userId);
+      }
+      const independentReviewerCount = [...reviewerIds].filter((userId) => !activeProviderIds.has(userId)).length;
+
+      const completedDrills = await db
+        .select({ id: iersDrills.id })
+        .from(iersDrills)
+        .where(and(eq(iersDrills.institutionId, input.institutionId), eq(iersDrills.status, "completed")));
+      const completedDrillIds = completedDrills.map((drill) => drill.id);
+      const participantRows = completedDrillIds.length
+        ? await db
+            .select({ drillId: iersDrillParticipants.drillId, userId: iersDrillParticipants.userId })
+            .from(iersDrillParticipants)
+            .where(inArray(iersDrillParticipants.drillId, completedDrillIds))
+        : [];
+      const completedDrillWithProviderIds = new Set(
+        participantRows
+          .filter((row) => activeProviderIds.has(row.userId))
+          .map((row) => row.drillId),
+      );
+
+      const acceptedEvidence = await db
+        .select({ id: iersEvidenceRecords.id })
+        .from(iersEvidenceRecords)
+        .where(and(eq(iersEvidenceRecords.institutionId, input.institutionId), eq(iersEvidenceRecords.status, "accepted")));
+      const closedActions = await db
+        .select({ createdByUserId: iersActionItems.createdByUserId, closedByUserId: iersActionItems.closedByUserId, closureEvidenceId: iersActionItems.closureEvidenceId })
+        .from(iersActionItems)
+        .where(and(eq(iersActionItems.institutionId, input.institutionId), eq(iersActionItems.status, "closed")));
+      const verifiedActionCount = closedActions.filter((row) => row.closureEvidenceId !== null && row.closedByUserId !== null && row.closedByUserId !== row.createdByUserId).length;
+
+      let simulationSafetyEnforced = false;
+      try {
+        await db.select({ isSimulation: iersDrills.isSimulation }).from(iersDrills).limit(1);
+        simulationSafetyEnforced = true;
+      } catch (error) {
+        if (!isMissingTableError(error)) simulationSafetyEnforced = false;
+      }
+
+      const readiness = evaluateIersPilotReadiness({
+        activeProviderCount: activeProviderIds.size,
+        activeProviderRoleCount,
+        independentReviewerCount,
+        completedDrillWithProviderCount: completedDrillWithProviderIds.size,
+        acceptedEvidenceCount: acceptedEvidence.length,
+        verifiedActionCount,
+        simulationSafetyEnforced,
+      });
+      return {
+        ...readiness,
+        counts: {
+          activeProviderCount: activeProviderIds.size,
+          activeProviderRoleCount,
+          independentReviewerCount,
+          completedDrillWithProviderCount: completedDrillWithProviderIds.size,
+          acceptedEvidenceCount: acceptedEvidence.length,
+          verifiedActionCount,
+        },
+      };
+    }),
+
   /** Institution leader or ERTL: schedule a no-patient-identifier readiness drill. */
   createDrill: protectedProcedure
     .input(z.object({
@@ -261,6 +370,8 @@ export const iersRouter = router({
       scheduledAt: z.coerce.date(),
       targetResponseSeconds: z.number().int().min(30).max(1800).default(180),
       facilitatorUserId: z.number().int().positive().optional(),
+      isNotRealEmergency: z.literal(true),
+      noPatientIdentifiers: z.literal(true),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -274,6 +385,11 @@ export const iersRouter = router({
         institutionId: input.institutionId,
         title: input.title,
         scenarioType: input.scenarioType,
+        isSimulation: true,
+        simulationLabel: "NOT A REAL EMERGENCY",
+        simulationAcknowledgedAt: new Date(),
+        noPatientIdentifiersAcknowledged: true,
+        noPatientIdentifiersAcknowledgedAt: new Date(),
         scheduledAt: input.scheduledAt,
         targetResponseSeconds: input.targetResponseSeconds,
         facilitatorUserId: input.facilitatorUserId ?? ctx.user.id,
@@ -296,6 +412,19 @@ export const iersRouter = router({
       const [drill] = await db.select().from(iersDrills).where(and(eq(iersDrills.id, input.drillId), eq(iersDrills.institutionId, input.institutionId))).limit(1);
       if (!drill) throw new TRPCError({ code: "NOT_FOUND", message: "Drill not found." });
       if (drill.status !== "planned") throw new TRPCError({ code: "BAD_REQUEST", message: "Only planned drills can be started." });
+      if (!drill.isSimulation || drill.simulationLabel !== "NOT A REAL EMERGENCY" || !drill.noPatientIdentifiersAcknowledged) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This drill is not safety-attested. Schedule a new drill and confirm NOT A REAL EMERGENCY with no patient identifiers." });
+      }
+      const activeProviderCount = await db
+        .select({ userId: institutionMemberships.userId })
+        .from(institutionMemberships)
+        .where(and(
+          eq(institutionMemberships.institutionalAccountId, input.institutionId),
+          eq(institutionMemberships.membershipStatus, "active"),
+        ));
+      if (!activeProviderCount.some((row) => row.userId !== null)) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Link at least one active provider before starting an IERS pilot drill." });
+      }
       await db.update(iersDrills).set({ status: "in_progress", startedAt: new Date(), updatedAt: new Date() }).where(eq(iersDrills.id, drill.id));
       return { success: true, status: "in_progress" as const };
     }),
@@ -310,6 +439,9 @@ export const iersRouter = router({
       if (!drill) throw new TRPCError({ code: "NOT_FOUND", message: "Drill not found." });
       await assertInstitutionProductCapability(db, drill.institutionId, "iers", "iers.drills.operate");
       await assertProviderCanOperate(db, ctx.user, drill.institutionId);
+      if (drill.status !== "in_progress") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Providers can join only an in-progress IERS drill." });
+      }
       await db.insert(iersDrillParticipants).values({
         drillId: drill.id,
         institutionId: drill.institutionId,
@@ -339,6 +471,16 @@ export const iersRouter = router({
       const [drill] = await db.select().from(iersDrills).where(and(eq(iersDrills.id, input.drillId), eq(iersDrills.institutionId, input.institutionId))).limit(1);
       if (!drill) throw new TRPCError({ code: "NOT_FOUND", message: "Drill not found." });
       if (drill.status !== "in_progress") throw new TRPCError({ code: "BAD_REQUEST", message: "Only an in-progress drill can be debriefed." });
+      if (!drill.isSimulation || drill.simulationLabel !== "NOT A REAL EMERGENCY" || !drill.noPatientIdentifiersAcknowledged) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This drill lacks the required safety attestation and cannot be completed as pilot evidence." });
+      }
+      const participants = await db
+        .select({ userId: iersDrillParticipants.userId })
+        .from(iersDrillParticipants)
+        .where(and(eq(iersDrillParticipants.drillId, drill.id), eq(iersDrillParticipants.institutionId, input.institutionId)));
+      if (participants.length === 0) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "A linked provider must join the drill before the debrief can be closed." });
+      }
       const endedAt = new Date();
       await db.update(iersDrills).set({ status: "completed", endedAt, debriefNote: input.debriefNote, lessonsLearned: input.lessonsLearned, updatedAt: endedAt }).where(eq(iersDrills.id, drill.id));
       await db.insert(iersEvidenceRecords).values({
