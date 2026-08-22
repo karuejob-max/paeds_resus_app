@@ -68,6 +68,7 @@ export const REQUIRED_COLUMNS = [
   { tableKey: "evidence", label: "evidence reviewer", names: ["reviewed_by_user_id", "reviewedByUserId"] },
   { tableKey: "actions", label: "action owner", names: ["owner_user_id", "ownerUserId"] },
   { tableKey: "actions", label: "action closure evidence", names: ["closure_evidence_id", "closureEvidenceId"] },
+  { tableKey: "actions", label: "legacy QI action provenance", names: ["legacy_action_log_id", "legacyActionLogId"] },
   { tableKey: "drills", label: "drill debrief note", names: ["debrief_note", "debriefNote"] },
   { tableKey: "milestones", label: "milestone evidence", names: ["evidence_id", "evidenceId"] },
   { tableKey: "competencyRecords", label: "competency program type", names: ["programType", "program_type"] },

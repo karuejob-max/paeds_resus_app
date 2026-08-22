@@ -277,6 +277,59 @@ async function syncIersCompetencyRecord(
  * Keep institutional staff roster fields loosely aligned with the latest session attendance.
  * Roster rows use a single enrollment/certification pair (not per-program); see product docs for multi-program roadmap.
  */
+async function syncLegacyActionLogsIntoIers(db: DbClient, institutionId: number, fallbackCreatedByUserId: number) {
+  const legacyRows = await db
+    .select({
+      id: institutionalActionLogs.id,
+      createdByUserId: institutionalActionLogs.createdByUserId,
+      gapIdentified: institutionalActionLogs.gapIdentified,
+      systemChange: institutionalActionLogs.systemChange,
+      status: institutionalActionLogs.status,
+      careSignalEventId: institutionalActionLogs.careSignalEventId,
+      codeSignalEventId: institutionalActionLogs.codeSignalEventId,
+      notes: institutionalActionLogs.notes,
+      createdAt: institutionalActionLogs.createdAt,
+      updatedAt: institutionalActionLogs.updatedAt,
+    })
+    .from(institutionalActionLogs)
+    .leftJoin(iersActionItems, eq(iersActionItems.legacyActionLogId, institutionalActionLogs.id))
+    .where(and(
+      eq(institutionalActionLogs.institutionalAccountId, institutionId),
+      isNull(iersActionItems.id),
+    ))
+    .orderBy(asc(institutionalActionLogs.id))
+    .limit(500);
+
+  for (const legacy of legacyRows) {
+    const sourceType = legacy.careSignalEventId != null
+      ? "care_signal"
+      : legacy.codeSignalEventId != null
+        ? "code_signal"
+        : "manual";
+    const status = legacy.status === "completed" ? "awaiting_verification" : legacy.status;
+    const gapDescription = [
+      legacy.gapIdentified.trim(),
+      `System change: ${legacy.systemChange.trim()}`,
+      legacy.notes?.trim() ? `Notes: ${legacy.notes.trim()}` : null,
+    ].filter(Boolean).join("\\n\\n");
+
+    await db.insert(iersActionItems).values({
+      institutionId,
+      sourceType,
+      sourceId: legacy.careSignalEventId ?? legacy.codeSignalEventId ?? legacy.id,
+      legacyActionLogId: legacy.id,
+      title: legacy.gapIdentified.trim().slice(0, 255),
+      gapDescription,
+      priority: "medium",
+      status,
+      closureNote: legacy.status === "completed" ? legacy.systemChange.trim() : null,
+      createdByUserId: legacy.createdByUserId ?? fallbackCreatedByUserId,
+      createdAt: legacy.createdAt,
+      updatedAt: legacy.updatedAt,
+    });
+  }
+}
+
 async function syncStaffRosterFromSessionAttendance(
   db: DbClient,
   staffMemberId: number,
@@ -2660,6 +2713,8 @@ export const institutionRouter = router({
         });
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
+      await syncLegacyActionLogsIntoIers(db, input.institutionId, ctx.user.id);
       return await db
         .select()
         .from(institutionalActionLogs)
@@ -2689,6 +2744,8 @@ export const institutionRouter = router({
         });
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const actionAccess = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.actions.operate");
+      assertWritableProductAccess(actionAccess);
 
       const result = await db.insert(institutionalActionLogs).values({
         institutionalAccountId: input.institutionId,
@@ -2706,8 +2763,9 @@ export const institutionRouter = router({
         institutionId: input.institutionId,
         sourceType: input.careSignalEventId ? "care_signal" : input.codeSignalEventId ? "code_signal" : "manual",
         sourceId: input.careSignalEventId ?? input.codeSignalEventId ?? insertId,
+        legacyActionLogId: insertId,
         title: input.gapIdentified.trim().slice(0, 255),
-        gapDescription: input.gapIdentified.trim(),
+        gapDescription: [input.gapIdentified.trim(), `System change: ${input.systemChange.trim()}`, input.notes?.trim() ? `Notes: ${input.notes.trim()}` : null].filter(Boolean).join("\\n\\n"),
         priority: "medium",
         status: input.status === "completed" ? "awaiting_verification" : input.status,
         closureNote: input.status === "completed" ? input.systemChange.trim() : null,
@@ -2737,6 +2795,8 @@ export const institutionRouter = router({
         });
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const actionAccess = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.actions.operate");
+      assertWritableProductAccess(actionAccess);
 
       const [existing] = await db
         .select()
@@ -2785,6 +2845,19 @@ export const institutionRouter = router({
           notes: nextNotes,
         })
         .where(eq(institutionalActionLogs.id, input.id));
+
+      await db
+        .update(iersActionItems)
+        .set({
+          status: toStatus === "completed" ? "awaiting_verification" : toStatus,
+          gapDescription: [existing.gapIdentified.trim(), `System change: ${nextSystemChange.trim()}`, nextNotes?.trim() ? `Notes: ${nextNotes.trim()}` : null].filter(Boolean).join("\\n\\n"),
+          closureNote: toStatus === "completed" ? nextSystemChange.trim() : null,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(iersActionItems.institutionId, input.institutionId),
+          eq(iersActionItems.legacyActionLogId, input.id),
+        ));
 
       if (fromStatus !== "completed" && toStatus === "completed") {
         await trackEvent({
