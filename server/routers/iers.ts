@@ -21,6 +21,7 @@ import {
 } from "../../drizzle/schema";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { assertIersActivationContinuity, assertInstitutionProductCapability } from "../lib/institution-entitlements";
+import { assertInstitutionProductRole, type InstitutionalProductRoleKey } from "../lib/institution-product-roles";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { canAdvanceIersActivation } from "../lib/iers-state";
 import { buildIersEvidenceScorecard } from "../lib/iers-criteria";
@@ -54,6 +55,7 @@ type ResponsibilityRole =
 
 const LEAD_ROLES: ResponsibilityRole[] = ["ert_leader", "unit_team_leader", "er_coordinator", "erc_chair"];
 const RESPONDER_ROLES: ResponsibilityRole[] = ["ert_leader", "ert_responder", "unit_team_leader", "er_coordinator", "erc_member"];
+const IERS_PROVIDER_ROLES: InstitutionalProductRoleKey[] = ["iers_coordinator", "iers_responder", "iers_reviewer", "iers_governance", "iers_viewer"];
 
 async function getMembership(db: DbClient, userId: number, institutionId: number) {
   const [membership] = await db
@@ -68,17 +70,18 @@ async function getMembership(db: DbClient, userId: number, institutionId: number
   return membership ?? null;
 }
 
-async function assertProviderCanOperate(db: DbClient, userId: number, institutionId: number) {
-  const membership = await getMembership(db, userId, institutionId);
+async function assertProviderCanOperate(db: DbClient, user: { id: number; role?: string | null; email?: string | null }, institutionId: number) {
+  const membership = await getMembership(db, user.id, institutionId);
   if (!membership) {
     throw new TRPCError({ code: "FORBIDDEN", message: "You are not an active provider member of this institution." });
   }
+  await assertInstitutionProductRole(db, user as any, institutionId, "iers", IERS_PROVIDER_ROLES);
   return membership;
 }
 
 async function assertInstitutionOrMember(
   db: DbClient,
-  user: { id: number; role?: string | null },
+  user: { id: number; role?: string | null; email?: string | null },
   institutionId: number,
 ) {
   try {
@@ -91,7 +94,7 @@ async function assertInstitutionOrMember(
         ? String((error as { code?: unknown }).code)
         : undefined;
     if (code !== "FORBIDDEN") throw error;
-    const membership = await assertProviderCanOperate(db, user.id, institutionId);
+    const membership = await assertProviderCanOperate(db, user, institutionId);
     return { kind: "provider" as const, membership };
   }
 }
@@ -306,7 +309,7 @@ export const iersRouter = router({
       const [drill] = await db.select().from(iersDrills).where(eq(iersDrills.id, input.drillId)).limit(1);
       if (!drill) throw new TRPCError({ code: "NOT_FOUND", message: "Drill not found." });
       await assertInstitutionProductCapability(db, drill.institutionId, "iers", "iers.drills.operate");
-      await assertProviderCanOperate(db, ctx.user.id, drill.institutionId);
+      await assertProviderCanOperate(db, ctx.user, drill.institutionId);
       await db.insert(iersDrillParticipants).values({
         drillId: drill.id,
         institutionId: drill.institutionId,
@@ -493,7 +496,7 @@ export const iersRouter = router({
         .limit(1);
       if (!roster) throw new TRPCError({ code: "NOT_FOUND", message: "Assigned shift not found." });
       await assertInstitutionProductCapability(db, roster.institutionId, "iers", "iers.team_readiness.operate");
-      await assertProviderCanOperate(db, ctx.user.id, roster.institutionId);
+      await assertProviderCanOperate(db, ctx.user, roster.institutionId);
       if (roster.status !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: "Only active shifts can be signed off." });
 
       const signedOffAt = new Date();

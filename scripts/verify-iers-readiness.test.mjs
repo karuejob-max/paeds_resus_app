@@ -56,6 +56,8 @@ test("IERS verifier accepts camelCase columns for the first two migration groups
     "subscriptionStatus",
     "entitlementStatus",
     "roleStatus",
+    "roleKey",
+    "invitedEmail",
     "decision",
   ]);
 
