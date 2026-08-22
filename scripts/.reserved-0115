@@ -1,0 +1,6 @@
+Migration number 0115 reserved.
+Description: institutional department reconciliation and IERS pole eligibility
+Reserved by: Manus
+This is a placeholder, not a real migration. It exists only to make this number visible to other sessions while the protected feature branch is in flight.
+Once the real migration 0115 is merged to main, delete the remote migration-reserved-0115 branch.
+
