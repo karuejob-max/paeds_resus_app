@@ -53,6 +53,14 @@ export function IersExecutiveReportPanel({ institutionId }: { institutionId: num
 
   return (
     <div className="space-y-6">
+      <Card className="border-teal-200 bg-teal-50/50 dark:border-teal-900 dark:bg-teal-950/20">
+        <CardContent className="grid gap-3 p-4 text-xs sm:grid-cols-4">
+          <div><p className="font-semibold text-teal-950 dark:text-teal-100">Reporting scope</p><p className="text-muted-foreground">Emergency readiness and institutional learning only.</p></div>
+          <div><p className="font-semibold text-teal-950 dark:text-teal-100">Primary source</p><p className="text-muted-foreground">Reviewed evidence, activation timelines, drills, and owned actions.</p></div>
+          <div><p className="font-semibold text-teal-950 dark:text-teal-100">Freshness</p><p className="text-muted-foreground">Live institution-scoped records; absent timestamps remain unrecorded.</p></div>
+          <div><p className="font-semibold text-teal-950 dark:text-teal-100">Boundary</p><p className="text-muted-foreground">IERS readiness is not a CPD attendance total or official AHA credential.</p></div>
+        </CardContent>
+      </Card>
       <Card className="border-slate-200">
         <CardHeader className="flex flex-row items-start justify-between gap-4"><div><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-teal-700" /> IERS executive snapshot</CardTitle><CardDescription>Decision-grade metrics from reviewed evidence, activation timelines, drills, and owned actions. Unrecorded data is shown as unrecorded.</CardDescription></div><Button size="sm" variant="outline" onClick={downloadCsv}><Download className="h-4 w-4 mr-2" />CSV snapshot</Button></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 p-4">
