@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Archive, Download, FileText, LifeBuoy, LockKeyhole, RefreshCw, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,9 +27,12 @@ function downloadCsv(filename: string, content: string) {
 
 export function InstitutionDataLifecyclePanel({ institutionId }: { institutionId: number }) {
   const utils = trpc.useUtils();
+  const { user } = useAuth();
+  const isPlatformAdmin = user?.role === "admin";
   const [selectedProduct, setSelectedProduct] = useState<ProductKey>("iers");
   const [retentionDays, setRetentionDays] = useState("3650");
   const [legalHold, setLegalHold] = useState(false);
+  const [reviewNote, setReviewNote] = useState("");
   const lifecycleQuery = trpc.institutionProducts.getDataLifecycle.useQuery({ institutionId });
   const exportData = trpc.institutionProducts.exportProductData.useMutation({
     onSuccess: (result) => {
@@ -51,6 +55,14 @@ export function InstitutionDataLifecyclePanel({ institutionId }: { institutionId
       void utils.institutionProducts.getDataLifecycle.invalidate({ institutionId });
     },
     onError: (error) => toast.error(error.message || "Could not record the lifecycle request"),
+  });
+  const reviewLifecycle = trpc.institutionProducts.reviewDataLifecycleRequest.useMutation({
+    onSuccess: () => {
+      setReviewNote("");
+      toast.success("Lifecycle request status updated");
+      void utils.institutionProducts.getDataLifecycle.invalidate({ institutionId });
+    },
+    onError: (error) => toast.error(error.message || "Could not update the lifecycle request"),
   });
 
   const selectedPolicy = useMemo(() => lifecycleQuery.data?.policies.find((policy) => policy.productKey === selectedProduct), [lifecycleQuery.data?.policies, selectedProduct]);
@@ -84,6 +96,15 @@ export function InstitutionDataLifecyclePanel({ institutionId }: { institutionId
       reason: requestType === "recovery"
         ? `Request controlled recovery review for ${selectedProduct === "iers" ? "IERS" : "CPD Portal"} data and access.`
         : `Request controlled offboarding review for ${selectedProduct === "iers" ? "IERS" : "CPD Portal"}; preserve records until an approved retention decision is completed.`,
+    });
+  };
+
+  const review = (requestId: number, status: "approved" | "in_progress" | "completed" | "cancelled") => {
+    reviewLifecycle.mutate({
+      institutionId,
+      requestId,
+      status,
+      reviewNote: reviewNote.trim() || `Platform administrator marked this request ${status}.`,
     });
   };
 
@@ -130,7 +151,8 @@ export function InstitutionDataLifecyclePanel({ institutionId }: { institutionId
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3"><Button type="button" variant="outline" onClick={() => request("recovery")} disabled={requestLifecycle.isPending}><RefreshCw className="mr-2 h-4 w-4" />Request {selectedProduct === "iers" ? "IERS" : "CPD"} recovery review</Button><Button type="button" variant="outline" className="border-red-200 text-red-700" onClick={() => request("offboarding")} disabled={requestLifecycle.isPending}><Archive className="mr-2 h-4 w-4" />Request controlled offboarding</Button></div>
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><LifeBuoy className="mr-2 inline h-4 w-4" />Offboarding requires a platform review, export confirmation, retention decision, and emergency-continuity check before any access change.</div>
-          <div className="rounded-lg border"><div className="border-b px-4 py-3 text-sm font-medium">Recent lifecycle requests</div>{lifecycleQuery.isLoading ? <p className="p-4 text-sm text-muted-foreground">Loading lifecycle history…</p> : !lifecycleQuery.data?.requests.length ? <p className="p-4 text-sm text-muted-foreground">No lifecycle requests recorded.</p> : <div className="divide-y">{lifecycleQuery.data.requests.map((requestRow) => <div key={requestRow.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{requestRow.productKey} · {requestRow.requestType.replaceAll("_", " ")}</p><p className="text-xs text-muted-foreground">{requestRow.reason}</p></div><Badge variant={requestRow.status === "completed" ? "default" : requestRow.status === "cancelled" ? "outline" : "secondary"}>{requestRow.status}</Badge></div>)}</div>}</div>
+          {isPlatformAdmin && <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50/50 p-3"><p className="text-sm font-medium text-blue-950">Platform review note</p><Input value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} placeholder="Record the review decision or execution note" maxLength={2000} /><p className="text-xs text-blue-900/70">Review controls are visible only to Paeds Resus platform administrators. No request automatically deletes data or interrupts active IERS events.</p></div>}
+          <div className="rounded-lg border"><div className="border-b px-4 py-3 text-sm font-medium">Recent lifecycle requests</div>{lifecycleQuery.isLoading ? <p className="p-4 text-sm text-muted-foreground">Loading lifecycle history…</p> : !lifecycleQuery.data?.requests.length ? <p className="p-4 text-sm text-muted-foreground">No lifecycle requests recorded.</p> : <div className="divide-y">{lifecycleQuery.data.requests.map((requestRow) => <div key={requestRow.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{requestRow.productKey} · {requestRow.requestType.replaceAll("_", " ")}</p><p className="text-xs text-muted-foreground">{requestRow.reason}</p></div><div className="flex flex-wrap items-center gap-2"><Badge variant={requestRow.status === "completed" ? "default" : requestRow.status === "cancelled" ? "outline" : "secondary"}>{requestRow.status}</Badge>{isPlatformAdmin && requestRow.status !== "completed" && requestRow.status !== "cancelled" && requestRow.requestType !== "export" && <>{requestRow.status === "requested" && <Button type="button" size="sm" variant="outline" onClick={() => review(requestRow.id, "approved")} disabled={reviewLifecycle.isPending}>Approve</Button>}{requestRow.status === "approved" && <Button type="button" size="sm" variant="outline" onClick={() => review(requestRow.id, "in_progress")} disabled={reviewLifecycle.isPending}>Start</Button>}{requestRow.status === "in_progress" && <Button type="button" size="sm" onClick={() => review(requestRow.id, "completed")} disabled={reviewLifecycle.isPending}>Complete</Button>}<Button type="button" size="sm" variant="ghost" onClick={() => review(requestRow.id, "cancelled")} disabled={reviewLifecycle.isPending}>Cancel</Button></>}</div></div>)}</div>}</div>
         </CardContent>
       </Card>
     </div>

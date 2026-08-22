@@ -55,6 +55,8 @@ import { processBulkEnrollment, getInstitutionalPricing } from "../institutional
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
 import { assertInstitutionAccess, getAdministeredInstitutionIds } from "../lib/institution-access";
 import { assertInstitutionProductCapability, assertWritableProductAccess } from "../lib/institution-entitlements";
+import { assertInstitutionAccountScope } from "../lib/institution-account-scopes";
+import { assertInstitutionProductRole } from "../lib/institution-product-roles";
 import { getCohortProgressStats } from "../lib/cohort-progress";
 import { ensureCourseCatalogForSchedule } from "../lib/ensure-course-catalog-for-schedule";
 import {
@@ -76,6 +78,10 @@ import {
 } from "../lib/institutional-action-log-status";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+
+const IERS_READ_ROLES = ["iers_viewer", "iers_coordinator", "iers_governance", "iers_reviewer", "iers_responder"] as const;
+const IERS_OPERATE_ROLES = ["iers_coordinator", "iers_governance"] as const;
+const IERS_ACTION_ROLES = ["iers_coordinator", "iers_reviewer", "iers_governance"] as const;
 
 async function ensureProviderMembershipForStaff(
   db: DbClient,
@@ -1531,6 +1537,7 @@ export const institutionRouter = router({
       }
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["finance_officer", "account_admin"], { allowInstitutionAdmin: true });
 
       return await db
         .select()
@@ -1550,6 +1557,7 @@ export const institutionRouter = router({
       }
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["finance_officer", "account_admin"], { allowInstitutionAdmin: true });
 
       return await db
         .select()
@@ -1570,6 +1578,7 @@ export const institutionRouter = router({
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
       const instructorUser = alias(users, "instructorUser");
       return await db
         .select({
@@ -1578,6 +1587,7 @@ export const institutionRouter = router({
           courseId: trainingSchedules.courseId,
           trainingType: trainingSchedules.trainingType,
           scheduledDate: trainingSchedules.scheduledDate,
+          endDate: trainingSchedules.endDate,
           startTime: trainingSchedules.startTime,
           endTime: trainingSchedules.endTime,
           location: trainingSchedules.location,
@@ -1619,6 +1629,7 @@ export const institutionRouter = router({
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
 
       if (input.programType) {
         return await db
@@ -1673,6 +1684,7 @@ export const institutionRouter = router({
         programType: z.enum(["bls", "acls", "pals", "fellowship"]),
         trainingType: z.enum(["online", "hands_on", "hybrid"]),
         scheduledDate: z.coerce.date(),
+        endDate: z.coerce.date().optional(),
         startTime: z.string().max(10).optional(),
         endTime: z.string().max(10).optional(),
         location: z.string().max(255).optional(),
@@ -1693,6 +1705,10 @@ export const institutionRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const competencyAccess = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.competency_training.operate");
       assertWritableProductAccess(competencyAccess);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_OPERATE_ROLES);
+      if (input.endDate && input.endDate < input.scheduledDate) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A multi-day session must end on or after its start date." });
+      }
 
       await ensureCourseCatalogForSchedule(db, input.programType);
 
@@ -1722,6 +1738,7 @@ export const institutionRouter = router({
         await assertNoInstructorDoubleBooking(db, {
           instructorId,
           scheduledDate: input.scheduledDate,
+          endDate: input.endDate,
           startTime: input.startTime,
           endTime: input.endTime,
         });
@@ -1732,6 +1749,7 @@ export const institutionRouter = router({
         courseId,
         trainingType: input.trainingType,
         scheduledDate: input.scheduledDate,
+        endDate: input.endDate ?? null,
         startTime: input.startTime?.trim() || undefined,
         endTime: input.endTime?.trim() || undefined,
         location: input.location?.trim() || undefined,
@@ -1782,6 +1800,7 @@ export const institutionRouter = router({
         programType: z.enum(["bls", "acls", "pals", "fellowship"]).optional(),
         trainingType: z.enum(["online", "hands_on", "hybrid"]).optional(),
         scheduledDate: z.coerce.date().optional(),
+        endDate: z.union([z.coerce.date(), z.null()]).optional(),
         startTime: z.union([z.string().max(10), z.null()]).optional(),
         endTime: z.union([z.string().max(10), z.null()]).optional(),
         location: z.union([z.string().max(255), z.null()]).optional(),
@@ -1802,6 +1821,7 @@ export const institutionRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const competencyAccess = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.competency_training.operate");
       assertWritableProductAccess(competencyAccess);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_OPERATE_ROLES);
       await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
 
       const [current] = await db
@@ -1853,6 +1873,7 @@ export const institutionRouter = router({
         updatedAt: Date;
         trainingType?: (typeof trainingSchedules.$inferSelect)["trainingType"];
         scheduledDate?: Date;
+        endDate?: Date | null;
         startTime?: string | null;
         endTime?: string | null;
         location?: string | null;
@@ -1863,6 +1884,7 @@ export const institutionRouter = router({
       } = { courseId, updatedAt: new Date() };
       if (input.trainingType !== undefined) setPayload.trainingType = input.trainingType;
       if (input.scheduledDate !== undefined) setPayload.scheduledDate = input.scheduledDate;
+      if (input.endDate !== undefined) setPayload.endDate = input.endDate;
       if (input.startTime !== undefined) {
         setPayload.startTime =
           input.startTime === null ? null : input.startTime.trim() === "" ? null : input.startTime.trim();
@@ -1897,6 +1919,12 @@ export const institutionRouter = router({
       if (input.maxCapacity !== undefined) setPayload.maxCapacity = input.maxCapacity;
       if (input.status !== undefined) setPayload.status = input.status;
 
+      const nextStartDate = setPayload.scheduledDate ?? current.scheduledDate;
+      const nextEndDate = setPayload.endDate !== undefined ? setPayload.endDate : current.endDate;
+      if (nextEndDate && nextEndDate < nextStartDate) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A multi-day session must end on or after its start date." });
+      }
+
       // Only worth checking if there's actually an instructor assigned (new
       // or already-existing) AND something that could affect the overlap
       // window changed -- avoids a wasted query on unrelated edits.
@@ -1904,12 +1932,14 @@ export const institutionRouter = router({
         nextInstructorId != null &&
         (input.instructorUserId !== undefined ||
           input.scheduledDate !== undefined ||
+          input.endDate !== undefined ||
           input.startTime !== undefined ||
           input.endTime !== undefined)
       ) {
         await assertNoInstructorDoubleBooking(db, {
           instructorId: nextInstructorId,
-          scheduledDate: setPayload.scheduledDate ?? current.scheduledDate,
+          scheduledDate: nextStartDate,
+          endDate: nextEndDate,
           startTime: setPayload.startTime !== undefined ? setPayload.startTime : current.startTime,
           endTime: setPayload.endTime !== undefined ? setPayload.endTime : current.endTime,
           excludeScheduleId: input.trainingScheduleId,
@@ -1946,6 +1976,7 @@ export const institutionRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const competencyAccess = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.competency_training.operate");
       assertWritableProductAccess(competencyAccess);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_OPERATE_ROLES);
       await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
 
       await db
@@ -1976,6 +2007,7 @@ export const institutionRouter = router({
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
       await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
 
       const rows = await db
@@ -2013,6 +2045,7 @@ export const institutionRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
       const conditions = [eq(iersCompetencyRecords.institutionalAccountId, input.institutionId)];
       if (input.programType) conditions.push(eq(iersCompetencyRecords.programType, input.programType));
       return db
@@ -2033,6 +2066,55 @@ export const institutionRouter = router({
         .innerJoin(institutionalStaffMembers, eq(iersCompetencyRecords.staffMemberId, institutionalStaffMembers.id))
         .where(and(...conditions))
         .orderBy(desc(iersCompetencyRecords.updatedAt));
+    }),
+
+  /** Independently verify or reopen one IERS competency record; attendance alone never grants verified status. */
+  verifyIersCompetencyRecord: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      competencyRecordId: z.number().int().positive(),
+      decision: z.enum(["verified", "pending"]),
+      verificationNotes: z.string().trim().max(2000).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const access = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.governance.review");
+      assertWritableProductAccess(access);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", ["iers_reviewer", "iers_governance"]);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["accreditation_reviewer", "qi_reviewer"], { allowInstitutionAdmin: true });
+
+      const [record] = await db
+        .select({
+          id: iersCompetencyRecords.id,
+          trainingAttendanceId: iersCompetencyRecords.trainingAttendanceId,
+          attendanceStatus: trainingAttendance.attendanceStatus,
+        })
+        .from(iersCompetencyRecords)
+        .innerJoin(trainingAttendance, eq(iersCompetencyRecords.trainingAttendanceId, trainingAttendance.id))
+        .where(and(
+          eq(iersCompetencyRecords.id, input.competencyRecordId),
+          eq(iersCompetencyRecords.institutionalAccountId, input.institutionId),
+        ))
+        .limit(1);
+      if (!record) throw new TRPCError({ code: "NOT_FOUND", message: "IERS competency record not found for this institution." });
+      if (input.decision === "verified" && record.attendanceStatus !== "attended") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Only an attended source session can be independently verified." });
+      }
+
+      const verified = input.decision === "verified";
+      await db.update(iersCompetencyRecords).set({
+        competencyStatus: input.decision,
+        verifiedByUserId: verified ? ctx.user.id : null,
+        verifiedAt: verified ? new Date() : null,
+        verificationNotes: input.verificationNotes?.trim() || (verified ? "Independently reviewed by an authorised IERS reviewer." : null),
+        updatedAt: new Date(),
+      }).where(and(
+        eq(iersCompetencyRecords.id, input.competencyRecordId),
+        eq(iersCompetencyRecords.institutionalAccountId, input.institutionId),
+      ));
+      return { success: true as const, competencyStatus: input.decision, trainingAttendanceId: record.trainingAttendanceId };
     }),
 
   /** HI-B2B-2: Create or update one staff member’s attendance for a session. */
@@ -2056,6 +2138,7 @@ export const institutionRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const competencyAccess = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.competency_training.operate");
       assertWritableProductAccess(competencyAccess);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_OPERATE_ROLES);
       await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
 
       const staffOk = await db
@@ -2136,6 +2219,7 @@ export const institutionRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const competencyAccess = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.competency_training.operate");
       assertWritableProductAccess(competencyAccess);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_OPERATE_ROLES);
       await assertTrainingScheduleForInstitution(db, input.institutionId, input.trainingScheduleId);
 
       const staff = await db
@@ -2714,6 +2798,8 @@ export const institutionRouter = router({
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["qi_reviewer", "accreditation_reviewer", "report_viewer"], { allowInstitutionAdmin: true });
       await syncLegacyActionLogsIntoIers(db, input.institutionId, ctx.user.id);
       return await db
         .select()
@@ -2746,6 +2832,8 @@ export const institutionRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const actionAccess = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.actions.operate");
       assertWritableProductAccess(actionAccess);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_ACTION_ROLES);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["qi_reviewer", "accreditation_reviewer"], { allowInstitutionAdmin: true });
 
       const result = await db.insert(institutionalActionLogs).values({
         institutionalAccountId: input.institutionId,
@@ -2797,6 +2885,8 @@ export const institutionRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const actionAccess = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.actions.operate");
       assertWritableProductAccess(actionAccess);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_ACTION_ROLES);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["qi_reviewer", "accreditation_reviewer"], { allowInstitutionAdmin: true });
 
       const [existing] = await db
         .select()
@@ -2905,6 +2995,9 @@ export const institutionRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       }
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.governance.review");
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["qi_reviewer", "accreditation_reviewer", "report_viewer"], { allowInstitutionAdmin: true });
 
       const ANONYMIZATION_THRESHOLD = 5;
 

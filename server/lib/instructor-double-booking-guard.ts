@@ -7,74 +7,83 @@ type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
 /**
  * Blocks assigning an instructor to a session that overlaps another one
- * they're already assigned to. "Overlap" rule: same scheduledDate (compared
- * as a calendar day) plus a time-window overlap when both sessions have
- * startTime/endTime set. If either session is missing a time, we can't
- * safely compare windows -- treated as blocking the whole day, since an
- * untimed session usually means "sometime that day," not a known-safe gap.
- * excludeScheduleId lets an update check against every *other* schedule
- * without flagging itself.
- *
- * Extracted 2026-08-02 from server/routers/institution.ts (originally
- * built for coordinator-created sessions) so the new self-service
- * instructor-declared-availability flow (courses.ts, Phase 2 booking,
- * docs/IERP_NERP_PROGRAM_V2_SPEC.md §4.4) gets the same protection instead
- * of a second, drifting copy of this logic.
+ * they're already assigned to. A missing endDate means the scheduledDate
+ * calendar day only. Any multi-day overlap is blocked conservatively; for a
+ * single shared day, complete time windows are compared as before.
  */
 export async function assertNoInstructorDoubleBooking(
   db: DbClient,
   params: {
     instructorId: number;
     scheduledDate: Date;
+    endDate?: Date | null;
     startTime: string | null | undefined;
     endTime: string | null | undefined;
     excludeScheduleId?: number;
-  }
+  },
 ) {
-  const dayStart = new Date(params.scheduledDate);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(dayStart);
-  dayEnd.setDate(dayEnd.getDate() + 1);
+  const newStartDate = new Date(params.scheduledDate);
+  newStartDate.setHours(0, 0, 0, 0);
+  const newEndDate = new Date(params.endDate ?? params.scheduledDate);
+  newEndDate.setHours(0, 0, 0, 0);
+  if (newEndDate < newStartDate) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "A multi-day session must end on or after its start date." });
+  }
+  const queryEndExclusive = new Date(newEndDate);
+  queryEndExclusive.setDate(queryEndExclusive.getDate() + 1);
 
-  const sameDayConditions = [
+  const overlapConditions = [
     eq(trainingSchedules.instructorId, params.instructorId),
-    gte(trainingSchedules.scheduledDate, dayStart),
-    sql`${trainingSchedules.scheduledDate} < ${dayEnd}`,
+    sql`${trainingSchedules.scheduledDate} < ${queryEndExclusive}`,
+    sql`COALESCE(${trainingSchedules.endDate}, ${trainingSchedules.scheduledDate}) >= ${newStartDate}`,
     sql`${trainingSchedules.status} != 'cancelled'`,
   ];
   if (params.excludeScheduleId != null) {
-    sameDayConditions.push(sql`${trainingSchedules.id} != ${params.excludeScheduleId}`);
+    overlapConditions.push(sql`${trainingSchedules.id} != ${params.excludeScheduleId}`);
   }
 
   const candidates = await db
     .select({
       id: trainingSchedules.id,
+      scheduledDate: trainingSchedules.scheduledDate,
+      endDate: trainingSchedules.endDate,
       startTime: trainingSchedules.startTime,
       endTime: trainingSchedules.endTime,
       institutionalAccountId: trainingSchedules.institutionalAccountId,
     })
     .from(trainingSchedules)
-    .where(and(...sameDayConditions));
+    .where(and(...overlapConditions));
 
   if (candidates.length === 0) return;
 
   const newStart = params.startTime?.trim() || null;
   const newEnd = params.endTime?.trim() || null;
+  const newIsMultiDay = newEndDate.getTime() > newStartDate.getTime();
 
-  for (const c of candidates) {
-    // Either session missing a time window -> can't rule out overlap, block.
-    if (!newStart || !newEnd || !c.startTime || !c.endTime) {
+  for (const candidate of candidates) {
+    const candidateStartDate = new Date(candidate.scheduledDate);
+    candidateStartDate.setHours(0, 0, 0, 0);
+    const candidateEndDate = new Date(candidate.endDate ?? candidate.scheduledDate);
+    candidateEndDate.setHours(0, 0, 0, 0);
+    const candidateIsMultiDay = candidateEndDate.getTime() > candidateStartDate.getTime();
+
+    if (newIsMultiDay || candidateIsMultiDay || candidateStartDate.getTime() !== newStartDate.getTime()) {
       throw new TRPCError({
         code: "CONFLICT",
-        message: `This instructor is already assigned to another session on this date (schedule #${c.id}) without a full time window recorded, so we can't confirm there's no overlap. Set both start and end times, or pick a different instructor/date.`,
+        message: `This instructor is already assigned to an overlapping session (schedule #${candidate.id}). Multi-day or cross-day assignments require a different instructor.`,
       });
     }
-    // Standard interval overlap check: starts before the other ends, and
-    // ends after the other starts.
-    if (newStart < c.endTime && newEnd > c.startTime) {
+
+    if (!newStart || !newEnd || !candidate.startTime || !candidate.endTime) {
       throw new TRPCError({
         code: "CONFLICT",
-        message: `This instructor is already assigned to another session on this date from ${c.startTime}-${c.endTime} (schedule #${c.id}). Pick a different time or instructor.`,
+        message: `This instructor is already assigned to another session on this date (schedule #${candidate.id}) without a full time window recorded, so we can't confirm there's no overlap. Set both start and end times, or pick a different instructor/date.`,
+      });
+    }
+    if (newStart < candidate.endTime && newEnd > candidate.startTime) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: `This instructor is already assigned to another session on this date from ${candidate.startTime}-${candidate.endTime} (schedule #${candidate.id}). Pick a different time or instructor.`,
       });
     }
   }

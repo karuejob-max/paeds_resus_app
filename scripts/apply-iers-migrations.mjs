@@ -27,6 +27,9 @@ const steps = [
   "db:apply-0105",
   "db:apply-0106",
   "db:apply-0107",
+  "db:apply-0108",
+  "db:apply-0109",
+  "db:apply-0110",
   "db:verify-iers",
 ];
 

@@ -1419,6 +1419,45 @@ export const institutionProductRoles = mysqlTable("institutionProductRoles", {
 export type InstitutionProductRole = typeof institutionProductRoles.$inferSelect;
 export type InsertInstitutionProductRole = typeof institutionProductRoles.$inferInsert;
 
+/** Shared institution scopes are intentionally separate from IERS and CPD product roles. */
+export const institutionAccountScopes = mysqlTable("institutionAccountScopes", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  userId: int("userId"),
+  invitedEmail: varchar("invitedEmail", { length: 320 }).notNull(),
+  scopeKey: varchar("scopeKey", { length: 64 }).notNull(),
+  scopeStatus: mysqlEnum("scopeStatus", ["invited", "active", "suspended", "ended"]).default("invited").notNull(),
+  grantedByUserId: int("grantedByUserId"),
+  grantedAt: timestamp("grantedAt").defaultNow().notNull(),
+  endedAt: timestamp("endedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionEmailScopeUnique: uniqueIndex("institutionAccountScopes_inst_email_scope_uq").on(table.institutionalAccountId, table.invitedEmail, table.scopeKey),
+  institutionUserIndex: index("institutionAccountScopes_inst_user_idx").on(table.institutionalAccountId, table.userId),
+  institutionStatusIndex: index("institutionAccountScopes_inst_status_idx").on(table.institutionalAccountId, table.scopeStatus),
+}));
+export type InstitutionAccountScope = typeof institutionAccountScopes.$inferSelect;
+export type InsertInstitutionAccountScope = typeof institutionAccountScopes.$inferInsert;
+
+/** Append-only history for shared institution-scope assignments. */
+export const institutionAccountScopeEvents = mysqlTable("institutionAccountScopeEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  scopeId: int("scopeId").notNull(),
+  eventType: varchar("eventType", { length: 32 }).notNull(),
+  previousStatus: varchar("previousStatus", { length: 32 }),
+  currentStatus: varchar("currentStatus", { length: 32 }),
+  actorUserId: int("actorUserId"),
+  reason: text("reason"),
+  occurredAt: timestamp("occurredAt").defaultNow().notNull(),
+}, (table) => ({
+  institutionScopeIndex: index("institutionAccountScopeEvents_inst_scope_idx").on(table.institutionalAccountId, table.scopeId),
+  occurredIndex: index("institutionAccountScopeEvents_occurred_idx").on(table.occurredAt),
+}));
+export type InstitutionAccountScopeEvent = typeof institutionAccountScopeEvents.$inferSelect;
+export type InsertInstitutionAccountScopeEvent = typeof institutionAccountScopeEvents.$inferInsert;
+
 /** Append-only commercial and entitlement state history. */
 export const institutionSubscriptionEvents = mysqlTable("institutionSubscriptionEvents", {
   id: int("id").autoincrement().primaryKey(),
@@ -1516,6 +1555,37 @@ export const institutionSubscriptionPayments = mysqlTable("institutionSubscripti
 }));
 export type InstitutionSubscriptionPayment = typeof institutionSubscriptionPayments.$inferSelect;
 export type InsertInstitutionSubscriptionPayment = typeof institutionSubscriptionPayments.$inferInsert;
+
+/** Pending institutional M-Pesa checkout intents linked to one product subscription. */
+export const institutionSubscriptionPaymentIntents = mysqlTable("institutionSubscriptionPaymentIntents", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  productId: int("productId").notNull(),
+  planId: int("planId"),
+  renewsAt: timestamp("renewsAt").notNull(),
+  expiresAt: timestamp("expiresAt"),
+  amountCents: int("amountCents").notNull(),
+  phoneNumber: varchar("phoneNumber", { length: 20 }).notNull(),
+  accountReference: varchar("accountReference", { length: 40 }).notNull(),
+  checkoutRequestId: varchar("checkoutRequestId", { length: 255 }).notNull(),
+  merchantRequestId: varchar("merchantRequestId", { length: 255 }),
+  idempotencyKey: varchar("idempotencyKey", { length: 255 }).notNull(),
+  mpesaReceiptNumber: varchar("mpesaReceiptNumber", { length: 50 }),
+  status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending").notNull(),
+  resultCode: int("resultCode"),
+  failureReason: text("failureReason"),
+  createdByUserId: int("createdByUserId").notNull(),
+  receivedAt: timestamp("receivedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  checkoutRequestUnique: uniqueIndex("inst_sub_intent_checkout_uq").on(table.checkoutRequestId),
+  idempotencyUnique: uniqueIndex("inst_sub_intent_idem_uq").on(table.idempotencyKey),
+  receiptUnique: uniqueIndex("inst_sub_intent_receipt_uq").on(table.mpesaReceiptNumber),
+  institutionStatusIndex: index("inst_sub_intent_status_idx").on(table.institutionalAccountId, table.status),
+}));
+export type InstitutionSubscriptionPaymentIntent = typeof institutionSubscriptionPaymentIntents.$inferSelect;
+export type InsertInstitutionSubscriptionPaymentIntent = typeof institutionSubscriptionPaymentIntents.$inferInsert;
 
 /** Institution-owned renewal reminder preferences; external channels remain opt-in. */
 export const institutionRenewalNotificationPreferences = mysqlTable("institutionRenewalNotificationPreferences", {
@@ -1834,6 +1904,8 @@ export const trainingSchedules = mysqlTable("trainingSchedules", {
   courseId: int("courseId").notNull(),
   trainingType: mysqlEnum("trainingType", ["online", "hands_on", "hybrid"]).notNull(),
   scheduledDate: timestamp("scheduledDate").notNull(),
+  /** Final calendar day for multi-day sessions; null means the scheduledDate day only. */
+  endDate: timestamp("endDate"),
   startTime: varchar("startTime", { length: 10 }), // HH:MM format
   endTime: varchar("endTime", { length: 10 }), // HH:MM format
   location: varchar("location", { length: 255 }),

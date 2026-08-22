@@ -1,11 +1,22 @@
 import type { Request, Response } from "express";
 import { getDb } from "../db";
-import { payments, enrollments } from "../../drizzle/schema";
-import { eq } from "drizzle-orm";
+import {
+  payments,
+  enrollments,
+  institutionSubscriptionPaymentIntents,
+  institutionSubscriptionPayments,
+  institutionSubscriptionEvents,
+  institutionalProducts,
+  institutionProductSubscriptions,
+  institutionalProductCapabilities,
+  institutionProductEntitlements,
+} from "../../drizzle/schema";
+import { and, eq } from "drizzle-orm";
 import { issueCertificateForEnrollmentIfEligible } from "../certificates";
 import { runWithRetries } from "../lib/async-retry";
 import { logStructured } from "../lib/structured-log";
 import { trackPaymentCompletion } from "../services/analytics.service";
+import { reconcileInstitutionMpesaIntent } from "../lib/institution-mpesa-reconciliation";
 import { attachMpesaWebhookLogging, type MpesaWebhookLogBuilder } from "../lib/mpesa-webhook-log";
 import crypto from "crypto";
 
@@ -269,6 +280,29 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       if (item.Name === "PhoneNumber") phoneNumber = item.Value;
       if (item.Name === "Amount") amount = item.Value;
       if (item.Name === "MpesaReceiptNumber") mpesaReceiptNumber = item.Value;
+    }
+
+    const institutionResult = await reconcileInstitutionMpesaIntent(db, {
+      checkoutRequestId: lookupId,
+      resultCode: typeof ResultCode === "number" ? ResultCode : Number(ResultCode),
+      resultDesc: typeof ResultDesc === "string" ? ResultDesc : String(ResultDesc ?? ""),
+      amount: Number.isFinite(Number(amount)) ? Number(amount) : null,
+      phoneNumber: phoneNumber ? String(phoneNumber).trim() : null,
+      mpesaReceiptNumber: mpesaReceiptNumber ? String(mpesaReceiptNumber).trim() : null,
+    });
+    if (institutionResult) {
+      log.paymentId = institutionResult.paymentId ?? null;
+      log.outcome = institutionResult.status === "completed" ? "payment_completed" : institutionResult.status === "failed" ? "payment_failed" : "acknowledged";
+      return res.status(200).json({
+        success: true,
+        message: institutionResult.duplicate
+          ? "Institutional payment already processed"
+          : institutionResult.status === "completed"
+            ? "Institutional payment verified"
+            : institutionResult.status === "failed"
+              ? "Institutional payment failure recorded"
+              : "Institutional callback acknowledged",
+      });
     }
 
     // Success: ResultCode 0

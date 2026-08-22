@@ -83,6 +83,21 @@ function toLocalDateTime(value: Date | string | null | undefined): string {
   return new Date(date.getTime() - timezoneOffset * 60_000).toISOString().slice(0, 16);
 }
 
+function toLocalDate(value: Date | string | null | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const timezoneOffset = date.getTimezoneOffset();
+  return new Date(date.getTime() - timezoneOffset * 60_000).toISOString().slice(0, 10);
+}
+
+function parseLocalDateOnly(value: string): Date | undefined {
+  if (!value) return undefined;
+  const [year, month, day] = value.split("-").map(Number);
+  if (![year, month, day].every(Number.isFinite)) return undefined;
+  return new Date(year, month - 1, day, 23, 59, 59, 999);
+}
+
 function programLabel(value: string | null | undefined): string {
   return PROGRAMS.find((program) => program.value === value)?.label ?? value ?? "Unknown";
 }
@@ -107,6 +122,7 @@ function emptyForm() {
     programType: "bls" as ProgramType,
     trainingType: "hands_on" as TrainingType,
     scheduledDate: defaultDateTime(),
+    endDate: "",
     startTime: "",
     endTime: "",
     location: "",
@@ -135,6 +151,7 @@ function editFormFromRow(row: TrainingScheduleRow): EditSessionForm {
     programType,
     trainingType,
     scheduledDate: toLocalDateTime(row.scheduledDate),
+    endDate: toLocalDate(row.endDate),
     startTime: row.startTime ?? "",
     endTime: row.endTime ?? "",
     location: row.location ?? "",
@@ -157,6 +174,7 @@ export function InstitutionIersCompetencyPanel({ institutionId }: { institutionI
   }));
   const [scheduleDeleteTarget, setScheduleDeleteTarget] = useState<TrainingScheduleRow | null>(null);
   const [savingAttendanceForStaffId, setSavingAttendanceForStaffId] = useState<number | null>(null);
+  const [verificationNotes, setVerificationNotes] = useState("");
 
   const { data: trainingSchedules, isLoading: schedulesLoading } = trpc.institution.getTrainingSchedules.useQuery({
     institutionId,
@@ -196,6 +214,7 @@ export function InstitutionIersCompetencyPanel({ institutionId }: { institutionI
     void utils.institution.getStaffMembers.invalidate({ institutionId });
     void utils.institution.getStats.invalidate({ institutionId });
     void utils.institution.getInstitutionalAnalytics.invalidate({ institutionId });
+    void utils.institution.getIersCompetencyRecords.invalidate({ institutionId });
     if (scheduleId != null) {
       void utils.institution.getTrainingAttendanceForSchedule.invalidate({
         institutionId,
@@ -254,6 +273,14 @@ export function InstitutionIersCompetencyPanel({ institutionId }: { institutionI
     },
     onError: (error) => toast.error(error.message || "Could not register institutional roster"),
   });
+  const verifyCompetencyMutation = trpc.institution.verifyIersCompetencyRecord.useMutation({
+    onSuccess: async () => {
+      setVerificationNotes("");
+      await utils.institution.getIersCompetencyRecords.invalidate({ institutionId });
+      toast.success("IERS competency review saved");
+    },
+    onError: (error) => toast.error(error.message || "Could not save competency review"),
+  });
 
   const openScheduleEdit = (row: TrainingScheduleRow) => {
     setScheduleEditTarget(row);
@@ -277,6 +304,7 @@ export function InstitutionIersCompetencyPanel({ institutionId }: { institutionI
       programType: scheduleForm.programType,
       trainingType: scheduleForm.trainingType,
       scheduledDate,
+      endDate: parseLocalDateOnly(scheduleForm.endDate),
       startTime: scheduleForm.startTime.trim() || undefined,
       endTime: scheduleForm.endTime.trim() || undefined,
       location: scheduleForm.location.trim() || undefined,
@@ -304,6 +332,7 @@ export function InstitutionIersCompetencyPanel({ institutionId }: { institutionI
       programType: scheduleEditForm.programType,
       trainingType: scheduleEditForm.trainingType,
       scheduledDate,
+      endDate: scheduleEditForm.endDate ? parseLocalDateOnly(scheduleEditForm.endDate) ?? null : null,
       startTime: scheduleEditForm.startTime.trim() || null,
       endTime: scheduleEditForm.endTime.trim() || null,
       location: scheduleEditForm.location.trim() || null,
@@ -351,7 +380,8 @@ export function InstitutionIersCompetencyPanel({ institutionId }: { institutionI
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2"><Label>Program</Label><Select value={scheduleForm.programType} onValueChange={(value) => setScheduleForm((form) => ({ ...form, programType: value as ProgramType }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{PROGRAMS.map((program) => <SelectItem key={program.value} value={program.value}>{program.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-2"><Label>Format</Label><Select value={scheduleForm.trainingType} onValueChange={(value) => setScheduleForm((form) => ({ ...form, trainingType: value as TrainingType }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TRAINING_TYPES.map((type) => <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-2 sm:col-span-2"><Label>Session start</Label><Input type="datetime-local" value={scheduleForm.scheduledDate} onChange={(event) => setScheduleForm((form) => ({ ...form, scheduledDate: event.target.value }))} /><p className="text-xs text-muted-foreground">The current database stores one start timestamp. For multi-day sessions, document day-two details in Location until an explicit end-date migration is shipped.</p></div>
+            <div className="space-y-2"><Label>Session start</Label><Input type="datetime-local" value={scheduleForm.scheduledDate} onChange={(event) => setScheduleForm((form) => ({ ...form, scheduledDate: event.target.value }))} /></div>
+            <div className="space-y-2"><Label>Final session date (optional)</Label><Input type="date" min={scheduleForm.scheduledDate.slice(0, 10)} value={scheduleForm.endDate} onChange={(event) => setScheduleForm((form) => ({ ...form, endDate: event.target.value }))} /><p className="text-xs text-muted-foreground">Leave blank for a single-day session. Use this for multi-day competency sessions.</p></div>
             <div className="space-y-2"><Label>Wall-clock start</Label><Input placeholder="09:00" value={scheduleForm.startTime} onChange={(event) => setScheduleForm((form) => ({ ...form, startTime: event.target.value }))} /></div>
             <div className="space-y-2"><Label>Wall-clock end</Label><Input placeholder="17:00" value={scheduleForm.endTime} onChange={(event) => setScheduleForm((form) => ({ ...form, endTime: event.target.value }))} /></div>
             <div className="space-y-2 sm:col-span-2"><Label>Location or link</Label><Input placeholder="Simulation lab / ward / link" value={scheduleForm.location} onChange={(event) => setScheduleForm((form) => ({ ...form, location: event.target.value }))} /></div>
@@ -407,9 +437,10 @@ export function InstitutionIersCompetencyPanel({ institutionId }: { institutionI
 
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5" />Per-program competency records</CardTitle><CardDescription>These records are generated from attendance but remain separate from generic staff enrollment. Attended is not the same as independently verified competency.</CardDescription></CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="space-y-2"><Label htmlFor="competency-review-notes">Reviewer note (used for the next verification action)</Label><Input id="competency-review-notes" placeholder="What was independently reviewed?" value={verificationNotes} onChange={(event) => setVerificationNotes(event.target.value)} maxLength={2000} /><p className="text-xs text-muted-foreground">Verification requires an attended source record and an authorised IERS reviewer. It does not issue an official AHA credential.</p></div>
           {competencyRecordsLoading ? <p className="text-sm text-muted-foreground">Loading competency records…</p> : !competencyRecords?.length ? <p className="text-sm text-muted-foreground">No per-program competency records yet. Register staff on a session to create the source record.</p> : (
-            <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-muted-foreground"><th className="py-2 pr-4">Staff member</th><th className="py-2 pr-4">Program</th><th className="py-2 pr-4">Status</th><th className="py-2 pr-4">Source session</th><th className="py-2">Verification</th></tr></thead><tbody>{competencyRecords.map((record) => <tr key={record.id} className="border-b last:border-0"><td className="py-2 pr-4"><div className="font-medium">{record.staffName}</div><div className="text-xs text-muted-foreground">{record.staffRole?.replace(/_/g, " ") || "—"}</div></td><td className="py-2 pr-4">{programLabel(record.programType)}</td><td className="py-2 pr-4"><Badge variant={record.competencyStatus === "verified" ? "default" : record.competencyStatus === "attended" ? "secondary" : "outline"}>{record.competencyStatus}</Badge></td><td className="py-2 pr-4">#{record.trainingScheduleId}</td><td className="py-2">{record.verifiedByUserId ? `Verified ${record.verifiedAt ? new Date(record.verifiedAt).toLocaleDateString() : ""}` : "Pending independent review"}</td></tr>)}</tbody></table></div>
+            <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-muted-foreground"><th className="py-2 pr-4">Staff member</th><th className="py-2 pr-4">Program</th><th className="py-2 pr-4">Status</th><th className="py-2 pr-4">Source session</th><th className="py-2">Verification</th></tr></thead><tbody>{competencyRecords.map((record) => <tr key={record.id} className="border-b last:border-0"><td className="py-2 pr-4"><div className="font-medium">{record.staffName}</div><div className="text-xs text-muted-foreground">{record.staffRole?.replace(/_/g, " ") || "—"}</div></td><td className="py-2 pr-4">{programLabel(record.programType)}</td><td className="py-2 pr-4"><Badge variant={record.competencyStatus === "verified" ? "default" : record.competencyStatus === "attended" ? "secondary" : "outline"}>{record.competencyStatus}</Badge></td><td className="py-2 pr-4">#{record.trainingScheduleId}</td><td className="py-2"><div className="flex flex-wrap items-center gap-2">{record.verifiedByUserId ? <span className="text-xs text-muted-foreground">Verified {record.verifiedAt ? new Date(record.verifiedAt).toLocaleDateString() : ""}</span> : <span className="text-xs text-muted-foreground">Pending independent review</span>}{record.competencyStatus === "attended" && <Button type="button" size="sm" onClick={() => verifyCompetencyMutation.mutate({ institutionId, competencyRecordId: record.id, decision: "verified", verificationNotes: verificationNotes.trim() || undefined })} disabled={verifyCompetencyMutation.isPending}>Verify</Button>}{record.competencyStatus === "verified" && <Button type="button" size="sm" variant="outline" onClick={() => verifyCompetencyMutation.mutate({ institutionId, competencyRecordId: record.id, decision: "pending", verificationNotes: verificationNotes.trim() || undefined })} disabled={verifyCompetencyMutation.isPending}>Reopen</Button>}</div></td></tr>)}</tbody></table></div>
           )}
         </CardContent>
       </Card>
@@ -420,7 +451,8 @@ export function InstitutionIersCompetencyPanel({ institutionId }: { institutionI
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2"><Label>Program</Label><Select value={scheduleEditForm.programType} onValueChange={(value) => setScheduleEditForm((form) => ({ ...form, programType: value as ProgramType }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{PROGRAMS.map((program) => <SelectItem key={program.value} value={program.value}>{program.label}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-2"><Label>Format</Label><Select value={scheduleEditForm.trainingType} onValueChange={(value) => setScheduleEditForm((form) => ({ ...form, trainingType: value as TrainingType }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TRAINING_TYPES.map((type) => <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-2 sm:col-span-2"><Label>Session start</Label><Input type="datetime-local" value={scheduleEditForm.scheduledDate} onChange={(event) => setScheduleEditForm((form) => ({ ...form, scheduledDate: event.target.value }))} /></div>
+            <div className="space-y-2"><Label>Session start</Label><Input type="datetime-local" value={scheduleEditForm.scheduledDate} onChange={(event) => setScheduleEditForm((form) => ({ ...form, scheduledDate: event.target.value }))} /></div>
+            <div className="space-y-2"><Label>Final session date (optional)</Label><Input type="date" min={scheduleEditForm.scheduledDate.slice(0, 10)} value={scheduleEditForm.endDate} onChange={(event) => setScheduleEditForm((form) => ({ ...form, endDate: event.target.value }))} /></div>
             <div className="space-y-2"><Label>Wall-clock start</Label><Input value={scheduleEditForm.startTime} onChange={(event) => setScheduleEditForm((form) => ({ ...form, startTime: event.target.value }))} /></div>
             <div className="space-y-2"><Label>Wall-clock end</Label><Input value={scheduleEditForm.endTime} onChange={(event) => setScheduleEditForm((form) => ({ ...form, endTime: event.target.value }))} /></div>
             <div className="space-y-2 sm:col-span-2"><Label>Location or link</Label><Input value={scheduleEditForm.location} onChange={(event) => setScheduleEditForm((form) => ({ ...form, location: event.target.value }))} /></div>

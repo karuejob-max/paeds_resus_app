@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   inAppNotifications,
   institutionProductSubscriptions,
@@ -7,8 +7,11 @@ import {
   institutionalAccountAdmins,
   institutionalAccounts,
   institutionalProducts,
+  users,
 } from "../../drizzle/schema";
 import type { AppDb } from "./institution-access";
+import type { InstitutionRenewalNotificationPreference } from "../../drizzle/schema";
+import { sendEmail } from "../email-service";
 
 export type RenewalNotificationType =
   | "renewal_30d"
@@ -28,6 +31,26 @@ type SubscriptionForNotification = {
   renewsAt: Date | null;
   expiresAt: Date | null;
 };
+
+type RenewalRecipient = {
+  userId: number;
+  email: string | null;
+  phone: string | null;
+  name: string | null;
+};
+
+export type DeliveryChannel = "in_app" | "email" | "sms";
+
+export function getRenewalDeliveryChannels(
+  preference: Pick<InstitutionRenewalNotificationPreference, "inAppEnabled" | "emailEnabled" | "smsEnabled"> | undefined,
+  capabilities: { emailConfigured: boolean; smsConfigured: boolean },
+): DeliveryChannel[] {
+  const channels: DeliveryChannel[] = [];
+  if (preference?.inAppEnabled !== false) channels.push("in_app");
+  if (preference?.emailEnabled === true && capabilities.emailConfigured) channels.push("email");
+  if (preference?.smsEnabled === true && capabilities.smsConfigured) channels.push("sms");
+  return channels;
+}
 
 export function determineRenewalNotificationType(
   subscription: Pick<SubscriptionForNotification, "subscriptionStatus" | "renewsAt">,
@@ -68,7 +91,7 @@ function notificationCopy(
   }
 }
 
-async function institutionAdminUserIds(db: AppDb, institutionId: number): Promise<number[]> {
+async function institutionAdminRecipients(db: AppDb, institutionId: number): Promise<RenewalRecipient[]> {
   const [owner] = await db
     .select({ userId: institutionalAccounts.userId })
     .from(institutionalAccounts)
@@ -78,7 +101,46 @@ async function institutionAdminUserIds(db: AppDb, institutionId: number): Promis
     .select({ userId: institutionalAccountAdmins.userId })
     .from(institutionalAccountAdmins)
     .where(eq(institutionalAccountAdmins.institutionalAccountId, institutionId));
-  return Array.from(new Set([owner?.userId, ...admins.map((admin) => admin.userId)].filter((id): id is number => Boolean(id))));
+  const userIds = Array.from(new Set([owner?.userId, ...admins.map((admin) => admin.userId)].filter((id): id is number => Boolean(id))));
+  if (userIds.length === 0) return [];
+  return db.select({ userId: users.id, email: users.email, phone: users.phone, name: users.name }).from(users).where(inArray(users.id, userIds));
+}
+
+function appUrl(): string {
+  return `${process.env.PUBLIC_APP_URL?.trim() || "https://www.paedsresus.com"}/institution?section=administration`;
+}
+
+async function deliverEmail(recipient: RenewalRecipient, copy: { title: string; body: string }): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  if (!recipient.email?.trim()) return { success: false, error: "Recipient has no email address." };
+  return sendEmail(recipient.email.trim(), "institutionalBatchNotice", {
+    subjectLine: copy.title,
+    bodyMessage: copy.body,
+    appLink: appUrl(),
+  });
+}
+
+async function deliverSms(recipient: RenewalRecipient, copy: { title: string; body: string }): Promise<{ success: boolean; error?: string }> {
+  const webhookUrl = process.env.INSTITUTION_SMS_WEBHOOK_URL?.trim();
+  const webhookToken = process.env.INSTITUTION_SMS_WEBHOOK_TOKEN?.trim();
+  if (!webhookUrl || !webhookToken) return { success: false, error: "Institution SMS delivery is not configured." };
+  if (!recipient.phone?.trim()) return { success: false, error: "Recipient has no phone number." };
+  try {
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${webhookToken}` },
+      body: JSON.stringify({ to: recipient.phone.trim(), message: `${copy.title}: ${copy.body}` }),
+    });
+    if (!response.ok) return { success: false, error: `SMS provider returned HTTP ${response.status}.` };
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "SMS delivery failed." };
+  }
+}
+
+async function deliverChannel(channel: DeliveryChannel, recipient: RenewalRecipient, copy: { title: string; body: string }) {
+  if (channel === "in_app") return { success: true as const };
+  if (channel === "email") return deliverEmail(recipient, copy);
+  return deliverSms(recipient, copy);
 }
 
 export async function queueRenewalNotifications(db: AppDb, now = new Date()): Promise<{ processed: number; sent: number; skipped: number; failed: number }> {
@@ -106,58 +168,75 @@ export async function queueRenewalNotifications(db: AppDb, now = new Date()): Pr
     if (!notificationType) continue;
     result.processed += 1;
     const preference = preferenceMap.get(`${subscription.institutionId}:${subscription.productKey}`);
-    if (preference?.inAppEnabled === false) {
-      result.skipped += 1;
-      continue;
-    }
     const configuredDays = (preference?.reminderDays ?? "30,14,7,0").split(",").map(Number).filter((day) => Number.isInteger(day));
     if (!configuredDays.includes(reminderDayForType(notificationType))) {
       result.skipped += 1;
       continue;
     }
-    const recipients = await institutionAdminUserIds(db, subscription.institutionId);
+    const channels = getRenewalDeliveryChannels(preference, {
+      emailConfigured: Boolean(process.env.SENDGRID_API_KEY?.trim() || process.env.MAILGUN_API_KEY?.trim() || (process.env.AWS_ACCESS_KEY_ID?.trim() && process.env.AWS_SECRET_ACCESS_KEY?.trim())),
+      smsConfigured: Boolean(process.env.INSTITUTION_SMS_WEBHOOK_URL?.trim() && process.env.INSTITUTION_SMS_WEBHOOK_TOKEN?.trim()),
+    });
+    if (channels.length === 0) {
+      result.skipped += 1;
+      continue;
+    }
+    const recipients = await institutionAdminRecipients(db, subscription.institutionId);
     const copy = notificationCopy(notificationType, subscription.displayName, subscription.renewsAt);
     const renewalKey = subscription.renewsAt?.toISOString().slice(0, 10) ?? subscription.subscriptionStatus;
 
-    for (const recipientUserId of recipients) {
-      const dedupeKey = `${subscription.institutionId}:${subscription.productId}:${subscription.subscriptionId}:${recipientUserId}:${notificationType}:${renewalKey}`;
-      const [existing] = await db.select({ id: institutionRenewalNotifications.id }).from(institutionRenewalNotifications).where(eq(institutionRenewalNotifications.dedupeKey, dedupeKey)).limit(1);
-      if (existing) {
-        result.skipped += 1;
-        continue;
-      }
+    for (const recipient of recipients) {
+      for (const channel of channels) {
+        const dedupeKey = `${subscription.institutionId}:${subscription.productId}:${subscription.subscriptionId}:${recipient.userId}:${channel}:${notificationType}:${renewalKey}`;
+        const [existing] = await db.select({ id: institutionRenewalNotifications.id }).from(institutionRenewalNotifications).where(eq(institutionRenewalNotifications.dedupeKey, dedupeKey)).limit(1);
+        if (existing) {
+          result.skipped += 1;
+          continue;
+        }
 
-      try {
-        const inserted = await db.insert(institutionRenewalNotifications).values({
-          institutionalAccountId: subscription.institutionId,
-          productId: subscription.productId,
-          subscriptionId: subscription.subscriptionId,
-          recipientUserId,
-          notificationType,
-          channel: "in_app",
-          status: "queued",
-          dedupeKey,
-          title: copy.title,
-          body: copy.body,
-          actionUrl: "/institution#billing",
-          scheduledFor: now,
-          attempts: 0,
-        });
-        const notificationId = (inserted as unknown as { insertId: number }).insertId;
-        await db.insert(inAppNotifications).values({
-          userId: recipientUserId,
-          type: "institutional_renewal",
-          title: copy.title,
-          body: copy.body,
-          actionUrl: "/institution#billing",
-          relatedId: notificationId || null,
-          read: false,
-        });
-        await db.update(institutionRenewalNotifications).set({ status: "sent", sentAt: now, attempts: 1, updatedAt: now }).where(eq(institutionRenewalNotifications.dedupeKey, dedupeKey));
-        result.sent += 1;
-      } catch (error) {
-        result.failed += 1;
-        await db.update(institutionRenewalNotifications).set({ status: "failed", failureReason: error instanceof Error ? error.message : "Unknown delivery failure", attempts: 1, updatedAt: now }).where(eq(institutionRenewalNotifications.dedupeKey, dedupeKey));
+        let notificationId: number | undefined;
+        try {
+          const inserted = await db.insert(institutionRenewalNotifications).values({
+            institutionalAccountId: subscription.institutionId,
+            productId: subscription.productId,
+            subscriptionId: subscription.subscriptionId,
+            recipientUserId: recipient.userId,
+            notificationType,
+            channel,
+            status: "queued",
+            dedupeKey,
+            title: copy.title,
+            body: copy.body,
+            actionUrl: appUrl(),
+            scheduledFor: now,
+            attempts: 0,
+          });
+          notificationId = (inserted as unknown as { insertId: number }).insertId;
+          const delivery = await deliverChannel(channel, recipient, copy);
+          if (delivery.success) {
+            if (channel === "in_app") {
+              await db.insert(inAppNotifications).values({
+                userId: recipient.userId,
+                type: "institutional_renewal",
+                title: copy.title,
+                body: copy.body,
+                actionUrl: appUrl(),
+                relatedId: notificationId || null,
+                read: false,
+              });
+            }
+            await db.update(institutionRenewalNotifications).set({ status: "sent", sentAt: now, attempts: 1, updatedAt: now }).where(eq(institutionRenewalNotifications.dedupeKey, dedupeKey));
+            result.sent += 1;
+          } else {
+            await db.update(institutionRenewalNotifications).set({ status: "failed", failureReason: delivery.error || "Delivery failed", attempts: 1, updatedAt: now }).where(eq(institutionRenewalNotifications.dedupeKey, dedupeKey));
+            result.failed += 1;
+          }
+        } catch (error) {
+          result.failed += 1;
+          if (notificationId) {
+            await db.update(institutionRenewalNotifications).set({ status: "failed", failureReason: error instanceof Error ? error.message : "Delivery failed", attempts: 1, updatedAt: now }).where(eq(institutionRenewalNotifications.dedupeKey, dedupeKey));
+          }
+        }
       }
     }
   }

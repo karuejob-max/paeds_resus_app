@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { determineRenewalNotificationType } from "./institution-renewal-notifications";
+import { determineRenewalNotificationType, getRenewalDeliveryChannels } from "./institution-renewal-notifications";
 
 describe("institution renewal notification windows", () => {
   const now = new Date("2026-08-22T00:00:00.000Z");
@@ -22,5 +22,11 @@ describe("institution renewal notification windows", () => {
   it("does not invent a reminder when no renewal date exists", () => {
     expect(determineRenewalNotificationType({ subscriptionStatus: "active", renewsAt: null }, now)).toBeNull();
     expect(determineRenewalNotificationType({ subscriptionStatus: "legacy_unclassified", renewsAt: null }, now)).toBeNull();
+  });
+
+  it("keeps only configured channels and defaults to in-app", () => {
+    expect(getRenewalDeliveryChannels(undefined, { emailConfigured: false, smsConfigured: false })).toEqual(["in_app"]);
+    expect(getRenewalDeliveryChannels({ inAppEnabled: false, emailEnabled: true, smsEnabled: true }, { emailConfigured: false, smsConfigured: true })).toEqual(["sms"]);
+    expect(getRenewalDeliveryChannels({ inAppEnabled: true, emailEnabled: true, smsEnabled: true }, { emailConfigured: true, smsConfigured: true })).toEqual(["in_app", "email", "sms"]);
   });
 });

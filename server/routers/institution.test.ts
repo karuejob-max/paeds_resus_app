@@ -30,6 +30,11 @@ const institutionDbMock = vi.hoisted(() => {
           orderBy: vi.fn().mockResolvedValue(rows),
         }),
       }),
+      selectDistinct: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([]),
+        }),
+      }),
       update: vi.fn().mockReturnValue(insertChain),
     }),
   };
