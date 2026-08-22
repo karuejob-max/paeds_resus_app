@@ -234,3 +234,7 @@ Post-e8121ca routing check: opening `/home` while the browser session remains in
 Post-e8121ca role-switch checkpoint: the authenticated session successfully changed from Institution to Individual provider mode and opened `/home`. The provider dashboard is still in its loading state; no production data was changed during this verification.
 
 Post-e8121ca provider regression check: the Individual provider portal loads successfully after role switching. Job Karue’s accepted Alpha ERTL and shift ERTL duties remain visible as active, and My Shift Readiness remains `Signed off`; the provider-owned IERS lane is present without an institution-side sign-off control. The active-membership revalidation release therefore did not remove valid duty visibility.
+
+Documentation rollout checkpoint: protected merge `7588915` is building on Render. The documentation-only bundle completed successfully and was uploading at 12:22:26 PM; no deployment failure is shown. The prior code deployment `e8121ca` remains live while this documentation deploy completes.
+
+Documentation deployment checkpoint: commit `7588915` completed its build and upload successfully and entered Render service deployment at 12:22:37 PM. No failure is shown; the deployment remains pending final live confirmation.
