@@ -77,6 +77,8 @@ export const REQUIRED_TABLES = [
   { key: "shiftUtlRosters", label: "shift UTL rosters", names: ["shift_utl_rosters", "shiftUtlRosters"] },
   { key: "departmentErcos", label: "department ERCo assignments", names: ["institution_department_response_coordinators", "institutionDepartmentResponseCoordinators"] },
   { key: "departmentErcoEvents", label: "department ERCo assignment history", names: ["institution_department_response_coordinator_events", "institutionDepartmentResponseCoordinatorEvents"] },
+  { key: "departmentReconciliations", label: "department reconciliation state", names: ["institution_department_reconciliations"] },
+  { key: "departmentAuditEvents", label: "department reconciliation audit history", names: ["institution_department_audit_events"] },
 ];
 
 export const REQUIRED_COLUMNS = [
@@ -144,6 +146,7 @@ export const REQUIRED_COLUMNS = [
   { tableKey: "facilityDepartments", label: "facility department active state", names: ["is_active", "isActive"] },
   { tableKey: "facilityDepartments", label: "facility department confirmation timestamp", names: ["confirmed_at", "confirmedAt"] },
   { tableKey: "facilityDepartments", label: "facility department confirmation actor", names: ["confirmed_by_user_id", "confirmedByUserId"] },
+  { tableKey: "facilityDepartments", label: "facility department IERS pole requirement", names: ["requires_pole", "requiresPole"] },
   { tableKey: "institutionalStaffMembers", label: "staff canonical facility department", names: ["facilityDepartmentId", "facility_department_id"] },
   { tableKey: "cpdAttendees", label: "CPD canonical facility department", names: ["facilityDepartmentId", "facility_department_id"] },
   { tableKey: "weeklyErtlRotations", label: "weekly ERTL department", names: ["department_id", "departmentId"] },
@@ -164,6 +167,12 @@ export const REQUIRED_COLUMNS = [
   { tableKey: "departmentErcos", label: "department ERCo uniqueness department", names: ["department_id", "departmentId"] },
   { tableKey: "departmentErcoEvents", label: "department ERCo event type", names: ["event_type", "eventType"] },
   { tableKey: "departmentErcoEvents", label: "department ERCo event actor", names: ["actor_user_id", "actorUserId"] },
+  { tableKey: "departmentReconciliations", label: "department reconciliation normalized label", names: ["normalized_label"] },
+  { tableKey: "departmentReconciliations", label: "department reconciliation review status", names: ["status"] },
+  { tableKey: "departmentReconciliations", label: "department reconciliation attendance count", names: ["attendance_count"] },
+  { tableKey: "departmentAuditEvents", label: "department reconciliation audit event type", names: ["event_type"] },
+  { tableKey: "departmentAuditEvents", label: "department reconciliation audit actor", names: ["actor_user_id"] },
+  { tableKey: "departmentAuditEvents", label: "department reconciliation audit reason", names: ["reason"] },
 ];
 
 async function main() {

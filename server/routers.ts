@@ -124,6 +124,7 @@ import { recommendationEngineRouter } from "./routers/recommendation-engine";
 import { streakTrackingRouter } from "./routers/streak-tracking";
 import { resusAutoLaunch } from "./routers/resus-auto-launch";
 import { adminNotifications } from "./routers/admin-notifications";
+import { institutionDepartmentReconciliation } from "./routers/institution-department-reconciliation";
 import { facilityBenchmarking } from "./routers/facility-benchmarking";
 import { coursesRouter } from "./routers/courses";
 import { fellowshipRouter } from "./routers/fellowship";
@@ -534,6 +535,7 @@ export const appRouter = router({
   provider: providerRouter,
   resusAutoLaunch,
   adminNotifications,
+  institutionDepartmentReconciliation,
   facilityBenchmarking,
   securityIntegration: securityIntegrationRouter,
   microCourses: microCoursesRouter,

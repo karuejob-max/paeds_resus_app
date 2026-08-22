@@ -39,7 +39,7 @@ export const INSTITUTIONAL_CAPABILITY_REGISTRY: readonly InstitutionalCapability
     renewalPolicy: "operational_continuity",
     requiredRoleKeys: IERS_VIEWER,
     routeKeys: ["/institution/iers", "/institution/iers/report"],
-    procedureNames: ["listDrills", "getPilotReadiness", "getImplementationPlan", "getMyShiftReadiness", "getEvidenceScorecard", "listEvidence", "listInstitutionActivations", "getMyActivations", "getTimeline"],
+    procedureNames: ["listDrills", "getPilotReadiness", "getImplementationPlan", "getMyShiftReadiness", "getEvidenceScorecard", "listEvidence", "listInstitutionActivations", "getMyActivations", "getTimeline", "getIersMissingPoleAlerts"],
     tableFamilies: ["iersDrills", "iersImplementationMilestones", "iersEvidenceRecords", "iersActivationEvents", "iersActivationTimeline"],
     allowedDuringActiveEvent: true,
   },

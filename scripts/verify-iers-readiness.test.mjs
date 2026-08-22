@@ -44,6 +44,8 @@ test("IERS verifier accepts the deployed mixed table naming contract", () => {
     "shift_utl_rosters",
     "institution_department_response_coordinators",
     "institution_department_response_coordinator_events",
+    "institution_department_reconciliations",
+    "institution_department_audit_events",
   ]);
 
   for (const requirement of REQUIRED_TABLES) {
@@ -115,6 +117,7 @@ test("IERS verifier accepts camelCase columns for the first two migration groups
     "is_active",
     "confirmed_at",
     "confirmed_by_user_id",
+    "requires_pole",
     "facilityDepartmentId",
     "ertl_user_id",
     "assignment_status",
@@ -127,6 +130,10 @@ test("IERS verifier accepts camelCase columns for the first two migration groups
     "effective_from",
     "event_type",
     "actor_user_id",
+    "normalized_label",
+    "attendance_count",
+    "event_type",
+    "reason",
   ]);
 
   for (const requirement of REQUIRED_COLUMNS) {
