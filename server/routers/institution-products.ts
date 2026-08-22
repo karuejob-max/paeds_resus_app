@@ -12,6 +12,8 @@ import {
   institutionalProductCapabilities,
   institutionalProducts,
   institutionProductRoles,
+  institutionAccountScopes,
+  institutionAccountScopeEvents,
   institutionDataLifecyclePolicies,
   institutionDataLifecycleRequests,
   iersActivationEvents,
@@ -22,6 +24,7 @@ import {
   cpdEvents,
   cpdAttendees,
   institutionSubscriptionPayments,
+  institutionSubscriptionPaymentIntents,
   institutionRenewalNotificationPreferences,
   institutionRenewalNotifications,
   institutionConnectedServices,
@@ -32,8 +35,10 @@ import {
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { assertInstitutionProductCapability, type InstitutionalProductKey, type ProductSubscriptionStatus } from "../lib/institution-entitlements";
-import { isKnownProductRole, PRODUCT_ROLE_DEFINITIONS, type InstitutionalProductRoleKey, type InstitutionalProductRoleStatus } from "../lib/institution-product-roles";
+import { assertInstitutionProductRole, isKnownProductRole, PRODUCT_ROLE_DEFINITIONS, type InstitutionalProductRoleKey, type InstitutionalProductRoleStatus } from "../lib/institution-product-roles";
 import { queueRenewalNotifications } from "../lib/institution-renewal-notifications";
+import { getMpesaService } from "../services/mpesa";
+import { assertInstitutionAccountScope, INSTITUTION_ACCOUNT_SCOPE_DEFINITIONS, isKnownInstitutionAccountScope, type InstitutionAccountScopeKey, type InstitutionAccountScopeStatus } from "../lib/institution-account-scopes";
 
 const PRODUCT_KEYS: InstitutionalProductKey[] = ["iers", "cpd_portal", "connected_services"];
 const LIFECYCLE_PRODUCT_KEYS = ["iers", "cpd_portal"] as const;
@@ -182,6 +187,7 @@ export const institutionProductsRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "connected_services", ["connected_services_viewer", "connected_services_manager"]);
       try {
         const services = await db.select().from(institutionConnectedServices).where(eq(institutionConnectedServices.enabled, true)).orderBy(institutionConnectedServices.serviceKey);
         return services.length ? services : FALLBACK_CONNECTED_SERVICES;
@@ -196,6 +202,7 @@ export const institutionProductsRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "connected_services", ["connected_services_viewer", "connected_services_manager"]);
       try {
         const [policy] = await db.select().from(safeTruthGovernancePolicies).where(eq(safeTruthGovernancePolicies.policyKey, "safe_truth_public_submission")).limit(1);
         return policy ?? FALLBACK_SAFE_TRUTH_POLICY;
@@ -340,6 +347,7 @@ export const institutionProductsRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["finance_officer", "account_admin"], { allowInstitutionAdmin: true });
       try {
         const predicates = [eq(institutionSubscriptionEvents.institutionalAccountId, input.institutionId)];
         if (input.productKey) {
@@ -378,6 +386,7 @@ export const institutionProductsRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
       try {
         const predicates = [eq(institutionProductRoles.institutionalAccountId, input.institutionId)];
         if (input.productKey) {
@@ -425,6 +434,7 @@ export const institutionProductsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
       const productKey = validProductKey(input.productKey);
       if (!isKnownProductRole(productKey, input.roleKey)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: `Role ${input.roleKey} is not valid for ${productKey}.` });
@@ -484,6 +494,7 @@ export const institutionProductsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
       const [role] = await db
         .select({ id: institutionProductRoles.id, productId: institutionProductRoles.productId, roleKey: institutionProductRoles.roleKey })
         .from(institutionProductRoles)
@@ -508,12 +519,151 @@ export const institutionProductsRouter = router({
       return { success: true as const, roleStatus: input.roleStatus };
     }),
 
+  /** Shared account-scope catalog used by Administration → People & roles. */
+  getAccountScopeDefinitions: protectedProcedure
+    .query(() => INSTITUTION_ACCOUNT_SCOPE_DEFINITIONS),
+
+  /** Shared administration read: account, finance, QI, accreditation, and reporting scopes. */
+  listAccountScopes: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin", "report_viewer"], { allowInstitutionAdmin: true });
+      try {
+        return await db
+          .select()
+          .from(institutionAccountScopes)
+          .where(eq(institutionAccountScopes.institutionalAccountId, input.institutionId))
+          .orderBy(desc(institutionAccountScopes.updatedAt));
+      } catch (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
+    }),
+
+  /** Institution administrator: grant or reactivate one shared account scope. */
+  grantAccountScope: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      invitedEmail: z.string().trim().email().max(320),
+      userId: z.number().int().positive().optional(),
+      scopeKey: z.string().trim().min(3).max(64),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+      if (!isKnownInstitutionAccountScope(input.scopeKey)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `Unknown institution scope: ${input.scopeKey}.` });
+      }
+      const invitedEmail = input.invitedEmail.toLowerCase();
+      await db
+        .insert(institutionAccountScopes)
+        .values({
+          institutionalAccountId: input.institutionId,
+          userId: input.userId ?? null,
+          invitedEmail,
+          scopeKey: input.scopeKey,
+          scopeStatus: "active",
+          grantedByUserId: ctx.user.id,
+          grantedAt: new Date(),
+          endedAt: null,
+        })
+        .onDuplicateKeyUpdate({
+          set: {
+            userId: input.userId ?? null,
+            scopeStatus: "active",
+            grantedByUserId: ctx.user.id,
+            grantedAt: new Date(),
+            endedAt: null,
+            updatedAt: new Date(),
+          },
+        });
+      const [scope] = await db
+        .select({ id: institutionAccountScopes.id, scopeStatus: institutionAccountScopes.scopeStatus })
+        .from(institutionAccountScopes)
+        .where(and(
+          eq(institutionAccountScopes.institutionalAccountId, input.institutionId),
+          eq(institutionAccountScopes.invitedEmail, invitedEmail),
+          eq(institutionAccountScopes.scopeKey, input.scopeKey),
+        ))
+        .limit(1);
+      if (!scope) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Institution scope could not be saved." });
+      await db.insert(institutionAccountScopeEvents).values({
+        institutionalAccountId: input.institutionId,
+        scopeId: scope.id,
+        eventType: "granted",
+        previousStatus: null,
+        currentStatus: scope.scopeStatus,
+        actorUserId: ctx.user.id,
+        reason: "Shared institution scope granted or reactivated by an institution administrator.",
+      });
+      return { success: true as const, scopeKey: input.scopeKey as InstitutionAccountScopeKey, invitedEmail };
+    }),
+
+  /** Institution administrator: suspend or end a shared account scope without deleting history. */
+  setAccountScopeStatus: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      scopeId: z.number().int().positive(),
+      scopeStatus: z.enum(["invited", "active", "suspended", "ended"]),
+      reason: z.string().trim().min(3).max(1000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+      const [scope] = await db
+        .select({ id: institutionAccountScopes.id, scopeStatus: institutionAccountScopes.scopeStatus, scopeKey: institutionAccountScopes.scopeKey })
+        .from(institutionAccountScopes)
+        .where(and(
+          eq(institutionAccountScopes.id, input.scopeId),
+          eq(institutionAccountScopes.institutionalAccountId, input.institutionId),
+        ))
+        .limit(1);
+      if (!scope) throw new TRPCError({ code: "NOT_FOUND", message: "Institution scope not found." });
+      await db.update(institutionAccountScopes).set({
+        scopeStatus: input.scopeStatus as InstitutionAccountScopeStatus,
+        endedAt: input.scopeStatus === "ended" ? new Date() : null,
+        updatedAt: new Date(),
+      }).where(eq(institutionAccountScopes.id, scope.id));
+      await db.insert(institutionAccountScopeEvents).values({
+        institutionalAccountId: input.institutionId,
+        scopeId: scope.id,
+        eventType: "status_changed",
+        previousStatus: scope.scopeStatus,
+        currentStatus: input.scopeStatus,
+        actorUserId: ctx.user.id,
+        reason: input.reason,
+      });
+      return { success: true as const, scopeStatus: input.scopeStatus };
+    }),
+
+  /** Platform/institution administrators: view the append-only scope history. */
+  listAccountScopeEvents: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), scopeId: z.number().int().positive().optional() }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin", "report_viewer"], { allowInstitutionAdmin: true });
+      try {
+        const predicates = [eq(institutionAccountScopeEvents.institutionalAccountId, input.institutionId)];
+        if (input.scopeId) predicates.push(eq(institutionAccountScopeEvents.scopeId, input.scopeId));
+        return await db.select().from(institutionAccountScopeEvents).where(and(...predicates)).orderBy(desc(institutionAccountScopeEvents.occurredAt)).limit(200);
+      } catch (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
+    }),
+
   /** Read product-scoped retention policies and the append-only lifecycle request history. */
   getDataLifecycle: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin", "finance_officer", "report_viewer"], { allowInstitutionAdmin: true });
       try {
         const [policies, requests] = await Promise.all([
           db.select().from(institutionDataLifecyclePolicies).where(eq(institutionDataLifecyclePolicies.institutionalAccountId, input.institutionId)).orderBy(institutionDataLifecyclePolicies.productKey),
@@ -538,6 +688,7 @@ export const institutionProductsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin", "finance_officer"], { allowInstitutionAdmin: true });
       const productKey = validLifecycleProductKey(input.productKey);
       await db.insert(institutionDataLifecyclePolicies).values({
         institutionalAccountId: input.institutionId,
@@ -573,6 +724,7 @@ export const institutionProductsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
       const productKey = validLifecycleRequestProductKey(input.productKey);
       const result = await db.insert(institutionDataLifecycleRequests).values({
         institutionalAccountId: input.institutionId,
@@ -586,6 +738,42 @@ export const institutionProductsRouter = router({
       return { success: true as const, requestId: (result as unknown as { insertId: number }).insertId, status: "requested" as const };
     }),
 
+  /** Platform administrator: review and progress a recovery or offboarding request without deleting data automatically. */
+  reviewDataLifecycleRequest: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      requestId: z.number().int().positive(),
+      status: z.enum(["approved", "in_progress", "completed", "cancelled"]),
+      reviewNote: z.string().trim().min(3).max(2000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Only Paeds Resus platform administrators can review lifecycle requests." });
+      const db = await requireDb();
+      const [request] = await db.select({ id: institutionDataLifecycleRequests.id, status: institutionDataLifecycleRequests.status, requestType: institutionDataLifecycleRequests.requestType })
+        .from(institutionDataLifecycleRequests)
+        .where(and(
+          eq(institutionDataLifecycleRequests.id, input.requestId),
+          eq(institutionDataLifecycleRequests.institutionalAccountId, input.institutionId),
+        ))
+        .limit(1);
+      if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "Lifecycle request not found for this institution." });
+      if (request.status === "completed" && input.status !== "completed") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A completed lifecycle request cannot be reopened or cancelled." });
+      }
+      const now = new Date();
+      await db.update(institutionDataLifecycleRequests).set({
+        status: input.status,
+        reviewedByUserId: ctx.user.id,
+        completedAt: input.status === "completed" ? now : null,
+        metadata: JSON.stringify({ reviewed: true, requestType: request.requestType, reviewNote: input.reviewNote }),
+        updatedAt: now,
+      }).where(and(
+        eq(institutionDataLifecycleRequests.id, input.requestId),
+        eq(institutionDataLifecycleRequests.institutionalAccountId, input.institutionId),
+      ));
+      return { success: true as const, status: input.status };
+    }),
+
   /** Institution administrator or explicit product role: export only the selected product’s structured records. */
   exportProductData: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive(), productKey: z.string() }))
@@ -593,9 +781,11 @@ export const institutionProductsRouter = router({
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const productKey = validLifecycleProductKey(input.productKey);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin", "finance_officer", "accreditation_reviewer", "report_viewer"], { allowInstitutionAdmin: true });
       const rows: Array<Record<string, unknown>> = [];
       if (productKey === "iers") {
         await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.reports.read");
+        await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", ["iers_viewer", "iers_coordinator", "iers_governance", "iers_reviewer", "iers_responder"]);
         const [events, evidence, actions, drills, milestones] = await Promise.all([
           db.select().from(iersActivationEvents).where(eq(iersActivationEvents.institutionalAccountId, input.institutionId)),
           db.select().from(iersEvidenceRecords).where(eq(iersEvidenceRecords.institutionId, input.institutionId)),
@@ -610,6 +800,7 @@ export const institutionProductsRouter = router({
         for (const milestone of milestones) rows.push({ record_type: "milestone", id: milestone.id, subtype: milestone.phaseName, status: milestone.status, priority: "", title: milestone.objective, department: "", observed_at: milestone.completedAt, scheduled_at: milestone.targetDate, source_type: "evidence", source_id: milestone.evidenceId, due_date: milestone.targetDate, closed_at: milestone.completedAt, reviewed_at: "" });
       } else {
         await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.reports.read");
+        await assertInstitutionProductRole(db, ctx.user, input.institutionId, "cpd_portal", ["cpd_viewer", "cpd_reporter", "cpd_coordinator", "cpd_reviewer"]);
         const [events, attendees] = await Promise.all([
           db.select().from(cpdEvents).where(eq(cpdEvents.institutionalAccountId, input.institutionId)),
           db.select().from(cpdAttendees).where(eq(cpdAttendees.institutionalAccountId, input.institutionId)),
@@ -636,12 +827,33 @@ export const institutionProductsRouter = router({
       return { success: true as const, productKey, recordCount: rows.length, filename: `institution-${input.institutionId}-${productKey}-export-${now.toISOString().slice(0, 10)}.csv`, content };
     }),
 
+  /** Report delivery configuration without returning provider credentials or secrets. */
+  getRenewalDeliveryCapabilities: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["finance_officer", "account_admin"], { allowInstitutionAdmin: true });
+      return {
+        inAppConfigured: true,
+        emailConfigured: Boolean(process.env.SENDGRID_API_KEY?.trim() || process.env.MAILGUN_API_KEY?.trim() || (process.env.AWS_ACCESS_KEY_ID?.trim() && process.env.AWS_SECRET_ACCESS_KEY?.trim())),
+        smsConfigured: Boolean(process.env.INSTITUTION_SMS_WEBHOOK_URL?.trim() && process.env.INSTITUTION_SMS_WEBHOOK_TOKEN?.trim()),
+        mpesaConfigured: Boolean(
+          process.env.MPESA_CONSUMER_KEY?.trim() &&
+          process.env.MPESA_CONSUMER_SECRET?.trim() &&
+          process.env.MPESA_PASSKEY?.trim() &&
+          (process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim() || process.env.DARAJA_SHORTCODE?.trim())
+        ),
+      };
+    }),
+
   /** Institution administrator: read and update opt-in renewal-notification preferences. */
   getRenewalPreferences: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["finance_officer", "account_admin"], { allowInstitutionAdmin: true });
       try {
         return db.select().from(institutionRenewalNotificationPreferences).where(eq(institutionRenewalNotificationPreferences.institutionalAccountId, input.institutionId)).orderBy(institutionRenewalNotificationPreferences.productKey);
       } catch (error) {
@@ -662,6 +874,7 @@ export const institutionProductsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["finance_officer", "account_admin"], { allowInstitutionAdmin: true });
       const reminderDays = Array.from(new Set(input.reminderDays)).sort((a, b) => b - a).join(",");
       await db.insert(institutionRenewalNotificationPreferences).values({
         institutionalAccountId: input.institutionId,
@@ -682,12 +895,85 @@ export const institutionProductsRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["finance_officer", "account_admin"], { allowInstitutionAdmin: true });
       try {
         return db.select().from(institutionRenewalNotifications).where(eq(institutionRenewalNotifications.institutionalAccountId, input.institutionId)).orderBy(desc(institutionRenewalNotifications.createdAt)).limit(input.limit);
       } catch (error) {
         if (isMissingTableError(error)) return [];
         throw error;
       }
+    }),
+
+  /** Start a verified Daraja STK payment for one institutional product renewal. */
+  initiateInstitutionMpesaPayment: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      productKey: z.enum(["iers", "cpd_portal"]),
+      amountCents: z.number().int().positive().max(15_000_000),
+      renewsAt: z.coerce.date(),
+      expiresAt: z.coerce.date().optional(),
+      phoneNumber: z.string().regex(/^254\d{9}$/, "Use Kenyan format 254XXXXXXXXX."),
+      idempotencyKey: z.string().trim().min(8).max(255),
+      planKey: z.string().trim().max(64).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["finance_officer", "account_admin"], { allowInstitutionAdmin: true });
+      const [existingIntent] = await db.select({ id: institutionSubscriptionPaymentIntents.id, checkoutRequestId: institutionSubscriptionPaymentIntents.checkoutRequestId, status: institutionSubscriptionPaymentIntents.status })
+        .from(institutionSubscriptionPaymentIntents)
+        .where(and(
+          eq(institutionSubscriptionPaymentIntents.institutionalAccountId, input.institutionId),
+          eq(institutionSubscriptionPaymentIntents.idempotencyKey, input.idempotencyKey),
+        ))
+        .limit(1);
+      if (existingIntent) return { success: true as const, duplicate: true as const, intentId: existingIntent.id, checkoutRequestId: existingIntent.checkoutRequestId, status: existingIntent.status };
+      const [product] = await db.select({ id: institutionalProducts.id, displayName: institutionalProducts.displayName }).from(institutionalProducts).where(eq(institutionalProducts.productKey, input.productKey)).limit(1);
+      if (!product) throw new TRPCError({ code: "NOT_FOUND", message: "Institutional product is not registered." });
+      let planId: number | null = null;
+      if (input.planKey) {
+        const [plan] = await db.select({ id: institutionalProductPlans.id }).from(institutionalProductPlans).where(and(eq(institutionalProductPlans.productId, product.id), eq(institutionalProductPlans.planKey, input.planKey))).limit(1);
+        if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Product plan is not registered." });
+        planId = plan.id;
+      }
+      const accountReference = `PR${input.institutionId}${input.productKey === "iers" ? "I" : "C"}${Date.now().toString().slice(-8)}`.slice(0, 40);
+      const stkResponse = await getMpesaService().initiateSTKPush(
+        input.phoneNumber,
+        Math.max(1, Math.round(input.amountCents / 100)),
+        accountReference,
+        `${product.displayName} institutional renewal`,
+      );
+      const result = await db.insert(institutionSubscriptionPaymentIntents).values({
+        institutionalAccountId: input.institutionId,
+        productId: product.id,
+        planId,
+        renewsAt: input.renewsAt,
+        expiresAt: input.expiresAt ?? input.renewsAt,
+        amountCents: input.amountCents,
+        phoneNumber: input.phoneNumber,
+        accountReference,
+        checkoutRequestId: stkResponse.CheckoutRequestID,
+        merchantRequestId: stkResponse.MerchantRequestID ?? null,
+        idempotencyKey: input.idempotencyKey,
+        status: "pending",
+        createdByUserId: ctx.user.id,
+      });
+      return { success: true as const, duplicate: false as const, intentId: (result as unknown as { insertId: number }).insertId, checkoutRequestId: stkResponse.CheckoutRequestID, merchantRequestId: stkResponse.MerchantRequestID, status: "pending" as const, message: stkResponse.CustomerMessage };
+    }),
+
+  /** Read one institutional payment intent while it is waiting for the Daraja callback. */
+  getInstitutionMpesaPaymentStatus: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), checkoutRequestId: z.string().trim().min(3).max(255) }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["finance_officer", "account_admin", "report_viewer"], { allowInstitutionAdmin: true });
+      const [intent] = await db.select({ id: institutionSubscriptionPaymentIntents.id, status: institutionSubscriptionPaymentIntents.status, mpesaReceiptNumber: institutionSubscriptionPaymentIntents.mpesaReceiptNumber, failureReason: institutionSubscriptionPaymentIntents.failureReason, updatedAt: institutionSubscriptionPaymentIntents.updatedAt })
+        .from(institutionSubscriptionPaymentIntents)
+        .where(and(eq(institutionSubscriptionPaymentIntents.institutionalAccountId, input.institutionId), eq(institutionSubscriptionPaymentIntents.checkoutRequestId, input.checkoutRequestId)))
+        .limit(1);
+      if (!intent) throw new TRPCError({ code: "NOT_FOUND", message: "Institutional payment intent not found." });
+      return intent;
     }),
 
   /** Platform administrator or an authenticated payment callback adapter: record one idempotent institutional payment and renew a product. */

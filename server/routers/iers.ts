@@ -29,6 +29,7 @@ import { isMissingTableError } from "../lib/is-missing-db-table";
 import { canAdvanceIersActivation } from "../lib/iers-state";
 import { buildIersEvidenceScorecard } from "../lib/iers-criteria";
 import { evaluateIersPilotReadiness } from "../lib/iers-pilot-readiness";
+import { assertInstitutionProcedureAccess } from "../lib/institution-capabilities";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 type ActivationStatus =
@@ -265,7 +266,7 @@ export const iersRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
-      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
+      await assertInstitutionProcedureAccess(db, ctx.user, input.institutionId, "iers", "getPilotReadiness");
       await assertInstitutionOrMember(db, ctx.user, input.institutionId);
 
       const activeMemberships = await db
@@ -503,7 +504,7 @@ export const iersRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
-      await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
+      await assertInstitutionProcedureAccess(db, ctx.user, input.institutionId, "iers", "getImplementationPlan");
       await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       let milestones = await db.select().from(iersImplementationMilestones).where(eq(iersImplementationMilestones.institutionId, input.institutionId)).orderBy(iersImplementationMilestones.phaseOrder);
       if (milestones.length === 0) {

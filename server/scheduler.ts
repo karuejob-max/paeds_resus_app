@@ -8,6 +8,7 @@ import { runScheduledCertificateRenewalReminders } from "./certificate-renewal-c
 import { runScheduledFellowshipProgressSync } from "./services/fellowship-progress.service";
 import { runSafeTruthFacilityMatching, runSafeTruthEventCodeLinkage } from "./lib/safe-truth-facility-matcher";
 import { runPatternDetection, runConfidenceDowngrade } from "./lib/fpkb-pattern-detector";
+import { queueRenewalNotifications } from "./lib/institution-renewal-notifications";
 
 function useMpesaMock(): boolean {
   const v = process.env.MPESA_USE_MOCK?.trim().toLowerCase();
@@ -73,6 +74,9 @@ export function initializeScheduler() {
   // flagged in WORK_STATUS.md, not silently fixed here).
   scheduleConceptDriftReview();
 
+  // Institutional Portal: deterministic renewal reminders with per-channel dedupe.
+  scheduleInstitutionalRenewalNotifications();
+
   // Platform ops: email alerts for stale payments, critical errors, backlogs
   scheduleAdminOpsAlerts();
 
@@ -99,6 +103,21 @@ function scheduleStaleMpesaReconciliation() {
       console.error("[Scheduler] stale M-Pesa reconcile failed:", error);
     }
   });
+}
+
+/** Institutional renewal reminders; delivery remains provider- and preference-gated. */
+function scheduleInstitutionalRenewalNotifications() {
+  cron.schedule("30 5 * * *", async () => {
+    try {
+      const db = await requireDb();
+      const result = await queueRenewalNotifications(db);
+      if (result.processed > 0 || result.sent > 0 || result.failed > 0) {
+        console.log(`[Scheduler] institutional renewal notifications: processed=${result.processed} sent=${result.sent} failed=${result.failed} skipped=${result.skipped}`);
+      }
+    } catch (error) {
+      console.error("[Scheduler] institutional renewal notifications failed:", error);
+    }
+  }, { timezone: "Africa/Nairobi" });
 }
 
 function scheduleAdminOpsAlerts() {
