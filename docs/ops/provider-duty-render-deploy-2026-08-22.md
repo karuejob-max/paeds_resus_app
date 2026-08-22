@@ -266,3 +266,13 @@ Render deployment `dep-da4raf0jo6nc73ehgpmg` for merged commit `e3708f1` (`feat(
 ## Final documentation deployment
 
 Render deployment `dep-da4rd2favr4c73bd7lk0` for protected documentation merge `1d6d83e` (PR #504) is confirmed **live** at approximately 14:49 on 2026-08-22. This completes the protected delivery and documentation synchronization for the authorization fixture, mobile IERS header fix, and new-user orientation guide.
+
+
+## Final protected documentation deployment checkpoint
+
+After PR #505 merged as `7c24615`, Render started deployment `dep-da4rg8navr4c73bdaggg` at approximately 14:54 on 2026-08-22. The prior `1d6d83e` deployment remains live while the final documentation-only deployment is in progress; no failure is shown and no production data operation is involved.
+
+
+## Final evidence deployment live
+
+Render deployment `dep-da4rg8navr4c73bdaggg` for protected commit `7c24615` (PR #505) is confirmed **live** at approximately 14:56 on 2026-08-22. The production service is healthy; this documentation-only deployment required no migration and no production data write.
