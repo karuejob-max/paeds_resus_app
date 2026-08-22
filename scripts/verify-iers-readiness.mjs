@@ -57,6 +57,9 @@ export const REQUIRED_TABLES = [
   { key: "entitlementAudit", label: "entitlement audit log", names: ["institutionEntitlementAuditLog", "institution_entitlement_audit_log"] },
   { key: "lifecyclePolicies", label: "data lifecycle policies", names: ["institutionDataLifecyclePolicies", "institution_data_lifecycle_policies"] },
   { key: "lifecycleRequests", label: "data lifecycle requests", names: ["institutionDataLifecycleRequests", "institution_data_lifecycle_requests"] },
+  { key: "subscriptionPayments", label: "institutional subscription payments", names: ["institutionSubscriptionPayments", "institution_subscription_payments"] },
+  { key: "renewalPreferences", label: "renewal notification preferences", names: ["institutionRenewalNotificationPreferences", "institution_renewal_notification_preferences"] },
+  { key: "renewalNotifications", label: "renewal notification history", names: ["institutionRenewalNotifications", "institution_renewal_notifications"] },
 ];
 
 export const REQUIRED_COLUMNS = [
@@ -92,6 +95,13 @@ export const REQUIRED_COLUMNS = [
   { tableKey: "lifecycleRequests", label: "lifecycle request type", names: ["requestType", "request_type"] },
   { tableKey: "lifecycleRequests", label: "lifecycle request status", names: ["status"] },
   { tableKey: "lifecycleRequests", label: "lifecycle request reason", names: ["reason"] },
+  { tableKey: "subscriptionPayments", label: "subscription payment reference", names: ["paymentReference", "payment_reference"] },
+  { tableKey: "subscriptionPayments", label: "subscription payment idempotency", names: ["idempotencyKey", "idempotency_key"] },
+  { tableKey: "renewalPreferences", label: "renewal in-app preference", names: ["inAppEnabled", "in_app_enabled"] },
+  { tableKey: "renewalPreferences", label: "renewal reminder days", names: ["reminderDays", "reminder_days"] },
+  { tableKey: "renewalNotifications", label: "renewal notification dedupe", names: ["dedupeKey", "dedupe_key"] },
+  { tableKey: "renewalNotifications", label: "renewal notification status", names: ["status"] },
+  { tableKey: "renewalNotifications", label: "renewal notification channel", names: ["channel"] },
 ];
 
 async function main() {

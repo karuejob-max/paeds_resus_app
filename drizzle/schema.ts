@@ -1493,6 +1493,77 @@ export const institutionDataLifecycleRequests = mysqlTable("institutionDataLifec
 export type InstitutionDataLifecycleRequest = typeof institutionDataLifecycleRequests.$inferSelect;
 export type InsertInstitutionDataLifecycleRequest = typeof institutionDataLifecycleRequests.$inferInsert;
 
+/** Payment receipts linked to an institutional product subscription. */
+export const institutionSubscriptionPayments = mysqlTable("institutionSubscriptionPayments", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  productId: int("productId").notNull(),
+  subscriptionId: int("subscriptionId"),
+  paymentMethod: mysqlEnum("paymentMethod", ["mpesa", "bank_transfer", "card"]).notNull(),
+  amountCents: int("amountCents").notNull(),
+  currency: varchar("currency", { length: 3 }).default("KES").notNull(),
+  paymentReference: varchar("paymentReference", { length: 255 }).notNull(),
+  idempotencyKey: varchar("idempotencyKey", { length: 255 }).notNull(),
+  status: mysqlEnum("status", ["pending", "completed", "failed"]).default("completed").notNull(),
+  receivedAt: timestamp("receivedAt").defaultNow().notNull(),
+  metadata: json("metadata"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  paymentIdempotencyUnique: uniqueIndex("institutionSubscriptionPayments_idempotency_unique").on(table.idempotencyKey),
+  paymentReferenceUnique: uniqueIndex("institutionSubscriptionPayments_payment_reference_unique").on(table.paymentReference),
+  institutionProductIndex: index("institutionSubscriptionPayments_institution_product_idx").on(table.institutionalAccountId, table.productId),
+}));
+export type InstitutionSubscriptionPayment = typeof institutionSubscriptionPayments.$inferSelect;
+export type InsertInstitutionSubscriptionPayment = typeof institutionSubscriptionPayments.$inferInsert;
+
+/** Institution-owned renewal reminder preferences; external channels remain opt-in. */
+export const institutionRenewalNotificationPreferences = mysqlTable("institutionRenewalNotificationPreferences", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  productKey: varchar("productKey", { length: 64 }).notNull(),
+  inAppEnabled: boolean("inAppEnabled").default(true).notNull(),
+  emailEnabled: boolean("emailEnabled").default(false).notNull(),
+  smsEnabled: boolean("smsEnabled").default(false).notNull(),
+  reminderDays: varchar("reminderDays", { length: 64 }).default("30,14,7,0").notNull(),
+  updatedByUserId: int("updatedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionProductUnique: uniqueIndex("institutionRenewalNotificationPreferences_institution_product_unique").on(table.institutionalAccountId, table.productKey),
+}));
+export type InstitutionRenewalNotificationPreference = typeof institutionRenewalNotificationPreferences.$inferSelect;
+export type InsertInstitutionRenewalNotificationPreference = typeof institutionRenewalNotificationPreferences.$inferInsert;
+
+/** Deduplicated renewal notices and delivery history. */
+export const institutionRenewalNotifications = mysqlTable("institutionRenewalNotifications", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  productId: int("productId").notNull(),
+  subscriptionId: int("subscriptionId"),
+  recipientUserId: int("recipientUserId").notNull(),
+  notificationType: mysqlEnum("notificationType", ["renewal_30d", "renewal_14d", "renewal_7d", "renewal_due", "past_due", "grace_started", "expired"]).notNull(),
+  channel: mysqlEnum("channel", ["in_app", "email", "sms"]).default("in_app").notNull(),
+  status: mysqlEnum("status", ["queued", "sent", "failed", "cancelled"]).default("queued").notNull(),
+  dedupeKey: varchar("dedupeKey", { length: 255 }).notNull(),
+  title: varchar("title", { length: 256 }).notNull(),
+  body: text("body").notNull(),
+  actionUrl: varchar("actionUrl", { length: 512 }),
+  scheduledFor: timestamp("scheduledFor").defaultNow().notNull(),
+  sentAt: timestamp("sentAt"),
+  failureReason: text("failureReason"),
+  attempts: int("attempts").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  dedupeUnique: uniqueIndex("institutionRenewalNotifications_dedupe_unique").on(table.dedupeKey),
+  institutionStatusIndex: index("institutionRenewalNotifications_institution_status_idx").on(table.institutionalAccountId, table.status),
+  scheduledIndex: index("institutionRenewalNotifications_scheduled_idx").on(table.status, table.scheduledFor),
+}));
+export type InstitutionRenewalNotification = typeof institutionRenewalNotifications.$inferSelect;
+export type InsertInstitutionRenewalNotification = typeof institutionRenewalNotifications.$inferInsert;
+
+
 /**
  * Shared provider–institution membership. This is deliberately separate from
  * institutionalStaffMembers: the latter remains the operational roster and

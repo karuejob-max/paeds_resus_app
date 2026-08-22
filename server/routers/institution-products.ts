@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, or } from "drizzle-orm";
 import { getDb } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
 import {
@@ -21,11 +21,15 @@ import {
   iersImplementationMilestones,
   cpdEvents,
   cpdAttendees,
+  institutionSubscriptionPayments,
+  institutionRenewalNotificationPreferences,
+  institutionRenewalNotifications,
 } from "../../drizzle/schema";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { assertInstitutionProductCapability, type InstitutionalProductKey, type ProductSubscriptionStatus } from "../lib/institution-entitlements";
 import { isKnownProductRole, PRODUCT_ROLE_DEFINITIONS, type InstitutionalProductRoleKey, type InstitutionalProductRoleStatus } from "../lib/institution-product-roles";
+import { queueRenewalNotifications } from "../lib/institution-renewal-notifications";
 
 const PRODUCT_KEYS: InstitutionalProductKey[] = ["iers", "cpd_portal", "connected_services"];
 const LIFECYCLE_PRODUCT_KEYS = ["iers", "cpd_portal"] as const;
@@ -525,6 +529,112 @@ export const institutionProductsRouter = router({
         completedAt: now,
       });
       return { success: true as const, productKey, recordCount: rows.length, filename: `institution-${input.institutionId}-${productKey}-export-${now.toISOString().slice(0, 10)}.csv`, content };
+    }),
+
+  /** Institution administrator: read and update opt-in renewal-notification preferences. */
+  getRenewalPreferences: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      try {
+        return db.select().from(institutionRenewalNotificationPreferences).where(eq(institutionRenewalNotificationPreferences.institutionalAccountId, input.institutionId)).orderBy(institutionRenewalNotificationPreferences.productKey);
+      } catch (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
+    }),
+
+  updateRenewalPreferences: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      productKey: z.enum(["iers", "cpd_portal"]),
+      inAppEnabled: z.boolean(),
+      emailEnabled: z.boolean(),
+      smsEnabled: z.boolean(),
+      reminderDays: z.array(z.number().int().min(0).max(365)).min(1).max(8),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const reminderDays = Array.from(new Set(input.reminderDays)).sort((a, b) => b - a).join(",");
+      await db.insert(institutionRenewalNotificationPreferences).values({
+        institutionalAccountId: input.institutionId,
+        productKey: input.productKey,
+        inAppEnabled: input.inAppEnabled,
+        emailEnabled: input.emailEnabled,
+        smsEnabled: input.smsEnabled,
+        reminderDays,
+        updatedByUserId: ctx.user.id,
+      }).onDuplicateKeyUpdate({
+        set: { inAppEnabled: input.inAppEnabled, emailEnabled: input.emailEnabled, smsEnabled: input.smsEnabled, reminderDays, updatedByUserId: ctx.user.id, updatedAt: new Date() },
+      });
+      return { success: true as const, productKey: input.productKey, reminderDays };
+    }),
+
+  getRenewalNotifications: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), limit: z.number().int().min(1).max(100).default(50) }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      try {
+        return db.select().from(institutionRenewalNotifications).where(eq(institutionRenewalNotifications.institutionalAccountId, input.institutionId)).orderBy(desc(institutionRenewalNotifications.createdAt)).limit(input.limit);
+      } catch (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
+    }),
+
+  /** Platform administrator or an authenticated payment callback adapter: record one idempotent institutional payment and renew a product. */
+  confirmInstitutionPayment: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      productKey: z.enum(["iers", "cpd_portal"]),
+      paymentMethod: z.enum(["mpesa", "bank_transfer", "card"]),
+      amountCents: z.number().int().positive(),
+      paymentReference: z.string().trim().min(3).max(255),
+      idempotencyKey: z.string().trim().min(8).max(255),
+      renewsAt: z.coerce.date(),
+      expiresAt: z.coerce.date().optional(),
+      planKey: z.string().trim().max(64).optional(),
+      quotationId: z.number().int().positive().optional(),
+      contractId: z.number().int().positive().optional(),
+      reason: z.string().trim().min(3).max(1000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Only Paeds Resus platform administrators can confirm institutional payments." });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const [existingPayment] = await db.select({ id: institutionSubscriptionPayments.id, subscriptionId: institutionSubscriptionPayments.subscriptionId }).from(institutionSubscriptionPayments).where(or(eq(institutionSubscriptionPayments.idempotencyKey, input.idempotencyKey), eq(institutionSubscriptionPayments.paymentReference, input.paymentReference))).limit(1);
+      if (existingPayment) return { success: true as const, duplicate: true as const, paymentId: existingPayment.id, subscriptionId: existingPayment.subscriptionId };
+
+      const [product] = await db.select({ id: institutionalProducts.id }).from(institutionalProducts).where(eq(institutionalProducts.productKey, input.productKey)).limit(1);
+      if (!product) throw new TRPCError({ code: "NOT_FOUND", message: "Institutional product is not registered." });
+      let planId: number | null = null;
+      if (input.planKey) {
+        const [plan] = await db.select({ id: institutionalProductPlans.id }).from(institutionalProductPlans).where(and(eq(institutionalProductPlans.productId, product.id), eq(institutionalProductPlans.planKey, input.planKey))).limit(1);
+        if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Product plan is not registered." });
+        planId = plan.id;
+      }
+      const [previous] = await db.select({ id: institutionProductSubscriptions.id, subscriptionStatus: institutionProductSubscriptions.subscriptionStatus, startsAt: institutionProductSubscriptions.startsAt }).from(institutionProductSubscriptions).where(and(eq(institutionProductSubscriptions.institutionalAccountId, input.institutionId), eq(institutionProductSubscriptions.productId, product.id))).limit(1);
+      const now = new Date();
+      await db.insert(institutionProductSubscriptions).values({ institutionalAccountId: input.institutionId, productId: product.id, planId, subscriptionStatus: "active", startsAt: previous?.startsAt ?? now, renewsAt: input.renewsAt, expiresAt: input.expiresAt ?? input.renewsAt, graceEndsAt: null, source: "payment", quotationId: input.quotationId ?? null, contractId: input.contractId ?? null, externalReference: input.paymentReference, notes: input.reason }).onDuplicateKeyUpdate({ set: { planId, subscriptionStatus: "active", renewsAt: input.renewsAt, expiresAt: input.expiresAt ?? input.renewsAt, graceEndsAt: null, cancelledAt: null, source: "payment", quotationId: input.quotationId ?? null, contractId: input.contractId ?? null, externalReference: input.paymentReference, notes: input.reason, updatedAt: now } });
+      const [subscription] = await db.select({ id: institutionProductSubscriptions.id }).from(institutionProductSubscriptions).where(and(eq(institutionProductSubscriptions.institutionalAccountId, input.institutionId), eq(institutionProductSubscriptions.productId, product.id))).limit(1);
+      const capabilityRows = await db.select({ capabilityKey: institutionalProductCapabilities.capabilityKey }).from(institutionalProductCapabilities).where(and(eq(institutionalProductCapabilities.productId, product.id), eq(institutionalProductCapabilities.status, "active")));
+      for (const capability of capabilityRows) {
+        await db.insert(institutionProductEntitlements).values({ institutionalAccountId: input.institutionId, productId: product.id, subscriptionId: subscription?.id ?? null, capabilityKey: capability.capabilityKey, entitlementStatus: "active", startsAt: now, endsAt: input.expiresAt ?? input.renewsAt }).onDuplicateKeyUpdate({ set: { subscriptionId: subscription?.id ?? null, entitlementStatus: "active", startsAt: now, endsAt: input.expiresAt ?? input.renewsAt, updatedAt: now } });
+      }
+      const paymentInsert = await db.insert(institutionSubscriptionPayments).values({ institutionalAccountId: input.institutionId, productId: product.id, subscriptionId: subscription?.id ?? null, paymentMethod: input.paymentMethod, amountCents: input.amountCents, paymentReference: input.paymentReference, idempotencyKey: input.idempotencyKey, status: "completed", receivedAt: now, metadata: JSON.stringify({ planKey: input.planKey ?? null, quotationId: input.quotationId ?? null, contractId: input.contractId ?? null }) });
+      await db.insert(institutionSubscriptionEvents).values({ institutionalAccountId: input.institutionId, productId: product.id, subscriptionId: subscription?.id ?? null, eventType: previous ? "renewed" : "payment_succeeded", previousStatus: previous?.subscriptionStatus ?? null, currentStatus: "active", actorUserId: ctx.user.id, reason: input.reason, reference: input.paymentReference });
+      return { success: true as const, duplicate: false as const, paymentId: (paymentInsert as unknown as { insertId: number }).insertId, subscriptionId: subscription?.id ?? null, productKey: input.productKey, subscriptionStatus: "active" as const };
+    }),
+
+  /** Platform administrator or a configured web cron invokes this deterministic processor. */
+  processRenewalNotifications: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      const db = await requireDb();
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Only Paeds Resus platform administrators can process renewal notifications." });
+      return queueRenewalNotifications(db);
     }),
 
   /** Shared administration mutation: change a subscription only through an auditable status event. */
