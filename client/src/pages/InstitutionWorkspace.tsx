@@ -34,6 +34,7 @@ import { CohortProgressWidget } from "@/components/CohortProgressWidget";
 import { Phase1ProofReviewWidget } from "@/components/Phase1ProofReviewWidget";
 import { ErtRosterPanel } from "@/components/ErtRosterPanel";
 import { EquipmentAuditPanel } from "@/components/EquipmentAuditPanel";
+import { InstitutionErcoGovernancePanel } from "@/components/InstitutionErcoGovernancePanel";
 import { InstitutionIersCompetencyPanel } from "@/components/InstitutionIersCompetencyPanel";
 import CpdPanel from "@/components/CpdPanel";
 import InstitutionAdministrationPanel from "@/components/InstitutionAdministrationPanel";
@@ -285,7 +286,7 @@ export default function InstitutionWorkspace() {
                   <CohortProgressWidget institutionId={institutionId} />
                   <Phase1ProofReviewWidget institutionId={institutionId} />
                 </TabsContent>
-                <TabsContent value="workforce" className="grid gap-6 xl:grid-cols-2"><ErtRosterPanel institutionId={institutionId} /><EquipmentAuditPanel institutionId={institutionId} /></TabsContent>
+                <TabsContent value="workforce" className="space-y-6"><InstitutionErcoGovernancePanel institutionId={institutionId} /><div className="grid gap-6 xl:grid-cols-2"><ErtRosterPanel institutionId={institutionId} /><EquipmentAuditPanel institutionId={institutionId} /></div></TabsContent>
                 <TabsContent value="plan"><IersImplementationPlanPanel institutionId={institutionId} /></TabsContent>
                 <TabsContent value="report"><IersExecutiveReportPanel institutionId={institutionId} /></TabsContent>
               </Tabs>

@@ -42,6 +42,8 @@
     "db:apply-0108": "node scripts/apply-0108-institution-account-scopes.mjs",
     "db:apply-0109": "node scripts/apply-0109-training-schedule-end-date.mjs",
     "db:apply-0110": "node scripts/apply-0110-institution-mpesa-intents.mjs",
+    "db:apply-0111": "node scripts/apply-0111-department-ercos.mjs",
+    "db:apply-0112": "node scripts/apply-0112-roster-assignment-acceptance.mjs",
     "db:fresh-migrate": "node scripts/db-snapshot-and-fresh-migrate.mjs",
     "db:test-connection": "node scripts/test-db-connection.mjs",
     "verify:fpkb-app-layer": "tsx -r dotenv/config scripts/verify-fpkb-app-layer.mjs",

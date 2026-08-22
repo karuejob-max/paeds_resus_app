@@ -35,6 +35,12 @@ test("IERS verifier accepts the deployed mixed table naming contract", () => {
     "institutionConnectedServiceEvents",
     "safeTruthGovernancePolicies",
     "safeTruthGovernancePolicyEvents",
+    "facility_poles",
+    "facility_departments",
+    "ertl_weekly_rotations",
+    "shift_utl_rosters",
+    "institution_department_response_coordinators",
+    "institution_department_response_coordinator_events",
   ]);
 
   for (const requirement of REQUIRED_TABLES) {
@@ -100,6 +106,17 @@ test("IERS verifier accepts camelCase columns for the first two migration groups
     "allowedRoute",
     "patientIdentifiersAllowed",
     "providerLinkageAllowed",
+    "institution_id",
+    "pole_id",
+    "department_id",
+    "ertl_user_id",
+    "assignment_status",
+    "accepted_at",
+    "utl_user_id",
+    "coordinator_user_id",
+    "effective_from",
+    "event_type",
+    "actor_user_id",
   ]);
 
   for (const requirement of REQUIRED_COLUMNS) {

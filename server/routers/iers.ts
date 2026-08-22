@@ -604,6 +604,8 @@ export const iersRouter = router({
           shiftDate: shiftUtlRosters.shiftDate,
           shiftType: shiftUtlRosters.shiftType,
           isShiftErtl: shiftUtlRosters.isShiftErtl,
+          assignmentStatus: shiftUtlRosters.assignmentStatus,
+          acceptedAt: shiftUtlRosters.acceptedAt,
           readinessSignOffAt: shiftUtlRosters.readinessSignOffAt,
           readinessNote: shiftUtlRosters.readinessNote,
           status: shiftUtlRosters.status,
@@ -616,6 +618,7 @@ export const iersRouter = router({
         .where(and(
           eq(shiftUtlRosters.utlUserId, ctx.user.id),
           eq(shiftUtlRosters.status, "active"),
+          eq(shiftUtlRosters.assignmentStatus, "active"),
           gte(shiftUtlRosters.shiftDate, today),
           lte(shiftUtlRosters.shiftDate, horizon),
         ))
@@ -641,6 +644,7 @@ export const iersRouter = router({
       await assertInstitutionProductCapability(db, roster.institutionId, "iers", "iers.team_readiness.operate");
       await assertProviderCanOperate(db, ctx.user, roster.institutionId);
       if (roster.status !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: "Only active shifts can be signed off." });
+      if (roster.assignmentStatus !== "active" || !roster.acceptedAt) throw new TRPCError({ code: "BAD_REQUEST", message: "Accept the dated shift assignment before signing off readiness." });
 
       const signedOffAt = new Date();
       await db

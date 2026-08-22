@@ -252,6 +252,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                         year,
                         startDate: weekStart,
                         endDate: weekEnd,
+                        ertlUserId: weeklyRotation?.ertlUserId ?? null,
                       })
                     }
                   >
@@ -266,6 +267,28 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                       ))}
                     </SelectContent>
                   </Select>
+                  <Select
+                    value={weeklyRotation?.ertlUserId ? String(weeklyRotation.ertlUserId) : "none"}
+                    onValueChange={(providerId) => ertlDepartmentId && setErtlMutation.mutate({
+                      institutionId,
+                      poleId: activePoleId,
+                      departmentId: ertlDepartmentId,
+                      weekNumber,
+                      year,
+                      startDate: weekStart,
+                      endDate: weekEnd,
+                      ertlUserId: providerId === "none" ? null : parseInt(providerId, 10),
+                    })}
+                  >
+                    <SelectTrigger className="w-[220px] h-8 text-xs bg-white dark:bg-background">
+                      <SelectValue placeholder="Assign named ERTL provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No named ERTL yet</SelectItem>
+                      {staffMembers?.filter((staff) => staff.userId != null).map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}>{staff.staffName} ({staff.staffRole})</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {ertlDepartmentId && <Badge variant={weeklyRotation?.assignmentStatus === "active" ? "default" : "secondary"}>{weeklyRotation?.ertlUserId ? weeklyRotation.assignmentStatus === "pending_acceptance" ? "ERTL acceptance pending" : "ERTL accepted" : "No named ERTL"}</Badge>}
                 </div>
               )}
             </div>
