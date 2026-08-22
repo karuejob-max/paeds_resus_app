@@ -104,3 +104,48 @@ Last updated: 2026-08-22 during provider-duty rollout.
 - Migrations `0111` and `0112` passed in production. The strict `db:verify-iers` check passed all required IERS, institutional product-entitlement, account-scope, lifecycle, payment, connected-service, Safe Truth, facility, ERTL, UTL, and department ERCo checks.
 - The shell returned to a normal prompt with the explicit lines `IERS verification PASSED — IERS operational objects and institutional product-entitlement objects are present`, `[IERS] PASSED: db:verify-iers`, and `[IERS] All migrations applied and the production schema verification passed.`
 - The production database write is complete. No pilot drill has been started.
+
+## Production UI smoke-test readiness
+
+- The live app loaded at `https://www.paedsresus.com` in an authenticated institution session for Consolata Hospital Mathari.
+- The institution workspace shows IERS and CPD Portal active, with separate IERS, CPD Portal, Administration, and Connected Services lanes.
+- The IERS workforce panel renders the department ERCo governance notice and explicitly states that each department has exactly one standing ERCo with optional backup, dated assignment, and named-provider acceptance.
+- The current production institution has no ERT roster departments in the selected North Pole, so there is no existing department row on which to verify ERCo replacement/history or named ERTL/UTL assignment acceptance. The equipment panel shows two existing ward alerts, but no patient data is involved.
+- Adding test departments and assignments would create production records and requires explicit confirmation before proceeding. No production smoke-test write has been made.
+
+## Smoke-test data creation
+
+- User explicitly confirmed creation of clearly labelled, non-clinical smoke-test records in production.
+- `SMOKE TEST - Department Alpha` was created successfully in the selected North Pole and appears in the department ERCo governance table and active ERT roster.
+- `SMOKE TEST - Department Bravo` has been entered into the add-department form; after the save action, the page still shows the form while the request settles. No claim is made yet that Bravo was created.
+- No provider duty, activation, drill, patient identifier, or real-emergency record has been created.
+
+## Alpha ERCo configuration
+
+- The live ERCo configuration panel explicitly states that saving replaces the current assignment for the department and does not create a second ERCo row.
+- The provider selector exposes linked active providers with names and product-role labels. `Job Karue (nurse)` is selected for `SMOKE TEST - Department Alpha`; the effective-from date is today, with no end date and no backup selected.
+- The assignment has not yet been saved, so Alpha still correctly displays `Not assigned` in the summary table. No provider acceptance event exists yet.
+
+## Provider-owned Alpha acceptance
+
+- The provider dashboard surfaced `SMOKE TEST - Department Alpha` in the individual Hospital ERS area, explicitly marked `Response required`, with `Accept ERCo duty` and `Decline` controls.
+- The provider accepted the duty from the individual portal. After the request settled, the card changed to `ERCo active`, confirming that membership alone did not create operational coverage and that provider acceptance is recorded separately.
+- No backup was recorded for Alpha. No activation, drill, patient identifier, or real-emergency event was created.
+
+## Cross-portal verification checkpoint
+
+- The provider-facing portal surfaced Alpha as a response-required ERCo duty and, after acceptance, displayed `ERCo active` for the named provider.
+- The role switch back to Institution succeeded, but the IERS workspace is still reloading in the current browser session; no institution-side active-row or history claim is recorded from this latest reload yet.
+- The smoke-test departments remain non-clinical and clearly labelled. No activation or drill has been started.
+
+## Institution-side Alpha verification
+
+- The institution workspace now shows `SMOKE TEST - Department Alpha` assigned to `Job Karue` with status `Accepted and active`.
+- `SMOKE TEST - Department Bravo` remains `Not assigned`, providing an unconfigured comparison department for replacement/coverage checks.
+- The live IERS workforce view continues to render the one-standing-ERCo-per-department rule and the ERT roster rows for both smoke-test departments.
+
+## Alpha replacement prepared
+
+- The Alpha ERCo configuration panel shows two history entries: `assigned · Job Karue` and `accepted · Job Karue`, with the summary status `Accepted and active`.
+- `JOYCE GAKII NJUE (nurse)` is now selected in the replacement form. The current assignment has not changed yet because the replacement form has not been saved.
+- The UI continues to state that saving replaces the current assignment for this department rather than creating a second ERCo row.

@@ -61,6 +61,9 @@ export function InstitutionErcoGovernancePanel({ institutionId }: InstitutionErc
     onSuccess: () => {
       toast.success("ERCo assignment saved and sent for acceptance.");
       void utils.institution.getDepartmentResponseCoordinators.invalidate({ institutionId });
+      if (selectedDepartmentId != null) {
+        void utils.institution.getDepartmentResponseCoordinatorEvents.invalidate({ institutionId, departmentId: selectedDepartmentId });
+      }
     },
     onError: (error) => toast.error(error.message || "Could not save the ERCo assignment."),
   });
