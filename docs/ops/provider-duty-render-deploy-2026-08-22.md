@@ -220,3 +220,17 @@ Post-cce131c institution smoke test: role switching back to Institution succeeds
 Post-cce131c institution workforce navigation: the supported `/institution?section=iers&iersTab=workforce` deep link opens the IERS lane and shows the ERT & equipment tab. The department ERCo, ERT roster, and equipment queries were still loading in the first settled render; no status is claimed until they finish.
 
 Final institution-side smoke test on live `cce131c`: the ERT & equipment view shows exactly one current Alpha department row, Job Karue assigned, `Provider sign-off complete`, and the billboard reports `1/1 Signed Off` with `Ready`. The institution UI no longer exposes a direct `Check In`/`Sign` readiness action. Bravo remains unassigned, as expected for the labelled smoke-test control case. Alpha ERCo currently shows Joyce Gakii Njue with `Awaiting ERCo acceptance`, demonstrating that coordinator acceptance remains separate from shift readiness.
+
+Render deployment checkpoint for PR #498: commit `e8121ca` is building from protected main. The deployment log shows frontend assets built successfully (`built in 9.95s`), server bundle completed, and the build is uploading; the service is not yet confirmed live at this checkpoint. No database migration is required for this code-only change.
+
+Render deployment checkpoint: `e8121ca` completed build/upload and started the production server at 12:14:54 PM. The service reported `Server running on http://localhost:10000/`, scheduler initialization complete, and database connection initialization; the visible TLS message is the known warning, not a failure. Awaiting the final Render `live` state before production smoke verification.
+
+Final Render rollout result: commit `e8121ca` is **live**. The service started successfully, initialized its scheduler and database pool, completed its normal startup migrations, and reported the primary URL available at 12:15:01 PM. This code-only release requires no database migration.
+
+Post-e8121ca provider-page check: the first navigation returned the authenticated Institution shell, but the following browser render transiently reset to `about:blank`. This is treated as a browser rendering/session artifact rather than an application failure; production remains confirmed live independently in Render. No data operation occurred.
+
+Post-e8121ca routing check: opening `/home` while the browser session remains in the Institution role routes back to `/institution` after the loading state. This is expected role-based routing, not a deployment failure. Provider smoke verification will use the visible role switcher; no data change occurred.
+
+Post-e8121ca role-switch checkpoint: the authenticated session successfully changed from Institution to Individual provider mode and opened `/home`. The provider dashboard is still in its loading state; no production data was changed during this verification.
+
+Post-e8121ca provider regression check: the Individual provider portal loads successfully after role switching. Job Karue’s accepted Alpha ERTL and shift ERTL duties remain visible as active, and My Shift Readiness remains `Signed off`; the provider-owned IERS lane is present without an institution-side sign-off control. The active-membership revalidation release therefore did not remove valid duty visibility.
