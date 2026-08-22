@@ -200,3 +200,23 @@ After assigning Job Karue to the labelled Alpha morning shift, the institution w
 Source review found two institution-side `Check In` controls (`ErtRosterPanel` and `ErtBillboardWidget`) calling `institution.signOffShiftReadiness`. That server procedure currently checks only institution access and writes `readinessSignOffAt`; it does not require the assigned provider identity, IERS operation capability, active membership, accepted assignment, or provider evidence. This bypasses the provider-owned readiness contract and must be removed or fail closed before pilot.
 
 The provider-owned `iers.signOffShiftReadiness` path already has the correct guards and writes workforce evidence. The live read-only endpoint returned one accepted active Alpha shift for Job Karue, but the provider readiness card was absent after in-session duty acceptance, indicating its query cache is not invalidated by the duty-response mutation. This will be fixed alongside the institution-side bypass.
+
+## Provider-readiness safety fix rollout
+
+Protected PR #496 passed the full CI gate and was squash-merged as `cce131c`. Render auto-deploy for `cce131c` is visible as started at 11:34 AM; the previous `0277388` deployment remains the last confirmed live version until Render reports the new service live. No additional database migration is required for this code-only fix.
+
+Render verification: deployment `cce131c` is now marked **live** on August 22, 2026 at 11:34 AM. This code-only deployment contains the provider-owned readiness safety fix; no additional migration is required.
+
+Post-deploy provider-page check: the first navigation to `/home` returned the authenticated provider shell, but the subsequent browser render transiently reset to `about:blank`. No application failure is being claimed from that browser rendering artifact; the live Render deployment remains confirmed separately.
+
+Post-cce131c provider smoke test: `/home` loads as authenticated Job Karue and the dashboard shell renders. The first settled view shows the performance summary still loading and does not yet include the IERS duty/readiness cards in extracted content; no failure is claimed until the provider queries and lower dashboard sections are inspected. The existing labelled Alpha UTL assignment remains accepted from the earlier smoke test.
+
+Post-cce131c provider smoke test succeeded after scrolling to the IERS section: the accepted Alpha dated shift duty is visible in **My Shift Readiness**, with the provider-owned `Confirm shift readiness` action. The duty card also shows the accepted ERTL and shift ERTL assignments. This confirms the cache-refresh fix and provider portal discoverability; no institution-side Check In was used.
+
+Provider-owned readiness smoke test succeeded on live `cce131c`: Job Karue used the Individual portal’s `Confirm shift readiness` action; the UI reported `Shift readiness sign-off recorded` and the Alpha shift changed to `Signed off`. This verifies the accepted-duty gate, provider identity-bound sign-off, and readiness evidence path without triggering an activation.
+
+Post-cce131c institution smoke test: role switching back to Institution succeeds, the workspace loads, and the IERS/CPD/Administration product split is visible. The IERS workforce detail remains the next read-only check; no new production data has been created during this step.
+
+Post-cce131c institution workforce navigation: the supported `/institution?section=iers&iersTab=workforce` deep link opens the IERS lane and shows the ERT & equipment tab. The department ERCo, ERT roster, and equipment queries were still loading in the first settled render; no status is claimed until they finish.
+
+Final institution-side smoke test on live `cce131c`: the ERT & equipment view shows exactly one current Alpha department row, Job Karue assigned, `Provider sign-off complete`, and the billboard reports `1/1 Signed Off` with `Ready`. The institution UI no longer exposes a direct `Check In`/`Sign` readiness action. Bravo remains unassigned, as expected for the labelled smoke-test control case. Alpha ERCo currently shows Joyce Gakii Njue with `Awaiting ERCo acceptance`, demonstrating that coordinator acceptance remains separate from shift readiness.
