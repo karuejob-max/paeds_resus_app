@@ -4551,6 +4551,50 @@ export const facilityDepartments = mysqlTable("facility_departments", {
 export type FacilityDepartment = typeof facilityDepartments.$inferSelect;
 export type InsertFacilityDepartment = typeof facilityDepartments.$inferInsert;
 
+/** Exactly one standing Emergency Response Coordinator (ERCo) assignment per department. */
+export const institutionDepartmentResponseCoordinators = mysqlTable("institution_department_response_coordinators", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  departmentId: int("department_id").notNull(),
+  coordinatorUserId: int("coordinator_user_id").notNull(),
+  backupUserId: int("backup_user_id"),
+  assignmentStatus: mysqlEnum("assignment_status", ["pending_acceptance", "active", "declined", "ended"]).default("pending_acceptance").notNull(),
+  effectiveFrom: date("effective_from").notNull(),
+  effectiveUntil: date("effective_until"),
+  assignedByUserId: int("assigned_by_user_id").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  declinedAt: timestamp("declined_at"),
+  declineReason: varchar("decline_reason", { length: 500 }),
+  backupAcceptedAt: timestamp("backup_accepted_at"),
+  backupDeclinedAt: timestamp("backup_declined_at"),
+  backupDeclineReason: varchar("backup_decline_reason", { length: 500 }),
+  assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionDepartmentUnique: uniqueIndex("institution_department_erc_unique").on(table.institutionId, table.departmentId),
+  coordinatorIndex: index("institution_erc_coordinator_idx").on(table.institutionId, table.coordinatorUserId),
+  backupIndex: index("institution_erc_backup_idx").on(table.institutionId, table.backupUserId),
+  statusIndex: index("institution_erc_status_idx").on(table.institutionId, table.assignmentStatus),
+}));
+export type InstitutionDepartmentResponseCoordinator = typeof institutionDepartmentResponseCoordinators.$inferSelect;
+export type InsertInstitutionDepartmentResponseCoordinator = typeof institutionDepartmentResponseCoordinators.$inferInsert;
+
+export const institutionDepartmentResponseCoordinatorEvents = mysqlTable("institution_department_response_coordinator_events", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  departmentId: int("department_id").notNull(),
+  assignmentId: int("assignment_id").notNull(),
+  eventType: mysqlEnum("event_type", ["assigned", "reassigned", "accepted", "declined", "backup_accepted", "backup_declined", "ended"]).notNull(),
+  actorUserId: int("actor_user_id").notNull(),
+  note: varchar("note", { length: 500 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  assignmentIndex: index("institution_erc_event_assignment_idx").on(table.assignmentId, table.createdAt),
+  institutionIndex: index("institution_erc_event_institution_idx").on(table.institutionId, table.createdAt),
+}));
+export type InstitutionDepartmentResponseCoordinatorEvent = typeof institutionDepartmentResponseCoordinatorEvents.$inferSelect;
+export type InsertInstitutionDepartmentResponseCoordinatorEvent = typeof institutionDepartmentResponseCoordinatorEvents.$inferInsert;
+
 // 3. Weekly ERTL Department Rotation
 export const ertlWeeklyRotations = mysqlTable("ertl_weekly_rotations", {
   id: int("id").autoincrement().primaryKey(),
@@ -4561,6 +4605,11 @@ export const ertlWeeklyRotations = mysqlTable("ertl_weekly_rotations", {
   year: int("year").notNull(),
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
+  ertlUserId: int("ertl_user_id"),
+  assignmentStatus: mysqlEnum("assignment_status", ["unassigned", "pending_acceptance", "active", "declined", "ended"]).default("unassigned").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  declinedAt: timestamp("declined_at"),
+  declineReason: varchar("decline_reason", { length: 500 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 export type ErtlWeeklyRotation = typeof ertlWeeklyRotations.$inferSelect;
@@ -4576,6 +4625,10 @@ export const shiftUtlRosters = mysqlTable("shift_utl_rosters", {
   shiftType: mysqlEnum("shift_type", ["morning", "evening", "night"]).notNull(),
   utlUserId: int("utl_user_id").notNull(),
   isShiftErtl: boolean("is_shift_ertl").default(false).notNull(),
+  assignmentStatus: mysqlEnum("assignment_status", ["unassigned", "pending_acceptance", "active", "declined", "ended"]).default("unassigned").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  declinedAt: timestamp("declined_at"),
+  declineReason: varchar("decline_reason", { length: 500 }),
   readinessSignOffAt: timestamp("readiness_signoff_at"),
   readinessSignedOffByUserId: int("readiness_signed_off_by_user_id"),
   readinessNote: text("readiness_note"),

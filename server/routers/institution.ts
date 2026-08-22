@@ -28,6 +28,8 @@ import {
   instructorQualifications,
   facilityPoles,
   facilityDepartments,
+  institutionDepartmentResponseCoordinators,
+  institutionDepartmentResponseCoordinatorEvents,
   ertlWeeklyRotations,
   shiftUtlRosters,
   iermsAuditScorecards,
@@ -71,6 +73,7 @@ import { notifyInstructorSessionAssigned } from "../lib/instructor-session-notif
 import { ENV } from "../_core/env";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { isInstitutionInPilotProgram } from "@shared/pilot-program";
+import { validateDepartmentErcoAssignment } from "../lib/iers-department-governance";
 import {
   isValidActionLogStatusTransition,
   requiresSystemChangeOnResolve,
@@ -82,6 +85,7 @@ type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 const IERS_READ_ROLES = ["iers_viewer", "iers_coordinator", "iers_governance", "iers_reviewer", "iers_responder"] as const;
 const IERS_OPERATE_ROLES = ["iers_coordinator", "iers_governance"] as const;
 const IERS_ACTION_ROLES = ["iers_coordinator", "iers_reviewer", "iers_governance"] as const;
+const IERS_DEPARTMENT_GOVERNANCE_ROLES = ["iers_coordinator", "iers_governance"] as const;
 
 async function ensureProviderMembershipForStaff(
   db: DbClient,
@@ -3511,6 +3515,7 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
 
       return db
         .select()
@@ -3528,6 +3533,7 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
 
       const [result] = await db.insert(facilityPoles).values({
         institutionId: input.institutionId,
@@ -3544,6 +3550,7 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
 
       return db
         .select()
@@ -3561,6 +3568,7 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
 
       const [existing] = await db
         .select()
@@ -3587,6 +3595,407 @@ export const institutionRouter = router({
       return { success: true };
     }),
 
+  getDepartmentResponseCoordinators: protectedProcedure
+    .input(z.object({ institutionId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
+      try {
+        return await db
+          .select()
+          .from(institutionDepartmentResponseCoordinators)
+          .where(eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId));
+      } catch (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
+    }),
+
+  getDepartmentResponseCoordinatorEvents: protectedProcedure
+    .input(z.object({ institutionId: z.number(), departmentId: z.number().optional() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
+      try {
+        const predicates = [eq(institutionDepartmentResponseCoordinatorEvents.institutionId, input.institutionId)];
+        if (input.departmentId != null) predicates.push(eq(institutionDepartmentResponseCoordinatorEvents.departmentId, input.departmentId));
+        return await db
+          .select({
+            id: institutionDepartmentResponseCoordinatorEvents.id,
+            departmentId: institutionDepartmentResponseCoordinatorEvents.departmentId,
+            assignmentId: institutionDepartmentResponseCoordinatorEvents.assignmentId,
+            eventType: institutionDepartmentResponseCoordinatorEvents.eventType,
+            actorUserId: institutionDepartmentResponseCoordinatorEvents.actorUserId,
+            actorName: users.name,
+            note: institutionDepartmentResponseCoordinatorEvents.note,
+            createdAt: institutionDepartmentResponseCoordinatorEvents.createdAt,
+          })
+          .from(institutionDepartmentResponseCoordinatorEvents)
+          .leftJoin(users, eq(users.id, institutionDepartmentResponseCoordinatorEvents.actorUserId))
+          .where(and(...predicates))
+          .orderBy(desc(institutionDepartmentResponseCoordinatorEvents.createdAt))
+          .limit(100);
+      } catch (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
+    }),
+
+  getMyDepartmentResponseAssignments: protectedProcedure
+    .query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      try {
+        return await db
+          .select({
+            id: institutionDepartmentResponseCoordinators.id,
+            institutionId: institutionDepartmentResponseCoordinators.institutionId,
+            departmentId: institutionDepartmentResponseCoordinators.departmentId,
+            departmentName: facilityDepartments.departmentName,
+            poleId: facilityDepartments.poleId,
+            poleName: facilityPoles.poleName,
+            coordinatorUserId: institutionDepartmentResponseCoordinators.coordinatorUserId,
+            backupUserId: institutionDepartmentResponseCoordinators.backupUserId,
+            assignmentStatus: institutionDepartmentResponseCoordinators.assignmentStatus,
+            effectiveFrom: institutionDepartmentResponseCoordinators.effectiveFrom,
+            effectiveUntil: institutionDepartmentResponseCoordinators.effectiveUntil,
+            acceptedAt: institutionDepartmentResponseCoordinators.acceptedAt,
+            declinedAt: institutionDepartmentResponseCoordinators.declinedAt,
+            declineReason: institutionDepartmentResponseCoordinators.declineReason,
+            backupAcceptedAt: institutionDepartmentResponseCoordinators.backupAcceptedAt,
+            backupDeclinedAt: institutionDepartmentResponseCoordinators.backupDeclinedAt,
+            backupDeclineReason: institutionDepartmentResponseCoordinators.backupDeclineReason,
+          })
+          .from(institutionDepartmentResponseCoordinators)
+          .leftJoin(facilityDepartments, eq(facilityDepartments.id, institutionDepartmentResponseCoordinators.departmentId))
+          .leftJoin(facilityPoles, eq(facilityPoles.id, facilityDepartments.poleId))
+          .where(or(
+            eq(institutionDepartmentResponseCoordinators.coordinatorUserId, ctx.user.id),
+            eq(institutionDepartmentResponseCoordinators.backupUserId, ctx.user.id),
+          ));
+      } catch (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
+    }),
+
+  getMyProviderDutyAssignments: protectedProcedure
+    .query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      try {
+        const ertl = await db
+          .select({
+            id: ertlWeeklyRotations.id,
+            institutionId: ertlWeeklyRotations.institutionId,
+            departmentId: ertlWeeklyRotations.departmentId,
+            departmentName: facilityDepartments.departmentName,
+            poleId: ertlWeeklyRotations.poleId,
+            poleName: facilityPoles.poleName,
+            weekNumber: ertlWeeklyRotations.weekNumber,
+            year: ertlWeeklyRotations.year,
+            startDate: ertlWeeklyRotations.startDate,
+            endDate: ertlWeeklyRotations.endDate,
+            ertlUserId: ertlWeeklyRotations.ertlUserId,
+            assignmentStatus: ertlWeeklyRotations.assignmentStatus,
+            acceptedAt: ertlWeeklyRotations.acceptedAt,
+            declinedAt: ertlWeeklyRotations.declinedAt,
+            declineReason: ertlWeeklyRotations.declineReason,
+          })
+          .from(ertlWeeklyRotations)
+          .leftJoin(facilityDepartments, eq(facilityDepartments.id, ertlWeeklyRotations.departmentId))
+          .leftJoin(facilityPoles, eq(facilityPoles.id, ertlWeeklyRotations.poleId))
+          .where(eq(ertlWeeklyRotations.ertlUserId, ctx.user.id));
+        const utl = await db
+          .select({
+            id: shiftUtlRosters.id,
+            institutionId: shiftUtlRosters.institutionId,
+            departmentId: shiftUtlRosters.departmentId,
+            departmentName: facilityDepartments.departmentName,
+            poleId: shiftUtlRosters.poleId,
+            poleName: facilityPoles.poleName,
+            shiftDate: shiftUtlRosters.shiftDate,
+            shiftType: shiftUtlRosters.shiftType,
+            utlUserId: shiftUtlRosters.utlUserId,
+            isShiftErtl: shiftUtlRosters.isShiftErtl,
+            assignmentStatus: shiftUtlRosters.assignmentStatus,
+            acceptedAt: shiftUtlRosters.acceptedAt,
+            declinedAt: shiftUtlRosters.declinedAt,
+            declineReason: shiftUtlRosters.declineReason,
+            readinessSignOffAt: shiftUtlRosters.readinessSignOffAt,
+          })
+          .from(shiftUtlRosters)
+          .leftJoin(facilityDepartments, eq(facilityDepartments.id, shiftUtlRosters.departmentId))
+          .leftJoin(facilityPoles, eq(facilityPoles.id, shiftUtlRosters.poleId))
+          .where(eq(shiftUtlRosters.utlUserId, ctx.user.id));
+        return { ertl, utl };
+      } catch (error) {
+        if (isMissingTableError(error)) return { ertl: [], utl: [] };
+        throw error;
+      }
+    }),
+
+  respondToWeeklyErtlRotation: protectedProcedure
+    .input(z.object({
+      rotationId: z.number(),
+      response: z.enum(["accept", "decline"]),
+      declineReason: z.string().trim().min(3).max(500).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [rotation] = await db
+        .select()
+        .from(ertlWeeklyRotations)
+        .where(and(
+          eq(ertlWeeklyRotations.id, input.rotationId),
+          eq(ertlWeeklyRotations.ertlUserId, ctx.user.id),
+        ))
+        .limit(1);
+      if (!rotation) throw new TRPCError({ code: "NOT_FOUND", message: "ERTL rotation assignment not found." });
+      if (rotation.assignmentStatus === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "This ERTL rotation has ended." });
+      if (input.response === "decline" && !input.declineReason) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A decline reason is required so the institution can arrange cover." });
+      }
+      await db.update(ertlWeeklyRotations).set(
+        input.response === "accept"
+          ? { assignmentStatus: "active", acceptedAt: new Date(), declinedAt: null, declineReason: null }
+          : { assignmentStatus: "declined", acceptedAt: null, declinedAt: new Date(), declineReason: input.declineReason },
+      ).where(eq(ertlWeeklyRotations.id, rotation.id));
+      return { success: true, assignmentStatus: input.response === "accept" ? "active" : "declined" as const };
+    }),
+
+  respondToShiftUtlRoster: protectedProcedure
+    .input(z.object({
+      rosterId: z.number(),
+      response: z.enum(["accept", "decline"]),
+      declineReason: z.string().trim().min(3).max(500).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [roster] = await db
+        .select()
+        .from(shiftUtlRosters)
+        .where(and(
+          eq(shiftUtlRosters.id, input.rosterId),
+          eq(shiftUtlRosters.utlUserId, ctx.user.id),
+        ))
+        .limit(1);
+      if (!roster) throw new TRPCError({ code: "NOT_FOUND", message: "Shift UTL assignment not found." });
+      if (roster.assignmentStatus === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "This shift assignment has ended." });
+      if (input.response === "decline" && !input.declineReason) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A decline reason is required so the institution can arrange cover." });
+      }
+      await db.update(shiftUtlRosters).set(
+        input.response === "accept"
+          ? { assignmentStatus: "active", acceptedAt: new Date(), declinedAt: null, declineReason: null }
+          : { assignmentStatus: "declined", acceptedAt: null, declinedAt: new Date(), declineReason: input.declineReason },
+      ).where(eq(shiftUtlRosters.id, roster.id));
+      return { success: true, assignmentStatus: input.response === "accept" ? "active" : "declined" as const };
+    }),
+
+  assignDepartmentResponseCoordinator: protectedProcedure
+    .input(z.object({
+      institutionId: z.number(),
+      departmentId: z.number(),
+      coordinatorUserId: z.number(),
+      backupUserId: z.number().nullable().optional(),
+      effectiveFrom: z.string(),
+      effectiveUntil: z.string().nullable().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
+
+      const validation = validateDepartmentErcoAssignment(input);
+      if (!validation.valid) throw new TRPCError({ code: "BAD_REQUEST", message: validation.reason });
+
+      const [department] = await db
+        .select({ id: facilityDepartments.id })
+        .from(facilityDepartments)
+        .where(and(
+          eq(facilityDepartments.id, input.departmentId),
+          eq(facilityDepartments.institutionId, input.institutionId),
+        ))
+        .limit(1);
+      if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "Department not found in this institution." });
+
+      const requestedUserIds = [input.coordinatorUserId, ...(input.backupUserId == null ? [] : [input.backupUserId])];
+      const members = await db
+        .select({ userId: institutionMemberships.userId })
+        .from(institutionMemberships)
+        .where(and(
+          eq(institutionMemberships.institutionalAccountId, input.institutionId),
+          eq(institutionMemberships.membershipStatus, "active"),
+          inArray(institutionMemberships.userId, requestedUserIds),
+        ));
+      const activeMemberIds = new Set(members.map((member) => member.userId).filter((userId): userId is number => userId != null));
+      if (!activeMemberIds.has(input.coordinatorUserId)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The ERCo must be an active provider–institution member." });
+      }
+      if (input.backupUserId != null && !activeMemberIds.has(input.backupUserId)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The backup provider must be an active provider–institution member." });
+      }
+
+      const [existing] = await db
+        .select({ id: institutionDepartmentResponseCoordinators.id })
+        .from(institutionDepartmentResponseCoordinators)
+        .where(and(
+          eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId),
+          eq(institutionDepartmentResponseCoordinators.departmentId, input.departmentId),
+        ))
+        .limit(1);
+      const values = {
+        institutionId: input.institutionId,
+        departmentId: input.departmentId,
+        coordinatorUserId: input.coordinatorUserId,
+        backupUserId: input.backupUserId ?? null,
+        assignmentStatus: "pending_acceptance" as const,
+        effectiveFrom: new Date(input.effectiveFrom),
+        effectiveUntil: input.effectiveUntil ? new Date(input.effectiveUntil) : null,
+        assignedByUserId: ctx.user.id,
+        acceptedAt: null,
+        declinedAt: null,
+        declineReason: null,
+        backupAcceptedAt: null,
+        backupDeclinedAt: null,
+        backupDeclineReason: null,
+        assignedAt: new Date(),
+        updatedAt: new Date(),
+      };
+      let assignmentId: number;
+      let eventType: "assigned" | "reassigned";
+      if (existing) {
+        await db.update(institutionDepartmentResponseCoordinators).set(values).where(eq(institutionDepartmentResponseCoordinators.id, existing.id));
+        assignmentId = existing.id;
+        eventType = "reassigned";
+      } else {
+        const [result] = await db.insert(institutionDepartmentResponseCoordinators).values(values);
+        assignmentId = result.insertId;
+        eventType = "assigned";
+      }
+      await db.insert(institutionDepartmentResponseCoordinatorEvents).values({
+        institutionId: input.institutionId,
+        departmentId: input.departmentId,
+        assignmentId,
+        eventType,
+        actorUserId: ctx.user.id,
+        note: input.effectiveUntil ? `Coverage from ${input.effectiveFrom} through ${input.effectiveUntil}.` : `Coverage from ${input.effectiveFrom} with no end date.`,
+      });
+      return { success: true, assignmentId, replaced: !!existing };
+    }),
+
+  respondToDepartmentResponseCoordinatorAssignment: protectedProcedure
+    .input(z.object({
+      assignmentId: z.number(),
+      response: z.enum(["accept", "decline"]),
+      declineReason: z.string().trim().max(500).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [assignment] = await db
+        .select()
+        .from(institutionDepartmentResponseCoordinators)
+        .where(and(
+          eq(institutionDepartmentResponseCoordinators.id, input.assignmentId),
+          eq(institutionDepartmentResponseCoordinators.coordinatorUserId, ctx.user.id),
+        ))
+        .limit(1);
+      if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "ERCo assignment not found for this provider." });
+      if (assignment.assignmentStatus === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "This ERCo assignment has ended." });
+      if (input.response === "decline" && !input.declineReason) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A decline reason is required so the institution can arrange cover." });
+      }
+      await db.update(institutionDepartmentResponseCoordinators).set(
+        input.response === "accept"
+          ? { assignmentStatus: "active", acceptedAt: new Date(), declinedAt: null, declineReason: null, updatedAt: new Date() }
+          : { assignmentStatus: "declined", acceptedAt: null, declinedAt: new Date(), declineReason: input.declineReason, updatedAt: new Date() },
+      ).where(eq(institutionDepartmentResponseCoordinators.id, assignment.id));
+      await db.insert(institutionDepartmentResponseCoordinatorEvents).values({
+        institutionId: assignment.institutionId,
+        departmentId: assignment.departmentId,
+        assignmentId: assignment.id,
+        eventType: input.response === "accept" ? "accepted" : "declined",
+        actorUserId: ctx.user.id,
+        note: input.response === "decline" ? input.declineReason : "ERCo accepted the dated department assignment.",
+      });
+      return { success: true, assignmentStatus: input.response === "accept" ? "active" : "declined" as const };
+    }),
+
+  respondToDepartmentResponseBackup: protectedProcedure
+    .input(z.object({
+      assignmentId: z.number(),
+      response: z.enum(["accept", "decline"]),
+      declineReason: z.string().trim().max(500).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [assignment] = await db
+        .select()
+        .from(institutionDepartmentResponseCoordinators)
+        .where(and(
+          eq(institutionDepartmentResponseCoordinators.id, input.assignmentId),
+          eq(institutionDepartmentResponseCoordinators.backupUserId, ctx.user.id),
+        ))
+        .limit(1);
+      if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "Backup assignment not found for this provider." });
+      if (assignment.assignmentStatus === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "This ERCo assignment has ended." });
+      if (input.response === "decline" && !input.declineReason) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A decline reason is required so the institution can arrange backup cover." });
+      }
+      await db.update(institutionDepartmentResponseCoordinators).set(
+        input.response === "accept"
+          ? { backupAcceptedAt: new Date(), backupDeclinedAt: null, backupDeclineReason: null, updatedAt: new Date() }
+          : { backupAcceptedAt: null, backupDeclinedAt: new Date(), backupDeclineReason: input.declineReason, updatedAt: new Date() },
+      ).where(eq(institutionDepartmentResponseCoordinators.id, assignment.id));
+      await db.insert(institutionDepartmentResponseCoordinatorEvents).values({
+        institutionId: assignment.institutionId,
+        departmentId: assignment.departmentId,
+        assignmentId: assignment.id,
+        eventType: input.response === "accept" ? "backup_accepted" : "backup_declined",
+        actorUserId: ctx.user.id,
+        note: input.response === "decline" ? input.declineReason : "Backup provider accepted the dated department assignment.",
+      });
+      return { success: true, backupStatus: input.response === "accept" ? "accepted" : "declined" as const };
+    }),
+
+  endDepartmentResponseCoordinatorAssignment: protectedProcedure
+    .input(z.object({ institutionId: z.number(), assignmentId: z.number(), reason: z.string().trim().min(3).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
+      const [assignment] = await db
+        .select({ id: institutionDepartmentResponseCoordinators.id, departmentId: institutionDepartmentResponseCoordinators.departmentId })
+        .from(institutionDepartmentResponseCoordinators)
+        .where(and(
+          eq(institutionDepartmentResponseCoordinators.id, input.assignmentId),
+          eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId),
+        ))
+        .limit(1);
+      if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "ERCo assignment not found." });
+      await db.update(institutionDepartmentResponseCoordinators).set({ assignmentStatus: "ended", updatedAt: new Date() }).where(eq(institutionDepartmentResponseCoordinators.id, assignment.id));
+      await db.insert(institutionDepartmentResponseCoordinatorEvents).values({
+        institutionId: input.institutionId,
+        departmentId: assignment.departmentId,
+        assignmentId: assignment.id,
+        eventType: "ended",
+        actorUserId: ctx.user.id,
+        note: input.reason,
+      });
+      return { success: true, reason: input.reason };
+    }),
+
   getWeeklyErtlRotation: protectedProcedure
     .input(z.object({
       institutionId: z.number(),
@@ -3598,6 +4007,7 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
 
       const [rotation] = await db
         .select()
@@ -3622,11 +4032,28 @@ export const institutionRouter = router({
       year: z.number(),
       startDate: z.string(),
       endDate: z.string(),
+      ertlUserId: z.number().int().positive().nullable().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
+      if (new Date(input.endDate) < new Date(input.startDate)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "ERTL rotation end date cannot be before its start date." });
+      }
+      if (input.ertlUserId != null) {
+        const [member] = await db
+          .select({ userId: institutionMemberships.userId })
+          .from(institutionMemberships)
+          .where(and(
+            eq(institutionMemberships.institutionalAccountId, input.institutionId),
+            eq(institutionMemberships.userId, input.ertlUserId),
+            eq(institutionMemberships.membershipStatus, "active"),
+          ))
+          .limit(1);
+        if (!member) throw new TRPCError({ code: "BAD_REQUEST", message: "The ERTL must be an active provider–institution member." });
+      }
 
       const [existing] = await db
         .select()
@@ -3640,9 +4067,25 @@ export const institutionRouter = router({
         .limit(1);
 
       if (existing) {
+        const departmentChanged = existing.departmentId !== input.departmentId;
+        const nextErtlUserId = input.ertlUserId === undefined
+          ? (departmentChanged ? null : existing.ertlUserId)
+          : input.ertlUserId;
+        const providerChanged = departmentChanged || nextErtlUserId !== existing.ertlUserId;
         await db
           .update(ertlWeeklyRotations)
-          .set({ departmentId: input.departmentId, startDate: new Date(input.startDate), endDate: new Date(input.endDate) })
+          .set({
+            departmentId: input.departmentId,
+            startDate: new Date(input.startDate),
+            endDate: new Date(input.endDate),
+            ertlUserId: nextErtlUserId,
+            ...(providerChanged ? {
+              assignmentStatus: nextErtlUserId == null ? "unassigned" : "pending_acceptance",
+              acceptedAt: null,
+              declinedAt: null,
+              declineReason: null,
+            } : {}),
+          })
           .where(eq(ertlWeeklyRotations.id, existing.id));
       } else {
         await db.insert(ertlWeeklyRotations).values({
@@ -3653,6 +4096,8 @@ export const institutionRouter = router({
           year: input.year,
           startDate: new Date(input.startDate),
           endDate: new Date(input.endDate),
+          ertlUserId: input.ertlUserId ?? null,
+          assignmentStatus: input.ertlUserId == null ? "unassigned" : "pending_acceptance",
         });
       }
 
@@ -3674,6 +4119,7 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
 
       return db
         .select()
@@ -3701,6 +4147,17 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_OPERATE_ROLES);
+      const [member] = await db
+        .select({ userId: institutionMemberships.userId })
+        .from(institutionMemberships)
+        .where(and(
+          eq(institutionMemberships.institutionalAccountId, input.institutionId),
+          eq(institutionMemberships.userId, input.utlUserId),
+          eq(institutionMemberships.membershipStatus, "active"),
+        ))
+        .limit(1);
+      if (!member) throw new TRPCError({ code: "BAD_REQUEST", message: "The UTL must be an active provider–institution member." });
 
       const [existing] = await db
         .select()
@@ -3723,6 +4180,10 @@ export const institutionRouter = router({
             utlUserId: input.utlUserId,
             isShiftErtl: input.isShiftErtl,
             status: input.status ?? "active",
+            assignmentStatus: shouldResetSignOff ? "pending_acceptance" : existing.assignmentStatus,
+            acceptedAt: shouldResetSignOff ? null : existing.acceptedAt,
+            declinedAt: shouldResetSignOff ? null : existing.declinedAt,
+            declineReason: shouldResetSignOff ? null : existing.declineReason,
             readinessSignOffAt: shouldResetSignOff ? null : existing.readinessSignOffAt,
           })
           .where(eq(shiftUtlRosters.id, existing.id));
@@ -3735,6 +4196,7 @@ export const institutionRouter = router({
           shiftType: input.shiftType,
           utlUserId: input.utlUserId,
           isShiftErtl: input.isShiftErtl,
+          assignmentStatus: "pending_acceptance",
           status: input.status ?? "active",
         });
       }

@@ -68,6 +68,12 @@ export const REQUIRED_TABLES = [
   { key: "connectedServiceEvents", label: "connected services review history", names: ["institutionConnectedServiceEvents", "institution_connected_service_events"] },
   { key: "safeTruthPolicies", label: "Safe Truth governance policies", names: ["safeTruthGovernancePolicies", "safe_truth_governance_policies"] },
   { key: "safeTruthPolicyEvents", label: "Safe Truth governance history", names: ["safeTruthGovernancePolicyEvents", "safe_truth_governance_policy_events"] },
+  { key: "facilityPoles", label: "facility response poles", names: ["facility_poles", "facilityPoles"] },
+  { key: "facilityDepartments", label: "facility departments", names: ["facility_departments", "facilityDepartments"] },
+  { key: "weeklyErtlRotations", label: "weekly ERTL rotations", names: ["ertl_weekly_rotations", "ertlWeeklyRotations"] },
+  { key: "shiftUtlRosters", label: "shift UTL rosters", names: ["shift_utl_rosters", "shiftUtlRosters"] },
+  { key: "departmentErcos", label: "department ERCo assignments", names: ["institution_department_response_coordinators", "institutionDepartmentResponseCoordinators"] },
+  { key: "departmentErcoEvents", label: "department ERCo assignment history", names: ["institution_department_response_coordinator_events", "institutionDepartmentResponseCoordinatorEvents"] },
 ];
 
 export const REQUIRED_COLUMNS = [
@@ -130,6 +136,21 @@ export const REQUIRED_COLUMNS = [
   { tableKey: "safeTruthPolicies", label: "Safe Truth allowed route", names: ["allowedRoute", "allowed_route"] },
   { tableKey: "safeTruthPolicies", label: "Safe Truth patient identifier policy", names: ["patientIdentifiersAllowed", "patient_identifiers_allowed"] },
   { tableKey: "safeTruthPolicies", label: "Safe Truth provider linkage policy", names: ["providerLinkageAllowed", "provider_linkage_allowed"] },
+  { tableKey: "facilityPoles", label: "facility pole institution", names: ["institution_id", "institutionId"] },
+  { tableKey: "facilityDepartments", label: "facility department pole", names: ["pole_id", "poleId"] },
+  { tableKey: "weeklyErtlRotations", label: "weekly ERTL department", names: ["department_id", "departmentId"] },
+  { tableKey: "weeklyErtlRotations", label: "weekly ERTL provider", names: ["ertl_user_id", "ertlUserId"] },
+  { tableKey: "weeklyErtlRotations", label: "weekly ERTL assignment status", names: ["assignment_status", "assignmentStatus"] },
+  { tableKey: "weeklyErtlRotations", label: "weekly ERTL acceptance", names: ["accepted_at", "acceptedAt"] },
+  { tableKey: "shiftUtlRosters", label: "shift UTL user", names: ["utl_user_id", "utlUserId"] },
+  { tableKey: "shiftUtlRosters", label: "shift UTL assignment status", names: ["assignment_status", "assignmentStatus"] },
+  { tableKey: "shiftUtlRosters", label: "shift UTL acceptance", names: ["accepted_at", "acceptedAt"] },
+  { tableKey: "departmentErcos", label: "department ERCo coordinator", names: ["coordinator_user_id", "coordinatorUserId"] },
+  { tableKey: "departmentErcos", label: "department ERCo assignment status", names: ["assignment_status", "assignmentStatus"] },
+  { tableKey: "departmentErcos", label: "department ERCo effective date", names: ["effective_from", "effectiveFrom"] },
+  { tableKey: "departmentErcos", label: "department ERCo uniqueness department", names: ["department_id", "departmentId"] },
+  { tableKey: "departmentErcoEvents", label: "department ERCo event type", names: ["event_type", "eventType"] },
+  { tableKey: "departmentErcoEvents", label: "department ERCo event actor", names: ["actor_user_id", "actorUserId"] },
 ];
 
 async function main() {
