@@ -60,6 +60,10 @@ export const REQUIRED_TABLES = [
   { key: "subscriptionPayments", label: "institutional subscription payments", names: ["institutionSubscriptionPayments", "institution_subscription_payments"] },
   { key: "renewalPreferences", label: "renewal notification preferences", names: ["institutionRenewalNotificationPreferences", "institution_renewal_notification_preferences"] },
   { key: "renewalNotifications", label: "renewal notification history", names: ["institutionRenewalNotifications", "institution_renewal_notifications"] },
+  { key: "connectedServices", label: "connected services registry", names: ["institutionConnectedServices", "institution_connected_services"] },
+  { key: "connectedServiceEvents", label: "connected services review history", names: ["institutionConnectedServiceEvents", "institution_connected_service_events"] },
+  { key: "safeTruthPolicies", label: "Safe Truth governance policies", names: ["safeTruthGovernancePolicies", "safe_truth_governance_policies"] },
+  { key: "safeTruthPolicyEvents", label: "Safe Truth governance history", names: ["safeTruthGovernancePolicyEvents", "safe_truth_governance_policy_events"] },
 ];
 
 export const REQUIRED_COLUMNS = [
@@ -102,6 +106,14 @@ export const REQUIRED_COLUMNS = [
   { tableKey: "renewalNotifications", label: "renewal notification dedupe", names: ["dedupeKey", "dedupe_key"] },
   { tableKey: "renewalNotifications", label: "renewal notification status", names: ["status"] },
   { tableKey: "renewalNotifications", label: "renewal notification channel", names: ["channel"] },
+  { tableKey: "connectedServices", label: "connected service key", names: ["serviceKey", "service_key"] },
+  { tableKey: "connectedServices", label: "connected service lifecycle", names: ["lifecycleStatus", "lifecycle_status"] },
+  { tableKey: "connectedServices", label: "connected service privacy class", names: ["privacyClass", "privacy_class"] },
+  { tableKey: "connectedServices", label: "connected service owner", names: ["owner"] },
+  { tableKey: "safeTruthPolicies", label: "Safe Truth boundary status", names: ["boundaryStatus", "boundary_status"] },
+  { tableKey: "safeTruthPolicies", label: "Safe Truth allowed route", names: ["allowedRoute", "allowed_route"] },
+  { tableKey: "safeTruthPolicies", label: "Safe Truth patient identifier policy", names: ["patientIdentifiersAllowed", "patient_identifiers_allowed"] },
+  { tableKey: "safeTruthPolicies", label: "Safe Truth provider linkage policy", names: ["providerLinkageAllowed", "provider_linkage_allowed"] },
 ];
 
 async function main() {
