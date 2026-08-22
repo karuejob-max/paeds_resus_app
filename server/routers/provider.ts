@@ -4,6 +4,7 @@ import { getDb } from "../db";
 import { providerProfiles, providerPerformanceMetrics, users } from "../../drizzle/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { syncProviderProfileFacility } from "../services/facility-registry.service";
+import { canonicalizeDepartmentLabel } from "../../shared/clinical-departments";
 
 export const providerRouter = router({
   // Get or create provider profile
@@ -83,6 +84,7 @@ export const providerRouter = router({
 
       const updateData: any = {
         ...input,
+        department: input.department?.trim() ? canonicalizeDepartmentLabel(input.department) : input.department,
         certifications: input.certifications ? JSON.stringify(input.certifications) : undefined,
         languages: input.languages ? JSON.stringify(input.languages) : undefined,
         profileCompletionPercentage: completionPercentage,

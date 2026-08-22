@@ -16,6 +16,7 @@ import {
 } from "../../drizzle/schema";
 import { inferDesignationFromCadre } from "../../shared/cadre-designation-mapping";
 import { DEFAULT_FACILITY_COUNTRY } from "../../shared/kenya-counties";
+import { canonicalizeDepartmentLabel, departmentLabelsMatch } from "../../shared/clinical-departments";
 
 export type FacilitySearchResult = {
   id: number;
@@ -309,17 +310,18 @@ export async function syncProviderProfileFacility(
     .where(eq(providerProfiles.userId, userId))
     .limit(1);
   let canonicalDepartmentId: number | null = null;
-  if (facility.institutionalAccountId && providerProfile?.department?.trim()) {
-    const [canonicalDepartment] = await db
-      .select({ id: facilityDepartments.id })
+  const normalizedProviderDepartment = providerProfile?.department?.trim()
+    ? canonicalizeDepartmentLabel(providerProfile.department)
+    : null;
+  if (facility.institutionalAccountId && normalizedProviderDepartment) {
+    const departments = await db
+      .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
       .from(facilityDepartments)
       .where(and(
         eq(facilityDepartments.institutionId, facility.institutionalAccountId),
-        sql`LOWER(TRIM(${facilityDepartments.departmentName})) = LOWER(TRIM(${providerProfile.department.trim()}))`,
         eq(facilityDepartments.isActive, true),
-      ))
-      .limit(1);
-    canonicalDepartmentId = canonicalDepartment?.id ?? null;
+      ));
+    canonicalDepartmentId = departments.find((department) => departmentLabelsMatch(department.departmentName, normalizedProviderDepartment))?.id ?? null;
   }
 
   // If the facility is associated with an institutional account,
@@ -371,7 +373,7 @@ export async function syncProviderProfileFacility(
           // sub-specialty they picked. Falls back to "other" (unchanged
           // behaviour) for anything not covered by inferDesignationFromCadre.
           designation: inferDesignationFromCadre((user as any).cadre) ?? "other",
-          department: providerProfile?.department?.trim() || null,
+          department: normalizedProviderDepartment,
           facilityDepartmentId: canonicalDepartmentId,
           facilityLinkStatus: "pending",
           enrollmentStatus: "pending",
@@ -379,7 +381,7 @@ export async function syncProviderProfileFacility(
       }
     } else if (providerProfile?.department?.trim()) {
       await db.update(institutionalStaffMembers).set({
-        department: providerProfile.department.trim(),
+        department: normalizedProviderDepartment,
         facilityDepartmentId: canonicalDepartmentId,
         updatedAt: new Date(),
       }).where(eq(institutionalStaffMembers.id, existingLink[0].id));
