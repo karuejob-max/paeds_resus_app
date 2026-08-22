@@ -179,18 +179,18 @@ export default function InstitutionWorkspace() {
   return (
     <div className="min-h-screen bg-slate-50/70 dark:bg-slate-950/30">
       <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-start">
-          <div>
+        <div className="mb-4 flex min-w-0 flex-col justify-between gap-3 md:mb-6 md:flex-row md:items-start md:gap-4">
+          <div className="min-w-0">
             <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
               <Building2 className="h-4 w-4" />
               Institution Workspace
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight">{institutionName}</h1>
-            <p className="mt-2 max-w-3xl text-muted-foreground">
+            <h1 className="break-words text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{institutionName}</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-5 text-muted-foreground sm:text-base">
               One institution account, two products, and one shared administration layer. Providers and institutional leaders work from the same readiness record.
             </p>
           </div>
-          <Button variant="outline" onClick={() => setSection("administration")}>
+          <Button className="w-full shrink-0 md:w-auto" variant="outline" onClick={() => setSection("administration")}>
             <Settings2 className="mr-2 h-4 w-4" /> Administration
           </Button>
         </div>
@@ -227,12 +227,12 @@ export default function InstitutionWorkspace() {
         </div>
 
         <Tabs value={activeSection} onValueChange={(value) => setSection(value as WorkspaceSection)}>
-          <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-5">
-            <TabsTrigger value="overview"><LayoutDashboard className="mr-2 h-4 w-4" />Overview</TabsTrigger>
-            <TabsTrigger value="iers"><HeartPulse className="mr-2 h-4 w-4" />IERS</TabsTrigger>
-            <TabsTrigger value="cpd_portal"><ClipboardCheck className="mr-2 h-4 w-4" />CPD Portal</TabsTrigger>
-            <TabsTrigger value="administration"><Settings2 className="mr-2 h-4 w-4" />Administration</TabsTrigger>
-            <TabsTrigger value="connected"><Wrench className="mr-2 h-4 w-4" />Connected Services</TabsTrigger>
+          <TabsList className="mb-6 grid h-auto w-full grid-cols-1 gap-1 p-1 min-[380px]:grid-cols-2 sm:grid-cols-5">
+            <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="overview"><LayoutDashboard className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Overview</span></TabsTrigger>
+            <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="iers"><HeartPulse className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>IERS</span></TabsTrigger>
+            <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="cpd_portal"><ClipboardCheck className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>CPD Portal</span></TabsTrigger>
+            <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="administration"><Settings2 className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Administration</span></TabsTrigger>
+            <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="connected"><Wrench className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Connected Services</span></TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -266,14 +266,14 @@ export default function InstitutionWorkspace() {
           <TabsContent value="iers">
             {iersEnabled ? (
               <Tabs value={activeIersTab} onValueChange={setActiveIersTab}>
-                <TabsList className="mb-6 flex h-auto flex-wrap gap-1">
-                  <TabsTrigger value="command">Command centre</TabsTrigger>
-                  <TabsTrigger value="evidence">Evidence & actions</TabsTrigger>
-                  <TabsTrigger value="drills">Drills & debriefs</TabsTrigger>
-                  <TabsTrigger value="competency">Competency & training</TabsTrigger>
-                  <TabsTrigger value="workforce">ERT & equipment</TabsTrigger>
-                  <TabsTrigger value="plan">Implementation plan</TabsTrigger>
-                  <TabsTrigger value="report">Executive snapshot</TabsTrigger>
+                <TabsList className="mb-6 grid h-auto w-full grid-cols-1 gap-1 p-1 min-[420px]:grid-cols-2 sm:flex sm:flex-wrap sm:p-0">
+                  <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="command">Command centre</TabsTrigger>
+                  <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="evidence">Evidence & actions</TabsTrigger>
+                  <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="drills">Drills & debriefs</TabsTrigger>
+                  <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="competency">Competency & training</TabsTrigger>
+                  <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="workforce">ERT & equipment</TabsTrigger>
+                  <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="plan">Implementation plan</TabsTrigger>
+                  <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="report">Executive snapshot</TabsTrigger>
                 </TabsList>
                 <TabsContent value="command"><IersActivationPanel institutionId={institutionId} /></TabsContent>
                 <TabsContent value="evidence"><IersEvidencePanel institutionId={institutionId} /></TabsContent>

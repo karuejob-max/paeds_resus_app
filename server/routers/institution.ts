@@ -75,6 +75,10 @@ import { isMissingTableError } from "../lib/is-missing-db-table";
 import { isInstitutionInPilotProgram } from "@shared/pilot-program";
 import { validateDepartmentErcoAssignment } from "../lib/iers-department-governance";
 import {
+  evaluateProviderDutyAuthorization,
+  type ProviderDutyAuthorizationInput,
+} from "../lib/iers-provider-duty-authorization";
+import {
   isValidActionLogStatusTransition,
   requiresSystemChangeOnResolve,
   type ActionLogStatus,
@@ -86,6 +90,14 @@ const IERS_READ_ROLES = ["iers_viewer", "iers_coordinator", "iers_governance", "
 const IERS_OPERATE_ROLES = ["iers_coordinator", "iers_governance"] as const;
 const IERS_ACTION_ROLES = ["iers_coordinator", "iers_reviewer", "iers_governance"] as const;
 const IERS_DEPARTMENT_GOVERNANCE_ROLES = ["iers_coordinator", "iers_governance"] as const;
+
+function assertProviderDutyDecision(input: ProviderDutyAuthorizationInput) {
+  const decision = evaluateProviderDutyAuthorization(input);
+  if (!decision.allowed) {
+    throw new TRPCError({ code: decision.code, message: decision.reason });
+  }
+}
+
 async function assertActiveProviderDutyAccess(
   db: DbClient,
   user: Pick<typeof users.$inferSelect, "id" | "role" | "email">,
@@ -3805,10 +3817,17 @@ export const institutionRouter = router({
         .limit(1);
       if (!rotation) throw new TRPCError({ code: "NOT_FOUND", message: "ERTL rotation assignment not found." });
       await assertActiveProviderDutyAccess(db, ctx.user, rotation.institutionId);
-      if (rotation.assignmentStatus === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "This ERTL rotation has ended." });
-      if (input.response === "decline" && !input.declineReason) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "A decline reason is required so the institution can arrange cover." });
-      }
+      assertProviderDutyDecision({
+        action: "respond_to_assignment",
+        requestedInstitutionId: rotation.institutionId,
+        assignmentInstitutionId: rotation.institutionId,
+        requestingUserId: ctx.user.id,
+        assignedUserId: rotation.ertlUserId,
+        membershipStatus: "active",
+        assignmentStatus: rotation.assignmentStatus,
+        response: input.response,
+        declineReason: input.declineReason,
+      });
       await db.update(ertlWeeklyRotations).set(
         input.response === "accept"
           ? { assignmentStatus: "active", acceptedAt: new Date(), declinedAt: null, declineReason: null }
@@ -3836,10 +3855,17 @@ export const institutionRouter = router({
         .limit(1);
       if (!roster) throw new TRPCError({ code: "NOT_FOUND", message: "Shift UTL assignment not found." });
       await assertActiveProviderDutyAccess(db, ctx.user, roster.institutionId);
-      if (roster.assignmentStatus === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "This shift assignment has ended." });
-      if (input.response === "decline" && !input.declineReason) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "A decline reason is required so the institution can arrange cover." });
-      }
+      assertProviderDutyDecision({
+        action: "respond_to_assignment",
+        requestedInstitutionId: roster.institutionId,
+        assignmentInstitutionId: roster.institutionId,
+        requestingUserId: ctx.user.id,
+        assignedUserId: roster.utlUserId,
+        membershipStatus: "active",
+        assignmentStatus: roster.assignmentStatus,
+        response: input.response,
+        declineReason: input.declineReason,
+      });
       await db.update(shiftUtlRosters).set(
         input.response === "accept"
           ? { assignmentStatus: "active", acceptedAt: new Date(), declinedAt: null, declineReason: null }
@@ -3960,10 +3986,17 @@ export const institutionRouter = router({
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "ERCo assignment not found for this provider." });
       await assertActiveProviderDutyAccess(db, ctx.user, assignment.institutionId);
-      if (assignment.assignmentStatus === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "This ERCo assignment has ended." });
-      if (input.response === "decline" && !input.declineReason) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "A decline reason is required so the institution can arrange cover." });
-      }
+      assertProviderDutyDecision({
+        action: "respond_to_assignment",
+        requestedInstitutionId: assignment.institutionId,
+        assignmentInstitutionId: assignment.institutionId,
+        requestingUserId: ctx.user.id,
+        assignedUserId: assignment.coordinatorUserId,
+        membershipStatus: "active",
+        assignmentStatus: assignment.assignmentStatus,
+        response: input.response,
+        declineReason: input.declineReason,
+      });
       await db.update(institutionDepartmentResponseCoordinators).set(
         input.response === "accept"
           ? { assignmentStatus: "active", acceptedAt: new Date(), declinedAt: null, declineReason: null, updatedAt: new Date() }
@@ -3999,10 +4032,17 @@ export const institutionRouter = router({
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "Backup assignment not found for this provider." });
       await assertActiveProviderDutyAccess(db, ctx.user, assignment.institutionId);
-      if (assignment.assignmentStatus === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "This ERCo assignment has ended." });
-      if (input.response === "decline" && !input.declineReason) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "A decline reason is required so the institution can arrange backup cover." });
-      }
+      assertProviderDutyDecision({
+        action: "respond_to_assignment",
+        requestedInstitutionId: assignment.institutionId,
+        assignmentInstitutionId: assignment.institutionId,
+        requestingUserId: ctx.user.id,
+        assignedUserId: assignment.backupUserId,
+        membershipStatus: "active",
+        assignmentStatus: assignment.assignmentStatus,
+        response: input.response,
+        declineReason: input.declineReason,
+      });
       await db.update(institutionDepartmentResponseCoordinators).set(
         input.response === "accept"
           ? { backupAcceptedAt: new Date(), backupDeclinedAt: null, backupDeclineReason: null, updatedAt: new Date() }
