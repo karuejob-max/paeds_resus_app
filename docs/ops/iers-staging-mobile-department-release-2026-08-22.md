@@ -29,7 +29,7 @@ Apply is deliberately guarded and requires both exact targeting and an explicit 
 pnpm run cleanup:iers-smoke-test -- --institution-id <id> --institution-name "Consolata Hospital Mathari" --apply --confirm DELETE_SMOKE_TEST_RECORDS
 ```
 
-The command removes only labelled facility departments and their related ERCo assignments/events, ERTL rotations, UTL rosters, and shift-readiness evidence. It never removes the institution, users, memberships, roles, subscriptions, entitlements, CPD data, or non-prefixed departments. No production cleanup deletion was executed in this release slice. The current authenticated production institution was read-only confirmed as Consolata Hospital Mathari; no patient identifiers, activation, drill, or real-emergency data were entered.
+The command removes only labelled facility departments and their related ERCo assignments/events, ERTL rotations, UTL rosters, and shift-readiness evidence. It never removes the institution, users, memberships, roles, subscriptions, entitlements, CPD data, or non-prefixed departments. The confirmed production cleanup apply was executed once after the dry-run review. The current authenticated production institution was read-only confirmed as Consolata Hospital Mathari; no patient identifiers, activation, drill, or real-emergency data were entered.
 
 ## Mobile roster audit
 
@@ -63,7 +63,7 @@ pnpm run db:apply-iers
 
 It was entered once. Migrations 0111, 0112, and 0113 rechecked/passed; migration 0114 completed; and the terminal returned to a prompt. The strict `db:verify-iers` then passed, including canonical department confirmation, staff and CPD department columns, facility departments/poles, monthly UTL rota and shift provenance, ERCo assignment/history, ERTL/UTL assignments and acceptance fields, and existing IERS product, evidence, action, lifecycle, and Safe Truth contracts.
 
-No duplicate migration run, production cleanup deletion, pilot drill, real emergency, or patient-identifier operation was performed. A read-only post-migration CPD route check reached the application shell but reset to a transient blank browser state before the department field could be visually confirmed; the server/schema contract and tests passed, so a later phone-browser check should confirm the rendered selector.
+No duplicate migration run, pilot drill, real emergency, or patient-identifier operation was performed. The separately confirmed smoke-test cleanup deleted only the labelled records listed in the verified preview. A read-only post-migration CPD route check reached the application shell but reset to a transient blank browser state before the department field could be visually confirmed; the server/schema contract and tests passed, so a later phone-browser check should confirm the rendered selector.
 
 ## Local validation
 
@@ -81,8 +81,8 @@ The following checks passed before protected merge:
 - Protected CI gate on PR #507 and PR #509
 - Production migration runner through 0114 and strict `db:verify-iers`
 
-The labelled pilot drill remains blocked until safe cleanup of prior labelled smoke-test records, final phone-width visual verification, and the remaining operational release gates are independently satisfied. The cleanup preview remains dry-run only; no production records were deleted.
+The labelled pilot drill remains blocked until final phone-width visual verification and the remaining operational release gates are independently satisfied. The labelled smoke-test records have now been removed through the guarded cleanup command.
 
 ## Production smoke-test cleanup preview
 
-The fail-closed preview was run in the Render Web Shell with exact institution name `Consolata Hospital Mathari` and no deletion flags. It resolved institution ID 3 and found exactly two labelled departments: `SMOKE TEST - Department Alpha` (ID 1) and `SMOKE TEST - Department Bravo` (ID 2). The preview reported 1 ERCo assignment, 3 ERCo events, 1 weekly ERTL rotation, 1 shift UTL roster, and 1 readiness evidence record. The command returned to a prompt and confirmed dry-run only; no records changed.
+The initial fail-closed preview was run in the Render Web Shell with exact institution name `Consolata Hospital Mathari` and no deletion flags. It resolved institution ID 3 and found exactly two labelled departments: `SMOKE TEST - Department Alpha` (ID 1) and `SMOKE TEST - Department Bravo` (ID 2). The preview reported 1 ERCo assignment, 3 ERCo events, 1 weekly ERTL rotation, 1 shift UTL roster, and 1 readiness evidence record. After explicit confirmation, the exact apply command ran once and reported the same scoped summary, with institution, users, memberships, roles, subscriptions, entitlements, and CPD data untouched. A post-cleanup dry-run then returned empty department IDs/names and zero ERCo assignments/events, weekly rotations, shift rosters, and readiness evidence. The cleanup is therefore verified complete for the labelled prefix.
