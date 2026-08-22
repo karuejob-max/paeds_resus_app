@@ -13,3 +13,5 @@ At the latest read, commit `6ccfde7` still appears as `Deploy started` with `Can
 The direct deployment-detail navigation for `dep-da50u3bl550s73fv06kg` returned a transient blank browser state. No deployment failure was visible, but a definitive `Live` marker for `6ccfde7` was not captured in this read. The prior Render overview showed the deploy in progress with no failure; no production data or migration was involved.
 
 Final deployment status: Render shows `Deploy live for 6ccfde7` (PR #512, align IERS departments and People roles). The production service is healthy and no database migration was required for this source/role-visibility release.
+Final documentation handoff PR #513 is merged at `98b0fb1`. Render navigation to the production service returned a transient blank state during this read, so no separate live marker for the documentation-only commit was captured. The runtime implementation remains confirmed live at `6ccfde7`; no migration or production data operation is associated with the documentation PR.
+
