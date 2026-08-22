@@ -14,6 +14,7 @@ import { BulkEnrollmentPanel } from "@/components/BulkEnrollmentPanel";
 import { SupportTicketForm } from "@/components/SupportTicketForm";
 import { AdminNotificationsDashboard } from "@/components/AdminNotificationsDashboard";
 import { InstitutionDataLifecyclePanel } from "@/components/InstitutionDataLifecyclePanel";
+import { InstitutionRenewalPanel } from "@/components/InstitutionRenewalPanel";
 
 type InstitutionRecord = {
   id: number;
@@ -55,6 +56,7 @@ export function InstitutionAdministrationPanel({ institutionId, institution }: {
 
       <TabsContent value="billing" className="space-y-6">
         <InstitutionProductAccessPanel institutionId={institutionId} />
+        <InstitutionRenewalPanel institutionId={institutionId} />
         <BulkEnrollmentPanel
           institutionId={institutionId}
           courseType={courseType}
