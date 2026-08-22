@@ -1,7 +1,7 @@
 # IERS staging, mobile roster, cleanup, and department release
 
 **Date:** 2026-08-22
-**Status:** Protected PR #507 merged; Render deployment and production migrations 0111–0113 verified. Department/rota onboarding release is locally validated and pending its own protected PR, Render deploy, and guarded migration 0114.
+**Status:** Protected PR #507 and department/rota PR #509 merged; Render deployment and production migrations 0111–0114 verified.
 
 ## Real-router staging matrix
 
@@ -49,7 +49,7 @@ The new onboarding/setup flow is deliberately ordered: the institutional admin c
 
 The same setup panel remains available after onboarding for renames, additions, safe deactivation of omitted departments, pole remapping, and monthly regeneration. An explicit `IERS_STAGING_ENABLE=1` flag is required for the real-router staging command so normal CI cannot consume stale database configuration.
 
-Local final staging validation passed after these changes: the real `appRouter.createCaller` matrix covered canonical department options, linked-provider autofill, ERCo-authorized monthly UTL generation, provider-linked shift rows, automatic ERTL shift behavior, and all prior denial/revocation cases. Migration 0114 has not yet been applied to production.
+Local final staging validation passed after these changes: the real `appRouter.createCaller` matrix covered canonical department options, linked-provider autofill, ERCo-authorized monthly UTL generation, provider-linked shift rows, automatic ERTL shift behavior, and all prior denial/revocation cases. Migration 0114 was applied once through the guarded Render runner and passed the strict IERS verifier in the same run. No duplicate migration run was performed.
 
 ## Production delivery and verification
 
@@ -61,7 +61,7 @@ The single confirmed Render Shell command was:
 pnpm run db:apply-iers
 ```
 
-It was entered once. Migrations 0111 and 0112 rechecked/passed, migration 0113 completed, and the terminal returned to a prompt. The strict `db:verify-iers` then passed, including the canonical staff and CPD department columns, facility departments/poles, ERCo assignment and history, ERTL/UTL assignments and acceptance fields, and existing IERS product, evidence, action, lifecycle, and Safe Truth contracts.
+It was entered once. Migrations 0111, 0112, and 0113 rechecked/passed; migration 0114 completed; and the terminal returned to a prompt. The strict `db:verify-iers` then passed, including canonical department confirmation, staff and CPD department columns, facility departments/poles, monthly UTL rota and shift provenance, ERCo assignment/history, ERTL/UTL assignments and acceptance fields, and existing IERS product, evidence, action, lifecycle, and Safe Truth contracts.
 
 No duplicate migration run, production cleanup deletion, pilot drill, real emergency, or patient-identifier operation was performed. A read-only post-migration CPD route check reached the application shell but reset to a transient blank browser state before the department field could be visually confirmed; the server/schema contract and tests passed, so a later phone-browser check should confirm the rendered selector.
 
@@ -71,15 +71,17 @@ The following checks passed before protected merge:
 
 - `git diff --check`
 - `node --check scripts/apply-0113-canonical-department-links.mjs`
+- `node --check scripts/apply-0114-department-rota-automation.mjs`
 - `node --check scripts/cleanup-iers-smoke-test.mjs`
 - `pnpm run test:iers-verifier`
 - Focused Vitest suites for CPD registration, provider-duty fixture, readiness, and ERCo governance
 - `pnpm run lint:clinical`
 - `NODE_OPTIONS=--max-old-space-size=2048 pnpm exec tsc --noEmit`
 - `pnpm run build`
-- Protected CI gate on PR #507
+- Protected CI gate on PR #507 and PR #509
+- Production migration runner through 0114 and strict `db:verify-iers`
 
-The labelled pilot drill remains blocked until safe cleanup of prior labelled smoke-test records, final phone-width visual verification, and the remaining operational release gates are independently satisfied.
+The labelled pilot drill remains blocked until safe cleanup of prior labelled smoke-test records, final phone-width visual verification, and the remaining operational release gates are independently satisfied. The cleanup preview remains dry-run only; no production records were deleted.
 
 ## Production smoke-test cleanup preview
 
