@@ -31,6 +31,7 @@ import {
   institutionDepartmentResponseCoordinators,
   institutionDepartmentResponseCoordinatorEvents,
   ertlWeeklyRotations,
+  monthlyUtlRotations,
   shiftUtlRosters,
   iermsAuditScorecards,
   equipmentAuditLogs,
@@ -52,7 +53,7 @@ import {
   type GapRecommendation,
 } from "./care-signal-events";
 import { alias } from "drizzle-orm/mysql-core";
-import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, sql, or } from "drizzle-orm";
+import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, sql, or, notInArray } from "drizzle-orm";
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
 import { assertInstitutionAccess, getAdministeredInstitutionIds } from "../lib/institution-access";
@@ -74,6 +75,8 @@ import { ENV } from "../_core/env";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { isInstitutionInPilotProgram } from "@shared/pilot-program";
 import { validateDepartmentErcoAssignment } from "../lib/iers-department-governance";
+import { getIsoWeekKey, getIsoWeekRange, getMonthlyShiftRows, monthStartFromShiftDate, normalizeMonthStart } from "../lib/iers-monthly-rota";
+import { insertCanonicalFacilityDepartments } from "../lib/iers-department-setup";
 import {
   evaluateProviderDutyAuthorization,
   type ProviderDutyAuthorizationInput,
@@ -134,6 +137,166 @@ async function getActiveProviderDutyInstitutionIds(
     }
   }
   return activeInstitutionIds;
+}
+
+async function assertIersDepartmentRotaWriteAccess(
+  db: DbClient,
+  user: Pick<typeof users.$inferSelect, "id" | "role" | "email">,
+  institutionId: number,
+  departmentId: number,
+) {
+  try {
+    return await assertInstitutionProductRole(db, user, institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
+  } catch (error) {
+    if (!(error instanceof TRPCError) || error.code !== "FORBIDDEN") throw error;
+    await assertActiveProviderDutyAccess(db, user, institutionId);
+    const [assignment] = await db
+      .select({ id: institutionDepartmentResponseCoordinators.id })
+      .from(institutionDepartmentResponseCoordinators)
+      .where(and(
+        eq(institutionDepartmentResponseCoordinators.institutionId, institutionId),
+        eq(institutionDepartmentResponseCoordinators.departmentId, departmentId),
+        eq(institutionDepartmentResponseCoordinators.coordinatorUserId, user.id),
+        eq(institutionDepartmentResponseCoordinators.assignmentStatus, "active"),
+      ))
+      .limit(1);
+    if (!assignment) throw error;
+    return { roleKey: "accepted_department_erco" as const };
+  }
+}
+
+async function resolveCanonicalDepartmentProvider(
+  db: DbClient,
+  institutionId: number,
+  departmentId: number,
+  preferredUserId?: number | null,
+) {
+  const rows = await db
+    .select({ userId: institutionalStaffMembers.userId })
+    .from(institutionalStaffMembers)
+    .innerJoin(institutionMemberships, and(
+      eq(institutionMemberships.institutionalAccountId, institutionId),
+      eq(institutionMemberships.userId, institutionalStaffMembers.userId),
+    ))
+    .where(and(
+      eq(institutionalStaffMembers.institutionalAccountId, institutionId),
+      eq(institutionalStaffMembers.facilityDepartmentId, departmentId),
+      eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+      eq(institutionMemberships.membershipStatus, "active"),
+      isNotNull(institutionalStaffMembers.userId),
+    ))
+    .orderBy(asc(institutionalStaffMembers.id));
+  const providerIds = rows.map((row) => row.userId).filter((id): id is number => id != null);
+  if (preferredUserId != null) {
+    if (!providerIds.includes(preferredUserId)) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "The provider must be an active linked member of this canonical department." });
+    }
+    return preferredUserId;
+  }
+  return providerIds[0] ?? null;
+}
+
+function isMissingSchemaColumnError(error: unknown) {
+  const candidate = error as { code?: string; message?: string };
+  return candidate?.code === "ER_BAD_FIELD_ERROR" || candidate?.message?.includes("Unknown column") === true;
+}
+
+async function assertDepartmentBelongsToPole(db: DbClient, institutionId: number, departmentId: number, poleId: number) {
+  const [department] = await db
+    .select({ id: facilityDepartments.id, poleId: facilityDepartments.poleId, departmentName: facilityDepartments.departmentName })
+    .from(facilityDepartments)
+    .where(and(
+      eq(facilityDepartments.id, departmentId),
+      eq(facilityDepartments.institutionId, institutionId),
+      eq(facilityDepartments.isActive, true),
+    ))
+    .limit(1);
+  if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "Active canonical department not found in this institution." });
+  if (department.poleId !== poleId) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Assign this department to the selected pole before creating its ERTL or UTL rota." });
+  }
+  return department;
+}
+
+async function ensureMonthlyUtlShifts(
+  db: DbClient,
+  input: { institutionId: number; poleId: number; departmentId: number; monthStart: string; providerUserId: number | null; monthlyUtlRotationId: number },
+) {
+  if (input.providerUserId == null) {
+    await db.update(shiftUtlRosters).set({
+      assignmentStatus: "ended",
+      acceptedAt: null,
+      declinedAt: null,
+      declineReason: null,
+      readinessSignOffAt: null,
+      readinessSignedOffByUserId: null,
+      readinessNote: null,
+    }).where(and(
+      eq(shiftUtlRosters.institutionId, input.institutionId),
+      eq(shiftUtlRosters.poleId, input.poleId),
+      eq(shiftUtlRosters.departmentId, input.departmentId),
+      eq(shiftUtlRosters.monthlyUtlRotationId, input.monthlyUtlRotationId),
+    ));
+    return 0;
+  }
+  const weeklyRotations = await db
+    .select({ startDate: ertlWeeklyRotations.startDate, endDate: ertlWeeklyRotations.endDate, departmentId: ertlWeeklyRotations.departmentId })
+    .from(ertlWeeklyRotations)
+    .where(and(
+      eq(ertlWeeklyRotations.institutionId, input.institutionId),
+      eq(ertlWeeklyRotations.poleId, input.poleId),
+    ));
+  let generated = 0;
+  for (const row of getMonthlyShiftRows(input.monthStart)) {
+    const isShiftErtl = weeklyRotations.some((rotation) =>
+      rotation.departmentId === input.departmentId &&
+      String(rotation.startDate).slice(0, 10) <= row.shiftDate &&
+      String(rotation.endDate).slice(0, 10) >= row.shiftDate,
+    );
+    const [existing] = await db
+      .select({ id: shiftUtlRosters.id, utlUserId: shiftUtlRosters.utlUserId, assignmentStatus: shiftUtlRosters.assignmentStatus, acceptedAt: shiftUtlRosters.acceptedAt, readinessSignOffAt: shiftUtlRosters.readinessSignOffAt })
+      .from(shiftUtlRosters)
+      .where(and(
+        eq(shiftUtlRosters.institutionId, input.institutionId),
+        eq(shiftUtlRosters.poleId, input.poleId),
+        eq(shiftUtlRosters.departmentId, input.departmentId),
+        eq(shiftUtlRosters.shiftDate, new Date(row.shiftDate)),
+        eq(shiftUtlRosters.shiftType, row.shiftType),
+      ))
+      .limit(1);
+    if (!existing) {
+      await db.insert(shiftUtlRosters).values({
+        institutionId: input.institutionId,
+        poleId: input.poleId,
+        departmentId: input.departmentId,
+        shiftDate: new Date(row.shiftDate),
+        shiftType: row.shiftType,
+        utlUserId: input.providerUserId,
+        isShiftErtl,
+        monthlyUtlRotationId: input.monthlyUtlRotationId,
+        assignmentStatus: "pending_acceptance",
+        status: "active",
+      });
+      generated += 1;
+      continue;
+    }
+    const providerChanged = existing.utlUserId !== input.providerUserId;
+    await db.update(shiftUtlRosters).set({
+      utlUserId: input.providerUserId,
+      isShiftErtl,
+      monthlyUtlRotationId: input.monthlyUtlRotationId,
+      ...(providerChanged ? {
+        assignmentStatus: "pending_acceptance" as const,
+        acceptedAt: null,
+        declinedAt: null,
+        declineReason: null,
+        readinessSignOffAt: null,
+        readinessSignedOffByUserId: null,
+        readinessNote: null,
+      } : {}),
+    }).where(eq(shiftUtlRosters.id, existing.id));
+  }
+  return generated;
 }
 
 async function ensureProviderMembershipForStaff(
@@ -1229,6 +1392,8 @@ export const institutionRouter = router({
         secondAdminName: z.string().min(1),
         secondAdminEmail: z.string().email(),
         secondAdminPhone: z.string().optional(),
+        /** Canonical IERS departments confirmed by the institutional admin during setup. */
+        departmentNames: z.array(z.string().trim().min(2).max(128)).max(100).default([]),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -1310,6 +1475,12 @@ export const institutionRouter = router({
           status: "pending",
         });
       }
+
+      await insertCanonicalFacilityDepartments(db, {
+        institutionId,
+        departmentNames: input.departmentNames,
+        confirmedByUserId: ctx.user.id,
+      });
 
       await db.insert(institutionalInquiries).values({
         companyName: input.institutionName,
@@ -3563,7 +3734,6 @@ export const institutionRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
 
       return db
@@ -3581,7 +3751,6 @@ export const institutionRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
 
       const [result] = await db.insert(facilityPoles).values({
@@ -3598,13 +3767,77 @@ export const institutionRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
 
-      return db
-        .select()
-        .from(facilityDepartments)
-        .where(eq(facilityDepartments.institutionId, input.institutionId));
+      try {
+        return await db
+          .select()
+          .from(facilityDepartments)
+          .where(and(eq(facilityDepartments.institutionId, input.institutionId), eq(facilityDepartments.isActive, true)));
+      } catch (error) {
+        // The application can deploy before guarded migration 0114 runs. Keep the legacy department read available during that window.
+        if (!isMissingSchemaColumnError(error)) throw error;
+        return db.select({
+          id: facilityDepartments.id,
+          institutionId: facilityDepartments.institutionId,
+          poleId: facilityDepartments.poleId,
+          departmentName: facilityDepartments.departmentName,
+          isActive: sql<boolean>`TRUE`,
+          confirmedAt: sql<Date | null>`NULL`,
+          confirmedByUserId: sql<number | null>`NULL`,
+          createdAt: facilityDepartments.createdAt,
+        }).from(facilityDepartments).where(eq(facilityDepartments.institutionId, input.institutionId));
+      }
+    }),
+
+  confirmFacilityDepartments: protectedProcedure
+    .input(z.object({
+      institutionId: z.number(),
+      departments: z.array(z.object({ departmentId: z.number().int().positive().optional(), departmentName: z.string().trim().min(2).max(128) })).min(1).max(100),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+      const uniqueNames = Array.from(new Set(input.departments.map((item) => item.departmentName.trim().toLowerCase())));
+      if (uniqueNames.length !== input.departments.length) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Department names must be unique within an institution." });
+      }
+      const existing = await db.select().from(facilityDepartments).where(eq(facilityDepartments.institutionId, input.institutionId));
+      const existingByName = new Map(existing.map((row) => [row.departmentName.trim().toLowerCase(), row]));
+      const retainedIds: number[] = [];
+      for (const item of input.departments) {
+        const normalizedName = item.departmentName.trim().toLowerCase();
+        const current = item.departmentId != null ? existing.find((row) => row.id === item.departmentId) : existingByName.get(normalizedName);
+        if (item.departmentId != null && !current) throw new TRPCError({ code: "NOT_FOUND", message: "Department not found in this institution." });
+        const conflictingRow = existingByName.get(normalizedName);
+        if (conflictingRow && (!current || conflictingRow.id !== current.id)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Department names must be unique within an institution." });
+        }
+        if (current) {
+          retainedIds.push(current.id);
+          await db.update(facilityDepartments).set({
+            departmentName: item.departmentName.trim(),
+            isActive: true,
+            confirmedAt: new Date(),
+            confirmedByUserId: ctx.user.id,
+          }).where(eq(facilityDepartments.id, current.id));
+        } else {
+          await db.insert(facilityDepartments).values({
+            institutionId: input.institutionId,
+            departmentName: item.departmentName.trim(),
+            poleId: null,
+            isActive: true,
+            confirmedAt: new Date(),
+            confirmedByUserId: ctx.user.id,
+          });
+        }
+      }
+      await db.update(facilityDepartments).set({ isActive: false }).where(and(
+        eq(facilityDepartments.institutionId, input.institutionId),
+        notInArray(facilityDepartments.id, retainedIds),
+      ));
+      return { success: true, confirmedCount: input.departments.length };
     }),
 
   assignDepartmentToPole: protectedProcedure
@@ -3616,7 +3849,6 @@ export const institutionRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
 
       const [existing] = await db
@@ -3631,17 +3863,36 @@ export const institutionRouter = router({
       if (existing) {
         await db
           .update(facilityDepartments)
-          .set({ poleId: input.poleId })
+          .set({ poleId: input.poleId, isActive: true, confirmedAt: existing.confirmedAt ?? new Date(), confirmedByUserId: existing.confirmedByUserId ?? ctx.user.id })
           .where(eq(facilityDepartments.id, existing.id));
       } else {
         await db.insert(facilityDepartments).values({
           institutionId: input.institutionId,
           poleId: input.poleId,
           departmentName: input.departmentName,
+          isActive: true,
+          confirmedAt: new Date(),
+          confirmedByUserId: ctx.user.id,
         });
       }
 
       return { success: true };
+    }),
+
+  assignAllUnassignedDepartmentsToPole: protectedProcedure
+    .input(z.object({ institutionId: z.number(), poleId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
+      const [pole] = await db.select({ id: facilityPoles.id }).from(facilityPoles).where(and(eq(facilityPoles.id, input.poleId), eq(facilityPoles.institutionId, input.institutionId))).limit(1);
+      if (!pole) throw new TRPCError({ code: "NOT_FOUND", message: "Pole not found in this institution." });
+      const result = await db.update(facilityDepartments).set({ poleId: input.poleId }).where(and(
+        eq(facilityDepartments.institutionId, input.institutionId),
+        eq(facilityDepartments.isActive, true),
+        isNull(facilityDepartments.poleId),
+      ));
+      return { success: true, assignedCount: (result as unknown as { affectedRows?: number }).affectedRows ?? 0 };
     }),
 
   getDepartmentResponseCoordinators: protectedProcedure
@@ -4114,6 +4365,123 @@ export const institutionRouter = router({
       return rotation ?? null;
     }),
 
+  getErtlDepartmentOptions: protectedProcedure
+    .input(z.object({ institutionId: z.number(), poleId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
+      const rows = await db
+        .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName, poleId: facilityDepartments.poleId, poleName: facilityPoles.poleName })
+        .from(facilityDepartments)
+        .leftJoin(facilityPoles, eq(facilityPoles.id, facilityDepartments.poleId))
+        .where(and(
+          eq(facilityDepartments.institutionId, input.institutionId),
+          eq(facilityDepartments.isActive, true),
+          eq(facilityDepartments.poleId, input.poleId),
+        ))
+        .orderBy(asc(facilityDepartments.departmentName));
+      return rows;
+    }),
+
+  getMonthlyUtlRota: protectedProcedure
+    .input(z.object({ institutionId: z.number(), poleId: z.number().int().positive(), monthStart: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
+      const monthStart = normalizeMonthStart(input.monthStart);
+      try {
+        return await db
+        .select({
+          id: monthlyUtlRotations.id,
+          institutionId: monthlyUtlRotations.institutionId,
+          poleId: monthlyUtlRotations.poleId,
+          departmentId: monthlyUtlRotations.departmentId,
+          departmentName: facilityDepartments.departmentName,
+          monthStart: monthlyUtlRotations.monthStart,
+          providerUserId: monthlyUtlRotations.providerUserId,
+          providerName: users.name,
+          assignmentStatus: monthlyUtlRotations.assignmentStatus,
+          acceptedAt: monthlyUtlRotations.acceptedAt,
+          declinedAt: monthlyUtlRotations.declinedAt,
+          declineReason: monthlyUtlRotations.declineReason,
+        })
+        .from(monthlyUtlRotations)
+        .leftJoin(facilityDepartments, eq(facilityDepartments.id, monthlyUtlRotations.departmentId))
+        .leftJoin(users, eq(users.id, monthlyUtlRotations.providerUserId))
+        .where(and(
+          eq(monthlyUtlRotations.institutionId, input.institutionId),
+          eq(monthlyUtlRotations.poleId, input.poleId),
+          eq(monthlyUtlRotations.monthStart, new Date(monthStart)),
+        ))
+        .orderBy(asc(facilityDepartments.departmentName));
+      } catch (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
+    }),
+
+  autopopulateMonthlyUtlRota: protectedProcedure
+    .input(z.object({
+      institutionId: z.number(),
+      poleId: z.number().int().positive(),
+      monthStart: z.string(),
+      departmentIds: z.array(z.number().int().positive()).min(1).max(100),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const monthStart = normalizeMonthStart(input.monthStart);
+      let generatedShifts = 0;
+      let assignedDepartments = 0;
+      for (const departmentId of Array.from(new Set(input.departmentIds))) {
+        await assertIersDepartmentRotaWriteAccess(db, ctx.user, input.institutionId, departmentId);
+        const department = await assertDepartmentBelongsToPole(db, input.institutionId, departmentId, input.poleId);
+        const providerUserId = await resolveCanonicalDepartmentProvider(db, input.institutionId, departmentId);
+        const [existing] = await db.select({ id: monthlyUtlRotations.id, providerUserId: monthlyUtlRotations.providerUserId, assignmentStatus: monthlyUtlRotations.assignmentStatus }).from(monthlyUtlRotations).where(and(
+          eq(monthlyUtlRotations.institutionId, input.institutionId),
+          eq(monthlyUtlRotations.departmentId, departmentId),
+          eq(monthlyUtlRotations.monthStart, new Date(monthStart)),
+        )).limit(1);
+        const providerChanged = existing ? existing.providerUserId !== providerUserId : true;
+        let rotationId: number;
+        if (existing) {
+          await db.update(monthlyUtlRotations).set({
+            poleId: input.poleId,
+            providerUserId,
+            assignmentStatus: providerUserId == null ? "unassigned" : providerChanged ? "pending_acceptance" : existing.assignmentStatus,
+            acceptedAt: providerChanged ? null : undefined,
+            declinedAt: providerChanged ? null : undefined,
+            declineReason: providerChanged ? null : undefined,
+            updatedAt: new Date(),
+          }).where(eq(monthlyUtlRotations.id, existing.id));
+          rotationId = existing.id;
+        } else {
+          const [result] = await db.insert(monthlyUtlRotations).values({
+            institutionId: input.institutionId,
+            poleId: input.poleId,
+            departmentId: department.id,
+            monthStart: new Date(monthStart),
+            providerUserId,
+            assignmentStatus: providerUserId == null ? "unassigned" : "pending_acceptance",
+            assignedByUserId: ctx.user.id,
+          });
+          rotationId = result.insertId;
+        }
+        generatedShifts += await ensureMonthlyUtlShifts(db, {
+          institutionId: input.institutionId,
+          poleId: input.poleId,
+          departmentId,
+          monthStart,
+          providerUserId,
+          monthlyUtlRotationId: rotationId,
+        });
+        if (providerUserId != null) assignedDepartments += 1;
+      }
+      return { success: true, assignedDepartments, generatedShifts, monthStart };
+    }),
+
   setWeeklyErtlRotation: protectedProcedure
     .input(z.object({
       institutionId: z.number(),
@@ -4133,19 +4501,14 @@ export const institutionRouter = router({
       if (new Date(input.endDate) < new Date(input.startDate)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "ERTL rotation end date cannot be before its start date." });
       }
-      if (input.ertlUserId != null) {
-        const [member] = await db
-          .select({ userId: institutionMemberships.userId })
-          .from(institutionMemberships)
-          .where(and(
-            eq(institutionMemberships.institutionalAccountId, input.institutionId),
-            eq(institutionMemberships.userId, input.ertlUserId),
-            eq(institutionMemberships.membershipStatus, "active"),
-          ))
-          .limit(1);
-        if (!member) throw new TRPCError({ code: "BAD_REQUEST", message: "The ERTL must be an active provider–institution member." });
-      }
+      await assertDepartmentBelongsToPole(db, input.institutionId, input.departmentId, input.poleId);
+      const requestedErtlUserId = input.ertlUserId === undefined
+        ? await resolveCanonicalDepartmentProvider(db, input.institutionId, input.departmentId)
+        : input.ertlUserId === null
+          ? null
+          : await resolveCanonicalDepartmentProvider(db, input.institutionId, input.departmentId, input.ertlUserId);
 
+      const refreshDepartmentIds = new Set<number>([input.departmentId]);
       const [existing] = await db
         .select()
         .from(ertlWeeklyRotations)
@@ -4159,9 +4522,10 @@ export const institutionRouter = router({
 
       if (existing) {
         const departmentChanged = existing.departmentId !== input.departmentId;
+        if (departmentChanged) refreshDepartmentIds.add(existing.departmentId);
         const nextErtlUserId = input.ertlUserId === undefined
-          ? (departmentChanged ? null : existing.ertlUserId)
-          : input.ertlUserId;
+          ? (departmentChanged || existing.ertlUserId == null ? requestedErtlUserId : existing.ertlUserId)
+          : requestedErtlUserId;
         const providerChanged = departmentChanged || nextErtlUserId !== existing.ertlUserId;
         await db
           .update(ertlWeeklyRotations)
@@ -4187,12 +4551,34 @@ export const institutionRouter = router({
           year: input.year,
           startDate: new Date(input.startDate),
           endDate: new Date(input.endDate),
-          ertlUserId: input.ertlUserId ?? null,
-          assignmentStatus: input.ertlUserId == null ? "unassigned" : "pending_acceptance",
+          ertlUserId: requestedErtlUserId,
+          assignmentStatus: requestedErtlUserId == null ? "unassigned" : "pending_acceptance",
         });
       }
 
-      return { success: true };
+      const monthStarts = new Set([monthStartFromShiftDate(input.startDate), monthStartFromShiftDate(input.endDate)]);
+      for (const departmentId of refreshDepartmentIds) {
+        for (const monthStart of monthStarts) {
+          const [monthlyRotation] = await db.select().from(monthlyUtlRotations).where(and(
+            eq(monthlyUtlRotations.institutionId, input.institutionId),
+            eq(monthlyUtlRotations.poleId, input.poleId),
+            eq(monthlyUtlRotations.departmentId, departmentId),
+            eq(monthlyUtlRotations.monthStart, new Date(monthStart)),
+          )).limit(1);
+          if (monthlyRotation) {
+            await ensureMonthlyUtlShifts(db, {
+              institutionId: input.institutionId,
+              poleId: input.poleId,
+              departmentId,
+              monthStart,
+              providerUserId: monthlyRotation.providerUserId,
+              monthlyUtlRotationId: monthlyRotation.id,
+            });
+          }
+        }
+      }
+
+      return { success: true, ertlUserId: requestedErtlUserId };
     }),
 
   // ============================================
@@ -4239,12 +4625,14 @@ export const institutionRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_OPERATE_ROLES);
+      await assertDepartmentBelongsToPole(db, input.institutionId, input.departmentId, input.poleId);
+      const canonicalUtlUserId = await resolveCanonicalDepartmentProvider(db, input.institutionId, input.departmentId, input.utlUserId);
       const [member] = await db
         .select({ userId: institutionMemberships.userId })
         .from(institutionMemberships)
         .where(and(
           eq(institutionMemberships.institutionalAccountId, input.institutionId),
-          eq(institutionMemberships.userId, input.utlUserId),
+          eq(institutionMemberships.userId, canonicalUtlUserId),
           eq(institutionMemberships.membershipStatus, "active"),
         ))
         .limit(1);
@@ -4268,8 +4656,9 @@ export const institutionRouter = router({
         await db
           .update(shiftUtlRosters)
           .set({
-            utlUserId: input.utlUserId,
+            utlUserId: canonicalUtlUserId,
             isShiftErtl: input.isShiftErtl,
+            monthlyUtlRotationId: null,
             status: input.status ?? "active",
             assignmentStatus: shouldResetSignOff ? "pending_acceptance" : existing.assignmentStatus,
             acceptedAt: shouldResetSignOff ? null : existing.acceptedAt,
@@ -4285,8 +4674,9 @@ export const institutionRouter = router({
           departmentId: input.departmentId,
           shiftDate: new Date(input.shiftDate),
           shiftType: input.shiftType,
-          utlUserId: input.utlUserId,
+          utlUserId: canonicalUtlUserId,
           isShiftErtl: input.isShiftErtl,
+          monthlyUtlRotationId: null,
           assignmentStatus: "pending_acceptance",
           status: input.status ?? "active",
         });

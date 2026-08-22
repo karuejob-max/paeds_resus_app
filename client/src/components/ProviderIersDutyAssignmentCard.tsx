@@ -49,6 +49,10 @@ export default function ProviderIersDutyAssignmentCard() {
     onSuccess: () => { toast.success("Your shift UTL response was recorded."); refreshAssignments(); },
     onError: (error) => toast.error(error.message || "Could not record your shift UTL response."),
   });
+  const autopopulateMonthlyRota = trpc.institution.autopopulateMonthlyUtlRota.useMutation({
+    onSuccess: (result) => toast.success(`Monthly UTL rota prepared: ${result.assignedDepartments} department and ${result.generatedShifts} shift assignment(s).`),
+    onError: (error) => toast.error(error.message || "Could not prepare the monthly UTL rota."),
+  });
 
   if (ercoLoading || dutyLoading) return null;
   const hasErco = Boolean(ercoAssignments?.length);
@@ -70,6 +74,7 @@ export default function ProviderIersDutyAssignmentCard() {
               const isBackup = assignment.backupUserId === user?.id;
               const needsCoordinatorResponse = isCoordinator && assignment.assignmentStatus === "pending_acceptance";
               const needsBackupResponse = isBackup && !assignment.backupAcceptedAt && !assignment.backupDeclinedAt && assignment.assignmentStatus !== "ended";
+              const canPrepareMonthlyRota = isCoordinator && assignment.assignmentStatus === "active" && assignment.poleId != null;
               return (
                 <div key={assignment.id} className="rounded-lg border bg-background p-4">
                   <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
@@ -85,6 +90,23 @@ export default function ProviderIersDutyAssignmentCard() {
                     <div className="flex items-center gap-2"><UserRound className="h-3.5 w-3.5" />You are {isCoordinator ? "the named ERCo" : isBackup ? "the named backup" : "linked to this assignment"}.</div>
                     <div className="flex items-center gap-2"><CalendarClock className="h-3.5 w-3.5" />{assignment.backupUserId ? assignment.backupAcceptedAt ? "Backup has accepted" : assignment.backupDeclinedAt ? "Backup declined" : "Backup response pending" : "No backup recorded"}</div>
                   </div>
+                  {canPrepareMonthlyRota && (
+                    <div className="mt-4 flex flex-col gap-2 rounded-md border border-rose-200 bg-rose-50/50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs text-rose-900">As the accepted ERCo, prepare this department’s current monthly UTL rota from its linked providers.</p>
+                      <Button size="sm" variant="outline" className="w-full shrink-0 sm:w-auto" onClick={() => {
+                        if (assignment.poleId == null) return;
+                        const monthStart = `${new Date().toISOString().slice(0, 7)}-01`;
+                        autopopulateMonthlyRota.mutate({
+                          institutionId: assignment.institutionId,
+                          poleId: assignment.poleId,
+                          monthStart,
+                          departmentIds: [assignment.departmentId],
+                        });
+                      }} disabled={autopopulateMonthlyRota.isPending}>
+                        <CalendarClock className="mr-1.5 h-4 w-4" />Prepare monthly UTL rota
+                      </Button>
+                    </div>
+                  )}
                   {(needsCoordinatorResponse || needsBackupResponse) && (
                     <Alert className="mt-4 border-amber-200 bg-amber-50/70">
                       <Clock3 className="h-4 w-4 text-amber-700" />

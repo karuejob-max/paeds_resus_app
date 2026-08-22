@@ -1,7 +1,7 @@
 # IERS staging, mobile roster, cleanup, and department release
 
 **Date:** 2026-08-22
-**Status:** Protected PR #507 merged; Render deployment and production migrations 0111–0113 verified.
+**Status:** Protected PR #507 merged; Render deployment and production migrations 0111–0113 verified. Department/rota onboarding release is locally validated and pending its own protected PR, Render deploy, and guarded migration 0114.
 
 ## Real-router staging matrix
 
@@ -9,7 +9,7 @@ A disposable local MariaDB database was created with a generated staging databas
 
 The named provider in the fixture is `paedsresus254@gmail.com`, the agreed testing identity for future labelled IERS tests. The fixture seeds two isolated institutions, an administrator, the assigned provider, an unrelated provider, a second-tenant provider, active provider membership, IERS product-role state, one ERCo assignment, weekly ERTL duties, a shift UTL duty, reassignment, acceptance, and readiness records.
 
-`pnpm exec vitest run server/routers/iers-provider-duty-staging.test.ts` passed: one test and one test file. The matrix exercised cross-tenant denial, non-assignee denial, required decline reason, readiness-before-acceptance denial, ERCo/UTL acceptance, ERTL decline, acceptance reset after reassignment, ended-duty denial, membership revocation hiding duty reads, and IERS-role revocation hiding provider readiness.
+`IERS_STAGING_ENABLE=1 IERS_STAGING_DATABASE_URL=<local-staging-url> DATABASE_URL=<local-staging-url> pnpm run test:iers-provider-auth:staging` passed: one test and one test file. The matrix exercised cross-tenant denial, non-assignee denial, required decline reason, readiness-before-acceptance denial, ERCo/UTL acceptance, ERTL decline, acceptance reset after reassignment, ended-duty denial, membership revocation hiding duty reads, and IERS-role revocation hiding provider readiness. The explicit local flag prevents normal CI from consuming stale or unintended database settings.
 
 The test teardown removed every seeded row. The disposable database, local runner account, and local MariaDB service were then destroyed or stopped. No staging residue remains by design.
 
@@ -43,6 +43,14 @@ IERS `facility_departments` is now the institution-scoped canonical department r
 
 Migration 0113 adds the two nullable identity columns and indexes, then backfills only exact case-insensitive institution-scoped department-name matches. It does not guess or silently remap unmatched legacy text. New CPD registrations persist the canonical department name and ID, and CPD tests cover invalid free-text rejection and canonical persistence.
 
+## Department setup and automatic rota release
+
+The new onboarding/setup flow is deliberately ordered: the institutional admin confirms or updates the canonical `facility_departments` list; the IERS Lead assigns confirmed departments to response poles; linked providers’ preset department values resolve to canonical department IDs; and an accepted ERCo can prepare the monthly UTL source for the ERCo’s own department. Monthly generation creates morning, evening, and night shift rows with monthly provenance; each provider still accepts each dated duty in the individual portal. Weekly ERTL selection uses the same canonical department and refreshes monthly-derived shift flags for both the previous and new department when a weekly assignment changes.
+
+The same setup panel remains available after onboarding for renames, additions, safe deactivation of omitted departments, pole remapping, and monthly regeneration. An explicit `IERS_STAGING_ENABLE=1` flag is required for the real-router staging command so normal CI cannot consume stale database configuration.
+
+Local final staging validation passed after these changes: the real `appRouter.createCaller` matrix covered canonical department options, linked-provider autofill, ERCo-authorized monthly UTL generation, provider-linked shift rows, automatic ERTL shift behavior, and all prior denial/revocation cases. Migration 0114 has not yet been applied to production.
+
 ## Production delivery and verification
 
 Protected PR #507 merged into `main` as `6521740`. Render built and deployed the commit successfully; the production service started normally and reported the primary URL available.
@@ -72,3 +80,7 @@ The following checks passed before protected merge:
 - Protected CI gate on PR #507
 
 The labelled pilot drill remains blocked until safe cleanup of prior labelled smoke-test records, final phone-width visual verification, and the remaining operational release gates are independently satisfied.
+
+## Production smoke-test cleanup preview
+
+The fail-closed preview was run in the Render Web Shell with exact institution name `Consolata Hospital Mathari` and no deletion flags. It resolved institution ID 3 and found exactly two labelled departments: `SMOKE TEST - Department Alpha` (ID 1) and `SMOKE TEST - Department Bravo` (ID 2). The preview reported 1 ERCo assignment, 3 ERCo events, 1 weekly ERTL rotation, 1 shift UTL roster, and 1 readiness evidence record. The command returned to a prompt and confirmed dry-run only; no records changed.
