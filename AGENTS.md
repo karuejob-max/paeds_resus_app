@@ -5,7 +5,7 @@
 > This file is the distillation of the Platform's Source of Truth (PSOT) for whoever is about to write code or make a decision here.
 > The canonical PSOT lives at `docs/PLATFORM_SOURCE_OF_TRUTH.md`. If this file and the PSOT ever conflict, **the PSOT wins**. Update this file to match.
 
-**Last updated:** July 15, 2026 | **Owner:** Job Karue (CEO, Paeds Resus)
+**Last updated:** August 22, 2026 | **Owner:** Job Karue (CEO, Paeds Resus)
 
 ---
 
@@ -250,6 +250,7 @@ Providers are first-class operators. Institutional administrators configure the 
 | Drills and learning | Added drills, participation, response timing, debriefs, and conversion of completed operations into reviewable evidence. | Migration `0098`; drill panel |
 | Governance and reporting | Added 30/60/90-day milestones, Care Signal/Code Signal linkage, data-quality correction, and executive snapshots. | Migration `0099`; IERS operating guide |
 | Institutional product control plane | Separated IERS and CPD Portal into independently subscribable products with shared Administration and a managed Connected Services transition area. | Migration `0100`; `INSTITUTIONAL_PORTAL_ARCHITECTURE_V1.md`; `institution-products.ts` |
+| Provider duty operation | Made emergency responsibilities provider-owned and operationally truthful: exactly one standing ERCo per department, optional backup, dated named ERTL/UTL assignments, explicit accept/decline, append-only history, and readiness gating. | Migrations `0111`–`0112`; `IERS_PROVIDER_INTEGRATION_AND_INDIVIDUAL_PORTAL_ARCHITECTURE_V1.md`; provider duty portal cards; `iers-department-governance.ts` |
 
 ### Safe production rollout
 
@@ -263,14 +264,22 @@ Code and database are separate release tracks. A merged PR does not apply SQL to
    pnpm run db:apply-iers
    ```
 
-4. The runner tests the connection, applies migrations `0094` through `0100` in order, stops on the first failure, and runs `db:verify-iers`. Do not continue manually if it stops.
+4. The runner tests the connection, applies migrations `0094` through `0112` in order, stops on the first failure, and runs `db:verify-iers`. Do not continue manually if it stops. Migrations `0111` and `0112` add department ERCo governance and explicit provider acceptance for named ERTL/UTL duties.
 5. When all migrations have already passed and only verification fails, **do not rerun the migrations**. Deploy the latest verifier fix and run only:
 
    ```bash
    pnpm run db:verify-iers
    ```
 
-6. Complete a clearly labelled IERS drill with a linked provider. Never use a real clinical emergency as the first acceptance test.
+6. Complete a clearly labelled IERS drill with a linked provider only after the provider-operation release gates below pass. Never use a real clinical emergency as the first acceptance test.
+
+### Provider duty-operation release gates
+
+- There is exactly one current ERCo assignment row for each `(institutionId, departmentId)`, with an optional backup; replacing an ERCo updates the same current department record and appends history rather than creating a second current coordinator.
+- ERCo, backup, named ERTL, and shift UTL assignments are dated and identity-bound. A membership role, generic roster row, administrator assignment, notification, or attendance record does not count as accepted emergency duty.
+- The assigned provider must explicitly accept the duty. Decline requires a reason, ended duties cannot be accepted, reassignment resets acceptance and readiness evidence, and cross-tenant or non-assignee reads/responses must be denied.
+- Shift-readiness sign-off is unavailable until the assigned provider has accepted the active dated shift duty. Legacy assigned rows are conservatively migrated to `pending_acceptance`, never silently treated as accepted.
+- Production acceptance must verify both institution governance/history and provider response/readiness behavior before the labelled pilot drill is considered.
 
 ### Production failures already encountered and their fixes
 
