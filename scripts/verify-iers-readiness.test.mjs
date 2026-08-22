@@ -13,6 +13,15 @@ test("IERS verifier accepts the deployed mixed table naming contract", () => {
     "iers_drills",
     "iers_drill_participants",
     "iers_implementation_milestones",
+    "iersCompetencyRecords",
+    "institutionalProducts",
+    "institutionalProductCapabilities",
+    "institutionalProductPlans",
+    "institutionProductSubscriptions",
+    "institutionProductEntitlements",
+    "institutionProductRoles",
+    "institutionSubscriptionEvents",
+    "institutionEntitlementAuditLog",
   ]);
 
   for (const requirement of REQUIRED_TABLES) {
@@ -37,6 +46,16 @@ test("IERS verifier accepts camelCase columns for the first two migration groups
     "closure_evidence_id",
     "debrief_note",
     "evidence_id",
+    "programType",
+    "competencyStatus",
+    "trainingAttendanceId",
+    "productKey",
+    "capabilityKey",
+    "planKey",
+    "subscriptionStatus",
+    "entitlementStatus",
+    "roleStatus",
+    "decision",
   ]);
 
   for (const requirement of REQUIRED_COLUMNS) {
