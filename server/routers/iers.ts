@@ -596,7 +596,7 @@ export const iersRouter = router({
     const horizon = new Date(today);
     horizon.setDate(horizon.getDate() + 7);
     try {
-      return await db
+      const assignments = await db
         .select({
           id: shiftUtlRosters.id,
           institutionId: shiftUtlRosters.institutionId,
@@ -624,6 +624,16 @@ export const iersRouter = router({
           lte(shiftUtlRosters.shiftDate, horizon),
         ))
         .orderBy(shiftUtlRosters.shiftDate);
+      const allowedInstitutionIds = new Set<number>();
+      for (const institutionId of [...new Set(assignments.map((assignment) => assignment.institutionId))]) {
+        try {
+          await assertProviderCanOperate(db, ctx.user, institutionId);
+          allowedInstitutionIds.add(institutionId);
+        } catch (error) {
+          if (!(error instanceof TRPCError && error.code === "FORBIDDEN")) throw error;
+        }
+      }
+      return assignments.filter((assignment) => allowedInstitutionIds.has(assignment.institutionId));
     } catch (error) {
       if (isMissingTableError(error)) return [];
       throw error;

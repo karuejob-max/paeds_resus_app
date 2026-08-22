@@ -86,6 +86,43 @@ const IERS_READ_ROLES = ["iers_viewer", "iers_coordinator", "iers_governance", "
 const IERS_OPERATE_ROLES = ["iers_coordinator", "iers_governance"] as const;
 const IERS_ACTION_ROLES = ["iers_coordinator", "iers_reviewer", "iers_governance"] as const;
 const IERS_DEPARTMENT_GOVERNANCE_ROLES = ["iers_coordinator", "iers_governance"] as const;
+async function assertActiveProviderDutyAccess(
+  db: DbClient,
+  user: Pick<typeof users.$inferSelect, "id" | "role" | "email">,
+  institutionId: number,
+) {
+  const [membership] = await db
+    .select({ id: institutionMemberships.id })
+    .from(institutionMemberships)
+    .where(and(
+      eq(institutionMemberships.institutionalAccountId, institutionId),
+      eq(institutionMemberships.userId, user.id),
+      eq(institutionMemberships.membershipStatus, "active"),
+    ))
+    .limit(1);
+  if (!membership) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "You are no longer an active provider member of this institution." });
+  }
+}
+
+async function getActiveProviderDutyInstitutionIds(
+  db: DbClient,
+  user: Pick<typeof users.$inferSelect, "id" | "role" | "email">,
+  institutionIds: number[],
+) {
+  const uniqueInstitutionIds = [...new Set(institutionIds)];
+  const activeInstitutionIds = new Set<number>();
+  for (const institutionId of uniqueInstitutionIds) {
+    try {
+      await assertActiveProviderDutyAccess(db, user, institutionId);
+      activeInstitutionIds.add(institutionId);
+    } catch (error) {
+      if (error instanceof TRPCError && error.code === "FORBIDDEN") continue;
+      throw error;
+    }
+  }
+  return activeInstitutionIds;
+}
 
 async function ensureProviderMembershipForStaff(
   db: DbClient,
@@ -3650,7 +3687,7 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       try {
-        return await db
+        const assignments = await db
           .select({
             id: institutionDepartmentResponseCoordinators.id,
             institutionId: institutionDepartmentResponseCoordinators.institutionId,
@@ -3677,6 +3714,8 @@ export const institutionRouter = router({
             eq(institutionDepartmentResponseCoordinators.coordinatorUserId, ctx.user.id),
             eq(institutionDepartmentResponseCoordinators.backupUserId, ctx.user.id),
           ));
+        const allowedInstitutionIds = await getActiveProviderDutyInstitutionIds(db, ctx.user, assignments.map((assignment) => assignment.institutionId));
+        return assignments.filter((assignment) => allowedInstitutionIds.has(assignment.institutionId));
       } catch (error) {
         if (isMissingTableError(error)) return [];
         throw error;
@@ -3732,7 +3771,15 @@ export const institutionRouter = router({
           .leftJoin(facilityDepartments, eq(facilityDepartments.id, shiftUtlRosters.departmentId))
           .leftJoin(facilityPoles, eq(facilityPoles.id, shiftUtlRosters.poleId))
           .where(eq(shiftUtlRosters.utlUserId, ctx.user.id));
-        return { ertl, utl };
+        const allowedInstitutionIds = await getActiveProviderDutyInstitutionIds(
+          db,
+          ctx.user,
+          [...ertl.map((assignment) => assignment.institutionId), ...utl.map((assignment) => assignment.institutionId)],
+        );
+        return {
+          ertl: ertl.filter((assignment) => allowedInstitutionIds.has(assignment.institutionId)),
+          utl: utl.filter((assignment) => allowedInstitutionIds.has(assignment.institutionId)),
+        };
       } catch (error) {
         if (isMissingTableError(error)) return { ertl: [], utl: [] };
         throw error;
@@ -3757,6 +3804,7 @@ export const institutionRouter = router({
         ))
         .limit(1);
       if (!rotation) throw new TRPCError({ code: "NOT_FOUND", message: "ERTL rotation assignment not found." });
+      await assertActiveProviderDutyAccess(db, ctx.user, rotation.institutionId);
       if (rotation.assignmentStatus === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "This ERTL rotation has ended." });
       if (input.response === "decline" && !input.declineReason) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A decline reason is required so the institution can arrange cover." });
@@ -3787,6 +3835,7 @@ export const institutionRouter = router({
         ))
         .limit(1);
       if (!roster) throw new TRPCError({ code: "NOT_FOUND", message: "Shift UTL assignment not found." });
+      await assertActiveProviderDutyAccess(db, ctx.user, roster.institutionId);
       if (roster.assignmentStatus === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "This shift assignment has ended." });
       if (input.response === "decline" && !input.declineReason) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A decline reason is required so the institution can arrange cover." });
@@ -3910,6 +3959,7 @@ export const institutionRouter = router({
         ))
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "ERCo assignment not found for this provider." });
+      await assertActiveProviderDutyAccess(db, ctx.user, assignment.institutionId);
       if (assignment.assignmentStatus === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "This ERCo assignment has ended." });
       if (input.response === "decline" && !input.declineReason) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A decline reason is required so the institution can arrange cover." });
@@ -3948,6 +3998,7 @@ export const institutionRouter = router({
         ))
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "Backup assignment not found for this provider." });
+      await assertActiveProviderDutyAccess(db, ctx.user, assignment.institutionId);
       if (assignment.assignmentStatus === "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "This ERCo assignment has ended." });
       if (input.response === "decline" && !input.declineReason) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A decline reason is required so the institution can arrange backup cover." });
