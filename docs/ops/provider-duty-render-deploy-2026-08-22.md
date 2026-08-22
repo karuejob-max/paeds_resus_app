@@ -244,3 +244,11 @@ Final documentation-deploy check: the first Render overview navigation returned 
 Final documentation deploy observation from Render service URL `https://dashboard.render.com/web/srv-d6lknpdm5p6s73evain0`: after a transient blank page, the overview briefly showed `Build not found` while loading. This is not treated as a deployment failure because the prior deployment detail had already reached `Your service is live` for `7588915`; the overview will be rechecked read-only before final status is reported.
 
 Final documentation rollout result: Render now shows deployment `af95295` (`docs(ops): finalize provider duty rollout evidence`) as **live** at 12:28 PM. The complete protected-branch code, documentation, and non-secret rollout evidence are now on live production. No migration, activation, or pilot drill was performed in this documentation deploy.
+
+Final protected documentation deployment checkpoint: Render started auto-deploy for merge commit `48ee62c` at 12:33 PM. At this observation it was still deploying; `af95295` remained the last confirmed live commit. No application or database operation was performed.
+
+Render final-deploy checkpoint: the service overview still shows auto-deploy `48ee62c` as started at 12:33 PM and not yet marked live at the latest refresh. No error is shown; the previous `af95295` deployment remains live and healthy. No production data or deployment control was changed.
+
+Final documentation deploy status: Render still displays `48ee62c` as deploying at the latest read-only refresh. There is no failure marker; the service continues to show the prior `af95295` deploy as live. The documentation-only deploy does not affect the already-live provider-duty code path.
+
+Final final rollout result: Render deployment `48ee62c` is confirmed **live** at 12:33 PM. This completes the protected code, documentation, production migration, verification, smoke-test, and rollout-evidence sequence for the provider-integrated IERS duty slice. No additional production database write was required for PRs #498–#501.
