@@ -261,3 +261,8 @@ Final deployment confirmation: Render shows `8d32ba5` (`docs(ops): confirm final
 ## Authorization fixture and mobile orientation deployment
 
 Render deployment `dep-da4raf0jo6nc73ehgpmg` for merged commit `e3708f1` (`feat(iers): add authorization matrix and mobile orientation`, PR #503) is confirmed **live** at `https://www.paedsresus.com` on 2026-08-22 at approximately 14:43. The deployment added no production migration and no production data mutation.
+
+
+## Final documentation deployment
+
+Render deployment `dep-da4rd2favr4c73bd7lk0` for protected documentation merge `1d6d83e` (PR #504) is confirmed **live** at approximately 14:49 on 2026-08-22. This completes the protected delivery and documentation synchronization for the authorization fixture, mobile IERS header fix, and new-user orientation guide.
