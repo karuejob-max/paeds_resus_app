@@ -238,3 +238,9 @@ Post-e8121ca provider regression check: the Individual provider portal loads suc
 Documentation rollout checkpoint: protected merge `7588915` is building on Render. The documentation-only bundle completed successfully and was uploading at 12:22:26 PM; no deployment failure is shown. The prior code deployment `e8121ca` remains live while this documentation deploy completes.
 
 Documentation deployment checkpoint: commit `7588915` completed its build and upload successfully and entered Render service deployment at 12:22:37 PM. No failure is shown; the deployment remains pending final live confirmation.
+
+Final documentation-deploy check: the first Render overview navigation returned a transient `about:blank` view on the following refresh. No deployment failure is inferred; the deployment will be re-opened read-only to verify the final `live` marker.
+
+Final documentation deploy observation from Render service URL `https://dashboard.render.com/web/srv-d6lknpdm5p6s73evain0`: after a transient blank page, the overview briefly showed `Build not found` while loading. This is not treated as a deployment failure because the prior deployment detail had already reached `Your service is live` for `7588915`; the overview will be rechecked read-only before final status is reported.
+
+Final documentation rollout result: Render now shows deployment `af95295` (`docs(ops): finalize provider duty rollout evidence`) as **live** at 12:28 PM. The complete protected-branch code, documentation, and non-secret rollout evidence are now on live production. No migration, activation, or pilot drill was performed in this documentation deploy.
