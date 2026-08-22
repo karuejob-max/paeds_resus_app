@@ -35,6 +35,57 @@ function getWeekRange(date: Date): { startDate: string; endDate: string } {
   return { startDate: fmt(monday), endDate: fmt(sunday) };
 }
 
+function ProviderReadinessStatus({
+  rosterEntry,
+}: {
+  rosterEntry?: {
+    readinessSignOffAt: unknown;
+    assignmentStatus: string;
+    acceptedAt: unknown;
+  };
+}) {
+  if (!rosterEntry) {
+    return <Badge variant="outline" className="text-muted-foreground">No provider duty</Badge>;
+  }
+  if (rosterEntry.readinessSignOffAt) {
+    return (
+      <Badge variant="outline" className="text-emerald-600 border-emerald-600 bg-emerald-50 whitespace-normal text-center">
+        Provider sign-off complete
+      </Badge>
+    );
+  }
+  if (rosterEntry.assignmentStatus === "active" && rosterEntry.acceptedAt) {
+    return (
+      <Badge variant="outline" className="text-amber-600 border-amber-600 whitespace-normal text-center">
+        Provider check-in pending
+      </Badge>
+    );
+  }
+  if (rosterEntry.assignmentStatus === "declined") {
+    return (
+      <Badge variant="outline" className="text-rose-600 border-rose-600 bg-rose-50 whitespace-normal text-center">
+        Provider declined
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-amber-600 border-amber-600 whitespace-normal text-center">
+      Awaiting provider acceptance
+    </Badge>
+  );
+}
+
+function RoleBadge({ isErtl }: { isErtl: boolean }) {
+  return isErtl ? (
+    <Badge className="bg-amber-600 text-white font-bold gap-1 whitespace-normal text-center">
+      <Star className="w-3 h-3 shrink-0" />
+      ERTL (Team Leader)
+    </Badge>
+  ) : (
+    <Badge variant="outline" className="font-medium whitespace-normal text-center">ERT Primary Responder</Badge>
+  );
+}
+
 export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const utils = trpc.useUtils();
   const [selectedPoleId, setSelectedPoleId] = useState<number | null>(null);
@@ -131,35 +182,35 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   return (
     <div className="space-y-6">
       {/* Top Banner: Pole Selection & ERTL Department Rotation Notice */}
-      <Card className="border-primary/20 bg-card">
+      <Card className="min-w-0 border-primary/20 bg-card">
         <CardHeader className="pb-3">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="text-xl font-bold flex items-center gap-2">
+              <CardTitle className="min-w-0 break-words text-base font-bold flex items-start gap-2 sm:text-xl">
                 <Users className="w-6 h-6 text-primary" />
                 24/7 ERT Roster Matrix & Shift UTL Allocation
               </CardTitle>
-              <CardDescription>
-                Shift-by-shift Unit Team Leader (UTL) roster forming the active 6-8 member Emergency Response Team.
+              <CardDescription className="break-words">
+                Shift-by-shift Unit Team Leader (UTL) roster forming the active 6–8 member Emergency Response Team.
               </CardDescription>
             </div>
 
             {/* Date and Shift Selectors */}
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-muted-foreground" />
+            <div className="grid w-full grid-cols-1 gap-3 sm:w-auto sm:flex sm:flex-wrap sm:items-center">
+              <div className="flex min-w-0 items-center gap-2">
+                <Calendar className="w-4 h-4 shrink-0 text-muted-foreground" />
                 <span className="text-xs font-semibold text-muted-foreground">Date:</span>
                 <Input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="h-9 text-xs w-[140px]"
+                  className="h-9 w-full min-w-0 text-xs sm:w-[140px]"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-muted-foreground">Shift:</span>
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="shrink-0 text-xs font-semibold text-muted-foreground">Shift:</span>
                 <Select value={selectedShift} onValueChange={(val: any) => setSelectedShift(val)}>
-                  <SelectTrigger className="w-[130px] h-9 text-xs">
+                  <SelectTrigger className="w-full min-w-0 h-9 text-xs sm:w-[130px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -174,8 +225,8 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Geographic Pole Tabs */}
-          <div className="flex flex-wrap items-center gap-2 pb-2 border-b">
-            <span className="text-xs font-semibold text-muted-foreground mr-2">Facility Zone:</span>
+          <div className="flex flex-col items-stretch gap-2 border-b pb-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <span className="text-xs font-semibold text-muted-foreground sm:mr-2">Facility Zone:</span>
             {poleList.length === 0 && !showNewPoleForm && (
               <span className="text-xs text-muted-foreground italic mr-2">No poles set up yet.</span>
             )}
@@ -197,7 +248,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                   value={newPoleName}
                   onChange={(e) => setNewPoleName(e.target.value)}
                   placeholder="Pole name, e.g. East Wing"
-                  className="h-8 w-48 text-xs"
+                  className="h-8 w-full min-w-0 text-xs sm:w-48"
                   autoFocus
                 />
                 <Button
@@ -221,7 +272,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
           </div>
 
           {/* ERTL Rotation Rule Notice + this week's assignment */}
-          <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-start gap-3 text-sm">
+          <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
             <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="flex-1 space-y-2">
               <p className="font-semibold text-amber-800 dark:text-amber-300">
@@ -231,7 +282,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                 Within each Pole, departments take weekly turns producing the ERT Team Leader (ERTL). The on-duty UTL from the designated department automatically acts as the Scene Commander for this shift.
               </p>
               {activePoleId && poleDepartments.length > 0 && (
-                <div className="flex items-center gap-2 pt-1">
+                <div className="grid gap-2 pt-1 sm:flex sm:flex-wrap sm:items-center">
                   <span className="text-xs font-medium text-amber-800 dark:text-amber-300">This week's ERTL department:</span>
                   <Select
                     value={ertlDepartmentId ? String(ertlDepartmentId) : undefined}
@@ -248,7 +299,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                       })
                     }
                   >
-                    <SelectTrigger className="w-[220px] h-8 text-xs bg-white dark:bg-background">
+                    <SelectTrigger className="w-full min-w-0 h-8 text-xs bg-white dark:bg-background sm:w-[220px]">
                       <SelectValue placeholder="Not set yet — choose one" />
                     </SelectTrigger>
                     <SelectContent>
@@ -272,7 +323,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                       ertlUserId: providerId === "none" ? null : parseInt(providerId, 10),
                     })}
                   >
-                    <SelectTrigger className="w-[220px] h-8 text-xs bg-white dark:bg-background">
+                    <SelectTrigger className="w-full min-w-0 h-8 text-xs bg-white dark:bg-background sm:w-[220px]">
                       <SelectValue placeholder="Assign named ERTL provider" />
                     </SelectTrigger>
                     <SelectContent>
@@ -300,24 +351,24 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
       />
 
       {/* Shift UTL Roster Table */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2">
+      <Card className="min-w-0">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle className="text-lg font-bold flex items-center gap-2">
+            <CardTitle className="min-w-0 break-words text-base font-bold flex items-start gap-2 sm:text-lg">
               <Clock className="w-5 h-5" />
               Active ERT Shift Team ({selectedShift.toUpperCase()} - {selectedDate})
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="break-words">
               On-duty UTLs representing the departments in this Pole.
             </CardDescription>
           </div>
           {showNewDeptForm ? (
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
               <Input
                 value={newDeptName}
                 onChange={(e) => setNewDeptName(e.target.value)}
                 placeholder="Department name"
-                className="h-8 w-48 text-xs"
+                className="h-8 w-full min-w-0 text-xs sm:w-48"
                 autoFocus
               />
               <Button
@@ -356,21 +407,112 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                 : "Create a pole first, then add its departments."}
             </p>
           ) : (
-            <Table>
+            <>
+            <div className="space-y-3 sm:hidden">
+              {poleDepartments.map((dept) => {
+                const rosterEntry = shiftRosters?.find((r) => r.departmentId === dept.id);
+                const assignedStaff = staffMembers?.find((s) => s.userId != null && s.userId === rosterEntry?.utlUserId);
+                const isErtl = dept.id === ertlDepartmentId;
+
+                return (
+                  <div key={dept.id} className="space-y-3 rounded-lg border bg-card p-3 shadow-sm">
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="break-words text-sm font-semibold">{dept.departmentName}</p>
+                        <p className="mt-1 break-words text-xs text-muted-foreground">
+                          {assignedStaff ? `${assignedStaff.staffName} (${assignedStaff.staffRole})` : "No UTL assigned yet"}
+                        </p>
+                      </div>
+                      <div className="shrink-0">
+                        <RoleBadge isErtl={isErtl} />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2 text-xs">
+                      <div className="flex min-w-0 items-start justify-between gap-3">
+                        <span className="text-muted-foreground">Readiness</span>
+                        <div className="max-w-[65%] text-right"><ProviderReadinessStatus rosterEntry={rosterEntry} /></div>
+                      </div>
+                      {rosterEntry && (
+                        <div className="flex min-w-0 items-center justify-between gap-3">
+                          <span className="text-muted-foreground">UTL status</span>
+                          <Select
+                            value={rosterEntry.status}
+                            onValueChange={(statusVal: "active" | "absent" | "completed") => {
+                              if (activePoleId) {
+                                submitRosterMutation.mutate({
+                                  institutionId,
+                                  poleId: activePoleId,
+                                  departmentId: dept.id,
+                                  shiftDate: selectedDate,
+                                  shiftType: selectedShift,
+                                  utlUserId: rosterEntry.utlUserId,
+                                  isShiftErtl: isErtl,
+                                  status: statusVal,
+                                });
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-8 w-[130px] min-w-0 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="absent">Absent</SelectItem>
+                              <SelectItem value="completed">Completed</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid gap-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">Assign linked provider</span>
+                      <Select
+                        onValueChange={(staffUserId) =>
+                          activePoleId &&
+                          submitRosterMutation.mutate({
+                            institutionId,
+                            poleId: activePoleId,
+                            departmentId: dept.id,
+                            shiftDate: selectedDate,
+                            shiftType: selectedShift,
+                            utlUserId: parseInt(staffUserId, 10),
+                            isShiftErtl: isErtl,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-9 w-full min-w-0 text-xs">
+                          <SelectValue placeholder="Choose provider" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {staffMembers?.filter((staff) => staff.userId != null).map((staff) => (
+                            <SelectItem key={staff.userId} value={String(staff.userId)}>
+                              {staff.staffName} ({staff.staffRole})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="hidden -mx-1 overflow-x-auto pb-2 sm:block sm:mx-0">
+              <Table className="min-w-[760px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Department</TableHead>
-                  <TableHead>Assigned Shift UTL Nurse</TableHead>
+                  <TableHead>Assigned Shift UTL Provider</TableHead>
                   <TableHead>ERT Role Designation</TableHead>
                   <TableHead>Shift Readiness Check</TableHead>
                   <TableHead>UTL Status</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead className="text-left">Assign linked provider</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {poleDepartments.map((dept) => {
                   const rosterEntry = shiftRosters?.find((r) => r.departmentId === dept.id);
-                  const assignedStaff = staffMembers?.find((s) => s.userId === rosterEntry?.utlUserId || s.id === rosterEntry?.utlUserId);
+                  const assignedStaff = staffMembers?.find((s) => s.userId != null && s.userId === rosterEntry?.utlUserId);
                   const isErtl = dept.id === ertlDepartmentId;
 
                   return (
@@ -386,41 +528,8 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                           <span className="text-xs text-muted-foreground italic">No UTL assigned yet</span>
                         )}
                       </TableCell>
-                      <TableCell>
-                        {isErtl ? (
-                          <Badge className="bg-amber-600 text-white font-bold gap-1">
-                            <Star className="w-3 h-3" />
-                            ERTL (Team Leader)
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="font-medium">ERT Primary Responder</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {!rosterEntry ? (
-                            <Badge variant="outline" className="text-muted-foreground">
-                              No provider duty
-                            </Badge>
-                          ) : rosterEntry.readinessSignOffAt ? (
-                            <Badge variant="outline" className="text-emerald-600 border-emerald-600 bg-emerald-50">
-                              Provider sign-off complete
-                            </Badge>
-                          ) : rosterEntry.assignmentStatus === "active" && rosterEntry.acceptedAt ? (
-                            <Badge variant="outline" className="text-amber-600 border-amber-600">
-                              Provider check-in pending
-                            </Badge>
-                          ) : rosterEntry.assignmentStatus === "declined" ? (
-                            <Badge variant="outline" className="text-rose-600 border-rose-600 bg-rose-50">
-                              Provider declined
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-amber-600 border-amber-600">
-                              Awaiting provider acceptance
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
+                      <TableCell><RoleBadge isErtl={isErtl} /></TableCell>
+                      <TableCell><ProviderReadinessStatus rosterEntry={rosterEntry} /></TableCell>
                       <TableCell>
                         {rosterEntry ? (
                           <Select
@@ -468,12 +577,12 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                             })
                           }
                         >
-                          <SelectTrigger className="w-[160px] h-8 text-xs">
+                          <SelectTrigger className="h-8 w-full min-w-[160px] text-xs sm:w-[160px]">
                             <SelectValue placeholder="Assign UTL Nurse" />
                           </SelectTrigger>
                           <SelectContent>
-                            {staffMembers?.map((staff) => (
-                              <SelectItem key={staff.id} value={staff.userId ? String(staff.userId) : String(staff.id)}>
+                            {staffMembers?.filter((staff) => staff.userId != null).map((staff) => (
+                              <SelectItem key={staff.userId} value={String(staff.userId)}>
                                 {staff.staffName} ({staff.staffRole})
                               </SelectItem>
                             ))}
@@ -484,7 +593,9 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                   );
                 })}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
+            </>
           )}
         </CardContent>
       </Card>

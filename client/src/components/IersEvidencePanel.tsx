@@ -92,19 +92,19 @@ export function IersEvidencePanel({ institutionId }: { institutionId: number }) 
     <div className="space-y-6">
       {scorecardQuery.data && (
         <Card className="border-primary/30 bg-primary/5">
-          <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><ClipboardCheck className="h-5 w-5 text-primary" /> Evidence-derived IERS readiness</CardTitle><CardDescription>This score is calculated from accepted criterion evidence. It is not a self-declared accreditation.</CardDescription></CardHeader>
+          <CardHeader className="pb-3"><CardTitle className="min-w-0 flex flex-wrap items-center gap-2 break-words text-base"><ClipboardCheck className="h-5 w-5 shrink-0 text-primary" /> Evidence-derived IERS readiness</CardTitle><CardDescription>This score is calculated from accepted criterion evidence. It is not a self-declared accreditation.</CardDescription></CardHeader>
           <CardContent className="p-4 space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-3xl font-bold text-primary">{scorecardQuery.data.totalScore} <span className="text-base font-normal text-muted-foreground">/ {scorecardQuery.data.maxScore}</span></p><p className="text-xs text-muted-foreground mt-1">{scorecardQuery.data.eligibleForCertificationReview ? "Eligible for certification review" : "Not yet eligible for certification review"}</p></div><Badge variant="outline">{label(scorecardQuery.data.accreditationLevel)}</Badge></div>
             <Progress value={scorecardQuery.data.totalScore} />
             {!scorecardQuery.data.criticalCriteriaComplete && <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-2">Critical evidence is still missing or not accepted. A high total score cannot bypass the critical-criteria gate.</p>}
-            <div className="grid gap-2 sm:grid-cols-2">{scorecardQuery.data.criteria.map((criterion) => <div key={criterion.code} className="flex items-center justify-between gap-2 rounded-md border bg-background p-2 text-xs"><span>{criterion.code} · {criterion.label}</span><Badge variant="outline" className={criterion.evidenceAccepted ? "border-emerald-200 text-emerald-700" : "border-slate-200 text-slate-600"}>{criterion.evidenceAccepted ? `${criterion.awardedPoints} pts` : "Evidence needed"}</Badge></div>)}</div>
+            <div className="grid gap-2 sm:grid-cols-2">{scorecardQuery.data.criteria.map((criterion) => <div key={criterion.code} className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-md border bg-background p-2 text-xs"><span className="min-w-0 break-words">{criterion.code} · {criterion.label}</span><Badge variant="outline" className={criterion.evidenceAccepted ? "border-emerald-200 text-emerald-700" : "border-slate-200 text-slate-600"}>{criterion.evidenceAccepted ? `${criterion.awardedPoints} pts` : "Evidence needed"}</Badge></div>)}</div>
           </CardContent>
         </Card>
       )}
 
       <Card className="border-teal-200">
         <CardHeader className="bg-teal-50 border-b border-teal-100 pb-3">
-          <CardTitle className="flex items-center gap-2 text-teal-900 text-base"><FileCheck2 className="h-5 w-5" /> Criterion-level evidence</CardTitle>
+          <CardTitle className="min-w-0 flex flex-wrap items-center gap-2 break-words text-teal-900 text-base"><FileCheck2 className="h-5 w-5 shrink-0" /> Criterion-level evidence</CardTitle>
           <CardDescription className="text-teal-800/80">Submit the proof behind a readiness claim. Evidence remains submitted until reviewed by an institution leader.</CardDescription>
         </CardHeader>
         <CardContent className="p-4 space-y-4">
@@ -134,7 +134,7 @@ export function IersEvidencePanel({ institutionId }: { institutionId: number }) 
       </Card>
 
       <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><ClipboardList className="h-5 w-5 text-amber-700" /> Owned IERS action queue</CardTitle><CardDescription>Providers can progress their actions; institution leaders verify closure.</CardDescription></CardHeader>
+        <CardHeader className="pb-3"><CardTitle className="min-w-0 flex flex-wrap items-center gap-2 break-words text-base"><ClipboardList className="h-5 w-5 shrink-0 text-amber-700" /> Owned IERS action queue</CardTitle><CardDescription>Providers can progress their actions; institution leaders verify closure.</CardDescription></CardHeader>
         <CardContent className="p-4 space-y-3">
           {actionsQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading actions…</p> : actionsQuery.data?.length ? actionsQuery.data.map((action) => <div key={action.id} className="rounded-lg border p-3"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-sm">{action.title}</p><p className="text-xs text-slate-600 mt-1 whitespace-pre-line">{action.gapDescription}</p>{action.legacyActionLogId != null && <p className="mt-2 text-[11px] text-muted-foreground">Migrated from legacy facility QI log #{action.legacyActionLogId}; IERS is the canonical action queue.</p>}</div><Badge variant="outline">{label(action.status)}</Badge></div><div className="mt-2 flex flex-wrap gap-2">{action.status === "open" && <Button size="sm" variant="outline" disabled={updateAction.isPending} onClick={() => updateAction.mutate({ institutionId, actionId: action.id, status: "in_progress" })}>Start</Button>}{action.status === "awaiting_verification" && <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white" disabled={updateAction.isPending} onClick={() => updateAction.mutate({ institutionId, actionId: action.id, status: "closed", closureNote: "Verified by institution leader in IERS action queue." })}><CheckCircle2 className="h-4 w-4 mr-2" />Verify closure</Button>}</div></div>) : <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">No open IERS actions. Provider-reported gaps and equipment deficits will appear here.</div>}
         </CardContent>

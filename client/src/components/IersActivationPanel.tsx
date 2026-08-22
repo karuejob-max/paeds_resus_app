@@ -85,7 +85,7 @@ export function IersActivationPanel({ institutionId }: { institutionId: number }
     <div className="space-y-6">
       <Card className="border-red-200 overflow-hidden">
         <CardHeader className="bg-red-50 border-b border-red-100">
-          <CardTitle className="flex items-center gap-2 text-red-900">
+          <CardTitle className="min-w-0 flex flex-wrap items-center gap-2 break-words text-red-900">
             <Siren className="h-5 w-5" />
             IERS Activation Command Center
           </CardTitle>
@@ -128,10 +128,10 @@ export function IersActivationPanel({ institutionId }: { institutionId: number }
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Clock3 className="h-5 w-5 text-teal-700" />
-            Live activation timeline
-            <Badge variant="outline" className="ml-auto">{activeActivations.length} active</Badge>
+          <CardTitle className="min-w-0 flex flex-wrap items-center gap-2 text-base">
+            <Clock3 className="h-5 w-5 shrink-0 text-teal-700" />
+            <span className="break-words">Live activation timeline</span>
+            <Badge variant="outline" className="ml-0 sm:ml-auto">{activeActivations.length} active</Badge>
           </CardTitle>
           <CardDescription>Monitor provider acknowledgement, arrival, stabilization, debrief, and closure.</CardDescription>
         </CardHeader>
