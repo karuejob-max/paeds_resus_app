@@ -1563,6 +1563,79 @@ export const institutionRenewalNotifications = mysqlTable("institutionRenewalNot
 export type InstitutionRenewalNotification = typeof institutionRenewalNotifications.$inferSelect;
 export type InsertInstitutionRenewalNotification = typeof institutionRenewalNotifications.$inferInsert;
 
+/** Persisted registry for adjacent, transitional, and connected institutional services. */
+export const institutionConnectedServices = mysqlTable("institutionConnectedServices", {
+  id: int("id").autoincrement().primaryKey(),
+  serviceKey: varchar("serviceKey", { length: 64 }).notNull(),
+  displayName: varchar("displayName", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  owner: varchar("owner", { length: 255 }).notNull(),
+  lifecycleStatus: mysqlEnum("lifecycleStatus", ["connected", "transitional", "compatibility", "pilot", "retired"]).default("transitional").notNull(),
+  privacyClass: mysqlEnum("privacyClass", ["institutional_aggregate", "provider_workflow", "accountless_public", "individual_learning", "mixed_review_required"]).default("mixed_review_required").notNull(),
+  entitlementProductKey: varchar("entitlementProductKey", { length: 64 }),
+  routeKey: varchar("routeKey", { length: 255 }),
+  reviewLabel: varchar("reviewLabel", { length: 255 }),
+  lastReviewedAt: timestamp("lastReviewedAt"),
+  nextReviewAt: timestamp("nextReviewAt"),
+  enabled: boolean("enabled").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  serviceKeyUnique: uniqueIndex("inst_conn_services_key_uq").on(table.serviceKey),
+  lifecycleIndex: index("inst_conn_services_lifecycle_idx").on(table.lifecycleStatus, table.enabled),
+}));
+export type InstitutionConnectedService = typeof institutionConnectedServices.$inferSelect;
+export type InsertInstitutionConnectedService = typeof institutionConnectedServices.$inferInsert;
+
+/** Safe Truth governance boundary and processing contract. */
+export const safeTruthGovernancePolicies = mysqlTable("safeTruthGovernancePolicies", {
+  id: int("id").autoincrement().primaryKey(),
+  policyKey: varchar("policyKey", { length: 64 }).notNull(),
+  boundaryStatus: mysqlEnum("boundaryStatus", ["accountless_public", "provider_workflow", "institutional_aggregate", "mixed_review_required"]).notNull(),
+  allowedRoute: varchar("allowedRoute", { length: 255 }).notNull(),
+  institutionalAnalyticsAllowed: boolean("institutionalAnalyticsAllowed").default(false).notNull(),
+  patientIdentifiersAllowed: boolean("patientIdentifiersAllowed").default(false).notNull(),
+  providerLinkageAllowed: boolean("providerLinkageAllowed").default(false).notNull(),
+  retentionDays: int("retentionDays"),
+  policyVersion: varchar("policyVersion", { length: 32 }).notNull(),
+  approvedByUserId: int("approvedByUserId"),
+  approvedAt: timestamp("approvedAt"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  policyKeyUnique: uniqueIndex("safe_truth_governance_policy_key_uq").on(table.policyKey),
+}));
+export type SafeTruthGovernancePolicy = typeof safeTruthGovernancePolicies.$inferSelect;
+export type InsertSafeTruthGovernancePolicy = typeof safeTruthGovernancePolicies.$inferInsert;
+
+/** Append-only review history for the Connected Services registry. */
+export const institutionConnectedServiceEvents = mysqlTable("institutionConnectedServiceEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  serviceId: int("serviceId").notNull(),
+  eventType: mysqlEnum("eventType", ["created", "reviewed", "status_changed", "updated"]).notNull(),
+  previousStatus: varchar("previousStatus", { length: 64 }),
+  currentStatus: varchar("currentStatus", { length: 64 }),
+  actorUserId: int("actorUserId"),
+  reason: text("reason"),
+  occurredAt: timestamp("occurredAt").defaultNow().notNull(),
+});
+export type InstitutionConnectedServiceEvent = typeof institutionConnectedServiceEvents.$inferSelect;
+export type InsertInstitutionConnectedServiceEvent = typeof institutionConnectedServiceEvents.$inferInsert;
+
+/** Append-only approval history for Safe Truth boundary changes. */
+export const safeTruthGovernancePolicyEvents = mysqlTable("safeTruthGovernancePolicyEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  policyId: int("policyId").notNull(),
+  eventType: mysqlEnum("eventType", ["created", "reviewed", "updated"]).notNull(),
+  previousVersion: varchar("previousVersion", { length: 32 }),
+  currentVersion: varchar("currentVersion", { length: 32 }).notNull(),
+  actorUserId: int("actorUserId"),
+  reason: text("reason"),
+  occurredAt: timestamp("occurredAt").defaultNow().notNull(),
+});
+export type SafeTruthGovernancePolicyEvent = typeof safeTruthGovernancePolicyEvents.$inferSelect;
+export type InsertSafeTruthGovernancePolicyEvent = typeof safeTruthGovernancePolicyEvents.$inferInsert;
 
 /**
  * Shared provider–institution membership. This is deliberately separate from

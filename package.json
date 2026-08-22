@@ -153,6 +153,7 @@
     "db:apply-0103": "node scripts/apply-0103-institution-product-role-bootstrap.mjs",
     "db:apply-0104": "node scripts/apply-0104-institution-data-lifecycle.mjs",
     "db:apply-0105": "node scripts/apply-0105-institution-renewal-notifications.mjs",
+    "db:apply-0106": "node scripts/apply-0106-connected-services-safe-truth.mjs",
     "institution:process-renewals": "tsx -r dotenv/config scripts/process-institution-renewal-notifications.ts",
     "db:verify-iers": "node scripts/verify-iers-readiness.mjs",
     "test:iers-verifier": "node --test scripts/verify-iers-readiness.test.mjs",

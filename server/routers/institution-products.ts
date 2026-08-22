@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { getDb } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
 import {
@@ -24,6 +24,10 @@ import {
   institutionSubscriptionPayments,
   institutionRenewalNotificationPreferences,
   institutionRenewalNotifications,
+  institutionConnectedServices,
+  institutionConnectedServiceEvents,
+  safeTruthGovernancePolicies,
+  safeTruthGovernancePolicyEvents,
 } from "../../drizzle/schema";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { isMissingTableError } from "../lib/is-missing-db-table";
@@ -68,11 +72,22 @@ const SUBSCRIPTION_STATUSES: ProductSubscriptionStatus[] = [
   "not_subscribed",
 ];
 
-const CONNECTED_SERVICES = [
-  { serviceKey: "safe_truth", displayName: "Safe Truth", description: "Patient-safety reporting remains available through the provider workflow while its institutional product boundary is reviewed.", owner: "Paeds Resus clinical governance", lifecycleStatus: "transitional", routeKey: "/safe-truth", reviewLabel: "Review product home before pilot expansion" },
-  { serviceKey: "care_code_signal", displayName: "Care Signal & Code Signal", description: "Clinical learning signals feed institutional quality improvement without copying patient identifiers into IERS evidence.", owner: "IERS quality improvement", lifecycleStatus: "connected", routeKey: "/care-signal", reviewLabel: "Connected to IERS QI" },
-  { serviceKey: "training_certification", displayName: "Training & certification", description: "AHA courses and individual learning remain separate from institutional IERS and CPD Portal subscriptions.", owner: "Training operations", lifecycleStatus: "connected", routeKey: "/aha-courses", reviewLabel: "Separate learner product" },
-  { serviceKey: "legacy_dashboard", displayName: "Legacy institutional dashboard", description: "The former all-in-one portal remains available during migration so mature workflows are not orphaned.", owner: "Platform migration", lifecycleStatus: "compatibility", routeKey: "/hospital-admin-dashboard", reviewLabel: "Compatibility route — migrate deliberately" },
+const FALLBACK_SAFE_TRUTH_POLICY = {
+  policyKey: "safe_truth_public_submission",
+  boundaryStatus: "accountless_public" as const,
+  allowedRoute: "/parent-safe-truth",
+  institutionalAnalyticsAllowed: false,
+  patientIdentifiersAllowed: false,
+  providerLinkageAllowed: false,
+  policyVersion: "1.0",
+  notes: "Accountless public safety reporting. Do not use this route for emergency dispatch, institutional roster access, or patient-identifying analytics.",
+};
+
+const FALLBACK_CONNECTED_SERVICES = [
+  { serviceKey: "safe_truth", displayName: "Safe Truth", description: "Patient-safety reporting remains separate from institutional analytics while its product boundary is governed.", owner: "Paeds Resus clinical governance", lifecycleStatus: "transitional", privacyClass: "accountless_public", entitlementProductKey: null, routeKey: "/parent-safe-truth", reviewLabel: "Accountless public route; not emergency dispatch", lastReviewedAt: null, nextReviewAt: null, enabled: true },
+  { serviceKey: "care_code_signal", displayName: "Care Signal & Code Signal", description: "Clinical learning signals feed institutional quality improvement without copying patient identifiers into IERS evidence.", owner: "IERS quality improvement", lifecycleStatus: "connected", privacyClass: "institutional_aggregate", entitlementProductKey: "iers", routeKey: "/care-signal", reviewLabel: "Connected to IERS QI", lastReviewedAt: null, nextReviewAt: null, enabled: true },
+  { serviceKey: "training_certification", displayName: "Training & certification", description: "AHA courses and individual learning remain separate from institutional IERS and CPD Portal subscriptions.", owner: "Training operations", lifecycleStatus: "connected", privacyClass: "individual_learning", entitlementProductKey: null, routeKey: "/aha-courses", reviewLabel: "Separate learner product", lastReviewedAt: null, nextReviewAt: null, enabled: true },
+  { serviceKey: "legacy_dashboard", displayName: "Legacy institutional dashboard", description: "The former all-in-one portal remains available only as a compatibility surface while mature workflows are migrated.", owner: "Platform migration", lifecycleStatus: "compatibility", privacyClass: "mixed_review_required", entitlementProductKey: null, routeKey: "/hospital-admin-dashboard", reviewLabel: "Compatibility route — migrate deliberately", lastReviewedAt: null, nextReviewAt: null, enabled: true },
 ] as const;
 
 const FALLBACK_CATALOG = [
@@ -167,7 +182,97 @@ export const institutionProductsRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-      return CONNECTED_SERVICES;
+      try {
+        const services = await db.select().from(institutionConnectedServices).where(eq(institutionConnectedServices.enabled, true)).orderBy(institutionConnectedServices.serviceKey);
+        return services.length ? services : FALLBACK_CONNECTED_SERVICES;
+      } catch (error) {
+        if (isMissingTableError(error)) return FALLBACK_CONNECTED_SERVICES;
+        throw error;
+      }
+    }),
+
+  getSafeTruthGovernancePolicy: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      try {
+        const [policy] = await db.select().from(safeTruthGovernancePolicies).where(eq(safeTruthGovernancePolicies.policyKey, "safe_truth_public_submission")).limit(1);
+        return policy ?? FALLBACK_SAFE_TRUTH_POLICY;
+      } catch (error) {
+        if (isMissingTableError(error)) return FALLBACK_SAFE_TRUTH_POLICY;
+        throw error;
+      }
+    }),
+
+  listConnectedServiceEvents: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), serviceKey: z.string().trim().min(1).max(64).optional() }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      if (ctx.user.role !== "admin") return [];
+      try {
+        const services = await db.select({ id: institutionConnectedServices.id, serviceKey: institutionConnectedServices.serviceKey }).from(institutionConnectedServices);
+        const serviceIds = input.serviceKey ? services.filter((service) => service.serviceKey === input.serviceKey).map((service) => service.id) : services.map((service) => service.id);
+        if (!serviceIds.length) return [];
+        return db.select().from(institutionConnectedServiceEvents).where(inArray(institutionConnectedServiceEvents.serviceId, serviceIds)).orderBy(desc(institutionConnectedServiceEvents.occurredAt)).limit(100);
+      } catch (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
+    }),
+
+  updateConnectedService: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      serviceKey: z.string().trim().min(1).max(64),
+      lifecycleStatus: z.enum(["connected", "transitional", "compatibility", "pilot", "retired"]),
+      privacyClass: z.enum(["institutional_aggregate", "provider_workflow", "accountless_public", "individual_learning", "mixed_review_required"]),
+      owner: z.string().trim().min(3).max(255),
+      routeKey: z.string().trim().max(255).optional(),
+      reviewLabel: z.string().trim().max(255).optional(),
+      nextReviewAt: z.coerce.date().optional(),
+      enabled: z.boolean(),
+      reason: z.string().trim().min(3).max(1000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Only Paeds Resus platform administrators can govern Connected Services." });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const [current] = await db.select().from(institutionConnectedServices).where(eq(institutionConnectedServices.serviceKey, input.serviceKey)).limit(1);
+      if (!current) throw new TRPCError({ code: "NOT_FOUND", message: "Connected Service is not registered." });
+      const now = new Date();
+      await db.update(institutionConnectedServices).set({ lifecycleStatus: input.lifecycleStatus, privacyClass: input.privacyClass, owner: input.owner, routeKey: input.routeKey ?? null, reviewLabel: input.reviewLabel ?? null, nextReviewAt: input.nextReviewAt ?? null, lastReviewedAt: now, enabled: input.enabled, updatedAt: now }).where(eq(institutionConnectedServices.id, current.id));
+      await db.insert(institutionConnectedServiceEvents).values({ serviceId: current.id, eventType: current.lifecycleStatus === input.lifecycleStatus ? "reviewed" : "status_changed", previousStatus: current.lifecycleStatus, currentStatus: input.lifecycleStatus, actorUserId: ctx.user.id, reason: input.reason, occurredAt: now });
+      return { success: true as const, serviceKey: input.serviceKey, lifecycleStatus: input.lifecycleStatus };
+    }),
+
+  updateSafeTruthGovernancePolicy: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      boundaryStatus: z.enum(["accountless_public", "provider_workflow", "institutional_aggregate", "mixed_review_required"]),
+      allowedRoute: z.string().trim().min(1).max(255),
+      institutionalAnalyticsAllowed: z.boolean(),
+      patientIdentifiersAllowed: z.boolean(),
+      providerLinkageAllowed: z.boolean(),
+      retentionDays: z.number().int().positive().optional(),
+      policyVersion: z.string().trim().min(1).max(32),
+      notes: z.string().trim().max(2000).optional(),
+      reason: z.string().trim().min(3).max(1000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Only Paeds Resus platform administrators can govern the Safe Truth boundary." });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      if (input.boundaryStatus === "accountless_public" && (input.institutionalAnalyticsAllowed || input.patientIdentifiersAllowed || input.providerLinkageAllowed)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Accountless public Safe Truth cannot enable institutional analytics, patient identifiers, or provider linkage." });
+      }
+      const [current] = await db.select().from(safeTruthGovernancePolicies).where(eq(safeTruthGovernancePolicies.policyKey, "safe_truth_public_submission")).limit(1);
+      const now = new Date();
+      await db.insert(safeTruthGovernancePolicies).values({ policyKey: "safe_truth_public_submission", boundaryStatus: input.boundaryStatus, allowedRoute: input.allowedRoute, institutionalAnalyticsAllowed: input.institutionalAnalyticsAllowed, patientIdentifiersAllowed: input.patientIdentifiersAllowed, providerLinkageAllowed: input.providerLinkageAllowed, retentionDays: input.retentionDays ?? null, policyVersion: input.policyVersion, approvedByUserId: ctx.user.id, approvedAt: now, notes: input.notes ?? null }).onDuplicateKeyUpdate({ set: { boundaryStatus: input.boundaryStatus, allowedRoute: input.allowedRoute, institutionalAnalyticsAllowed: input.institutionalAnalyticsAllowed, patientIdentifiersAllowed: input.patientIdentifiersAllowed, providerLinkageAllowed: input.providerLinkageAllowed, retentionDays: input.retentionDays ?? null, policyVersion: input.policyVersion, approvedByUserId: ctx.user.id, approvedAt: now, notes: input.notes ?? null, updatedAt: now } });
+      const [policy] = await db.select({ id: safeTruthGovernancePolicies.id }).from(safeTruthGovernancePolicies).where(eq(safeTruthGovernancePolicies.policyKey, "safe_truth_public_submission")).limit(1);
+      await db.insert(safeTruthGovernancePolicyEvents).values({ policyId: policy?.id ?? 0, eventType: current ? "updated" : "created", previousVersion: current?.policyVersion ?? null, currentVersion: input.policyVersion, actorUserId: ctx.user.id, reason: input.reason, occurredAt: now });
+      return { success: true as const, policyKey: "safe_truth_public_submission", policyVersion: input.policyVersion, boundaryStatus: input.boundaryStatus };
     }),
 
   /** Shared administration read: product status is visible even when one product is not subscribed. */
