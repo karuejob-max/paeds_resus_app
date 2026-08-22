@@ -1,12 +1,8 @@
-import { Shield, CheckCircle, Clock, Star, Users, UserCheck } from "lucide-react";
+import { Shield, CheckCircle, Clock, Star, Users } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import { trpc } from "@/lib/trpc";
 
 interface ErtBillboardWidgetProps {
-  institutionId: number;
   poleId: number | null;
   shiftDate: string;
   shiftType: "morning" | "evening" | "night";
@@ -14,11 +10,9 @@ interface ErtBillboardWidgetProps {
   poleDepartments: any[];
   staffMembers: any[] | undefined;
   ertlDepartmentId: number | null;
-  onCheckInSuccess: () => void;
 }
 
 export function ErtBillboardWidget({
-  institutionId,
   poleId,
   shiftDate,
   shiftType,
@@ -26,18 +20,7 @@ export function ErtBillboardWidget({
   poleDepartments,
   staffMembers,
   ertlDepartmentId,
-  onCheckInSuccess,
 }: ErtBillboardWidgetProps) {
-  const signOffMutation = trpc.institution.signOffShiftReadiness.useMutation({
-    onSuccess: () => {
-      toast.success("Shift readiness signed off successfully!");
-      onCheckInSuccess();
-    },
-    onError: (err) => {
-      toast.error(err.message || "Failed to sign off readiness");
-    },
-  });
-
   if (!poleId || poleDepartments.length === 0) {
     return null;
   }
@@ -56,6 +39,8 @@ export function ErtBillboardWidget({
       rosterId: rosterEntry?.id,
       isErtl,
       status: rosterEntry?.status ?? "active",
+      assignmentStatus: rosterEntry?.assignmentStatus,
+      acceptedAt: rosterEntry?.acceptedAt,
       signedOff: !!rosterEntry?.readinessSignOffAt,
     };
   });
@@ -130,24 +115,9 @@ export function ErtBillboardWidget({
                     <div className="flex flex-col items-end gap-2">
                       <Badge variant="outline" className="text-amber-400 border-amber-500/30 gap-1 rounded-full animate-pulse font-semibold">
                         <Clock className="w-3.5 h-3.5" />
-                        Pending
+                        {teamLeader.assignmentStatus === "active" && teamLeader.acceptedAt ? "Provider check-in pending" : "Awaiting provider acceptance"}
                       </Badge>
-                      {teamLeader.rosterId && (
-                        <Button
-                          size="sm"
-                          className="bg-amber-600 hover:bg-amber-700 text-white font-bold h-7 px-2.5 text-xs rounded-lg gap-1 shadow-md hover:scale-105 transition-transform"
-                          onClick={() =>
-                            signOffMutation.mutate({
-                              institutionId,
-                              rosterId: teamLeader.rosterId!,
-                            })
-                          }
-                          disabled={signOffMutation.isPending}
-                        >
-                          <UserCheck className="w-3.5 h-3.5" />
-                          Check In
-                        </Button>
-                      )}
+                      <span className="text-[10px] text-slate-500">Provider confirms readiness from the individual portal.</span>
                     </div>
                   )}
                 </div>
@@ -202,24 +172,8 @@ export function ErtBillboardWidget({
                       <div className="flex items-center gap-1.5">
                         <Badge variant="outline" className="text-amber-400 border-amber-500/30 gap-1 rounded-full text-[10px] animate-pulse font-semibold">
                           <Clock className="w-3 h-3" />
-                          Pending
+                          {responder.assignmentStatus === "active" && responder.acceptedAt ? "Provider check-in pending" : "Awaiting provider acceptance"}
                         </Badge>
-                        {responder.rosterId && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 font-bold h-6 px-1.5 text-[10px] rounded-md gap-0.5"
-                            onClick={() =>
-                              signOffMutation.mutate({
-                                institutionId,
-                                rosterId: responder.rosterId!,
-                              })
-                            }
-                            disabled={signOffMutation.isPending}
-                          >
-                            Sign
-                          </Button>
-                        )}
                       </div>
                     )}
                   </div>

@@ -27,6 +27,7 @@ import { assertIersActivationContinuity, assertInstitutionProductCapability } fr
 import { assertInstitutionProductRole, type InstitutionalProductRoleKey } from "../lib/institution-product-roles";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { canAdvanceIersActivation } from "../lib/iers-state";
+import { isProviderShiftReadinessEligible } from "../lib/iers-provider-readiness";
 import { buildIersEvidenceScorecard } from "../lib/iers-criteria";
 import { evaluateIersPilotReadiness } from "../lib/iers-pilot-readiness";
 import { assertInstitutionProcedureAccess } from "../lib/institution-capabilities";
@@ -644,7 +645,7 @@ export const iersRouter = router({
       await assertInstitutionProductCapability(db, roster.institutionId, "iers", "iers.team_readiness.operate");
       await assertProviderCanOperate(db, ctx.user, roster.institutionId);
       if (roster.status !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: "Only active shifts can be signed off." });
-      if (roster.assignmentStatus !== "active" || !roster.acceptedAt) throw new TRPCError({ code: "BAD_REQUEST", message: "Accept the dated shift assignment before signing off readiness." });
+      if (!isProviderShiftReadinessEligible(roster)) throw new TRPCError({ code: "BAD_REQUEST", message: "Accept the dated shift assignment before signing off readiness." });
 
       const signedOffAt = new Date();
       await db

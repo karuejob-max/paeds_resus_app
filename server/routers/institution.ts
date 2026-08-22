@@ -4204,35 +4204,20 @@ export const institutionRouter = router({
       return { success: true };
     }),
 
+  /**
+   * Legacy institution-side entry point retained only to fail closed for old clients.
+   * Readiness is provider-owned and must be confirmed through iers.signOffShiftReadiness.
+   */
   signOffShiftReadiness: protectedProcedure
     .input(z.object({
       institutionId: z.number(),
       rosterId: z.number(),
     }))
-    .mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      await assertInstitutionAccess(db, ctx.user, input.institutionId);
-
-      const [existing] = await db
-        .select()
-        .from(shiftUtlRosters)
-        .where(and(
-          eq(shiftUtlRosters.id, input.rosterId),
-          eq(shiftUtlRosters.institutionId, input.institutionId)
-        ))
-        .limit(1);
-
-      if (!existing) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Roster entry not found" });
-      }
-
-      await db
-        .update(shiftUtlRosters)
-        .set({ readinessSignOffAt: new Date() })
-        .where(eq(shiftUtlRosters.id, input.rosterId));
-
-      return { success: true };
+    .mutation(async () => {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Shift readiness must be confirmed by the assigned provider in the Individual portal.",
+      });
     }),
 
   // ============================================

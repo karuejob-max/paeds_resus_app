@@ -149,3 +149,54 @@ Last updated: 2026-08-22 during provider-duty rollout.
 - The Alpha ERCo configuration panel shows two history entries: `assigned · Job Karue` and `accepted · Job Karue`, with the summary status `Accepted and active`.
 - `JOYCE GAKII NJUE (nurse)` is now selected in the replacement form. The current assignment has not changed yet because the replacement form has not been saved.
 - The UI continues to state that saving replaces the current assignment for this department rather than creating a second ERCo row.
+
+## ERCo history refresh deployment
+
+- Protected PR #495 merged as commit `0277388` after the full CI gate passed.
+- Render auto-deploy for `0277388` built successfully at 11:07:33 and began the production service at 11:07:59. The deploy detail still showed `in progress` at the last observation; no failure was visible.
+- The fix invalidates the selected department’s ERCo event-history query after assignment or replacement, so the UI should display the server-persisted `reassigned` event immediately after save.
+
+## ERCo history refresh live
+
+- Render deploy for protected merge commit `0277388` transitioned to `live`.
+- The production service started successfully, connected its database pool, initialized scheduled tasks, and reported `Your service is live` at `https://www.paedsresus.com`.
+- No migration or database write was required for this UI-only fix.
+- Next verification is a fresh production institution-page load followed by a replacement-history observation. The labelled smoke-test records remain non-clinical and do not represent a pilot drill.
+
+## Fresh production load after the UI fix
+
+A fresh authenticated load of `https://www.paedsresus.com/institution?section=iers` succeeded on the deployed bundle. The institutional workspace opened the IERS product and showed the activation command center with no active activation. No activation was triggered; the next read-only check is the ERT and equipment sub-tab where the labelled smoke-test departments and Alpha history can be verified.
+
+## Post-fix smoke-test state
+
+After the `0277388` deployment became live, a fresh authenticated institution load succeeded. The workforce panel lists exactly one current ERCo row for each labelled department: Alpha is assigned to JOYCE GAKII NJUE and is awaiting provider acceptance; Bravo remains unassigned. No activation was triggered. The Alpha configuration panel must be opened to inspect the refreshed append-only history.
+
+## Reassignment-history smoke test passed
+
+On the live `0277388` bundle, opening the Alpha configuration after the replacement now shows the append-only history immediately: `reassigned · Job Karue` at 10:59:56, followed by the earlier `accepted · Job Karue` and `assigned · Job Karue` events. The summary still contains exactly one current Alpha ERCo row, now assigned to JOYCE GAKII NJUE and awaiting her acceptance. This verifies both the server event and the UI refresh behavior.
+
+## ERTL provider-acceptance smoke test
+
+The labelled Alpha department was selected as the week 34 North Pole ERTL department. The institution roster assigned the named ERTL provider to Job Karue; the provider dashboard displayed `ERTL · SMOKE TEST - Department Alpha` as `Response required`, and after the provider action it displayed `active`. No activation was triggered. The institutional side is being reopened to confirm the same accepted state.
+
+## ERTL acceptance verified institution-side
+
+The institution workforce view now shows `SMOKE TEST - Department Alpha` with named provider `Job Karue (nurse)` and `ERTL accepted`. The provider dashboard simultaneously showed the same ERTL duty as `active`. This confirms provider-owned acceptance is visible in both portals and remains distinct from Alpha’s separate ERCo assignment to JOYCE GAKII NJUE, which is still awaiting Joyce’s response.
+
+## UTL smoke-test setup
+
+The supported deep link `?section=iers&iersTab=workforce` opens the workforce panel reliably. The panel confirms Alpha’s week 34 ERTL is assigned to Job Karue and accepted. The active shift is the 2026-08-22 morning shift in North Pole; the labelled Alpha and Bravo departments remain present, and both currently show no assigned shift UTL. No activation has been triggered.
+
+## Alpha UTL assignment prepared
+
+The labelled Alpha morning-shift UTL selector now shows `Job Karue (nurse)` as the assigned provider. The roster row remains in `Pending Check-in` with no readiness sign-off yet, which is the intended pre-acceptance state. Bravo remains unassigned. No activation was triggered and no patient identifiers were entered.
+
+## Alpha UTL assignment visible institution-side
+
+After assigning Job Karue to the labelled Alpha morning shift, the institution workforce view shows `0/1 Signed Off`, the Alpha ERT billboard names Job Karue with `Pending Check In`, and the shift table shows Job Karue as the assigned UTL. The provider-side acceptance/readiness sequence remains incomplete; no readiness sign-off or activation has occurred.
+
+## P0 finding: readiness ownership and provider-card refresh
+
+Source review found two institution-side `Check In` controls (`ErtRosterPanel` and `ErtBillboardWidget`) calling `institution.signOffShiftReadiness`. That server procedure currently checks only institution access and writes `readinessSignOffAt`; it does not require the assigned provider identity, IERS operation capability, active membership, accepted assignment, or provider evidence. This bypasses the provider-owned readiness contract and must be removed or fail closed before pilot.
+
+The provider-owned `iers.signOffShiftReadiness` path already has the correct guards and writes workforce evidence. The live read-only endpoint returned one accepted active Alpha shift for Job Karue, but the provider readiness card was absent after in-session duty acceptance, indicating its query cache is not invalidated by the duty-response mutation. This will be fixed alongside the institution-side bypass.

@@ -120,14 +120,6 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
     onError: (err) => toast.error(err.message || "Failed to update UTL"),
   });
 
-  const signOffMutation = trpc.institution.signOffShiftReadiness.useMutation({
-    onSuccess: () => {
-      toast.success("Readiness checked in and signed off!");
-      void refetchRoster();
-    },
-    onError: (err) => toast.error(err.message || "Failed to sign off readiness"),
-  });
-
   if (polesLoading) {
     return <div className="p-6 text-center text-muted-foreground">Loading ERT Roster Matrix...</div>;
   }
@@ -298,7 +290,6 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
 
       {/* ERT Billboard Live Widget */}
       <ErtBillboardWidget
-        institutionId={institutionId}
         poleId={activePoleId}
         shiftDate={selectedDate}
         shiftType={selectedShift}
@@ -306,7 +297,6 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
         poleDepartments={poleDepartments}
         staffMembers={staffMembers}
         ertlDepartmentId={ertlDepartmentId}
-        onCheckInSuccess={() => void refetchRoster()}
       />
 
       {/* Shift UTL Roster Table */}
@@ -408,32 +398,26 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          {rosterEntry?.readinessSignOffAt ? (
+                          {!rosterEntry ? (
+                            <Badge variant="outline" className="text-muted-foreground">
+                              No provider duty
+                            </Badge>
+                          ) : rosterEntry.readinessSignOffAt ? (
                             <Badge variant="outline" className="text-emerald-600 border-emerald-600 bg-emerald-50">
-                              Sign-Off Complete
+                              Provider sign-off complete
+                            </Badge>
+                          ) : rosterEntry.assignmentStatus === "active" && rosterEntry.acceptedAt ? (
+                            <Badge variant="outline" className="text-amber-600 border-amber-600">
+                              Provider check-in pending
+                            </Badge>
+                          ) : rosterEntry.assignmentStatus === "declined" ? (
+                            <Badge variant="outline" className="text-rose-600 border-rose-600 bg-rose-50">
+                              Provider declined
                             </Badge>
                           ) : (
-                            <>
-                              <Badge variant="outline" className="text-amber-600 border-amber-600">
-                                Pending Check-in
-                              </Badge>
-                              {rosterEntry && rosterEntry.status !== "absent" && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-6 text-[10px] px-2"
-                                  onClick={() =>
-                                    signOffMutation.mutate({
-                                      institutionId,
-                                      rosterId: rosterEntry.id,
-                                    })
-                                  }
-                                  disabled={signOffMutation.isPending}
-                                >
-                                  Check In
-                                </Button>
-                              )}
-                            </>
+                            <Badge variant="outline" className="text-amber-600 border-amber-600">
+                              Awaiting provider acceptance
+                            </Badge>
                           )}
                         </div>
                       </TableCell>
