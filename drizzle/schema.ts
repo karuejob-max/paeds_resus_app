@@ -4407,6 +4407,8 @@ export const iersActionItems = mysqlTable("iers_action_items", {
   institutionId: int("institution_id").notNull(),
   sourceType: mysqlEnum("source_type", ["evidence", "activation", "equipment", "care_signal", "code_signal", "incident", "drill", "manual"]).default("manual").notNull(),
   sourceId: int("source_id"),
+  /** One-way compatibility link to the legacy institutionalActionLogs row. */
+  legacyActionLogId: int("legacy_action_log_id").unique(),
   title: varchar("title", { length: 255 }).notNull(),
   gapDescription: text("gap_description").notNull(),
   ownerUserId: int("owner_user_id"),

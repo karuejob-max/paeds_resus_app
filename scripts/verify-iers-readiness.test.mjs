@@ -44,6 +44,7 @@ test("IERS verifier accepts camelCase columns for the first two migration groups
     "reviewed_by_user_id",
     "owner_user_id",
     "closure_evidence_id",
+    "legacy_action_log_id",
     "debrief_note",
     "evidence_id",
     "programType",

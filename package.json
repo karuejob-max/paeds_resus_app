@@ -149,6 +149,7 @@
     "db:apply-0099": "node scripts/apply-0099-iers-milestones.mjs",
     "db:apply-0100": "node scripts/apply-0100-institution-product-entitlements.mjs",
     "db:apply-0101": "node scripts/apply-0101-iers-competency-records.mjs",
+    "db:apply-0102": "node scripts/apply-0102-iers-action-log-consolidation.mjs",
     "db:verify-iers": "node scripts/verify-iers-readiness.mjs",
     "test:iers-verifier": "node --test scripts/verify-iers-readiness.test.mjs",
     "db:apply-iers": "node scripts/apply-iers-migrations.mjs",
