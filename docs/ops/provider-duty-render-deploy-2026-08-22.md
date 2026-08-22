@@ -256,3 +256,8 @@ Final final rollout result: Render deployment `48ee62c` is confirmed **live** at
 Final documentation deployment observation: after opening the service overview for merge `8d32ba5`, the subsequent browser refresh returned a transient `about:blank`. The overview had already shown the auto-deploy starting; no deployment control or production data was changed. A read-only retry is required before final reporting.
 
 Final deployment confirmation: Render shows `8d32ba5` (`docs(ops): confirm final provider rollout`, PR #502) **live** at 12:40 PM. The protected rollout chain is complete: implementation, guarded migrations, strict verification, labelled smoke-test evidence, membership revalidation, and documentation are all on protected main and deployed.
+
+
+## Authorization fixture and mobile orientation deployment
+
+Render deployment `dep-da4raf0jo6nc73ehgpmg` for merged commit `e3708f1` (`feat(iers): add authorization matrix and mobile orientation`, PR #503) is confirmed **live** at `https://www.paedsresus.com` on 2026-08-22 at approximately 14:43. The deployment added no production migration and no production data mutation.
