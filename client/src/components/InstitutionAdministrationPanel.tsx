@@ -15,6 +15,7 @@ import { SupportTicketForm } from "@/components/SupportTicketForm";
 import { AdminNotificationsDashboard } from "@/components/AdminNotificationsDashboard";
 import { InstitutionDataLifecyclePanel } from "@/components/InstitutionDataLifecyclePanel";
 import { InstitutionRenewalPanel } from "@/components/InstitutionRenewalPanel";
+import { InstitutionDepartmentReconciliationPanel } from "@/components/InstitutionDepartmentReconciliationPanel";
 
 type InstitutionRecord = {
   id: number;
@@ -47,6 +48,7 @@ export function InstitutionAdministrationPanel({ institutionId, institution }: {
           staffCount={institution.staffCount}
         />
         <InstitutionPeopleRolesPanel institutionId={institutionId} />
+        <InstitutionDepartmentReconciliationPanel institutionId={institutionId} />
         <div className="grid gap-6 xl:grid-cols-2">
           <AccountAdminsWidget institutionId={institutionId} />
           <PendingLinkRequestsWidget institutionId={institutionId} />

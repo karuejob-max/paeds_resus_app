@@ -12,7 +12,7 @@ const IERS_PROCEDURES = [
   "getEvidenceScorecard", "submitEvidence", "listEvidence", "reviewEvidence", "createAction", "listActions", "updateAction", "getActionLogs", "createActionLog", "updateActionLogStatus",
   "getIncidents", "createIncident", "getFacilityGapAnalysis", "getPendingCareSignalActions", "getPendingCodeSignalActions", "runResusGpsAudit", "importResusGpsAuditAction", "getLatestIermsAuditScorecard", "submitIermsAuditScorecard", "getEquipmentAuditLogs", "submitEquipmentAuditLog", "verifyIersCompetencyRecord",
   "getTrainingSchedules", "listAssignableInstructors", "createTrainingSchedule", "updateTrainingSchedule", "deleteTrainingSchedule", "getTrainingAttendanceForSchedule", "getIersCompetencyRecords", "upsertTrainingAttendance", "registerAllStaffForTrainingSession",
-  "listInstitutionActivations", "getMyActivations", "acknowledge", "markResponse", "advance", "getTimeline",
+  "listInstitutionActivations", "getMyActivations", "acknowledge", "markResponse", "advance", "getTimeline", "getIersMissingPoleAlerts",
 ] as const;
 
 const CPD_PROCEDURES = [

@@ -204,15 +204,16 @@ function isMissingSchemaColumnError(error: unknown) {
 
 async function assertDepartmentBelongsToPole(db: DbClient, institutionId: number, departmentId: number, poleId: number) {
   const [department] = await db
-    .select({ id: facilityDepartments.id, poleId: facilityDepartments.poleId, departmentName: facilityDepartments.departmentName })
+    .select({ id: facilityDepartments.id, poleId: facilityDepartments.poleId, departmentName: facilityDepartments.departmentName, requiresPole: facilityDepartments.requiresPole })
     .from(facilityDepartments)
     .where(and(
       eq(facilityDepartments.id, departmentId),
       eq(facilityDepartments.institutionId, institutionId),
       eq(facilityDepartments.isActive, true),
+      eq(facilityDepartments.requiresPole, true),
     ))
     .limit(1);
-  if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "Active canonical department not found in this institution." });
+  if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "Active confirmed IERS-operational department not found in this institution." });
   if (department.poleId !== poleId) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Assign this department to the selected pole before creating its ERTL or UTL rota." });
   }
@@ -3801,6 +3802,7 @@ export const institutionRouter = router({
           institutionId: facilityDepartments.institutionId,
           poleId: facilityDepartments.poleId,
           departmentName: facilityDepartments.departmentName,
+          requiresPole: sql<boolean>`FALSE`,
           isActive: sql<boolean>`TRUE`,
           confirmedAt: sql<Date | null>`NULL`,
           confirmedByUserId: sql<number | null>`NULL`,
@@ -3878,32 +3880,41 @@ export const institutionRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
 
-      const [existing] = await db
+      const activeDepartments = await db
         .select()
         .from(facilityDepartments)
         .where(and(
           eq(facilityDepartments.institutionId, input.institutionId),
-          eq(facilityDepartments.departmentName, input.departmentName)
-        ))
-        .limit(1);
-
-      if (existing) {
-        await db
-          .update(facilityDepartments)
-          .set({ poleId: input.poleId, isActive: true, confirmedAt: existing.confirmedAt ?? new Date(), confirmedByUserId: existing.confirmedByUserId ?? ctx.user.id })
-          .where(eq(facilityDepartments.id, existing.id));
-      } else {
-        await db.insert(facilityDepartments).values({
-          institutionId: input.institutionId,
-          poleId: input.poleId,
-          departmentName: input.departmentName,
-          isActive: true,
-          confirmedAt: new Date(),
-          confirmedByUserId: ctx.user.id,
-        });
+          eq(facilityDepartments.isActive, true),
+        ));
+      const existing = activeDepartments.find((department) => departmentLabelsMatch(department.departmentName, input.departmentName));
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Confirm this department in Administration before assigning it to an IERS pole." });
+      }
+      if (!existing.confirmedAt) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This department is not confirmed for the institution yet." });
+      }
+      if (!existing.requiresPole) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "This department is CPD-valid but not marked as requiring an IERS pole. An account administrator must enable pole eligibility first." });
+      }
+      if (input.poleId != null) {
+        const [pole] = await db
+          .select({ id: facilityPoles.id })
+          .from(facilityPoles)
+          .where(and(eq(facilityPoles.id, input.poleId), eq(facilityPoles.institutionId, input.institutionId)))
+          .limit(1);
+        if (!pole) throw new TRPCError({ code: "NOT_FOUND", message: "Pole not found in this institution." });
       }
 
-      return { success: true };
+      await db
+        .update(facilityDepartments)
+        .set({ poleId: input.poleId })
+        .where(and(
+          eq(facilityDepartments.id, existing.id),
+          eq(facilityDepartments.institutionId, input.institutionId),
+        ));
+
+      return { success: true, departmentId: existing.id };
     }),
 
   assignAllUnassignedDepartmentsToPole: protectedProcedure
@@ -3917,6 +3928,8 @@ export const institutionRouter = router({
       const result = await db.update(facilityDepartments).set({ poleId: input.poleId }).where(and(
         eq(facilityDepartments.institutionId, input.institutionId),
         eq(facilityDepartments.isActive, true),
+        isNotNull(facilityDepartments.confirmedAt),
+        eq(facilityDepartments.requiresPole, true),
         isNull(facilityDepartments.poleId),
       ));
       return { success: true, assignedCount: (result as unknown as { affectedRows?: number }).affectedRows ?? 0 };
@@ -4515,12 +4528,13 @@ export const institutionRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
       const rows = await db
-        .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName, poleId: facilityDepartments.poleId, poleName: facilityPoles.poleName })
+        .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName, poleId: facilityDepartments.poleId, requiresPole: facilityDepartments.requiresPole, poleName: facilityPoles.poleName })
         .from(facilityDepartments)
         .leftJoin(facilityPoles, eq(facilityPoles.id, facilityDepartments.poleId))
         .where(and(
           eq(facilityDepartments.institutionId, input.institutionId),
           eq(facilityDepartments.isActive, true),
+          eq(facilityDepartments.requiresPole, true),
           eq(facilityDepartments.poleId, input.poleId),
         ))
         .orderBy(asc(facilityDepartments.departmentName));

@@ -298,6 +298,7 @@ Code and database are separate release tracks. A merged PR does not apply SQL to
 | Migrations `0094`–`0099` pass but verifier reports 10 missing objects | The verifier expected snake_case names while `0094`–`0095` created the repository's camelCase tables. | Do not rerun migrations. Deploy the corrected verifier and run only `pnpm run db:verify-iers`. See PR [#469](https://github.com/karuejob-max/paeds_resus_app/pull/469). |
 | TLS `DEP0123` warning | Node emitted a deprecation warning while connecting to the Aiven endpoint; the connection still passed. | Treat it as a warning unless the command exits non-zero. Do not misdiagnose it as a migration failure. |
 | Render Web Shell does not paste reliably | The production Shell input can require manual typing. | Keep `pnpm run db:apply-iers` as the single operator command; never require six manually typed migration commands. |
+| **CPD labels and IERS poles were conflated** | A CPD attendee can use a valid department label that is not an IERS operational unit, such as Pharmacy. | Keep reconciliation and pole eligibility separate. Only a confirmed active `facility_departments` row with `requires_pole = true` and `pole_id IS NULL` is an IERS missing-pole alert. |
 
 ### Naming and schema-drift guardrails
 
@@ -316,11 +317,20 @@ The Institutional Portal is organized into two independently subscribable produc
 
 The source of truth for this split is [`docs/institutional/INSTITUTIONAL_PORTAL_ARCHITECTURE_V1.md`](docs/institutional/INSTITUTIONAL_PORTAL_ARCHITECTURE_V1.md). Do not use frontend navigation as the security boundary: IERS and CPD operations must be gated server-side by institution relationship, product entitlement, capability, and renewal state. Expired subscriptions preserve history and necessary exports; active IERS events and safety timelines must not be interrupted by billing state.
 
+### Department reconciliation and pole-eligibility runbook
+
+- The shared preset catalog in `shared/clinical-departments.ts` remains the preferred source for CPD, provider profiles, onboarding, and local IERS departments. `Other` is for genuine missing-catalog exceptions only.
+- Migration `0115` is reserved through the remote `migration-reserved-0115` branch before schema work. It adds `facility_departments.requires_pole` with a fail-closed `false` default, `institution_department_reconciliations` for current review state, and `institution_department_audit_events` for append-only decisions.
+- Account administrators use the Administration reconciliation panel to review historic labels. Mapping requires an explicit target and reason. Optional backfill updates only nullable `cpdAttendees.facilityDepartmentId`; it must never overwrite `cpdAttendees.department` or other attendance fields. Defer, dismiss, and reopen are review states, not deletion.
+- IERS Leads may view missing-pole alerts and allocate poles, but they cannot map CPD labels or backfill attendance. A missing-pole alert is valid only for a confirmed active department where `requires_pole=true` and `pole_id IS NULL`; never infer it from catalog membership, CPD attendance, cadre, or a custom label.
+- Local real-router coverage is opt-in and fail-closed: set `IERS_STAGING_ENABLE=1`, use an `IERS_STAGING_DATABASE_URL` whose host is localhost and whose database name contains `staging`, set `DATABASE_URL` to that same disposable URL for the process, run `pnpm run test:iers-department-reconciliation:staging`, and destroy the database/user afterward. Do not run this with a production URL.
+
 ### Definition of true IERS completion
 
 Do not call IERS production-ready merely because the build passes or the migrations exist. The following evidence is required:
 
 - `pnpm run check`, the unit gate, and the production build pass.
+- The 0115 department-reconciliation tests pass, including cross-tenant denial, account-admin mapping, IERS Lead boundary, raw CPD text preservation, and CPD-only department pole exclusion.
 - `pnpm run db:verify-iers` reports zero missing tables and columns.
 - At least one provider is linked to the institution with an explicit responsibility role.
 - A labelled drill proves provider acknowledgement, response, arrival, institution monitoring, timeline persistence, and debrief.
@@ -334,7 +344,7 @@ Never paste or send `DATABASE_URL`, passwords, API keys, or `.env` contents. It 
 
 ### Source trail
 
-The implementation and recovery history is recorded in [`docs/WORK_STATUS.md`](docs/WORK_STATUS.md). The canonical product architecture is in [`docs/PLATFORM_SOURCE_OF_TRUTH.md`](docs/PLATFORM_SOURCE_OF_TRUTH.md). The institutional portal contract is [`docs/institutional/INSTITUTIONAL_PORTAL_ARCHITECTURE_V1.md`](docs/institutional/INSTITUTIONAL_PORTAL_ARCHITECTURE_V1.md). The applicable schema scripts are `scripts/apply-0094-institution-memberships.mjs` through `scripts/apply-0099-iers-milestones.mjs` plus `scripts/apply-0100-institution-product-entitlements.mjs`; the guarded runner is `scripts/apply-iers-migrations.mjs`; and the final verifier is `scripts/verify-iers-readiness.mjs`.
+The implementation and recovery history is recorded in [`docs/WORK_STATUS.md`](docs/WORK_STATUS.md). The canonical product architecture is in [`docs/PLATFORM_SOURCE_OF_TRUTH.md`](docs/PLATFORM_SOURCE_OF_TRUTH.md). The institutional portal contract is [`docs/institutional/INSTITUTIONAL_PORTAL_ARCHITECTURE_V1.md`](docs/institutional/INSTITUTIONAL_PORTAL_ARCHITECTURE_V1.md). The applicable schema scripts are `scripts/apply-0094-institution-memberships.mjs` through `scripts/apply-0115-department-reconciliation.mjs`; the guarded runner is `scripts/apply-iers-migrations.mjs`; and the final verifier is `scripts/verify-iers-readiness.mjs`.
 
 ---
 
@@ -400,7 +410,7 @@ Every new table in `drizzle/schema.ts` MUST have a corresponding migration scrip
 ### Migration script requirements
 
 - **Every new table in `drizzle/schema.ts` MUST have a matching idempotent migration script** at `scripts/apply-NNNN-<feature>.mjs` (e.g., `apply-0052-kmhfl-facilities.mjs`).
-- **Every migration script MUST have a corresponding `"db:apply-NNNN"` entry in `package.json` scripts** so the CEO can run `pnpm run db:apply-NNNN` without remembering file paths.
+- **Every migration script MUST have a corresponding `"db:apply-NNNN"` entry in `package.json` scripts** so the CEO can run `pnpm run db:apply-NNNN` without remembering file paths. Migration `0115` is registered as `db:apply-0115` and is included in the guarded `db:apply-iers` sequence.
 - **Migration scripts use `scripts/db-connection-config.mjs`** for SSL + IPv4 (Aiven configuration).
 - **All migrations are idempotent** (safe to re-run) — use `IF NOT EXISTS` / `tableExists()` checks to prevent "table already exists" errors.
 - **Migration numbers can collide across parallel PRs — `git fetch origin main` and check the highest existing `apply-00NN-*.mjs` right before naming a new one, not just at session start.** Building #11 Phase C, migration 0066 was picked (the next free number at branch time), but a different parallel PR claimed 0066 for something unrelated and merged first. Caught during the routine pre-edit fetch/rebase, not after a production collision — renumbered to 0067 before shipping. Multiple agents working the same repo concurrently makes this a real, recurring risk, not a one-off.

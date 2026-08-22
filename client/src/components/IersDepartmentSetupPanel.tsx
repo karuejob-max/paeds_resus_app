@@ -23,6 +23,7 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
 
   const { data: departments, isLoading: departmentsLoading } = trpc.institution.getFacilityDepartments.useQuery({ institutionId });
   const { data: poles } = trpc.institution.getFacilityPoles.useQuery({ institutionId });
+  const missingPoleAlertsQuery = trpc.institutionDepartmentReconciliation.getIersMissingPoleAlerts.useQuery({ institutionId });
   const activePoleId = selectedPoleId ? Number(selectedPoleId) : poles?.[0]?.id;
   const { data: monthlyRota } = trpc.institution.getMonthlyUtlRota.useQuery(
     { institutionId, poleId: activePoleId ?? 0, monthStart },
@@ -34,9 +35,9 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
     setDraftNames(Object.fromEntries(departments.map((department) => [department.id, department.departmentName])));
   }, [departments]);
 
-  const unassignedCount = useMemo(() => departments?.filter((department) => department.poleId == null).length ?? 0, [departments]);
+  const unassignedCount = useMemo(() => departments?.filter((department) => department.isActive && department.confirmedAt != null && department.requiresPole && department.poleId == null).length ?? 0, [departments]);
   const activePoleDepartments = useMemo(
-    () => departments?.filter((department) => department.poleId === activePoleId) ?? [],
+    () => departments?.filter((department) => department.requiresPole && department.poleId === activePoleId) ?? [],
     [departments, activePoleId],
   );
 
@@ -92,6 +93,14 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
+        {(missingPoleAlertsQuery.data ?? []).length > 0 && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
+            <p className="font-semibold">IERS Lead action required: unallocated operational departments</p>
+            <p className="mt-1 text-xs">These alerts appear only because an account administrator explicitly marked the department as requiring an IERS pole. CPD-only departments such as Pharmacy are excluded.</p>
+            <div className="mt-3 space-y-2">{missingPoleAlertsQuery.data?.map((alert) => <div key={alert.id} className="flex min-w-0 flex-col gap-2 rounded border bg-background/70 p-2 sm:flex-row sm:items-center sm:justify-between"><span className="break-words font-medium">{alert.departmentName}</span><Badge variant="destructive" className="w-fit">Pole not allocated</Badge></div>)}</div>
+          </div>
+        )}
+        <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 text-xs text-muted-foreground"><strong className="text-foreground">CPD and IERS are separate decisions:</strong> valid CPD departments remain reportable even when they are not part of an IERS pole.</div>
         <div className="rounded-lg border bg-muted/20 p-3 text-sm">
           <p className="font-semibold">Step 1 — Confirm or update departments</p>
           <p className="mt-1 text-muted-foreground">Use the same preset department catalog used by profiles and CPD Portal. Choose Other only when a genuine facility department is missing from the catalog; renaming an existing row keeps its canonical identity.</p>
@@ -117,15 +126,15 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
 
         <div className="rounded-lg border bg-muted/20 p-3 text-sm">
           <p className="font-semibold">Step 2 — IERS Lead assigns poles</p>
-          <p className="mt-1 text-muted-foreground">Assigning a pole makes a canonical department available in that pole’s weekly ERTL rotation and monthly UTL automation.</p>
+          <p className="mt-1 text-muted-foreground">Assigning a pole makes a confirmed department explicitly marked as IERS operational available in that pole’s weekly ERTL rotation and monthly UTL automation.</p>
           <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
             <Select value={selectedPoleId || (poles?.[0]?.id ? String(poles[0].id) : undefined)} onValueChange={setSelectedPoleId}>
               <SelectTrigger className="w-full min-w-0 sm:w-64"><SelectValue placeholder="Select a pole" /></SelectTrigger>
               <SelectContent>{(poles ?? []).map((pole) => <SelectItem key={pole.id} value={String(pole.id)}><span className="flex items-center gap-2"><Shield className="h-3.5 w-3.5" />{pole.poleName}</span></SelectItem>)}</SelectContent>
             </Select>
-            <Button variant="outline" className="w-full sm:w-auto" onClick={() => activePoleId && assignAllMutation.mutate({ institutionId, poleId: activePoleId })} disabled={!activePoleId || unassignedCount === 0 || assignAllMutation.isPending}>Assign all unassigned</Button>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => activePoleId && assignAllMutation.mutate({ institutionId, poleId: activePoleId })} disabled={!activePoleId || unassignedCount === 0 || assignAllMutation.isPending}>Assign all eligible unassigned</Button>
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">Departments already mapped to another pole are not moved by the batch action; update those assignments from the roster controls.</p>
+          <p className="mt-2 text-xs text-muted-foreground">Departments already mapped to another pole are not moved by the batch action. Departments marked CPD/reporting only are deliberately excluded.</p>
         </div>
 
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">

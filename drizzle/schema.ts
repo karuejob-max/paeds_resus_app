@@ -4551,12 +4551,70 @@ export const facilityDepartments = mysqlTable("facility_departments", {
   poleId: int("pole_id"),
   departmentName: varchar("department_name", { length: 128 }).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
+  /** Explicit account-admin decision: only these confirmed active departments require an IERS pole. */
+  requiresPole: boolean("requires_pole").default(false).notNull(),
   confirmedAt: timestamp("confirmed_at"),
   confirmedByUserId: int("confirmed_by_user_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  iersPoleRequirementIndex: index("facility_depts_iers_pole_req_idx").on(table.institutionId, table.isActive, table.requiresPole, table.poleId),
+}));
 export type FacilityDepartment = typeof facilityDepartments.$inferSelect;
 export type InsertFacilityDepartment = typeof facilityDepartments.$inferInsert;
+
+/** Current review state for one normalized historic CPD department label per institution. */
+export const institutionDepartmentReconciliations = mysqlTable("institution_department_reconciliations", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutional_account_id").notNull(),
+  /** Lowercase, whitespace-collapsed key; rawLabel remains the first observed reporting text. */
+  normalizedLabel: varchar("normalized_label", { length: 256 }).notNull(),
+  rawLabel: varchar("raw_label", { length: 256 }).notNull(),
+  status: mysqlEnum("status", ["open", "mapped", "deferred", "dismissed"]).default("open").notNull(),
+  suggestedCatalogLabel: varchar("suggested_catalog_label", { length: 256 }),
+  suggestionConfidence: mysqlEnum("suggestion_confidence", ["none", "exact", "alias", "ambiguous"]).default("none").notNull(),
+  reviewedFacilityDepartmentId: int("reviewed_facility_department_id"),
+  reviewedByUserId: int("reviewed_by_user_id"),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewReason: text("review_reason"),
+  backfilledCount: int("backfilled_count").default(0).notNull(),
+  backfilledByUserId: int("backfilled_by_user_id"),
+  backfilledAt: timestamp("backfilled_at"),
+  firstUsedAt: timestamp("first_used_at").notNull(),
+  lastUsedAt: timestamp("last_used_at").notNull(),
+  attendanceCount: int("attendance_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionLabelUnique: uniqueIndex("inst_dept_recon_institution_label_uq").on(table.institutionalAccountId, table.normalizedLabel),
+  institutionStatusIndex: index("inst_dept_recon_inst_status_idx").on(table.institutionalAccountId, table.status),
+}));
+export type InstitutionDepartmentReconciliation = typeof institutionDepartmentReconciliations.$inferSelect;
+export type InsertInstitutionDepartmentReconciliation = typeof institutionDepartmentReconciliations.$inferInsert;
+
+/** Append-only record of department mapping, review, backfill, and pole-eligibility decisions. */
+export const institutionDepartmentAuditEvents = mysqlTable("institution_department_audit_events", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutional_account_id").notNull(),
+  reconciliationId: int("reconciliation_id"),
+  departmentId: int("department_id"),
+  eventType: varchar("event_type", { length: 64 }).notNull(),
+  previousStatus: varchar("previous_status", { length: 32 }),
+  currentStatus: varchar("current_status", { length: 32 }),
+  previousDepartmentId: int("previous_department_id"),
+  currentDepartmentId: int("current_department_id"),
+  previousRequiresPole: boolean("previous_requires_pole"),
+  currentRequiresPole: boolean("current_requires_pole"),
+  backfilledCount: int("backfilled_count").default(0).notNull(),
+  actorUserId: int("actor_user_id").notNull(),
+  reason: text("reason").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  institutionEventIndex: index("inst_dept_audit_inst_created_idx").on(table.institutionalAccountId, table.createdAt),
+  reconciliationEventIndex: index("inst_dept_audit_recon_created_idx").on(table.reconciliationId, table.createdAt),
+  departmentEventIndex: index("inst_dept_audit_dept_created_idx").on(table.departmentId, table.createdAt),
+}));
+export type InstitutionDepartmentAuditEvent = typeof institutionDepartmentAuditEvents.$inferSelect;
+export type InsertInstitutionDepartmentAuditEvent = typeof institutionDepartmentAuditEvents.$inferInsert;
 
 /** Exactly one standing Emergency Response Coordinator (ERCo) assignment per department. */
 export const institutionDepartmentResponseCoordinators = mysqlTable("institution_department_response_coordinators", {

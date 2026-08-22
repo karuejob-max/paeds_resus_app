@@ -92,8 +92,6 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const [selectedShift, setSelectedShift] = useState<"morning" | "evening" | "night">("morning");
   const [newPoleName, setNewPoleName] = useState("");
   const [showNewPoleForm, setShowNewPoleForm] = useState(false);
-  const [newDeptName, setNewDeptName] = useState("");
-  const [showNewDeptForm, setShowNewDeptForm] = useState(false);
   
   const todayStr = new Date().toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
@@ -143,16 +141,6 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
       setSelectedPoleId(result.poleId);
     },
     onError: (err) => toast.error(err.message || "Failed to create pole"),
-  });
-
-  const assignDeptMutation = trpc.institution.assignDepartmentToPole.useMutation({
-    onSuccess: () => {
-      toast.success("Department added to this pole!");
-      setNewDeptName("");
-      setShowNewDeptForm(false);
-      void utils.institution.getFacilityDepartments.invalidate({ institutionId });
-    },
-    onError: (err) => toast.error(err.message || "Failed to add department"),
   });
 
   const setErtlMutation = trpc.institution.setWeeklyErtlRotation.useMutation({
@@ -365,49 +353,14 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
               On-duty UTLs representing the departments in this Pole.
             </CardDescription>
           </div>
-          {showNewDeptForm ? (
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <Input
-                value={newDeptName}
-                onChange={(e) => setNewDeptName(e.target.value)}
-                placeholder="Department name"
-                className="h-8 w-full min-w-0 text-xs sm:w-48"
-                autoFocus
-              />
-              <Button
-                size="sm"
-                className="h-8"
-                disabled={!newDeptName.trim() || !activePoleId || assignDeptMutation.isPending}
-                onClick={() =>
-                  activePoleId &&
-                  assignDeptMutation.mutate({ institutionId, poleId: activePoleId, departmentName: newDeptName.trim() })
-                }
-              >
-                Save
-              </Button>
-              <Button size="sm" variant="ghost" className="h-8" onClick={() => setShowNewDeptForm(false)}>
-                Cancel
-              </Button>
-            </div>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5 h-8"
-              disabled={!activePoleId}
-              onClick={() => setShowNewDeptForm(true)}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Department
-            </Button>
-          )}
+          <p className="max-w-xl text-xs text-muted-foreground">Departments are confirmed and marked IERS operational in Administration before pole assignment. This prevents CPD-only departments from being added to an emergency pole by mistake.</p>
         </CardHeader>
         <CardContent>
           {poleDepartments.length === 0 ? (
             <p className="text-sm text-muted-foreground italic py-6 text-center">
               {activePoleId
-                ? "No departments in this pole yet — add one above."
-                : "Create a pole first, then add its departments."}
+                ? "No eligible departments are assigned to this pole yet. Confirm departments and enable IERS pole eligibility in Administration first."
+                : "Create a pole first, then confirm eligible departments in Administration."}
             </p>
           ) : (
             <>
