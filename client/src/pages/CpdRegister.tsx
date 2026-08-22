@@ -41,6 +41,7 @@ const registrationSchema = z
     cadreOther: z.string().optional(),
     subSpecialty: z.string().optional(),
     department: z.string().min(1, "Department is required"),
+    facilityDepartmentId: z.number().int().positive().nullable().optional(),
   })
   .refine(
     (data) => {
@@ -117,6 +118,7 @@ export default function CpdRegister() {
       cadreOther: "",
       subSpecialty: "",
       department: "",
+      facilityDepartmentId: null,
     },
   });
 
@@ -127,6 +129,7 @@ export default function CpdRegister() {
 
       const isStandardSub = ALL_STANDARD_SPECIALTIES.includes(uCadreOther);
       const prefillDept = currentEventQuery.data?.userDepartment || "";
+      const prefillDepartmentId = currentEventQuery.data?.userFacilityDepartmentId ?? null;
 
       form.reset({
         fullName: user.name || "",
@@ -136,9 +139,10 @@ export default function CpdRegister() {
         cadreOther: (uCadreOther && !isStandardSub) ? uCadreOther : "",
         subSpecialty: isStandardSub ? uCadreOther : "",
         department: prefillDept,
+        facilityDepartmentId: prefillDepartmentId,
       });
     }
-  }, [user, form, currentEventQuery.data?.userDepartment]);
+  }, [user, form, currentEventQuery.data?.userDepartment, currentEventQuery.data?.userFacilityDepartmentId]);
 
   const cadre = form.watch("cadre");
   const cadreOther = form.watch("cadreOther");
@@ -172,6 +176,7 @@ export default function CpdRegister() {
         cadre: values.cadre,
         cadreOther: finalCadreOther,
         department: values.department,
+        facilityDepartmentId: values.facilityDepartmentId ?? null,
       });
       setSubmitted(true);
       form.reset();
@@ -398,17 +403,52 @@ export default function CpdRegister() {
                   <FormField
                     control={form.control}
                     name="department"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <DepartmentSelectors
-                            value={field.value}
-                            onChange={field.onChange}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const registrationDepartments = currentEventQuery.data?.registrationDepartments ?? [];
+                      const selectedDepartment = registrationDepartments.find(
+                        (department) => department.departmentName === field.value,
+                      );
+
+                      return (
+                        <FormItem>
+                          <FormLabel>Institution Department *</FormLabel>
+                          {registrationDepartments.length > 0 ? (
+                            <>
+                              <Select
+                                value={selectedDepartment ? String(selectedDepartment.id) : undefined}
+                                onValueChange={(departmentId) => {
+                                  const department = registrationDepartments.find((item) => item.id === Number(departmentId));
+                                  field.onChange(department?.departmentName ?? "");
+                                  form.setValue("facilityDepartmentId", department?.id ?? null, { shouldValidate: true });
+                                }}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Select your IERS department" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectGroup>
+                                    <SelectLabel>IERS departments</SelectLabel>
+                                    {registrationDepartments.map((department) => (
+                                      <SelectItem key={department.id} value={String(department.id)}>
+                                        {department.departmentName}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                </SelectContent>
+                              </Select>
+                              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                                This list is maintained by the institution’s IERS lead. It keeps CPD staff-performance data and emergency-readiness departments aligned.
+                              </p>
+                            </>
+                          ) : (
+                            <FormControl>
+                              <DepartmentSelectors value={field.value} onChange={field.onChange} />
+                            </FormControl>
+                          )}
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
 
                   <Button

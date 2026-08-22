@@ -6,7 +6,7 @@ import { getDb } from "../db";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { assertInstitutionProductCapability } from "../lib/institution-entitlements";
 import { assertInstitutionProductRole, type InstitutionalProductRoleKey } from "../lib/institution-product-roles";
-import { institutionalAccounts, cpdEvents, cpdAttendees, cpdCodeRevealLogs, institutionalStaffMembers, users, providerProfiles } from "../../drizzle/schema";
+import { institutionalAccounts, cpdEvents, cpdAttendees, cpdCodeRevealLogs, institutionalStaffMembers, users, providerProfiles, facilityDepartments } from "../../drizzle/schema";
 
 /** Shared cadre validator for input validation, matching the cpdAttendees.cadre column. */
 const cadreEnum = z.string().trim().min(1, "Please select or specify your cadre").max(128);
@@ -499,6 +499,11 @@ export const cpdRouter = router({
         .limit(1);
 
       let userDepartment: string | null = null;
+      let userFacilityDepartmentId: number | null = null;
+      const registrationDepartments = await db
+        .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
+        .from(facilityDepartments)
+        .where(eq(facilityDepartments.institutionId, input.institutionId));
       if (ctx.user?.id) {
         // 1. Try to fetch from providerProfiles
         const [profile] = await db
@@ -514,6 +519,7 @@ export const cpdRouter = router({
           const staffRows = await db
             .select({
               department: institutionalStaffMembers.department,
+              facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
               instId: institutionalStaffMembers.institutionalAccountId,
             })
             .from(institutionalStaffMembers)
@@ -522,12 +528,24 @@ export const cpdRouter = router({
           const currentStaff = staffRows.find((r) => r.instId === input.institutionId);
           if (currentStaff?.department) {
             userDepartment = currentStaff.department;
+            userFacilityDepartmentId = currentStaff.facilityDepartmentId ?? null;
           } else {
             const fallbackStaff = staffRows.find((r) => r.department?.trim());
             if (fallbackStaff?.department) {
               userDepartment = fallbackStaff.department;
+              userFacilityDepartmentId = fallbackStaff.facilityDepartmentId ?? null;
             }
           }
+        }
+      }
+
+      if (userDepartment) {
+        const matchingDepartment = registrationDepartments.find(
+          (department) => department.departmentName.trim().toLowerCase() === userDepartment?.trim().toLowerCase(),
+        );
+        if (matchingDepartment) {
+          userFacilityDepartmentId = userFacilityDepartmentId ?? matchingDepartment.id;
+          userDepartment = matchingDepartment.departmentName;
         }
       }
 
@@ -539,6 +557,8 @@ export const cpdRouter = router({
           institutionName: inst?.institutionName ?? null,
         },
         userDepartment,
+        userFacilityDepartmentId,
+        registrationDepartments,
       };
     }),
 
@@ -553,6 +573,7 @@ export const cpdRouter = router({
         cadre: cadreEnum,
         cadreOther: z.string().trim().max(128).optional(),
         department: z.string().trim().min(1).max(256),
+        facilityDepartmentId: z.number().int().positive().nullable().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -612,6 +633,26 @@ export const cpdRouter = router({
         });
       }
 
+      const institutionDepartments = await db
+        .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
+        .from(facilityDepartments)
+        .where(eq(facilityDepartments.institutionId, input.institutionId));
+      let resolvedDepartment = input.department.trim();
+      let resolvedFacilityDepartmentId = input.facilityDepartmentId ?? null;
+      if (institutionDepartments.length > 0) {
+        const selectedDepartment = resolvedFacilityDepartmentId == null
+          ? institutionDepartments.find((department) => department.departmentName.trim().toLowerCase() === resolvedDepartment.toLowerCase())
+          : institutionDepartments.find((department) => department.id === resolvedFacilityDepartmentId);
+        if (!selectedDepartment) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Choose a department from this institution's IERS department list.",
+          });
+        }
+        resolvedFacilityDepartmentId = selectedDepartment.id;
+        resolvedDepartment = selectedDepartment.departmentName;
+      }
+
       // Duplicate guard: one registration per email per event.
       const normalizedEmail = input.email.trim().toLowerCase();
       const existing = await db
@@ -652,7 +693,8 @@ export const cpdRouter = router({
         cadre: input.cadre,
         cadreOther: requiresOther ? input.cadreOther?.trim() ?? null : null,
         higherDiploma: null,
-        department: input.department,
+        department: resolvedDepartment,
+        facilityDepartmentId: resolvedFacilityDepartmentId,
         attendanceType,
         roleInEvent: "attendee",
         checkInPunctuality: "on_time",
@@ -670,7 +712,7 @@ export const cpdRouter = router({
       }
 
       // Auto-populate user's profile department from registration
-      await syncUserProfileDepartment(db, ctx.user.id, input.department);
+      await syncUserProfileDepartment(db, ctx.user.id, resolvedDepartment);
 
       // 2. Auto-Staff Population: Auto-create institutional staff member record if not yet linked
       const [existingStaff] = await db
@@ -702,10 +744,15 @@ export const cpdRouter = router({
           staffEmail: normalizedEmail,
           staffPhone: input.phone,
           staffRole,
-          department: input.department,
+          department: resolvedDepartment,
+          facilityDepartmentId: resolvedFacilityDepartmentId,
           enrollmentStatus: "enrolled",
           facilityLinkStatus: "linked",
         });
+      } else {
+        await db.update(institutionalStaffMembers)
+          .set({ department: resolvedDepartment, facilityDepartmentId: resolvedFacilityDepartmentId, updatedAt: new Date() })
+          .where(eq(institutionalStaffMembers.id, existingStaff.id));
       }
 
       return { success: true as const, attendanceType };

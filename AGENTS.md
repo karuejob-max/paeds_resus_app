@@ -61,6 +61,13 @@ Loop: read AGENTS + WORK_STATUS + PSOT → implement → check / test:unit / bui
 
 **Before starting new work not already assigned to you, check `docs/WORK_STATUS.md` → "Active Gap Remediation Queue"** — a prioritized, dated list derived from a full gap analysis against the five constitutional documents (North Star, Observation Architecture, FPKB Schema, Event Models, Financial Strategy). It tracks what's shipped and what's next in priority order. Don't re-derive priorities from scratch or duplicate work already queued there.
 
+### IERS staging and smoke-test safety (2026-08-22)
+
+- **Real-router authorization matrix:** use `pnpm run test:iers-provider-auth:staging` with `IERS_STAGING_DATABASE_URL` (and `DATABASE_URL`) pointed at a disposable local MySQL/MariaDB database. The test seeds two tenants, calls the real `appRouter.createCaller` procedures, covers cross-tenant/non-assignee/decline/ended-duty/membership-revocation/role-revocation/readiness cases, and tears down its rows. Never point this command at production.
+- **Shared testing identity:** use `paedsresus254@gmail.com` for the named provider in future labelled IERS tests. This is a testing identity only; it is not evidence of a real emergency response, clinical competency, or dispatch guarantee.
+- **Smoke-test cleanup:** `pnpm run cleanup:iers-smoke-test -- --institution-name "<exact name>"` is a dry-run by default and can resolve one unique institution by exact name; add `--institution-id <id>` when known for a second safety check. It only targets departments whose names begin with `SMOKE TEST - ` and related ERCo/ERTL/UTL/readiness-evidence rows. Applying requires both `--apply` and `--confirm DELETE_SMOKE_TEST_RECORDS`; do not apply against production without explicit CEO confirmation. The command never deletes the institution, users, memberships, product roles, subscriptions, entitlements, CPD data, or non-prefixed departments.
+- **Department source of truth:** IERS `facility_departments` is the institution-scoped canonical department registry. CPD registrations and institutional staff rows retain historical department text but store `facilityDepartmentId` when they match a configured IERS department; unmatched legacy text must not be guessed or silently remapped.
+
 ### Lessons learned (for agents)
 
 High-signal mistakes from recent sessions — **full runbooks:** [docs/AGENT_OPERATIONS_PLAYBOOK.md](docs/AGENT_OPERATIONS_PLAYBOOK.md).

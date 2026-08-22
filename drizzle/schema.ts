@@ -1273,6 +1273,8 @@ export const institutionalStaffMembers = mysqlTable("institutionalStaffMembers",
   governanceRole: governanceRoleEnum.default("general_staff"),
   institutionalRole: mysqlEnum("institutionalRole", ["director", "coordinator", "finance_officer", "department_head", "staff_member"]).default("staff_member"),
   department: varchar("department", { length: 255 }),
+  /** Canonical IERS facility-department identity; legacy department text remains for display/history. */
+  facilityDepartmentId: int("facilityDepartmentId"),
   yearsOfExperience: int("yearsOfExperience").default(0),
   assignedCourses: text("assignedCourses"), // JSON array of course IDs
   enrollmentStatus: mysqlEnum("enrollmentStatus", ["pending", "enrolled", "in_progress", "completed", "dropped"]).default("pending"),
@@ -4131,6 +4133,8 @@ export const cpdAttendees = mysqlTable("cpdAttendees", {
   cadreOther: varchar("cadreOther", { length: 128 }),
   higherDiploma: varchar("higherDiploma", { length: 256 }),
   department: varchar("department", { length: 256 }).notNull(),
+  /** Canonical IERS facility-department identity when the registration belongs to that institution. */
+  facilityDepartmentId: int("facilityDepartmentId"),
   submittedAt: timestamp("submittedAt").defaultNow().notNull(),
   attendanceType: mysqlEnum("attendanceType", ["primary_facility", "locum_outreach", "guest_external"]).default("primary_facility").notNull(),
   roleInEvent: mysqlEnum("roleInEvent", ["attendee", "presenter", "co_presenter", "moderator"]).default("attendee").notNull(),

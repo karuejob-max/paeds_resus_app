@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   formatCadreLabel,
   cpdCertificateFilename,
@@ -29,6 +29,10 @@ vi.mock("../db", () => ({
 
 vi.mock("../lib/institution-access", () => ({
   assertInstitutionAccess: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../lib/institution-entitlements", () => ({
+  assertInstitutionProductCapability: vi.fn().mockResolvedValue(undefined),
 }));
 
 /**
@@ -247,6 +251,15 @@ describe("CPD Router Procedures", () => {
     res: {} as any,
   };
 
+  beforeEach(() => {
+    mockSelect.mockReset();
+    mockUpdate.mockReset();
+    mockInsert.mockReset();
+    const mockUpdateWhere = vi.fn().mockResolvedValue({});
+    const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
+    mockUpdate.mockReturnValue({ set: mockUpdateSet });
+  });
+
   it("updates CPD code for an event when authorized", async () => {
     // Mock cpdEvents query
     const mockLimit = vi.fn().mockResolvedValue([{ id: 100 }]);
@@ -322,7 +335,20 @@ describe("CPD Router Procedures", () => {
     const mockJoin2 = vi.fn().mockReturnValue({ where: mockWhere });
     const mockJoin1 = vi.fn().mockReturnValue({ leftJoin: mockJoin2 });
     const mockFrom = vi.fn().mockReturnValue({ leftJoin: mockJoin1 });
-    mockSelect.mockReturnValue({ from: mockFrom });
+    mockSelect.mockReturnValueOnce({ from: mockFrom });
+
+    const mockStaffLinksWhere = vi.fn().mockResolvedValue([]);
+    const mockStaffLinksFrom = vi.fn().mockReturnValue({ where: mockStaffLinksWhere });
+    mockSelect.mockReturnValueOnce({ from: mockStaffLinksFrom });
+
+    const mockAttendeeLimit = vi.fn().mockResolvedValue([{ instId: 100 }]);
+    const mockAttendeeWhere = vi.fn().mockReturnValue({ limit: mockAttendeeLimit });
+    const mockAttendeeFrom = vi.fn().mockReturnValue({ where: mockAttendeeWhere });
+    mockSelect.mockReturnValueOnce({ from: mockAttendeeFrom });
+
+    const mockInstEventsWhere = vi.fn().mockResolvedValue([]);
+    const mockInstEventsFrom = vi.fn().mockReturnValue({ where: mockInstEventsWhere });
+    mockSelect.mockReturnValueOnce({ from: mockInstEventsFrom });
 
     const caller = appRouter.createCaller(mockContext);
     const res = await caller.cpd.myCertificates();
@@ -339,10 +365,28 @@ describe("CPD Router Procedures", () => {
     const mockFrom1 = vi.fn().mockReturnValue({ where: mockWhere1 });
     mockSelect.mockReturnValueOnce({ from: mockFrom1 });
 
+    const mockDepartmentsWhere = vi.fn().mockResolvedValue([]);
+    const mockDepartmentsFrom = vi.fn().mockReturnValue({ where: mockDepartmentsWhere });
+    mockSelect.mockReturnValueOnce({ from: mockDepartmentsFrom });
+
     const mockLimit2 = vi.fn().mockResolvedValue([]);
     const mockWhere2 = vi.fn().mockReturnValue({ limit: mockLimit2 });
     const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
     mockSelect.mockReturnValueOnce({ from: mockFrom2 });
+
+    const mockAttendanceWhere = vi.fn().mockResolvedValue([]);
+    const mockAttendanceFrom = vi.fn().mockReturnValue({ where: mockAttendanceWhere });
+    mockSelect.mockReturnValueOnce({ from: mockAttendanceFrom });
+
+    const mockProfileLimit = vi.fn().mockResolvedValue([]);
+    const mockProfileWhere = vi.fn().mockReturnValue({ limit: mockProfileLimit });
+    const mockProfileFrom = vi.fn().mockReturnValue({ where: mockProfileWhere });
+    mockSelect.mockReturnValueOnce({ from: mockProfileFrom });
+
+    const mockStaffLimit = vi.fn().mockResolvedValue([]);
+    const mockStaffWhere = vi.fn().mockReturnValue({ limit: mockStaffLimit });
+    const mockStaffFrom = vi.fn().mockReturnValue({ where: mockStaffWhere });
+    mockSelect.mockReturnValueOnce({ from: mockStaffFrom });
 
     const mockValues = vi.fn().mockResolvedValue({ success: true });
     mockInsert.mockReturnValue({ values: mockValues });
@@ -359,6 +403,78 @@ describe("CPD Router Procedures", () => {
 
     expect(res.success).toBe(true);
     expect(mockInsert).toHaveBeenCalled();
+  });
+
+  it("rejects a department that is not in the institution's canonical IERS list", async () => {
+    const mockLimit1 = vi.fn().mockResolvedValue([{ id: 100 }]);
+    const mockOrderBy1 = vi.fn().mockReturnValue({ limit: mockLimit1 });
+    const mockWhere1 = vi.fn().mockReturnValue({ orderBy: mockOrderBy1 });
+    const mockFrom1 = vi.fn().mockReturnValue({ where: mockWhere1 });
+    mockSelect.mockReturnValueOnce({ from: mockFrom1 });
+
+    const mockDepartmentsWhere = vi.fn().mockResolvedValue([{ id: 21, departmentName: "PICU" }]);
+    const mockDepartmentsFrom = vi.fn().mockReturnValue({ where: mockDepartmentsWhere });
+    mockSelect.mockReturnValueOnce({ from: mockDepartmentsFrom });
+
+    const caller = appRouter.createCaller(mockContext);
+    await expect(caller.cpd.submitRegistration({
+      institutionId: 1,
+      fullName: "Test Nurse",
+      email: "nurse@test.com",
+      phone: "+254712345678",
+      cadre: "KRCHN",
+      department: "Emergency",
+    })).rejects.toThrow(/Choose a department from this institution's IERS department list/);
+  });
+
+  it("persists the selected canonical IERS department identity", async () => {
+    const mockLimit1 = vi.fn().mockResolvedValue([{ id: 100 }]);
+    const mockOrderBy1 = vi.fn().mockReturnValue({ limit: mockLimit1 });
+    const mockWhere1 = vi.fn().mockReturnValue({ orderBy: mockOrderBy1 });
+    const mockFrom1 = vi.fn().mockReturnValue({ where: mockWhere1 });
+    mockSelect.mockReturnValueOnce({ from: mockFrom1 });
+
+    const mockDepartmentsWhere = vi.fn().mockResolvedValue([{ id: 21, departmentName: "PICU" }]);
+    const mockDepartmentsFrom = vi.fn().mockReturnValue({ where: mockDepartmentsWhere });
+    mockSelect.mockReturnValueOnce({ from: mockDepartmentsFrom });
+
+    const mockLimit2 = vi.fn().mockResolvedValue([]);
+    const mockWhere2 = vi.fn().mockReturnValue({ limit: mockLimit2 });
+    const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
+    mockSelect.mockReturnValueOnce({ from: mockFrom2 });
+
+    const mockAttendanceWhere = vi.fn().mockResolvedValue([]);
+    const mockAttendanceFrom = vi.fn().mockReturnValue({ where: mockAttendanceWhere });
+    mockSelect.mockReturnValueOnce({ from: mockAttendanceFrom });
+
+    const mockProfileLimit = vi.fn().mockResolvedValue([]);
+    const mockProfileWhere = vi.fn().mockReturnValue({ limit: mockProfileLimit });
+    const mockProfileFrom = vi.fn().mockReturnValue({ where: mockProfileWhere });
+    mockSelect.mockReturnValueOnce({ from: mockProfileFrom });
+
+    const mockStaffLimit = vi.fn().mockResolvedValue([]);
+    const mockStaffWhere = vi.fn().mockReturnValue({ limit: mockStaffLimit });
+    const mockStaffFrom = vi.fn().mockReturnValue({ where: mockStaffWhere });
+    mockSelect.mockReturnValueOnce({ from: mockStaffFrom });
+
+    const mockValues = vi.fn().mockResolvedValue({ success: true });
+    mockInsert.mockReturnValue({ values: mockValues });
+
+    const caller = appRouter.createCaller(mockContext);
+    await caller.cpd.submitRegistration({
+      institutionId: 1,
+      fullName: "Test Nurse",
+      email: "nurse@test.com",
+      phone: "+254712345678",
+      cadre: "KRCHN",
+      department: "Legacy PICU label",
+      facilityDepartmentId: 21,
+    });
+
+    expect(mockValues).toHaveBeenCalledWith(expect.objectContaining({
+      department: "PICU",
+      facilityDepartmentId: 21,
+    }));
   });
 
   it("throws FORBIDDEN when submitting registration with email different from session", async () => {

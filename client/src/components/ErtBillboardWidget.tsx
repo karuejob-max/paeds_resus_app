@@ -29,7 +29,7 @@ export function ErtBillboardWidget({
   const activeResponders = poleDepartments.map((dept) => {
     const rosterEntry = shiftRosters?.find((r) => r.departmentId === dept.id);
     const assignedStaff = staffMembers?.find(
-      (s) => s.userId === rosterEntry?.utlUserId || s.id === rosterEntry?.utlUserId
+      (s) => s.userId != null && s.userId === rosterEntry?.utlUserId
     );
     const isErtl = dept.id === ertlDepartmentId;
 
