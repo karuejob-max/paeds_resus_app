@@ -642,8 +642,10 @@ export const cpdRouter = router({
           message: "Registration is closed. No CPD event is currently open.",
         });
       }
+      // Self-registration is an attendee action, not institution-workspace administration.
+      // Keep the product entitlement gate and the signed-in self-email check above, but do
+      // not require a CPD coordinator/reviewer role for ordinary staff, providers, or guests.
       await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.attendance.operate");
-      await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator", "cpd_reviewer"]);
 
       const requiresOther = [
         "Other",
