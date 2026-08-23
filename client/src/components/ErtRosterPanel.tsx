@@ -106,8 +106,8 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const utils = trpc.useUtils();
   const [selectedPoleId, setSelectedPoleId] = useState<number | null>(null);
   const [selectedShift, setSelectedShift] = useState<"morning" | "evening" | "night">("morning");
-  const [selectedShiftStartTime, setSelectedShiftStartTime] = useState(SHIFT_TIME_PRESETS.morning.startTime);
-  const [selectedShiftEndTime, setSelectedShiftEndTime] = useState(SHIFT_TIME_PRESETS.morning.endTime);
+  const [selectedShiftStartTime, setSelectedShiftStartTime] = useState<string>(SHIFT_TIME_PRESETS.morning.startTime);
+  const [selectedShiftEndTime, setSelectedShiftEndTime] = useState<string>(SHIFT_TIME_PRESETS.morning.endTime);
   const [selectedShiftEndDayOffset, setSelectedShiftEndDayOffset] = useState<0 | 1>(SHIFT_TIME_PRESETS.morning.endDayOffset);
   const [newPoleName, setNewPoleName] = useState("");
   const [showNewPoleForm, setShowNewPoleForm] = useState(false);
