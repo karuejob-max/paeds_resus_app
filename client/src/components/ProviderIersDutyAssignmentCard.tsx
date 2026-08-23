@@ -106,7 +106,7 @@ export default function ProviderIersDutyAssignmentCard() {
                   {canPrepareMonthlyRota && (
                     <div className="mt-4 flex flex-col gap-2 rounded-md border border-rose-200 bg-rose-50/50 p-3 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-xs text-rose-900">As the accepted ERCo, open Shift staffing and choose the actual department nurse for each date and shift.</p>
-                      <Button size="sm" variant="outline" className="w-full shrink-0 sm:w-auto" onClick={() => { window.location.assign(`/institution?section=iers&iersTab=workforce&workforceTab=roster`); }}><CalendarClock className="mr-1.5 h-4 w-4" />Open shift staffing</Button>
+                      <Button type="button" size="sm" variant="outline" className="w-full shrink-0 sm:w-auto" onClick={() => { window.location.assign("/iers/staffing"); }}><CalendarClock className="mr-1.5 h-4 w-4" />Manage UTL staffing</Button>
                     </div>
                   )}
                   {(needsCoordinatorResponse || needsAssistantResponse) && (

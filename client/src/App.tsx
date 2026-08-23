@@ -69,6 +69,7 @@ const PerformanceDashboard = lazy(() =>
 );
 const ProviderProfile = lazy(() => import("./pages/ProviderProfile"));
 const ProviderDashboard = lazy(() => import("./pages/ProviderDashboard"));
+const ProviderIersStaffing = lazy(() => import("./pages/ProviderIersStaffing"));
 const CPRMonitoring = lazy(() => import("./pages/CPRMonitoring"));
 const VerifyCertificate = lazy(() => import("./pages/VerifyCertificate"));
 const Referral = lazy(() => import("./pages/Referral"));
@@ -181,6 +182,11 @@ function Router() {
           <Route path="/my-cpd-certificates" component={MyCpdCertificates} />
           <Route path="/my-cne-certificates">{() => <Redirect to="/my-cpd-certificates" />}</Route>
           <Route path="/home" component={Home} />
+          <Route path="/iers/staffing">{() => (
+            <RoleGate allowed={["provider"]}>
+              <ProviderIersStaffing />
+            </RoleGate>
+          )}</Route>
           {/* 2026-07-19 (account-types PR1): the OLD authenticated Safe-Truth
               flow is retired along with the parent userType — nobody can log
               in as a parent anymore, so this route now redirects into the
@@ -647,6 +653,12 @@ function getRouteLoadingCopy(pathname: string) {
     return {
       title: "Loading fellowship…",
       description: "Preparing your learning pathway and course access.",
+    };
+  }
+  if (pathname.startsWith("/iers/staffing")) {
+    return {
+      title: "Loading IERS staffing…",
+      description: "Checking your accepted ERCo appointment and department staffing access.",
     };
   }
   if (pathname.startsWith("/home")) {
