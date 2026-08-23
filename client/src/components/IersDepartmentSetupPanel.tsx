@@ -20,6 +20,7 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
   const [selectedPoleId, setSelectedPoleId] = useState<string>("");
   const [draftNames, setDraftNames] = useState<Record<number, string>>({});
   const [newDepartmentName, setNewDepartmentName] = useState("");
+  const [departmentPoleSelections, setDepartmentPoleSelections] = useState<Record<number, string>>({});
 
   const { data: departments, isLoading: departmentsLoading } = trpc.institution.getFacilityDepartments.useQuery({ institutionId });
   const { data: poles } = trpc.institution.getFacilityPoles.useQuery({ institutionId });
@@ -33,12 +34,17 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
   useEffect(() => {
     if (!departments) return;
     setDraftNames(Object.fromEntries(departments.map((department) => [department.id, department.departmentName])));
+    setDepartmentPoleSelections(Object.fromEntries(departments.map((department) => [department.id, department.poleId == null ? "" : String(department.poleId)])));
   }, [departments]);
 
-  const unassignedCount = useMemo(() => departments?.filter((department) => department.isActive && department.confirmedAt != null && department.requiresPole && department.poleId == null).length ?? 0, [departments]);
+  const eligibleDepartments = useMemo(
+    () => departments?.filter((department) => department.isActive && department.confirmedAt != null && department.requiresPole) ?? [],
+    [departments],
+  );
+  const unassignedCount = useMemo(() => eligibleDepartments.filter((department) => department.poleId == null).length, [eligibleDepartments]);
   const activePoleDepartments = useMemo(
-    () => departments?.filter((department) => department.requiresPole && department.poleId === activePoleId) ?? [],
-    [departments, activePoleId],
+    () => eligibleDepartments.filter((department) => department.poleId === activePoleId),
+    [eligibleDepartments, activePoleId],
   );
 
   const confirmMutation = trpc.institution.confirmFacilityDepartments.useMutation({
@@ -52,6 +58,15 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
     onSuccess: (result) => {
       toast.success(`${result.assignedCount} department(s) assigned to the selected pole.`);
       void utils.institution.getFacilityDepartments.invalidate({ institutionId });
+      void utils.institutionDepartmentReconciliation.getIersMissingPoleAlerts.invalidate({ institutionId });
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const assignDepartmentMutation = trpc.institution.assignDepartmentToPole.useMutation({
+    onSuccess: () => {
+      toast.success("Department pole assignment updated.");
+      void utils.institution.getFacilityDepartments.invalidate({ institutionId });
+      void utils.institutionDepartmentReconciliation.getIersMissingPoleAlerts.invalidate({ institutionId });
     },
     onError: (error) => toast.error(error.message),
   });
@@ -135,6 +150,29 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
             <Button variant="outline" className="w-full sm:w-auto" onClick={() => activePoleId && assignAllMutation.mutate({ institutionId, poleId: activePoleId })} disabled={!activePoleId || unassignedCount === 0 || assignAllMutation.isPending}>Assign all eligible unassigned</Button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">Departments already mapped to another pole are not moved by the batch action. Departments marked CPD/reporting only are deliberately excluded.</p>
+          {poles?.length === 0 && <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">No response poles exist for this institution yet. Create a pole from the 24/7 ERT roster controls, then return here to assign eligible departments.</p>}
+          {eligibleDepartments.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground">Assign or move departments individually</p>
+              {eligibleDepartments.map((department) => {
+                const currentPoleId = department.poleId == null ? "" : String(department.poleId);
+                const targetPoleId = departmentPoleSelections[department.id] ?? currentPoleId;
+                return (
+                  <div key={department.id} className="flex min-w-0 flex-col gap-2 rounded-md border bg-background/70 p-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0"><p className="break-words text-sm font-medium">{department.departmentName}</p><p className="text-xs text-muted-foreground">{currentPoleId ? `Current pole: ${poles?.find((pole) => String(pole.id) === currentPoleId)?.poleName ?? "Allocated"}` : "No pole allocated"}</p></div>
+                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                      <Select value={targetPoleId || undefined} onValueChange={(value) => setDepartmentPoleSelections((current) => ({ ...current, [department.id]: value }))}>
+                        <SelectTrigger className="w-full min-w-0 sm:w-52"><SelectValue placeholder="Select pole" /></SelectTrigger>
+                        <SelectContent>{(poles ?? []).map((pole) => <SelectItem key={pole.id} value={String(pole.id)}><span className="flex items-center gap-2"><Shield className="h-3.5 w-3.5" />{pole.poleName}</span></SelectItem>)}</SelectContent>
+                      </Select>
+                      <Button className="w-full shrink-0 sm:w-auto" size="sm" disabled={!targetPoleId || targetPoleId === currentPoleId || assignDepartmentMutation.isPending} onClick={() => assignDepartmentMutation.mutate({ institutionId, departmentName: department.departmentName, poleId: Number(targetPoleId) })}>{currentPoleId ? "Move department" : "Assign department"}</Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {eligibleDepartments.length === 0 && <p className="mt-3 rounded-md border border-dashed p-3 text-xs text-muted-foreground">No confirmed active departments are marked as IERS operational yet. If a CPD label is missing here, reconcile it or add it to the confirmed local department list in Administration first.</p>}
         </div>
 
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">

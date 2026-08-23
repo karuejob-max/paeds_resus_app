@@ -66,6 +66,17 @@ interface CpdPanelProps {
   institutionId: number;
 }
 
+function AttendeeDepartmentCell({ department, canonicalDepartmentName }: { department: string; canonicalDepartmentName?: string | null }) {
+  const canonical = canonicalDepartmentName?.trim() || null;
+  const showOriginal = canonical != null && canonical !== department;
+  return (
+    <div className="min-w-0">
+      <div className="font-medium break-words">{canonical ?? department}</div>
+      {showOriginal && <div className="break-words text-[11px] text-muted-foreground">Recorded label: {department}</div>}
+    </div>
+  );
+}
+
 export default function CpdPanel({ institutionId }: CpdPanelProps) {
   const utils = trpc.useUtils();
 
@@ -822,7 +833,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
             <Card>
               <CardHeader><CardTitle className="text-base">Certificate register</CardTitle><CardDescription>Individual PDF links are available after attendance has been recorded.</CardDescription></CardHeader>
               <CardContent>
-                {attendees.length === 0 ? <p className="text-sm text-muted-foreground">No attendance records for this session yet.</p> : <Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Cadre</TableHead><TableHead>Department</TableHead><TableHead className="text-right">Certificate</TableHead></TableRow></TableHeader><TableBody>{attendees.map((attendee) => <TableRow key={attendee.id}><TableCell className="font-medium">{attendee.fullName}</TableCell><TableCell>{attendee.cadre === "Other" ? attendee.cadreOther || "Other" : attendee.cadre}</TableCell><TableCell>{attendee.department}</TableCell><TableCell className="text-right"><Button variant="outline" size="sm" onClick={() => window.open(`/api/cpd/certificate/${attendee.id}`, "_blank")}><Download className="mr-1 h-3.5 w-3.5" />PDF</Button></TableCell></TableRow>)}</TableBody></Table>}
+                {attendees.length === 0 ? <p className="text-sm text-muted-foreground">No attendance records for this session yet.</p> : <Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Cadre</TableHead><TableHead>Department</TableHead><TableHead className="text-right">Certificate</TableHead></TableRow></TableHeader><TableBody>{attendees.map((attendee) => <TableRow key={attendee.id}><TableCell className="font-medium">{attendee.fullName}</TableCell><TableCell>{attendee.cadre === "Other" ? attendee.cadreOther || "Other" : attendee.cadre}</TableCell><TableCell><AttendeeDepartmentCell department={attendee.department} canonicalDepartmentName={attendee.canonicalDepartmentName} /></TableCell><TableCell className="text-right"><Button variant="outline" size="sm" onClick={() => window.open(`/api/cpd/certificate/${attendee.id}`, "_blank")}><Download className="mr-1 h-3.5 w-3.5" />PDF</Button></TableCell></TableRow>)}</TableBody></Table>}
               </CardContent>
             </Card>
           </div>
@@ -1528,7 +1539,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                         <TableCell>
                           {a.cadre === "Other" ? a.cadreOther || "Other" : a.cadre}
                         </TableCell>
-                        <TableCell>{a.department}</TableCell>
+                        <TableCell><AttendeeDepartmentCell department={a.department} canonicalDepartmentName={a.canonicalDepartmentName} /></TableCell>
                         <TableCell className="text-xs">{a.email}</TableCell>
                         <TableCell className="text-right">
                           <Button
@@ -1758,7 +1769,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                                 <td className="p-3 font-medium">{a.fullName}</td>
                                 <td className="p-3 text-xs text-muted-foreground">{a.email}</td>
                                 <td className="p-3 text-xs">{a.cadre || "—"}</td>
-                                <td className="p-3 text-xs">{a.department || "—"}</td>
+                                <td className="p-3 text-xs"><AttendeeDepartmentCell department={a.department || "—"} canonicalDepartmentName={a.canonicalDepartmentName} /></td>
                                 <td className="p-3 font-medium text-xs">{ev?.name || "Unknown Session"}</td>
                                 <td className="p-3 text-xs whitespace-nowrap">{a.submittedAt ? new Date(a.submittedAt).toLocaleString() : "—"}</td>
                               </tr>
@@ -1804,7 +1815,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                                 name: a.fullName,
                                 email: a.email,
                                 cadre: a.cadre || "Clinician",
-                                department: a.department || "General",
+                                department: a.canonicalDepartmentName || a.department || "General",
                                 points: 0,
                                 count: 0
                               });
@@ -1920,7 +1931,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
                       </thead>
                       <tbody>
                         {(() => {
-                          const filtered = allAttendees.filter((a: any) => a.department === selectedDrilldownDept);
+                          const filtered = allAttendees.filter((a: any) => (a.canonicalDepartmentName || a.department) === selectedDrilldownDept);
                           if (filtered.length === 0) {
                             return (
                               <tr>
