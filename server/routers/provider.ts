@@ -100,8 +100,19 @@ export const providerRouter = router({
         .set(updateData)
         .where(eq(providerProfiles.userId, ctx.user.id));
 
-      if (input.facilityId) {
-        await syncProviderProfileFacility(ctx.user.id, input.facilityId);
+      // Keep institutional staffing eligibility aligned when a provider changes
+      // only their department. Previously this sync ran only when facilityId was
+      // submitted, leaving institutionalStaffMembers.department and
+      // facilityDepartmentId stale after a profile department edit.
+      if (input.facilityId !== undefined || input.department !== undefined) {
+        const [updatedProfile] = await db
+          .select({ facilityId: providerProfiles.facilityId })
+          .from(providerProfiles)
+          .where(eq(providerProfiles.userId, ctx.user.id))
+          .limit(1);
+        if (updatedProfile?.facilityId) {
+          await syncProviderProfileFacility(ctx.user.id, updatedProfile.facilityId);
+        }
       }
 
       return { success: true, completionPercentage };
