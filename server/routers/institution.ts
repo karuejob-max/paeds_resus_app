@@ -5167,24 +5167,26 @@ export const institutionRouter = router({
           .select({
             userId: institutionalStaffMembers.userId,
             staffRole: institutionalStaffMembers.staffRole,
+            providerType: users.providerType,
+            cadre: users.cadre,
+            cadreOther: users.cadreOther,
             department: institutionalStaffMembers.department,
             facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
             facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+            profileDepartment: providerProfiles.department,
           })
           .from(institutionalStaffMembers)
+          .leftJoin(users, eq(users.id, institutionalStaffMembers.userId))
+          .leftJoin(providerProfiles, eq(providerProfiles.userId, institutionalStaffMembers.userId))
           .where(and(
             eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
             inArray(institutionalStaffMembers.userId, requestedUserIds),
-            eq(institutionalStaffMembers.staffRole, "nurse"),
             eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
           )),
       ]);
       const activeMemberIds = new Set(members.map((member) => member.userId).filter((userId): userId is number => userId != null));
       const eligibleNurseIds = new Set(staffRows
-        .filter((staff) => staff.userId != null && activeMemberIds.has(staff.userId) && (
-          staff.facilityDepartmentId === department.id ||
-          (staff.facilityDepartmentId == null && departmentLabelsMatch(staff.department ?? "", department.departmentName))
-        ))
+        .filter((staff) => staff.userId != null && activeMemberIds.has(staff.userId) && isRegisteredRnProfile(staff) && providerBelongsToCanonicalDepartment(staff, department))
         .map((staff) => staff.userId as number));
       if (!eligibleNurseIds.has(input.coordinatorUserId)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "The ERCo must be an active linked nurse registered with this canonical department." });
