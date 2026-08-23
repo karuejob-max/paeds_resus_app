@@ -53,8 +53,17 @@ export function InstitutionErcoGovernancePanel({ institutionId }: InstitutionErc
     () => (staffMembers ?? []).filter((staff) => staff.userId != null),
     [staffMembers],
   );
-
   const selectedDepartment = departments?.find((department) => department.id === selectedDepartmentId) ?? null;
+  const departmentNurseCandidates = useMemo(() => {
+    if (!selectedDepartment) return [];
+    const departmentName = selectedDepartment.departmentName.trim().toLowerCase();
+    return activeStaff.filter((staff) =>
+      staff.staffRole === "nurse" && (
+        staff.facilityDepartmentId === selectedDepartment.id ||
+        (staff.facilityDepartmentId == null && staff.department?.trim().toLowerCase() === departmentName)
+      )
+    );
+  }, [activeStaff, selectedDepartment]);
   const selectedAssignment = assignments?.find((assignment) => assignment.departmentId === selectedDepartmentId) ?? null;
 
   const assignMutation = trpc.institution.assignDepartmentResponseCoordinator.useMutation({
@@ -149,8 +158,8 @@ export function InstitutionErcoGovernancePanel({ institutionId }: InstitutionErc
               <div><p className="font-semibold">Configure {selectedDepartment.departmentName} governance</p><p className="text-xs text-muted-foreground">This sets the department’s standing readiness champion. Saving replaces the current appointment for this department; it does not create a second ERCo row or assign shift coverage.</p></div>
               {selectedAssignment?.assignmentStatus === "active" && <Badge className="gap-1"><CheckCircle2 className="h-3.5 w-3.5" />Governance appointment active</Badge>}
             </div>
-            <label className="space-y-1 text-sm"><span className="font-medium">Emergency Readiness Coordinator (ERCo)</span><Select value={coordinatorUserId} onValueChange={setCoordinatorUserId}><SelectTrigger><SelectValue placeholder="Select active provider" /></SelectTrigger><SelectContent>{activeStaff.map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}><span className="flex items-center gap-2"><UserRound className="h-3.5 w-3.5" />{staff.staffName} ({staff.staffRole})</span></SelectItem>)}</SelectContent></Select></label>
-            <label className="space-y-1 text-sm"><span className="font-medium">Assistant ERCo <span className="font-normal text-muted-foreground">(optional)</span></span><Select value={backupUserId} onValueChange={setBackupUserId}><SelectTrigger><SelectValue placeholder="Optional backup" /></SelectTrigger><SelectContent><SelectItem value="none">No Assistant ERCo</SelectItem>{activeStaff.filter((staff) => String(staff.userId) !== coordinatorUserId).map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}><span className="flex items-center gap-2"><UsersRound className="h-3.5 w-3.5" />{staff.staffName} ({staff.staffRole})</span></SelectItem>)}</SelectContent></Select></label>
+            <label className="space-y-1 text-sm"><span className="font-medium">Emergency Readiness Coordinator (ERCo)</span><Select value={coordinatorUserId} onValueChange={setCoordinatorUserId}><SelectTrigger><SelectValue placeholder="Select department nurse" /></SelectTrigger><SelectContent>{departmentNurseCandidates.map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}><span className="flex items-center gap-2"><UserRound className="h-3.5 w-3.5" />{staff.staffName} ({staff.staffRole})</span></SelectItem>)}</SelectContent></Select>{departmentNurseCandidates.length === 0 && <span className="block text-xs text-amber-700 dark:text-amber-300">No active linked nurse is registered with this department yet.</span>}</label>
+            <label className="space-y-1 text-sm"><span className="font-medium">Assistant ERCo <span className="font-normal text-muted-foreground">(optional)</span></span><Select value={backupUserId} onValueChange={setBackupUserId}><SelectTrigger><SelectValue placeholder="Select assistant nurse" /></SelectTrigger><SelectContent><SelectItem value="none">No Assistant ERCo</SelectItem>{departmentNurseCandidates.filter((staff) => String(staff.userId) !== coordinatorUserId).map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}><span className="flex items-center gap-2"><UsersRound className="h-3.5 w-3.5" />{staff.staffName} ({staff.staffRole})</span></SelectItem>)}</SelectContent></Select></label>
             <label className="space-y-1 text-sm"><span className="font-medium">Appointment starts</span><span className="block text-xs font-normal text-muted-foreground">When this governance appointment becomes valid.</span><Input type="date" value={effectiveFrom} onChange={(event) => setEffectiveFrom(event.target.value)} /></label>
             <label className="space-y-1 text-sm"><span className="font-medium">Appointment ends <span className="font-normal text-muted-foreground">(optional)</span></span><span className="block text-xs font-normal text-muted-foreground">Leave blank for an ongoing appointment; use only when formally replaced or ended.</span><Input type="date" value={effectiveUntil} onChange={(event) => setEffectiveUntil(event.target.value)} /></label>
             <div className="md:col-span-2 flex justify-end"><Button onClick={saveAssignment} disabled={assignMutation.isPending}>{assignMutation.isPending ? "Saving…" : "Save governance appointment"}</Button></div>

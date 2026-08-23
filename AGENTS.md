@@ -536,3 +536,16 @@ A separate, platform-wide "cadre taxonomy" (`client/src/lib/cadre-taxonomy.ts`, 
 *This file must be updated whenever a major strategic, brand, or architectural decision is made. Any change to canonical decisions belongs in `docs/PLATFORM_SOURCE_OF_TRUTH.md` first — then reflected here.*
 
 *By reading this file, you acknowledge the all-agents mandate. Proceed with your task in full alignment with the PSOT.*
+
+
+### Exact-time UTL and provider rota controls (migration 0118)
+
+The Shift staffing surface is date- and time-based. An ERCo or authorised IERS governance user selects the actual UTL provider and exact facility-local start/end interval for each dated shift. Same-day and overnight intervals are supported through an explicit end-day offset; the server rejects zero, backwards, and over-24-hour intervals. Existing morning/evening/night labels are only safe legacy presets, not proof that a provider works every shift.
+
+Institution administrators may save reusable shift-hours templates. An ERCo may assign one provider to explicitly selected dates through the bulk UTL action, but monthly source planning must never silently apply one provider to every dated shift. A profile-linked nurse is only a candidate until the dated duty is explicitly assigned and the provider accepts it; changing the provider or interval resets acceptance/readiness.
+
+Department-scoped nurse pickers are the default for ERCo, ERTL, UTL, and other high-cardinality provider choices. Candidate lists must be filtered to active canonical members of the relevant department. Manual candidates must be marked as requiring account linkage before provider duty can be accepted.
+
+Provider IERS dashboards show the next actionable UTL/ERTL duty first and keep the full rota behind an explicit expand action. Exact hours appear in both views. ERTL department selection remains server-derived from pole order and anchor; only the named provider is explicitly nominated and accepted.
+
+Before production use, register migration `0118` in the guarded sequence, deploy the code, obtain explicit confirmation for the production schema write, run `pnpm run db:apply-iers` exactly once, and then run strict `pnpm run db:verify-iers`. Use an isolated localhost MariaDB fixture for exact-time, bulk-assignment, provider-summary, authorization, and acceptance tests. Never use patient data or a live emergency for this validation.

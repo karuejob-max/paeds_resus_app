@@ -75,3 +75,30 @@ Step 3 is explicit shift staffing. The ERCo or authorised IERS governance user m
 Within each pole, eligible departments are assigned a durable sequence in pole-addition order. The first department is sequence 1, the next sequence 2, and the weekly ERTL department is derived automatically by cycling from the pole's Monday anchor through that order. Future unaccepted ERTL rows and derived shift flags refresh when pole membership or order changes; accepted historical duties are not overwritten. Migration 0116 provides per-attendee resolution records, pole sequence metadata, and pole rotation anchors.
 
 These controls remain request-driven. No autonomous scheduler or implicit provider-selection rule is introduced.
+
+## 6. Exact-time UTL staffing and provider rota views
+
+The institution-facing Shift staffing workflow is explicitly date- and time-based. An ERCo selects a department, chooses a facility-local shift interval, selects the actual UTL provider for that shift, and saves only the dated assignments that have been intentionally staffed. The workflow supports one-day-at-a-time entry and provider-centric bulk assignment across selected dates. Facility-approved shift-hours templates can be saved and reused, while every assignment remains editable at minute precision.
+
+Shift intervals are stored as local clock times with an explicit end-day offset. Same-day and overnight intervals are supported, with the overnight form representing an end time on the following calendar day. The server validates the interval, rejects zero/backwards/over-24-hour durations, preserves provider acceptance gates, and resets acceptance/readiness when the named provider or interval changes. Monthly source planning no longer implies that one provider will cover every dated shift.
+
+Provider IERS duty cards show the next actionable UTL or ERTL duty first, with exact hours, while the complete UTL/ERTL rota remains available through an expandable view. ERTL department selection continues to be derived automatically from the pole’s deterministic department rotation; the named ERTL provider remains an explicit dated nomination and must accept the duty.
+
+All department-scoped nurse pickers use active canonical providers registered with the relevant department. Profile membership is a candidate source only and never proves that a provider will attend a shift, has accepted duty, or has signed readiness.
+
+No autonomous scheduler is introduced. Exact shift creation, bulk assignment, template saving, provider acceptance, and rota review remain user-initiated and auditable.
+
+| Implementation artifact | Purpose |
+|---|---|
+| `server/lib/iers-shift-times.ts` | Pure validation, preset, overnight, and interval-formatting helpers |
+| `institution_shift_templates` | Institution-local reusable exact-hours templates |
+| `shift_utl_rosters.shift_start_time` / `shift_end_time` / `shift_end_day_offset` | Exact dated shift intervals |
+| `institution.getInstitutionShiftTemplates` / `createInstitutionShiftTemplate` | Template read/write procedures with deployment-order fallback |
+| `institution.bulkAssignShiftUtlProvider` | One provider assigned to explicitly selected dated shifts |
+| `institution.getMyProviderDutyAssignments.nextUtl` / `nextErtl` | Compact provider dashboard projections |
+
+Migration 0118 must be applied and strict-verified before production users save templates or exact-time rows. Existing legacy shift types are backfilled to the established safe defaults: morning 07:30–17:30, evening 17:30–21:30, and night 21:30–05:30 on the following day.
+
+## Validation addendum
+
+The focused exact-time and pole-rotation tests pass, the verifier fixture includes the 0118 table/column contract, the disposable localhost MariaDB real-router matrix passes template creation, overnight interval persistence, bulk UTL assignment, provider duty projection, acceptance, and revocation behavior, and the production build and clinical-copy lint pass.

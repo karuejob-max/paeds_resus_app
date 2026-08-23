@@ -32,6 +32,7 @@ import {
   institutionDepartmentResponseCoordinatorEvents,
   ertlWeeklyRotations,
   monthlyUtlRotations,
+  institutionShiftTemplates,
   shiftUtlRosters,
   iermsAuditScorecards,
   equipmentAuditLogs,
@@ -81,6 +82,7 @@ import { isInstitutionInPilotProgram } from "@shared/pilot-program";
 import { validateDepartmentErcoAssignment } from "../lib/iers-department-governance";
 import { getIsoWeekKey, getIsoWeekRange, getMonthlyShiftRows, monthStartFromShiftDate, normalizeMonthStart } from "../lib/iers-monthly-rota";
 import { insertCanonicalFacilityDepartments } from "../lib/iers-department-setup";
+import { DEFAULT_SHIFT_TEMPLATES, formatShiftInterval, shiftTemplateForType, validateShiftInterval } from "../lib/iers-shift-times";
 import { canonicalizeDepartmentLabel, departmentLabelsMatch, isPresetDepartment } from "../../shared/clinical-departments";
 import {
   evaluateProviderDutyAuthorization,
@@ -98,6 +100,110 @@ const IERS_READ_ROLES = ["iers_viewer", "iers_coordinator", "iers_governance", "
 const IERS_OPERATE_ROLES = ["iers_coordinator", "iers_governance"] as const;
 const IERS_ACTION_ROLES = ["iers_coordinator", "iers_reviewer", "iers_governance"] as const;
 const IERS_DEPARTMENT_GOVERNANCE_ROLES = ["iers_coordinator", "iers_governance"] as const;
+function resolveShiftTiming(input: {
+  shiftType: "morning" | "evening" | "night";
+  shiftStartTime?: string;
+  shiftEndTime?: string;
+  shiftEndDayOffset?: number;
+}) {
+  const preset = shiftTemplateForType(input.shiftType);
+  try {
+    return validateShiftInterval({
+      startTime: input.shiftStartTime ?? preset.startTime,
+      endTime: input.shiftEndTime ?? preset.endTime,
+      endDayOffset: input.shiftEndDayOffset ?? preset.endDayOffset,
+    });
+  } catch (error) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Invalid shift interval." });
+  }
+}
+type ShiftRosterWriteInput = {
+  institutionId: number;
+  poleId: number;
+  departmentId: number;
+  shiftDate: string;
+  shiftType: "morning" | "evening" | "night";
+  shiftStartTime?: string;
+  shiftEndTime?: string;
+  shiftEndDayOffset?: number;
+  shiftTemplateId?: number | null;
+  utlUserId: number;
+  status?: "active" | "absent" | "completed";
+};
+
+async function saveShiftUtlRosterRow(db: DbClient, user: Pick<typeof users.$inferSelect, "id" | "role" | "email">, input: ShiftRosterWriteInput) {
+  await assertIersDepartmentRotaWriteAccess(db, user, input.institutionId, input.departmentId);
+  await assertDepartmentBelongsToPole(db, input.institutionId, input.departmentId, input.poleId);
+  const timing = resolveShiftTiming(input);
+  const [orderedDepartments, rotationAnchorDate] = await Promise.all([
+    getOrderedPoleDepartments(db, input.institutionId, input.poleId),
+    getPoleRotationAnchor(db, input.institutionId, input.poleId),
+  ]);
+  const isShiftErtl = derivePoleRotationDepartmentId(orderedDepartments, rotationAnchorDate, input.shiftDate) === input.departmentId;
+  const canonicalUtlUserId = await resolveCanonicalDepartmentProvider(db, input.institutionId, input.departmentId, input.utlUserId);
+  if (canonicalUtlUserId == null) throw new TRPCError({ code: "BAD_REQUEST", message: "The selected nurse is not an active linked provider for this canonical department. Link the account or choose another nurse." });
+  const [member] = await db
+    .select({ userId: institutionMemberships.userId })
+    .from(institutionMemberships)
+    .where(and(
+      eq(institutionMemberships.institutionalAccountId, input.institutionId),
+      eq(institutionMemberships.userId, canonicalUtlUserId),
+      eq(institutionMemberships.membershipStatus, "active"),
+    ))
+    .limit(1);
+  if (!member) throw new TRPCError({ code: "BAD_REQUEST", message: "The UTL must be an active provider–institution member." });
+
+  const shiftDate = new Date(input.shiftDate);
+  const [existing] = await db
+    .select()
+    .from(shiftUtlRosters)
+    .where(and(
+      eq(shiftUtlRosters.institutionId, input.institutionId),
+      eq(shiftUtlRosters.poleId, input.poleId),
+      eq(shiftUtlRosters.departmentId, input.departmentId),
+      eq(shiftUtlRosters.shiftDate, shiftDate),
+      eq(shiftUtlRosters.shiftType, input.shiftType),
+    ))
+    .limit(1);
+
+  if (existing) {
+    const shouldResetSignOff = existing.utlUserId !== canonicalUtlUserId || existing.shiftStartTime !== timing.startTime || existing.shiftEndTime !== timing.endTime || existing.shiftEndDayOffset !== timing.endDayOffset;
+    await db.update(shiftUtlRosters).set({
+      utlUserId: canonicalUtlUserId,
+      shiftStartTime: timing.startTime,
+      shiftEndTime: timing.endTime,
+      shiftEndDayOffset: timing.endDayOffset,
+      shiftTemplateId: input.shiftTemplateId ?? null,
+      isShiftErtl,
+      monthlyUtlRotationId: null,
+      status: input.status ?? "active",
+      assignmentStatus: shouldResetSignOff ? "pending_acceptance" : existing.assignmentStatus,
+      acceptedAt: shouldResetSignOff ? null : existing.acceptedAt,
+      declinedAt: shouldResetSignOff ? null : existing.declinedAt,
+      declineReason: shouldResetSignOff ? null : existing.declineReason,
+      readinessSignOffAt: shouldResetSignOff ? null : existing.readinessSignOffAt,
+    }).where(eq(shiftUtlRosters.id, existing.id));
+    return { id: existing.id, isShiftErtl, interval: formatShiftInterval(timing), changed: shouldResetSignOff };
+  }
+
+  const result = await db.insert(shiftUtlRosters).values({
+    institutionId: input.institutionId,
+    poleId: input.poleId,
+    departmentId: input.departmentId,
+    shiftDate,
+    shiftType: input.shiftType,
+    shiftStartTime: timing.startTime,
+    shiftEndTime: timing.endTime,
+    shiftEndDayOffset: timing.endDayOffset,
+    shiftTemplateId: input.shiftTemplateId ?? null,
+    utlUserId: canonicalUtlUserId,
+    isShiftErtl,
+    monthlyUtlRotationId: null,
+    assignmentStatus: "pending_acceptance",
+    status: input.status ?? "active",
+  });
+  return { id: (result as unknown as { insertId: number }).insertId, isShiftErtl, interval: formatShiftInterval(timing), changed: true };
+}
 
 function assertProviderDutyDecision(input: ProviderDutyAuthorizationInput) {
   const decision = evaluateProviderDutyAuthorization(input);
@@ -4695,6 +4801,9 @@ export const institutionRouter = router({
           declinedAt: shiftUtlRosters.declinedAt,
           declineReason: shiftUtlRosters.declineReason,
           shiftType: shiftUtlRosters.shiftType,
+          shiftStartTime: shiftUtlRosters.shiftStartTime,
+          shiftEndTime: shiftUtlRosters.shiftEndTime,
+          shiftEndDayOffset: shiftUtlRosters.shiftEndDayOffset,
           readinessSignOffAt: shiftUtlRosters.readinessSignOffAt,
         }).from(shiftUtlRosters)
           .leftJoin(facilityDepartments, eq(facilityDepartments.id, shiftUtlRosters.departmentId))
@@ -4842,6 +4951,9 @@ export const institutionRouter = router({
             poleName: facilityPoles.poleName,
             shiftDate: shiftUtlRosters.shiftDate,
             shiftType: shiftUtlRosters.shiftType,
+            shiftStartTime: shiftUtlRosters.shiftStartTime,
+            shiftEndTime: shiftUtlRosters.shiftEndTime,
+            shiftEndDayOffset: shiftUtlRosters.shiftEndDayOffset,
             utlUserId: shiftUtlRosters.utlUserId,
             isShiftErtl: shiftUtlRosters.isShiftErtl,
             assignmentStatus: shiftUtlRosters.assignmentStatus,
@@ -4859,12 +4971,24 @@ export const institutionRouter = router({
           ctx.user,
           [...ertl.map((assignment) => assignment.institutionId), ...utl.map((assignment) => assignment.institutionId)],
         );
+        const visibleErtl = ertl.filter((assignment) => allowedInstitutionIds.has(assignment.institutionId));
+        const visibleUtl = utl.filter((assignment) => allowedInstitutionIds.has(assignment.institutionId));
+        const dateTimeKey = (date: Date | string | null | undefined, time: string | null | undefined) => {
+          if (!date) return Number.MAX_SAFE_INTEGER;
+          const day = new Date(date).toISOString().slice(0, 10);
+          return new Date(`${day}T${time?.slice(0, 8) ?? "00:00:00"}`).getTime();
+        };
+        const now = Date.now();
+        const upcomingUtl = visibleUtl.filter((assignment) => assignment.assignmentStatus !== "ended" && dateTimeKey(assignment.shiftDate, assignment.shiftStartTime) >= now).sort((a, b) => dateTimeKey(a.shiftDate, a.shiftStartTime) - dateTimeKey(b.shiftDate, b.shiftStartTime));
+        const upcomingErtl = visibleErtl.filter((assignment) => assignment.assignmentStatus !== "ended" && dateTimeKey(assignment.startDate, "00:00:00") >= now).sort((a, b) => dateTimeKey(a.startDate, "00:00:00") - dateTimeKey(b.startDate, "00:00:00"));
         return {
-          ertl: ertl.filter((assignment) => allowedInstitutionIds.has(assignment.institutionId)),
-          utl: utl.filter((assignment) => allowedInstitutionIds.has(assignment.institutionId)),
+          ertl: visibleErtl,
+          utl: visibleUtl,
+          nextUtl: upcomingUtl[0] ?? null,
+          nextErtl: upcomingErtl[0] ?? null,
         };
       } catch (error) {
-        if (isMissingTableError(error)) return { ertl: [], utl: [] };
+        if (isMissingTableError(error)) return { ertl: [], utl: [], nextUtl: null, nextErtl: null };
         throw error;
       }
     }),
@@ -5498,6 +5622,10 @@ export const institutionRouter = router({
       departmentId: z.number(),
       shiftDate: z.string(),
       shiftType: z.enum(["morning", "evening", "night"]),
+      shiftStartTime: z.string().optional(),
+      shiftEndTime: z.string().optional(),
+      shiftEndDayOffset: z.number().int().min(0).max(1).optional(),
+      shiftTemplateId: z.number().int().positive().nullable().optional(),
       utlUserId: z.number(),
       isShiftErtl: z.boolean().default(false),
       status: z.enum(["active", "completed", "absent"]).optional(),
@@ -5505,71 +5633,8 @@ export const institutionRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      await assertIersDepartmentRotaWriteAccess(db, ctx.user, input.institutionId, input.departmentId);
-      await assertDepartmentBelongsToPole(db, input.institutionId, input.departmentId, input.poleId);
-      const [orderedDepartments, rotationAnchorDate] = await Promise.all([
-        getOrderedPoleDepartments(db, input.institutionId, input.poleId),
-        getPoleRotationAnchor(db, input.institutionId, input.poleId),
-      ]);
-      const isShiftErtl = derivePoleRotationDepartmentId(orderedDepartments, rotationAnchorDate, input.shiftDate) === input.departmentId;
-      const canonicalUtlUserId = await resolveCanonicalDepartmentProvider(db, input.institutionId, input.departmentId, input.utlUserId);
-      if (canonicalUtlUserId == null) throw new TRPCError({ code: "BAD_REQUEST", message: "The selected nurse is not an active linked provider for this canonical department. Link the account or choose another nurse." });
-      const [member] = await db
-        .select({ userId: institutionMemberships.userId })
-        .from(institutionMemberships)
-        .where(and(
-          eq(institutionMemberships.institutionalAccountId, input.institutionId),
-          eq(institutionMemberships.userId, canonicalUtlUserId),
-          eq(institutionMemberships.membershipStatus, "active"),
-        ))
-        .limit(1);
-      if (!member) throw new TRPCError({ code: "BAD_REQUEST", message: "The UTL must be an active provider–institution member." });
-
-      const [existing] = await db
-        .select()
-        .from(shiftUtlRosters)
-        .where(and(
-          eq(shiftUtlRosters.institutionId, input.institutionId),
-          eq(shiftUtlRosters.poleId, input.poleId),
-          eq(shiftUtlRosters.departmentId, input.departmentId),
-          eq(shiftUtlRosters.shiftDate, new Date(input.shiftDate)),
-          eq(shiftUtlRosters.shiftType, input.shiftType)
-        ))
-        .limit(1);
-
-      if (existing) {
-        // Reset readiness sign-off to null if the assigned UTL user changes (clinical safety gate)
-        const shouldResetSignOff = existing.utlUserId !== canonicalUtlUserId;
-        await db
-          .update(shiftUtlRosters)
-          .set({
-            utlUserId: canonicalUtlUserId,
-            isShiftErtl,
-            monthlyUtlRotationId: null,
-            status: input.status ?? "active",
-            assignmentStatus: shouldResetSignOff ? "pending_acceptance" : existing.assignmentStatus,
-            acceptedAt: shouldResetSignOff ? null : existing.acceptedAt,
-            declinedAt: shouldResetSignOff ? null : existing.declinedAt,
-            declineReason: shouldResetSignOff ? null : existing.declineReason,
-            readinessSignOffAt: shouldResetSignOff ? null : existing.readinessSignOffAt,
-          })
-          .where(eq(shiftUtlRosters.id, existing.id));
-      } else {
-        await db.insert(shiftUtlRosters).values({
-          institutionId: input.institutionId,
-          poleId: input.poleId,
-          departmentId: input.departmentId,
-          shiftDate: new Date(input.shiftDate),
-          shiftType: input.shiftType,
-          utlUserId: canonicalUtlUserId,
-          isShiftErtl,
-          monthlyUtlRotationId: null,
-          assignmentStatus: "pending_acceptance",
-          status: input.status ?? "active",
-        });
-      }
-
-      return { success: true };
+      const saved = await saveShiftUtlRosterRow(db, ctx.user, input);
+      return { success: true, ...saved };
     }),
 
   /**
@@ -5586,6 +5651,101 @@ export const institutionRouter = router({
         code: "FORBIDDEN",
         message: "Shift readiness must be confirmed by the assigned provider in the Individual portal.",
       });
+    }),
+
+  bulkAssignShiftUtlProvider: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      poleId: z.number().int().positive(),
+      utlUserId: z.number().int().positive(),
+      assignments: z.array(z.object({
+        departmentId: z.number().int().positive(),
+        shiftDate: z.string(),
+        shiftType: z.enum(["morning", "evening", "night"]),
+        shiftStartTime: z.string().optional(),
+        shiftEndTime: z.string().optional(),
+        shiftEndDayOffset: z.number().int().min(0).max(1).optional(),
+        shiftTemplateId: z.number().int().positive().nullable().optional(),
+        status: z.enum(["active", "absent", "completed"]).optional(),
+      })).min(1).max(100),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const saved = [];
+      for (const assignment of input.assignments) {
+        saved.push(await saveShiftUtlRosterRow(db, ctx.user, {
+          ...assignment,
+          institutionId: input.institutionId,
+          poleId: input.poleId,
+          utlUserId: input.utlUserId,
+        }));
+      }
+      return { success: true, savedCount: saved.length, saved };
+    }),
+
+  getInstitutionShiftTemplates: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertIersInstitutionReadAccess(db, ctx.user, input.institutionId);
+      try {
+        return await db.select().from(institutionShiftTemplates)
+          .where(and(eq(institutionShiftTemplates.institutionId, input.institutionId), eq(institutionShiftTemplates.isActive, true)))
+          .orderBy(asc(institutionShiftTemplates.sortOrder), asc(institutionShiftTemplates.templateName));
+      } catch (error) {
+        if (isMissingTableError(error)) return [];
+        throw error;
+      }
+    }),
+
+  createInstitutionShiftTemplate: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      templateName: z.string().trim().min(2).max(128),
+      startTime: z.string(),
+      endTime: z.string(),
+      endDayOffset: z.number().int().min(0).max(1).default(0),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      try {
+        await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+      } catch (error) {
+        if (!(error instanceof TRPCError) || error.code !== "FORBIDDEN") throw error;
+        await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
+      }
+      const timing = resolveShiftTiming({ shiftType: "morning", shiftStartTime: input.startTime, shiftEndTime: input.endTime, shiftEndDayOffset: input.endDayOffset });
+      try {
+        const existing = await db.select({ id: institutionShiftTemplates.id }).from(institutionShiftTemplates).where(and(
+          eq(institutionShiftTemplates.institutionId, input.institutionId),
+          eq(institutionShiftTemplates.templateName, input.templateName),
+        )).limit(1);
+        if (existing[0]) {
+          await db.update(institutionShiftTemplates).set({
+            startTime: timing.startTime,
+            endTime: timing.endTime,
+            endDayOffset: timing.endDayOffset,
+            isActive: true,
+          }).where(eq(institutionShiftTemplates.id, existing[0].id));
+          return { success: true, templateId: existing[0].id };
+        }
+        const result = await db.insert(institutionShiftTemplates).values({
+          institutionId: input.institutionId,
+          templateName: input.templateName,
+          startTime: timing.startTime,
+          endTime: timing.endTime,
+          endDayOffset: timing.endDayOffset,
+          sortOrder: 0,
+          createdByUserId: ctx.user.id,
+        });
+        return { success: true, templateId: (result as unknown as { insertId: number }).insertId };
+      } catch (error) {
+        if (isMissingTableError(error)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Shift templates are not available until migration 0118 is applied." });
+        throw error;
+      }
     }),
 
   // ============================================

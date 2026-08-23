@@ -35,6 +35,22 @@ function getWeekRange(date: Date): { startDate: string; endDate: string } {
   return { startDate: fmt(monday), endDate: fmt(sunday) };
 }
 
+const SHIFT_TIME_PRESETS = {
+  morning: { label: "Day", startTime: "07:30", endTime: "17:30", endDayOffset: 0 },
+  evening: { label: "Evening", startTime: "17:30", endTime: "21:30", endDayOffset: 0 },
+  night: { label: "Night", startTime: "21:30", endTime: "05:30", endDayOffset: 1 },
+} as const;
+
+function displayShiftTime(value: string | null | undefined): string {
+  return value ? value.slice(0, 5) : "—";
+}
+
+function getMonthDates(monthStart: string): string[] {
+  const [year, month] = monthStart.split("-").map(Number);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return Array.from({ length: daysInMonth }, (_, index) => `${monthStart.slice(0, 7)}-${String(index + 1).padStart(2, "0")}`);
+}
+
 function ProviderReadinessStatus({
   rosterEntry,
 }: {
@@ -90,6 +106,9 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const utils = trpc.useUtils();
   const [selectedPoleId, setSelectedPoleId] = useState<number | null>(null);
   const [selectedShift, setSelectedShift] = useState<"morning" | "evening" | "night">("morning");
+  const [selectedShiftStartTime, setSelectedShiftStartTime] = useState(SHIFT_TIME_PRESETS.morning.startTime);
+  const [selectedShiftEndTime, setSelectedShiftEndTime] = useState(SHIFT_TIME_PRESETS.morning.endTime);
+  const [selectedShiftEndDayOffset, setSelectedShiftEndDayOffset] = useState<0 | 1>(SHIFT_TIME_PRESETS.morning.endDayOffset);
   const [newPoleName, setNewPoleName] = useState("");
   const [showNewPoleForm, setShowNewPoleForm] = useState(false);
   
@@ -102,6 +121,20 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const [manualNurseEmail, setManualNurseEmail] = useState("");
   const [manualNursePhone, setManualNursePhone] = useState("");
   const [ercoSelections, setErcoSelections] = useState<Record<number, string>>({});
+  const [bulkDepartmentId, setBulkDepartmentId] = useState("");
+  const [bulkUtlUserId, setBulkUtlUserId] = useState("");
+  const [bulkDates, setBulkDates] = useState<string[]>([]);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("none");
+
+  const applyShiftPreset = (shiftType: "morning" | "evening" | "night") => {
+    const preset = SHIFT_TIME_PRESETS[shiftType];
+    setSelectedTemplateId("none");
+    setSelectedShift(shiftType);
+    setSelectedShiftStartTime(preset.startTime);
+    setSelectedShiftEndTime(preset.endTime);
+    setSelectedShiftEndDayOffset(preset.endDayOffset);
+  };
 
   const targetDateObj = new Date(selectedDate);
   const { weekNumber, year } = getIsoWeek(targetDateObj);
@@ -127,6 +160,11 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const { data: nurseCandidateGroups, refetch: refetchNurseCandidates } = trpc.institution.getPoleNurseCandidates.useQuery(
     { institutionId, poleId: activePoleId ?? 0 },
     { enabled: !!institutionId && !!activePoleId },
+  );
+
+  const { data: shiftTemplates } = trpc.institution.getInstitutionShiftTemplates.useQuery(
+    { institutionId },
+    { enabled: !!institutionId },
   );
 
   const { data: monthlyRota } = trpc.institution.getMonthlyUtlRota.useQuery(
@@ -187,6 +225,90 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
     onError: (err) => toast.error(err.message || "Failed to update UTL"),
   });
 
+  const saveTemplateMutation = trpc.institution.createInstitutionShiftTemplate.useMutation({
+    onSuccess: () => {
+      toast.success("Shift hours template saved.");
+      setNewTemplateName("");
+      void utils.institution.getInstitutionShiftTemplates.invalidate({ institutionId });
+    },
+    onError: (err) => toast.error(err.message || "Could not save shift template."),
+  });
+
+  const bulkAssignMutation = trpc.institution.bulkAssignShiftUtlProvider.useMutation({
+    onSuccess: (result) => {
+      toast.success(`${result.savedCount} UTL shift(s) saved; providers must accept their dated duties.`);
+      setBulkDates([]);
+      void utils.institution.getShiftUtlRoster.invalidate();
+    },
+    onError: (err) => toast.error(err.message || "Could not apply the provider to those shifts."),
+  });
+
+  const submitSelectedRoster = (departmentId: number, utlUserId: number, status?: "active" | "absent" | "completed") => {
+    if (!activePoleId) return;
+    submitRosterMutation.mutate({
+      institutionId,
+      poleId: activePoleId,
+      departmentId,
+      shiftDate: selectedDate,
+      shiftType: selectedShift,
+      shiftStartTime: selectedShiftStartTime,
+      shiftEndTime: selectedShiftEndTime,
+      shiftEndDayOffset: selectedShiftEndDayOffset,
+      shiftTemplateId: selectedTemplateId === "none" ? null : Number(selectedTemplateId),
+      utlUserId,
+      isShiftErtl: departmentId === ertlDepartmentId,
+      status,
+    });
+  };
+
+  const toggleBulkDate = (date: string) => {
+    setBulkDates((current) => current.includes(date) ? current.filter((item) => item !== date) : [...current, date].sort());
+  };
+
+  const saveShiftTemplate = () => {
+    if (!newTemplateName.trim()) {
+      toast.error("Enter a name for this shift-hours template.");
+      return;
+    }
+    saveTemplateMutation.mutate({
+      institutionId,
+      templateName: newTemplateName.trim(),
+      startTime: selectedShiftStartTime,
+      endTime: selectedShiftEndTime,
+      endDayOffset: selectedShiftEndDayOffset,
+    });
+  };
+
+  const applySavedTemplate = (templateId: string) => {
+    const template = shiftTemplates?.find((item) => String(item.id) === templateId);
+    if (!template) return;
+    setSelectedTemplateId(templateId);
+    setSelectedShiftStartTime(template.startTime.slice(0, 5));
+    setSelectedShiftEndTime(template.endTime.slice(0, 5));
+    setSelectedShiftEndDayOffset(template.endDayOffset as 0 | 1);
+  };
+
+  const saveBulkAssignments = () => {
+    if (!activePoleId || !bulkDepartmentId || !bulkUtlUserId || bulkDates.length === 0) {
+      toast.error("Choose a department, nurse, and at least one date first.");
+      return;
+    }
+    bulkAssignMutation.mutate({
+      institutionId,
+      poleId: activePoleId,
+      utlUserId: Number(bulkUtlUserId),
+      assignments: bulkDates.map((shiftDate) => ({
+        departmentId: Number(bulkDepartmentId),
+        shiftDate,
+        shiftType: selectedShift,
+        shiftStartTime: selectedShiftStartTime,
+        shiftEndTime: selectedShiftEndTime,
+        shiftEndDayOffset: selectedShiftEndDayOffset,
+        shiftTemplateId: selectedTemplateId === "none" ? null : Number(selectedTemplateId),
+      })),
+    });
+  };
+
   const prepareMonthlyMutation = trpc.institution.autopopulateMonthlyUtlRota.useMutation({
     onSuccess: (result) => {
       toast.success(`Monthly UTL plan saved for ${result.assignedDepartments} department(s); ${result.generatedShifts} dated shift row(s) prepared.`);
@@ -225,10 +347,10 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const poleDepartments = [...(departments?.filter((d) => d.poleId === activePoleId && d.isActive && d.confirmedAt != null && d.requiresPole) ?? [])].sort((a, b) => (a.poleSequence ?? Number.MAX_SAFE_INTEGER) - (b.poleSequence ?? Number.MAX_SAFE_INTEGER) || a.departmentName.localeCompare(b.departmentName));
   const rotaDepartments = poleDepartments.filter((department) => nurseCandidateGroups?.some((group) => group.departmentId === department.id) ?? false);
   const ertlDepartmentId = weeklyRotation?.departmentId ?? null;
-  const ertlDepartmentProviders = staffMembers?.filter((staff) => staff.userId != null && staff.facilityDepartmentId === ertlDepartmentId) ?? [];
   const candidatesForDepartment = (departmentId: number) => nurseCandidateGroups?.find((group) => group.departmentId === departmentId)?.candidates ?? [];
   const providersForDepartment = (departmentId: number) => candidatesForDepartment(departmentId).filter((candidate) => candidate.assignable);
   const pendingLinkCandidatesForDepartment = (departmentId: number) => candidatesForDepartment(departmentId).filter((candidate) => candidate.needsAccountLink);
+  const ertlDepartmentProviders = ertlDepartmentId == null ? [] : providersForDepartment(ertlDepartmentId);
 
   useEffect(() => {
     if (!monthlyRota) return;
@@ -318,7 +440,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
               </div>
               <div className="flex min-w-0 items-center gap-2">
                 <span className="shrink-0 text-xs font-semibold text-muted-foreground">Shift:</span>
-                <Select value={selectedShift} onValueChange={(val: any) => setSelectedShift(val)}>
+                <Select value={selectedShift} onValueChange={(val: "morning" | "evening" | "night") => applyShiftPreset(val)}>
                   <SelectTrigger className="w-full min-w-0 h-9 text-xs sm:w-[130px]">
                     <SelectValue />
                   </SelectTrigger>
@@ -327,6 +449,14 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                     <SelectItem value="evening">Evening Shift</SelectItem>
                     <SelectItem value="night">Night Shift</SelectItem>
                   </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                <label className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground"><span>Start</span><Input type="time" value={selectedShiftStartTime} onChange={(event) => { setSelectedTemplateId("none"); setSelectedShiftStartTime(event.target.value); }} className="h-9 min-w-0 text-xs" /></label>
+                <label className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground"><span>End</span><Input type="time" value={selectedShiftEndTime} onChange={(event) => { setSelectedTemplateId("none"); setSelectedShiftEndTime(event.target.value); }} className="h-9 min-w-0 text-xs" /></label>
+                <Select value={String(selectedShiftEndDayOffset)} onValueChange={(value) => { setSelectedTemplateId("none"); setSelectedShiftEndDayOffset(value === "1" ? 1 : 0); }}>
+                  <SelectTrigger className="col-span-2 h-9 w-full text-xs sm:w-[140px]"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="0">Ends same day</SelectItem><SelectItem value="1">Ends next day</SelectItem></SelectContent>
                 </Select>
               </div>
             </div>
@@ -457,10 +587,10 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                   const pendingLinks = pendingLinkCandidatesForDepartment(department.id);
                   const canWrite = nurseCandidateGroups?.some((group) => group.departmentId === department.id) ?? false;
                   const ercoAssignment = ercoAssignments?.find((assignment) => assignment.departmentId === department.id);
-                  const activeStaff = staffMembers?.filter((staff) => staff.userId != null) ?? [];
+                  const ercoCandidates = providersForDepartment(department.id);
                   return <div key={department.id} className="rounded-md border bg-background/70 p-3">
                     <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><span className="break-words text-sm font-medium">{department.departmentName}</span><Badge variant={ercoAssignment?.assignmentStatus === "active" ? "default" : "secondary"}>{ercoAssignment?.assignmentStatus === "active" ? "ERCo active" : ercoAssignment?.assignmentStatus === "pending_acceptance" ? "ERCo acceptance pending" : "ERCo not assigned"}</Badge></div>
-                    {!ercoAssignment || ercoAssignment.assignmentStatus === "declined" || ercoAssignment.assignmentStatus === "ended" ? <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center"><Select value={ercoSelections[department.id] ?? ""} onValueChange={(value) => setErcoSelections((current) => ({ ...current, [department.id]: value }))}><SelectTrigger className="w-full sm:w-72"><SelectValue placeholder="Assign ERCo now" /></SelectTrigger><SelectContent>{activeStaff.map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}>{staff.staffName} ({staff.staffRole})</SelectItem>)}</SelectContent></Select><Button size="sm" className="w-full sm:w-auto" onClick={() => saveErco(department.id)} disabled={assignErcoMutation.isPending}>Assign ERCo</Button></div> : <p className="mt-2 text-xs text-muted-foreground">ERCo is a governance appointment, not shift coverage. Use ERCo governance to add an optional Assistant ERCo or review appointment history.</p>}
+                    {!ercoAssignment || ercoAssignment.assignmentStatus === "declined" || ercoAssignment.assignmentStatus === "ended" ? <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center"><Select value={ercoSelections[department.id] ?? ""} onValueChange={(value) => setErcoSelections((current) => ({ ...current, [department.id]: value }))}><SelectTrigger className="w-full sm:w-72"><SelectValue placeholder="Assign ERCo now" /></SelectTrigger><SelectContent>{ercoCandidates.map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}>{staff.staffName} ({staff.staffRole})</SelectItem>)}</SelectContent></Select><Button size="sm" className="w-full sm:w-auto" onClick={() => saveErco(department.id)} disabled={assignErcoMutation.isPending || ercoCandidates.length === 0}>Assign ERCo</Button>{ercoCandidates.length === 0 && <p className="text-xs text-amber-700 dark:text-amber-300">No linked active nurse is registered with this department yet.</p>}</div> : <p className="mt-2 text-xs text-muted-foreground">ERCo is a governance appointment, not shift coverage. Use ERCo governance to add an optional Assistant ERCo or review appointment history.</p>}
                     {canWrite ? <div className="mt-3"><p className="mb-1 text-xs font-medium text-muted-foreground">Monthly nurse source (optional)</p><Select value={monthlyProviderSelections[department.id] ?? "none"} onValueChange={(value) => setMonthlyProviderSelections((current) => ({ ...current, [department.id]: value }))}><SelectTrigger className="w-full sm:w-72"><SelectValue placeholder="Leave unassigned" /></SelectTrigger><SelectContent><SelectItem value="none">Leave unassigned for now</SelectItem>{candidates.map((candidate) => <SelectItem key={candidate.userId} value={String(candidate.userId)}>{candidate.staffName}</SelectItem>)}</SelectContent></Select></div> : <Badge className="mt-3" variant="secondary">Accepted ERCo/lead access required to staff this department</Badge>}
                     {pendingLinks.length > 0 && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">{pendingLinks.length} nurse candidate(s) need an account link before they can accept a dated UTL duty.</p>}
                     {canWrite && renderManualNurseForm(department.id)}
@@ -471,6 +601,29 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
               <p className="text-xs text-muted-foreground">Saving this plan creates dated source rows only for the departments you can manage. A named provider still must accept each dated assignment in the provider portal, and the actual on-shift nurse should be confirmed below.</p>
             </>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Explicit day-by-day UTL staffing */}
+      <Card className="min-w-0 border-emerald-500/30">
+        <CardHeader>
+          <CardTitle className="flex items-start gap-2 text-base font-bold sm:text-lg"><Clock className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />Assign UTLs by day and shift</CardTitle>
+          <CardDescription>Choose one department nurse, select the days they will actually be UTL, and save only those dated shifts. Change the time fields above when the facility uses a different interval. The same hours are reused for every selected day.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 rounded-md border bg-muted/20 p-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+            <label className="space-y-1.5"><span className="text-xs font-medium text-muted-foreground">Saved facility hours</span><Select value={selectedTemplateId} onValueChange={(value) => { setSelectedTemplateId(value); if (value !== "none") applySavedTemplate(value); }}><SelectTrigger><SelectValue placeholder="Use a saved template" /></SelectTrigger><SelectContent><SelectItem value="none">Use a saved template</SelectItem>{(shiftTemplates ?? []).map((template) => <SelectItem key={template.id} value={String(template.id)}>{template.templateName} · {displayShiftTime(template.startTime)}–{displayShiftTime(template.endTime)}{template.endDayOffset === 1 ? " (+1 day)" : ""}</SelectItem>)}</SelectContent></Select></label>
+            <Input aria-label="New shift-hours template name" placeholder="Name new hours (e.g. Long day)" value={newTemplateName} onChange={(event) => setNewTemplateName(event.target.value)} />
+            <Button type="button" variant="outline" onClick={saveShiftTemplate} disabled={saveTemplateMutation.isPending}>{saveTemplateMutation.isPending ? "Saving…" : "Save current hours"}</Button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="space-y-1.5"><span className="text-xs font-medium text-muted-foreground">Department</span><Select value={bulkDepartmentId || "none"} onValueChange={(value) => { setBulkDepartmentId(value === "none" ? "" : value); setBulkUtlUserId(""); }}><SelectTrigger><SelectValue placeholder="Choose department" /></SelectTrigger><SelectContent><SelectItem value="none">Choose department</SelectItem>{poleDepartments.map((department) => <SelectItem key={department.id} value={String(department.id)}>{department.departmentName}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-1.5"><span className="text-xs font-medium text-muted-foreground">UTL nurse</span><Select value={bulkUtlUserId || "none"} onValueChange={(value) => setBulkUtlUserId(value === "none" ? "" : value)} disabled={!bulkDepartmentId}><SelectTrigger><SelectValue placeholder="Choose nurse" /></SelectTrigger><SelectContent><SelectItem value="none">Choose nurse</SelectItem>{(bulkDepartmentId ? providersForDepartment(Number(bulkDepartmentId)) : []).map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}>{staff.staffName} ({staff.staffRole})</SelectItem>)}</SelectContent></Select></div>
+            <div className="rounded-md border bg-muted/20 p-2 text-xs text-muted-foreground"><p className="font-medium text-foreground">Selected interval</p><p>{selectedShift.toUpperCase()} · {displayShiftTime(selectedShiftStartTime)}–{displayShiftTime(selectedShiftEndTime)}{selectedShiftEndDayOffset === 1 ? " (+1 day)" : ""}</p><p className="mt-1">Edit the time above before selecting days.</p></div>
+          </div>
+          <div className="space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-medium text-muted-foreground">{monthStart.slice(0, 7)} dates</p><Badge variant="outline">{bulkDates.length} selected</Badge></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">{getMonthDates(monthStart).map((date) => { const selected = bulkDates.includes(date); return <label key={date} className={`flex cursor-pointer items-center gap-2 rounded-md border p-2 text-xs ${selected ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" : "bg-background"}`}><input type="checkbox" checked={selected} onChange={() => toggleBulkDate(date)} className="h-4 w-4 accent-emerald-700" /><span>{date.slice(-2)} {new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short" })}</span></label>; })}</div></div>
+          <Button className="w-full sm:w-auto" onClick={saveBulkAssignments} disabled={bulkAssignMutation.isPending || !bulkDepartmentId || !bulkUtlUserId || bulkDates.length === 0}>{bulkAssignMutation.isPending ? "Saving UTL shifts…" : "Save selected UTL shifts"}</Button>
+          <p className="text-xs text-muted-foreground">Each saved row is a separate provider-owned dated duty. The selected provider must accept the duty in the provider portal. This editor does not mark a provider as available outside the dates selected.</p>
         </CardContent>
       </Card>
 
@@ -529,16 +682,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                             value={rosterEntry.status}
                             onValueChange={(statusVal: "active" | "absent" | "completed") => {
                               if (activePoleId) {
-                                submitRosterMutation.mutate({
-                                  institutionId,
-                                  poleId: activePoleId,
-                                  departmentId: dept.id,
-                                  shiftDate: selectedDate,
-                                  shiftType: selectedShift,
-                                  utlUserId: rosterEntry.utlUserId,
-                                  isShiftErtl: isErtl,
-                                  status: statusVal,
-                                });
+                                submitSelectedRoster(dept.id, rosterEntry.utlUserId, statusVal);
                               }
                             }}
                           >
@@ -557,16 +701,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                       <span className="text-xs font-medium text-muted-foreground">Assign linked provider</span>
                       <Select
                         onValueChange={(staffUserId) =>
-                          activePoleId &&
-                          submitRosterMutation.mutate({
-                            institutionId,
-                            poleId: activePoleId,
-                            departmentId: dept.id,
-                            shiftDate: selectedDate,
-                            shiftType: selectedShift,
-                            utlUserId: parseInt(staffUserId, 10),
-                            isShiftErtl: isErtl,
-                          })
+                          submitSelectedRoster(dept.id, parseInt(staffUserId, 10))
                         }
                       >
                         <SelectTrigger className="h-9 w-full min-w-0 text-xs">
@@ -625,16 +760,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                             value={rosterEntry.status}
                             onValueChange={(statusVal: "active" | "absent" | "completed") => {
                               if (activePoleId) {
-                                submitRosterMutation.mutate({
-                                  institutionId,
-                                  poleId: activePoleId,
-                                  departmentId: dept.id,
-                                  shiftDate: selectedDate,
-                                  shiftType: selectedShift,
-                                  utlUserId: rosterEntry.utlUserId,
-                                  isShiftErtl: isErtl,
-                                  status: statusVal,
-                                });
+                                submitSelectedRoster(dept.id, rosterEntry.utlUserId, statusVal);
                               }
                             }}
                           >
