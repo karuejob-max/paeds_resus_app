@@ -1280,6 +1280,10 @@ export const institutionalStaffMembers = mysqlTable("institutionalStaffMembers",
   enrollmentStatus: mysqlEnum("enrollmentStatus", ["pending", "enrolled", "in_progress", "completed", "dropped"]).default("pending"),
   phaseStatus: mysqlEnum("phaseStatus", ["phase_1", "phase_2", "phase_3", "completed"]).default("phase_1"),
   facilityLinkStatus: mysqlEnum("facilityLinkStatus", ["pending", "linked", "rejected"]).default("pending"),
+  /** Set when an institution removes the person; roster and history remain retained. */
+  removedAt: timestamp("removedAt"),
+  removedByUserId: int("removedByUserId"),
+  removalReason: text("removalReason"),
   totalPaidAmount: decimal("totalPaidAmount", { precision: 10, scale: 2 }).default("0.00"),
   /** Phase 1: URL of the uploaded elearning.heart.org completion proof (PDF or image) */
   phase1ProofUrl: text("phase1ProofUrl"),
@@ -1746,6 +1750,26 @@ export const institutionMemberships = mysqlTable("institutionMemberships", {
 }));
 export type InstitutionMembership = typeof institutionMemberships.$inferSelect;
 export type InsertInstitutionMembership = typeof institutionMemberships.$inferInsert;
+
+/** Append-only audit history for institution membership and roster removal decisions. */
+export const institutionMembershipEvents = mysqlTable("institution_membership_events", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutional_account_id").notNull(),
+  membershipId: int("membership_id").notNull(),
+  staffMemberId: int("staff_member_id"),
+  userId: int("user_id"),
+  eventType: mysqlEnum("event_type", ["removed", "restored", "suspended", "reactivated"]).notNull(),
+  previousMembershipStatus: varchar("previous_membership_status", { length: 32 }),
+  currentMembershipStatus: varchar("current_membership_status", { length: 32 }).notNull(),
+  actorUserId: int("actor_user_id").notNull(),
+  reason: text("reason").notNull(),
+  occurredAt: timestamp("occurred_at").defaultNow().notNull(),
+}, (table) => ({
+  institutionMembershipIndex: index("institution_membership_events_inst_membership_idx").on(table.institutionalAccountId, table.membershipId),
+  occurredIndex: index("institution_membership_events_occurred_idx").on(table.occurredAt),
+}));
+export type InstitutionMembershipEvent = typeof institutionMembershipEvents.$inferSelect;
+export type InsertInstitutionMembershipEvent = typeof institutionMembershipEvents.$inferInsert;
 
 /** Durable IERS emergency activation record. */
 export const iersActivationEvents = mysqlTable("iersActivationEvents", {
@@ -4539,6 +4563,8 @@ export const facilityPoles = mysqlTable("facility_poles", {
   institutionId: int("institution_id").notNull(),
   poleName: varchar("pole_name", { length: 128 }).notNull(),
   description: text("description"),
+  /** 1-based display order for institution-defined poles; not limited to North/South. */
+  poleOrder: int("pole_order"),
   /** Monday anchor for deterministic weekly ERTL rotation within this pole. */
   rotationAnchorDate: date("rotation_anchor_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

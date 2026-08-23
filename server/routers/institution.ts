@@ -37,6 +37,9 @@ import {
   equipmentAuditLogs,
   iermsImplementationTrackers,
   institutionMemberships,
+  institutionMembershipEvents,
+  institutionProductRoles,
+  institutionAccountScopes,
   iersEvidenceRecords,
   iersActionItems,
   iersCompetencyRecords,
@@ -56,7 +59,7 @@ import { alias } from "drizzle-orm/mysql-core";
 import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, lte, sql, or, notInArray } from "drizzle-orm";
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
-import { assertInstitutionAccess, getAdministeredInstitutionIds } from "../lib/institution-access";
+import { assertInstitutionAccess, getAdministeredInstitutionIds, countInstitutionAdmins } from "../lib/institution-access";
 import { assertInstitutionProductCapability, assertWritableProductAccess } from "../lib/institution-entitlements";
 import { asDateOnly, derivePoleRotationDepartmentId, isoWeekMonday, mondayForDate } from "../lib/iers-pole-rotation";
 import { assertInstitutionAccountScope } from "../lib/institution-account-scopes";
@@ -985,6 +988,159 @@ export const institutionRouter = router({
       return { success: true, status: input.status };
     }),
 
+  /** Institution account admin: remove a person from this institution without deleting history. */
+  removeInstitutionMember: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      membershipId: z.number().int().positive(),
+      reason: z.string().trim().min(10).max(1000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+
+      const [membership] = await db
+        .select({
+          id: institutionMemberships.id,
+          userId: institutionMemberships.userId,
+          staffMemberId: institutionMemberships.staffMemberId,
+          invitedEmail: institutionMemberships.invitedEmail,
+          membershipStatus: institutionMemberships.membershipStatus,
+        })
+        .from(institutionMemberships)
+        .where(and(
+          eq(institutionMemberships.id, input.membershipId),
+          eq(institutionMemberships.institutionalAccountId, input.institutionId),
+        ))
+        .limit(1);
+      if (!membership) throw new TRPCError({ code: "NOT_FOUND", message: "Institution membership not found." });
+      if (membership.userId === ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "You cannot remove your own institutional access." });
+      if (membership.membershipStatus === "ended") return { success: true, status: "ended" as const, alreadyEnded: true };
+
+      const staffIdentityPredicates = [
+        membership.staffMemberId != null ? eq(institutionalStaffMembers.id, membership.staffMemberId) : sql`FALSE`,
+        membership.userId != null ? eq(institutionalStaffMembers.userId, membership.userId) : sql`FALSE`,
+        eq(institutionalStaffMembers.staffEmail, membership.invitedEmail),
+      ];
+      const [matchedStaff] = await db
+        .select({ id: institutionalStaffMembers.id })
+        .from(institutionalStaffMembers)
+        .where(and(
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+          or(...staffIdentityPredicates),
+        ))
+        .limit(1);
+      const resolvedStaffMemberId = membership.staffMemberId ?? matchedStaff?.id ?? null;
+
+      const adminRows = await db
+        .select({ userId: institutionalAccountAdmins.userId })
+        .from(institutionalAccountAdmins)
+        .where(and(
+          eq(institutionalAccountAdmins.institutionalAccountId, input.institutionId),
+          membership.userId != null ? eq(institutionalAccountAdmins.userId, membership.userId) : sql`FALSE`,
+        ));
+      const institution = await db
+        .select({ ownerUserId: institutionalAccounts.userId })
+        .from(institutionalAccounts)
+        .where(eq(institutionalAccounts.id, input.institutionId))
+        .limit(1);
+      const targetIsAdmin = membership.userId != null && (adminRows.length > 0 || institution[0]?.ownerUserId === membership.userId);
+      if (targetIsAdmin) {
+        const adminCount = await countInstitutionAdmins(db, input.institutionId);
+        if (adminCount <= 2) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Invite and activate a replacement administrator before removing this person. The institution must retain at least two administrator contacts." });
+        }
+      }
+
+      const now = new Date();
+      await db.transaction(async (tx) => {
+        await tx
+          .update(institutionMemberships)
+          .set({ membershipStatus: "ended", endedAt: now, updatedAt: now })
+          .where(and(
+            eq(institutionMemberships.id, membership.id),
+            eq(institutionMemberships.institutionalAccountId, input.institutionId),
+          ));
+        if (resolvedStaffMemberId) {
+          await tx
+            .update(institutionalStaffMembers)
+            .set({ removedAt: now, removedByUserId: ctx.user.id, removalReason: input.reason, facilityLinkStatus: "rejected", updatedAt: now })
+            .where(and(
+              eq(institutionalStaffMembers.id, resolvedStaffMemberId),
+              eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+            ));
+        }
+        if (membership.userId != null) {
+          await tx
+            .update(institutionProductRoles)
+            .set({ roleStatus: "ended", endedAt: now, updatedAt: now })
+            .where(and(
+              eq(institutionProductRoles.institutionalAccountId, input.institutionId),
+              eq(institutionProductRoles.userId, membership.userId),
+              or(eq(institutionProductRoles.roleStatus, "active"), eq(institutionProductRoles.roleStatus, "suspended")),
+            ));
+          await tx
+            .update(institutionAccountScopes)
+            .set({ scopeStatus: "ended", endedAt: now, updatedAt: now })
+            .where(and(
+              eq(institutionAccountScopes.institutionalAccountId, input.institutionId),
+              eq(institutionAccountScopes.userId, membership.userId),
+              or(eq(institutionAccountScopes.scopeStatus, "active"), eq(institutionAccountScopes.scopeStatus, "suspended")),
+            ));
+          await tx
+            .update(institutionDepartmentResponseCoordinators)
+            .set({ assignmentStatus: "ended", updatedAt: now })
+            .where(and(
+              eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId),
+              or(eq(institutionDepartmentResponseCoordinators.coordinatorUserId, membership.userId), eq(institutionDepartmentResponseCoordinators.backupUserId, membership.userId)),
+              or(eq(institutionDepartmentResponseCoordinators.assignmentStatus, "active"), eq(institutionDepartmentResponseCoordinators.assignmentStatus, "pending_acceptance")),
+            ));
+          await tx
+            .update(ertlWeeklyRotations)
+            .set({ assignmentStatus: "ended" })
+            .where(and(
+              eq(ertlWeeklyRotations.institutionId, input.institutionId),
+              eq(ertlWeeklyRotations.ertlUserId, membership.userId),
+              gte(ertlWeeklyRotations.endDate, now),
+              or(eq(ertlWeeklyRotations.assignmentStatus, "unassigned"), eq(ertlWeeklyRotations.assignmentStatus, "pending_acceptance"), eq(ertlWeeklyRotations.assignmentStatus, "active")),
+            ));
+          await tx
+            .update(monthlyUtlRotations)
+            .set({ assignmentStatus: "ended", providerUserId: null, updatedAt: now })
+            .where(and(
+              eq(monthlyUtlRotations.institutionId, input.institutionId),
+              eq(monthlyUtlRotations.providerUserId, membership.userId),
+              gte(monthlyUtlRotations.monthStart, now),
+              or(eq(monthlyUtlRotations.assignmentStatus, "unassigned"), eq(monthlyUtlRotations.assignmentStatus, "pending_acceptance"), eq(monthlyUtlRotations.assignmentStatus, "active")),
+            ));
+          await tx
+            .update(shiftUtlRosters)
+            .set({ assignmentStatus: "ended", status: "absent" })
+            .where(and(
+              eq(shiftUtlRosters.institutionId, input.institutionId),
+              eq(shiftUtlRosters.utlUserId, membership.userId),
+              gte(shiftUtlRosters.shiftDate, now),
+              or(eq(shiftUtlRosters.assignmentStatus, "unassigned"), eq(shiftUtlRosters.assignmentStatus, "pending_acceptance"), eq(shiftUtlRosters.assignmentStatus, "active")),
+            ));
+        }
+        await tx.insert(institutionMembershipEvents).values({
+          institutionalAccountId: input.institutionId,
+          membershipId: membership.id,
+          staffMemberId: resolvedStaffMemberId,
+          userId: membership.userId,
+          eventType: "removed",
+          previousMembershipStatus: membership.membershipStatus,
+          currentMembershipStatus: "ended",
+          actorUserId: ctx.user.id,
+          reason: input.reason,
+          occurredAt: now,
+        });
+      });
+
+      return { success: true, status: "ended" as const, alreadyEnded: false, removedEmail: membership.invitedEmail };
+    }),
+
   searchKmhflFacilities,
 
   /** Hospital admin: Care Signal QI dashboard for this institution's facility name. */
@@ -1711,14 +1867,71 @@ export const institutionRouter = router({
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
-      const rows = await db
-        .select()
-        .from(institutionalStaffMembers)
-        .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
-      return rows.map((row) => ({
-        ...row,
-        department: row.department ? canonicalizeDepartmentLabel(row.department) : row.department,
-      }));
+      let rows: Array<typeof institutionalStaffMembers.$inferSelect>;
+      try {
+        rows = await db
+          .select()
+          .from(institutionalStaffMembers)
+          .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
+      } catch (error) {
+        if (!isMissingSchemaColumnError(error)) throw error;
+        const legacyRows = await db
+          .select({
+            id: institutionalStaffMembers.id,
+            institutionalAccountId: institutionalStaffMembers.institutionalAccountId,
+            userId: institutionalStaffMembers.userId,
+            staffName: institutionalStaffMembers.staffName,
+            staffEmail: institutionalStaffMembers.staffEmail,
+            staffPhone: institutionalStaffMembers.staffPhone,
+            staffRole: institutionalStaffMembers.staffRole,
+            designation: institutionalStaffMembers.designation,
+            governanceRole: institutionalStaffMembers.governanceRole,
+            institutionalRole: institutionalStaffMembers.institutionalRole,
+            department: institutionalStaffMembers.department,
+            facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+            yearsOfExperience: institutionalStaffMembers.yearsOfExperience,
+            assignedCourses: institutionalStaffMembers.assignedCourses,
+            enrollmentStatus: institutionalStaffMembers.enrollmentStatus,
+            phaseStatus: institutionalStaffMembers.phaseStatus,
+            facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+            totalPaidAmount: institutionalStaffMembers.totalPaidAmount,
+            phase1ProofUrl: institutionalStaffMembers.phase1ProofUrl,
+            phase1ProofApprovedAt: institutionalStaffMembers.phase1ProofApprovedAt,
+            enrollmentDate: institutionalStaffMembers.enrollmentDate,
+            completionDate: institutionalStaffMembers.completionDate,
+            certificationStatus: institutionalStaffMembers.certificationStatus,
+            certificationDate: institutionalStaffMembers.certificationDate,
+            certificationExpiryDate: institutionalStaffMembers.certificationExpiryDate,
+            createdAt: institutionalStaffMembers.createdAt,
+            updatedAt: institutionalStaffMembers.updatedAt,
+          })
+          .from(institutionalStaffMembers)
+          .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
+        rows = legacyRows.map((row) => ({ ...row, removedAt: null, removedByUserId: null, removalReason: null })) as Array<typeof institutionalStaffMembers.$inferSelect>;
+      }
+      const memberships = await db
+        .select({
+          id: institutionMemberships.id,
+          staffMemberId: institutionMemberships.staffMemberId,
+          membershipStatus: institutionMemberships.membershipStatus,
+          userId: institutionMemberships.userId,
+          invitedEmail: institutionMemberships.invitedEmail,
+        })
+        .from(institutionMemberships)
+        .where(eq(institutionMemberships.institutionalAccountId, input.institutionId));
+      const membershipByStaffId = new Map(memberships.filter((membership) => membership.staffMemberId != null).map((membership) => [membership.staffMemberId as number, membership]));
+      return rows.map((row) => {
+        const membership = membershipByStaffId.get(row.id);
+        return {
+          ...row,
+          department: row.department ? canonicalizeDepartmentLabel(row.department) : row.department,
+          membershipId: membership?.id ?? null,
+          membershipStatus: membership?.membershipStatus ?? null,
+          membershipUserId: membership?.userId ?? row.userId,
+          removedAt: row.removedAt ?? null,
+          removalReason: row.removalReason ?? null,
+        };
+      });
     }),
 
   getDepartmentNurseCandidates: protectedProcedure
@@ -4111,13 +4324,23 @@ export const institutionRouter = router({
     .input(z.object({ institutionId: z.number() }))
     .query(async ({ ctx, input }) => {
       const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       await assertIersInstitutionReadAccess(db, ctx.user, input.institutionId);
 
-      return db
-        .select()
-        .from(facilityPoles)
-        .where(eq(facilityPoles.institutionId, input.institutionId));
+      try {
+        return await db
+          .select()
+          .from(facilityPoles)
+          .where(eq(facilityPoles.institutionId, input.institutionId))
+          .orderBy(asc(facilityPoles.poleOrder), asc(facilityPoles.poleName), asc(facilityPoles.id));
+      } catch (error) {
+        if (!isMissingSchemaColumnError(error)) throw error;
+        return db
+          .select()
+          .from(facilityPoles)
+          .where(eq(facilityPoles.institutionId, input.institutionId))
+          .orderBy(asc(facilityPoles.poleName), asc(facilityPoles.id));
+      }
     }),
 
   createFacilityPole: protectedProcedure
@@ -4131,13 +4354,60 @@ export const institutionRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
 
-      const [result] = await db.insert(facilityPoles).values({
-        institutionId: input.institutionId,
-        poleName: input.poleName,
-        description: input.description,
-      });
+      try {
+        const [maxRow] = await db
+          .select({ maxOrder: sql<number>`COALESCE(MAX(${facilityPoles.poleOrder}), 0)` })
+          .from(facilityPoles)
+          .where(eq(facilityPoles.institutionId, input.institutionId));
+        const [result] = await db.insert(facilityPoles).values({
+          institutionId: input.institutionId,
+          poleName: input.poleName,
+          description: input.description,
+          poleOrder: Number(maxRow?.maxOrder ?? 0) + 1,
+        });
+        return { success: true, poleId: result.insertId };
+      } catch (error) {
+        if (!isMissingSchemaColumnError(error)) throw error;
+        const [result] = await db.insert(facilityPoles).values({
+          institutionId: input.institutionId,
+          poleName: input.poleName,
+          description: input.description,
+        });
+        return { success: true, poleId: result.insertId };
+      }
+    }),
 
-      return { success: true, poleId: result.insertId };
+  reorderFacilityPoles: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      poleIds: z.array(z.number().int().positive()).min(1).max(100),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
+      const uniquePoleIds = new Set(input.poleIds);
+      if (uniquePoleIds.size !== input.poleIds.length) throw new TRPCError({ code: "BAD_REQUEST", message: "Each pole must appear once in the requested order." });
+      try {
+        const poles = await db
+          .select({ id: facilityPoles.id })
+          .from(facilityPoles)
+          .where(eq(facilityPoles.institutionId, input.institutionId));
+        const actualPoleIds = new Set(poles.map((pole) => pole.id));
+        if (actualPoleIds.size !== uniquePoleIds.size || [...actualPoleIds].some((id) => !uniquePoleIds.has(id))) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Submit the complete pole list for this institution; foreign or missing poles are not allowed." });
+        }
+        await db.transaction(async (tx) => {
+          for (const [index, poleId] of input.poleIds.entries()) {
+            await tx.update(facilityPoles).set({ poleOrder: index + 1 }).where(and(eq(facilityPoles.id, poleId), eq(facilityPoles.institutionId, input.institutionId)));
+          }
+        });
+        return { success: true, poleCount: input.poleIds.length };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        if (isMissingSchemaColumnError(error)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Pole ordering becomes available after the institution schema migration is applied." });
+        throw error;
+      }
     }),
 
   getFacilityDepartments: protectedProcedure
@@ -5208,7 +5478,6 @@ export const institutionRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertIersPoleRotaReadAccess(db, ctx.user, input.institutionId, input.poleId);
 
       return db
@@ -5236,7 +5505,6 @@ export const institutionRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertIersDepartmentRotaWriteAccess(db, ctx.user, input.institutionId, input.departmentId);
       await assertDepartmentBelongsToPole(db, input.institutionId, input.departmentId, input.poleId);
       const [orderedDepartments, rotationAnchorDate] = await Promise.all([

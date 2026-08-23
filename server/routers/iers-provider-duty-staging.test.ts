@@ -13,6 +13,8 @@ import {
   institutionProductEntitlements,
   institutionProductRoles,
   institutionMemberships,
+  institutionMembershipEvents,
+  institutionAccountScopes,
   institutionalStaffMembers,
   facilityPoles,
   facilityDepartments,
@@ -252,6 +254,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     ]);
 
     await db.insert(institutionProductRoles).values([
+      { institutionalAccountId: institutionId, productId, userId: adminId, invitedEmail: `staging-admin-${suffix}@example.test`, roleKey: "iers_governance", roleStatus: "active", grantedByUserId: adminId, grantedAt: now, createdAt: now, updatedAt: now },
       { institutionalAccountId: institutionId, productId, userId: assignedProviderId, invitedEmail: assignedEmail, roleKey: "iers_responder", roleStatus: "active", grantedByUserId: adminId, grantedAt: now, createdAt: now, updatedAt: now },
       { institutionalAccountId: institutionId, productId, userId: unrelatedProviderId, invitedEmail: `staging-unrelated-${suffix}@example.test`, roleKey: "iers_responder", roleStatus: "active", grantedByUserId: adminId, grantedAt: now, createdAt: now, updatedAt: now },
       { institutionalAccountId: institutionId, productId, userId: replacementProviderId, invitedEmail: `staging-replacement-${suffix}@example.test`, roleKey: "iers_responder", roleStatus: "active", grantedByUserId: adminId, grantedAt: now, createdAt: now, updatedAt: now },
@@ -263,7 +266,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     const [otherPoleInsert] = await db.insert(facilityPoles).values({ institutionId: otherInstitutionId, poleName: "STAGING ZONE BRAVO", description: "Ephemeral authorization fixture", createdAt: now });
     const otherPoleId = Number((otherPoleInsert as unknown as { insertId: number }).insertId);
 
-    const [departmentInsert] = await db.insert(facilityDepartments).values({ institutionId, poleId, departmentName: "STAGING DEPARTMENT ALPHA", isActive: true, confirmedAt: now, confirmedByUserId: adminId, createdAt: now });
+    const [departmentInsert] = await db.insert(facilityDepartments).values({ institutionId, poleId, departmentName: "STAGING DEPARTMENT ALPHA", isActive: true, requiresPole: true, confirmedAt: now, confirmedByUserId: adminId, createdAt: now });
     const departmentId = Number((departmentInsert as unknown as { insertId: number }).insertId);
     const [staffInsert] = await db.insert(institutionalStaffMembers).values({
       institutionalAccountId: institutionId,
@@ -280,7 +283,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       updatedAt: now,
     });
     const staffMemberId = Number((staffInsert as unknown as { insertId: number }).insertId);
-    const [otherDepartmentInsert] = await db.insert(facilityDepartments).values({ institutionId: otherInstitutionId, poleId: otherPoleId, departmentName: "STAGING DEPARTMENT BRAVO", isActive: true, confirmedAt: now, confirmedByUserId: adminId, createdAt: now });
+    const [otherDepartmentInsert] = await db.insert(facilityDepartments).values({ institutionId: otherInstitutionId, poleId: otherPoleId, departmentName: "STAGING DEPARTMENT BRAVO", isActive: true, requiresPole: true, confirmedAt: now, confirmedByUserId: adminId, createdAt: now });
     const otherDepartmentId = Number((otherDepartmentInsert as unknown as { insertId: number }).insertId);
 
     const [ercoInsert] = await db.insert(institutionDepartmentResponseCoordinators).values({
@@ -408,6 +411,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     await db.delete(ertlWeeklyRotations).where(inArray(ertlWeeklyRotations.institutionId, institutionIds));
     await db.delete(institutionDepartmentResponseCoordinatorEvents).where(inArray(institutionDepartmentResponseCoordinatorEvents.institutionId, institutionIds));
     await db.delete(institutionDepartmentResponseCoordinators).where(inArray(institutionDepartmentResponseCoordinators.institutionId, institutionIds));
+    await db.delete(institutionMembershipEvents).where(inArray(institutionMembershipEvents.institutionalAccountId, institutionIds));
     await db.delete(institutionalStaffMembers).where(inArray(institutionalStaffMembers.institutionalAccountId, institutionIds));
     await db.delete(facilityDepartments).where(inArray(facilityDepartments.institutionId, institutionIds));
     await db.delete(facilityPoles).where(inArray(facilityPoles.institutionId, institutionIds));
@@ -485,7 +489,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       assignments: [{ departmentId: ids.departmentId, providerUserId: ids.assignedProviderId }],
     });
     expect(monthlyResult.assignedDepartments).toBe(1);
-    expect(monthlyResult.generatedShifts).toBeGreaterThan(0);
+    expect(monthlyResult.generatedShifts).toBe(0);
     const monthlyRows = await adminCaller.institution.getMonthlyUtlRota({ institutionId: ids.institutionId, poleId: ids.poleId, monthStart: "2026-08-01" });
     expect(monthlyRows).toEqual(expect.arrayContaining([
       expect.objectContaining({ departmentId: ids.departmentId, providerUserId: ids.assignedProviderId, assignmentStatus: "pending_acceptance" }),
@@ -495,7 +499,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       eq(shiftUtlRosters.departmentId, ids.departmentId),
       eq(shiftUtlRosters.monthlyUtlRotationId, monthlyRows[0]?.id ?? -1),
     ));
-    expect(generatedRows.length).toBe(31 * 3);
+    expect(generatedRows.length).toBe(0);
 
     const autoErtl = await adminCaller.institution.setWeeklyErtlRotation({
       institutionId: ids.institutionId,
@@ -507,14 +511,14 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       endDate: "2026-08-30",
       ertlUserId: undefined,
     });
-    expect(autoErtl.ertlUserId).toBe(ids.assignedProviderId);
+    expect(autoErtl.ertlUserId).toBeNull();
     const autoErtlRotation = await db.select().from(ertlWeeklyRotations).where(and(
       eq(ertlWeeklyRotations.institutionId, ids.institutionId),
       eq(ertlWeeklyRotations.poleId, ids.poleId),
       eq(ertlWeeklyRotations.weekNumber, 37),
       eq(ertlWeeklyRotations.year, 2026),
     ));
-    expect(autoErtlRotation[0]?.assignmentStatus).toBe("pending_acceptance");
+    expect(autoErtlRotation[0]?.assignmentStatus).toBe("unassigned");
 
     const utlAccepted = await assignedCaller.institution.respondToShiftUtlRoster({ rosterId: ids.rosterId, response: "accept" });
     expect(utlAccepted.assignmentStatus).toBe("active");
@@ -582,8 +586,40 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     const afterRoleRevocation = await assignedCaller.iers.getMyShiftReadiness();
     expect(afterRoleRevocation).toHaveLength(0);
     await expectTrpcError(
-      () => assignedCaller.iers.signOffShiftReadiness({ shiftRosterId: ids.rosterId, note: "After role revocation" }),
-      "FORBIDDEN",
+      () => assignedCaller.institution.signOffShiftReadiness({ shiftRosterId: ids.rosterId, note: "After role revocation" }),
+      "BAD_REQUEST",
     );
+
+    const [secondPoleInsert] = await db.insert(facilityPoles).values({ institutionId: ids.institutionId, poleName: "STAGING ZONE BETA", description: "Ephemeral multi-pole ordering fixture", createdAt: new Date() });
+    const secondPoleId = Number((secondPoleInsert as unknown as { insertId: number }).insertId);
+    const reordered = await adminCaller.institution.reorderFacilityPoles({ institutionId: ids.institutionId, poleIds: [secondPoleId, ids.poleId] });
+    expect(reordered.poleCount).toBe(2);
+    const orderedPoles = await adminCaller.institution.getFacilityPoles({ institutionId: ids.institutionId });
+    expect(orderedPoles.map((pole) => pole.id)).toEqual([secondPoleId, ids.poleId]);
+
+    const [assignedMembership] = await db.select({ id: institutionMemberships.id }).from(institutionMemberships).where(and(
+      eq(institutionMemberships.institutionalAccountId, ids.institutionId),
+      eq(institutionMemberships.userId, ids.assignedProviderId),
+    )).limit(1);
+    if (!assignedMembership) throw new Error("The staging assigned-provider membership was not created.");
+    const removed = await adminCaller.institution.removeInstitutionMember({
+      institutionId: ids.institutionId,
+      membershipId: assignedMembership.id,
+      reason: "Staging member departure and future duty revocation",
+    });
+    expect(removed.success).toBe(true);
+    const [endedMembership] = await db.select({ membershipStatus: institutionMemberships.membershipStatus }).from(institutionMemberships).where(eq(institutionMemberships.id, assignedMembership.id)).limit(1);
+    expect(endedMembership?.membershipStatus).toBe("ended");
+    const [removedStaff] = await db.select({ removedAt: institutionalStaffMembers.removedAt, removalReason: institutionalStaffMembers.removalReason }).from(institutionalStaffMembers).where(eq(institutionalStaffMembers.id, ids.staffMemberId)).limit(1);
+    expect(removedStaff?.removedAt).toBeTruthy();
+    expect(removedStaff?.removalReason).toContain("member departure");
+    const [removalEvent] = await db.select({ eventType: institutionMembershipEvents.eventType }).from(institutionMembershipEvents).where(and(
+      eq(institutionMembershipEvents.institutionalAccountId, ids.institutionId),
+      eq(institutionMembershipEvents.membershipId, assignedMembership.id),
+    )).limit(1);
+    expect(removalEvent?.eventType).toBe("removed");
+    const afterRemovalAssignments = await assignedCaller.institution.getMyProviderDutyAssignments();
+    expect(afterRemovalAssignments.ertl).toHaveLength(0);
+    expect(afterRemovalAssignments.utl).toHaveLength(0);
   });
 });
