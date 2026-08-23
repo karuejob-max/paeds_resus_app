@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ export function InstitutionErcoGovernancePanel({ institutionId }: InstitutionErc
   const [backupUserId, setBackupUserId] = useState("none");
   const [effectiveFrom, setEffectiveFrom] = useState(today);
   const [effectiveUntil, setEffectiveUntil] = useState("");
+  const configurationRef = useRef<HTMLDivElement>(null);
 
   const { data: departments, isLoading: departmentsLoading } = trpc.institution.getFacilityDepartments.useQuery(
     { institutionId },
@@ -58,13 +59,21 @@ export function InstitutionErcoGovernancePanel({ institutionId }: InstitutionErc
     if (!selectedDepartment) return [];
     const departmentName = selectedDepartment.departmentName.trim().toLowerCase();
     return activeStaff.filter((staff) =>
-      staff.staffRole === "nurse" && (
+      staff.staffRole === "nurse" && staff.facilityLinkStatus === "linked" && staff.membershipStatus === "active" && (
         staff.facilityDepartmentId === selectedDepartment.id ||
         (staff.facilityDepartmentId == null && staff.department?.trim().toLowerCase() === departmentName)
       )
     );
   }, [activeStaff, selectedDepartment]);
   const selectedAssignment = assignments?.find((assignment) => assignment.departmentId === selectedDepartmentId) ?? null;
+
+  useEffect(() => {
+    if (selectedDepartmentId == null) return;
+    const frame = window.requestAnimationFrame(() => {
+      configurationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedDepartmentId]);
 
   const assignMutation = trpc.institution.assignDepartmentResponseCoordinator.useMutation({
     onSuccess: () => {
@@ -124,7 +133,9 @@ export function InstitutionErcoGovernancePanel({ institutionId }: InstitutionErc
         {!departments?.length ? (
           <p className="py-6 text-center text-sm italic text-muted-foreground">Create at least one department in the ERT roster before assigning an ERCo.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border bg-background">
+          <>
+            <p className="text-xs text-muted-foreground">Select <strong>Configure</strong> on a department to open its governance form below. Only active, linked nurses registered to that canonical department can be selected as ERCo or Assistant ERCo.</p>
+            <div className="overflow-x-auto rounded-lg border bg-background">
             <table className="w-full min-w-[720px] text-sm">
               <thead className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr><th className="p-3">Department</th><th className="p-3">ERCo champion</th><th className="p-3">Appointment status</th><th className="p-3">Assistant ERCo</th><th className="p-3 text-right">Action</th></tr>
@@ -143,23 +154,24 @@ export function InstitutionErcoGovernancePanel({ institutionId }: InstitutionErc
                       <td className="p-3 text-xs text-muted-foreground">
                         {assignment?.backupUserId ? (assignment.backupAcceptedAt ? "Accepted" : assignment.backupDeclinedAt ? "Declined" : "Awaiting response") : "No Assistant ERCo"}
                       </td>
-                      <td className="p-3 text-right"><Button size="sm" variant="outline" onClick={() => chooseDepartment(department.id)}>Configure</Button></td>
+                      <td className="p-3 text-right"><Button type="button" size="sm" variant="outline" aria-label={`Configure ${department.departmentName} ERCo governance`} onClick={() => chooseDepartment(department.id)}>Configure</Button></td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
 
         {selectedDepartment && (
-          <div className="grid gap-4 rounded-lg border bg-background p-4 md:grid-cols-2">
+          <div ref={configurationRef} id="iers-erco-configuration" className="scroll-mt-24 grid gap-4 rounded-lg border bg-background p-4 md:grid-cols-2">
             <div className="md:col-span-2 flex items-center justify-between gap-3">
               <div><p className="font-semibold">Configure {selectedDepartment.departmentName} governance</p><p className="text-xs text-muted-foreground">This sets the department’s standing readiness champion. Saving replaces the current appointment for this department; it does not create a second ERCo row or assign shift coverage.</p></div>
               {selectedAssignment?.assignmentStatus === "active" && <Badge className="gap-1"><CheckCircle2 className="h-3.5 w-3.5" />Governance appointment active</Badge>}
             </div>
-            <label className="space-y-1 text-sm"><span className="font-medium">Emergency Readiness Coordinator (ERCo)</span><Select value={coordinatorUserId} onValueChange={setCoordinatorUserId}><SelectTrigger><SelectValue placeholder="Select department nurse" /></SelectTrigger><SelectContent>{departmentNurseCandidates.map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}><span className="flex items-center gap-2"><UserRound className="h-3.5 w-3.5" />{staff.staffName} ({staff.staffRole})</span></SelectItem>)}</SelectContent></Select>{departmentNurseCandidates.length === 0 && <span className="block text-xs text-amber-700 dark:text-amber-300">No active linked nurse is registered with this department yet.</span>}</label>
-            <label className="space-y-1 text-sm"><span className="font-medium">Assistant ERCo <span className="font-normal text-muted-foreground">(optional)</span></span><Select value={backupUserId} onValueChange={setBackupUserId}><SelectTrigger><SelectValue placeholder="Select assistant nurse" /></SelectTrigger><SelectContent><SelectItem value="none">No Assistant ERCo</SelectItem>{departmentNurseCandidates.filter((staff) => String(staff.userId) !== coordinatorUserId).map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}><span className="flex items-center gap-2"><UsersRound className="h-3.5 w-3.5" />{staff.staffName} ({staff.staffRole})</span></SelectItem>)}</SelectContent></Select></label>
+            <label className="space-y-1 text-sm"><span className="font-medium">Emergency Readiness Coordinator (ERCo)</span><Select value={coordinatorUserId} onValueChange={setCoordinatorUserId}><SelectTrigger aria-label={`Select ERCo for ${selectedDepartment.departmentName}`}><SelectValue placeholder="Select department nurse" /></SelectTrigger><SelectContent>{departmentNurseCandidates.map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}><span className="flex items-center gap-2"><UserRound className="h-3.5 w-3.5" />{staff.staffName} ({staff.staffRole})</span></SelectItem>)}</SelectContent></Select>{departmentNurseCandidates.length === 0 && <span className="block space-y-2 text-xs text-amber-700 dark:text-amber-300"><span className="block">No active linked nurse is registered with this department yet.</span><Button asChild type="button" size="sm" variant="outline" className="mt-1"><a href="/institution?section=administration&adminTab=people_roles">Open People &amp; roles</a></Button></span>}</label>
+            <label className="space-y-1 text-sm"><span className="font-medium">Assistant ERCo <span className="font-normal text-muted-foreground">(optional)</span></span><Select value={backupUserId} onValueChange={setBackupUserId}><SelectTrigger aria-label={`Select assistant ERCo for ${selectedDepartment.departmentName}`}><SelectValue placeholder="Select assistant nurse" /></SelectTrigger><SelectContent><SelectItem value="none">No Assistant ERCo</SelectItem>{departmentNurseCandidates.filter((staff) => String(staff.userId) !== coordinatorUserId).map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}><span className="flex items-center gap-2"><UsersRound className="h-3.5 w-3.5" />{staff.staffName} ({staff.staffRole})</span></SelectItem>)}</SelectContent></Select></label>
             <label className="space-y-1 text-sm"><span className="font-medium">Appointment starts</span><span className="block text-xs font-normal text-muted-foreground">When this governance appointment becomes valid.</span><Input type="date" value={effectiveFrom} onChange={(event) => setEffectiveFrom(event.target.value)} /></label>
             <label className="space-y-1 text-sm"><span className="font-medium">Appointment ends <span className="font-normal text-muted-foreground">(optional)</span></span><span className="block text-xs font-normal text-muted-foreground">Leave blank for an ongoing appointment; use only when formally replaced or ended.</span><Input type="date" value={effectiveUntil} onChange={(event) => setEffectiveUntil(event.target.value)} /></label>
             <div className="md:col-span-2 flex justify-end"><Button onClick={saveAssignment} disabled={assignMutation.isPending}>{assignMutation.isPending ? "Saving…" : "Save governance appointment"}</Button></div>

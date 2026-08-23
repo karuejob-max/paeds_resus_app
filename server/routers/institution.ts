@@ -2026,8 +2026,9 @@ export const institutionRouter = router({
         .from(institutionMemberships)
         .where(eq(institutionMemberships.institutionalAccountId, input.institutionId));
       const membershipByStaffId = new Map(memberships.filter((membership) => membership.staffMemberId != null).map((membership) => [membership.staffMemberId as number, membership]));
+      const membershipByUserId = new Map(memberships.filter((membership) => membership.userId != null).map((membership) => [membership.userId as number, membership]));
       return rows.map((row) => {
-        const membership = membershipByStaffId.get(row.id);
+        const membership = membershipByStaffId.get(row.id) ?? (row.userId != null ? membershipByUserId.get(row.userId) : undefined);
         return {
           ...row,
           department: row.department ? canonicalizeDepartmentLabel(row.department) : row.department,
@@ -5088,7 +5089,7 @@ export const institutionRouter = router({
       if (!validation.valid) throw new TRPCError({ code: "BAD_REQUEST", message: validation.reason });
 
       const [department] = await db
-        .select({ id: facilityDepartments.id })
+        .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
         .from(facilityDepartments)
         .where(and(
           eq(facilityDepartments.id, input.departmentId),
@@ -5098,20 +5099,43 @@ export const institutionRouter = router({
       if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "Department not found in this institution." });
 
       const requestedUserIds = [input.coordinatorUserId, ...(input.backupUserId == null ? [] : [input.backupUserId])];
-      const members = await db
-        .select({ userId: institutionMemberships.userId })
-        .from(institutionMemberships)
-        .where(and(
-          eq(institutionMemberships.institutionalAccountId, input.institutionId),
-          eq(institutionMemberships.membershipStatus, "active"),
-          inArray(institutionMemberships.userId, requestedUserIds),
-        ));
+      const [members, staffRows] = await Promise.all([
+        db
+          .select({ userId: institutionMemberships.userId })
+          .from(institutionMemberships)
+          .where(and(
+            eq(institutionMemberships.institutionalAccountId, input.institutionId),
+            eq(institutionMemberships.membershipStatus, "active"),
+            inArray(institutionMemberships.userId, requestedUserIds),
+          )),
+        db
+          .select({
+            userId: institutionalStaffMembers.userId,
+            staffRole: institutionalStaffMembers.staffRole,
+            department: institutionalStaffMembers.department,
+            facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+            facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+          })
+          .from(institutionalStaffMembers)
+          .where(and(
+            eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+            inArray(institutionalStaffMembers.userId, requestedUserIds),
+            eq(institutionalStaffMembers.staffRole, "nurse"),
+            eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+          )),
+      ]);
       const activeMemberIds = new Set(members.map((member) => member.userId).filter((userId): userId is number => userId != null));
-      if (!activeMemberIds.has(input.coordinatorUserId)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "The ERCo must be an active provider–institution member." });
+      const eligibleNurseIds = new Set(staffRows
+        .filter((staff) => staff.userId != null && activeMemberIds.has(staff.userId) && (
+          staff.facilityDepartmentId === department.id ||
+          (staff.facilityDepartmentId == null && departmentLabelsMatch(staff.department ?? "", department.departmentName))
+        ))
+        .map((staff) => staff.userId as number));
+      if (!eligibleNurseIds.has(input.coordinatorUserId)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The ERCo must be an active linked nurse registered with this canonical department." });
       }
-      if (input.backupUserId != null && !activeMemberIds.has(input.backupUserId)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "The backup provider must be an active provider–institution member." });
+      if (input.backupUserId != null && !eligibleNurseIds.has(input.backupUserId)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The Assistant ERCo must be an active linked nurse registered with this canonical department." });
       }
 
       const [existing] = await db
