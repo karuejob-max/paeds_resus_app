@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, ClipboardCheck, RefreshCw, ShieldAlert } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardCheck, Mail, Phone, PlusCircle, RefreshCw, ShieldAlert, Users } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { DepartmentSelectors } from "@/components/DepartmentSelectors";
@@ -21,12 +21,27 @@ export function InstitutionDepartmentReconciliationPanel({ institutionId }: { in
   const [backfill, setBackfill] = useState<Record<string, boolean>>({});
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [customAcknowledged, setCustomAcknowledged] = useState<Record<string, boolean>>({});
+  const [newDepartmentName, setNewDepartmentName] = useState("");
+  const [newDepartmentCustomAcknowledged, setNewDepartmentCustomAcknowledged] = useState(false);
+  const [newDepartmentReason, setNewDepartmentReason] = useState("");
 
   const dashboardQuery = trpc.institutionDepartmentReconciliation.getDepartmentReconciliationDashboard.useQuery({ institutionId });
+  const otherRegistrationsQuery = trpc.institutionDepartmentReconciliation.getOtherDepartmentRegistrations.useQuery({ institutionId, limit: 100, offset: 0 });
   const mapMutation = trpc.institutionDepartmentReconciliation.mapDepartmentLabel.useMutation({
     onSuccess: (result) => {
       toast.success(result.backfilledCount > 0 ? `Mapped and linked ${result.backfilledCount} CPD record(s).` : "Department label mapped; historical text was preserved.");
       void utils.institutionDepartmentReconciliation.getDepartmentReconciliationDashboard.invalidate({ institutionId });
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const addDepartmentMutation = trpc.institutionDepartmentReconciliation.addCanonicalDepartment.useMutation({
+    onSuccess: (result) => {
+      toast.success(result.created ? `${result.departmentName} added to the canonical department list.` : `${result.departmentName} was reactivated in the canonical department list.`);
+      setNewDepartmentName("");
+      setNewDepartmentCustomAcknowledged(false);
+      setNewDepartmentReason("");
+      void dashboardQuery.refetch();
+      void utils.institution.getFacilityDepartments.invalidate({ institutionId });
     },
     onError: (error) => toast.error(error.message),
   });
@@ -119,6 +134,29 @@ export function InstitutionDepartmentReconciliationPanel({ institutionId }: { in
     });
   };
 
+  const addCanonicalDepartment = () => {
+    const departmentName = newDepartmentName.trim();
+    const reason = newDepartmentReason.trim();
+    if (departmentName.length < 2) {
+      toast.error("Choose a department from the shared catalog or enter a genuine local exception.");
+      return;
+    }
+    if (reason.length < 3) {
+      toast.error("Add a short reason for adding this canonical department.");
+      return;
+    }
+    if (!isPresetDepartment(departmentName) && !newDepartmentCustomAcknowledged) {
+      toast.error("A custom department needs explicit acknowledgement that it is missing from the shared catalog.");
+      return;
+    }
+    addDepartmentMutation.mutate({
+      institutionId,
+      departmentName,
+      customExceptionAcknowledged: newDepartmentCustomAcknowledged,
+      reason,
+    });
+  };
+
   const updateStatus = (row: NonNullable<typeof data>["labels"][number], status: "open" | "deferred" | "dismissed") => {
     const reason = reasons[row.normalizedLabel]?.trim();
     if (!reason || reason.length < 3) {
@@ -147,6 +185,53 @@ export function InstitutionDepartmentReconciliationPanel({ institutionId }: { in
           <div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs text-muted-foreground">Labels needing review or completion</p><p className="mt-1 text-2xl font-semibold">{data?.summary.labelsRequiringReview ?? 0}</p></div>
           <div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs text-muted-foreground">Unlinked CPD rows</p><p className="mt-1 text-2xl font-semibold">{data?.summary.unresolvedAttendanceRows ?? 0}</p></div>
           <div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs text-muted-foreground">Eligible departments without pole</p><p className="mt-1 text-2xl font-semibold">{data?.summary.operationalDepartmentsMissingPole ?? 0}</p></div>
+        </CardContent>
+      </Card>
+
+      <Card className="min-w-0 border-emerald-500/30">
+        <CardHeader>
+          <CardTitle className="flex items-start gap-2 text-base sm:text-lg"><PlusCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />Add a canonical institution department</CardTitle>
+          <CardDescription>Add a missing local department once. It will appear in future CPD registration and staff/profile department selection. New departments start as CPD/reporting-only; IERS pole eligibility is a separate explicit decision below.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <DepartmentSelectors value={newDepartmentName} onChange={setNewDepartmentName} labelSize="xs" />
+          {newDepartmentName.trim() && !isPresetDepartment(newDepartmentName) && (
+            <label className="flex min-w-0 items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={newDepartmentCustomAcknowledged} onChange={(event) => setNewDepartmentCustomAcknowledged(event.target.checked)} className="mt-0.5" />This is a genuine local department missing from the shared CPD/profile catalog, not a spelling variation.</label>
+          )}
+          <Input value={newDepartmentReason} onChange={(event) => setNewDepartmentReason(event.target.value)} placeholder="Why is this department being added?" maxLength={1000} />
+          <Button className="w-full sm:w-auto" onClick={addCanonicalDepartment} disabled={addDepartmentMutation.isPending}><PlusCircle className="mr-2 h-4 w-4" />{addDepartmentMutation.isPending ? "Adding…" : "Add department"}</Button>
+          <p className="text-xs text-muted-foreground">This action does not rewrite historic CPD labels. Use the reconciliation cards below when you want to link those older rows to the new canonical identity.</p>
+        </CardContent>
+      </Card>
+
+      <Card className="min-w-0 border-indigo-500/30">
+        <CardHeader>
+          <CardTitle className="flex items-start gap-2 text-base sm:text-lg"><Users className="mt-0.5 h-5 w-5 shrink-0 text-indigo-700" />Who used Other or an unresolved CPD department?</CardTitle>
+          <CardDescription>This institution-scoped list shows attendee details captured at registration for exact Other submissions and custom labels that still need review. It helps you decide whether to add a department, correct a label, or treat the attendee as locum/external. It does not change the attendance record.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {otherRegistrationsQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading registration details…</p> : otherRegistrationsQuery.isError ? <p className="text-sm text-amber-800 dark:text-amber-200">{otherRegistrationsQuery.error.message}</p> : otherRegistrationsQuery.data?.rows.length === 0 ? <div className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground"><CheckCircle2 className="mx-auto mb-2 h-5 w-5 text-emerald-600" />No currently unlinked CPD registrations were found.</div> : (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">Showing {otherRegistrationsQuery.data?.rows.length ?? 0} of {otherRegistrationsQuery.data?.total ?? 0} Other/custom registration(s).</p>
+              <div className="space-y-2">
+                {otherRegistrationsQuery.data?.rows.map((row) => (
+                  <div key={row.id} className="rounded-lg border bg-background p-3 text-sm">
+                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0"><p className="break-words font-semibold">{row.fullName}</p><p className="mt-1 break-words text-xs text-muted-foreground">Recorded department: <span className="font-medium text-foreground">{row.department}</span></p></div>
+                      <Badge variant={row.mappingStatus === "linked" ? "default" : row.attendanceType === "primary_facility" ? "secondary" : "outline"}>{row.mappingStatus === "linked" ? `Linked: ${row.canonicalDepartmentName}` : row.isOtherSubmission ? "Entered as Other" : "Needs review"}</Badge>
+                    </div>
+                    <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                      <span className="flex min-w-0 items-center gap-1 break-all"><Mail className="h-3.5 w-3.5 shrink-0" />{row.email}</span>
+                      <span className="flex min-w-0 items-center gap-1 break-all"><Phone className="h-3.5 w-3.5 shrink-0" />{row.phone}</span>
+                      <span>Cadre: {row.cadreOther ? `${row.cadre} · ${row.cadreOther}` : row.cadre}</span>
+                      <span>Registered: {formatDate(row.submittedAt)}</span>
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">Session: {row.eventName ?? "Unknown session"}{row.eventDate ? ` · ${row.eventDate}` : ""} · Attendance: {row.attendanceType.replaceAll("_", " ")}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

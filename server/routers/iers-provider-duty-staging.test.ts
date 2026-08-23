@@ -431,6 +431,11 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     expect(initialAssignments.ertl.some((assignment) => assignment.id === ids.rotationId)).toBe(true);
     expect(initialAssignments.utl.some((assignment) => assignment.id === ids.rosterId)).toBe(true);
 
+    const linkedDepartments = await assignedCaller.institution.getMyLinkedFacilityDepartments();
+    expect(linkedDepartments).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: ids.departmentId, departmentName: "STAGING DEPARTMENT ALPHA" }),
+    ]));
+
     const ercoAssignments = await assignedCaller.institution.getMyDepartmentResponseAssignments();
     expect(ercoAssignments.some((assignment) => assignment.id === ids.ercoAssignmentId)).toBe(true);
 
@@ -457,6 +462,18 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     });
     expect(ercoAccepted.assignmentStatus).toBe("active");
 
+    const ercoAuthoredRoster = await assignedCaller.institution.submitShiftUtlRoster({
+      institutionId: ids.institutionId,
+      poleId: ids.poleId,
+      departmentId: ids.departmentId,
+      shiftDate: tomorrow,
+      shiftType: "evening",
+      utlUserId: ids.assignedProviderId,
+      isShiftErtl: false,
+      status: "active",
+    });
+    expect(ercoAuthoredRoster.success).toBe(true);
+
     const canonicalDepartmentOptions = await adminCaller.institution.getErtlDepartmentOptions({ institutionId: ids.institutionId, poleId: ids.poleId });
     expect(canonicalDepartmentOptions).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: ids.departmentId, departmentName: "STAGING DEPARTMENT ALPHA" }),
@@ -465,7 +482,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       institutionId: ids.institutionId,
       poleId: ids.poleId,
       monthStart: "2026-08-01",
-      departmentIds: [ids.departmentId],
+      assignments: [{ departmentId: ids.departmentId, providerUserId: ids.assignedProviderId }],
     });
     expect(monthlyResult.assignedDepartments).toBe(1);
     expect(monthlyResult.generatedShifts).toBeGreaterThan(0);

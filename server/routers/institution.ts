@@ -166,14 +166,75 @@ async function assertIersDepartmentRotaWriteAccess(
   }
 }
 
+async function assertIersInstitutionReadAccess(
+  db: DbClient,
+  user: Pick<typeof users.$inferSelect, "id" | "role" | "email">,
+  institutionId: number,
+) {
+  try {
+    return await assertInstitutionProductRole(db, user, institutionId, "iers", IERS_READ_ROLES);
+  } catch (error) {
+    if (!(error instanceof TRPCError) || error.code !== "FORBIDDEN") throw error;
+    await assertActiveProviderDutyAccess(db, user, institutionId);
+    const [assignment] = await db
+      .select({ id: institutionDepartmentResponseCoordinators.id })
+      .from(institutionDepartmentResponseCoordinators)
+      .where(and(
+        eq(institutionDepartmentResponseCoordinators.institutionId, institutionId),
+        eq(institutionDepartmentResponseCoordinators.coordinatorUserId, user.id),
+        eq(institutionDepartmentResponseCoordinators.assignmentStatus, "active"),
+      ))
+      .limit(1);
+    if (!assignment) throw error;
+    return { roleKey: "accepted_department_erco_read" as const };
+  }
+}
+
+async function assertIersPoleRotaReadAccess(
+  db: DbClient,
+  user: Pick<typeof users.$inferSelect, "id" | "role" | "email">,
+  institutionId: number,
+  poleId: number,
+) {
+  try {
+    return await assertInstitutionProductRole(db, user, institutionId, "iers", IERS_READ_ROLES);
+  } catch (error) {
+    if (!(error instanceof TRPCError) || error.code !== "FORBIDDEN") throw error;
+    await assertActiveProviderDutyAccess(db, user, institutionId);
+    const [assignment] = await db
+      .select({ id: institutionDepartmentResponseCoordinators.id })
+      .from(institutionDepartmentResponseCoordinators)
+      .innerJoin(facilityDepartments, eq(facilityDepartments.id, institutionDepartmentResponseCoordinators.departmentId))
+      .where(and(
+        eq(institutionDepartmentResponseCoordinators.institutionId, institutionId),
+        eq(institutionDepartmentResponseCoordinators.coordinatorUserId, user.id),
+        eq(institutionDepartmentResponseCoordinators.assignmentStatus, "active"),
+        eq(facilityDepartments.poleId, poleId),
+      ))
+      .limit(1);
+    if (!assignment) throw error;
+    return { roleKey: "accepted_department_erco_read" as const };
+  }
+}
+
 async function resolveCanonicalDepartmentProvider(
   db: DbClient,
   institutionId: number,
   departmentId: number,
   preferredUserId?: number | null,
 ) {
+  const [department] = await db
+    .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
+    .from(facilityDepartments)
+    .where(and(
+      eq(facilityDepartments.id, departmentId),
+      eq(facilityDepartments.institutionId, institutionId),
+      eq(facilityDepartments.isActive, true),
+    ))
+    .limit(1);
+  if (!department) return null;
   const rows = await db
-    .select({ userId: institutionalStaffMembers.userId })
+    .select({ userId: institutionalStaffMembers.userId, department: institutionalStaffMembers.department, facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId })
     .from(institutionalStaffMembers)
     .innerJoin(institutionMemberships, and(
       eq(institutionMemberships.institutionalAccountId, institutionId),
@@ -181,13 +242,15 @@ async function resolveCanonicalDepartmentProvider(
     ))
     .where(and(
       eq(institutionalStaffMembers.institutionalAccountId, institutionId),
-      eq(institutionalStaffMembers.facilityDepartmentId, departmentId),
       eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
       eq(institutionMemberships.membershipStatus, "active"),
       isNotNull(institutionalStaffMembers.userId),
     ))
     .orderBy(asc(institutionalStaffMembers.id));
-  const providerIds = rows.map((row) => row.userId).filter((id): id is number => id != null);
+  const providerIds = rows
+    .filter((row) => row.facilityDepartmentId === department.id || departmentLabelsMatch(row.department ?? "", department.departmentName))
+    .map((row) => row.userId)
+    .filter((id): id is number => id != null);
   if (preferredUserId != null) {
     if (!providerIds.includes(preferredUserId)) {
       throw new TRPCError({ code: "BAD_REQUEST", message: "The provider must be an active linked member of this canonical department." });
@@ -1596,6 +1659,218 @@ export const institutionRouter = router({
         ...row,
         department: row.department ? canonicalizeDepartmentLabel(row.department) : row.department,
       }));
+    }),
+
+  getDepartmentNurseCandidates: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), departmentId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertIersDepartmentRotaWriteAccess(db, ctx.user, input.institutionId, input.departmentId);
+      const [department] = await db
+        .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
+        .from(facilityDepartments)
+        .where(and(
+          eq(facilityDepartments.id, input.departmentId),
+          eq(facilityDepartments.institutionId, input.institutionId),
+          eq(facilityDepartments.isActive, true),
+          isNotNull(facilityDepartments.confirmedAt),
+          eq(facilityDepartments.requiresPole, true),
+        ))
+        .limit(1);
+      if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "This department is not an active confirmed IERS-operational department." });
+      const rows = await db
+        .select({
+          id: institutionalStaffMembers.id,
+          userId: institutionalStaffMembers.userId,
+          staffName: institutionalStaffMembers.staffName,
+          staffEmail: institutionalStaffMembers.staffEmail,
+          staffPhone: institutionalStaffMembers.staffPhone,
+          staffRole: institutionalStaffMembers.staffRole,
+          department: institutionalStaffMembers.department,
+          facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+          facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+          membershipStatus: institutionMemberships.membershipStatus,
+        })
+        .from(institutionalStaffMembers)
+        .leftJoin(institutionMemberships, and(
+          eq(institutionMemberships.institutionalAccountId, input.institutionId),
+          eq(institutionMemberships.userId, institutionalStaffMembers.userId),
+        ))
+        .where(and(
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+          eq(institutionalStaffMembers.staffRole, "nurse"),
+          or(
+            eq(institutionalStaffMembers.facilityDepartmentId, department.id),
+            sql`${institutionalStaffMembers.facilityDepartmentId} IS NULL AND LOWER(TRIM(${institutionalStaffMembers.department})) = LOWER(TRIM(${department.departmentName}))`,
+          ),
+        ))
+        .orderBy(asc(institutionalStaffMembers.staffName));
+      const seen = new Set<number>();
+      return rows.filter((row) => {
+        if (seen.has(row.id)) return false;
+        seen.add(row.id);
+        return true;
+      }).map((row) => ({
+        ...row,
+        assignable: row.userId != null && row.membershipStatus === "active" && row.facilityLinkStatus === "linked",
+        needsAccountLink: row.userId == null || row.membershipStatus !== "active",
+      }));
+    }),
+
+  getPoleNurseCandidates: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), poleId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      const departments = await db
+        .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
+        .from(facilityDepartments)
+        .where(and(
+          eq(facilityDepartments.institutionId, input.institutionId),
+          eq(facilityDepartments.poleId, input.poleId),
+          eq(facilityDepartments.isActive, true),
+          isNotNull(facilityDepartments.confirmedAt),
+          eq(facilityDepartments.requiresPole, true),
+        ))
+        .orderBy(asc(facilityDepartments.departmentName));
+      const results: Array<{
+        departmentId: number;
+        departmentName: string;
+        candidates: Array<{
+          id: number;
+          userId: number | null;
+          staffName: string;
+          staffEmail: string;
+          staffPhone: string | null;
+          staffRole: string;
+          department: string | null;
+          facilityDepartmentId: number | null;
+          facilityLinkStatus: string | null;
+          membershipStatus: string | null;
+          assignable: boolean;
+          needsAccountLink: boolean;
+        }>;
+      }> = [];
+      for (const department of departments) {
+        try {
+          await assertIersDepartmentRotaWriteAccess(db, ctx.user, input.institutionId, department.id);
+        } catch (error) {
+          if (error instanceof TRPCError && error.code === "FORBIDDEN") continue;
+          throw error;
+        }
+        const rows = await db
+          .select({
+            id: institutionalStaffMembers.id,
+            userId: institutionalStaffMembers.userId,
+            staffName: institutionalStaffMembers.staffName,
+            staffEmail: institutionalStaffMembers.staffEmail,
+            staffPhone: institutionalStaffMembers.staffPhone,
+            staffRole: institutionalStaffMembers.staffRole,
+            department: institutionalStaffMembers.department,
+            facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+            facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+            membershipStatus: institutionMemberships.membershipStatus,
+          })
+          .from(institutionalStaffMembers)
+          .leftJoin(institutionMemberships, and(
+            eq(institutionMemberships.institutionalAccountId, input.institutionId),
+            eq(institutionMemberships.userId, institutionalStaffMembers.userId),
+          ))
+          .where(and(
+            eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+            eq(institutionalStaffMembers.staffRole, "nurse"),
+            or(
+              eq(institutionalStaffMembers.facilityDepartmentId, department.id),
+              sql`${institutionalStaffMembers.facilityDepartmentId} IS NULL AND LOWER(TRIM(${institutionalStaffMembers.department})) = LOWER(TRIM(${department.departmentName}))`,
+            ),
+          ))
+          .orderBy(asc(institutionalStaffMembers.staffName));
+        const seen = new Set<number>();
+        results.push({
+          departmentId: department.id,
+          departmentName: department.departmentName,
+          candidates: rows.filter((row) => {
+            if (seen.has(row.id)) return false;
+            seen.add(row.id);
+            return true;
+          }).map((row) => ({
+            ...row,
+            assignable: row.userId != null && row.membershipStatus === "active" && row.facilityLinkStatus === "linked",
+            needsAccountLink: row.userId == null || row.membershipStatus !== "active",
+          })),
+        });
+      }
+      return results;
+    }),
+
+  addDepartmentNurseCandidate: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      departmentId: z.number().int().positive(),
+      staffName: z.string().trim().min(2).max(255),
+      staffEmail: z.string().trim().email().max(320),
+      staffPhone: z.string().trim().max(32).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertIersDepartmentRotaWriteAccess(db, ctx.user, input.institutionId, input.departmentId);
+      const [department] = await db
+        .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
+        .from(facilityDepartments)
+        .where(and(
+          eq(facilityDepartments.id, input.departmentId),
+          eq(facilityDepartments.institutionId, input.institutionId),
+          eq(facilityDepartments.isActive, true),
+          isNotNull(facilityDepartments.confirmedAt),
+          eq(facilityDepartments.requiresPole, true),
+        ))
+        .limit(1);
+      if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "This department is not an active confirmed IERS-operational department." });
+      const email = input.staffEmail.toLowerCase();
+      const [existing] = await db
+        .select({ id: institutionalStaffMembers.id })
+        .from(institutionalStaffMembers)
+        .where(and(
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+          eq(institutionalStaffMembers.staffEmail, email),
+        ))
+        .limit(1);
+      let staffId: number;
+      if (existing) {
+        await db.update(institutionalStaffMembers).set({
+          staffName: input.staffName,
+          staffPhone: input.staffPhone || null,
+          staffRole: "nurse",
+          department: department.departmentName,
+          facilityDepartmentId: department.id,
+          facilityLinkStatus: "linked",
+          updatedAt: new Date(),
+        }).where(eq(institutionalStaffMembers.id, existing.id));
+        staffId = existing.id;
+      } else {
+        const [result] = await db.insert(institutionalStaffMembers).values({
+          institutionalAccountId: input.institutionId,
+          staffName: input.staffName,
+          staffEmail: email,
+          staffPhone: input.staffPhone || null,
+          staffRole: "nurse",
+          designation: "other",
+          department: department.departmentName,
+          facilityDepartmentId: department.id,
+          enrollmentStatus: "pending",
+          facilityLinkStatus: "linked",
+        });
+        staffId = Number(result.insertId);
+      }
+      await ensureProviderMembershipForStaff(db, { institutionId: input.institutionId, staffMemberId: staffId, email });
+      const [linked] = await db
+        .select({ userId: institutionalStaffMembers.userId })
+        .from(institutionalStaffMembers)
+        .where(eq(institutionalStaffMembers.id, staffId))
+        .limit(1);
+      return { success: true, staffId, departmentId: department.id, assignable: linked?.userId != null };
     }),
 
   addStaffMember: protectedProcedure
@@ -3745,12 +4020,39 @@ export const institutionRouter = router({
       return { success: true };
     }),
 
+  getMyLinkedFacilityDepartments: protectedProcedure
+    .query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const rows = await db
+        .select({
+          id: facilityDepartments.id,
+          institutionId: facilityDepartments.institutionId,
+          departmentName: facilityDepartments.departmentName,
+        })
+        .from(institutionMemberships)
+        .innerJoin(facilityDepartments, eq(facilityDepartments.institutionId, institutionMemberships.institutionalAccountId))
+        .where(and(
+          eq(institutionMemberships.userId, ctx.user.id),
+          eq(institutionMemberships.membershipStatus, "active"),
+          eq(facilityDepartments.isActive, true),
+          isNotNull(facilityDepartments.confirmedAt),
+        ))
+        .orderBy(asc(facilityDepartments.departmentName));
+      const seen = new Set<number>();
+      return rows.filter((row) => {
+        if (seen.has(row.id)) return false;
+        seen.add(row.id);
+        return true;
+      }).map((row) => ({ ...row, departmentName: canonicalizeDepartmentLabel(row.departmentName) }));
+    }),
+
   getFacilityPoles: protectedProcedure
     .input(z.object({ institutionId: z.number() }))
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
+      await assertIersInstitutionReadAccess(db, ctx.user, input.institutionId);
 
       return db
         .select()
@@ -3783,7 +4085,7 @@ export const institutionRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
+      await assertIersInstitutionReadAccess(db, ctx.user, input.institutionId);
 
       try {
         const rows = await db
@@ -4505,7 +4807,7 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
+      await assertIersPoleRotaReadAccess(db, ctx.user, input.institutionId, input.poleId);
 
       const [rotation] = await db
         .select()
@@ -4546,7 +4848,7 @@ export const institutionRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
+      await assertIersPoleRotaReadAccess(db, ctx.user, input.institutionId, input.poleId);
       const monthStart = normalizeMonthStart(input.monthStart);
       try {
         return await db
@@ -4584,7 +4886,14 @@ export const institutionRouter = router({
       institutionId: z.number(),
       poleId: z.number().int().positive(),
       monthStart: z.string(),
-      departmentIds: z.array(z.number().int().positive()).min(1).max(100),
+      assignments: z.array(z.object({
+        departmentId: z.number().int().positive(),
+        providerUserId: z.number().int().positive().nullable(),
+      })).min(1).max(100).optional(),
+      /** Legacy input retained for older clients; it now prepares unassigned rows rather than selecting a provider implicitly. */
+      departmentIds: z.array(z.number().int().positive()).min(1).max(100).optional(),
+    }).refine((input) => (input.assignments?.length ?? 0) > 0 || (input.departmentIds?.length ?? 0) > 0, {
+      message: "Select at least one department assignment.",
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -4592,10 +4901,15 @@ export const institutionRouter = router({
       const monthStart = normalizeMonthStart(input.monthStart);
       let generatedShifts = 0;
       let assignedDepartments = 0;
-      for (const departmentId of Array.from(new Set(input.departmentIds))) {
+      const requestedAssignments = input.assignments ?? Array.from(new Set(input.departmentIds ?? [])).map((departmentId) => ({ departmentId, providerUserId: null }));
+      const uniqueAssignments = Array.from(new Map(requestedAssignments.map((assignment) => [assignment.departmentId, assignment])).values());
+      for (const assignment of uniqueAssignments) {
+        const departmentId = assignment.departmentId;
         await assertIersDepartmentRotaWriteAccess(db, ctx.user, input.institutionId, departmentId);
         const department = await assertDepartmentBelongsToPole(db, input.institutionId, departmentId, input.poleId);
-        const providerUserId = await resolveCanonicalDepartmentProvider(db, input.institutionId, departmentId);
+        const providerUserId = assignment.providerUserId == null
+          ? null
+          : await resolveCanonicalDepartmentProvider(db, input.institutionId, departmentId, assignment.providerUserId);
         const [existing] = await db.select({ id: monthlyUtlRotations.id, providerUserId: monthlyUtlRotations.providerUserId, assignmentStatus: monthlyUtlRotations.assignmentStatus }).from(monthlyUtlRotations).where(and(
           eq(monthlyUtlRotations.institutionId, input.institutionId),
           eq(monthlyUtlRotations.departmentId, departmentId),
@@ -4753,7 +5067,7 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
+      await assertIersPoleRotaReadAccess(db, ctx.user, input.institutionId, input.poleId);
 
       return db
         .select()
@@ -4781,9 +5095,10 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_OPERATE_ROLES);
+      await assertIersDepartmentRotaWriteAccess(db, ctx.user, input.institutionId, input.departmentId);
       await assertDepartmentBelongsToPole(db, input.institutionId, input.departmentId, input.poleId);
       const canonicalUtlUserId = await resolveCanonicalDepartmentProvider(db, input.institutionId, input.departmentId, input.utlUserId);
+      if (canonicalUtlUserId == null) throw new TRPCError({ code: "BAD_REQUEST", message: "The selected nurse is not an active linked provider for this canonical department. Link the account or choose another nurse." });
       const [member] = await db
         .select({ userId: institutionMemberships.userId })
         .from(institutionMemberships)
@@ -4809,7 +5124,7 @@ export const institutionRouter = router({
 
       if (existing) {
         // Reset readiness sign-off to null if the assigned UTL user changes (clinical safety gate)
-        const shouldResetSignOff = existing.utlUserId !== input.utlUserId;
+        const shouldResetSignOff = existing.utlUserId !== canonicalUtlUserId;
         await db
           .update(shiftUtlRosters)
           .set({

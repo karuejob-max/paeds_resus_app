@@ -66,6 +66,14 @@ interface CpdPanelProps {
   institutionId: number;
 }
 
+type CpdSubTab = "overview" | "sessions" | "staff_development" | "certificates" | "new_session" | "settings";
+
+function getInitialCpdSubTab(): CpdSubTab {
+  if (typeof window === "undefined") return "overview";
+  const value = new URLSearchParams(window.location.search).get("cpdTab");
+  return value === "sessions" || value === "staff_development" || value === "certificates" || value === "new_session" || value === "settings" ? value : "overview";
+}
+
 function AttendeeDepartmentCell({ department, canonicalDepartmentName }: { department: string; canonicalDepartmentName?: string | null }) {
   const canonical = canonicalDepartmentName?.trim() || null;
   const showOriginal = canonical != null && canonical !== department;
@@ -263,7 +271,16 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
   const [staffSearch, setStaffSearch] = useState("");
 
   // Navigation Tabs for new users (avoid vertical scrolling fatigue)
-  const [cpdSubTab, setCpdSubTab] = useState<"overview" | "sessions" | "staff_development" | "certificates" | "new_session" | "settings">("overview");
+  const [cpdSubTab, setCpdSubTabState] = useState<CpdSubTab>(getInitialCpdSubTab);
+  const setCpdSubTab = (tab: CpdSubTab) => {
+    setCpdSubTabState(tab);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("section", "cpd_portal");
+      params.set("cpdTab", tab);
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  };
 
   // Delete event state
   const [deleteTargetEvent, setDeleteTargetEvent] = useState<{ id: number; name: string; isOpen: boolean; attendeeCount: number } | null>(null);
@@ -453,7 +470,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
   );  return (
     <>
       {/* Sub-tab navigation header for new users */}
-      <div className="flex flex-wrap gap-2 border-b pb-4 mb-6">
+      <div className="sticky top-2 z-20 -mx-1 mb-6 flex gap-2 overflow-x-auto border-b bg-background/95 px-1 pb-3 pt-1 shadow-sm backdrop-blur sm:static sm:mx-0 sm:flex-wrap sm:overflow-visible sm:bg-transparent sm:px-0 sm:pt-0 sm:shadow-none">
         <Button
           variant={cpdSubTab === "overview" ? "default" : "outline"}
           onClick={() => setCpdSubTab("overview")}

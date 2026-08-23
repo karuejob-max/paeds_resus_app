@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, inArray, isNull, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, isNotNull, or, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
 import {
   cpdAttendees,
+  cpdEvents,
   facilityDepartments,
   institutionDepartmentAuditEvents,
   institutionDepartmentReconciliations,
@@ -473,6 +474,135 @@ export const institutionDepartmentReconciliation = router({
       } catch (error) {
         return throwIfReconciliationSchemaUnavailable(error);
       }
+    }),
+
+  addCanonicalDepartment: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      departmentName: z.string().trim().min(2).max(128),
+      customExceptionAcknowledged: z.boolean().default(false),
+      reason: z.string().trim().min(3).max(1000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+      const departmentName = canonicalizeDepartmentLabel(input.departmentName);
+      if (!isPresetDepartment(departmentName) && input.customExceptionAcknowledged !== true) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A genuine custom department requires explicit acknowledgement." });
+      }
+      try {
+        const result = await db.transaction(async (tx) => {
+          const existingRows = await tx
+            .select()
+            .from(facilityDepartments)
+            .where(eq(facilityDepartments.institutionId, input.institutionId));
+          const existing = existingRows.find((row) => departmentLabelsMatch(row.departmentName, departmentName));
+          const now = new Date();
+          if (existing) {
+            if (existing.isActive && existing.confirmedAt != null) {
+              throw new TRPCError({ code: "CONFLICT", message: "This department is already in the institution’s confirmed canonical list." });
+            }
+            await tx.update(facilityDepartments).set({
+              departmentName: existing.departmentName,
+              isActive: true,
+              confirmedAt: now,
+              confirmedByUserId: ctx.user.id,
+            }).where(eq(facilityDepartments.id, existing.id));
+            await tx.insert(institutionDepartmentAuditEvents).values({
+              institutionalAccountId: input.institutionId,
+              departmentId: existing.id,
+              eventType: "department_reactivated",
+              previousStatus: existing.isActive ? "unconfirmed" : "inactive",
+              currentStatus: "active_confirmed",
+              previousDepartmentId: existing.id,
+              currentDepartmentId: existing.id,
+              actorUserId: ctx.user.id,
+              reason: input.reason,
+            });
+            return { id: existing.id, departmentName: existing.departmentName, created: false, reactivated: true };
+          }
+          const [inserted] = await tx.insert(facilityDepartments).values({
+            institutionId: input.institutionId,
+            departmentName,
+            poleId: null,
+            isActive: true,
+            requiresPole: false,
+            confirmedAt: now,
+            confirmedByUserId: ctx.user.id,
+          });
+          const departmentId = Number(inserted.insertId);
+          await tx.insert(institutionDepartmentAuditEvents).values({
+            institutionalAccountId: input.institutionId,
+            departmentId,
+            eventType: "department_added",
+            currentStatus: "active_confirmed",
+            currentDepartmentId: departmentId,
+            currentRequiresPole: false,
+            actorUserId: ctx.user.id,
+            reason: input.reason,
+          });
+          return { id: departmentId, departmentName, created: true, reactivated: false };
+        });
+        return { success: true, ...result };
+      } catch (error) {
+        return throwIfReconciliationSchemaUnavailable(error);
+      }
+    }),
+
+  getOtherDepartmentRegistrations: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      limit: z.number().int().min(1).max(250).default(100),
+      offset: z.number().int().min(0).default(0),
+    }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+      const predicates = [
+        eq(cpdAttendees.institutionalAccountId, input.institutionId),
+        or(
+          isNull(cpdAttendees.facilityDepartmentId),
+          eq(cpdAttendees.department, "Other"),
+          eq(cpdAttendees.department, "other"),
+        ),
+      ];
+      const [rows, totalRows] = await Promise.all([
+        db.select({
+          id: cpdAttendees.id,
+          fullName: cpdAttendees.fullName,
+          email: cpdAttendees.email,
+          phone: cpdAttendees.phone,
+          cadre: cpdAttendees.cadre,
+          cadreOther: cpdAttendees.cadreOther,
+          department: cpdAttendees.department,
+          attendanceType: cpdAttendees.attendanceType,
+          submittedAt: cpdAttendees.submittedAt,
+          eventName: cpdEvents.name,
+          eventDate: cpdEvents.eventDate,
+          facilityDepartmentId: cpdAttendees.facilityDepartmentId,
+          canonicalDepartmentName: facilityDepartments.departmentName,
+        })
+          .from(cpdAttendees)
+          .leftJoin(cpdEvents, eq(cpdEvents.id, cpdAttendees.cpdEventId))
+          .leftJoin(facilityDepartments, and(eq(facilityDepartments.id, cpdAttendees.facilityDepartmentId), eq(facilityDepartments.institutionId, input.institutionId)))
+          .where(and(...predicates))
+          .orderBy(desc(cpdAttendees.submittedAt), desc(cpdAttendees.id))
+          .limit(input.limit)
+          .offset(input.offset),
+        db.select({ count: sql<number>`count(*)` })
+          .from(cpdAttendees)
+          .where(and(...predicates)),
+      ]);
+      return {
+        rows: rows.map((row) => ({
+          ...row,
+          isOtherSubmission: row.department.trim().toLowerCase() === "other",
+          mappingStatus: row.facilityDepartmentId != null && row.canonicalDepartmentName ? "linked" as const : "needs_review" as const,
+        })),
+        total: Number(totalRows[0]?.count ?? 0),
+        limit: input.limit,
+        offset: input.offset,
+      };
     }),
 
   getIersMissingPoleAlerts: protectedProcedure
