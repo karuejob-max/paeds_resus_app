@@ -339,6 +339,11 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
     onError: (err) => toast.error(err.message || "Could not add the nurse candidate."),
   });
 
+  useEffect(() => {
+    if (!monthlyRota) return;
+    setMonthlyProviderSelections(Object.fromEntries(monthlyRota.map((rotation) => [rotation.departmentId, rotation.providerUserId == null ? "none" : String(rotation.providerUserId)])));
+  }, [monthlyRota]);
+
   if (polesLoading) {
     return <div className="p-6 text-center text-muted-foreground">Loading ERT Roster Matrix...</div>;
   }
@@ -351,11 +356,6 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const providersForDepartment = (departmentId: number) => candidatesForDepartment(departmentId).filter((candidate) => candidate.assignable);
   const pendingLinkCandidatesForDepartment = (departmentId: number) => candidatesForDepartment(departmentId).filter((candidate) => candidate.needsAccountLink);
   const ertlDepartmentProviders = ertlDepartmentId == null ? [] : providersForDepartment(ertlDepartmentId);
-
-  useEffect(() => {
-    if (!monthlyRota) return;
-    setMonthlyProviderSelections(Object.fromEntries(monthlyRota.map((rotation) => [rotation.departmentId, rotation.providerUserId == null ? "none" : String(rotation.providerUserId)])));
-  }, [monthlyRota]);
 
   const saveMonthlyPlan = () => {
     if (!activePoleId || rotaDepartments.length === 0) return;
