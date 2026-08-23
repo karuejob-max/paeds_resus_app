@@ -5,6 +5,7 @@ import { firstAvailableName, REQUIRED_COLUMNS, REQUIRED_TABLES } from "./verify-
 test("IERS verifier accepts the deployed mixed table naming contract", () => {
   const deployedTables = new Set([
     "institutionMemberships",
+    "institution_membership_events",
     "iersActivationEvents",
     "iersActivationResponders",
     "iersActivationTimeline",
@@ -113,6 +114,10 @@ test("IERS verifier accepts camelCase columns for the first two migration groups
     "patientIdentifiersAllowed",
     "providerLinkageAllowed",
     "institution_id",
+    "pole_order",
+    "removedAt",
+    "removedByUserId",
+    "removalReason",
     "pole_id",
     "department_id",
     "is_active",

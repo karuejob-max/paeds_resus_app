@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Shield, Clock, AlertCircle, Plus, Star, Calendar, UserPlus } from "lucide-react";
+import { Users, Shield, Clock, AlertCircle, Plus, Star, Calendar, UserPlus, ArrowDown, ArrowUp } from "lucide-react";
 import { toast } from "sonner";
 import { ErtBillboardWidget } from "./ErtBillboardWidget";
 
@@ -162,6 +162,13 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
       setSelectedPoleId(result.poleId);
     },
     onError: (err) => toast.error(err.message || "Failed to create pole"),
+  });
+  const reorderPolesMutation = trpc.institution.reorderFacilityPoles.useMutation({
+    onSuccess: async () => {
+      toast.success("Pole order updated");
+      await utils.institution.getFacilityPoles.invalidate({ institutionId });
+    },
+    onError: (err) => toast.error(err.message || "Could not update pole order"),
   });
 
   const setErtlMutation = trpc.institution.setWeeklyErtlRotation.useMutation({
@@ -332,17 +339,22 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
             {poleList.length === 0 && !showNewPoleForm && (
               <span className="text-xs text-muted-foreground italic mr-2">No poles set up yet.</span>
             )}
-            {poleList.map((pole) => (
-              <Button
-                key={pole.id}
-                variant={activePoleId === pole.id ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedPoleId(pole.id)}
-                className="gap-2"
-              >
-                <Shield className="w-3.5 h-3.5" />
-                {pole.poleName}
-              </Button>
+            {poleList.map((pole, index) => (
+              <div key={pole.id} className="flex min-w-0 items-center gap-1 rounded-md border bg-background p-1">
+                <Button
+                  variant={activePoleId === pole.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedPoleId(pole.id)}
+                  className="min-w-0 gap-2"
+                >
+                  <Shield className="w-3.5 h-3.5 shrink-0" />
+                  <span className="max-w-[9rem] truncate">{index + 1}. {pole.poleName}</span>
+                </Button>
+                <div className="flex shrink-0">
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`Move ${pole.poleName} up`} disabled={index === 0 || reorderPolesMutation.isPending} onClick={() => { const poleIds = poleList.map((item) => item.id); [poleIds[index - 1], poleIds[index]] = [poleIds[index], poleIds[index - 1]]; reorderPolesMutation.mutate({ institutionId, poleIds }); }}><ArrowUp className="h-3.5 w-3.5" /></Button>
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`Move ${pole.poleName} down`} disabled={index === poleList.length - 1 || reorderPolesMutation.isPending} onClick={() => { const poleIds = poleList.map((item) => item.id); [poleIds[index], poleIds[index + 1]] = [poleIds[index + 1], poleIds[index]]; reorderPolesMutation.mutate({ institutionId, poleIds }); }}><ArrowDown className="h-3.5 w-3.5" /></Button>
+                </div>
+              </div>
             ))}
             {showNewPoleForm ? (
               <div className="flex items-center gap-2">
@@ -372,6 +384,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
               </Button>
             )}
           </div>
+          {poleList.length > 0 && <p className="text-xs text-muted-foreground">Step 2 is ordered for your facility. New poles are added at the end. The order is for navigation; weekly ERTL rotation still cycles through eligible departments within each selected pole.</p>}
 
           {/* ERTL Rotation Rule Notice + this week's assignment */}
           <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">

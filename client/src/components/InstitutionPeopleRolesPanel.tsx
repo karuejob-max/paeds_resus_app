@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { CalendarClock, KeyRound, Loader2, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
+import { CalendarClock, KeyRound, Loader2, RefreshCw, Search, ShieldCheck, UserMinus, Users } from "lucide-react";
 
 const GOVERNANCE_ROLES = [
   ["general_staff", "General staff"],
@@ -31,6 +31,10 @@ type StaffRow = {
   governanceRole?: GovernanceRole | null;
   facilityLinkStatus?: string | null;
   userId?: number | null;
+  membershipId?: number | null;
+  membershipStatus?: "invited" | "active" | "suspended" | "ended" | null;
+  removedAt?: string | Date | null;
+  removalReason?: string | null;
 };
 
 function roleLabel(role: string | null | undefined): string {
@@ -59,6 +63,8 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
   const [roleKey, setRoleKey] = useState("");
   const [accountScopeStaffEmail, setAccountScopeStaffEmail] = useState("");
   const [accountScopeKey, setAccountScopeKey] = useState("");
+  const [removalTarget, setRemovalTarget] = useState<StaffRow | null>(null);
+  const [removalReason, setRemovalReason] = useState("");
   const { data, isLoading, isFetching, refetch } = trpc.institution.getStaffMembers.useQuery({ institutionId });
   const { data: productRoles, isLoading: productRolesLoading, refetch: refetchProductRoles } = trpc.institutionProducts.listProductRoles.useQuery({ institutionId });
   const { data: roleDefinitions } = trpc.institutionProducts.getRoleDefinitions.useQuery({ productKey: roleProduct });
@@ -106,6 +112,18 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
     },
     onError: (error) => toast.error(error.message || "Could not update institution scope status"),
   });
+  const removeMember = trpc.institution.removeInstitutionMember.useMutation({
+    onSuccess: async () => {
+      toast.success("Person removed from this institution");
+      setRemovalTarget(null);
+      setRemovalReason("");
+      await Promise.all([
+        utils.institution.getStaffMembers.invalidate({ institutionId }),
+        utils.institution.getInstitutionIersDutyAssignments.invalidate({ institutionId }),
+      ]);
+    },
+    onError: (error) => toast.error(error.message || "Could not remove this person"),
+  });
 
   const staff = (data ?? []) as StaffRow[];
   const selectedRoleStaff = staff.find((member) => member.staffEmail.toLowerCase() === roleStaffEmail.toLowerCase());
@@ -139,6 +157,22 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder="Search name, email, department, or role" value={search} onChange={(event) => setSearch(event.target.value)} />
         </div>
+        {removalTarget && (
+          <div className="space-y-3 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/30">
+            <div className="flex items-start gap-2">
+              <UserMinus className="mt-0.5 h-4 w-4 shrink-0 text-red-700 dark:text-red-300" />
+              <div className="min-w-0">
+                <p className="font-medium text-red-900 dark:text-red-100">Remove {removalTarget.staffName} from this institution?</p>
+                <p className="text-xs text-red-800 dark:text-red-200">This ends institutional access and future duties. It does not delete the person’s platform account, CPD history, or accepted historical IERS evidence.</p>
+              </div>
+            </div>
+            <Input placeholder="Required reason (at least 10 characters)" value={removalReason} onChange={(event) => setRemovalReason(event.target.value)} />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button type="button" variant="destructive" className="w-full sm:w-auto" disabled={!removalTarget.membershipId || removalReason.trim().length < 10 || removeMember.isPending} onClick={() => removalTarget.membershipId && removeMember.mutate({ institutionId, membershipId: removalTarget.membershipId, reason: removalReason.trim() })}>{removeMember.isPending ? "Removing…" : "Confirm removal"}</Button>
+              <Button type="button" variant="outline" className="w-full sm:w-auto" disabled={removeMember.isPending} onClick={() => { setRemovalTarget(null); setRemovalReason(""); }}>Cancel</Button>
+            </div>
+          </div>
+        )}
         {isLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Loading institutional roster…</div>
         ) : filtered.length === 0 ? (
@@ -153,11 +187,13 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
                   <TableHead>Department</TableHead>
                   <TableHead>IERS responsibility</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Institution access</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((member) => {
                   const currentRole = (member.governanceRole ?? "general_staff") as GovernanceRole;
+                  const isRemoved = member.removedAt != null || member.membershipStatus === "ended";
                   return (
                     <TableRow key={member.id}>
                       <TableCell>
@@ -172,7 +208,10 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
                           <SelectContent>{GOVERNANCE_ROLES.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell><Badge variant={member.facilityLinkStatus === "linked" ? "default" : "secondary"}>{member.facilityLinkStatus === "linked" ? "Linked" : member.facilityLinkStatus ?? "Roster only"}</Badge></TableCell>
+                      <TableCell><Badge variant={isRemoved ? "destructive" : member.facilityLinkStatus === "linked" ? "default" : "secondary"}>{isRemoved ? "Removed" : member.facilityLinkStatus === "linked" ? "Linked" : member.facilityLinkStatus ?? "Roster only"}</Badge></TableCell>
+                      <TableCell>
+                        {isRemoved ? <span className="text-xs text-muted-foreground">Access ended</span> : member.membershipId ? <Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); }} disabled={removeMember.isPending}><UserMinus className="mr-2 h-4 w-4" />Remove</Button> : <span className="text-xs text-muted-foreground">No membership</span>}
+                      </TableCell>
                     </TableRow>
                   );
                 })}

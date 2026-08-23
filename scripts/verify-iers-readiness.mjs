@@ -38,6 +38,7 @@ async function resolveTable(conn, dbName, names) {
 
 export const REQUIRED_TABLES = [
   { key: "memberships", label: "provider memberships", names: ["institutionMemberships", "institution_memberships"] },
+  { key: "membershipEvents", label: "institution membership audit history", names: ["institution_membership_events"] },
   { key: "activationEvents", label: "activation events", names: ["iersActivationEvents", "iers_activation_events"] },
   { key: "activationResponders", label: "activation responders", names: ["iersActivationResponders", "iers_activation_responders"] },
   { key: "activationTimeline", label: "activation timeline", names: ["iersActivationTimeline", "iers_activation_timeline"] },
@@ -143,6 +144,13 @@ export const REQUIRED_COLUMNS = [
   { tableKey: "safeTruthPolicies", label: "Safe Truth patient identifier policy", names: ["patientIdentifiersAllowed", "patient_identifiers_allowed"] },
   { tableKey: "safeTruthPolicies", label: "Safe Truth provider linkage policy", names: ["providerLinkageAllowed", "provider_linkage_allowed"] },
   { tableKey: "facilityPoles", label: "facility pole institution", names: ["institution_id", "institutionId"] },
+  { tableKey: "facilityPoles", label: "facility pole display order", names: ["pole_order", "poleOrder"] },
+  { tableKey: "institutionalStaffMembers", label: "staff removal timestamp", names: ["removedAt", "removed_at"] },
+  { tableKey: "institutionalStaffMembers", label: "staff removal actor", names: ["removedByUserId", "removed_by_user_id"] },
+  { tableKey: "institutionalStaffMembers", label: "staff removal reason", names: ["removalReason", "removal_reason"] },
+  { tableKey: "membershipEvents", label: "membership audit event type", names: ["event_type", "eventType"] },
+  { tableKey: "membershipEvents", label: "membership audit actor", names: ["actor_user_id", "actorUserId"] },
+  { tableKey: "membershipEvents", label: "membership audit reason", names: ["reason"] },
   { tableKey: "facilityDepartments", label: "facility department pole", names: ["pole_id", "poleId"] },
   { tableKey: "facilityDepartments", label: "facility department active state", names: ["is_active", "isActive"] },
   { tableKey: "facilityDepartments", label: "facility department confirmation timestamp", names: ["confirmed_at", "confirmedAt"] },
