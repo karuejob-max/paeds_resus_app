@@ -4539,10 +4539,32 @@ export const facilityPoles = mysqlTable("facility_poles", {
   institutionId: int("institution_id").notNull(),
   poleName: varchar("pole_name", { length: 128 }).notNull(),
   description: text("description"),
+  /** Monday anchor for deterministic weekly ERTL rotation within this pole. */
+  rotationAnchorDate: date("rotation_anchor_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 export type FacilityPole = typeof facilityPoles.$inferSelect;
 export type InsertFacilityPole = typeof facilityPoles.$inferInsert;
+
+/** One durable administrator decision for a literal CPD `Other` attendance row. */
+export const institutionCpdDepartmentResolutions = mysqlTable("institution_cpd_department_resolutions", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutional_account_id").notNull(),
+  cpdAttendeeId: int("cpd_attendee_id").notNull(),
+  recordedDepartment: varchar("recorded_department", { length: 256 }).notNull(),
+  facilityDepartmentId: int("facility_department_id"),
+  status: mysqlEnum("status", ["resolved", "deferred", "dismissed", "open"]).default("open").notNull(),
+  resolvedByUserId: int("resolved_by_user_id"),
+  resolvedAt: timestamp("resolved_at"),
+  decisionReason: text("decision_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  attendeeUnique: uniqueIndex("inst_cpd_dept_resolution_attendee_uq").on(table.institutionalAccountId, table.cpdAttendeeId),
+  institutionStatusIndex: index("inst_cpd_dept_resolution_inst_status_idx").on(table.institutionalAccountId, table.status),
+}));
+export type InstitutionCpdDepartmentResolution = typeof institutionCpdDepartmentResolutions.$inferSelect;
+export type InsertInstitutionCpdDepartmentResolution = typeof institutionCpdDepartmentResolutions.$inferInsert;
 
 // 2. Department Mapping to Poles
 export const facilityDepartments = mysqlTable("facility_departments", {
@@ -4553,6 +4575,8 @@ export const facilityDepartments = mysqlTable("facility_departments", {
   isActive: boolean("is_active").default(true).notNull(),
   /** Explicit account-admin decision: only these confirmed active departments require an IERS pole. */
   requiresPole: boolean("requires_pole").default(false).notNull(),
+  /** Stable 1-based order within the current pole; used for automatic weekly ERTL rotation. */
+  poleSequence: int("pole_sequence"),
   confirmedAt: timestamp("confirmed_at"),
   confirmedByUserId: int("confirmed_by_user_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -14,7 +14,7 @@ const GOVERNANCE_ROLES = [
   ["executive", "Hospital executive"],
   ["erc_chair", "ERC chair"],
   ["erc_member", "ERC member"],
-  ["er_coordinator", "Emergency Response Coordinator (ERCo)"],
+  ["er_coordinator", "Emergency Readiness Coordinator (ERCo)"],
   ["unit_team_leader", "Unit Team Leader (UTL)"],
   ["ert_leader", "ERT Team Leader (ERTL)"],
   ["ert_responder", "ERT responder"],
@@ -189,7 +189,7 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
           <div>
             <CardTitle className="flex items-center gap-2"><CalendarClock className="h-5 w-5" />IERS duty assignments</CardTitle>
-            <CardDescription>Read-only operational visibility for ERCo, backup ERCo, ERTL, and UTL duties. Assignment status and acceptance are shown separately; providers must accept their own dated duty in the Individual portal.</CardDescription>
+            <CardDescription>Read-only visibility for ERCo governance appointments, optional Assistant ERCo coverage, ERTL duties, and UTL duties. An ERCo appointment is not a day-to-day response shift; providers must accept their own dated UTL or ERTL duty in the Individual portal.</CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={() => void refetchIersDuties()} disabled={iersDutiesFetching}>
             <RefreshCw className={`mr-2 h-4 w-4 ${iersDutiesFetching ? "animate-spin" : ""}`} />Refresh duties
@@ -226,15 +226,15 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
                   <div className="mt-3 grid min-w-0 gap-2 text-xs text-muted-foreground sm:grid-cols-2">
                     <span className="break-words"><strong className="text-foreground">Department:</strong> {duty.departmentName ?? "Not assigned"}</span>
                     <span className="break-words"><strong className="text-foreground">Pole:</strong> {duty.poleName ?? "Not assigned"}</span>
-                    <span><strong className="text-foreground">From:</strong> {formatDutyDate(duty.effectiveFrom)}</span>
-                    <span><strong className="text-foreground">Until:</strong> {formatDutyDate(duty.effectiveUntil)}</span>
+                      <span><strong className="text-foreground">Appointment/duty starts:</strong> {formatDutyDate(duty.effectiveFrom)}</span>
+                    <span><strong className="text-foreground">Appointment/duty ends:</strong> {formatDutyDate(duty.effectiveUntil)}</span>
                     {weekLabel && <span><strong className="text-foreground">Rotation:</strong> {weekLabel}</span>}
                     {shiftType && <span><strong className="text-foreground">Shift:</strong> {shiftType}</span>}
                     <span><strong className="text-foreground">Accepted:</strong> {formatDutyDate(duty.acceptedAt)}</span>
                     {readinessSignOffAt && <span><strong className="text-foreground">Readiness:</strong> {formatDutyDate(readinessSignOffAt)}</span>}
                   </div>
                   {duty.declineReason && <p className="mt-3 break-words rounded border border-red-200 bg-red-50 p-2 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"><strong>Decline reason:</strong> {duty.declineReason}</p>}
-                  <p className="mt-3 text-xs text-muted-foreground">This view is operational oversight only. A role, roster row, or assignment does not prove provider acceptance, competency, or emergency dispatch.</p>
+                  <p className="mt-3 text-xs text-muted-foreground">This view is oversight only. An ERCo role is governance; a UTL or ERTL row is a separate dated duty. A role, roster row, or assignment does not prove provider acceptance, competency, or emergency dispatch.</p>
                 </div>
               );
             })}

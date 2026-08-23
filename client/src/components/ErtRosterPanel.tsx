@@ -215,7 +215,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   }
 
   const poleList = poles ?? [];
-  const poleDepartments = departments?.filter((d) => d.poleId === activePoleId && d.isActive && d.confirmedAt != null && d.requiresPole) ?? [];
+  const poleDepartments = [...(departments?.filter((d) => d.poleId === activePoleId && d.isActive && d.confirmedAt != null && d.requiresPole) ?? [])].sort((a, b) => (a.poleSequence ?? Number.MAX_SAFE_INTEGER) - (b.poleSequence ?? Number.MAX_SAFE_INTEGER) || a.departmentName.localeCompare(b.departmentName));
   const rotaDepartments = poleDepartments.filter((department) => nurseCandidateGroups?.some((group) => group.departmentId === department.id) ?? false);
   const ertlDepartmentId = weeklyRotation?.departmentId ?? null;
   const ertlDepartmentProviders = staffMembers?.filter((staff) => staff.userId != null && staff.facilityDepartmentId === ertlDepartmentId) ?? [];
@@ -381,38 +381,13 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                 Weekly ERTL Rotation — week {weekNumber}, {year} ({weekStart} to {weekEnd})
               </p>
               <p className="text-xs text-amber-700 dark:text-amber-400">
-                Within each Pole, departments take weekly turns producing the ERT Team Leader (ERTL). The on-duty UTL from the designated department automatically acts as the Scene Commander for this shift.
+                Within each pole, departments take weekly turns producing the ERT Team Leader (ERTL). The department is selected from the persisted pole order; the named ERTL provider and on-duty UTL remain separate dated duties and require explicit selection and acceptance.
               </p>
               {activePoleId && poleDepartments.length > 0 && (
                 <div className="grid gap-2 pt-1 sm:flex sm:flex-wrap sm:items-center">
                   <span className="text-xs font-medium text-amber-800 dark:text-amber-300">This week's ERTL department:</span>
-                  <Select
-                    value={ertlDepartmentId ? String(ertlDepartmentId) : undefined}
-                    onValueChange={(deptId) =>
-                      setErtlMutation.mutate({
-                        institutionId,
-                        poleId: activePoleId,
-                        departmentId: parseInt(deptId),
-                        weekNumber,
-                        year,
-                        startDate: weekStart,
-                        endDate: weekEnd,
-                        // Omit the provider on department change so the server auto-resolves the first linked provider in that canonical department.
-                        ertlUserId: undefined,
-                      })
-                    }
-                  >
-                    <SelectTrigger className="w-full min-w-0 h-8 text-xs bg-white dark:bg-background sm:w-[220px]">
-                      <SelectValue placeholder="Not set yet — choose one" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {poleDepartments.map((d) => (
-                        <SelectItem key={d.id} value={String(d.id)}>
-                          {d.departmentName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Badge variant="outline" className="w-fit whitespace-normal">{poleDepartments.find((department) => department.id === ertlDepartmentId)?.departmentName ?? "Calculating from pole order…"}</Badge>
+                  <span className="text-xs text-amber-700 dark:text-amber-400">Selected automatically: first department added to this pole, then the next department each week. The rotation determines the department, not the provider.</span>
                   <Select
                     value={weeklyRotation?.ertlUserId ? String(weeklyRotation.ertlUserId) : "none"}
                     onValueChange={(providerId) => ertlDepartmentId && setErtlMutation.mutate({
@@ -472,7 +447,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                   const activeStaff = staffMembers?.filter((staff) => staff.userId != null) ?? [];
                   return <div key={department.id} className="rounded-md border bg-background/70 p-3">
                     <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><span className="break-words text-sm font-medium">{department.departmentName}</span><Badge variant={ercoAssignment?.assignmentStatus === "active" ? "default" : "secondary"}>{ercoAssignment?.assignmentStatus === "active" ? "ERCo active" : ercoAssignment?.assignmentStatus === "pending_acceptance" ? "ERCo acceptance pending" : "ERCo not assigned"}</Badge></div>
-                    {!ercoAssignment || ercoAssignment.assignmentStatus === "declined" || ercoAssignment.assignmentStatus === "ended" ? <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center"><Select value={ercoSelections[department.id] ?? ""} onValueChange={(value) => setErcoSelections((current) => ({ ...current, [department.id]: value }))}><SelectTrigger className="w-full sm:w-72"><SelectValue placeholder="Assign ERCo now" /></SelectTrigger><SelectContent>{activeStaff.map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}>{staff.staffName} ({staff.staffRole})</SelectItem>)}</SelectContent></Select><Button size="sm" className="w-full sm:w-auto" onClick={() => saveErco(department.id)} disabled={assignErcoMutation.isPending}>Assign ERCo</Button></div> : <p className="mt-2 text-xs text-muted-foreground">ERCo responsibility is dated and provider-accepted. Use ERCo governance to add a backup or review history.</p>}
+                    {!ercoAssignment || ercoAssignment.assignmentStatus === "declined" || ercoAssignment.assignmentStatus === "ended" ? <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center"><Select value={ercoSelections[department.id] ?? ""} onValueChange={(value) => setErcoSelections((current) => ({ ...current, [department.id]: value }))}><SelectTrigger className="w-full sm:w-72"><SelectValue placeholder="Assign ERCo now" /></SelectTrigger><SelectContent>{activeStaff.map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}>{staff.staffName} ({staff.staffRole})</SelectItem>)}</SelectContent></Select><Button size="sm" className="w-full sm:w-auto" onClick={() => saveErco(department.id)} disabled={assignErcoMutation.isPending}>Assign ERCo</Button></div> : <p className="mt-2 text-xs text-muted-foreground">ERCo is a governance appointment, not shift coverage. Use ERCo governance to add an optional Assistant ERCo or review appointment history.</p>}
                     {canWrite ? <div className="mt-3"><p className="mb-1 text-xs font-medium text-muted-foreground">Monthly nurse source (optional)</p><Select value={monthlyProviderSelections[department.id] ?? "none"} onValueChange={(value) => setMonthlyProviderSelections((current) => ({ ...current, [department.id]: value }))}><SelectTrigger className="w-full sm:w-72"><SelectValue placeholder="Leave unassigned" /></SelectTrigger><SelectContent><SelectItem value="none">Leave unassigned for now</SelectItem>{candidates.map((candidate) => <SelectItem key={candidate.userId} value={String(candidate.userId)}>{candidate.staffName}</SelectItem>)}</SelectContent></Select></div> : <Badge className="mt-3" variant="secondary">Accepted ERCo/lead access required to staff this department</Badge>}
                     {pendingLinks.length > 0 && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">{pendingLinks.length} nurse candidate(s) need an account link before they can accept a dated UTL duty.</p>}
                     {canWrite && renderManualNurseForm(department.id)}

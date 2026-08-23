@@ -50,6 +50,7 @@
     "db:apply-0112": "node scripts/apply-0112-roster-assignment-acceptance.mjs",
     "db:apply-0113": "node scripts/apply-0113-canonical-department-links.mjs",
     "db:apply-0114": "node scripts/apply-0114-department-rota-automation.mjs",
+    "db:apply-0116": "node scripts/apply-0116-department-governance-v2.mjs",
     "db:fresh-migrate": "node scripts/db-snapshot-and-fresh-migrate.mjs",
     "db:test-connection": "node scripts/test-db-connection.mjs",
     "verify:fpkb-app-layer": "tsx -r dotenv/config scripts/verify-fpkb-app-layer.mjs",

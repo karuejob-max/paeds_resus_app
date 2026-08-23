@@ -7,6 +7,7 @@ import {
   cpdAttendees,
   cpdEvents,
   facilityDepartments,
+  institutionCpdDepartmentResolutions,
   institutionDepartmentAuditEvents,
   institutionDepartmentReconciliations,
   institutionalAccounts,
@@ -45,6 +46,7 @@ type FixtureIds = {
   operationalDepartmentId: number;
   attendeeId: number;
   pharmacyAttendeeId: number;
+  otherAttendeeIds: number[];
 };
 
 function createContext(user: { id: number; email: string; name: string }): TrpcContext {
@@ -290,8 +292,29 @@ describeStaging("real tRPC department reconciliation and pole eligibility matrix
       submittedAt: now,
     });
     const pharmacyAttendeeId = insertedId(pharmacyAttendeeInsert);
+    const [otherOneInsert] = await db.insert(cpdAttendees).values({
+      cpdEventId,
+      institutionalAccountId: alphaInstitutionId,
+      fullName: "Staging Other Emergency Attendee",
+      email: "other-emergency-staging@example.test",
+      phone: "+254700000105",
+      cadre: "nurse",
+      department: " Other ",
+      submittedAt: now,
+    });
+    const [otherTwoInsert] = await db.insert(cpdAttendees).values({
+      cpdEventId,
+      institutionalAccountId: alphaInstitutionId,
+      fullName: "Staging Other Pharmacy Attendee",
+      email: "other-pharmacy-staging@example.test",
+      phone: "+254700000106",
+      cadre: "pharmacist",
+      department: "Other",
+      submittedAt: new Date(now.getTime() - 60_000),
+    });
+    const otherAttendeeIds = [insertedId(otherOneInsert), insertedId(otherTwoInsert)];
 
-    ids = { alphaInstitutionId, bravoInstitutionId, adminId, leadId, ordinaryUserId, productId, subscriptionId, targetDepartmentId, pharmacyDepartmentId, operationalDepartmentId, attendeeId, pharmacyAttendeeId };
+    ids = { alphaInstitutionId, bravoInstitutionId, adminId, leadId, ordinaryUserId, productId, subscriptionId, targetDepartmentId, pharmacyDepartmentId, operationalDepartmentId, attendeeId, pharmacyAttendeeId, otherAttendeeIds };
     adminCaller = appRouter.createCaller(createContext({ id: adminId, email: adminEmail, name: "Department Reconciliation Admin" }));
     leadCaller = appRouter.createCaller(createContext({ id: leadId, email: leadEmail, name: "IERS Lead" }));
     ordinaryCaller = appRouter.createCaller(createContext({ id: ordinaryUserId, email: ordinaryEmail, name: "Unrelated Provider" }));
@@ -300,6 +323,7 @@ describeStaging("real tRPC department reconciliation and pole eligibility matrix
   afterAll(async () => {
     if (!db || !ids) return;
     await db.delete(institutionDepartmentAuditEvents).where(inArray(institutionDepartmentAuditEvents.institutionalAccountId, [ids.alphaInstitutionId, ids.bravoInstitutionId]));
+    await db.delete(institutionCpdDepartmentResolutions).where(inArray(institutionCpdDepartmentResolutions.institutionalAccountId, [ids.alphaInstitutionId, ids.bravoInstitutionId]));
     await db.delete(institutionDepartmentReconciliations).where(inArray(institutionDepartmentReconciliations.institutionalAccountId, [ids.alphaInstitutionId, ids.bravoInstitutionId]));
     await db.delete(cpdAttendees).where(inArray(cpdAttendees.institutionalAccountId, [ids.alphaInstitutionId, ids.bravoInstitutionId]));
     await db.delete(cpdEvents).where(inArray(cpdEvents.institutionalAccountId, [ids.alphaInstitutionId, ids.bravoInstitutionId]));
@@ -325,6 +349,12 @@ describeStaging("real tRPC department reconciliation and pole eligibility matrix
       expect.objectContaining({ id: ids.pharmacyDepartmentId }),
     ]));
 
+    const otherReport = await adminCaller.institutionDepartmentReconciliation.getOtherDepartmentRegistrations({ institutionId: ids.alphaInstitutionId, limit: 100, offset: 0 });
+    expect(otherReport.rows.filter((row) => row.isOtherSubmission)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: ids.otherAttendeeIds[0], department: " Other " }),
+      expect.objectContaining({ id: ids.otherAttendeeIds[1], department: "Other" }),
+    ]));
+
     await expectTrpcError(
       () => adminCaller.institutionDepartmentReconciliation.getDepartmentReconciliationDashboard({ institutionId: ids.bravoInstitutionId }),
       "FORBIDDEN",
@@ -343,6 +373,16 @@ describeStaging("real tRPC department reconciliation and pole eligibility matrix
     const leadAlerts = await leadCaller.institutionDepartmentReconciliation.getIersMissingPoleAlerts({ institutionId: ids.alphaInstitutionId });
     expect(leadAlerts).toEqual(expect.arrayContaining([expect.objectContaining({ id: ids.operationalDepartmentId })]));
     expect(leadAlerts).not.toEqual(expect.arrayContaining([expect.objectContaining({ id: ids.pharmacyDepartmentId })]));
+
+    const firstOtherResolution = await adminCaller.institutionDepartmentReconciliation.resolveOtherDepartmentRegistration({ institutionId: ids.alphaInstitutionId, cpdAttendeeId: ids.otherAttendeeIds[0], targetFacilityDepartmentId: ids.targetDepartmentId, status: "resolved", reason: "This attendee is confirmed in the emergency department." });
+    const secondOtherResolution = await adminCaller.institutionDepartmentReconciliation.resolveOtherDepartmentRegistration({ institutionId: ids.alphaInstitutionId, cpdAttendeeId: ids.otherAttendeeIds[1], targetFacilityDepartmentId: ids.pharmacyDepartmentId, status: "resolved", reason: "This attendee is confirmed in Pharmacy." });
+    expect(firstOtherResolution.targetDepartmentId).toBe(ids.targetDepartmentId);
+    expect(secondOtherResolution.targetDepartmentId).toBe(ids.pharmacyDepartmentId);
+    const otherAttendance = await db.select({ id: cpdAttendees.id, department: cpdAttendees.department, facilityDepartmentId: cpdAttendees.facilityDepartmentId }).from(cpdAttendees).where(inArray(cpdAttendees.id, ids.otherAttendeeIds));
+    expect(otherAttendance).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: ids.otherAttendeeIds[0], department: " Other ", facilityDepartmentId: ids.targetDepartmentId }),
+      expect.objectContaining({ id: ids.otherAttendeeIds[1], department: "Other", facilityDepartmentId: ids.pharmacyDepartmentId }),
+    ]));
 
     const mapped = await adminCaller.institutionDepartmentReconciliation.mapDepartmentLabel({
       institutionId: ids.alphaInstitutionId,

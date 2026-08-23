@@ -53,11 +53,12 @@ import {
   type GapRecommendation,
 } from "./care-signal-events";
 import { alias } from "drizzle-orm/mysql-core";
-import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, sql, or, notInArray } from "drizzle-orm";
+import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, lte, sql, or, notInArray } from "drizzle-orm";
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
 import { assertInstitutionAccess, getAdministeredInstitutionIds } from "../lib/institution-access";
 import { assertInstitutionProductCapability, assertWritableProductAccess } from "../lib/institution-entitlements";
+import { asDateOnly, derivePoleRotationDepartmentId, isoWeekMonday, mondayForDate } from "../lib/iers-pole-rotation";
 import { assertInstitutionAccountScope } from "../lib/institution-account-scopes";
 import { assertInstitutionProductRole } from "../lib/institution-product-roles";
 import { getCohortProgressStats } from "../lib/cohort-progress";
@@ -265,6 +266,78 @@ function isMissingSchemaColumnError(error: unknown) {
   return candidate?.code === "ER_BAD_FIELD_ERROR" || candidate?.message?.includes("Unknown column") === true;
 }
 
+async function getOrderedPoleDepartments(db: DbClient, institutionId: number, poleId: number) {
+  const predicates = and(
+    eq(facilityDepartments.institutionId, institutionId),
+    eq(facilityDepartments.poleId, poleId),
+    eq(facilityDepartments.isActive, true),
+    eq(facilityDepartments.requiresPole, true),
+    isNotNull(facilityDepartments.confirmedAt),
+  );
+  try {
+    return await db
+      .select({
+        id: facilityDepartments.id,
+        departmentName: facilityDepartments.departmentName,
+        poleId: facilityDepartments.poleId,
+        poleSequence: facilityDepartments.poleSequence,
+        createdAt: facilityDepartments.createdAt,
+      })
+      .from(facilityDepartments)
+      .where(predicates)
+      .orderBy(
+        asc(sql`COALESCE(${facilityDepartments.poleSequence}, 2147483647)`),
+        asc(facilityDepartments.createdAt),
+        asc(facilityDepartments.id),
+      );
+  } catch (error) {
+    if (!isMissingSchemaColumnError(error)) throw error;
+    return db
+      .select({
+        id: facilityDepartments.id,
+        departmentName: facilityDepartments.departmentName,
+        poleId: facilityDepartments.poleId,
+        poleSequence: sql<number | null>`NULL`,
+        createdAt: facilityDepartments.createdAt,
+      })
+      .from(facilityDepartments)
+      .where(predicates)
+      .orderBy(asc(facilityDepartments.createdAt), asc(facilityDepartments.id));
+  }
+}
+
+async function getPoleRotationAnchor(db: DbClient, institutionId: number, poleId: number): Promise<Date | null> {
+  try {
+    const [pole] = await db
+      .select({ rotationAnchorDate: facilityPoles.rotationAnchorDate })
+      .from(facilityPoles)
+      .where(and(eq(facilityPoles.id, poleId), eq(facilityPoles.institutionId, institutionId)))
+      .limit(1);
+    return pole?.rotationAnchorDate ?? null;
+  } catch (error) {
+    if (!isMissingSchemaColumnError(error)) throw error;
+    return null;
+  }
+}
+
+async function ensurePoleRotationAnchor(db: DbClient, institutionId: number, poleId: number, anchorDate: Date) {
+  try {
+    const [pole] = await db
+      .select({ id: facilityPoles.id, rotationAnchorDate: facilityPoles.rotationAnchorDate })
+      .from(facilityPoles)
+      .where(and(eq(facilityPoles.id, poleId), eq(facilityPoles.institutionId, institutionId)))
+      .limit(1);
+    if (!pole) throw new TRPCError({ code: "NOT_FOUND", message: "Pole not found in this institution." });
+    if (!pole.rotationAnchorDate) {
+      await db.update(facilityPoles).set({ rotationAnchorDate: mondayForDate(anchorDate) }).where(eq(facilityPoles.id, poleId));
+    }
+    return pole.rotationAnchorDate ?? asDateOnly(mondayForDate(anchorDate));
+  } catch (error) {
+    if (!isMissingSchemaColumnError(error)) throw error;
+    return asDateOnly(mondayForDate(anchorDate));
+  }
+}
+
 async function assertDepartmentBelongsToPole(db: DbClient, institutionId: number, departmentId: number, poleId: number) {
   const [department] = await db
     .select({ id: facilityDepartments.id, poleId: facilityDepartments.poleId, departmentName: facilityDepartments.departmentName, requiresPole: facilityDepartments.requiresPole })
@@ -283,85 +356,72 @@ async function assertDepartmentBelongsToPole(db: DbClient, institutionId: number
   return department;
 }
 
+async function refreshPoleErtlAssignments(db: DbClient, institutionId: number, poleId: number) {
+  const [departments, rotationAnchorDate] = await Promise.all([
+    getOrderedPoleDepartments(db, institutionId, poleId),
+    getPoleRotationAnchor(db, institutionId, poleId),
+  ]);
+  const rotations = await db.select({
+    id: ertlWeeklyRotations.id,
+    departmentId: ertlWeeklyRotations.departmentId,
+    assignmentStatus: ertlWeeklyRotations.assignmentStatus,
+    acceptedAt: ertlWeeklyRotations.acceptedAt,
+    startDate: ertlWeeklyRotations.startDate,
+    endDate: ertlWeeklyRotations.endDate,
+  }).from(ertlWeeklyRotations).where(and(
+    eq(ertlWeeklyRotations.institutionId, institutionId),
+    eq(ertlWeeklyRotations.poleId, poleId),
+  ));
+  for (const rotation of rotations) {
+    if (rotation.assignmentStatus === "active" || rotation.acceptedAt != null) continue;
+    const derivedDepartmentId = derivePoleRotationDepartmentId(departments, rotationAnchorDate, rotation.startDate);
+    if (derivedDepartmentId == null) continue;
+    if (rotation.departmentId !== derivedDepartmentId) {
+      await db.update(ertlWeeklyRotations).set({
+        departmentId: derivedDepartmentId,
+        ertlUserId: null,
+        assignmentStatus: "unassigned",
+        acceptedAt: null,
+        declinedAt: null,
+        declineReason: null,
+      }).where(eq(ertlWeeklyRotations.id, rotation.id));
+    }
+    const shifts = await db.select({ id: shiftUtlRosters.id, shiftDate: shiftUtlRosters.shiftDate }).from(shiftUtlRosters).where(and(
+      eq(shiftUtlRosters.institutionId, institutionId),
+      eq(shiftUtlRosters.poleId, poleId),
+      gte(shiftUtlRosters.shiftDate, rotation.startDate),
+      lte(shiftUtlRosters.shiftDate, rotation.endDate),
+    ));
+    for (const shift of shifts) {
+      const shiftDepartmentId = derivePoleRotationDepartmentId(departments, rotationAnchorDate, shift.shiftDate);
+      await db.update(shiftUtlRosters).set({ isShiftErtl: shiftDepartmentId === derivedDepartmentId }).where(eq(shiftUtlRosters.id, shift.id));
+    }
+  }
+}
+
 async function ensureMonthlyUtlShifts(
   db: DbClient,
   input: { institutionId: number; poleId: number; departmentId: number; monthStart: string; providerUserId: number | null; monthlyUtlRotationId: number },
 ) {
-  if (input.providerUserId == null) {
+  const [poleDepartments, rotationAnchorDate] = await Promise.all([
+    getOrderedPoleDepartments(db, input.institutionId, input.poleId),
+    getPoleRotationAnchor(db, input.institutionId, input.poleId),
+  ]);
+  // Monthly planning is only a source plan. It must never nominate the same
+  // provider for every shift or clear a separately assigned on-duty UTL.
+  for (const row of getMonthlyShiftRows(input.monthStart)) {
+    const derivedErtlDepartmentId = derivePoleRotationDepartmentId(poleDepartments, rotationAnchorDate, row.shiftDate);
     await db.update(shiftUtlRosters).set({
-      assignmentStatus: "ended",
-      acceptedAt: null,
-      declinedAt: null,
-      declineReason: null,
-      readinessSignOffAt: null,
-      readinessSignedOffByUserId: null,
-      readinessNote: null,
+      isShiftErtl: derivedErtlDepartmentId === input.departmentId,
     }).where(and(
       eq(shiftUtlRosters.institutionId, input.institutionId),
       eq(shiftUtlRosters.poleId, input.poleId),
       eq(shiftUtlRosters.departmentId, input.departmentId),
-      eq(shiftUtlRosters.monthlyUtlRotationId, input.monthlyUtlRotationId),
+      eq(shiftUtlRosters.shiftDate, new Date(row.shiftDate)),
+      eq(shiftUtlRosters.shiftType, row.shiftType),
     ));
-    return 0;
   }
-  const weeklyRotations = await db
-    .select({ startDate: ertlWeeklyRotations.startDate, endDate: ertlWeeklyRotations.endDate, departmentId: ertlWeeklyRotations.departmentId })
-    .from(ertlWeeklyRotations)
-    .where(and(
-      eq(ertlWeeklyRotations.institutionId, input.institutionId),
-      eq(ertlWeeklyRotations.poleId, input.poleId),
-    ));
-  let generated = 0;
-  for (const row of getMonthlyShiftRows(input.monthStart)) {
-    const isShiftErtl = weeklyRotations.some((rotation) =>
-      rotation.departmentId === input.departmentId &&
-      String(rotation.startDate).slice(0, 10) <= row.shiftDate &&
-      String(rotation.endDate).slice(0, 10) >= row.shiftDate,
-    );
-    const [existing] = await db
-      .select({ id: shiftUtlRosters.id, utlUserId: shiftUtlRosters.utlUserId, assignmentStatus: shiftUtlRosters.assignmentStatus, acceptedAt: shiftUtlRosters.acceptedAt, readinessSignOffAt: shiftUtlRosters.readinessSignOffAt })
-      .from(shiftUtlRosters)
-      .where(and(
-        eq(shiftUtlRosters.institutionId, input.institutionId),
-        eq(shiftUtlRosters.poleId, input.poleId),
-        eq(shiftUtlRosters.departmentId, input.departmentId),
-        eq(shiftUtlRosters.shiftDate, new Date(row.shiftDate)),
-        eq(shiftUtlRosters.shiftType, row.shiftType),
-      ))
-      .limit(1);
-    if (!existing) {
-      await db.insert(shiftUtlRosters).values({
-        institutionId: input.institutionId,
-        poleId: input.poleId,
-        departmentId: input.departmentId,
-        shiftDate: new Date(row.shiftDate),
-        shiftType: row.shiftType,
-        utlUserId: input.providerUserId,
-        isShiftErtl,
-        monthlyUtlRotationId: input.monthlyUtlRotationId,
-        assignmentStatus: "pending_acceptance",
-        status: "active",
-      });
-      generated += 1;
-      continue;
-    }
-    const providerChanged = existing.utlUserId !== input.providerUserId;
-    await db.update(shiftUtlRosters).set({
-      utlUserId: input.providerUserId,
-      isShiftErtl,
-      monthlyUtlRotationId: input.monthlyUtlRotationId,
-      ...(providerChanged ? {
-        assignmentStatus: "pending_acceptance" as const,
-        acceptedAt: null,
-        declinedAt: null,
-        declineReason: null,
-        readinessSignOffAt: null,
-        readinessSignedOffByUserId: null,
-        readinessNote: null,
-      } : {}),
-    }).where(eq(shiftUtlRosters.id, existing.id));
-  }
-  return generated;
+  return 0;
 }
 
 async function ensureProviderMembershipForStaff(
@@ -4105,6 +4165,7 @@ export const institutionRouter = router({
           poleId: facilityDepartments.poleId,
           departmentName: facilityDepartments.departmentName,
           requiresPole: sql<boolean>`FALSE`,
+          poleSequence: sql<number | null>`NULL`,
           isActive: sql<boolean>`TRUE`,
           confirmedAt: sql<Date | null>`NULL`,
           confirmedByUserId: sql<number | null>`NULL`,
@@ -4208,15 +4269,32 @@ export const institutionRouter = router({
         if (!pole) throw new TRPCError({ code: "NOT_FOUND", message: "Pole not found in this institution." });
       }
 
+      let poleSequence: number | null = null;
+      if (input.poleId != null && existing.poleId !== input.poleId) {
+        const [maxRow] = await db
+          .select({ maxSequence: sql<number>`COALESCE(MAX(${facilityDepartments.poleSequence}), 0)` })
+          .from(facilityDepartments)
+          .where(and(
+            eq(facilityDepartments.institutionId, input.institutionId),
+            eq(facilityDepartments.poleId, input.poleId),
+          ));
+        poleSequence = Number(maxRow?.maxSequence ?? 0) + 1;
+        await ensurePoleRotationAnchor(db, input.institutionId, input.poleId, new Date());
+      } else if (input.poleId != null) {
+        poleSequence = existing.poleSequence;
+      }
+
       await db
         .update(facilityDepartments)
-        .set({ poleId: input.poleId })
+        .set({ poleId: input.poleId, poleSequence })
         .where(and(
           eq(facilityDepartments.id, existing.id),
           eq(facilityDepartments.institutionId, input.institutionId),
         ));
+      if (input.poleId != null) await refreshPoleErtlAssignments(db, input.institutionId, input.poleId);
+      if (existing.poleId != null && existing.poleId !== input.poleId) await refreshPoleErtlAssignments(db, input.institutionId, existing.poleId);
 
-      return { success: true, departmentId: existing.id };
+      return { success: true, departmentId: existing.id, poleSequence };
     }),
 
   assignAllUnassignedDepartmentsToPole: protectedProcedure
@@ -4227,14 +4305,28 @@ export const institutionRouter = router({
       await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
       const [pole] = await db.select({ id: facilityPoles.id }).from(facilityPoles).where(and(eq(facilityPoles.id, input.poleId), eq(facilityPoles.institutionId, input.institutionId))).limit(1);
       if (!pole) throw new TRPCError({ code: "NOT_FOUND", message: "Pole not found in this institution." });
-      const result = await db.update(facilityDepartments).set({ poleId: input.poleId }).where(and(
+      const departments = await db.select({ id: facilityDepartments.id, poleSequence: facilityDepartments.poleSequence }).from(facilityDepartments).where(and(
         eq(facilityDepartments.institutionId, input.institutionId),
         eq(facilityDepartments.isActive, true),
         isNotNull(facilityDepartments.confirmedAt),
         eq(facilityDepartments.requiresPole, true),
         isNull(facilityDepartments.poleId),
+      )).orderBy(asc(facilityDepartments.createdAt), asc(facilityDepartments.id));
+      if (departments.length === 0) return { success: true, assignedCount: 0 };
+      const [maxRow] = await db.select({ maxSequence: sql<number>`COALESCE(MAX(${facilityDepartments.poleSequence}), 0)` }).from(facilityDepartments).where(and(
+        eq(facilityDepartments.institutionId, input.institutionId),
+        eq(facilityDepartments.poleId, input.poleId),
       ));
-      return { success: true, assignedCount: (result as unknown as { affectedRows?: number }).affectedRows ?? 0 };
+      let nextSequence = Number(maxRow?.maxSequence ?? 0) + 1;
+      await ensurePoleRotationAnchor(db, input.institutionId, input.poleId, new Date());
+      await db.transaction(async (tx) => {
+        for (const department of departments) {
+          await tx.update(facilityDepartments).set({ poleId: input.poleId, poleSequence: nextSequence }).where(eq(facilityDepartments.id, department.id));
+          nextSequence += 1;
+        }
+      });
+      await refreshPoleErtlAssignments(db, input.institutionId, input.poleId);
+      return { success: true, assignedCount: departments.length };
     }),
 
   getInstitutionIersDutyAssignments: protectedProcedure
@@ -4346,7 +4438,7 @@ export const institutionRouter = router({
       return {
         erco: [
           ...coordinators.map((row) => ({ ...row, dutyType: "ERCo" as const })),
-          ...backups.map((row) => ({ ...row, dutyType: "Backup ERCo" as const })),
+          ...backups.map((row) => ({ ...row, dutyType: "Assistant ERCo" as const })),
         ],
         ertl: ertl.map((row) => ({ ...row, dutyType: "ERTL" as const })),
         utl: utl.map((row) => ({ ...row, dutyType: "UTL" as const })),
@@ -4809,18 +4901,59 @@ export const institutionRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertIersPoleRotaReadAccess(db, ctx.user, input.institutionId, input.poleId);
 
-      const [rotation] = await db
-        .select()
-        .from(ertlWeeklyRotations)
-        .where(and(
+      const [rotationRows, rotationAnchorDate] = await Promise.all([
+        db.select().from(ertlWeeklyRotations).where(and(
           eq(ertlWeeklyRotations.institutionId, input.institutionId),
           eq(ertlWeeklyRotations.poleId, input.poleId),
           eq(ertlWeeklyRotations.weekNumber, input.weekNumber),
-          eq(ertlWeeklyRotations.year, input.year)
-        ))
-        .limit(1);
+          eq(ertlWeeklyRotations.year, input.year),
+        )).limit(1),
+        getPoleRotationAnchor(db, input.institutionId, input.poleId),
+      ]);
+      const rotation = rotationRows[0] ?? null;
+      const departments = await getOrderedPoleDepartments(db, input.institutionId, input.poleId);
+      const derivedDepartmentId = derivePoleRotationDepartmentId(
+        departments,
+        rotationAnchorDate,
+        isoWeekMonday(input.year, input.weekNumber),
+      );
+      if (derivedDepartmentId == null) return rotation ?? null;
 
-      return rotation ?? null;
+      if (rotation?.assignmentStatus === "active" || rotation?.acceptedAt != null) return rotation;
+      if (rotation && rotation.departmentId === derivedDepartmentId) return rotation;
+
+      const startDate = isoWeekMonday(input.year, input.weekNumber);
+      const endDate = new Date(startDate);
+      endDate.setUTCDate(endDate.getUTCDate() + 6);
+      if (!rotation) {
+        return {
+          id: 0,
+          institutionId: input.institutionId,
+          poleId: input.poleId,
+          departmentId: derivedDepartmentId,
+          weekNumber: input.weekNumber,
+          year: input.year,
+          startDate,
+          endDate,
+          ertlUserId: null,
+          assignmentStatus: "unassigned" as const,
+          acceptedAt: null,
+          declinedAt: null,
+          declineReason: null,
+          createdAt: new Date(),
+        };
+      }
+      return {
+        ...rotation,
+        departmentId: derivedDepartmentId,
+        ertlUserId: null,
+        assignmentStatus: "unassigned" as const,
+        acceptedAt: null,
+        declinedAt: null,
+        declineReason: null,
+        startDate,
+        endDate,
+      };
     }),
 
   getErtlDepartmentOptions: protectedProcedure
@@ -4972,14 +5105,25 @@ export const institutionRouter = router({
       if (new Date(input.endDate) < new Date(input.startDate)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "ERTL rotation end date cannot be before its start date." });
       }
-      await assertDepartmentBelongsToPole(db, input.institutionId, input.departmentId, input.poleId);
-      const requestedErtlUserId = input.ertlUserId === undefined
-        ? await resolveCanonicalDepartmentProvider(db, input.institutionId, input.departmentId)
-        : input.ertlUserId === null
-          ? null
-          : await resolveCanonicalDepartmentProvider(db, input.institutionId, input.departmentId, input.ertlUserId);
+      const [rotationAnchorDate, orderedDepartments] = await Promise.all([
+        getPoleRotationAnchor(db, input.institutionId, input.poleId),
+        getOrderedPoleDepartments(db, input.institutionId, input.poleId),
+      ]);
+      const derivedDepartmentId = derivePoleRotationDepartmentId(
+        orderedDepartments,
+        rotationAnchorDate,
+        input.startDate,
+      );
+      if (derivedDepartmentId == null) throw new TRPCError({ code: "BAD_REQUEST", message: "Assign at least one confirmed eligible department to this pole before configuring ERTL rotation." });
+      if (input.departmentId !== derivedDepartmentId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The ERTL department is selected automatically from the pole’s department order. Choose the named provider for the displayed department instead." });
+      }
+      await assertDepartmentBelongsToPole(db, input.institutionId, derivedDepartmentId, input.poleId);
+      const requestedErtlUserId = input.ertlUserId == null
+        ? null
+        : await resolveCanonicalDepartmentProvider(db, input.institutionId, derivedDepartmentId, input.ertlUserId);
 
-      const refreshDepartmentIds = new Set<number>([input.departmentId]);
+      const refreshDepartmentIds = new Set<number>([derivedDepartmentId]);
       const [existing] = await db
         .select()
         .from(ertlWeeklyRotations)
@@ -4992,16 +5136,14 @@ export const institutionRouter = router({
         .limit(1);
 
       if (existing) {
-        const departmentChanged = existing.departmentId !== input.departmentId;
+        const departmentChanged = existing.departmentId !== derivedDepartmentId;
         if (departmentChanged) refreshDepartmentIds.add(existing.departmentId);
-        const nextErtlUserId = input.ertlUserId === undefined
-          ? (departmentChanged || existing.ertlUserId == null ? requestedErtlUserId : existing.ertlUserId)
-          : requestedErtlUserId;
+          const nextErtlUserId = requestedErtlUserId;
         const providerChanged = departmentChanged || nextErtlUserId !== existing.ertlUserId;
         await db
           .update(ertlWeeklyRotations)
           .set({
-            departmentId: input.departmentId,
+            departmentId: derivedDepartmentId,
             startDate: new Date(input.startDate),
             endDate: new Date(input.endDate),
             ertlUserId: nextErtlUserId,
@@ -5017,7 +5159,7 @@ export const institutionRouter = router({
         await db.insert(ertlWeeklyRotations).values({
           institutionId: input.institutionId,
           poleId: input.poleId,
-          departmentId: input.departmentId,
+          departmentId: derivedDepartmentId,
           weekNumber: input.weekNumber,
           year: input.year,
           startDate: new Date(input.startDate),
@@ -5049,7 +5191,7 @@ export const institutionRouter = router({
         }
       }
 
-      return { success: true, ertlUserId: requestedErtlUserId };
+      return { success: true, ertlUserId: requestedErtlUserId, departmentId: derivedDepartmentId };
     }),
 
   // ============================================
@@ -5097,6 +5239,11 @@ export const institutionRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertIersDepartmentRotaWriteAccess(db, ctx.user, input.institutionId, input.departmentId);
       await assertDepartmentBelongsToPole(db, input.institutionId, input.departmentId, input.poleId);
+      const [orderedDepartments, rotationAnchorDate] = await Promise.all([
+        getOrderedPoleDepartments(db, input.institutionId, input.poleId),
+        getPoleRotationAnchor(db, input.institutionId, input.poleId),
+      ]);
+      const isShiftErtl = derivePoleRotationDepartmentId(orderedDepartments, rotationAnchorDate, input.shiftDate) === input.departmentId;
       const canonicalUtlUserId = await resolveCanonicalDepartmentProvider(db, input.institutionId, input.departmentId, input.utlUserId);
       if (canonicalUtlUserId == null) throw new TRPCError({ code: "BAD_REQUEST", message: "The selected nurse is not an active linked provider for this canonical department. Link the account or choose another nurse." });
       const [member] = await db
@@ -5129,7 +5276,7 @@ export const institutionRouter = router({
           .update(shiftUtlRosters)
           .set({
             utlUserId: canonicalUtlUserId,
-            isShiftErtl: input.isShiftErtl,
+            isShiftErtl,
             monthlyUtlRotationId: null,
             status: input.status ?? "active",
             assignmentStatus: shouldResetSignOff ? "pending_acceptance" : existing.assignmentStatus,
@@ -5147,7 +5294,7 @@ export const institutionRouter = router({
           shiftDate: new Date(input.shiftDate),
           shiftType: input.shiftType,
           utlUserId: canonicalUtlUserId,
-          isShiftErtl: input.isShiftErtl,
+          isShiftErtl,
           monthlyUtlRotationId: null,
           assignmentStatus: "pending_acceptance",
           status: input.status ?? "active",

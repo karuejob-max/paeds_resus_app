@@ -79,6 +79,7 @@ export const REQUIRED_TABLES = [
   { key: "departmentErcoEvents", label: "department ERCo assignment history", names: ["institution_department_response_coordinator_events", "institutionDepartmentResponseCoordinatorEvents"] },
   { key: "departmentReconciliations", label: "department reconciliation state", names: ["institution_department_reconciliations"] },
   { key: "departmentAuditEvents", label: "department reconciliation audit history", names: ["institution_department_audit_events"] },
+  { key: "cpdDepartmentResolutions", label: "CPD Other department resolutions", names: ["institution_cpd_department_resolutions"] },
 ];
 
 export const REQUIRED_COLUMNS = [
@@ -147,6 +148,8 @@ export const REQUIRED_COLUMNS = [
   { tableKey: "facilityDepartments", label: "facility department confirmation timestamp", names: ["confirmed_at", "confirmedAt"] },
   { tableKey: "facilityDepartments", label: "facility department confirmation actor", names: ["confirmed_by_user_id", "confirmedByUserId"] },
   { tableKey: "facilityDepartments", label: "facility department IERS pole requirement", names: ["requires_pole", "requiresPole"] },
+  { tableKey: "facilityDepartments", label: "facility department pole sequence", names: ["pole_sequence", "poleSequence"] },
+  { tableKey: "facilityPoles", label: "facility pole rotation anchor", names: ["rotation_anchor_date", "rotationAnchorDate"] },
   { tableKey: "institutionalStaffMembers", label: "staff canonical facility department", names: ["facilityDepartmentId", "facility_department_id"] },
   { tableKey: "cpdAttendees", label: "CPD canonical facility department", names: ["facilityDepartmentId", "facility_department_id"] },
   { tableKey: "weeklyErtlRotations", label: "weekly ERTL department", names: ["department_id", "departmentId"] },
@@ -173,6 +176,9 @@ export const REQUIRED_COLUMNS = [
   { tableKey: "departmentAuditEvents", label: "department reconciliation audit event type", names: ["event_type"] },
   { tableKey: "departmentAuditEvents", label: "department reconciliation audit actor", names: ["actor_user_id"] },
   { tableKey: "departmentAuditEvents", label: "department reconciliation audit reason", names: ["reason"] },
+  { tableKey: "cpdDepartmentResolutions", label: "CPD Other resolution attendee", names: ["cpd_attendee_id"] },
+  { tableKey: "cpdDepartmentResolutions", label: "CPD Other resolution target", names: ["facility_department_id"] },
+  { tableKey: "cpdDepartmentResolutions", label: "CPD Other resolution decision status", names: ["status"] },
 ];
 
 async function main() {
