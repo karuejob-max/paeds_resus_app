@@ -49,10 +49,6 @@ export default function ProviderIersDutyAssignmentCard() {
     onSuccess: () => { toast.success("Your shift UTL response was recorded."); refreshAssignments(); },
     onError: (error) => toast.error(error.message || "Could not record your shift UTL response."),
   });
-  const autopopulateMonthlyRota = trpc.institution.autopopulateMonthlyUtlRota.useMutation({
-    onSuccess: (result) => toast.success(`Monthly UTL rota prepared: ${result.assignedDepartments} department and ${result.generatedShifts} shift assignment(s).`),
-    onError: (error) => toast.error(error.message || "Could not prepare the monthly UTL rota."),
-  });
 
   if (ercoLoading || dutyLoading) return null;
   const hasErco = Boolean(ercoAssignments?.length);
@@ -92,18 +88,9 @@ export default function ProviderIersDutyAssignmentCard() {
                   </div>
                   {canPrepareMonthlyRota && (
                     <div className="mt-4 flex flex-col gap-2 rounded-md border border-rose-200 bg-rose-50/50 p-3 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-xs text-rose-900">As the accepted ERCo, prepare this department’s current monthly UTL rota from its linked providers.</p>
-                      <Button size="sm" variant="outline" className="w-full shrink-0 sm:w-auto" onClick={() => {
-                        if (assignment.poleId == null) return;
-                        const monthStart = `${new Date().toISOString().slice(0, 7)}-01`;
-                        autopopulateMonthlyRota.mutate({
-                          institutionId: assignment.institutionId,
-                          poleId: assignment.poleId,
-                          monthStart,
-                          departmentIds: [assignment.departmentId],
-                        });
-                      }} disabled={autopopulateMonthlyRota.isPending}>
-                        <CalendarClock className="mr-1.5 h-4 w-4" />Prepare monthly UTL rota
+                      <p className="text-xs text-rose-900">As the accepted ERCo, open Shift staffing, choose the actual nurse for each date and shift, and review provider acceptance.</p>
+                      <Button size="sm" variant="outline" className="w-full shrink-0 sm:w-auto" onClick={() => { window.location.assign(`/institution?section=iers&iersTab=workforce&workforceTab=roster`); }}>
+                        <CalendarClock className="mr-1.5 h-4 w-4" />Open shift staffing
                       </Button>
                     </div>
                   )}

@@ -44,6 +44,7 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
   const [facility, setFacility] = useState<FacilitySelection | null>(null);
 
   const getProfileMutation = trpc.provider.getProfile.useQuery();
+  const linkedDepartmentsQuery = trpc.institution.getMyLinkedFacilityDepartments.useQuery();
   const updateProfileMutation = trpc.provider.updateProfile.useMutation();
 
   // Load existing profile
@@ -142,6 +143,8 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
     }
   };
 
+  const selectedLinkedDepartment = linkedDepartmentsQuery.data?.find((department) => department.departmentName === formData.department);
+
   return (
     <div className="w-full max-w-2xl mx-auto p-4">
       <Card>
@@ -203,11 +206,30 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
                 </div>
               </div>
 
-              <div className="space-y-2 border-t pt-4">
-                <DepartmentSelectors
+              <div className="space-y-3 border-t pt-4">
+                {linkedDepartmentsQuery.data && linkedDepartmentsQuery.data.length > 0 && (
+                  <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50/40 p-3 dark:border-blue-900/50 dark:bg-blue-950/20">
+                    <Label>Institution canonical department</Label>
+                    <Select
+                      value={selectedLinkedDepartment ? String(selectedLinkedDepartment.id) : "none"}
+                      onValueChange={(value) => {
+                        const selected = linkedDepartmentsQuery.data?.find((department) => department.id === Number(value));
+                        setFormData((current) => ({ ...current, department: selected?.departmentName ?? "" }));
+                      }}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select your institution department" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Choose from shared catalog below</SelectItem>
+                        {linkedDepartmentsQuery.data.map((department) => <SelectItem key={department.id} value={String(department.id)}>{department.departmentName}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Use this list when your facility has added a local department. It keeps your profile, CPD attendance, and IERS records on the same canonical identity.</p>
+                  </div>
+                )}
+                {!selectedLinkedDepartment && <DepartmentSelectors
                   value={formData.department}
                   onChange={(val) => setFormData(prev => ({ ...prev, department: val }))}
-                />
+                />}
               </div>
 
               {/* Certifications */}

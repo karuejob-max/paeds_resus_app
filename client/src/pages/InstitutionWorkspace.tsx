@@ -60,15 +60,18 @@ const PRODUCT_LABELS = {
 
 type ProductKey = keyof typeof PRODUCT_LABELS;
 type WorkspaceSection = "overview" | ProductKey | "administration" | "connected";
+type IersWorkforceTab = "departments" | "erco" | "roster" | "equipment";
 
 type ProductStatus = "trial" | "active" | "grace" | "past_due" | "expired" | "suspended" | "cancelled" | "legacy_unclassified" | "not_subscribed";
 
-function getInitialWorkspaceState(): { section: WorkspaceSection; iersTab: string } {
-  if (typeof window === "undefined") return { section: "overview", iersTab: "command" };
+function getInitialWorkspaceState(): { section: WorkspaceSection; iersTab: string; workforceTab: IersWorkforceTab } {
+  if (typeof window === "undefined") return { section: "overview", iersTab: "command", workforceTab: "departments" };
   const params = new URLSearchParams(window.location.search);
   const requested = params.get("section");
   const section: WorkspaceSection = requested === "iers" || requested === "cpd_portal" || requested === "administration" || requested === "connected" ? requested : "overview";
-  return { section, iersTab: params.get("iersTab") || "command" };
+  const requestedWorkforceTab = params.get("workforceTab");
+  const workforceTab: IersWorkforceTab = requestedWorkforceTab === "erco" || requestedWorkforceTab === "roster" || requestedWorkforceTab === "equipment" ? requestedWorkforceTab : "departments";
+  return { section, iersTab: params.get("iersTab") || "command", workforceTab };
 }
 
 function canUseProduct(status: ProductStatus | undefined): boolean {
@@ -103,12 +106,32 @@ export default function InstitutionWorkspace() {
   const initialWorkspaceState = getInitialWorkspaceState();
   const [activeSection, setActiveSection] = useState<WorkspaceSection>(initialWorkspaceState.section);
   const [activeIersTab, setActiveIersTab] = useState(initialWorkspaceState.iersTab);
+  const [activeWorkforceTab, setActiveWorkforceTab] = useState<IersWorkforceTab>(initialWorkspaceState.workforceTab);
 
   const setSection = (section: WorkspaceSection) => {
     setActiveSection(section);
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       params.set("section", section);
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  };
+
+  const setIersTab = (tab: string) => {
+    setActiveIersTab(tab);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("iersTab", tab);
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  };
+
+  const setWorkforceTab = (tab: IersWorkforceTab) => {
+    setActiveWorkforceTab(tab);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("iersTab", "workforce");
+      params.set("workforceTab", tab);
       window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
     }
   };
@@ -165,7 +188,7 @@ export default function InstitutionWorkspace() {
 
   const goToProduct = (product: ProductKey) => {
     setSection(product);
-    if (product === "iers") setActiveIersTab("command");
+    if (product === "iers") setIersTab("command");
   };
 
   const renderProductStatus = (product: ProductKey) => {
@@ -266,8 +289,8 @@ export default function InstitutionWorkspace() {
 
           <TabsContent value="iers">
             {iersEnabled ? (
-              <Tabs value={activeIersTab} onValueChange={setActiveIersTab}>
-                <TabsList className="mb-6 grid h-auto w-full grid-cols-1 gap-1 p-1 min-[420px]:grid-cols-2 sm:flex sm:flex-wrap sm:p-0">
+              <Tabs value={activeIersTab} onValueChange={setIersTab}>
+                <TabsList className="sticky top-2 z-20 mb-6 flex h-auto w-full gap-1 overflow-x-auto bg-background/95 p-1 shadow-sm backdrop-blur sm:flex-wrap sm:overflow-visible sm:p-0 sm:shadow-none">
                   <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="command">Command centre</TabsTrigger>
                   <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="evidence">Evidence & actions</TabsTrigger>
                   <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="drills">Drills & debriefs</TabsTrigger>
@@ -287,7 +310,20 @@ export default function InstitutionWorkspace() {
                   <CohortProgressWidget institutionId={institutionId} />
                   <Phase1ProofReviewWidget institutionId={institutionId} />
                 </TabsContent>
-                <TabsContent value="workforce" className="space-y-6"><IersDepartmentSetupPanel institutionId={institutionId} /><InstitutionErcoGovernancePanel institutionId={institutionId} /><div className="grid gap-6 xl:grid-cols-2"><ErtRosterPanel institutionId={institutionId} /><EquipmentAuditPanel institutionId={institutionId} /></div></TabsContent>
+                <TabsContent value="workforce" className="space-y-6">
+                  <Tabs value={activeWorkforceTab} onValueChange={(value) => setWorkforceTab(value as IersWorkforceTab)}>
+                    <TabsList className="sticky top-16 z-10 flex h-auto w-full gap-1 overflow-x-auto bg-background/95 p-1 shadow-sm backdrop-blur sm:flex-wrap sm:overflow-visible sm:shadow-none">
+                      <TabsTrigger className="shrink-0 px-3 py-2 text-xs sm:text-sm" value="departments">Departments & poles</TabsTrigger>
+                      <TabsTrigger className="shrink-0 px-3 py-2 text-xs sm:text-sm" value="erco">ERCo governance</TabsTrigger>
+                      <TabsTrigger className="shrink-0 px-3 py-2 text-xs sm:text-sm" value="roster">Shift staffing</TabsTrigger>
+                      <TabsTrigger className="shrink-0 px-3 py-2 text-xs sm:text-sm" value="equipment">Equipment</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="departments" className="mt-4"><IersDepartmentSetupPanel institutionId={institutionId} /></TabsContent>
+                    <TabsContent value="erco" className="mt-4"><InstitutionErcoGovernancePanel institutionId={institutionId} /></TabsContent>
+                    <TabsContent value="roster" className="mt-4"><ErtRosterPanel institutionId={institutionId} /></TabsContent>
+                    <TabsContent value="equipment" className="mt-4"><EquipmentAuditPanel institutionId={institutionId} /></TabsContent>
+                  </Tabs>
+                </TabsContent>
                 <TabsContent value="plan"><IersImplementationPlanPanel institutionId={institutionId} /></TabsContent>
                 <TabsContent value="report"><IersExecutiveReportPanel institutionId={institutionId} /></TabsContent>
               </Tabs>

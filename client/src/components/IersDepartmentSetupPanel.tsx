@@ -3,20 +3,13 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, ClipboardList, RefreshCw, Shield, Users } from "lucide-react";
+import { CheckCircle2, ClipboardList, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { DepartmentSelectors } from "@/components/DepartmentSelectors";
 
-function getCurrentMonthStart() {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
-}
-
 export function IersDepartmentSetupPanel({ institutionId }: { institutionId: number }) {
   const utils = trpc.useUtils();
-  const [monthStart, setMonthStart] = useState(getCurrentMonthStart);
   const [selectedPoleId, setSelectedPoleId] = useState<string>("");
   const [draftNames, setDraftNames] = useState<Record<number, string>>({});
   const [newDepartmentName, setNewDepartmentName] = useState("");
@@ -26,10 +19,6 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
   const { data: poles } = trpc.institution.getFacilityPoles.useQuery({ institutionId });
   const missingPoleAlertsQuery = trpc.institutionDepartmentReconciliation.getIersMissingPoleAlerts.useQuery({ institutionId });
   const activePoleId = selectedPoleId ? Number(selectedPoleId) : poles?.[0]?.id;
-  const { data: monthlyRota } = trpc.institution.getMonthlyUtlRota.useQuery(
-    { institutionId, poleId: activePoleId ?? 0, monthStart },
-    { enabled: !!activePoleId },
-  );
 
   useEffect(() => {
     if (!departments) return;
@@ -42,10 +31,6 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
     [departments],
   );
   const unassignedCount = useMemo(() => eligibleDepartments.filter((department) => department.poleId == null).length, [eligibleDepartments]);
-  const activePoleDepartments = useMemo(
-    () => eligibleDepartments.filter((department) => department.poleId === activePoleId),
-    [eligibleDepartments, activePoleId],
-  );
 
   const confirmMutation = trpc.institution.confirmFacilityDepartments.useMutation({
     onSuccess: (result) => {
@@ -67,14 +52,6 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
       toast.success("Department pole assignment updated.");
       void utils.institution.getFacilityDepartments.invalidate({ institutionId });
       void utils.institutionDepartmentReconciliation.getIersMissingPoleAlerts.invalidate({ institutionId });
-    },
-    onError: (error) => toast.error(error.message),
-  });
-  const autopopulateMutation = trpc.institution.autopopulateMonthlyUtlRota.useMutation({
-    onSuccess: (result) => {
-      toast.success(`Monthly UTL rota prepared for ${result.assignedDepartments} department(s); ${result.generatedShifts} shift rows synchronized.`);
-      void utils.institution.getMonthlyUtlRota.invalidate({ institutionId, poleId: activePoleId ?? 0, monthStart });
-      void utils.institution.getShiftUtlRoster.invalidate();
     },
     onError: (error) => toast.error(error.message),
   });
@@ -176,15 +153,9 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
         </div>
 
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
-          <p className="font-semibold text-amber-800 dark:text-amber-300">Step 3 — Prepare the monthly UTL rota</p>
-          <p className="mt-1 text-amber-700 dark:text-amber-400">For each department in the selected pole, the system finds active linked providers with the same canonical department, creates one monthly source row, and synchronizes every morning, evening, and night shift. Each provider still accepts the dated duty in the individual portal.</p>
-          <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-            <Input type="month" value={monthStart.slice(0, 7)} onChange={(event) => setMonthStart(`${event.target.value}-01`)} className="w-full min-w-0 sm:w-48" />
-            <Button className="w-full sm:w-auto" onClick={() => activePoleId && autopopulateMutation.mutate({ institutionId, poleId: activePoleId, monthStart, departmentIds: activePoleDepartments.map((department) => department.id) })} disabled={!activePoleId || activePoleDepartments.length === 0 || autopopulateMutation.isPending}><RefreshCw className="mr-2 h-4 w-4" />Autopopulate monthly UTL</Button>
-          </div>
-          <div className="mt-3 space-y-2">
-            {(monthlyRota ?? []).length === 0 ? <p className="text-xs text-amber-700 dark:text-amber-400">No monthly source rows yet for this pole and month.</p> : (monthlyRota ?? []).map((rotation) => <div key={rotation.id} className="flex min-w-0 flex-col gap-1 rounded border bg-background/70 p-2 sm:flex-row sm:items-center sm:justify-between"><span className="flex min-w-0 items-center gap-2 break-words"><Users className="h-3.5 w-3.5 shrink-0" />{rotation.departmentName}</span><span className="text-xs text-muted-foreground">{rotation.providerName ?? "No linked provider"} · {rotation.assignmentStatus}</span></div>)}
-          </div>
+          <p className="font-semibold text-amber-800 dark:text-amber-300">Step 3 — ERCo prepares the UTL rota</p>
+          <p className="mt-1 text-amber-700 dark:text-amber-400">Pole allocation does not decide who will work. The accepted ERCo for each department opens the Shift staffing tab, chooses the nurse for the month if useful, and then confirms the actual nurse for each morning, evening, or night shift.</p>
+          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">All departments assigned to the selected pole are carried into Shift staffing, including departments that do not yet have a linked nurse. No provider is selected automatically, and every named provider must accept the dated duty in the provider portal.</p>
         </div>
       </CardContent>
     </Card>

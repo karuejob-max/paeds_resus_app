@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Shield, Clock, AlertCircle, Plus, Star, Calendar } from "lucide-react";
+import { Users, Shield, Clock, AlertCircle, Plus, Star, Calendar, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { ErtBillboardWidget } from "./ErtBillboardWidget";
 
@@ -95,6 +95,13 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   
   const todayStr = new Date().toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+  const [monthStart, setMonthStart] = useState(`${todayStr.slice(0, 7)}-01`);
+  const [monthlyProviderSelections, setMonthlyProviderSelections] = useState<Record<number, string>>({});
+  const [manualAddDepartmentId, setManualAddDepartmentId] = useState<number | null>(null);
+  const [manualNurseName, setManualNurseName] = useState("");
+  const [manualNurseEmail, setManualNurseEmail] = useState("");
+  const [manualNursePhone, setManualNursePhone] = useState("");
+  const [ercoSelections, setErcoSelections] = useState<Record<number, string>>({});
 
   const targetDateObj = new Date(selectedDate);
   const { weekNumber, year } = getIsoWeek(targetDateObj);
@@ -116,6 +123,20 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   );
 
   const activePoleId = selectedPoleId ?? (poles && poles.length > 0 ? poles[0].id : null);
+
+  const { data: nurseCandidateGroups, refetch: refetchNurseCandidates } = trpc.institution.getPoleNurseCandidates.useQuery(
+    { institutionId, poleId: activePoleId ?? 0 },
+    { enabled: !!institutionId && !!activePoleId },
+  );
+
+  const { data: monthlyRota } = trpc.institution.getMonthlyUtlRota.useQuery(
+    { institutionId, poleId: activePoleId ?? 0, monthStart },
+    { enabled: !!institutionId && !!activePoleId },
+  );
+  const { data: ercoAssignments } = trpc.institution.getDepartmentResponseCoordinators.useQuery(
+    { institutionId },
+    { enabled: !!institutionId },
+  );
 
   const { data: shiftRosters, refetch: refetchRoster } = trpc.institution.getShiftUtlRoster.useQuery(
     {
@@ -159,15 +180,106 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
     onError: (err) => toast.error(err.message || "Failed to update UTL"),
   });
 
+  const prepareMonthlyMutation = trpc.institution.autopopulateMonthlyUtlRota.useMutation({
+    onSuccess: (result) => {
+      toast.success(`Monthly UTL plan saved for ${result.assignedDepartments} department(s); ${result.generatedShifts} dated shift row(s) prepared.`);
+      void utils.institution.getMonthlyUtlRota.invalidate({ institutionId, poleId: activePoleId ?? 0, monthStart });
+      void utils.institution.getShiftUtlRoster.invalidate();
+    },
+    onError: (err) => toast.error(err.message || "Could not save the monthly UTL plan."),
+  });
+
+  const assignErcoMutation = trpc.institution.assignDepartmentResponseCoordinator.useMutation({
+    onSuccess: () => {
+      toast.success("ERCo assignment saved and sent for provider acceptance.");
+      void utils.institution.getDepartmentResponseCoordinators.invalidate({ institutionId });
+      void utils.institution.getPoleNurseCandidates.invalidate({ institutionId, poleId: activePoleId ?? 0 });
+    },
+    onError: (err) => toast.error(err.message || "Could not assign the ERCo."),
+  });
+
+  const addNurseMutation = trpc.institution.addDepartmentNurseCandidate.useMutation({
+    onSuccess: (result) => {
+      toast.success(result.assignable ? "Nurse added and is ready for shift assignment." : "Nurse added; account linking is still required before assigning a provider duty.");
+      setManualAddDepartmentId(null);
+      setManualNurseName("");
+      setManualNurseEmail("");
+      setManualNursePhone("");
+      void refetchNurseCandidates();
+    },
+    onError: (err) => toast.error(err.message || "Could not add the nurse candidate."),
+  });
+
   if (polesLoading) {
     return <div className="p-6 text-center text-muted-foreground">Loading ERT Roster Matrix...</div>;
   }
 
   const poleList = poles ?? [];
-  const poleDepartments = departments?.filter((d) => d.poleId === activePoleId) ?? [];
+  const poleDepartments = departments?.filter((d) => d.poleId === activePoleId && d.isActive && d.confirmedAt != null && d.requiresPole) ?? [];
+  const rotaDepartments = poleDepartments.filter((department) => nurseCandidateGroups?.some((group) => group.departmentId === department.id) ?? false);
   const ertlDepartmentId = weeklyRotation?.departmentId ?? null;
   const ertlDepartmentProviders = staffMembers?.filter((staff) => staff.userId != null && staff.facilityDepartmentId === ertlDepartmentId) ?? [];
-  const providersForDepartment = (departmentId: number) => staffMembers?.filter((staff) => staff.userId != null && staff.facilityDepartmentId === departmentId) ?? [];
+  const candidatesForDepartment = (departmentId: number) => nurseCandidateGroups?.find((group) => group.departmentId === departmentId)?.candidates ?? [];
+  const providersForDepartment = (departmentId: number) => candidatesForDepartment(departmentId).filter((candidate) => candidate.assignable);
+  const pendingLinkCandidatesForDepartment = (departmentId: number) => candidatesForDepartment(departmentId).filter((candidate) => candidate.needsAccountLink);
+
+  useEffect(() => {
+    if (!monthlyRota) return;
+    setMonthlyProviderSelections(Object.fromEntries(monthlyRota.map((rotation) => [rotation.departmentId, rotation.providerUserId == null ? "none" : String(rotation.providerUserId)])));
+  }, [monthlyRota]);
+
+  const saveMonthlyPlan = () => {
+    if (!activePoleId || rotaDepartments.length === 0) return;
+    prepareMonthlyMutation.mutate({
+      institutionId,
+      poleId: activePoleId,
+      monthStart,
+      assignments: rotaDepartments.map((department) => ({
+        departmentId: department.id,
+        providerUserId: monthlyProviderSelections[department.id] && monthlyProviderSelections[department.id] !== "none" ? Number(monthlyProviderSelections[department.id]) : null,
+      })),
+    });
+  };
+
+  const saveErco = (departmentId: number) => {
+    const coordinatorUserId = Number(ercoSelections[departmentId]);
+    if (!Number.isInteger(coordinatorUserId) || coordinatorUserId <= 0) {
+      toast.error("Select an active provider as ERCo first.");
+      return;
+    }
+    assignErcoMutation.mutate({
+      institutionId,
+      departmentId,
+      coordinatorUserId,
+      backupUserId: null,
+      effectiveFrom: new Date().toISOString().slice(0, 10),
+      effectiveUntil: null,
+    });
+  };
+
+  const saveManualNurse = (departmentId: number) => {
+    if (!manualNurseName.trim() || !manualNurseEmail.trim()) {
+      toast.error("Enter the nurse’s name and email before saving.");
+      return;
+    }
+    addNurseMutation.mutate({
+      institutionId,
+      departmentId,
+      staffName: manualNurseName.trim(),
+      staffEmail: manualNurseEmail.trim(),
+      staffPhone: manualNursePhone.trim() || undefined,
+    });
+  };
+
+  const renderManualNurseForm = (departmentId: number) => manualAddDepartmentId === departmentId ? (
+    <div className="grid gap-2 rounded-md border border-dashed bg-muted/20 p-3 sm:grid-cols-3">
+      <Input value={manualNurseName} onChange={(event) => setManualNurseName(event.target.value)} placeholder="Nurse name" className="text-xs" />
+      <Input value={manualNurseEmail} onChange={(event) => setManualNurseEmail(event.target.value)} placeholder="Nurse email" type="email" className="text-xs" />
+      <Input value={manualNursePhone} onChange={(event) => setManualNursePhone(event.target.value)} placeholder="Phone (optional)" className="text-xs" />
+      <div className="flex gap-2 sm:col-span-3"><Button size="sm" onClick={() => saveManualNurse(departmentId)} disabled={addNurseMutation.isPending}>{addNurseMutation.isPending ? "Saving…" : "Save nurse"}</Button><Button size="sm" variant="ghost" onClick={() => setManualAddDepartmentId(null)}>Cancel</Button></div>
+      <p className="text-[11px] text-muted-foreground sm:col-span-3">If this email already has a Paeds Resus account, it will be linked. Otherwise an invitation/link step is required before the nurse can accept a dated UTL duty.</p>
+    </div>
+  ) : <Button size="sm" variant="ghost" className="w-fit px-0 text-xs" onClick={() => setManualAddDepartmentId(departmentId)}><UserPlus className="mr-1.5 h-3.5 w-3.5" />Add nurse not listed</Button>;
 
   return (
     <div className="space-y-6">
@@ -340,6 +452,39 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
         staffMembers={staffMembers}
         ertlDepartmentId={ertlDepartmentId}
       />
+
+      {/* Explicit monthly UTL source planning */}
+      <Card className="min-w-0 border-amber-500/30">
+        <CardHeader>
+          <CardTitle className="flex items-start gap-2 text-base font-bold sm:text-lg"><Calendar className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />Step 3 — Prepare the monthly UTL plan</CardTitle>
+          <CardDescription>Every department assigned to this pole is listed. The ERCo or authorized IERS lead chooses a named nurse for the month, or deliberately leaves that department unassigned. This does not claim that the nurse will work every shift; choose the actual nurse again for each dated shift below.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {poleDepartments.length === 0 ? <p className="text-sm text-muted-foreground">Assign confirmed operational departments to this pole in Departments & poles first.</p> : (
+            <>
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center"><Input type="month" value={monthStart.slice(0, 7)} onChange={(event) => setMonthStart(`${event.target.value}-01`)} className="w-full sm:w-48" /><Badge variant="outline" className="w-fit">{poleDepartments.length} pole department(s)</Badge></div>
+              <div className="space-y-2">
+                {poleDepartments.map((department) => {
+                  const candidates = providersForDepartment(department.id);
+                  const pendingLinks = pendingLinkCandidatesForDepartment(department.id);
+                  const canWrite = nurseCandidateGroups?.some((group) => group.departmentId === department.id) ?? false;
+                  const ercoAssignment = ercoAssignments?.find((assignment) => assignment.departmentId === department.id);
+                  const activeStaff = staffMembers?.filter((staff) => staff.userId != null) ?? [];
+                  return <div key={department.id} className="rounded-md border bg-background/70 p-3">
+                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><span className="break-words text-sm font-medium">{department.departmentName}</span><Badge variant={ercoAssignment?.assignmentStatus === "active" ? "default" : "secondary"}>{ercoAssignment?.assignmentStatus === "active" ? "ERCo active" : ercoAssignment?.assignmentStatus === "pending_acceptance" ? "ERCo acceptance pending" : "ERCo not assigned"}</Badge></div>
+                    {!ercoAssignment || ercoAssignment.assignmentStatus === "declined" || ercoAssignment.assignmentStatus === "ended" ? <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center"><Select value={ercoSelections[department.id] ?? ""} onValueChange={(value) => setErcoSelections((current) => ({ ...current, [department.id]: value }))}><SelectTrigger className="w-full sm:w-72"><SelectValue placeholder="Assign ERCo now" /></SelectTrigger><SelectContent>{activeStaff.map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}>{staff.staffName} ({staff.staffRole})</SelectItem>)}</SelectContent></Select><Button size="sm" className="w-full sm:w-auto" onClick={() => saveErco(department.id)} disabled={assignErcoMutation.isPending}>Assign ERCo</Button></div> : <p className="mt-2 text-xs text-muted-foreground">ERCo responsibility is dated and provider-accepted. Use ERCo governance to add a backup or review history.</p>}
+                    {canWrite ? <div className="mt-3"><p className="mb-1 text-xs font-medium text-muted-foreground">Monthly nurse source (optional)</p><Select value={monthlyProviderSelections[department.id] ?? "none"} onValueChange={(value) => setMonthlyProviderSelections((current) => ({ ...current, [department.id]: value }))}><SelectTrigger className="w-full sm:w-72"><SelectValue placeholder="Leave unassigned" /></SelectTrigger><SelectContent><SelectItem value="none">Leave unassigned for now</SelectItem>{candidates.map((candidate) => <SelectItem key={candidate.userId} value={String(candidate.userId)}>{candidate.staffName}</SelectItem>)}</SelectContent></Select></div> : <Badge className="mt-3" variant="secondary">Accepted ERCo/lead access required to staff this department</Badge>}
+                    {pendingLinks.length > 0 && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">{pendingLinks.length} nurse candidate(s) need an account link before they can accept a dated UTL duty.</p>}
+                    {canWrite && renderManualNurseForm(department.id)}
+                  </div>;
+                })}
+              </div>
+              {rotaDepartments.length > 0 && <Button className="w-full sm:w-auto" onClick={saveMonthlyPlan} disabled={prepareMonthlyMutation.isPending}>{prepareMonthlyMutation.isPending ? "Saving plan…" : "Save monthly UTL plan"}</Button>}
+              <p className="text-xs text-muted-foreground">Saving this plan creates dated source rows only for the departments you can manage. A named provider still must accept each dated assignment in the provider portal, and the actual on-shift nurse should be confirmed below.</p>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Shift UTL Roster Table */}
       <Card className="min-w-0">
