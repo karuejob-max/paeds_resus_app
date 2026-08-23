@@ -58,3 +58,19 @@ The fresh production CPD Portal → Sessions & Check-In page loads normally afte
 ## Live analytics checkpoint
 
 The deployed CPD Portal → Overview & Analytics page loads and reports 324 registrations and 41 participating departments. This remains consistent with the current 294 unlinked-row count: reconciliation decisions can be recorded without opting into the optional canonical-identity backfill, so the analytics grouping continues to use raw labels for those unresolved/unlinked rows. The new code path is present, but a visible canonical change requires the specific label to be mapped and the backfill option to be selected.
+
+## Follow-up deployment checkpoint
+
+After PR #519, the live Administration → People & profile page loads the updated shared Administration surface. At the sampled instant the department reconciliation query is still loading; the next read will confirm whether the mapped-but-unbackfilled completion queue is visible.
+
+## Follow-up still deploying
+
+The live Administration DOM still shows the pre-follow-up card text `Labels needing review` with a count of 28, and no `mapped · backfill pending` rows. The current source and PR #519 contain the completion queue, so Render has not yet switched this page to the follow-up bundle. The live page is otherwise functioning; no production mutation has been attempted.
+
+## Follow-up deployment live
+
+Render now reports commit `43efb72` (PR #519) as live at 00:41. The earlier live page sampled before this deploy showed the old 28-item review count; the final verification will now reload the Administration page and check for the new completion wording and pending-backfill rows.
+
+## Final follow-up verification
+
+The live HTTP bundle now serves `index-CQPf7AE-.js` and `InstitutionWorkspace-BGYeyQRm.js`, and the published workspace chunk contains `Labels needing review or completion`, `mapped · backfill pending`, and the explicit statement that canonical backfill is required for CPD dashboards to group rows under the canonical department. This confirms PR #519 is deployed. The browser session became unavailable during the final reload, so no mutation was executed and the HTTP check was used only to verify the published bundle.
