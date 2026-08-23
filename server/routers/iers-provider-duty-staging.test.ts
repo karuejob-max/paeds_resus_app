@@ -284,6 +284,20 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       updatedAt: now,
     });
     const staffMemberId = Number((staffInsert as unknown as { insertId: number }).insertId);
+    await db.insert(institutionalStaffMembers).values({
+      institutionalAccountId: institutionId,
+      userId: replacementProviderId,
+      staffName: "Staging Replacement Provider",
+      staffEmail: `staging-replacement-${suffix}@example.test`,
+      staffRole: "nurse",
+      governanceRole: "unit_team_leader",
+      department: "STAGING DEPARTMENT ALPHA",
+      facilityDepartmentId: departmentId,
+      facilityLinkStatus: "linked",
+      enrollmentStatus: "enrolled",
+      createdAt: now,
+      updatedAt: now,
+    });
     const [otherDepartmentInsert] = await db.insert(facilityDepartments).values({ institutionId: otherInstitutionId, poleId: otherPoleId, departmentName: "STAGING DEPARTMENT BRAVO", isActive: true, requiresPole: true, confirmedAt: now, confirmedByUserId: adminId, createdAt: now });
     const otherDepartmentId = Number((otherDepartmentInsert as unknown as { insertId: number }).insertId);
 
@@ -573,6 +587,31 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     expect(readiness.some((assignment) => assignment.id === ids.rosterId)).toBe(true);
     const signedOff = await assignedCaller.iers.signOffShiftReadiness({ shiftRosterId: ids.rosterId, note: "Staging readiness evidence" });
     expect(signedOff.success).toBe(true);
+
+    const reassignedUtl = await assignedCaller.institution.submitShiftUtlRoster({
+      institutionId: ids.institutionId,
+      poleId: ids.poleId,
+      departmentId: ids.departmentId,
+      shiftDate: today,
+      shiftType: "morning",
+      shiftStartTime: "07:30",
+      shiftEndTime: "17:30",
+      shiftEndDayOffset: 0,
+      utlUserId: ids.replacementProviderId,
+      isShiftErtl: false,
+      status: "active",
+    });
+    expect(reassignedUtl.success).toBe(true);
+    expect(reassignedUtl.changed).toBe(true);
+    const reassignedRow = await db.select().from(shiftUtlRosters).where(eq(shiftUtlRosters.id, ids.rosterId)).limit(1);
+    expect(reassignedRow[0]).toEqual(expect.objectContaining({
+      utlUserId: ids.replacementProviderId,
+      assignmentStatus: "pending_acceptance",
+      acceptedAt: null,
+      readinessSignOffAt: null,
+    }));
+    const replacementAccepted = await replacementCaller.institution.respondToShiftUtlRoster({ rosterId: ids.rosterId, response: "accept" });
+    expect(replacementAccepted.assignmentStatus).toBe("active");
 
     await expectTrpcError(
       () => assignedCaller.institution.respondToWeeklyErtlRotation({ rotationId: ids.rotationId, response: "decline" }),

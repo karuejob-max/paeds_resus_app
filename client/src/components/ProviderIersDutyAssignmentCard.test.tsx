@@ -101,4 +101,39 @@ describe("ProviderIersDutyAssignmentCard", () => {
     expect(screen.queryByText(/Exact hours pending/)).toBeNull();
     expect(screen.getByText(/View complete UTL and ERTL rota/)).toBeTruthy();
   });
+
+  it("shows direct UTL staffing access for an accepted ERCo", () => {
+    mockUseQuery.mockReset();
+    mockUseQuery
+      .mockReturnValueOnce({
+        data: [{
+          id: 7,
+          institutionId: 3,
+          departmentId: 10,
+          departmentName: "Emergency Department",
+          poleId: 4,
+          poleName: "North Pole",
+          coordinatorUserId: 254,
+          backupUserId: null,
+          assignmentStatus: "active",
+          effectiveFrom: "2026-08-01T00:00:00.000Z",
+          effectiveUntil: null,
+          acceptedAt: "2026-08-01T00:00:00.000Z",
+          declinedAt: null,
+          declineReason: null,
+          backupAcceptedAt: null,
+          backupDeclinedAt: null,
+          backupDeclineReason: null,
+        }],
+        isLoading: false,
+      })
+      .mockReturnValueOnce({
+        data: { nextUtl: null, nextErtl: null, utl: [], ertl: [] },
+        isLoading: false,
+      });
+
+    render(<ProviderIersDutyAssignmentCard />);
+
+    expect(screen.getByRole("button", { name: /Manage UTL staffing/i })).toBeTruthy();
+  });
 });
