@@ -20,6 +20,27 @@ async function requireDb() {
   return db;
 }
 
+async function loadFacilityDepartmentNames(db: any, institutionId: number) {
+  const rows = await db
+    .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
+    .from(facilityDepartments)
+    .where(eq(facilityDepartments.institutionId, institutionId));
+  return new Map<number, string>(rows.map((row: { id: number; departmentName: string }) => [
+    row.id,
+    canonicalizeDepartmentLabel(row.departmentName),
+  ]));
+}
+
+export function getCanonicalAttendeeDepartment(
+  attendee: { department: string; facilityDepartmentId?: number | null },
+  facilityDepartmentNames: Map<number, string>,
+) {
+  if (attendee.facilityDepartmentId != null) {
+    return facilityDepartmentNames.get(attendee.facilityDepartmentId) ?? attendee.department;
+  }
+  return attendee.department;
+}
+
 const CPD_MEMBER_ROLES: InstitutionalProductRoleKey[] = ["cpd_coordinator", "cpd_reviewer", "cpd_reporter", "cpd_viewer"];
 
 async function assertCpdInstitutionAccess(
@@ -102,6 +123,7 @@ export function buildAttendeeCsv(
     cadreOther: string | null;
     higherDiploma: string | null;
     department: string;
+    canonicalDepartmentName?: string | null;
     eventName: string;
     eventDate: string;
     submittedAt: Date | string;
@@ -115,6 +137,7 @@ export function buildAttendeeCsv(
     "Cadre (Other)",
     "Higher Diploma / Specialty",
     "Department",
+    "Canonical Department",
     "Event",
     "Event Date",
     "Submitted At",
@@ -137,6 +160,7 @@ export function buildAttendeeCsv(
         r.cadreOther ?? "",
         r.higherDiploma ?? "",
         r.department,
+        r.canonicalDepartmentName ?? "",
         r.eventName,
         r.eventDate,
         typeof r.submittedAt === "string" ? r.submittedAt : r.submittedAt.toISOString(),
@@ -786,7 +810,13 @@ export const cpdRouter = router({
         .from(cpdAttendees)
         .where(whereClause)
         .orderBy(desc(cpdAttendees.id));
-      return rows;
+      const facilityDepartmentNames = await loadFacilityDepartmentNames(db, input.institutionId);
+      return rows.map((row) => ({
+        ...row,
+        canonicalDepartmentName: row.facilityDepartmentId != null
+          ? facilityDepartmentNames.get(row.facilityDepartmentId) ?? null
+          : null,
+      }));
     }),
 
   /** Admin: export attendees (optionally filtered to one event) as a CSV string. */
@@ -816,6 +846,7 @@ export const cpdRouter = router({
           cadreOther: cpdAttendees.cadreOther,
           higherDiploma: cpdAttendees.higherDiploma,
           department: cpdAttendees.department,
+          facilityDepartmentId: cpdAttendees.facilityDepartmentId,
           submittedAt: cpdAttendees.submittedAt,
           eventName: cpdEvents.name,
           eventDate: cpdEvents.eventDate,
@@ -824,6 +855,7 @@ export const cpdRouter = router({
         .leftJoin(cpdEvents, eq(cpdAttendees.cpdEventId, cpdEvents.id))
         .where(whereClause)
         .orderBy(desc(cpdAttendees.id));
+      const facilityDepartmentNames = await loadFacilityDepartmentNames(db, input.institutionId);
       const csv = buildAttendeeCsv(
         rows.map((r) => ({
           fullName: r.fullName,
@@ -833,6 +865,9 @@ export const cpdRouter = router({
           cadreOther: r.cadreOther,
           higherDiploma: r.higherDiploma,
           department: r.department,
+          canonicalDepartmentName: r.facilityDepartmentId != null
+            ? facilityDepartmentNames.get(r.facilityDepartmentId) ?? null
+            : null,
           eventName: r.eventName ?? "",
           eventDate: r.eventDate ?? "",
           submittedAt: r.submittedAt,
@@ -1068,6 +1103,9 @@ export const cpdRouter = router({
         .from(cpdAttendees)
         .where(eq(cpdAttendees.institutionalAccountId, input.institutionId))
         .orderBy(desc(cpdAttendees.id));
+      const facilityDepartmentNames = await loadFacilityDepartmentNames(db, input.institutionId);
+      const canonicalDepartmentForAttendance = (attendee: typeof attendees[number]) =>
+        getCanonicalAttendeeDepartment(attendee, facilityDepartmentNames);
 
       let totalPointsIssued = 0;
       let cneCount = 0;
@@ -1090,7 +1128,7 @@ export const cpdRouter = router({
       const deptStats: Record<string, { department: string; attendedCount: number; presentedCount: number }> = {};
       
       for (const a of attendees) {
-        const dept = a.department || "Unassigned";
+        const dept = canonicalDepartmentForAttendance(a) || "Unassigned";
         if (!deptStats[dept]) {
           deptStats[dept] = { department: dept, attendedCount: 0, presentedCount: 0 };
         }
@@ -1160,7 +1198,9 @@ export const cpdRouter = router({
           fullName: sm.staffName,
           email: sm.staffEmail,
           cadre: getRoleDisplayName(sm.staffRole),
-          department: sm.department || "Unassigned",
+          department: sm.facilityDepartmentId != null
+            ? facilityDepartmentNames.get(sm.facilityDepartmentId) ?? sm.department ?? "Unassigned"
+            : sm.department || "Unassigned",
           cneAttended: 0,
           cmeAttended: 0,
           totalAttended: 0,
@@ -1182,7 +1222,7 @@ export const cpdRouter = router({
             fullName: a.fullName,
             email: a.email,
             cadre: a.cadre || "Clinician",
-            department: a.department || "Unassigned",
+            department: canonicalDepartmentForAttendance(a) || "Unassigned",
             cneAttended: 0,
             cmeAttended: 0,
             totalAttended: 0,

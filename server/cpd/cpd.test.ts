@@ -5,7 +5,7 @@ import {
   generateCpdCertificatePdf,
   decodeSignaturePng,
 } from "./certificate";
-import { buildAttendeeCsv } from "../routers/cpd";
+import { buildAttendeeCsv, getCanonicalAttendeeDepartment } from "../routers/cpd";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 import type { User } from "../../drizzle/schema";
@@ -95,6 +95,19 @@ describe("cpdCertificateFilename", () => {
   });
 });
 
+describe("getCanonicalAttendeeDepartment", () => {
+  const names = new Map<number, string>([[7, "Critical Care: ICU"]]);
+
+  it("uses the canonical local department for a linked attendance row", () => {
+    expect(getCanonicalAttendeeDepartment({ department: "Paeds ICU", facilityDepartmentId: 7 }, names)).toBe("Critical Care: ICU");
+  });
+
+  it("preserves the raw text when there is no usable canonical identity", () => {
+    expect(getCanonicalAttendeeDepartment({ department: "Unrecognised unit", facilityDepartmentId: 99 }, names)).toBe("Unrecognised unit");
+    expect(getCanonicalAttendeeDepartment({ department: "Paeds ICU", facilityDepartmentId: null }, names)).toBe("Paeds ICU");
+  });
+});
+
 describe("buildAttendeeCsv", () => {
   const baseRow = {
     fullName: "Jane Doe",
@@ -124,6 +137,14 @@ describe("buildAttendeeCsv", () => {
     ]);
     expect(csv).toContain('"Doe, Jane ""JD"""');
     expect(csv).toContain('"Ward 3\nUnit B"');
+  });
+
+  it("keeps the recorded label and exposes a reconciled canonical department", () => {
+    const csv = buildAttendeeCsv([
+      { ...baseRow, department: "Paeds ICU", canonicalDepartmentName: "Critical Care: ICU" },
+    ]);
+    expect(csv.split("\r\n")[0]).toContain("Canonical Department");
+    expect(csv).toContain("Paeds ICU,Critical Care: ICU");
   });
 
   it("handles an empty list (header only)", () => {
