@@ -65,6 +65,7 @@ import { assertInstitutionProductCapability, assertWritableProductAccess } from 
 import { asDateOnly, derivePoleRotationDepartmentId, isoWeekMonday, mondayForDate } from "../lib/iers-pole-rotation";
 import { assertInstitutionAccountScope } from "../lib/institution-account-scopes";
 import { assertInstitutionProductRole } from "../lib/institution-product-roles";
+import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { getCohortProgressStats } from "../lib/cohort-progress";
 import { ensureCourseCatalogForSchedule } from "../lib/ensure-course-catalog-for-schedule";
 import {
@@ -327,6 +328,19 @@ async function assertIersPoleRotaReadAccess(
   }
 }
 
+function providerBelongsToCanonicalDepartment(
+  row: {
+    facilityDepartmentId?: number | null;
+    department?: string | null;
+    profileDepartment?: string | null;
+  },
+  department: { id: number; departmentName: string },
+) {
+  const profileDepartment = row.profileDepartment?.trim();
+  if (profileDepartment) return departmentLabelsMatch(profileDepartment, department.departmentName);
+  return row.facilityDepartmentId === department.id || departmentLabelsMatch(row.department ?? "", department.departmentName);
+}
+
 async function resolveCanonicalDepartmentProvider(
   db: DbClient,
   institutionId: number,
@@ -344,8 +358,19 @@ async function resolveCanonicalDepartmentProvider(
     .limit(1);
   if (!department) return null;
   const rows = await db
-    .select({ userId: institutionalStaffMembers.userId, department: institutionalStaffMembers.department, facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId })
+    .select({
+      userId: institutionalStaffMembers.userId,
+      staffRole: institutionalStaffMembers.staffRole,
+      providerType: users.providerType,
+      cadre: users.cadre,
+      cadreOther: users.cadreOther,
+      department: institutionalStaffMembers.department,
+      facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+      profileDepartment: providerProfiles.department,
+    })
     .from(institutionalStaffMembers)
+    .leftJoin(users, eq(users.id, institutionalStaffMembers.userId))
+    .leftJoin(providerProfiles, eq(providerProfiles.userId, institutionalStaffMembers.userId))
     .innerJoin(institutionMemberships, and(
       eq(institutionMemberships.institutionalAccountId, institutionId),
       eq(institutionMemberships.userId, institutionalStaffMembers.userId),
@@ -358,7 +383,7 @@ async function resolveCanonicalDepartmentProvider(
     ))
     .orderBy(asc(institutionalStaffMembers.id));
   const providerIds = rows
-    .filter((row) => row.facilityDepartmentId === department.id || departmentLabelsMatch(row.department ?? "", department.departmentName))
+    .filter((row) => isRegisteredRnProfile(row) && providerBelongsToCanonicalDepartment(row, department))
     .map((row) => row.userId)
     .filter((id): id is number => id != null);
   if (preferredUserId != null) {
@@ -2067,22 +2092,28 @@ export const institutionRouter = router({
           staffEmail: institutionalStaffMembers.staffEmail,
           staffPhone: institutionalStaffMembers.staffPhone,
           staffRole: institutionalStaffMembers.staffRole,
+          providerType: users.providerType,
+          cadre: users.cadre,
+          cadreOther: users.cadreOther,
           department: institutionalStaffMembers.department,
           facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
           facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
           membershipStatus: institutionMemberships.membershipStatus,
+          profileDepartment: providerProfiles.department,
         })
         .from(institutionalStaffMembers)
+        .leftJoin(users, eq(users.id, institutionalStaffMembers.userId))
+        .leftJoin(providerProfiles, eq(providerProfiles.userId, institutionalStaffMembers.userId))
         .leftJoin(institutionMemberships, and(
           eq(institutionMemberships.institutionalAccountId, input.institutionId),
           eq(institutionMemberships.userId, institutionalStaffMembers.userId),
         ))
         .where(and(
           eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
-          eq(institutionalStaffMembers.staffRole, "nurse"),
           or(
             eq(institutionalStaffMembers.facilityDepartmentId, department.id),
             sql`${institutionalStaffMembers.facilityDepartmentId} IS NULL AND LOWER(TRIM(${institutionalStaffMembers.department})) = LOWER(TRIM(${department.departmentName}))`,
+            sql`${providerProfiles.department} IS NOT NULL AND LOWER(TRIM(${providerProfiles.department})) = LOWER(TRIM(${department.departmentName}))`,
           ),
         ))
         .orderBy(asc(institutionalStaffMembers.staffName));
@@ -2090,11 +2121,20 @@ export const institutionRouter = router({
       return rows.filter((row) => {
         if (seen.has(row.id)) return false;
         seen.add(row.id);
-        return true;
+        return isRegisteredRnProfile(row) && providerBelongsToCanonicalDepartment(row, department);
       }).map((row) => ({
-        ...row,
+        id: row.id,
+        userId: row.userId,
+        staffName: row.staffName,
+        staffEmail: row.staffEmail,
+        staffPhone: row.staffPhone,
+        staffRole: isRegisteredRnProfile(row) ? "nurse" : row.staffRole,
+        department: row.department,
+        facilityDepartmentId: row.facilityDepartmentId,
+        facilityLinkStatus: row.facilityLinkStatus,
+        membershipStatus: row.membershipStatus,
         assignable: row.userId != null && row.membershipStatus === "active" && row.facilityLinkStatus === "linked",
-        needsAccountLink: row.userId == null || row.membershipStatus !== "active",
+        needsAccountLink: row.userId == null || row.membershipStatus !== "active" || row.facilityLinkStatus !== "linked",
       }));
     }),
 
@@ -2147,22 +2187,28 @@ export const institutionRouter = router({
             staffEmail: institutionalStaffMembers.staffEmail,
             staffPhone: institutionalStaffMembers.staffPhone,
             staffRole: institutionalStaffMembers.staffRole,
+            providerType: users.providerType,
+            cadre: users.cadre,
+            cadreOther: users.cadreOther,
             department: institutionalStaffMembers.department,
             facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
             facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
             membershipStatus: institutionMemberships.membershipStatus,
+            profileDepartment: providerProfiles.department,
           })
           .from(institutionalStaffMembers)
+          .leftJoin(users, eq(users.id, institutionalStaffMembers.userId))
+          .leftJoin(providerProfiles, eq(providerProfiles.userId, institutionalStaffMembers.userId))
           .leftJoin(institutionMemberships, and(
             eq(institutionMemberships.institutionalAccountId, input.institutionId),
             eq(institutionMemberships.userId, institutionalStaffMembers.userId),
           ))
           .where(and(
             eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
-            eq(institutionalStaffMembers.staffRole, "nurse"),
             or(
               eq(institutionalStaffMembers.facilityDepartmentId, department.id),
               sql`${institutionalStaffMembers.facilityDepartmentId} IS NULL AND LOWER(TRIM(${institutionalStaffMembers.department})) = LOWER(TRIM(${department.departmentName}))`,
+              sql`${providerProfiles.department} IS NOT NULL AND LOWER(TRIM(${providerProfiles.department})) = LOWER(TRIM(${department.departmentName}))`,
             ),
           ))
           .orderBy(asc(institutionalStaffMembers.staffName));
@@ -2173,11 +2219,20 @@ export const institutionRouter = router({
           candidates: rows.filter((row) => {
             if (seen.has(row.id)) return false;
             seen.add(row.id);
-            return true;
+            return isRegisteredRnProfile(row) && providerBelongsToCanonicalDepartment(row, department);
           }).map((row) => ({
-            ...row,
+            id: row.id,
+            userId: row.userId,
+            staffName: row.staffName,
+            staffEmail: row.staffEmail,
+            staffPhone: row.staffPhone,
+            staffRole: isRegisteredRnProfile(row) ? "nurse" : row.staffRole,
+            department: row.department,
+            facilityDepartmentId: row.facilityDepartmentId,
+            facilityLinkStatus: row.facilityLinkStatus,
+            membershipStatus: row.membershipStatus,
             assignable: row.userId != null && row.membershipStatus === "active" && row.facilityLinkStatus === "linked",
-            needsAccountLink: row.userId == null || row.membershipStatus !== "active",
+            needsAccountLink: row.userId == null || row.membershipStatus !== "active" || row.facilityLinkStatus !== "linked",
           })),
         });
       }
