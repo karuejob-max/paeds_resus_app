@@ -24,6 +24,9 @@ export function InstitutionDepartmentReconciliationPanel({ institutionId }: { in
   const [newDepartmentName, setNewDepartmentName] = useState("");
   const [newDepartmentCustomAcknowledged, setNewDepartmentCustomAcknowledged] = useState(false);
   const [newDepartmentReason, setNewDepartmentReason] = useState("");
+  const [otherTargets, setOtherTargets] = useState<Record<string, string>>({});
+  const [otherReasons, setOtherReasons] = useState<Record<string, string>>({});
+  const [traceabilityFilter, setTraceabilityFilter] = useState<"all" | "other" | "custom">("all");
 
   const dashboardQuery = trpc.institutionDepartmentReconciliation.getDepartmentReconciliationDashboard.useQuery({ institutionId });
   const otherRegistrationsQuery = trpc.institutionDepartmentReconciliation.getOtherDepartmentRegistrations.useQuery({ institutionId, limit: 100, offset: 0 });
@@ -61,11 +64,20 @@ export function InstitutionDepartmentReconciliationPanel({ institutionId }: { in
     },
     onError: (error) => toast.error(error.message),
   });
+  const otherResolutionMutation = trpc.institutionDepartmentReconciliation.resolveOtherDepartmentRegistration.useMutation({
+    onSuccess: async (result) => {
+      toast.success(result.status === "resolved" ? "This CPD registration was linked to the selected canonical department." : "This registration review status was saved.");
+      await utils.institutionDepartmentReconciliation.getOtherDepartmentRegistrations.invalidate({ institutionId, limit: 100, offset: 0 });
+      await utils.institutionDepartmentReconciliation.getDepartmentReconciliationDashboard.invalidate({ institutionId });
+    },
+    onError: (error) => toast.error(error.message),
+  });
 
   const activeDepartments = useMemo(
     () => (dashboardQuery.data?.departments ?? []).filter((department) => department.isActive && department.confirmedAt != null),
     [dashboardQuery.data?.departments],
   );
+  const traceabilityRows = useMemo(() => (otherRegistrationsQuery.data?.rows ?? []).filter((row) => traceabilityFilter === "all" || (traceabilityFilter === "other" ? row.isOtherSubmission : !row.isOtherSubmission)), [otherRegistrationsQuery.data?.rows, traceabilityFilter]);
 
   if (dashboardQuery.isLoading) {
     return <Card><CardContent className="p-6 text-sm text-muted-foreground">Loading department reconciliation…</CardContent></Card>;
@@ -166,6 +178,21 @@ export function InstitutionDepartmentReconciliationPanel({ institutionId }: { in
     statusMutation.mutate({ institutionId, normalizedLabel: row.normalizedLabel, status, reason });
   };
 
+  const resolveOtherRegistration = (row: NonNullable<typeof otherRegistrationsQuery.data>["rows"][number], status: "resolved" | "deferred" | "dismissed" | "open") => {
+    const reason = otherReasons[String(row.id)]?.trim();
+    if (!reason || reason.length < 3) {
+      toast.error("Add a short reason for this attendee decision.");
+      return;
+    }
+    const targetValue = otherTargets[String(row.id)] ?? (row.resolutionTargetDepartmentId ? String(row.resolutionTargetDepartmentId) : "");
+    const targetFacilityDepartmentId = targetValue ? Number(targetValue) : null;
+    if (status === "resolved" && (targetFacilityDepartmentId == null || !Number.isInteger(targetFacilityDepartmentId) || targetFacilityDepartmentId <= 0)) {
+      toast.error("Choose the canonical department for this individual registration.");
+      return;
+    }
+    otherResolutionMutation.mutate({ institutionId, cpdAttendeeId: row.id, targetFacilityDepartmentId, status, reason });
+  };
+
   return (
     <div className="space-y-6">
       <Card className="min-w-0 border-primary/20">
@@ -206,19 +233,24 @@ export function InstitutionDepartmentReconciliationPanel({ institutionId }: { in
 
       <Card className="min-w-0 border-indigo-500/30">
         <CardHeader>
-          <CardTitle className="flex items-start gap-2 text-base sm:text-lg"><Users className="mt-0.5 h-5 w-5 shrink-0 text-indigo-700" />Who used Other or an unresolved CPD department?</CardTitle>
-          <CardDescription>This institution-scoped list shows attendee details captured at registration for exact Other submissions and custom labels that still need review. It helps you decide whether to add a department, correct a label, or treat the attendee as locum/external. It does not change the attendance record.</CardDescription>
+          <CardTitle className="flex items-start gap-2 text-base sm:text-lg"><Users className="mt-0.5 h-5 w-5 shrink-0 text-indigo-700" />CPD department traceability</CardTitle>
+          <CardDescription>Review the two queues separately: literal <strong>Other</strong> submissions are resolved per attendee, while unresolved custom labels are reviewed as label patterns. A literal Other row must never be merged with another person’s Other row automatically.</CardDescription>
         </CardHeader>
-        <CardContent>
+                  <CardContent>
+          {!otherRegistrationsQuery.isLoading && !otherRegistrationsQuery.isError && (otherRegistrationsQuery.data?.rows.length ?? 0) > 0 && <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="CPD department traceability queues">
+            <Button type="button" size="sm" variant={traceabilityFilter === "all" ? "default" : "outline"} onClick={() => setTraceabilityFilter("all")}>All ({otherRegistrationsQuery.data?.total ?? 0})</Button>
+            <Button type="button" size="sm" variant={traceabilityFilter === "other" ? "default" : "outline"} onClick={() => setTraceabilityFilter("other")}>Literal Other ({otherRegistrationsQuery.data?.rows.filter((row) => row.isOtherSubmission).length ?? 0})</Button>
+            <Button type="button" size="sm" variant={traceabilityFilter === "custom" ? "default" : "outline"} onClick={() => setTraceabilityFilter("custom")}>Unresolved custom labels ({otherRegistrationsQuery.data?.rows.filter((row) => !row.isOtherSubmission).length ?? 0})</Button>
+          </div>}
           {otherRegistrationsQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading registration details…</p> : otherRegistrationsQuery.isError ? <p className="text-sm text-amber-800 dark:text-amber-200">{otherRegistrationsQuery.error.message}</p> : otherRegistrationsQuery.data?.rows.length === 0 ? <div className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground"><CheckCircle2 className="mx-auto mb-2 h-5 w-5 text-emerald-600" />No currently unlinked CPD registrations were found.</div> : (
             <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">Showing {otherRegistrationsQuery.data?.rows.length ?? 0} of {otherRegistrationsQuery.data?.total ?? 0} Other/custom registration(s).</p>
+              <p className="text-xs text-muted-foreground">Showing {traceabilityRows.length} of {otherRegistrationsQuery.data?.total ?? 0} registration(s) in the selected queue.</p>
               <div className="space-y-2">
-                {otherRegistrationsQuery.data?.rows.map((row) => (
+                {traceabilityRows.length === 0 ? <div className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">No registrations match this queue.</div> : traceabilityRows.map((row) => (
                   <div key={row.id} className="rounded-lg border bg-background p-3 text-sm">
                     <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0"><p className="break-words font-semibold">{row.fullName}</p><p className="mt-1 break-words text-xs text-muted-foreground">Recorded department: <span className="font-medium text-foreground">{row.department}</span></p></div>
-                      <Badge variant={row.mappingStatus === "linked" ? "default" : row.attendanceType === "primary_facility" ? "secondary" : "outline"}>{row.mappingStatus === "linked" ? `Linked: ${row.canonicalDepartmentName}` : row.isOtherSubmission ? "Entered as Other" : "Needs review"}</Badge>
+                      <div className="flex max-w-full flex-wrap justify-end gap-1"><Badge variant={row.mappingStatus === "linked" ? "default" : row.attendanceType === "primary_facility" ? "secondary" : "outline"}>{row.mappingStatus === "linked" ? `Linked: ${row.canonicalDepartmentName}` : row.isOtherSubmission ? "Entered as Other" : "Needs review"}</Badge>{row.resolutionStatus !== "open" && <Badge variant={row.resolutionStatus === "resolved" ? "default" : "secondary"}>{row.resolutionStatus}{row.resolutionStatus === "resolved" && row.canonicalDepartmentName ? `: ${row.canonicalDepartmentName}` : ""}</Badge>}</div>
                     </div>
                     <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
                       <span className="flex min-w-0 items-center gap-1 break-all"><Mail className="h-3.5 w-3.5 shrink-0" />{row.email}</span>
@@ -227,6 +259,23 @@ export function InstitutionDepartmentReconciliationPanel({ institutionId }: { in
                       <span>Registered: {formatDate(row.submittedAt)}</span>
                     </div>
                     <p className="mt-2 text-xs text-muted-foreground">Session: {row.eventName ?? "Unknown session"}{row.eventDate ? ` · ${row.eventDate}` : ""} · Attendance: {row.attendanceType.replaceAll("_", " ")}</p>
+                    {row.rosterMatch && <p className="mt-2 rounded-md bg-blue-500/5 p-2 text-xs text-blue-900 dark:text-blue-100">Roster match: <strong>{row.rosterStaffName}</strong>{row.rosterStaffRole ? ` · ${row.rosterStaffRole}` : ""}{row.rosterDepartment ? ` · recorded roster department: ${row.rosterDepartment}` : ""}{row.rosterLinkStatus ? ` · ${row.rosterLinkStatus}` : ""}</p>}
+                    <div className="mt-3 rounded-md border border-indigo-500/20 bg-indigo-500/5 p-3">
+                      <p className="text-xs font-semibold text-foreground">Resolve this registration individually</p>
+                      <p className="mt-1 text-xs text-muted-foreground">`Other` is not a department. Different people may belong to different departments, so do not merge all `Other` rows together.</p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                        <select value={otherTargets[String(row.id)] ?? (row.resolutionTargetDepartmentId ? String(row.resolutionTargetDepartmentId) : "")} onChange={(event) => setOtherTargets((current) => ({ ...current, [String(row.id)]: event.target.value }))} className="h-10 min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                          <option value="">Leave unresolved for now</option>
+                          {activeDepartments.map((department) => <option key={department.id} value={String(department.id)}>{department.departmentName}</option>)}
+                        </select>
+                        <Input value={otherReasons[String(row.id)] ?? ""} onChange={(event) => setOtherReasons((current) => ({ ...current, [String(row.id)]: event.target.value }))} placeholder="Reason for this person’s department decision" maxLength={1000} />
+                      </div>
+                      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                        <Button size="sm" className="w-full sm:w-auto" onClick={() => resolveOtherRegistration(row, "resolved")} disabled={otherResolutionMutation.isPending}>Link to selected department</Button>
+                        <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => resolveOtherRegistration(row, "deferred")} disabled={otherResolutionMutation.isPending}>Defer</Button>
+                        <Button size="sm" variant="ghost" className="w-full sm:w-auto" onClick={() => resolveOtherRegistration(row, "dismissed")} disabled={otherResolutionMutation.isPending}>Dismiss</Button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

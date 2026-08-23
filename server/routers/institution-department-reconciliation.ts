@@ -7,6 +7,8 @@ import {
   cpdAttendees,
   cpdEvents,
   facilityDepartments,
+  institutionalStaffMembers,
+  institutionCpdDepartmentResolutions,
   institutionDepartmentAuditEvents,
   institutionDepartmentReconciliations,
 } from "../../drizzle/schema";
@@ -562,8 +564,7 @@ export const institutionDepartmentReconciliation = router({
         eq(cpdAttendees.institutionalAccountId, input.institutionId),
         or(
           isNull(cpdAttendees.facilityDepartmentId),
-          eq(cpdAttendees.department, "Other"),
-          eq(cpdAttendees.department, "other"),
+          sql`LOWER(TRIM(${cpdAttendees.department})) = 'other'`,
         ),
       ];
       const [rows, totalRows] = await Promise.all([
@@ -581,10 +582,23 @@ export const institutionDepartmentReconciliation = router({
           eventDate: cpdEvents.eventDate,
           facilityDepartmentId: cpdAttendees.facilityDepartmentId,
           canonicalDepartmentName: facilityDepartments.departmentName,
+          resolutionId: institutionCpdDepartmentResolutions.id,
+          resolutionStatus: institutionCpdDepartmentResolutions.status,
+          resolutionFacilityDepartmentId: institutionCpdDepartmentResolutions.facilityDepartmentId,
+          resolutionReason: institutionCpdDepartmentResolutions.decisionReason,
+          resolvedAt: institutionCpdDepartmentResolutions.resolvedAt,
+          rosterStaffId: institutionalStaffMembers.id,
+          rosterStaffName: institutionalStaffMembers.staffName,
+          rosterStaffRole: institutionalStaffMembers.staffRole,
+          rosterDepartment: institutionalStaffMembers.department,
+          rosterFacilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+          rosterLinkStatus: institutionalStaffMembers.facilityLinkStatus,
         })
           .from(cpdAttendees)
           .leftJoin(cpdEvents, eq(cpdEvents.id, cpdAttendees.cpdEventId))
           .leftJoin(facilityDepartments, and(eq(facilityDepartments.id, cpdAttendees.facilityDepartmentId), eq(facilityDepartments.institutionId, input.institutionId)))
+          .leftJoin(institutionCpdDepartmentResolutions, and(eq(institutionCpdDepartmentResolutions.cpdAttendeeId, cpdAttendees.id), eq(institutionCpdDepartmentResolutions.institutionalAccountId, input.institutionId)))
+          .leftJoin(institutionalStaffMembers, and(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId), sql`LOWER(${institutionalStaffMembers.staffEmail}) = LOWER(${cpdAttendees.email})`))
           .where(and(...predicates))
           .orderBy(desc(cpdAttendees.submittedAt), desc(cpdAttendees.id))
           .limit(input.limit)
@@ -598,11 +612,103 @@ export const institutionDepartmentReconciliation = router({
           ...row,
           isOtherSubmission: row.department.trim().toLowerCase() === "other",
           mappingStatus: row.facilityDepartmentId != null && row.canonicalDepartmentName ? "linked" as const : "needs_review" as const,
+          resolutionStatus: row.resolutionStatus ?? "open" as const,
+          resolutionTargetDepartmentId: row.resolutionFacilityDepartmentId ?? row.facilityDepartmentId ?? null,
+          rosterMatch: row.rosterStaffId != null,
         })),
         total: Number(totalRows[0]?.count ?? 0),
         limit: input.limit,
         offset: input.offset,
       };
+    }),
+
+  resolveOtherDepartmentRegistration: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      cpdAttendeeId: z.number().int().positive(),
+      targetFacilityDepartmentId: z.number().int().positive().nullable().optional(),
+      status: z.enum(["resolved", "deferred", "dismissed", "open"]),
+      reason: z.string().trim().min(3).max(1000),
+    }).refine((input) => input.status !== "resolved" || input.targetFacilityDepartmentId != null, {
+      message: "Choose a confirmed local department before resolving this attendee.",
+      path: ["targetFacilityDepartmentId"],
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+      const result = await db.transaction(async (tx) => {
+        const [attendee] = await tx.select({
+          id: cpdAttendees.id,
+          department: cpdAttendees.department,
+          facilityDepartmentId: cpdAttendees.facilityDepartmentId,
+        }).from(cpdAttendees).where(and(
+          eq(cpdAttendees.id, input.cpdAttendeeId),
+          eq(cpdAttendees.institutionalAccountId, input.institutionId),
+        )).limit(1);
+        if (!attendee) throw new TRPCError({ code: "NOT_FOUND", message: "CPD registration was not found in this institution." });
+
+        let targetDepartmentId = input.targetFacilityDepartmentId ?? null;
+        if (input.status === "resolved" && targetDepartmentId != null) {
+          const [department] = await tx.select({ id: facilityDepartments.id }).from(facilityDepartments).where(and(
+            eq(facilityDepartments.id, targetDepartmentId),
+            eq(facilityDepartments.institutionId, input.institutionId),
+            eq(facilityDepartments.isActive, true),
+            isNotNull(facilityDepartments.confirmedAt),
+          )).limit(1);
+          if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "Choose an active confirmed department from this institution." });
+        } else if (input.status !== "resolved") {
+          targetDepartmentId = null;
+        }
+
+        const [existing] = await tx.select().from(institutionCpdDepartmentResolutions).where(and(
+          eq(institutionCpdDepartmentResolutions.institutionalAccountId, input.institutionId),
+          eq(institutionCpdDepartmentResolutions.cpdAttendeeId, input.cpdAttendeeId),
+        )).limit(1);
+        const now = new Date();
+        if (existing) {
+          await tx.update(institutionCpdDepartmentResolutions).set({
+            recordedDepartment: attendee.department,
+            facilityDepartmentId: targetDepartmentId,
+            status: input.status,
+            resolvedByUserId: ctx.user.id,
+            resolvedAt: input.status === "resolved" ? now : null,
+            decisionReason: input.reason,
+            updatedAt: now,
+          }).where(eq(institutionCpdDepartmentResolutions.id, existing.id));
+        } else {
+          await tx.insert(institutionCpdDepartmentResolutions).values({
+            institutionalAccountId: input.institutionId,
+            cpdAttendeeId: input.cpdAttendeeId,
+            recordedDepartment: attendee.department,
+            facilityDepartmentId: targetDepartmentId,
+            status: input.status,
+            resolvedByUserId: ctx.user.id,
+            resolvedAt: input.status === "resolved" ? now : null,
+            decisionReason: input.reason,
+          });
+        }
+
+        if (input.status === "resolved" && targetDepartmentId != null) {
+          await tx.update(cpdAttendees).set({ facilityDepartmentId: targetDepartmentId }).where(and(
+            eq(cpdAttendees.id, input.cpdAttendeeId),
+            eq(cpdAttendees.institutionalAccountId, input.institutionId),
+          ));
+        }
+
+        await tx.insert(institutionDepartmentAuditEvents).values({
+          institutionalAccountId: input.institutionId,
+          departmentId: targetDepartmentId,
+          eventType: input.status === "resolved" ? "other_attendee_resolved" : `other_attendee_${input.status}`,
+          previousDepartmentId: attendee.facilityDepartmentId,
+          currentDepartmentId: targetDepartmentId,
+          previousStatus: existing?.status ?? "open",
+          currentStatus: input.status,
+          actorUserId: ctx.user.id,
+          reason: input.reason,
+        });
+        return { targetDepartmentId, status: input.status };
+      });
+      return { success: true, ...result };
     }),
 
   getIersMissingPoleAlerts: protectedProcedure
