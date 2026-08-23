@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarClock, CheckCircle2, Info, ShieldCheck } from "lucide-react";
+import { CalendarClock, CheckCircle2, Info, ShieldCheck, Search } from "lucide-react";
 import { toast } from "sonner";
 
 const SHIFT_TIME_PRESETS = {
@@ -27,6 +27,12 @@ function shortTime(value: string | null | undefined) {
   return value?.slice(0, 5) ?? "—";
 }
 
+function getMonthDates(monthStart: string): string[] {
+  const [year, month] = monthStart.split("-").map(Number);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return Array.from({ length: daysInMonth }, (_, index) => `${monthStart.slice(0, 7)}-${String(index + 1).padStart(2, "0")}`);
+}
+
 export default function ProviderIersErcoStaffingPanel() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -39,6 +45,8 @@ export default function ProviderIersErcoStaffingPanel() {
   const [selectedEndDayOffset, setSelectedEndDayOffset] = useState<0 | 1>(0);
   const [selectedTemplateId, setSelectedTemplateId] = useState("none");
   const [selectedUtlUserId, setSelectedUtlUserId] = useState("");
+  const [nurseSearch, setNurseSearch] = useState("");
+  const [bulkDates, setBulkDates] = useState<string[]>([]);
 
   const ercoQuery = trpc.institution.getMyDepartmentResponseAssignments.useQuery(undefined, {
     enabled: Boolean(user),
@@ -66,9 +74,9 @@ export default function ProviderIersErcoStaffingPanel() {
   const poleId = activeAssignment?.poleId ?? 0;
   const departmentId = activeAssignment?.departmentId ?? 0;
 
-  const candidateQuery = trpc.institution.getPoleNurseCandidates.useQuery(
-    { institutionId, poleId },
-    { enabled: institutionId > 0 && poleId > 0, staleTime: 15_000 },
+  const candidateQuery = trpc.institution.getDepartmentNurseCandidates.useQuery(
+    { institutionId, departmentId },
+    { enabled: institutionId > 0 && departmentId > 0, staleTime: 15_000 },
   );
   const templateQuery = trpc.institution.getInstitutionShiftTemplates.useQuery(
     { institutionId },
@@ -80,10 +88,19 @@ export default function ProviderIersErcoStaffingPanel() {
   );
 
   const activeRoster = rosterQuery.data?.find((row) => row.departmentId === departmentId) ?? null;
-  const departmentCandidateGroup = candidateQuery.data?.find((group) => group.departmentId === departmentId);
-  const allCandidates = departmentCandidateGroup?.candidates ?? [];
-  const assignableCandidates = allCandidates.filter((candidate) => candidate.assignable);
+  const allCandidates = candidateQuery.data ?? [];
+  const nurseQuery = nurseSearch.trim().toLowerCase();
+  const filteredCandidates = allCandidates.filter((candidate) => {
+    if (!nurseQuery) return true;
+    return `${candidate.staffName} ${candidate.staffEmail} ${candidate.staffRole}`.toLowerCase().includes(nurseQuery);
+  });
+  const assignableCandidates = filteredCandidates.filter((candidate) => candidate.assignable && candidate.userId != null);
   const currentCandidate = activeRoster ? allCandidates.find((candidate) => candidate.userId === activeRoster.utlUserId) : null;
+  const pickerCandidates = currentCandidate && !filteredCandidates.some((candidate) => candidate.id === currentCandidate.id)
+    ? [currentCandidate, ...filteredCandidates]
+    : filteredCandidates;
+  const pendingCandidates = pickerCandidates.filter((candidate) => !candidate.assignable);
+  const pickerAssignableCandidates = pickerCandidates.filter((candidate) => candidate.assignable && candidate.userId != null);
 
   useEffect(() => {
     const preset = SHIFT_TIME_PRESETS[selectedShift];
@@ -115,6 +132,20 @@ export default function ProviderIersErcoStaffingPanel() {
     onError: (error) => toast.error(error.message || "Could not save this UTL assignment."),
   });
 
+  const bulkAssignMutation = trpc.institution.bulkAssignShiftUtlProvider.useMutation({
+    onSuccess: async (result) => {
+      toast.success(`${result.savedCount} UTL shift(s) saved; the selected practitioner must accept each dated duty.`);
+      setBulkDates([]);
+      await Promise.all([
+        rosterQuery.refetch(),
+        utils.institution.getMyDepartmentResponseAssignments.invalidate(),
+        utils.institution.getMyProviderDutyAssignments.invalidate(),
+        utils.iers.getMyShiftReadiness.invalidate(),
+      ]);
+    },
+    onError: (error) => toast.error(error.message || "Could not apply the practitioner to those shifts."),
+  });
+
   const applyPreset = (shiftType: ShiftType) => {
     const preset = SHIFT_TIME_PRESETS[shiftType];
     setSelectedShift(shiftType);
@@ -142,12 +173,16 @@ export default function ProviderIersErcoStaffingPanel() {
     ),
   );
 
+  const toggleBulkDate = (date: string) => {
+    setBulkDates((current) => current.includes(date) ? current.filter((item) => item !== date) : [...current, date].sort());
+  };
+
   const saveRoster = () => {
     if (!activeAssignment || !selectedUtlUserId) {
       toast.error("Choose an active linked nurse from your department first.");
       return;
     }
-    const selectedCandidate = assignableCandidates.find((candidate) => String(candidate.userId) === selectedUtlUserId);
+    const selectedCandidate = allCandidates.find((candidate) => String(candidate.userId) === selectedUtlUserId && candidate.assignable);
     if (!selectedCandidate?.userId) {
       toast.error("Choose an active linked nurse from your department.");
       return;
@@ -165,6 +200,32 @@ export default function ProviderIersErcoStaffingPanel() {
       utlUserId: selectedCandidate.userId,
       isShiftErtl: false,
       status: "active",
+    });
+  };
+
+  const saveBulkAssignments = () => {
+    if (!activeAssignment || !selectedUtlUserId || bulkDates.length === 0) {
+      toast.error("Choose a practitioner and at least one date first.");
+      return;
+    }
+    const selectedCandidate = allCandidates.find((candidate) => String(candidate.userId) === selectedUtlUserId && candidate.assignable);
+    if (!selectedCandidate?.userId) {
+      toast.error("Choose an active linked nurse from your department first.");
+      return;
+    }
+    bulkAssignMutation.mutate({
+      institutionId,
+      poleId,
+      utlUserId: selectedCandidate.userId,
+      assignments: bulkDates.map((shiftDate) => ({
+        departmentId,
+        shiftDate,
+        shiftType: selectedShift,
+        shiftStartTime: selectedStartTime,
+        shiftEndTime: selectedEndTime,
+        shiftEndDayOffset: selectedEndDayOffset,
+        shiftTemplateId: selectedTemplateId === "none" ? null : Number(selectedTemplateId),
+      })),
     });
   };
 
@@ -252,17 +313,18 @@ export default function ProviderIersErcoStaffingPanel() {
           </label>
 
           <div className="grid gap-2">
-            <label className="text-sm font-medium" htmlFor="provider-iers-utl-provider">UTL provider</label>
+            <label className="text-sm font-medium" htmlFor="provider-iers-utl-search">Department nurses</label>
+            <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input id="provider-iers-utl-search" value={nurseSearch} onChange={(event) => setNurseSearch(event.target.value)} placeholder="Search name, email, or role" className="pl-9" /></div>
             <Select value={selectedUtlUserId} onValueChange={setSelectedUtlUserId}>
               <SelectTrigger id="provider-iers-utl-provider"><SelectValue placeholder="Choose a nurse from your department" /></SelectTrigger>
               <SelectContent>
-                {currentCandidate && !currentCandidate.assignable && currentCandidate.userId != null && (
-                  <SelectItem value={String(currentCandidate.userId)} disabled>{currentCandidate.staffName} · no longer eligible</SelectItem>
-                )}
-                {assignableCandidates.map((candidate) => <SelectItem key={candidate.userId} value={String(candidate.userId)}>{candidate.staffName} · {candidate.staffRole}</SelectItem>)}
+                <SelectItem value="none">Choose practitioner</SelectItem>
+                {pickerAssignableCandidates.map((candidate) => <SelectItem key={candidate.userId} value={String(candidate.userId)}>{candidate.staffName} · {candidate.staffRole}</SelectItem>)}
+                {pendingCandidates.map((candidate) => <SelectItem key={`pending-${candidate.id}`} value={`pending-${candidate.id}`} disabled>{candidate.staffName} · account link or active membership required</SelectItem>)}
               </SelectContent>
             </Select>
-            {assignableCandidates.length === 0 && <p className="text-xs text-rose-700">No active linked nurse is currently eligible in this department. Institution administration must link or correct the nurse’s department before a UTL can be assigned.</p>}
+            <p className="text-[11px] text-muted-foreground">Showing {pickerAssignableCandidates.length} eligible nurse(s){pendingCandidates.length > 0 ? ` and ${pendingCandidates.length} registered candidate(s) not yet assignable` : ""}. The search is limited to your department.</p>
+            {pickerAssignableCandidates.length === 0 && <p className="text-xs text-rose-700">No active linked nurse is currently eligible in this department. Institution administration must link or correct the nurse’s department before a UTL can be assigned.</p>}
           </div>
 
           {activeRoster && (
@@ -287,10 +349,16 @@ export default function ProviderIersErcoStaffingPanel() {
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">Only this department, date, and shift will change. ERTL department rotation remains automatic from pole order.</p>
-            <Button onClick={saveRoster} disabled={!activeAssignment || !selectedUtlUserId || assignableCandidates.length === 0 || saveRosterMutation.isPending} className="w-full sm:w-auto">
+            <Button onClick={saveRoster} disabled={!activeAssignment || !selectedUtlUserId || !allCandidates.some((candidate) => String(candidate.userId) === selectedUtlUserId && candidate.assignable) || saveRosterMutation.isPending} className="w-full sm:w-auto">
               {saveRosterMutation.isPending ? "Saving…" : activeRoster ? "Save staffing change" : "Assign UTL"}
               {!saveRosterMutation.isPending && <CheckCircle2 className="ml-2 h-4 w-4" />}
             </Button>
+          </div>
+
+          <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/40 p-4">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold text-emerald-950">Assign one practitioner across multiple UTL shifts</p><p className="text-xs text-emerald-900/70">Select the dates this nurse will actually cover. Existing rows are updated safely and still require provider acceptance.</p></div><Badge variant="outline">{bulkDates.length} selected</Badge></div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">{getMonthDates(selectedDate.slice(0, 7)).map((date) => { const selected = bulkDates.includes(date); return <label key={date} className={`flex cursor-pointer items-center gap-2 rounded-md border p-2 text-xs ${selected ? "border-emerald-600 bg-emerald-100 dark:bg-emerald-950/30" : "bg-background"}`}><input type="checkbox" checked={selected} onChange={() => toggleBulkDate(date)} className="h-4 w-4 accent-emerald-700" /><span>{date.slice(-2)} {new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short" })}</span></label>; })}</div>
+            <Button onClick={saveBulkAssignments} disabled={!activeAssignment || !selectedUtlUserId || !allCandidates.some((candidate) => String(candidate.userId) === selectedUtlUserId && candidate.assignable) || bulkDates.length === 0 || bulkAssignMutation.isPending} className="w-full sm:w-auto">{bulkAssignMutation.isPending ? "Saving selected shifts…" : "Assign selected dates to this practitioner"}</Button>
           </div>
         </CardContent>
       </Card>

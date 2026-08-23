@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Shield, Clock, AlertCircle, Plus, Star, Calendar, UserPlus, ArrowDown, ArrowUp } from "lucide-react";
+import { Users, Shield, Clock, AlertCircle, Plus, Star, Calendar, UserPlus, ArrowDown, ArrowUp, Search } from "lucide-react";
 import { toast } from "sonner";
 import { ErtBillboardWidget } from "./ErtBillboardWidget";
 
@@ -123,6 +123,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const [ercoSelections, setErcoSelections] = useState<Record<number, string>>({});
   const [bulkDepartmentId, setBulkDepartmentId] = useState("");
   const [bulkUtlUserId, setBulkUtlUserId] = useState("");
+  const [bulkNurseSearch, setBulkNurseSearch] = useState("");
   const [bulkDates, setBulkDates] = useState<string[]>([]);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("none");
@@ -160,6 +161,11 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const { data: nurseCandidateGroups, refetch: refetchNurseCandidates } = trpc.institution.getPoleNurseCandidates.useQuery(
     { institutionId, poleId: activePoleId ?? 0 },
     { enabled: !!institutionId && !!activePoleId },
+  );
+
+  const { data: bulkDepartmentCandidates, isLoading: bulkDepartmentCandidatesLoading } = trpc.institution.getDepartmentNurseCandidates.useQuery(
+    { institutionId, departmentId: Number(bulkDepartmentId) || 0 },
+    { enabled: !!institutionId && !!bulkDepartmentId },
   );
 
   const { data: shiftTemplates } = trpc.institution.getInstitutionShiftTemplates.useQuery(
@@ -355,6 +361,13 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const candidatesForDepartment = (departmentId: number) => nurseCandidateGroups?.find((group) => group.departmentId === departmentId)?.candidates ?? [];
   const providersForDepartment = (departmentId: number) => candidatesForDepartment(departmentId).filter((candidate) => candidate.assignable);
   const pendingLinkCandidatesForDepartment = (departmentId: number) => candidatesForDepartment(departmentId).filter((candidate) => candidate.needsAccountLink);
+  const bulkNurseQuery = bulkNurseSearch.trim().toLowerCase();
+  const filteredBulkDepartmentCandidates = (bulkDepartmentCandidates ?? []).filter((candidate) => {
+    if (!bulkNurseQuery) return true;
+    return `${candidate.staffName} ${candidate.staffEmail} ${candidate.staffRole}`.toLowerCase().includes(bulkNurseQuery);
+  });
+  const filteredBulkAssignableCandidates = filteredBulkDepartmentCandidates.filter((candidate) => candidate.assignable && candidate.userId != null);
+  const bulkPendingCandidates = filteredBulkDepartmentCandidates.filter((candidate) => !candidate.assignable);
   const ertlDepartmentProviders = ertlDepartmentId == null ? [] : providersForDepartment(ertlDepartmentId);
 
   const saveMonthlyPlan = () => {
@@ -617,13 +630,13 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
             <Button type="button" variant="outline" onClick={saveShiftTemplate} disabled={saveTemplateMutation.isPending}>{saveTemplateMutation.isPending ? "Saving…" : "Save current hours"}</Button>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
-            <div className="space-y-1.5"><span className="text-xs font-medium text-muted-foreground">Department</span><Select value={bulkDepartmentId || "none"} onValueChange={(value) => { setBulkDepartmentId(value === "none" ? "" : value); setBulkUtlUserId(""); }}><SelectTrigger><SelectValue placeholder="Choose department" /></SelectTrigger><SelectContent><SelectItem value="none">Choose department</SelectItem>{poleDepartments.map((department) => <SelectItem key={department.id} value={String(department.id)}>{department.departmentName}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1.5"><span className="text-xs font-medium text-muted-foreground">UTL nurse</span><Select value={bulkUtlUserId || "none"} onValueChange={(value) => setBulkUtlUserId(value === "none" ? "" : value)} disabled={!bulkDepartmentId}><SelectTrigger><SelectValue placeholder="Choose nurse" /></SelectTrigger><SelectContent><SelectItem value="none">Choose nurse</SelectItem>{(bulkDepartmentId ? providersForDepartment(Number(bulkDepartmentId)) : []).map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}>{staff.staffName} ({staff.staffRole})</SelectItem>)}</SelectContent></Select></div>
-            <div className="rounded-md border bg-muted/20 p-2 text-xs text-muted-foreground"><p className="font-medium text-foreground">Selected interval</p><p>{selectedShift.toUpperCase()} · {displayShiftTime(selectedShiftStartTime)}–{displayShiftTime(selectedShiftEndTime)}{selectedShiftEndDayOffset === 1 ? " (+1 day)" : ""}</p><p className="mt-1">Edit the time above before selecting days.</p></div>
+            <div className="space-y-1.5"><span className="text-xs font-medium text-muted-foreground">Department</span><Select value={bulkDepartmentId || "none"} onValueChange={(value) => { setBulkDepartmentId(value === "none" ? "" : value); setBulkUtlUserId(""); setBulkNurseSearch(""); }}><SelectTrigger><SelectValue placeholder="Choose department" /></SelectTrigger><SelectContent><SelectItem value="none">Choose department</SelectItem>{poleDepartments.map((department) => <SelectItem key={department.id} value={String(department.id)}>{department.departmentName}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-1.5 md:col-span-2"><span className="text-xs font-medium text-muted-foreground">Practitioner — assign one nurse across selected dates</span><div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={bulkNurseSearch} onChange={(event) => setBulkNurseSearch(event.target.value)} placeholder={bulkDepartmentId ? "Search all nurses by name, email, or role" : "Choose a department first"} disabled={!bulkDepartmentId} className="pl-9" /></div><Select value={bulkUtlUserId || "none"} onValueChange={(value) => setBulkUtlUserId(value === "none" ? "" : value)} disabled={!bulkDepartmentId}><SelectTrigger><SelectValue placeholder={bulkDepartmentCandidatesLoading ? "Loading department nurses…" : "Choose practitioner"} /></SelectTrigger><SelectContent><SelectItem value="none">Choose practitioner</SelectItem>{filteredBulkAssignableCandidates.map((staff) => <SelectItem key={staff.id} value={String(staff.userId)}>{staff.staffName} ({staff.staffRole})</SelectItem>)}{bulkPendingCandidates.map((staff) => <SelectItem key={`pending-${staff.id}`} value={`pending-${staff.id}`} disabled>{staff.staffName} · account link or active membership required</SelectItem>)}</SelectContent></Select><p className="text-[11px] text-muted-foreground">Showing {filteredBulkAssignableCandidates.length} eligible nurse(s){bulkPendingCandidates.length > 0 ? ` and ${bulkPendingCandidates.length} registered candidate(s) not yet assignable` : ""}. Search narrows this department only.</p></div>
+            <div className="rounded-md border bg-muted/20 p-2 text-xs text-muted-foreground md:col-span-3"><p className="font-medium text-foreground">Selected interval</p><p>{selectedShift.toUpperCase()} · {displayShiftTime(selectedShiftStartTime)}–{displayShiftTime(selectedShiftEndTime)}{selectedShiftEndDayOffset === 1 ? " (+1 day)" : ""}</p><p className="mt-1">Edit the time above before selecting days. This practitioner-first action saves only the dates you check below.</p></div>
           </div>
-          <div className="space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-medium text-muted-foreground">{monthStart.slice(0, 7)} dates</p><Badge variant="outline">{bulkDates.length} selected</Badge></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">{getMonthDates(monthStart).map((date) => { const selected = bulkDates.includes(date); return <label key={date} className={`flex cursor-pointer items-center gap-2 rounded-md border p-2 text-xs ${selected ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" : "bg-background"}`}><input type="checkbox" checked={selected} onChange={() => toggleBulkDate(date)} className="h-4 w-4 accent-emerald-700" /><span>{date.slice(-2)} {new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short" })}</span></label>; })}</div></div>
-          <Button className="w-full sm:w-auto" onClick={saveBulkAssignments} disabled={bulkAssignMutation.isPending || !bulkDepartmentId || !bulkUtlUserId || bulkDates.length === 0}>{bulkAssignMutation.isPending ? "Saving UTL shifts…" : "Save selected UTL shifts"}</Button>
-          <p className="text-xs text-muted-foreground">Each saved row is a separate provider-owned dated duty. The selected provider must accept the duty in the provider portal. This editor does not mark a provider as available outside the dates selected.</p>
+          <div className="space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-medium text-muted-foreground">{monthStart.slice(0, 7)} dates for the selected practitioner</p><Badge variant="outline">{bulkDates.length} selected</Badge></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">{getMonthDates(monthStart).map((date) => { const selected = bulkDates.includes(date); return <label key={date} className={`flex cursor-pointer items-center gap-2 rounded-md border p-2 text-xs ${selected ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" : "bg-background"}`}><input type="checkbox" checked={selected} onChange={() => toggleBulkDate(date)} className="h-4 w-4 accent-emerald-700" /><span>{date.slice(-2)} {new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short" })}</span></label>; })}</div></div>
+          <Button className="w-full sm:w-auto" onClick={saveBulkAssignments} disabled={bulkAssignMutation.isPending || !bulkDepartmentId || !bulkUtlUserId || bulkDates.length === 0}>{bulkAssignMutation.isPending ? "Saving UTL shifts…" : "Assign selected dates to this practitioner"}</Button>
+          <p className="text-xs text-muted-foreground">Each checked date becomes a separate provider-owned dated duty. The selected provider must accept each duty in the provider portal. Changing an existing provider or interval reopens acceptance/readiness for that date.</p>
         </CardContent>
       </Card>
 
