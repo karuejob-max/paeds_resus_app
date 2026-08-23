@@ -34,8 +34,8 @@ export default function ProviderIersErcoStaffingPanel() {
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
   const [selectedDate, setSelectedDate] = useState(todayIso);
   const [selectedShift, setSelectedShift] = useState<ShiftType>("morning");
-  const [selectedStartTime, setSelectedStartTime] = useState(SHIFT_TIME_PRESETS.morning.startTime);
-  const [selectedEndTime, setSelectedEndTime] = useState(SHIFT_TIME_PRESETS.morning.endTime);
+  const [selectedStartTime, setSelectedStartTime] = useState<string>(SHIFT_TIME_PRESETS.morning.startTime);
+  const [selectedEndTime, setSelectedEndTime] = useState<string>(SHIFT_TIME_PRESETS.morning.endTime);
   const [selectedEndDayOffset, setSelectedEndDayOffset] = useState<0 | 1>(0);
   const [selectedTemplateId, setSelectedTemplateId] = useState("none");
   const [selectedUtlUserId, setSelectedUtlUserId] = useState("");
