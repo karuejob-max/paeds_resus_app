@@ -52,6 +52,7 @@
     "db:apply-0114": "node scripts/apply-0114-department-rota-automation.mjs",
     "db:apply-0116": "node scripts/apply-0116-department-governance-v2.mjs",
     "db:apply-0117": "node scripts/apply-0117-member-removal-multi-pole.mjs",
+    "db:apply-0118": "node scripts/apply-0118-utl-shift-times.mjs",
     "db:fresh-migrate": "node scripts/db-snapshot-and-fresh-migrate.mjs",
     "db:test-connection": "node scripts/test-db-connection.mjs",
     "verify:fpkb-app-layer": "tsx -r dotenv/config scripts/verify-fpkb-app-layer.mjs",

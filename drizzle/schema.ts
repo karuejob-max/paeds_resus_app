@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, decimal, boolean, date, json, uniqueIndex, index } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, decimal, boolean, date, time, json, uniqueIndex, index } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -4757,6 +4757,26 @@ export const monthlyUtlRotations = mysqlTable("monthly_utl_rotations", {
 export type MonthlyUtlRotation = typeof monthlyUtlRotations.$inferSelect;
 export type InsertMonthlyUtlRotation = typeof monthlyUtlRotations.$inferInsert;
 
+/** Reusable institution-defined UTL shift-hour presets. Times are facility-local clock times; endDayOffset=1 represents an overnight shift. */
+export const institutionShiftTemplates = mysqlTable("institution_shift_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  templateName: varchar("template_name", { length: 128 }).notNull(),
+  startTime: time("start_time").notNull(),
+  endTime: time("end_time").notNull(),
+  endDayOffset: int("end_day_offset").default(0).notNull(),
+  sortOrder: int("sort_order").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdByUserId: int("created_by_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionNameUnique: uniqueIndex("institution_shift_templates_institution_name_unique").on(table.institutionId, table.templateName),
+  institutionOrderIndex: index("institution_shift_templates_institution_order_idx").on(table.institutionId, table.sortOrder),
+}));
+export type InstitutionShiftTemplate = typeof institutionShiftTemplates.$inferSelect;
+export type InsertInstitutionShiftTemplate = typeof institutionShiftTemplates.$inferInsert;
+
 // 4. Shift UTL & ERT Roster
 export const shiftUtlRosters = mysqlTable("shift_utl_rosters", {
   id: int("id").autoincrement().primaryKey(),
@@ -4765,6 +4785,10 @@ export const shiftUtlRosters = mysqlTable("shift_utl_rosters", {
   departmentId: int("department_id").notNull(),
   shiftDate: date("shift_date").notNull(),
   shiftType: mysqlEnum("shift_type", ["morning", "evening", "night"]).notNull(),
+  shiftStartTime: time("shift_start_time").default("07:30:00").notNull(),
+  shiftEndTime: time("shift_end_time").default("17:30:00").notNull(),
+  shiftEndDayOffset: int("shift_end_day_offset").default(0).notNull(),
+  shiftTemplateId: int("shift_template_id"),
   utlUserId: int("utl_user_id").notNull(),
   isShiftErtl: boolean("is_shift_ertl").default(false).notNull(),
   assignmentStatus: mysqlEnum("assignment_status", ["unassigned", "pending_acceptance", "active", "declined", "ended"]).default("unassigned").notNull(),

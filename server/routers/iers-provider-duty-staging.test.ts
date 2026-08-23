@@ -23,6 +23,7 @@ import {
   ertlWeeklyRotations,
   monthlyUtlRotations,
   shiftUtlRosters,
+  institutionShiftTemplates,
   iersEvidenceRecords,
 } from "../../drizzle/schema";
 
@@ -501,6 +502,52 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     ));
     expect(generatedRows.length).toBe(0);
 
+    const shiftTemplate = await adminCaller.institution.createInstitutionShiftTemplate({
+      institutionId: ids.institutionId,
+      templateName: "Staging overnight coverage",
+      startTime: "21:30",
+      endTime: "05:30",
+      endDayOffset: 1,
+    });
+    expect(shiftTemplate.success).toBe(true);
+    const templates = await adminCaller.institution.getInstitutionShiftTemplates({ institutionId: ids.institutionId });
+    expect(templates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ templateName: "Staging overnight coverage", startTime: "21:30:00", endTime: "05:30:00", endDayOffset: 1 }),
+    ]));
+    const createdTemplate = templates.find((template) => template.templateName === "Staging overnight coverage");
+    expect(createdTemplate).toBeTruthy();
+
+    const bulkUtl = await assignedCaller.institution.bulkAssignShiftUtlProvider({
+      institutionId: ids.institutionId,
+      poleId: ids.poleId,
+      utlUserId: ids.assignedProviderId,
+      assignments: [{
+        departmentId: ids.departmentId,
+        shiftDate: nextWeek,
+        shiftType: "night",
+        shiftStartTime: "21:30",
+        shiftEndTime: "05:30",
+        shiftEndDayOffset: 1,
+        shiftTemplateId: createdTemplate?.id ?? null,
+      }],
+    });
+    expect(bulkUtl.savedCount).toBe(1);
+    const exactShift = await db.select().from(shiftUtlRosters).where(and(
+      eq(shiftUtlRosters.institutionId, ids.institutionId),
+      eq(shiftUtlRosters.departmentId, ids.departmentId),
+      eq(shiftUtlRosters.shiftDate, new Date(nextWeek)),
+      eq(shiftUtlRosters.shiftType, "night"),
+    )).limit(1);
+    expect(exactShift[0]).toEqual(expect.objectContaining({
+      shiftStartTime: "21:30:00",
+      shiftEndTime: "05:30:00",
+      shiftEndDayOffset: 1,
+      shiftTemplateId: createdTemplate?.id,
+      utlUserId: ids.assignedProviderId,
+    }));
+    const providerDuties = await assignedCaller.institution.getMyProviderDutyAssignments();
+    expect(providerDuties.nextUtl ?? providerDuties.utl.find((assignment) => assignment.id === exactShift[0]?.id)).toBeTruthy();
+
     const autoErtl = await adminCaller.institution.setWeeklyErtlRotation({
       institutionId: ids.institutionId,
       poleId: ids.poleId,
@@ -621,5 +668,8 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     const afterRemovalAssignments = await assignedCaller.institution.getMyProviderDutyAssignments();
     expect(afterRemovalAssignments.ertl).toHaveLength(0);
     expect(afterRemovalAssignments.utl).toHaveLength(0);
+
+    const templateRows = await db.select({ id: institutionShiftTemplates.id }).from(institutionShiftTemplates).where(eq(institutionShiftTemplates.institutionId, ids.institutionId));
+    expect(templateRows.length).toBeGreaterThan(0);
   });
 });
