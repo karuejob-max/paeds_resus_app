@@ -290,14 +290,14 @@ export default function InstitutionWorkspace() {
           <TabsContent value="iers">
             {iersEnabled ? (
               <Tabs value={activeIersTab} onValueChange={setIersTab}>
-                <TabsList className="sticky top-2 z-20 mb-6 flex h-auto w-full gap-1 overflow-x-auto bg-background/95 p-1 shadow-sm backdrop-blur sm:flex-wrap sm:overflow-visible sm:p-0 sm:shadow-none">
-                  <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="command">Command centre</TabsTrigger>
-                  <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="evidence">Evidence & actions</TabsTrigger>
-                  <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="drills">Drills & debriefs</TabsTrigger>
-                  <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="competency">Competency & training</TabsTrigger>
-                  <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="workforce">ERT & equipment</TabsTrigger>
-                  <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="plan">Implementation plan</TabsTrigger>
-                  <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-left text-xs leading-tight sm:text-sm" value="report">Executive snapshot</TabsTrigger>
+                <TabsList className="sticky top-2 z-20 mb-6 flex h-auto w-full max-w-full min-w-0 justify-start gap-1 overflow-x-auto overscroll-x-contain bg-background/95 p-1 shadow-sm backdrop-blur sm:flex-wrap sm:overflow-visible sm:p-0 sm:shadow-none">
+                  <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="command">Command centre</TabsTrigger>
+                  <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="evidence">Evidence & actions</TabsTrigger>
+                  <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="drills">Drills & debriefs</TabsTrigger>
+                  <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="competency">Competency & training</TabsTrigger>
+                  <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="workforce">ERT & equipment</TabsTrigger>
+                  <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="plan">Implementation plan</TabsTrigger>
+                  <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="report">Executive snapshot</TabsTrigger>
                 </TabsList>
                 <TabsContent value="command"><IersActivationPanel institutionId={institutionId} /></TabsContent>
                 <TabsContent value="evidence"><IersEvidencePanel institutionId={institutionId} /></TabsContent>
@@ -312,11 +312,11 @@ export default function InstitutionWorkspace() {
                 </TabsContent>
                 <TabsContent value="workforce" className="space-y-6">
                   <Tabs value={activeWorkforceTab} onValueChange={(value) => setWorkforceTab(value as IersWorkforceTab)}>
-                    <TabsList className="sticky top-16 z-10 flex h-auto w-full gap-1 overflow-x-auto bg-background/95 p-1 shadow-sm backdrop-blur sm:flex-wrap sm:overflow-visible sm:shadow-none">
-                      <TabsTrigger className="shrink-0 px-3 py-2 text-xs sm:text-sm" value="departments">Departments & poles</TabsTrigger>
-                      <TabsTrigger className="shrink-0 px-3 py-2 text-xs sm:text-sm" value="erco">ERCo governance</TabsTrigger>
-                      <TabsTrigger className="shrink-0 px-3 py-2 text-xs sm:text-sm" value="roster">Shift staffing</TabsTrigger>
-                      <TabsTrigger className="shrink-0 px-3 py-2 text-xs sm:text-sm" value="equipment">Equipment</TabsTrigger>
+                    <TabsList className="sticky top-16 z-10 flex h-auto w-full max-w-full min-w-0 justify-start gap-1 overflow-x-auto overscroll-x-contain bg-background/95 p-1 shadow-sm backdrop-blur sm:flex-wrap sm:overflow-visible sm:shadow-none">
+                      <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-xs sm:text-sm" value="departments">Departments & poles</TabsTrigger>
+                      <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-xs sm:text-sm" value="erco">ERCo governance</TabsTrigger>
+                      <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-xs sm:text-sm" value="roster">Shift staffing</TabsTrigger>
+                      <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-xs sm:text-sm" value="equipment">Equipment</TabsTrigger>
                     </TabsList>
                     <TabsContent value="departments" className="mt-4"><IersDepartmentSetupPanel institutionId={institutionId} /></TabsContent>
                     <TabsContent value="erco" className="mt-4"><InstitutionErcoGovernancePanel institutionId={institutionId} /></TabsContent>
