@@ -173,7 +173,7 @@ async function loadDashboardData(db: Db, institutionId: number) {
       reason: "This confirmed active department is explicitly marked as IERS operational and still has no response pole.",
     })),
     summary: {
-      labelsRequiringReview: labelRows.filter((row) => row.status === "open" || row.status === "deferred").length,
+      labelsRequiringReview: labelRows.filter((row) => row.status === "open" || row.status === "deferred" || (row.status === "mapped" && row.currentlyUnmappedCount > 0)).length,
       unresolvedAttendanceRows: labelRows.reduce((total, row) => total + row.currentlyUnmappedCount, 0),
       operationalDepartmentsRequiringPole: departments.filter((department) => department.isActive && department.confirmedAt != null && department.requiresPole).length,
       operationalDepartmentsMissingPole: missingPoleDepartments.length,

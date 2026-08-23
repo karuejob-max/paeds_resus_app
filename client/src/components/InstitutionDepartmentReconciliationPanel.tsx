@@ -61,7 +61,16 @@ export function InstitutionDepartmentReconciliationPanel({ institutionId }: { in
   }
 
   const data = dashboardQuery.data;
-  const reviewRows = data?.labels.filter((row) => row.status === "open" || row.status === "deferred") ?? [];
+  const reviewRows = data?.labels.filter((row) =>
+    row.status === "open" ||
+    row.status === "deferred" ||
+    (row.status === "mapped" && row.currentlyUnmappedCount > 0)
+  ) ?? [];
+
+  const getDefaultTargetMode = (row: NonNullable<typeof data>["labels"][number]) =>
+    row.reviewedFacilityDepartmentId != null ? "existing" : row.suggestedCatalogLabel ? "new" : "existing";
+  const getDefaultTargetValue = (row: NonNullable<typeof data>["labels"][number]) =>
+    row.reviewedFacilityDepartmentId != null ? String(row.reviewedFacilityDepartmentId) : row.suggestedCatalogLabel ?? "";
 
   const setSuggestedTarget = (normalizedLabel: string, label: string) => {
     setTargetMode((current) => ({ ...current, [normalizedLabel]: "new" }));
@@ -74,8 +83,8 @@ export function InstitutionDepartmentReconciliationPanel({ institutionId }: { in
       toast.error("Add a short reason for this manual decision.");
       return;
     }
-    const mode = targetMode[row.normalizedLabel] ?? (row.suggestedCatalogLabel ? "new" : "existing");
-    const value = targetValue[row.normalizedLabel] ?? row.suggestedCatalogLabel ?? "";
+    const mode = targetMode[row.normalizedLabel] ?? getDefaultTargetMode(row);
+    const value = targetValue[row.normalizedLabel] ?? getDefaultTargetValue(row);
     if (mode === "existing") {
       const targetId = Number(value);
       if (!Number.isInteger(targetId) || targetId <= 0) {
@@ -135,26 +144,27 @@ export function InstitutionDepartmentReconciliationPanel({ institutionId }: { in
           </div>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs text-muted-foreground">Labels needing review</p><p className="mt-1 text-2xl font-semibold">{data?.summary.labelsRequiringReview ?? 0}</p></div>
+          <div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs text-muted-foreground">Labels needing review or completion</p><p className="mt-1 text-2xl font-semibold">{data?.summary.labelsRequiringReview ?? 0}</p></div>
           <div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs text-muted-foreground">Unlinked CPD rows</p><p className="mt-1 text-2xl font-semibold">{data?.summary.unresolvedAttendanceRows ?? 0}</p></div>
           <div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs text-muted-foreground">Eligible departments without pole</p><p className="mt-1 text-2xl font-semibold">{data?.summary.operationalDepartmentsMissingPole ?? 0}</p></div>
         </CardContent>
       </Card>
 
       <Card className="min-w-0">
-        <CardHeader><CardTitle className="text-base sm:text-lg">CPD labels created outside the shared catalog</CardTitle><CardDescription>Choose the target explicitly. “Backfill identity only” updates nullable canonical links for matching rows; names, dates, certificates, and raw department text remain unchanged.</CardDescription></CardHeader>
+                  <CardHeader><CardTitle className="text-base sm:text-lg">CPD labels created outside the shared catalog</CardTitle><CardDescription>Choose the target explicitly. “Backfill identity only” updates nullable canonical links for matching rows; names, dates, certificates, and raw department text remain unchanged. A previously mapped label with unlinked rows stays here until you complete that optional backfill.</CardDescription></CardHeader>
+
         <CardContent className="space-y-4">
           {reviewRows.length === 0 ? (
             <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground"><CheckCircle2 className="mx-auto mb-2 h-6 w-6 text-emerald-600" />No open department-label issues were found.</div>
           ) : reviewRows.map((row) => {
-            const mode = targetMode[row.normalizedLabel] ?? (row.suggestedCatalogLabel ? "new" : "existing");
-            const value = targetValue[row.normalizedLabel] ?? row.suggestedCatalogLabel ?? "";
+            const mode = targetMode[row.normalizedLabel] ?? getDefaultTargetMode(row);
+            const value = targetValue[row.normalizedLabel] ?? getDefaultTargetValue(row);
             const selectedIsCustom = mode === "new" && value.trim().length > 0 && !isPresetDepartment(value);
             return (
               <div key={row.normalizedLabel} className="min-w-0 rounded-xl border bg-card p-4 shadow-sm">
                 <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2"><p className="break-words font-semibold">“{row.rawLabel}”</p><Badge variant={row.status === "deferred" ? "secondary" : "outline"}>{row.status}</Badge></div>
+                    <div className="flex flex-wrap items-center gap-2"><p className="break-words font-semibold">“{row.rawLabel}”</p><Badge variant={row.status === "deferred" ? "secondary" : row.status === "mapped" ? "default" : "outline"}>{row.status === "mapped" ? "mapped · backfill pending" : row.status}</Badge></div>
                     <p className="mt-1 text-xs text-muted-foreground">{row.attendanceCount} historical CPD attendance record(s) · {row.currentlyUnmappedCount} currently unlinked · last used {formatDate(row.lastUsedAt)}</p>
                     {row.reviewedFacilityDepartmentName && <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">Previously reviewed to: {row.reviewedFacilityDepartmentName}</p>}
                   </div>
@@ -180,7 +190,7 @@ export function InstitutionDepartmentReconciliationPanel({ institutionId }: { in
                     ) : <DepartmentSelectors value={value} onChange={(nextValue) => setTargetValue((current) => ({ ...current, [row.normalizedLabel]: nextValue }))} labelSize="xs" className="min-w-0" />}
                   </div>
                   {selectedIsCustom && <label className="flex min-w-0 items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={customAcknowledged[row.normalizedLabel] === true} onChange={(event) => setCustomAcknowledged((current) => ({ ...current, [row.normalizedLabel]: event.target.checked }))} className="mt-0.5" />This is a genuine department missing from the shared CPD/profile catalog, not a spelling variation.</label>}
-                  <label className="flex min-w-0 items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={backfill[row.normalizedLabel] === true} onChange={(event) => setBackfill((current) => ({ ...current, [row.normalizedLabel]: event.target.checked }))} className="mt-0.5" />Backfill canonical identity for currently unlinked attendance rows. Keep the original department text for historical reporting.</label>
+                  <label className="flex min-w-0 items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={backfill[row.normalizedLabel] === true} onChange={(event) => setBackfill((current) => ({ ...current, [row.normalizedLabel]: event.target.checked }))} className="mt-0.5" />Backfill canonical identity for currently unlinked attendance rows. Keep the original department text for historical reporting. This is required for the CPD dashboards to group these rows under the canonical department.</label>
                   <Input value={reasons[row.normalizedLabel] ?? ""} onChange={(event) => setReasons((current) => ({ ...current, [row.normalizedLabel]: event.target.value }))} placeholder="Reason for this review decision" maxLength={1000} />
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     <Button className="w-full sm:w-auto" onClick={() => mapLabel(row)} disabled={mapMutation.isPending}><CheckCircle2 className="mr-2 h-4 w-4" />Map label</Button>
