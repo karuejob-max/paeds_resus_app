@@ -1,14 +1,20 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte } from "drizzle-orm";
 import {
+  ertlWeeklyRotations,
+  facilityDepartments,
   iersShiftRoleAssignments,
   iersShiftRoleEvents,
   iersShiftTeams,
   inAppNotifications,
   institutionDepartmentResponseCoordinators,
+  institutionMemberships,
+  institutionalStaffMembers,
   shiftUtlRosters,
+  users,
 } from "../../drizzle/schema";
 import type { DbClient } from "../db";
 import { assertShiftRoleTransition, type ShiftRoleAssignmentStatus } from "../lib/iers-shift-role-state";
+import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 
 type DbExecutor = Pick<DbClient, "select" | "update" | "insert">;
 
@@ -67,6 +73,279 @@ async function recordProjectionEvent(
     reason: input.reason ?? null,
     metadata: JSON.stringify({ source: "institution.respondToShiftUtlRoster", rosterId: input.rosterId }),
   });
+}
+
+async function getLinkedRnProvider(
+  db: DbExecutor,
+  input: { institutionId: number; poleId: number; departmentId: number; providerUserId: number },
+) {
+  const [provider] = await db
+    .select({
+      userId: users.id,
+      providerType: users.providerType,
+      cadre: users.cadre,
+      cadreOther: users.cadreOther,
+      facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+      facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+      removedAt: institutionalStaffMembers.removedAt,
+      membershipStatus: institutionMemberships.membershipStatus,
+      departmentPoleId: facilityDepartments.poleId,
+    })
+    .from(users)
+    .innerJoin(institutionalStaffMembers, and(
+      eq(institutionalStaffMembers.userId, users.id),
+      eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+      eq(institutionalStaffMembers.facilityDepartmentId, input.departmentId),
+    ))
+    .innerJoin(institutionMemberships, and(
+      eq(institutionMemberships.userId, users.id),
+      eq(institutionMemberships.institutionalAccountId, input.institutionId),
+      eq(institutionMemberships.membershipStatus, "active"),
+    ))
+    .innerJoin(facilityDepartments, and(
+      eq(facilityDepartments.id, input.departmentId),
+      eq(facilityDepartments.institutionId, input.institutionId),
+      eq(facilityDepartments.poleId, input.poleId),
+      eq(facilityDepartments.isActive, true),
+    ))
+    .where(and(
+      eq(users.id, input.providerUserId),
+      eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+      isNull(institutionalStaffMembers.removedAt),
+    ))
+    .limit(1);
+  return provider && isRegisteredRnProfile(provider) && provider.facilityDepartmentId === input.departmentId && provider.departmentPoleId === input.poleId
+    ? provider
+    : null;
+}
+
+/**
+ * Materialize an explicitly assigned legacy UTL roster into the current versioned
+ * ERT read model. This is a projection of an existing institution-authored duty,
+ * not automatic staffing: the UTL remains pending until the provider accepts it.
+ * Rows with the same pole/date/shift/exact interval are grouped into one team.
+ * If no valid configured ERTL is available, the published team is intentionally
+ * partial and the UI can show the missing governance assignment rather than hiding
+ * an otherwise valid UTL duty and its crash-cart checklist.
+ */
+export async function ensurePublishedTeamForLegacyUtlRoster(
+  db: DbExecutor,
+  input: { roster: typeof shiftUtlRosters.$inferSelect; actorUserId: number },
+) {
+  const roster = input.roster;
+  if (roster.status !== "active" || !["pending_acceptance", "active"].includes(roster.assignmentStatus)) {
+    return { projected: false as const, reason: "roster_not_current" };
+  }
+
+  const relatedRosters = await db
+    .select()
+    .from(shiftUtlRosters)
+    .where(and(
+      eq(shiftUtlRosters.institutionId, roster.institutionId),
+      eq(shiftUtlRosters.poleId, roster.poleId),
+      eq(shiftUtlRosters.shiftDate, roster.shiftDate),
+      eq(shiftUtlRosters.shiftType, roster.shiftType),
+      eq(shiftUtlRosters.shiftStartTime, roster.shiftStartTime),
+      eq(shiftUtlRosters.shiftEndTime, roster.shiftEndTime),
+      eq(shiftUtlRosters.shiftEndDayOffset, roster.shiftEndDayOffset),
+      eq(shiftUtlRosters.status, "active"),
+      inArray(shiftUtlRosters.assignmentStatus, ["pending_acceptance", "active"]),
+    ))
+    .orderBy(asc(shiftUtlRosters.id));
+  if (relatedRosters.length === 0) return { projected: false as const, reason: "no_current_roster_group" };
+  const validRosters: typeof relatedRosters = [];
+  for (const relatedRoster of relatedRosters) {
+    const provider = await getLinkedRnProvider(db, {
+      institutionId: relatedRoster.institutionId,
+      poleId: relatedRoster.poleId,
+      departmentId: relatedRoster.departmentId,
+      providerUserId: relatedRoster.utlUserId,
+    });
+    if (provider) validRosters.push(relatedRoster);
+  }
+  if (validRosters.length === 0) return { projected: false as const, reason: "no_valid_linked_rn_roster" };
+
+  const currentTeams = await db
+    .select()
+    .from(iersShiftTeams)
+    .where(and(
+      eq(iersShiftTeams.institutionId, roster.institutionId),
+      eq(iersShiftTeams.poleId, roster.poleId),
+      eq(iersShiftTeams.shiftDate, roster.shiftDate),
+      eq(iersShiftTeams.shiftType, roster.shiftType),
+      eq(iersShiftTeams.shiftStartTime, roster.shiftStartTime),
+      eq(iersShiftTeams.shiftEndTime, roster.shiftEndTime),
+      eq(iersShiftTeams.shiftEndDayOffset, roster.shiftEndDayOffset),
+      inArray(iersShiftTeams.status, ["published", "active"]),
+    ))
+    .orderBy(desc(iersShiftTeams.teamVersion), desc(iersShiftTeams.id));
+  if (currentTeams.length > 1) return { projected: false as const, reason: "ambiguous_current_team" };
+
+  let team = currentTeams[0];
+  let teamCreated = false;
+  if (!team) {
+    const allCurrentTeams = await db
+      .select()
+      .from(iersShiftTeams)
+      .where(and(
+        eq(iersShiftTeams.institutionId, roster.institutionId),
+        eq(iersShiftTeams.poleId, roster.poleId),
+        eq(iersShiftTeams.shiftDate, roster.shiftDate),
+        eq(iersShiftTeams.shiftType, roster.shiftType),
+        inArray(iersShiftTeams.status, ["published", "active"]),
+      ));
+    if (allCurrentTeams.length > 0) {
+      const currentTeamIds = allCurrentTeams.map((currentTeam) => currentTeam.id);
+      const linkedAssignments = await db
+        .select({ teamId: iersShiftRoleAssignments.teamId })
+        .from(iersShiftRoleAssignments)
+        .where(and(
+          inArray(iersShiftRoleAssignments.teamId, currentTeamIds),
+          inArray(iersShiftRoleAssignments.shiftUtlRosterId, validRosters.map((row) => row.id)),
+          eq(iersShiftRoleAssignments.roleScope, "utl"),
+        ));
+      const linkedTeamIds = new Set(linkedAssignments.map((assignment) => assignment.teamId));
+      if (linkedTeamIds.size !== allCurrentTeams.length) return { projected: false as const, reason: "different_current_team_exists" };
+      await db.update(iersShiftTeams).set({ status: "superseded", closedAt: new Date(), updatedAt: new Date() }).where(inArray(iersShiftTeams.id, [...linkedTeamIds]));
+    }
+    const [latest] = await db
+      .select({ teamVersion: iersShiftTeams.teamVersion })
+      .from(iersShiftTeams)
+      .where(and(
+        eq(iersShiftTeams.institutionId, roster.institutionId),
+        eq(iersShiftTeams.poleId, roster.poleId),
+        eq(iersShiftTeams.shiftDate, roster.shiftDate),
+        eq(iersShiftTeams.shiftType, roster.shiftType),
+      ))
+      .orderBy(desc(iersShiftTeams.teamVersion), desc(iersShiftTeams.id))
+      .limit(1);
+    const [inserted] = await db.insert(iersShiftTeams).values({
+      institutionId: roster.institutionId,
+      poleId: roster.poleId,
+      shiftDate: roster.shiftDate,
+      shiftType: roster.shiftType,
+      shiftStartTime: roster.shiftStartTime,
+      shiftEndTime: roster.shiftEndTime,
+      shiftEndDayOffset: roster.shiftEndDayOffset,
+      teamVersion: (latest?.teamVersion ?? 0) + 1,
+      status: "published",
+      createdByUserId: input.actorUserId,
+      publishedAt: new Date(),
+    });
+    const teamId = Number((inserted as unknown as { insertId: number }).insertId);
+    const [created] = await db.select().from(iersShiftTeams).where(eq(iersShiftTeams.id, teamId)).limit(1);
+    if (!created) return { projected: false as const, reason: "team_insert_not_readable" };
+    team = created;
+    teamCreated = true;
+  }
+
+  const assignments = await db
+    .select()
+    .from(iersShiftRoleAssignments)
+    .where(eq(iersShiftRoleAssignments.teamId, team.id));
+  const assignmentByRosterId = new Map(assignments.flatMap((assignment) => assignment.shiftUtlRosterId == null ? [] : [[assignment.shiftUtlRosterId, assignment]]));
+  const assignedProviderIds = new Set(assignments.map((assignment) => assignment.providerUserId));
+  let projectedAssignmentCount = 0;
+
+  for (const relatedRoster of validRosters) {
+    const existingAssignment = assignmentByRosterId.get(relatedRoster.id);
+    if (existingAssignment) {
+      if (existingAssignment.providerUserId !== relatedRoster.utlUserId) {
+        return { projected: false as const, reason: "roster_assignment_provider_mismatch", teamId: team.id };
+      }
+      continue;
+    }
+    if (assignedProviderIds.has(relatedRoster.utlUserId)) continue;
+
+    const assignmentStatus: ShiftRoleAssignmentStatus = relatedRoster.assignmentStatus === "active" ? "accepted" : "pending_acceptance";
+    const now = new Date();
+    const [inserted] = await db.insert(iersShiftRoleAssignments).values({
+      teamId: team.id,
+      institutionId: relatedRoster.institutionId,
+      poleId: relatedRoster.poleId,
+      departmentId: relatedRoster.departmentId,
+      providerUserId: relatedRoster.utlUserId,
+      shiftUtlRosterId: relatedRoster.id,
+      roleScope: "utl",
+      roleKey: "utl",
+      assignmentStatus,
+      acceptedAt: assignmentStatus === "accepted" ? relatedRoster.acceptedAt ?? now : null,
+      declinedAt: null,
+      declineReason: null,
+      proposedByUserId: input.actorUserId,
+    });
+    const assignmentId = Number((inserted as unknown as { insertId: number }).insertId);
+    await db.insert(iersShiftRoleEvents).values({
+      assignmentId,
+      teamId: team.id,
+      institutionId: relatedRoster.institutionId,
+      actorUserId: input.actorUserId,
+      eventType: "legacy_utl_roster_projected",
+      fromStatus: "proposed",
+      toStatus: assignmentStatus,
+      fromRoleKey: null,
+      toRoleKey: "utl",
+      reason: "Projected from an explicit institution-authored dated UTL roster.",
+      metadata: JSON.stringify({ source: "shiftUtlRosters", rosterId: relatedRoster.id, teamCreated }),
+    });
+    assignedProviderIds.add(relatedRoster.utlUserId);
+    projectedAssignmentCount += 1;
+  }
+
+  const [rotation] = await db
+    .select()
+    .from(ertlWeeklyRotations)
+    .where(and(
+      eq(ertlWeeklyRotations.institutionId, roster.institutionId),
+      eq(ertlWeeklyRotations.poleId, roster.poleId),
+      lte(ertlWeeklyRotations.startDate, roster.shiftDate),
+      gte(ertlWeeklyRotations.endDate, roster.shiftDate),
+      inArray(ertlWeeklyRotations.assignmentStatus, ["pending_acceptance", "active"]),
+      isNotNull(ertlWeeklyRotations.ertlUserId),
+    ))
+    .orderBy(desc(ertlWeeklyRotations.startDate), desc(ertlWeeklyRotations.id))
+    .limit(1);
+  if (rotation?.ertlUserId != null && !assignedProviderIds.has(rotation.ertlUserId)) {
+    const ertlProvider = await getLinkedRnProvider(db, {
+      institutionId: roster.institutionId,
+      poleId: roster.poleId,
+      departmentId: rotation.departmentId,
+      providerUserId: rotation.ertlUserId,
+    });
+    if (ertlProvider) {
+      const assignmentStatus: ShiftRoleAssignmentStatus = rotation.assignmentStatus === "active" ? "accepted" : "pending_acceptance";
+      const [inserted] = await db.insert(iersShiftRoleAssignments).values({
+        teamId: team.id,
+        institutionId: roster.institutionId,
+        poleId: roster.poleId,
+        departmentId: rotation.departmentId,
+        providerUserId: rotation.ertlUserId,
+        shiftUtlRosterId: null,
+        roleScope: "ertl",
+        roleKey: "ertl",
+        assignmentStatus,
+        acceptedAt: assignmentStatus === "accepted" ? rotation.acceptedAt ?? new Date() : null,
+        proposedByUserId: input.actorUserId,
+      });
+      const assignmentId = Number((inserted as unknown as { insertId: number }).insertId);
+      await db.insert(iersShiftRoleEvents).values({
+        assignmentId,
+        teamId: team.id,
+        institutionId: roster.institutionId,
+        actorUserId: input.actorUserId,
+        eventType: "legacy_ertl_rotation_projected",
+        fromStatus: "proposed",
+        toStatus: assignmentStatus,
+        fromRoleKey: null,
+        toRoleKey: "ertl",
+        reason: "Projected from the configured weekly ERTL rotation.",
+        metadata: JSON.stringify({ source: "ertlWeeklyRotations", rotationId: rotation.id }),
+      });
+      projectedAssignmentCount += 1;
+    }
+  }
+
+  return { projected: teamCreated || projectedAssignmentCount > 0, teamId: team.id, projectedAssignmentCount };
 }
 
 /**

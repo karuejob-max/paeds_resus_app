@@ -81,7 +81,7 @@ import { ENV } from "../_core/env";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { isInstitutionInPilotProgram } from "@shared/pilot-program";
 import { validateDepartmentErcoAssignment } from "../lib/iers-department-governance";
-import { notifyDepartmentErcoOfUtlDecline, projectLegacyUtlRosterDecision, projectUtlRosterReassignment } from "../services/iers-utl-sync.service";
+import { ensurePublishedTeamForLegacyUtlRoster, notifyDepartmentErcoOfUtlDecline, projectLegacyUtlRosterDecision, projectUtlRosterReassignment } from "../services/iers-utl-sync.service";
 import { getIsoWeekKey, getIsoWeekRange, getMonthlyShiftRows, monthStartFromShiftDate, normalizeMonthStart } from "../lib/iers-monthly-rota";
 import { insertCanonicalFacilityDepartments } from "../lib/iers-department-setup";
 import { DEFAULT_SHIFT_TEMPLATES, formatShiftInterval, shiftTemplateForType, validateShiftInterval } from "../lib/iers-shift-times";
@@ -195,6 +195,10 @@ async function saveShiftUtlRosterRow(db: DbClient, user: Pick<typeof users.$infe
         actorUserId: user.id,
       });
     }
+    const [updatedRoster] = await db.select().from(shiftUtlRosters).where(eq(shiftUtlRosters.id, existing.id)).limit(1);
+    if (updatedRoster) {
+      await ensurePublishedTeamForLegacyUtlRoster(db, { roster: updatedRoster, actorUserId: user.id });
+    }
     return { id: existing.id, isShiftErtl, interval: formatShiftInterval(timing), changed: shouldResetSignOff };
   }
 
@@ -214,7 +218,12 @@ async function saveShiftUtlRosterRow(db: DbClient, user: Pick<typeof users.$infe
     assignmentStatus: "pending_acceptance",
     status: input.status ?? "active",
   });
-  return { id: (result as unknown as { insertId: number }).insertId, isShiftErtl, interval: formatShiftInterval(timing), changed: true };
+  const rosterId = (result as unknown as { insertId: number }).insertId;
+  const [createdRoster] = await db.select().from(shiftUtlRosters).where(eq(shiftUtlRosters.id, rosterId)).limit(1);
+  if (createdRoster) {
+    await ensurePublishedTeamForLegacyUtlRoster(db, { roster: createdRoster, actorUserId: user.id });
+  }
+  return { id: rosterId, isShiftErtl, interval: formatShiftInterval(timing), changed: true };
 }
 
 function assertProviderDutyDecision(input: ProviderDutyAuthorizationInput) {
@@ -337,6 +346,91 @@ async function assertIersPoleRotaReadAccess(
     if (!assignment) throw error;
     return { roleKey: "accepted_department_erco_read" as const };
   }
+}
+
+type DepartmentNurseCandidateRow = {
+  id: number;
+  userId: number | null;
+  staffName: string | null;
+  staffEmail: string | null;
+  staffPhone: string | null;
+  staffRole: string | null;
+  providerType: string | null;
+  cadre: string | null;
+  cadreOther: string | null;
+  department: string | null;
+  facilityDepartmentId: number | null;
+  facilityLinkStatus: string | null;
+  membershipStatus: string | null;
+  profileDepartment: string | null;
+};
+
+async function getProfileBackedRnCandidates(
+  db: DbClient,
+  institutionId: number,
+  department: { id: number; departmentName: string },
+  existingRows: DepartmentNurseCandidateRow[],
+): Promise<DepartmentNurseCandidateRow[]> {
+  const profileRows = await db
+    .select({
+      userId: users.id,
+      staffName: users.name,
+      staffEmail: users.email,
+      staffPhone: users.phone,
+      providerType: users.providerType,
+      cadre: users.cadre,
+      cadreOther: users.cadreOther,
+      department: providerProfiles.department,
+      profileDepartment: providerProfiles.department,
+      membershipStatus: institutionMemberships.membershipStatus,
+    })
+    .from(providerProfiles)
+    .innerJoin(users, eq(users.id, providerProfiles.userId))
+    .innerJoin(careFacilities, eq(careFacilities.id, providerProfiles.facilityId))
+    .leftJoin(institutionMemberships, and(
+      eq(institutionMemberships.institutionalAccountId, institutionId),
+      eq(institutionMemberships.userId, providerProfiles.userId),
+    ))
+    .where(and(
+      eq(careFacilities.institutionalAccountId, institutionId),
+      isNotNull(providerProfiles.department),
+    ));
+
+  const profileUserIds = profileRows.map((row) => row.userId);
+  const existingStaffRows = profileUserIds.length > 0
+    ? await db
+      .select({ userId: institutionalStaffMembers.userId, facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId, removedAt: institutionalStaffMembers.removedAt })
+      .from(institutionalStaffMembers)
+      .where(and(
+        eq(institutionalStaffMembers.institutionalAccountId, institutionId),
+        inArray(institutionalStaffMembers.userId, profileUserIds),
+      ))
+    : [];
+  const existingUserIds = new Set(existingRows.flatMap((row) => row.userId == null ? [] : [row.userId]));
+  const removedUserIds = new Set(existingStaffRows.filter((row) => row.removedAt != null).flatMap((row) => row.userId == null ? [] : [row.userId]));
+  const canonicallyScopedUserIds = new Set(existingStaffRows.filter((row) => row.removedAt == null && row.facilityDepartmentId != null && row.facilityDepartmentId !== department.id).flatMap((row) => row.userId == null ? [] : [row.userId]));
+
+  return profileRows
+    .filter((row) => {
+      if (existingUserIds.has(row.userId) || removedUserIds.has(row.userId) || canonicallyScopedUserIds.has(row.userId)) return false;
+      return isRegisteredRnProfile(row) && departmentLabelsMatch(row.profileDepartment ?? row.department ?? "", department.departmentName);
+    })
+    .map((row) => ({
+      id: -row.userId,
+      userId: row.userId,
+      staffName: row.staffName ?? "Registered nurse",
+      staffEmail: row.staffEmail ?? "",
+      staffPhone: row.staffPhone ?? null,
+      staffRole: "nurse",
+      providerType: row.providerType,
+      cadre: row.cadre,
+      cadreOther: row.cadreOther,
+      department: row.department,
+      facilityDepartmentId: null,
+      facilityLinkStatus: "pending",
+      membershipStatus: row.membershipStatus ?? null,
+      profileDepartment: row.profileDepartment,
+    }));
 }
 
 function providerBelongsToCanonicalDepartment(
@@ -550,27 +644,86 @@ async function refreshPoleErtlAssignments(db: DbClient, institutionId: number, p
 
 async function ensureMonthlyUtlShifts(
   db: DbClient,
-  input: { institutionId: number; poleId: number; departmentId: number; monthStart: string; providerUserId: number | null; monthlyUtlRotationId: number },
+  input: { institutionId: number; poleId: number; departmentId: number; monthStart: string; providerUserId: number | null; monthlyUtlRotationId: number; actorUserId: number },
 ) {
   const [poleDepartments, rotationAnchorDate] = await Promise.all([
     getOrderedPoleDepartments(db, input.institutionId, input.poleId),
     getPoleRotationAnchor(db, input.institutionId, input.poleId),
   ]);
-  // Monthly planning is only a source plan. It must never nominate the same
-  // provider for every shift or clear a separately assigned on-duty UTL.
+  let generatedShifts = 0;
   for (const row of getMonthlyShiftRows(input.monthStart)) {
     const derivedErtlDepartmentId = derivePoleRotationDepartmentId(poleDepartments, rotationAnchorDate, row.shiftDate);
-    await db.update(shiftUtlRosters).set({
-      isShiftErtl: derivedErtlDepartmentId === input.departmentId,
-    }).where(and(
+    const preset = shiftTemplateForType(row.shiftType);
+    const [existing] = await db.select().from(shiftUtlRosters).where(and(
       eq(shiftUtlRosters.institutionId, input.institutionId),
       eq(shiftUtlRosters.poleId, input.poleId),
       eq(shiftUtlRosters.departmentId, input.departmentId),
       eq(shiftUtlRosters.shiftDate, new Date(row.shiftDate)),
       eq(shiftUtlRosters.shiftType, row.shiftType),
-    ));
+    )).limit(1);
+
+    if (existing) {
+      const monthlyOwned = existing.monthlyUtlRotationId === input.monthlyUtlRotationId;
+      const nextProviderUserId = input.providerUserId;
+      const providerChanged = monthlyOwned && nextProviderUserId != null && existing.utlUserId !== nextProviderUserId;
+      if (providerChanged && nextProviderUserId != null) {
+        await db.update(shiftUtlRosters).set({
+          utlUserId: nextProviderUserId,
+          shiftStartTime: preset.startTime,
+          shiftEndTime: preset.endTime,
+          shiftEndDayOffset: preset.endDayOffset,
+          isShiftErtl: derivedErtlDepartmentId === input.departmentId,
+          assignmentStatus: "pending_acceptance",
+          acceptedAt: null,
+          declinedAt: null,
+          declineReason: null,
+          readinessSignOffAt: null,
+          readinessSignedOffByUserId: null,
+          readinessNote: null,
+        }).where(eq(shiftUtlRosters.id, existing.id));
+        await projectUtlRosterReassignment(db, {
+          roster: existing,
+          nextProviderUserId,
+          nextShiftStartTime: preset.startTime,
+          nextShiftEndTime: preset.endTime,
+          nextShiftEndDayOffset: preset.endDayOffset,
+          actorUserId: input.actorUserId,
+        });
+      } else {
+        await db.update(shiftUtlRosters).set({
+          isShiftErtl: derivedErtlDepartmentId === input.departmentId,
+        }).where(eq(shiftUtlRosters.id, existing.id));
+      }
+      const [updated] = await db.select().from(shiftUtlRosters).where(eq(shiftUtlRosters.id, existing.id)).limit(1);
+      if (updated) await ensurePublishedTeamForLegacyUtlRoster(db, { roster: updated, actorUserId: input.actorUserId });
+      continue;
+    }
+
+    if (input.providerUserId == null) continue;
+    const result = await db.insert(shiftUtlRosters).values({
+      institutionId: input.institutionId,
+      poleId: input.poleId,
+      departmentId: input.departmentId,
+      shiftDate: new Date(row.shiftDate),
+      shiftType: row.shiftType,
+      shiftStartTime: preset.startTime,
+      shiftEndTime: preset.endTime,
+      shiftEndDayOffset: preset.endDayOffset,
+      shiftTemplateId: null,
+      utlUserId: input.providerUserId,
+      isShiftErtl: derivedErtlDepartmentId === input.departmentId,
+      monthlyUtlRotationId: input.monthlyUtlRotationId,
+      assignmentStatus: "pending_acceptance",
+      status: "active",
+    });
+    const rosterId = (result as unknown as { insertId: number }).insertId;
+    const [created] = await db.select().from(shiftUtlRosters).where(eq(shiftUtlRosters.id, rosterId)).limit(1);
+    if (created) {
+      await ensurePublishedTeamForLegacyUtlRoster(db, { roster: created, actorUserId: input.actorUserId });
+      generatedShifts += 1;
+    }
   }
-  return 0;
+  return generatedShifts;
 }
 
 async function ensureProviderMembershipForStaff(
@@ -2133,18 +2286,22 @@ export const institutionRouter = router({
           ),
         ))
         .orderBy(asc(institutionalStaffMembers.staffName));
+      const candidateRows = [
+        ...rows,
+        ...(await getProfileBackedRnCandidates(db, input.institutionId, department, rows)),
+      ];
       const seen = new Set<number>();
-      return rows.filter((row) => {
+      return candidateRows.filter((row) => {
         if (seen.has(row.id)) return false;
         seen.add(row.id);
         return isRegisteredRnProfile(row) && providerBelongsToCanonicalDepartment(row, department);
       }).map((row) => ({
         id: row.id,
         userId: row.userId,
-        staffName: row.staffName,
-        staffEmail: row.staffEmail,
+        staffName: row.staffName ?? "Registered nurse",
+        staffEmail: row.staffEmail ?? "",
         staffPhone: row.staffPhone,
-        staffRole: isRegisteredRnProfile(row) ? "nurse" : row.staffRole,
+        staffRole: isRegisteredRnProfile(row) ? "nurse" : (row.staffRole ?? "other"),
         department: row.department,
         facilityDepartmentId: row.facilityDepartmentId,
         facilityLinkStatus: row.facilityLinkStatus,
@@ -2229,21 +2386,25 @@ export const institutionRouter = router({
             ),
           ))
           .orderBy(asc(institutionalStaffMembers.staffName));
+        const candidateRows = [
+          ...rows,
+          ...(await getProfileBackedRnCandidates(db, input.institutionId, department, rows)),
+        ];
         const seen = new Set<number>();
         results.push({
           departmentId: department.id,
           departmentName: department.departmentName,
-          candidates: rows.filter((row) => {
+          candidates: candidateRows.filter((row) => {
             if (seen.has(row.id)) return false;
             seen.add(row.id);
             return isRegisteredRnProfile(row) && providerBelongsToCanonicalDepartment(row, department);
           }).map((row) => ({
             id: row.id,
             userId: row.userId,
-            staffName: row.staffName,
-            staffEmail: row.staffEmail,
+            staffName: row.staffName ?? "Registered nurse",
+            staffEmail: row.staffEmail ?? "",
             staffPhone: row.staffPhone,
-            staffRole: isRegisteredRnProfile(row) ? "nurse" : row.staffRole,
+            staffRole: isRegisteredRnProfile(row) ? "nurse" : (row.staffRole ?? "other"),
             department: row.department,
             facilityDepartmentId: row.facilityDepartmentId,
             facilityLinkStatus: row.facilityLinkStatus,
@@ -5588,6 +5749,7 @@ export const institutionRouter = router({
           monthStart,
           providerUserId,
           monthlyUtlRotationId: rotationId,
+          actorUserId: ctx.user.id,
         });
         if (providerUserId != null) assignedDepartments += 1;
       }
@@ -5694,6 +5856,7 @@ export const institutionRouter = router({
               monthStart,
               providerUserId: monthlyRotation.providerUserId,
               monthlyUtlRotationId: monthlyRotation.id,
+              actorUserId: ctx.user.id,
             });
           }
         }
