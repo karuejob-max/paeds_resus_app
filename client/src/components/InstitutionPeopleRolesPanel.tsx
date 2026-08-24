@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { CalendarClock, KeyRound, Loader2, RefreshCw, Search, ShieldCheck, UserMinus, Users } from "lucide-react";
+import { AlertTriangle, CalendarClock, KeyRound, Loader2, RefreshCw, Search, ShieldCheck, UserMinus, Users } from "lucide-react";
 
 const GOVERNANCE_ROLES = [
   ["general_staff", "General staff"],
@@ -65,7 +65,15 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
   const [accountScopeKey, setAccountScopeKey] = useState("");
   const [removalTarget, setRemovalTarget] = useState<StaffRow | null>(null);
   const [removalReason, setRemovalReason] = useState("");
+  const [unlinkTarget, setUnlinkTarget] = useState<StaffRow | null>(null);
+  const [unlinkReason, setUnlinkReason] = useState("");
+  const [removalReportId, setRemovalReportId] = useState<number | null>(null);
+  const [reallocationReportId, setReallocationReportId] = useState<number | null>(null);
+  const [reallocationDepartmentId, setReallocationDepartmentId] = useState("");
+  const [reallocationReason, setReallocationReason] = useState("");
   const { data, isLoading, isFetching, refetch } = trpc.institution.getStaffMembers.useQuery({ institutionId });
+  const { data: mismatchReports } = trpc.institution.getDepartmentMismatchReports.useQuery({ institutionId });
+  const { data: facilityDepartments } = trpc.institution.getFacilityDepartments.useQuery({ institutionId });
   const { data: productRoles, isLoading: productRolesLoading, refetch: refetchProductRoles } = trpc.institutionProducts.listProductRoles.useQuery({ institutionId });
   const { data: roleDefinitions } = trpc.institutionProducts.getRoleDefinitions.useQuery({ productKey: roleProduct });
   const { data: accountScopes, isLoading: accountScopesLoading, refetch: refetchAccountScopes } = trpc.institutionProducts.listAccountScopes.useQuery({ institutionId });
@@ -117,12 +125,41 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
       toast.success("Person removed from this institution");
       setRemovalTarget(null);
       setRemovalReason("");
+      setRemovalReportId(null);
       await Promise.all([
         utils.institution.getStaffMembers.invalidate({ institutionId }),
         utils.institution.getInstitutionIersDutyAssignments.invalidate({ institutionId }),
+        utils.institution.getDepartmentMismatchReports.invalidate({ institutionId }),
       ]);
     },
     onError: (error) => toast.error(error.message || "Could not remove this person"),
+  });
+  const unlinkMember = trpc.institution.unlinkInstitutionMember.useMutation({
+    onSuccess: async () => {
+      toast.success("Person unlinked from this institution; CPD history was retained.");
+      setUnlinkTarget(null);
+      setUnlinkReason("");
+      await Promise.all([
+        utils.institution.getStaffMembers.invalidate({ institutionId }),
+        utils.institution.getDepartmentMismatchReports.invalidate({ institutionId }),
+        utils.institution.getInstitutionIersDutyAssignments.invalidate({ institutionId }),
+      ]);
+    },
+    onError: (error) => toast.error(error.message || "Could not unlink this person"),
+  });
+  const reallocationMutation = trpc.institution.reallocateInstitutionStaffDepartment.useMutation({
+    onSuccess: async () => {
+      toast.success("Staff department reallocated; any old IERS duties were ended for review.");
+      setReallocationReportId(null);
+      setReallocationDepartmentId("");
+      setReallocationReason("");
+      await Promise.all([
+        utils.institution.getStaffMembers.invalidate({ institutionId }),
+        utils.institution.getDepartmentMismatchReports.invalidate({ institutionId }),
+        utils.institution.getInstitutionIersDutyAssignments.invalidate({ institutionId }),
+      ]);
+    },
+    onError: (error) => toast.error(error.message || "Could not reallocate this department"),
   });
 
   const staff = (data ?? []) as StaffRow[];
@@ -133,6 +170,11 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
     if (!query) return staff;
     return staff.filter((member) => [member.staffName, member.staffEmail, member.staffRole, member.department ?? "", roleLabel(member.governanceRole)].some((value) => value.toLowerCase().includes(query)));
   }, [search, staff]);
+  const mismatchReviews = useMemo(() => (mismatchReports ?? []).map((report) => {
+    let details: { staffMemberId?: number | null; providerUserId?: number | null; departmentId?: number | null; reason?: string } = {};
+    try { details = report.notes ? JSON.parse(report.notes) as typeof details : {}; } catch { details = {}; }
+    return { report, details, staff: staff.find((member) => member.id === details.staffMemberId || member.userId === details.providerUserId) ?? null };
+  }), [mismatchReports, staff]);
 
   return (
     <div className="space-y-6">
@@ -151,12 +193,33 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
       <CardContent className="space-y-4">
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/60 p-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
           <ShieldCheck className="h-4 w-4 shrink-0" />
-          <span>CPD-confirmed permanent facilities appear here as a linked general-staff account. Outreach/locum CPD attendance does not activate membership. Assigning an IERS responsibility role does not create a CPD record or grant a product subscription; product access and clinical responsibility remain separate controls.</span>
+          <span>CPD-confirmed permanent and outreach/locum facilities appear here as linked general-staff accounts. Administrators may reallocate a current department or retire a person; neither action creates an IERS responsibility automatically.</span>
         </div>
+        {mismatchReviews.length > 0 && <Card className="border-amber-300 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20">
+          <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-4 w-4 text-amber-700" />Department mismatch alerts</CardTitle><CardDescription>ERCos have flagged providers whose CPD/profile evidence points to a department but whose current institutional roster does not. Resolve each alert by reallocating the department or retiring the person; no new IERS duty is assigned automatically.</CardDescription></CardHeader>
+          <CardContent className="space-y-3">
+            {mismatchReviews.map(({ report, details, staff: mismatchStaff }) => <div key={report.id} className="rounded-lg border bg-background p-3">
+              <p className="text-sm font-medium">{report.gapIdentified}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Reason: {details.reason ?? "Not provided"} · Reported {formatDutyDate(report.createdAt)}</p>
+              {mismatchStaff ? <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto] md:items-end">
+                <label className="space-y-1 text-xs"><span className="font-medium">Reallocate to current department</span><Select value={reallocationReportId === report.id ? reallocationDepartmentId : ""} onValueChange={(value) => { setReallocationReportId(report.id); setReallocationDepartmentId(value); }}><SelectTrigger><SelectValue placeholder="Choose department" /></SelectTrigger><SelectContent>{(facilityDepartments ?? []).map((department) => <SelectItem key={department.id} value={String(department.id)}>{department.departmentName}</SelectItem>)}</SelectContent></Select></label>
+                <label className="space-y-1 text-xs"><span className="font-medium">Reason</span><Input value={reallocationReportId === report.id ? reallocationReason : ""} onChange={(event) => { setReallocationReportId(report.id); setReallocationReason(event.target.value); }} placeholder="At least 10 characters" /></label>
+                <div className="flex flex-col gap-2 sm:flex-row md:flex-col"><Button type="button" size="sm" disabled={reallocationReportId !== report.id || !reallocationDepartmentId || reallocationReason.trim().length < 10 || reallocationMutation.isPending} onClick={() => reallocationMutation.mutate({ institutionId, staffMemberId: mismatchStaff.id, departmentId: Number(reallocationDepartmentId), reason: reallocationReason.trim(), mismatchReportId: report.id })}>{reallocationMutation.isPending ? "Saving…" : "Reallocate"}</Button><Button type="button" size="sm" variant="destructive" disabled={!mismatchStaff.membershipId || removeMember.isPending} onClick={() => { setRemovalTarget(mismatchStaff); setRemovalReason("Department mismatch reported; retiring from institution after administrator review."); setRemovalReportId(report.id); }}>Retire</Button></div>
+              </div> : <p className="mt-2 text-xs text-amber-800">The linked staff row is no longer available. Refresh the roster and review the account’s membership history.</p>}
+            </div>)}
+          </CardContent>
+        </Card>}
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder="Search name, email, department, or role" value={search} onChange={(event) => setSearch(event.target.value)} />
         </div>
+        {unlinkTarget && (
+          <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
+            <div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /><div className="min-w-0"><p className="font-medium text-amber-900 dark:text-amber-100">Unlink {unlinkTarget.staffName} from this institution?</p><p className="text-xs text-amber-800 dark:text-amber-200">This ends institutional access and future IERS duties but keeps the platform account, CPD history, and staff audit record. A later CPD attendance will not silently reactivate the membership.</p></div></div>
+            <Input placeholder="Required reason (at least 10 characters)" value={unlinkReason} onChange={(event) => setUnlinkReason(event.target.value)} />
+            <div className="flex flex-col gap-2 sm:flex-row"><Button type="button" className="w-full sm:w-auto" disabled={!unlinkTarget.membershipId || unlinkReason.trim().length < 10 || unlinkMember.isPending} onClick={() => unlinkTarget.membershipId && unlinkMember.mutate({ institutionId, membershipId: unlinkTarget.membershipId, reason: unlinkReason.trim() })}>{unlinkMember.isPending ? "Unlinking…" : "Confirm unlink"}</Button><Button type="button" variant="outline" className="w-full sm:w-auto" disabled={unlinkMember.isPending} onClick={() => { setUnlinkTarget(null); setUnlinkReason(""); }}>Cancel</Button></div>
+          </div>
+        )}
         {removalTarget && (
           <div className="space-y-3 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/30">
             <div className="flex items-start gap-2">
@@ -168,7 +231,7 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
             </div>
             <Input placeholder="Required reason (at least 10 characters)" value={removalReason} onChange={(event) => setRemovalReason(event.target.value)} />
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="button" variant="destructive" className="w-full sm:w-auto" disabled={!removalTarget.membershipId || removalReason.trim().length < 10 || removeMember.isPending} onClick={() => removalTarget.membershipId && removeMember.mutate({ institutionId, membershipId: removalTarget.membershipId, reason: removalReason.trim() })}>{removeMember.isPending ? "Removing…" : "Confirm removal"}</Button>
+              <Button type="button" variant="destructive" className="w-full sm:w-auto" disabled={!removalTarget.membershipId || removalReason.trim().length < 10 || removeMember.isPending} onClick={() => removalTarget.membershipId && removeMember.mutate({ institutionId, membershipId: removalTarget.membershipId, reason: removalReason.trim(), mismatchReportId: removalReportId ?? undefined })}>{removeMember.isPending ? "Removing…" : "Confirm removal"}</Button>
               <Button type="button" variant="outline" className="w-full sm:w-auto" disabled={removeMember.isPending} onClick={() => { setRemovalTarget(null); setRemovalReason(""); }}>Cancel</Button>
             </div>
           </div>
@@ -210,7 +273,7 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
                       </TableCell>
                       <TableCell><Badge variant={isRemoved ? "destructive" : member.facilityLinkStatus === "linked" ? "default" : "secondary"}>{isRemoved ? "Removed" : member.facilityLinkStatus === "linked" ? "Linked" : member.facilityLinkStatus ?? "Roster only"}</Badge></TableCell>
                       <TableCell>
-                        {isRemoved ? <span className="text-xs text-muted-foreground">Access ended</span> : member.membershipId ? <Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); }} disabled={removeMember.isPending}><UserMinus className="mr-2 h-4 w-4" />Remove</Button> : <span className="text-xs text-muted-foreground">No membership</span>}
+                        {isRemoved ? <span className="text-xs text-muted-foreground">Access ended</span> : member.membershipId ? <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" className="text-amber-700" onClick={() => { setUnlinkTarget(member); setUnlinkReason(""); }} disabled={unlinkMember.isPending || removeMember.isPending}><AlertTriangle className="mr-2 h-4 w-4" />Unlink</Button><Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); setRemovalReportId(null); }} disabled={removeMember.isPending || unlinkMember.isPending}><UserMinus className="mr-2 h-4 w-4" />Retire</Button></div> : <span className="text-xs text-muted-foreground">No membership</span>}
                       </TableCell>
                     </TableRow>
                   );

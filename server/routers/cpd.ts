@@ -19,7 +19,7 @@ import {
 } from "../../drizzle/schema";
 import { canonicalizeDepartmentLabel, departmentLabelsMatch } from "../../shared/clinical-departments";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
-import { applyCpdFacilityRelationship } from "../services/facility-registry.service";
+import { applyCpdFacilityRelationship, autoLinkCpdFacilitiesForUser } from "../services/facility-registry.service";
 
 /** Shared cadre validator for input validation, matching the cpdAttendees.cadre column. */
 const cadreEnum = z.string().trim().min(1, "Please select or specify your cadre").max(128);
@@ -1068,14 +1068,15 @@ export const cpdRouter = router({
 
   /**
    * Provider: show institutions where this account has attended CPD and the
-   * current institution-link state. CPD attendance is discovery evidence only;
-   * permanent linking remains an explicit provider action and is limited to a
-   * non-student Staff/RN identity.
+   * current institution-link state. A signed-in CPD attendee is automatically
+   * linked as general staff unless an institution administrator has explicitly
+   * suspended, ended, rejected, or removed the relationship.
    */
   getMyFacilityLinkOptions: protectedProcedure.query(async ({ ctx }) => {
     const email = (ctx.user.email ?? "").trim().toLowerCase();
     if (!email) return [];
     const db = await requireDb();
+    await autoLinkCpdFacilitiesForUser(db, { userId: ctx.user.id, email });
     const attendeeRows = await db
       .select({
         attendeeId: cpdAttendees.id,

@@ -102,9 +102,11 @@ export default function MyCpdCertificates() {
           <CardContent className="space-y-3">
             {facilityLinksQuery.data?.map((option) => {
               const isLinked = option.facilityLinkStatus === "linked" && option.membershipStatus === "active";
-              const stateLabel = isLinked
-                ? "Permanent facility linked"
-                : option.latestAttendanceType === "locum_outreach"
+              const stateLabel = isLinked && option.latestAttendanceType === "locum_outreach"
+                ? "Outreach / locum linked"
+                : isLinked
+                  ? "Permanent facility linked"
+                  : option.latestAttendanceType === "locum_outreach"
                   ? "Outreach / locum recorded"
                   : option.membershipStatus === "suspended" || option.membershipStatus === "ended"
                     ? "Administrator review required"
@@ -117,7 +119,7 @@ export default function MyCpdCertificates() {
                     <Badge variant={isLinked ? "default" : option.latestAttendanceType === "locum_outreach" ? "outline" : "secondary"} className="mt-2">{stateLabel}</Badge>
                   </div>
                   {isLinked ? (
-                    <span className="text-xs text-muted-foreground">General staff membership active</span>
+                    <span className="text-xs text-muted-foreground">General staff membership active · {option.latestAttendanceType === "locum_outreach" ? "secondary facility" : "primary facility"}</span>
                   ) : option.canConfirmPermanent ? (
                     <Button
                       type="button"
