@@ -11,7 +11,7 @@ import { Stethoscope, Building2 } from "lucide-react";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getLoginUrl } from "@/const";
 
-const ProviderDashboard = lazy(() => import("./ProviderDashboard"));
+const ProviderToday = lazy(() => import("./ProviderToday"));
 
 type UserType = "individual" | "institutional";
 
@@ -148,7 +148,7 @@ export default function Home() {
           </div>
         }
       >
-        <ProviderDashboard />
+        <ProviderToday />
       </Suspense>
     );
   }
