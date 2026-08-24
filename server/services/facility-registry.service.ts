@@ -618,11 +618,38 @@ export async function autoLinkCpdFacilitiesForUser(
   return results;
 }
 
+const CPD_INSTITUTION_REPAIR_TTL_MS = 5 * 60_000;
+const cpdInstitutionRepairCache = new Map<number, { expiresAt: number; result: CpdFacilityLinkResult[] }>();
+const cpdInstitutionRepairInFlight = new Map<number, Promise<CpdFacilityLinkResult[]>>();
+
 export async function autoLinkCpdFacilitiesForInstitution(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   institutionalAccountId: number,
-) {
-  const attendeeRows = await db
+): Promise<CpdFacilityLinkResult[]> {
+  const now = Date.now();
+  const cached = cpdInstitutionRepairCache.get(institutionalAccountId);
+  if (cached && cached.expiresAt > now) return cached.result;
+  const inFlight = cpdInstitutionRepairInFlight.get(institutionalAccountId);
+  if (inFlight) return inFlight;
+
+  const repair = (async (): Promise<CpdFacilityLinkResult[]> => {
+    const linkedMembers = await db
+    .select({ userId: institutionalStaffMembers.userId })
+    .from(institutionalStaffMembers)
+    .innerJoin(institutionMemberships, and(
+      eq(institutionMemberships.institutionalAccountId, institutionalAccountId),
+      eq(institutionMemberships.userId, institutionalStaffMembers.userId),
+      eq(institutionMemberships.membershipStatus, "active"),
+    ))
+    .where(and(
+      eq(institutionalStaffMembers.institutionalAccountId, institutionalAccountId),
+      eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+      isNull(institutionalStaffMembers.removedAt),
+      isNotNull(institutionalStaffMembers.userId),
+    ));
+    const alreadyLinkedUserIds = new Set(linkedMembers.flatMap((row) => row.userId == null ? [] : [row.userId]));
+
+    const attendeeRows = await db
     .select({
       userId: users.id,
       fullName: cpdAttendees.fullName,
@@ -645,28 +672,39 @@ export async function autoLinkCpdFacilitiesForInstitution(
     ))
     .orderBy(desc(cpdAttendees.id));
 
-  const latestByUser = new Map<number, (typeof attendeeRows)[number]>();
-  for (const row of attendeeRows) {
-    if (!latestByUser.has(row.userId)) latestByUser.set(row.userId, row);
-  }
+    const latestByUser = new Map<number, (typeof attendeeRows)[number]>();
+    for (const row of attendeeRows) {
+      if (!latestByUser.has(row.userId)) latestByUser.set(row.userId, row);
+    }
 
-  const results = [];
-  for (const attendee of latestByUser.values()) {
-    results.push(await applyCpdFacilityRelationship(db, {
-      institutionalAccountId,
-      userId: attendee.userId,
-      staffName: attendee.fullName,
-      staffEmail: attendee.email,
-      staffPhone: attendee.phone,
-      providerType: attendee.providerType,
-      cadre: attendee.userCadre ?? attendee.cadre,
-      cadreOther: attendee.userCadreOther ?? attendee.cadreOther,
-      department: attendee.department,
-      facilityDepartmentId: attendee.facilityDepartmentId,
-      relationship: attendee.attendanceType === "locum_outreach" ? "locum_outreach" : "permanent_facility",
-    }));
+    const results: CpdFacilityLinkResult[] = [];
+    for (const attendee of latestByUser.values()) {
+      if (alreadyLinkedUserIds.has(attendee.userId)) continue;
+      results.push(await applyCpdFacilityRelationship(db, {
+        institutionalAccountId,
+        userId: attendee.userId,
+        staffName: attendee.fullName,
+        staffEmail: attendee.email,
+        staffPhone: attendee.phone,
+        providerType: attendee.providerType,
+        cadre: attendee.userCadre ?? attendee.cadre,
+        cadreOther: attendee.userCadreOther ?? attendee.cadreOther,
+        department: attendee.department,
+        facilityDepartmentId: attendee.facilityDepartmentId,
+        relationship: attendee.attendanceType === "locum_outreach" ? "locum_outreach" : "permanent_facility",
+      }));
+    }
+    return results;
+  })();
+
+  cpdInstitutionRepairInFlight.set(institutionalAccountId, repair);
+  try {
+    const result = await repair;
+    cpdInstitutionRepairCache.set(institutionalAccountId, { expiresAt: Date.now() + CPD_INSTITUTION_REPAIR_TTL_MS, result });
+    return result;
+  } finally {
+    cpdInstitutionRepairInFlight.delete(institutionalAccountId);
   }
-  return results;
 }
 
 export async function syncProviderProfileFacility(

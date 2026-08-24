@@ -37,19 +37,19 @@ export function InstitutionErcoGovernancePanel({ institutionId }: InstitutionErc
 
   const { data: departments, isLoading: departmentsLoading } = trpc.institution.getFacilityDepartments.useQuery(
     { institutionId },
-    { enabled: !!institutionId },
+    { enabled: !!institutionId, staleTime: 60_000 },
   );
   const { data: staffMembers, isLoading: staffLoading } = trpc.institution.getStaffMembers.useQuery(
     { institutionId },
-    { enabled: !!institutionId },
+    { enabled: !!institutionId, staleTime: 30_000 },
   );
   const { data: departmentCandidates, isLoading: departmentCandidatesLoading } = trpc.institution.getDepartmentNurseCandidates.useQuery(
     { institutionId, departmentId: selectedDepartmentId ?? 1 },
-    { enabled: !!institutionId && selectedDepartmentId != null },
+    { enabled: !!institutionId && selectedDepartmentId != null, staleTime: 30_000 },
   );
   const { data: assignments, isLoading: assignmentsLoading } = trpc.institution.getDepartmentResponseCoordinators.useQuery(
     { institutionId },
-    { enabled: !!institutionId },
+    { enabled: !!institutionId, staleTime: 30_000 },
   );
   const { data: assignmentEvents } = trpc.institution.getDepartmentResponseCoordinatorEvents.useQuery(
     selectedDepartmentId ? { institutionId, departmentId: selectedDepartmentId } : { institutionId },

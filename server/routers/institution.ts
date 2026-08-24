@@ -88,7 +88,7 @@ import { autoLinkCpdFacilitiesForInstitution } from "../services/facility-regist
 import { getIsoWeekKey, getIsoWeekRange, getMonthlyShiftRows, monthStartFromShiftDate, normalizeMonthStart } from "../lib/iers-monthly-rota";
 import { insertCanonicalFacilityDepartments } from "../lib/iers-department-setup";
 import { DEFAULT_SHIFT_TEMPLATES, formatShiftInterval, shiftTemplateForType, validateShiftInterval } from "../lib/iers-shift-times";
-import { canonicalizeDepartmentLabel, departmentLabelsMatch, isPresetDepartment } from "../../shared/clinical-departments";
+import { DEPARTMENT_ALIASES, canonicalizeDepartmentLabel, departmentLabelsMatch, isPresetDepartment } from "../../shared/clinical-departments";
 import {
   evaluateProviderDutyAuthorization,
   type ProviderDutyAuthorizationInput,
@@ -376,6 +376,15 @@ async function getProfileBackedRnCandidates(
   department: { id: number; departmentName: string },
   existingRows: DepartmentNurseCandidateRow[],
 ): Promise<DepartmentNurseCandidateRow[]> {
+  const departmentSearchTerms = [
+    department.departmentName,
+    ...(DEPARTMENT_ALIASES[department.departmentName] ?? []),
+  ]
+    .map((value) => value.trim().toLowerCase())
+    .filter((value, index, values) => value.length >= 3 && values.indexOf(value) === index);
+  const profileDepartmentMatch = or(...departmentSearchTerms.map((term) => sql`LOWER(TRIM(${providerProfiles.department})) LIKE ${`%${term}%`}`));
+  const cpdDepartmentMatch = or(...departmentSearchTerms.map((term) => sql`LOWER(TRIM(${cpdAttendees.department})) LIKE ${`%${term}%`}`));
+
   const profileRows = await db
     .select({
       userId: users.id,
@@ -400,6 +409,7 @@ async function getProfileBackedRnCandidates(
     .where(and(
       eq(careFacilities.institutionalAccountId, institutionId),
       isNotNull(providerProfiles.department),
+      profileDepartmentMatch,
     ));
 
   // CPD self-registration is also a legitimate institution-scoped discovery
@@ -428,7 +438,13 @@ async function getProfileBackedRnCandidates(
       eq(institutionMemberships.institutionalAccountId, institutionId),
       eq(institutionMemberships.userId, users.id),
     ))
-    .where(eq(cpdAttendees.institutionalAccountId, institutionId));
+    .where(and(
+      eq(cpdAttendees.institutionalAccountId, institutionId),
+      or(
+        eq(cpdAttendees.facilityDepartmentId, department.id),
+        and(isNull(cpdAttendees.facilityDepartmentId), cpdDepartmentMatch),
+      ),
+    ));
 
   const sourceRows = [...profileRows, ...cpdRows];
   const sourceByUserId = new Map<number, (typeof sourceRows)[number]>();
@@ -2233,12 +2249,44 @@ export const institutionRouter = router({
       }
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-      await autoLinkCpdFacilitiesForInstitution(db, input.institutionId);
+      void autoLinkCpdFacilitiesForInstitution(db, input.institutionId).catch((error) => {
+        console.warn("[IERS] Background CPD facility-link repair failed", error);
+      });
 
       let rows: Array<typeof institutionalStaffMembers.$inferSelect>;
       try {
         rows = await db
-          .select()
+          .select({
+            id: institutionalStaffMembers.id,
+            institutionalAccountId: institutionalStaffMembers.institutionalAccountId,
+            userId: institutionalStaffMembers.userId,
+            staffName: institutionalStaffMembers.staffName,
+            staffEmail: institutionalStaffMembers.staffEmail,
+            staffPhone: institutionalStaffMembers.staffPhone,
+            staffRole: institutionalStaffMembers.staffRole,
+            designation: institutionalStaffMembers.designation,
+            governanceRole: institutionalStaffMembers.governanceRole,
+            institutionalRole: institutionalStaffMembers.institutionalRole,
+            department: institutionalStaffMembers.department,
+            facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+            yearsOfExperience: institutionalStaffMembers.yearsOfExperience,
+            enrollmentStatus: institutionalStaffMembers.enrollmentStatus,
+            phaseStatus: institutionalStaffMembers.phaseStatus,
+            facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+            removedAt: institutionalStaffMembers.removedAt,
+            removedByUserId: institutionalStaffMembers.removedByUserId,
+            removalReason: institutionalStaffMembers.removalReason,
+            totalPaidAmount: institutionalStaffMembers.totalPaidAmount,
+            phase1ProofUrl: institutionalStaffMembers.phase1ProofUrl,
+            phase1ProofApprovedAt: institutionalStaffMembers.phase1ProofApprovedAt,
+            enrollmentDate: institutionalStaffMembers.enrollmentDate,
+            completionDate: institutionalStaffMembers.completionDate,
+            certificationStatus: institutionalStaffMembers.certificationStatus,
+            certificationDate: institutionalStaffMembers.certificationDate,
+            certificationExpiryDate: institutionalStaffMembers.certificationExpiryDate,
+            createdAt: institutionalStaffMembers.createdAt,
+            updatedAt: institutionalStaffMembers.updatedAt,
+          })
           .from(institutionalStaffMembers)
           .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
       } catch (error) {
@@ -2321,7 +2369,6 @@ export const institutionRouter = router({
         ))
         .limit(1);
       if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "This department is not an active confirmed IERS-operational department." });
-      await autoLinkCpdFacilitiesForInstitution(db, input.institutionId);
       const rows = await db
         .select({
           id: institutionalStaffMembers.id,
@@ -2393,7 +2440,6 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       await assertIersPoleRotaReadAccess(db, ctx.user, input.institutionId, input.poleId);
-      await autoLinkCpdFacilitiesForInstitution(db, input.institutionId);
       const departments = await db
         .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
         .from(facilityDepartments)

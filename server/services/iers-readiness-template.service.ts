@@ -103,16 +103,23 @@ export async function ensureDefaultUtlReadinessTemplate(
         updatedAt: now,
       };
     } else {
-      await db.insert(iersReadinessTemplates).values({
-        institutionId: input.institutionId,
-        templateName: DEFAULT_UTL_READINESS_TEMPLATE_NAME,
-        templateVersion: DEFAULT_UTL_READINESS_TEMPLATE_VERSION,
-        status: "active",
-        approvedByUserId: baselineApproverUserId,
-        approvedAt: now,
-        effectiveFrom: now,
-        createdByUserId: baselineApproverUserId,
-      }).onDuplicateKeyUpdate({ set: { updatedAt: now } });
+      try {
+        await db.insert(iersReadinessTemplates).values({
+          institutionId: input.institutionId,
+          templateName: DEFAULT_UTL_READINESS_TEMPLATE_NAME,
+          templateVersion: DEFAULT_UTL_READINESS_TEMPLATE_VERSION,
+          status: "active",
+          approvedByUserId: baselineApproverUserId,
+          approvedAt: now,
+          effectiveFrom: now,
+          createdByUserId: baselineApproverUserId,
+        });
+      } catch (error) {
+        const code = typeof error === "object" && error !== null && "code" in error
+          ? (error as { code?: string }).code
+          : undefined;
+        if (code !== "ER_DUP_ENTRY" && code !== "ER_DUP_KEY") throw error;
+      }
       const [created] = await db
         .select()
         .from(iersReadinessTemplates)
@@ -121,7 +128,7 @@ export async function ensureDefaultUtlReadinessTemplate(
           eq(iersReadinessTemplates.templateVersion, DEFAULT_UTL_READINESS_TEMPLATE_VERSION),
         ))
         .limit(1);
-      if (!created) throw new Error("Unable to create the default UTL readiness template.");
+      if (!created) return null;
       template = created;
     }
   }
