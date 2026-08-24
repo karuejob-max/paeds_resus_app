@@ -997,3 +997,18 @@ Institutions may save reusable local shift-hours templates. Template use only co
 The provider dashboard shows the next actionable UTL/ERTL duty first, including the exact UTL hours, and places the complete UTL/ERTL rota behind an explicit expansion. UTL dates come from `shiftDate`; ERTL dates come from `startDate` and `endDate`. ERTL department selection remains automatically derived from persisted pole order and rotation anchor; the named provider remains an explicit nomination and must accept the dated duty. ERCo and Assistant ERCo remain governance appointments, not automatic response staffing.
 
 Migration 0118 creates `institution_shift_templates`, adds exact-time fields to `shift_utl_rosters`, and backfills legacy shift types to the safe defaults above without inventing staff attendance. No scheduler, autonomous assignment, patient identifier, real emergency, or pilot drill is introduced.
+
+
+## 26. Individual-platform ERT Dashboard and adaptive-learning contract
+
+The Individual platform is an operational extension of IERS, not a replacement for the institutional governance workspace. Every active linked nurse assigned to a pole can see the current pole-scoped ERT team for published dated shifts. A provider may accept or decline only a role assigned to that provider; a decline requires a reason. A declined UTL role creates an urgent department-ERCo replacement prompt. ERCo remains governance-only and does not become a response role automatically.
+
+The assigned ERTL may approve or decline member role recommendations and switch roles between eligible ERT members. A role switch is append-only in the role-event history and reopens acceptance for affected providers. Provider acceptance is distinct from team publication and from readiness sign-off.
+
+The UTL may open a versioned facility readiness checklist for the exact dated shift after accepting the UTL duty. The checklist must contain a governed universal core plus locally approved age- and setting-specific modules. It must not be presented as a single unqualified all-ages clinical list. Item-level observations produce `ready`, `ready_with_gaps`, or `not_ready`; critical gaps notify the department ERCo and are never silently converted into readiness.
+
+An accepted ERT/UTL/ERTL provider may submit a named, activation-linked targeted role report with role-at-event, phase, observation code, factual narrative, and an explicit no-patient-identifiers acknowledgement. This report is separate from anonymous Care/Code Signal reporting. Anonymous signals remain available to any provider and must not be automatically joined to a named role report without an approved identity-linking event.
+
+IERS adaptive-learning signals are recomputable institutional summaries of role coverage, acceptance/decline, UTL readiness gaps, and targeted operational observations. They are not individual performance scores, patient-outcome claims, or automatic clinical recommendations. Repeated patterns require human IERS/Resuscitation Committee review and documented action before procurement, staffing, training, or policy changes.
+
+All activation-linked role records require institution, pole, department, dated team, and active-membership scope. Activation team snapshots preserve the role-at-event state when a report is submitted; later roster changes must not rewrite historical event context. Offline/idempotent submission, conflict reconciliation, and full activation-linked snapshot creation remain release gates before a live pilot drill.

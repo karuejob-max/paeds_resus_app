@@ -49,6 +49,16 @@ test("IERS verifier accepts the deployed mixed table naming contract", () => {
     "institution_department_reconciliations",
     "institution_department_audit_events",
     "institution_cpd_department_resolutions",
+    "iers_shift_teams",
+    "iers_shift_role_assignments",
+    "iers_shift_role_recommendations",
+    "iers_shift_role_events",
+    "iers_readiness_templates",
+    "iers_readiness_template_items",
+    "iers_utl_readiness_checks",
+    "iers_utl_readiness_check_items",
+    "iers_activation_team_snapshots",
+    "iers_targeted_role_reports",
   ]);
 
   for (const requirement of REQUIRED_TABLES) {
@@ -152,6 +162,25 @@ test("IERS verifier accepts camelCase columns for the first two migration groups
     "facility_department_id",
     "event_type",
     "reason",
+    "shift_date",
+    "shift_start_time",
+    "team_version",
+    "role_scope",
+    "provider_user_id",
+    "template_version",
+    "age_band",
+    "is_critical",
+    "checked_by_user_id",
+    "idempotency_key",
+    "item_status",
+    "is_critical_gap",
+    "role_key",
+    "snapshotted_at",
+    "activation_event_id",
+    "role_at_event",
+    "report_phase",
+    "no_patient_identifiers_acknowledged",
+    "submission_state",
   ]);
 
   for (const requirement of REQUIRED_COLUMNS) {

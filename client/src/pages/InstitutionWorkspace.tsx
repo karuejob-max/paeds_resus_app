@@ -34,6 +34,8 @@ import { CohortProgressWidget } from "@/components/CohortProgressWidget";
 import { Phase1ProofReviewWidget } from "@/components/Phase1ProofReviewWidget";
 import { ErtRosterPanel } from "@/components/ErtRosterPanel";
 import { EquipmentAuditPanel } from "@/components/EquipmentAuditPanel";
+import IersReadinessTemplateAdminPanel from "@/components/IersReadinessTemplateAdminPanel";
+import IersAdaptiveLearningPanel from "@/components/IersAdaptiveLearningPanel";
 import { InstitutionErcoGovernancePanel } from "@/components/InstitutionErcoGovernancePanel";
 import { IersDepartmentSetupPanel } from "@/components/IersDepartmentSetupPanel";
 import { InstitutionIersCompetencyPanel } from "@/components/InstitutionIersCompetencyPanel";
@@ -321,11 +323,11 @@ export default function InstitutionWorkspace() {
                     <TabsContent value="departments" className="mt-4"><IersDepartmentSetupPanel institutionId={institutionId} /></TabsContent>
                     <TabsContent value="erco" className="mt-4"><InstitutionErcoGovernancePanel institutionId={institutionId} /></TabsContent>
                     <TabsContent value="roster" className="mt-4"><ErtRosterPanel institutionId={institutionId} /></TabsContent>
-                    <TabsContent value="equipment" className="mt-4"><EquipmentAuditPanel institutionId={institutionId} /></TabsContent>
+                    <TabsContent value="equipment" className="mt-4 space-y-6"><IersReadinessTemplateAdminPanel institutionId={institutionId} /><EquipmentAuditPanel institutionId={institutionId} /></TabsContent>
                   </Tabs>
                 </TabsContent>
                 <TabsContent value="plan"><IersImplementationPlanPanel institutionId={institutionId} /></TabsContent>
-                <TabsContent value="report"><IersExecutiveReportPanel institutionId={institutionId} /></TabsContent>
+                <TabsContent value="report" className="space-y-6"><IersAdaptiveLearningPanel institutionId={institutionId} /><IersExecutiveReportPanel institutionId={institutionId} /></TabsContent>
               </Tabs>
             ) : (
               <ProductLockedState product="IERS" status={productStatus.iers} onAdministration={() => setActiveSection("administration")} />
