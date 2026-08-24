@@ -2,7 +2,7 @@ import React from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { Home, Users, TrendingUp, Share2, MessageCircle, BookOpen, Siren, Compass } from "lucide-react";
+import { Home, TrendingUp, Share2, MessageCircle, BookOpen, Siren, FileText, Compass, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const BottomNav: React.FC = () => {
@@ -22,12 +22,11 @@ export const BottomNav: React.FC = () => {
     }
 
     if (role === "provider") {
-      // HI-PLAT-4: Clinical thumb-nav — ResusGPS + protocols + referral (hub is /home)
       return [
-        { path: "/home", label: "Hub", icon: Home },
+        { path: "/home", label: "Today", icon: Home },
         { path: "/resus", label: "Resus", icon: Siren },
-        { path: "/protocols", label: "Protocols", icon: BookOpen },
-        { path: "/referral", label: "Refer", icon: Share2 },
+        { path: "/learn", label: "Learn", icon: BookOpen },
+        { path: "/records", label: "Records", icon: FileText },
       ];
     }
 

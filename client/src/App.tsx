@@ -68,7 +68,10 @@ const PerformanceDashboard = lazy(() =>
   import("./pages/PerformanceDashboard").then((m) => ({ default: m.PerformanceDashboard }))
 );
 const ProviderProfile = lazy(() => import("./pages/ProviderProfile"));
-const ProviderDashboard = lazy(() => import("./pages/ProviderDashboard"));
+const ProviderToday = lazy(() => import("./pages/ProviderToday"));
+const ProviderMyShift = lazy(() => import("./pages/ProviderMyShift"));
+const ProviderLearn = lazy(() => import("./pages/ProviderLearn"));
+const ProviderRecords = lazy(() => import("./pages/ProviderRecords"));
 const ProviderIersStaffing = lazy(() => import("./pages/ProviderIersStaffing"));
 const IersOrientationPublic = lazy(() => import("./pages/IersOrientationPublic"));
 const CPRMonitoring = lazy(() => import("./pages/CPRMonitoring"));
@@ -183,6 +186,21 @@ function Router() {
           <Route path="/my-cpd-certificates" component={MyCpdCertificates} />
           <Route path="/my-cne-certificates">{() => <Redirect to="/my-cpd-certificates" />}</Route>
           <Route path="/home" component={Home} />
+          <Route path="/my-shift">{() => (
+            <RoleGate allowed={["provider"]}>
+              <ProviderMyShift />
+            </RoleGate>
+          )}</Route>
+          <Route path="/learn">{() => (
+            <RoleGate allowed={["provider"]}>
+              <ProviderLearn />
+            </RoleGate>
+          )}</Route>
+          <Route path="/records">{() => (
+            <RoleGate allowed={["provider"]}>
+              <ProviderRecords />
+            </RoleGate>
+          )}</Route>
           <Route path="/iers/orientation" component={IersOrientationPublic} />
           <Route path="/iers/staffing">{() => (
             <RoleGate allowed={["provider"]}>
@@ -574,10 +592,10 @@ function Router() {
           <Route path="/institution-onboarding">{() => <Redirect to="/institutional-onboarding" />}</Route>
           {/* case-analysis has no page; redirect to targeted-solutions */}
           <Route path="/case-analysis">{() => <Redirect to="/targeted-solutions" />}</Route>
-          {/* /certificates → provider dashboard with certificates section pre-expanded */}
+          {/* /certificates → focused detailed certificate list; /records is the broader provider summary */}
           <Route path="/certificates">{() => (
             <RoleGate allowed={["provider"]}>
-              <ProviderDashboard defaultShowCertificates={true} />
+              <ProviderRecords focusCertificates={true} />
             </RoleGate>
           )}</Route>
           {/* dashboard → home (provider hub) */}

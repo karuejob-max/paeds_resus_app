@@ -1,0 +1,95 @@
+import { useState } from "react";
+import { useLocation } from "wouter";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  ArrowLeft,
+  ClipboardCheck,
+  FileText,
+  Radio,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
+import ProviderInstitutionReadinessCard from "@/components/ProviderInstitutionReadinessCard";
+import ProviderIersActivationCard from "@/components/ProviderIersActivationCard";
+import ProviderIersActionCard from "@/components/ProviderIersActionCard";
+import ProviderIersDutyAssignmentCard from "@/components/ProviderIersDutyAssignmentCard";
+import ProviderIersEvidenceCard from "@/components/ProviderIersEvidenceCard";
+import ProviderIersOperationsCard from "@/components/ProviderIersOperationsCard";
+import ProviderIersShiftTeamCard from "@/components/ProviderIersShiftTeamCard";
+import ProviderShiftReadinessCard from "@/components/ProviderShiftReadinessCard";
+
+const TAB_VALUES = ["team", "readiness", "respond", "improve"] as const;
+type TabValue = (typeof TAB_VALUES)[number];
+
+function initialTab(): TabValue {
+  if (typeof window === "undefined") return "team";
+  const requested = new URLSearchParams(window.location.search).get("tab");
+  return TAB_VALUES.includes(requested as TabValue) ? (requested as TabValue) : "team";
+}
+
+export default function ProviderMyShift() {
+  const [, setLocation] = useLocation();
+  const [activeTab, setActiveTab] = useState<TabValue>(initialTab);
+
+  const changeTab = (value: string) => {
+    if (TAB_VALUES.includes(value as TabValue)) setActiveTab(value as TabValue);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 pb-20">
+      <div className="mx-auto max-w-3xl space-y-4 px-4 py-5 sm:py-7">
+        <div className="flex items-start gap-3">
+          <Button type="button" variant="ghost" size="icon" className="mt-0.5 shrink-0" aria-label="Back to Today" onClick={() => setLocation("/home")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">Individual Platform</p>
+            <h1 className="mt-1 text-2xl font-bold text-slate-950">My Shift</h1>
+            <p className="mt-1 text-sm text-slate-500">Your dated ERT work, readiness, response, and improvement actions.</p>
+          </div>
+        </div>
+
+        <Card className="border-teal-200 bg-teal-50/60">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base text-teal-950"><ShieldCheck className="h-5 w-5 text-teal-700" />Use only the role and shift assigned to you</CardTitle>
+            <CardDescription className="text-teal-900/75">A standing governance role is not the same as a dated response duty. Accepting a duty does not prove that you are responding or at the scene.</CardDescription>
+          </CardHeader>
+        </Card>
+
+        <Tabs value={activeTab} onValueChange={changeTab} className="space-y-4">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-white p-1 sm:grid-cols-4">
+            <TabsTrigger value="team" className="min-h-10 gap-1.5 px-2 text-xs sm:text-sm"><Users className="h-4 w-4" />Team & duties</TabsTrigger>
+            <TabsTrigger value="readiness" className="min-h-10 gap-1.5 px-2 text-xs sm:text-sm"><ClipboardCheck className="h-4 w-4" />Readiness</TabsTrigger>
+            <TabsTrigger value="respond" className="min-h-10 gap-1.5 px-2 text-xs sm:text-sm"><Radio className="h-4 w-4" />Respond</TabsTrigger>
+            <TabsTrigger value="improve" className="min-h-10 gap-1.5 px-2 text-xs sm:text-sm"><FileText className="h-4 w-4" />Improve</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="team" className="space-y-4">
+            <ProviderInstitutionReadinessCard />
+            <ProviderIersDutyAssignmentCard />
+            <ProviderIersShiftTeamCard />
+          </TabsContent>
+          <TabsContent value="readiness" className="space-y-4">
+            <ProviderShiftReadinessCard />
+            <Card className="border-slate-200 bg-white">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Readiness has two parts</CardTitle>
+                <CardDescription>Accept the dated role first. Then the UTL/ERTL checks only what is actually present and records gaps instead of signing off blindly.</CardDescription>
+              </CardHeader>
+            </Card>
+          </TabsContent>
+          <TabsContent value="respond" className="space-y-4">
+            <ProviderIersActivationCard />
+            <ProviderIersOperationsCard />
+          </TabsContent>
+          <TabsContent value="improve" className="space-y-4">
+            <ProviderIersEvidenceCard />
+            <ProviderIersActionCard />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
