@@ -709,6 +709,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     const preSyncCandidates = await adminCaller.institution.getDepartmentNurseCandidates({ institutionId: ids.institutionId, departmentId: ids.departmentId });
     expect(preSyncCandidates).toEqual(expect.arrayContaining([
       expect.objectContaining({ userId: ids.registeredProviderId, assignable: false, facilityLinkStatus: "pending", needsAccountLink: true }),
+      expect.objectContaining({ userId: ids.cpdOnlyProviderId, assignable: true, facilityLinkStatus: "linked", membershipStatus: "active", needsAccountLink: false }),
     ]));
 
     const profileSaved = await registeredCaller.provider.updateProfile({
@@ -729,7 +730,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     const pendingCandidates = await adminCaller.institution.getDepartmentNurseCandidates({ institutionId: ids.institutionId, departmentId: ids.departmentId });
     expect(pendingCandidates).toEqual(expect.arrayContaining([
       expect.objectContaining({ userId: ids.registeredProviderId, assignable: false, needsAccountLink: true }),
-      expect.objectContaining({ userId: ids.cpdOnlyProviderId, assignable: false, facilityDepartmentId: ids.departmentId, needsAccountLink: true }),
+      expect.objectContaining({ userId: ids.cpdOnlyProviderId, assignable: true, facilityDepartmentId: ids.departmentId, facilityLinkStatus: "linked", membershipStatus: "active", needsAccountLink: false }),
     ]));
     const invitation = await adminCaller.institution.inviteProvider({
       institutionId: ids.institutionId,

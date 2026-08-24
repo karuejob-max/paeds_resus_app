@@ -1,7 +1,7 @@
 /**
  * Canonical facility registry — search, resolve merges, sync institutions, geographic rollups.
  */
-import { and, desc, eq, gte, inArray, isNotNull, isNull, like, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, isNull, like, or, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import {
   careFacilities,
@@ -14,6 +14,7 @@ import {
   institutionalStaffMembers,
   institutionMemberships,
   facilityDepartments,
+  cpdAttendees,
 } from "../../drizzle/schema";
 import { inferDesignationFromCadre } from "../../shared/cadre-designation-mapping";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
@@ -312,9 +313,8 @@ function staffRoleFromRegisteredProfile(input: Pick<InstitutionalStaffSyncInput,
 
 /**
  * Reconcile a registered provider into one institution-scoped operational staff row.
- * This never creates or activates institution membership. The row is linked only
- * when an already-existing membership for the same institution is active; otherwise
- * it remains pending until the normal invitation/acceptance contract is completed.
+ * CPD attendance may subsequently activate the facility membership; this helper
+ * never grants IERS product roles or dated emergency duties.
  */
 export async function reconcileInstitutionalStaffMember(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
@@ -357,6 +357,15 @@ export async function reconcileInstitutionalStaffMember(
     : existing?.facilityLinkStatus === "rejected"
       ? "rejected" as const
       : "pending" as const;
+  if (existing?.removedAt) {
+    return { staffMemberId: existing.id, facilityLinkStatus: "rejected" as const, membershipStatus: membership?.membershipStatus ?? null };
+  }
+  const departmentConflict = Boolean(
+    existing
+    && existing.facilityDepartmentId != null
+    && input.facilityDepartmentId != null
+    && existing.facilityDepartmentId !== input.facilityDepartmentId,
+  );
   const values = {
     institutionalAccountId: input.institutionalAccountId,
     userId: input.userId,
@@ -365,8 +374,8 @@ export async function reconcileInstitutionalStaffMember(
     staffPhone: input.staffPhone?.trim() || null,
     staffRole: staffRoleFromRegisteredProfile(input),
     designation: inferDesignationFromCadre(input.cadre) ?? existing?.designation ?? "other" as const,
-    department: input.department?.trim() || null,
-    facilityDepartmentId: input.facilityDepartmentId ?? null,
+    department: departmentConflict ? existing?.department ?? null : input.department?.trim() || null,
+    facilityDepartmentId: departmentConflict ? existing?.facilityDepartmentId ?? null : input.facilityDepartmentId ?? null,
     facilityLinkStatus,
     enrollmentStatus: existing?.enrollmentStatus ?? input.enrollmentStatus ?? "pending" as const,
     updatedAt: new Date(),
@@ -384,7 +393,7 @@ export type CpdFacilityRelationship = "permanent_facility" | "locum_outreach";
 
 export type CpdFacilityLinkResult = {
   relationship: CpdFacilityRelationship;
-  status: "linked" | "outreach_recorded" | "admin_review_required";
+  status: "linked" | "admin_review_required";
   membershipId: number | null;
   membershipStatus: "active" | "invited" | "suspended" | "ended" | null;
   staffMemberId: number | null;
@@ -393,12 +402,12 @@ export type CpdFacilityLinkResult = {
 /**
  * Apply an authenticated CPD attendee's explicit facility relationship.
  *
- * Permanent Staff/RN selection is a consented self-link through an institution's
- * authenticated CPD event. It creates or accepts only a general-staff membership,
- * never an IERS product role or dated emergency duty. Suspended, ended, rejected,
- * or removed relationships remain under administrator control. Locum/outreach is
- * recorded on the CPD attendance row by the caller and deliberately does not move
- * the provider's primary facility or activate institutional membership.
+ * A signed-in CPD attendee's explicit facility relationship links the attendee to
+ * the host facility. Both permanent and locum/outreach selections create or accept
+ * only a general-staff facility membership; neither creates an IERS product role or
+ * dated emergency duty. Permanent updates the provider's primary facility, while
+ * locum/outreach remains a secondary facility history. Suspended, ended, rejected,
+ * or removed relationships remain administrator-controlled.
  */
 export async function applyCpdFacilityRelationship(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
@@ -456,35 +465,7 @@ export async function applyCpdFacilityRelationship(
     .orderBy(desc(institutionMemberships.id))
     .limit(1);
 
-  if (input.relationship === "locum_outreach") {
-    return {
-      relationship: input.relationship,
-      status: "outreach_recorded",
-      membershipId: membership?.id ?? null,
-      membershipStatus: membership?.membershipStatus ?? null,
-      staffMemberId: reconciled.staffMemberId,
-    };
-  }
-
-  const [otherActiveMembership] = await db
-    .select({ institutionalAccountId: institutionMemberships.institutionalAccountId })
-    .from(institutionMemberships)
-    .where(and(
-      eq(institutionMemberships.userId, input.userId),
-      eq(institutionMemberships.membershipStatus, "active"),
-      ne(institutionMemberships.institutionalAccountId, input.institutionalAccountId),
-    ))
-    .limit(1);
-
-  const isEligibleRn = isRegisteredRnProfile({
-    providerType: input.providerType,
-    cadre: input.cadre,
-    cadreOther: input.cadreOther,
-  });
-  const needsAdminReview = !isEligibleRn
-    || Boolean(otherActiveMembership)
-
-    || staff?.facilityLinkStatus === "rejected"
+  const needsAdminReview = staff?.facilityLinkStatus === "rejected"
     || Boolean(staff?.removedAt)
     || membership?.membershipStatus === "suspended"
     || membership?.membershipStatus === "ended";
@@ -554,7 +535,7 @@ export async function applyCpdFacilityRelationship(
     ))
     .orderBy(desc(careFacilities.id))
     .limit(1);
-  if (facility) {
+  if (facility && input.relationship === "permanent_facility") {
     await db
       .update(providerProfiles)
       .set({
@@ -576,9 +557,121 @@ export async function applyCpdFacilityRelationship(
   };
 }
 
+/**
+ * Reconcile all prior CPD host facilities for the signed-in account. This is
+ * intentionally idempotent and skips guest-external attendance. It may create
+ * only general-staff facility membership; administrator removal/suspension and
+ * all IERS responsibility assignment remain separate controls.
+ */
+export async function autoLinkCpdFacilitiesForUser(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  input: { userId: number; email: string },
+) {
+  const email = input.email.trim().toLowerCase();
+  if (!email) return [];
+
+  const [user] = await db
+    .select({ name: users.name, email: users.email, phone: users.phone, providerType: users.providerType, cadre: users.cadre, cadreOther: users.cadreOther })
+    .from(users)
+    .where(eq(users.id, input.userId))
+    .limit(1);
+  if (!user?.email) return [];
+
+  const attendeeRows = await db
+    .select({
+      institutionalAccountId: cpdAttendees.institutionalAccountId,
+      fullName: cpdAttendees.fullName,
+      email: cpdAttendees.email,
+      phone: cpdAttendees.phone,
+      cadre: cpdAttendees.cadre,
+      cadreOther: cpdAttendees.cadreOther,
+      department: cpdAttendees.department,
+      facilityDepartmentId: cpdAttendees.facilityDepartmentId,
+      attendanceType: cpdAttendees.attendanceType,
+    })
+    .from(cpdAttendees)
+    .where(sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${email}))`)
+    .orderBy(desc(cpdAttendees.id));
+
+  const latestByInstitution = new Map<number, (typeof attendeeRows)[number]>();
+  for (const row of attendeeRows) {
+    if (!latestByInstitution.has(row.institutionalAccountId)) latestByInstitution.set(row.institutionalAccountId, row);
+  }
+
+  const results = [];
+  for (const attendee of latestByInstitution.values()) {
+    if (attendee.attendanceType === "guest_external") continue;
+    results.push(await applyCpdFacilityRelationship(db, {
+      institutionalAccountId: attendee.institutionalAccountId,
+      userId: input.userId,
+      staffName: user.name?.trim() || attendee.fullName,
+      staffEmail: user.email,
+      staffPhone: user.phone ?? attendee.phone,
+      providerType: user.providerType,
+      cadre: user.cadre ?? attendee.cadre,
+      cadreOther: user.cadreOther ?? attendee.cadreOther,
+      department: attendee.department,
+      facilityDepartmentId: attendee.facilityDepartmentId,
+      relationship: attendee.attendanceType === "locum_outreach" ? "locum_outreach" : "permanent_facility",
+    }));
+  }
+  return results;
+}
+
+export async function autoLinkCpdFacilitiesForInstitution(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  institutionalAccountId: number,
+) {
+  const attendeeRows = await db
+    .select({
+      userId: users.id,
+      fullName: cpdAttendees.fullName,
+      email: cpdAttendees.email,
+      phone: cpdAttendees.phone,
+      providerType: users.providerType,
+      userCadre: users.cadre,
+      userCadreOther: users.cadreOther,
+      cadre: cpdAttendees.cadre,
+      cadreOther: cpdAttendees.cadreOther,
+      department: cpdAttendees.department,
+      facilityDepartmentId: cpdAttendees.facilityDepartmentId,
+      attendanceType: cpdAttendees.attendanceType,
+    })
+    .from(cpdAttendees)
+    .innerJoin(users, sql`LOWER(TRIM(${users.email})) = LOWER(TRIM(${cpdAttendees.email}))`)
+    .where(and(
+      eq(cpdAttendees.institutionalAccountId, institutionalAccountId),
+      sql`${cpdAttendees.attendanceType} <> 'guest_external'`,
+    ))
+    .orderBy(desc(cpdAttendees.id));
+
+  const latestByUser = new Map<number, (typeof attendeeRows)[number]>();
+  for (const row of attendeeRows) {
+    if (!latestByUser.has(row.userId)) latestByUser.set(row.userId, row);
+  }
+
+  const results = [];
+  for (const attendee of latestByUser.values()) {
+    results.push(await applyCpdFacilityRelationship(db, {
+      institutionalAccountId,
+      userId: attendee.userId,
+      staffName: attendee.fullName,
+      staffEmail: attendee.email,
+      staffPhone: attendee.phone,
+      providerType: attendee.providerType,
+      cadre: attendee.userCadre ?? attendee.cadre,
+      cadreOther: attendee.userCadreOther ?? attendee.cadreOther,
+      department: attendee.department,
+      facilityDepartmentId: attendee.facilityDepartmentId,
+      relationship: attendee.attendanceType === "locum_outreach" ? "locum_outreach" : "permanent_facility",
+    }));
+  }
+  return results;
+}
+
 export async function syncProviderProfileFacility(
   userId: number,
-  facilityId: number
+  facilityId: number,
 ): Promise<void> {
   const db = await getDb();
   if (!db) return;

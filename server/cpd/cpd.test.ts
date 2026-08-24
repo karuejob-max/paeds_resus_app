@@ -424,7 +424,7 @@ describe("CPD Router Procedures", () => {
 
     expect(res.success).toBe(true);
     expect(res.facilityRelationship).toBe("locum_outreach");
-    expect(res.facilityLinkStatus).toBe("outreach_recorded");
+    expect(res.facilityLinkStatus).toBe("linked");
     expect(mockInsert).toHaveBeenCalled();
   });
 

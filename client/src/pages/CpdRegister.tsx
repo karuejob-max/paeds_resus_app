@@ -270,13 +270,13 @@ export default function CpdRegister() {
                 Your attendance has been recorded. Your certificate will be issued by the CPD
                 coordinator.
               </p>
-              {submitMutation.data?.facilityLinkStatus === "linked" ? (
+              {submitMutation.data?.facilityLinkStatus === "linked" && submitMutation.data?.facilityRelationship !== "locum_outreach" ? (
                 <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-800">
-                  This hospital is now confirmed as your permanent facility. Your account is linked as general staff; any IERS duty still requires a separate institutional assignment and your explicit acceptance.
+                  This hospital is now linked to your account as general staff. It is recorded as your primary facility; any IERS duty still requires a separate institutional assignment and your explicit acceptance.
                 </p>
-              ) : submitMutation.data?.facilityLinkStatus === "outreach_recorded" ? (
+              ) : submitMutation.data?.facilityRelationship === "locum_outreach" && submitMutation.data?.facilityLinkStatus === "linked" ? (
                 <p className="mt-3 rounded-md bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-800">
-                  This attendance was recorded as outreach/locum work. Your permanent facility was not changed and this hospital did not receive an active IERS membership for you.
+                  This hospital is now linked to your account as a locum/outreach facility. Your primary facility was not changed, but this facility is included in your facility history; any IERS duty still requires a separate institutional assignment and your explicit acceptance.
                 </p>
               ) : submitMutation.data?.facilityLinkStatus === "admin_review_required" ? (
                 <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
@@ -489,7 +489,7 @@ export default function CpdRegister() {
                               <span>
                                 <span className="block text-sm font-medium">My permanent facility</span>
                                 <span className="block text-xs leading-relaxed text-muted-foreground">
-                                  Confirm this hospital as your main facility. If eligible, your signed-in account will be linked as general staff so the institution can manage your IERS participation.
+                                  Link this hospital to your account as general staff and set it as your primary facility. IERS duties still require separate institutional assignment and your explicit acceptance.
                                 </span>
                               </span>
                             </label>
@@ -498,7 +498,7 @@ export default function CpdRegister() {
                               <span>
                                 <span className="block text-sm font-medium">Outreach / locum facility</span>
                                 <span className="block text-xs leading-relaxed text-muted-foreground">
-                                  Record this CPD attendance here without changing your permanent facility or activating IERS membership at this hospital.
+                                  Link this hospital to your account as a locum/outreach facility without changing your primary facility. IERS duties still require separate institutional assignment and your explicit acceptance.
                                 </span>
                               </span>
                             </label>

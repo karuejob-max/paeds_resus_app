@@ -11,9 +11,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { Building2, CheckCircle2, AlertCircle } from "lucide-react";
 import { FacilityPicker, type FacilitySelection } from "./FacilityPicker";
 import { DepartmentSelectors } from "./DepartmentSelectors";
 
@@ -304,6 +305,26 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
             {/* Facility Information Section */}
             <div className="space-y-4 border-t pt-4">
               <h3 className="font-semibold text-lg">Facility Information</h3>
+              {(getProfileMutation.data?.facilityHistory?.length ?? 0) > 0 && (
+                <div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50/40 p-3 dark:border-blue-900/50 dark:bg-blue-950/20">
+                  <div>
+                    <p className="flex items-center gap-2 text-sm font-semibold text-blue-950 dark:text-blue-100"><Building2 className="h-4 w-4" />CPD-linked facilities</p>
+                    <p className="mt-1 text-xs leading-relaxed text-blue-900/80 dark:text-blue-100/80">These facilities are updated from hospitals where you have signed in for CPD. The editable facility below is your primary facility; every association remains visible for institutional reconciliation.</p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {getProfileMutation.data?.facilityHistory?.map((entry) => (
+                      <div key={entry.institutionId} className="rounded-md border bg-background p-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="min-w-0 text-sm font-medium">{entry.institutionName}</p>
+                          <Badge variant={entry.membershipStatus === "active" ? "default" : "secondary"} className="shrink-0 text-[10px]">{entry.membershipStatus ?? "CPD linked"}</Badge>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">{entry.relationship === "locum_outreach" ? "Outreach / locum association" : "Permanent facility association"}</p>
+                        {entry.departments.length > 0 && <p className="mt-1 text-xs text-muted-foreground">Department: {entry.departments.join(", ")}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FacilityPicker

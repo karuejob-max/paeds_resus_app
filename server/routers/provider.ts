@@ -1,10 +1,108 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { providerProfiles, providerPerformanceMetrics, users } from "../../drizzle/schema";
-import { eq, and, desc } from "drizzle-orm";
-import { syncProviderProfileFacility } from "../services/facility-registry.service";
+import {
+  providerProfiles,
+  providerPerformanceMetrics,
+  users,
+  cpdAttendees,
+  institutionMemberships,
+  institutionalAccounts,
+} from "../../drizzle/schema";
+import { eq, and, desc, or, sql } from "drizzle-orm";
+import { autoLinkCpdFacilitiesForUser, syncProviderProfileFacility } from "../services/facility-registry.service";
 import { canonicalizeDepartmentLabel } from "../../shared/clinical-departments";
+
+type ProviderFacilityHistoryEntry = {
+  institutionId: number;
+  institutionName: string;
+  relationship: "permanent_facility" | "locum_outreach";
+  membershipStatus: "invited" | "active" | "suspended" | "ended" | null;
+  lastAttendedAt: Date | null;
+  departments: string[];
+};
+
+async function getProviderFacilityHistory(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  userId: number,
+  email: string | null | undefined,
+): Promise<ProviderFacilityHistoryEntry[]> {
+  const normalizedEmail = email?.trim().toLowerCase();
+  if (!normalizedEmail) return [];
+
+  const [attendanceRows, membershipRows] = await Promise.all([
+    db
+      .select({
+        institutionId: cpdAttendees.institutionalAccountId,
+        institutionName: institutionalAccounts.companyName,
+        attendanceType: cpdAttendees.attendanceType,
+        submittedAt: cpdAttendees.submittedAt,
+        department: cpdAttendees.department,
+      })
+      .from(cpdAttendees)
+      .innerJoin(institutionalAccounts, eq(institutionalAccounts.id, cpdAttendees.institutionalAccountId))
+      .where(sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${normalizedEmail}))`)
+      .orderBy(desc(cpdAttendees.submittedAt)),
+    db
+      .select({
+        institutionId: institutionMemberships.institutionalAccountId,
+        institutionName: institutionalAccounts.companyName,
+        membershipStatus: institutionMemberships.membershipStatus,
+      })
+      .from(institutionMemberships)
+      .innerJoin(institutionalAccounts, eq(institutionalAccounts.id, institutionMemberships.institutionalAccountId))
+      .where(and(
+        or(
+          eq(institutionMemberships.userId, userId),
+          sql`LOWER(TRIM(${institutionMemberships.invitedEmail})) = LOWER(TRIM(${normalizedEmail}))`,
+        ),
+        sql`${institutionMemberships.membershipStatus} IN ('invited', 'active', 'suspended', 'ended')`,
+      ))
+      .orderBy(desc(institutionMemberships.updatedAt)),
+  ]);
+
+  const byInstitution = new Map<number, ProviderFacilityHistoryEntry>();
+  for (const row of attendanceRows) {
+    const existing = byInstitution.get(row.institutionId);
+    const department = row.department?.trim();
+    if (!existing) {
+      byInstitution.set(row.institutionId, {
+        institutionId: row.institutionId,
+        institutionName: row.institutionName,
+        relationship: row.attendanceType === "locum_outreach" ? "locum_outreach" : "permanent_facility",
+        membershipStatus: null,
+        lastAttendedAt: row.submittedAt,
+        departments: department ? [department] : [],
+      });
+      continue;
+    }
+    if (row.attendanceType === "primary_facility") existing.relationship = "permanent_facility";
+    if (!existing.lastAttendedAt || row.submittedAt > existing.lastAttendedAt) existing.lastAttendedAt = row.submittedAt;
+    if (department && !existing.departments.includes(department)) existing.departments.push(department);
+  }
+
+  for (const row of membershipRows) {
+    const existing = byInstitution.get(row.institutionId);
+    if (existing) {
+      existing.membershipStatus = row.membershipStatus;
+      continue;
+    }
+    byInstitution.set(row.institutionId, {
+      institutionId: row.institutionId,
+      institutionName: row.institutionName,
+      relationship: "permanent_facility",
+      membershipStatus: row.membershipStatus,
+      lastAttendedAt: null,
+      departments: [],
+    });
+  }
+
+  return Array.from(byInstitution.values()).sort((a, b) => {
+    const aTime = a.lastAttendedAt?.getTime() ?? 0;
+    const bTime = b.lastAttendedAt?.getTime() ?? 0;
+    return bTime - aTime || a.institutionName.localeCompare(b.institutionName);
+  });
+}
 
 export const providerRouter = router({
   // Get or create provider profile
@@ -33,7 +131,12 @@ export const providerRouter = router({
         .limit(1);
     }
 
-    return profile[0] || null;
+    if (!profile[0]) return null;
+    await autoLinkCpdFacilitiesForUser(db, { userId: ctx.user.id, email: ctx.user.email ?? "" });
+    return {
+      ...profile[0],
+      facilityHistory: await getProviderFacilityHistory(db, ctx.user.id, ctx.user.email),
+    };
   }),
 
   // Update provider profile
