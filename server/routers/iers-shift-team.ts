@@ -384,7 +384,7 @@ export const iersShiftTeamRouter = router({
       const team = await requireTeam(db, assignment.teamId);
       const [ertl] = await db.select({ providerUserId: iersShiftRoleAssignments.providerUserId }).from(iersShiftRoleAssignments).where(and(eq(iersShiftRoleAssignments.teamId, team.id), eq(iersShiftRoleAssignments.roleScope, "ertl"), eq(iersShiftRoleAssignments.assignmentStatus, "accepted"))).limit(1);
       if (!ertl) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "An accepted ERTL must exist before role changes can be proposed." });
-      const result = await db.insert(iersShiftRoleRecommendations).values({ assignmentId: assignment.id, teamId: team.id, institutionId: assignment.institutionId, requestedByUserId: ctx.user.id, requestedRoleKey, reason, status: "pending" });
+      const result = await db.insert(iersShiftRoleRecommendations).values({ assignmentId: assignment.id, teamId: team.id, institutionId: assignment.institutionId, requestedByUserId: ctx.user.id, requestedRoleKey, reason: input.reason, status: "pending" });
       await notifyUser(db, ertl.providerUserId, "ERT role recommendation needs review", `A team member recommends ${requestedRoleKey.replaceAll("_", " ")}. Review and approve or decline the change.`, (result as unknown as { insertId: number }).insertId, "/home");
       return { success: true, recommendationId: (result as unknown as { insertId: number }).insertId };
     }),
