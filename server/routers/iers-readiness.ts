@@ -134,7 +134,7 @@ export const iersReadinessRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
-      const { assignment, team } = await resolveAcceptedUtl(db, ctx.user.id, input.teamId, input.shiftUtlRosterId);
+      const { assignment, team, departmentId } = await resolveAcceptedUtl(db, ctx.user.id, input.teamId, input.shiftUtlRosterId);
       await requireActiveMember(db, ctx.user.id, team.institutionId);
       const [existingRequest] = await db.select({ id: iersUtlReadinessChecks.id, status: iersUtlReadinessChecks.status }).from(iersUtlReadinessChecks).where(and(eq(iersUtlReadinessChecks.checkedByUserId, ctx.user.id), eq(iersUtlReadinessChecks.idempotencyKey, input.clientRequestId))).limit(1);
       if (existingRequest) return { success: true, checkId: existingRequest.id, status: existingRequest.status, criticalGapCount: 0, nonCriticalGapCount: 0, duplicate: true };
@@ -152,11 +152,11 @@ export const iersReadinessRouter = router({
       const status = deriveUtlReadinessStatus(definitions, observations);
       const existing = await db.select({ id: iersUtlReadinessChecks.id }).from(iersUtlReadinessChecks).where(and(eq(iersUtlReadinessChecks.teamId, input.teamId), eq(iersUtlReadinessChecks.checkedByUserId, ctx.user.id), ne(iersUtlReadinessChecks.status, "superseded")));
       if (existing.length > 0) await db.update(iersUtlReadinessChecks).set({ status: "superseded" }).where(eq(iersUtlReadinessChecks.id, existing[0].id));
-      const insertedCheck = await db.insert(iersUtlReadinessChecks).values({ institutionId: team.institutionId, poleId: team.poleId, departmentId, teamId: team.id, shiftUtlRosterId: assignment.shiftUtlRosterId ?? null, templateId: template.id, checkedByUserId: ctx.user.id, idempotencyKey: input.clientRequestId, status, attestation: input.attestation, generalNote: input.generalNote ?? null, checkedAt: new Date() });
+      const insertedCheck = await db.insert(iersUtlReadinessChecks).values({ institutionId: team.institutionId, poleId: team.poleId, departmentId: departmentId, teamId: team.id, shiftUtlRosterId: assignment.shiftUtlRosterId ?? null, templateId: template.id, checkedByUserId: ctx.user.id, idempotencyKey: input.clientRequestId, status, attestation: input.attestation, generalNote: input.generalNote ?? null, checkedAt: new Date() });
       const checkId = Number((insertedCheck as unknown as { insertId: number }).insertId);
       for (const item of input.items) {
         const definition = itemMap.get(item.templateItemId)!;
-        await db.insert(iersUtlReadinessCheckItems).values({ checkId, templateItemId: item.templateItemId, itemStatus: item.itemStatus, observedQuantity: item.observedQuantity ?? null, expiryDate: item.expiryDate ?? null, functionTested: item.functionTested ?? null, note: item.note ?? null, isCriticalGap: isCriticalReadinessGap(definition, item) });
+        await db.insert(iersUtlReadinessCheckItems).values({ checkId, templateItemId: item.templateItemId, itemStatus: item.itemStatus, observedQuantity: item.observedQuantity ?? null, expiryDate: item.expiryDate ? new Date(`${item.expiryDate}T00:00:00.000Z`) : null, functionTested: item.functionTested ?? null, note: item.note ?? null, isCriticalGap: isCriticalReadinessGap(definition, item) });
       }
       if (criticalGapCount > 0) await notifyErco(db, team.institutionId, departmentId, "Critical crash-cart readiness gap", `The UTL readiness check for the ${team.shiftType} shift on ${team.shiftDate} found ${criticalGapCount} critical gap(s). Confirm mitigation before the shift.`, checkId);
       return { success: true, checkId, status, criticalGapCount, nonCriticalGapCount };

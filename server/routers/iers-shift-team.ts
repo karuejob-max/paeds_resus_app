@@ -127,6 +127,40 @@ async function notifyUser(db: DbClient, userId: number, title: string, body: str
   });
 }
 
+type ShiftRoleRecommendationView = typeof iersShiftRoleRecommendations.$inferSelect;
+type ShiftTeamAssignmentView = {
+  id: number;
+  providerUserId: number;
+  providerName: string;
+  departmentName: string | null;
+  institutionId: number;
+  poleId: number;
+  departmentId: number | null;
+  shiftUtlRosterId: number | null;
+  roleScope: "utl" | "ertl" | "ert_member";
+  roleKey: string;
+  assignmentStatus: "proposed" | "pending_acceptance" | "approved" | "accepted" | "declined" | "superseded" | "expired" | "ended";
+  acceptedAt: Date | null;
+  declinedAt: Date | null;
+  declineReason: string | null;
+  isCurrentUser: boolean;
+  recommendations: ShiftRoleRecommendationView[];
+};
+type ShiftTeamView = {
+  teamId: number;
+  institutionId: number;
+  poleId: number;
+  poleName: string;
+  shiftDate: Date;
+  shiftType: "morning" | "evening" | "night";
+  shiftStartTime: string;
+  shiftEndTime: string;
+  shiftEndDayOffset: number;
+  teamVersion: number;
+  teamStatus: "draft" | "published" | "active" | "closed" | "superseded";
+  assignments: ShiftTeamAssignmentView[];
+};
+
 async function notifyDepartmentErco(db: DbClient, institutionId: number, departmentId: number, title: string, body: string, relatedId: number) {
   const [coordinator] = await db
     .select({ coordinatorUserId: institutionDepartmentResponseCoordinators.coordinatorUserId, backupUserId: institutionDepartmentResponseCoordinators.backupUserId })
@@ -226,7 +260,7 @@ export const iersShiftTeamRouter = router({
         .select({ institutionId: institutionMemberships.institutionalAccountId })
         .from(institutionMemberships)
         .where(and(eq(institutionMemberships.userId, ctx.user.id), eq(institutionMemberships.membershipStatus, "active")));
-      const result: Array<Record<string, unknown>> = [];
+      const result: ShiftTeamView[] = [];
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const horizon = new Date(today);
