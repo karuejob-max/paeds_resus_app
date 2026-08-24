@@ -2370,6 +2370,7 @@ export const institutionRouter = router({
         ))
         .limit(1);
       if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "This department is not an active confirmed IERS-operational department." });
+      await autoLinkCpdFacilitiesForInstitution(db, input.institutionId, department.id);
       const rows = await db
         .select({
           id: institutionalStaffMembers.id,
