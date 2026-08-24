@@ -69,6 +69,15 @@ describe("disposable IERS provider-duty authorization matrix", () => {
       fixture.respond({ assignmentId: 1001, requestedInstitutionId: 1, requestingUserId: 101, response: "accept" }),
     );
 
+    const utlWithoutStandingRoleFixture = createDisposableProviderDutyFixture();
+    utlWithoutStandingRoleFixture.resetDutyAcceptance(1004, 101);
+    utlWithoutStandingRoleFixture.revokeIersRole(1, 101);
+    record(
+      "active linked provider without a standing IERS role can accept a dated UTL",
+      "allowed",
+      utlWithoutStandingRoleFixture.respond({ assignmentId: 1004, requestedInstitutionId: 1, requestingUserId: 101, response: "accept" }),
+    );
+
     const roleRevocationFixture = createDisposableProviderDutyFixture();
     roleRevocationFixture.revokeIersRole(1, 101);
     record(
@@ -95,7 +104,7 @@ describe("disposable IERS provider-duty authorization matrix", () => {
       reassignmentFixture.respond({ assignmentId: 1001, requestedInstitutionId: 1, requestingUserId: 102, response: "accept" }),
     );
 
-    expect(cases).toHaveLength(14);
+    expect(cases).toHaveLength(15);
     expect(cases.filter((testCase) => testCase.actual !== testCase.expected)).toEqual([]);
   });
 

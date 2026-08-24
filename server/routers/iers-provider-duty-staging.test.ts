@@ -908,8 +908,22 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
         assignments: expect.arrayContaining([expect.objectContaining({ id: ids.publishedUtlAssignmentId, assignmentStatus: "accepted", roleScope: "utl" })]),
       }),
     ]));
+    // UTL acceptance must not require a standing IERS product role: it is a dated
+    // operational responsibility available to eligible linked Staff/RN providers.
+    await db.update(institutionProductRoles).set({ roleStatus: "ended", endedAt: new Date() }).where(and(
+      eq(institutionProductRoles.institutionalAccountId, ids.institutionId),
+      eq(institutionProductRoles.productId, ids.productId),
+      eq(institutionProductRoles.userId, ids.assignedProviderId),
+      eq(institutionProductRoles.roleKey, "iers_responder"),
+    ));
     const directRoleAccepted = await assignedCaller.iersShiftTeam.respondToRole({ assignmentId: ids.directUtlAssignmentId, decision: "accepted" });
     expect(directRoleAccepted.assignmentStatus).toBe("accepted");
+    await db.update(institutionProductRoles).set({ roleStatus: "active", endedAt: null }).where(and(
+      eq(institutionProductRoles.institutionalAccountId, ids.institutionId),
+      eq(institutionProductRoles.productId, ids.productId),
+      eq(institutionProductRoles.userId, ids.assignedProviderId),
+      eq(institutionProductRoles.roleKey, "iers_responder"),
+    ));
     const directLegacyRoster = await db.select({ assignmentStatus: shiftUtlRosters.assignmentStatus }).from(shiftUtlRosters).where(eq(shiftUtlRosters.shiftDate, new Date(tomorrow))).limit(1);
     expect(directLegacyRoster[0]?.assignmentStatus).toBe("active");
     const readiness = await assignedCaller.iers.getMyShiftReadiness();

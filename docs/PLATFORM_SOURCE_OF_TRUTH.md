@@ -1009,7 +1009,7 @@ Migration 0118 creates `institution_shift_templates`, adds exact-time fields to 
 
 ## 26. Individual-platform ERT Dashboard and adaptive-learning contract
 
-The Individual platform is an operational extension of IERS, not a replacement for the institutional governance workspace. Every active linked nurse assigned to a pole can see the current pole-scoped ERT team for published dated shifts. A provider may accept or decline only a role assigned to that provider; a decline requires a reason. A declined UTL role creates an urgent department-ERCo replacement prompt. ERCo remains governance-only and does not become a response role automatically.
+The Individual platform is an operational extension of IERS, not a replacement for the institutional governance workspace. Every active linked nurse assigned to a pole can see the current pole-scoped ERT team for published dated shifts. A provider may accept or decline only a role assigned to that provider; a decline requires a reason. Dated UTL acceptance is available to any eligible active linked Staff/RN provider assigned as that shift's UTL and does not require a standing IERS product responsibility role; standing IERS roles remain required for governance, coordination, and other protected operational actions. A declined UTL role creates an urgent department-ERCo replacement prompt. ERCo remains governance-only and does not become a response role automatically.
 
 The assigned ERTL may approve or decline member role recommendations and switch roles between eligible ERT members. A role switch is append-only in the role-event history and reopens acceptance for affected providers. Provider acceptance is distinct from team publication and from readiness sign-off.
 
