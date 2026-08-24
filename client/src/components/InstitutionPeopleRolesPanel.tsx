@@ -71,14 +71,39 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
   const [reallocationReportId, setReallocationReportId] = useState<number | null>(null);
   const [reallocationDepartmentId, setReallocationDepartmentId] = useState("");
   const [reallocationReason, setReallocationReason] = useState("");
-  const { data, isLoading, isFetching, refetch } = trpc.institution.getStaffMembers.useQuery({ institutionId });
-  const { data: mismatchReports } = trpc.institution.getDepartmentMismatchReports.useQuery({ institutionId });
-  const { data: facilityDepartments } = trpc.institution.getFacilityDepartments.useQuery({ institutionId });
-  const { data: productRoles, isLoading: productRolesLoading, refetch: refetchProductRoles } = trpc.institutionProducts.listProductRoles.useQuery({ institutionId });
-  const { data: roleDefinitions } = trpc.institutionProducts.getRoleDefinitions.useQuery({ productKey: roleProduct });
-  const { data: accountScopes, isLoading: accountScopesLoading, refetch: refetchAccountScopes } = trpc.institutionProducts.listAccountScopes.useQuery({ institutionId });
-  const { data: accountScopeDefinitions } = trpc.institutionProducts.getAccountScopeDefinitions.useQuery();
-  const { data: iersDuties, isLoading: iersDutiesLoading, isFetching: iersDutiesFetching, refetch: refetchIersDuties } = trpc.institution.getInstitutionIersDutyAssignments.useQuery({ institutionId });
+  const [activeSection, setActiveSection] = useState<"roster" | "duties" | "product_roles" | "scopes">("roster");
+  const { data, isLoading, isFetching, refetch } = trpc.institution.getStaffMembers.useQuery({ institutionId }, {
+    enabled: !!institutionId,
+    staleTime: 30_000,
+  });
+  const { data: mismatchReports } = trpc.institution.getDepartmentMismatchReports.useQuery({ institutionId }, {
+    enabled: !!institutionId,
+    staleTime: 30_000,
+  });
+  const { data: facilityDepartments } = trpc.institution.getFacilityDepartments.useQuery({ institutionId }, {
+    enabled: !!institutionId,
+    staleTime: 60_000,
+  });
+  const { data: productRoles, isLoading: productRolesLoading, refetch: refetchProductRoles } = trpc.institutionProducts.listProductRoles.useQuery({ institutionId }, {
+    enabled: !!institutionId && activeSection === "product_roles",
+    staleTime: 30_000,
+  });
+  const { data: roleDefinitions } = trpc.institutionProducts.getRoleDefinitions.useQuery({ productKey: roleProduct }, {
+    enabled: activeSection === "product_roles",
+    staleTime: 300_000,
+  });
+  const { data: accountScopes, isLoading: accountScopesLoading, refetch: refetchAccountScopes } = trpc.institutionProducts.listAccountScopes.useQuery({ institutionId }, {
+    enabled: !!institutionId && activeSection === "scopes",
+    staleTime: 30_000,
+  });
+  const { data: accountScopeDefinitions } = trpc.institutionProducts.getAccountScopeDefinitions.useQuery(undefined, {
+    enabled: activeSection === "scopes",
+    staleTime: 300_000,
+  });
+  const { data: iersDuties, isLoading: iersDutiesLoading, isFetching: iersDutiesFetching, refetch: refetchIersDuties } = trpc.institution.getInstitutionIersDutyAssignments.useQuery({ institutionId }, {
+    enabled: !!institutionId && activeSection === "duties",
+    staleTime: 30_000,
+  });
   const updateRole = trpc.institution.updateStaffGovernanceRole.useMutation({
     onSuccess: async () => {
       toast.success("Responsibility role updated");
@@ -195,6 +220,16 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
           <ShieldCheck className="h-4 w-4 shrink-0" />
           <span>CPD-confirmed permanent and outreach/locum facilities appear here as linked general-staff accounts. Administrators may reallocate a current department or retire a person; neither action creates an IERS responsibility automatically.</span>
         </div>
+        <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/20 p-1 sm:grid-cols-4" aria-label="People and roles sections">
+          {([
+            ["roster", "People roster"],
+            ["duties", "IERS duties"],
+            ["product_roles", "Product roles"],
+            ["scopes", "Shared scopes"],
+          ] as const).map(([value, label]) => (
+            <Button key={value} type="button" size="sm" variant={activeSection === value ? "default" : "ghost"} className="min-w-0 whitespace-normal text-xs sm:text-sm" onClick={() => setActiveSection(value)}>{label}</Button>
+          ))}
+        </div>
         {mismatchReviews.length > 0 && <Card className="border-amber-300 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20">
           <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-4 w-4 text-amber-700" />Department mismatch alerts</CardTitle><CardDescription>ERCos have flagged providers whose CPD/profile evidence points to a department but whose current institutional roster does not. Resolve each alert by reallocating the department or retiring the person; no new IERS duty is assigned automatically.</CardDescription></CardHeader>
           <CardContent className="space-y-3">
@@ -286,7 +321,7 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
       </CardContent>
     </Card>
 
-    <Card>
+    {activeSection === "duties" && <Card>
       <CardHeader>
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
           <div>
@@ -343,9 +378,9 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
           </div>
         )}
       </CardContent>
-    </Card>
+    </Card>}
 
-    <Card>
+    {activeSection === "product_roles" && <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5" />Product permissions</CardTitle>
                   <CardDescription>Assign a separate IERS or CPD product role to a linked provider. For IERS, the Lead, reviewer, response operator, and viewer roles govern portal access; dated ERCo, ERTL, and UTL duties remain separate and require provider acceptance.</CardDescription>
@@ -365,9 +400,9 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
           {productRolesLoading ? <p className="p-4 text-sm text-muted-foreground">Loading product roles…</p> : !productRoles?.length ? <p className="p-4 text-sm text-muted-foreground">No explicit product roles have been assigned yet. Existing institution administrators retain shared admin access.</p> : <div className="divide-y">{productRoles.map((assignment) => <div key={assignment.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{assignment.invitedEmail}</p><p className="text-xs text-muted-foreground">{assignment.productName} · {assignment.roleKey.replaceAll("_", " ")}</p><p className="mt-1 text-xs"><Badge variant={assignment.roleStatus === "active" ? "default" : assignment.roleStatus === "ended" ? "outline" : "secondary"}>{assignment.roleStatus}</Badge></p></div><div className="flex flex-wrap gap-2">{assignment.roleStatus === "active" && <Button type="button" size="sm" variant="outline" disabled={setProductRoleStatus.isPending} onClick={() => setProductRoleStatus.mutate({ institutionId, roleId: assignment.id, roleStatus: "suspended", reason: "Suspended by institution administrator pending role review." })}>Suspend</Button>}{assignment.roleStatus === "suspended" && <Button type="button" size="sm" variant="outline" disabled={setProductRoleStatus.isPending} onClick={() => setProductRoleStatus.mutate({ institutionId, roleId: assignment.id, roleStatus: "active", reason: "Reactivated by institution administrator after role review." })}>Reactivate</Button>}{assignment.roleStatus !== "ended" && <Button type="button" size="sm" variant="ghost" className="text-red-700" disabled={setProductRoleStatus.isPending} onClick={() => setProductRoleStatus.mutate({ institutionId, roleId: assignment.id, roleStatus: "ended", reason: "Ended by institution administrator." })}>End</Button>}</div></div>)}</div>}
         </div>
       </CardContent>
-    </Card>
+    </Card>}
 
-    <Card>
+    {activeSection === "scopes" && <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" />Shared institution scopes</CardTitle>
         <CardDescription>Assign non-product administrative responsibilities without granting IERS or CPD operational access.</CardDescription>
@@ -384,7 +419,7 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
           {accountScopesLoading ? <p className="p-4 text-sm text-muted-foreground">Loading shared scopes…</p> : !accountScopes?.length ? <p className="p-4 text-sm text-muted-foreground">No explicit shared scopes have been assigned.</p> : <div className="divide-y">{accountScopes.map((scope) => <div key={scope.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{scope.invitedEmail}</p><p className="text-xs text-muted-foreground">{scope.scopeKey.replaceAll("_", " ")}</p><p className="mt-1 text-xs"><Badge variant={scope.scopeStatus === "active" ? "default" : scope.scopeStatus === "ended" ? "outline" : "secondary"}>{scope.scopeStatus}</Badge></p></div><div className="flex flex-wrap gap-2">{scope.scopeStatus === "active" && <Button type="button" size="sm" variant="outline" disabled={setAccountScopeStatus.isPending} onClick={() => setAccountScopeStatus.mutate({ institutionId, scopeId: scope.id, scopeStatus: "suspended", reason: "Suspended by institution administrator pending scope review." })}>Suspend</Button>}{scope.scopeStatus === "suspended" && <Button type="button" size="sm" variant="outline" disabled={setAccountScopeStatus.isPending} onClick={() => setAccountScopeStatus.mutate({ institutionId, scopeId: scope.id, scopeStatus: "active", reason: "Reactivated by institution administrator after scope review." })}>Reactivate</Button>}{scope.scopeStatus !== "ended" && <Button type="button" size="sm" variant="ghost" className="text-red-700" disabled={setAccountScopeStatus.isPending} onClick={() => setAccountScopeStatus.mutate({ institutionId, scopeId: scope.id, scopeStatus: "ended", reason: "Ended by institution administrator." })}>End</Button>}</div></div>)}</div>}
         </div>
       </CardContent>
-    </Card>
+    </Card>}
     </div>
   );
 }
