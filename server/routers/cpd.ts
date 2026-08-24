@@ -6,9 +6,20 @@ import { getDb } from "../db";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { assertInstitutionProductCapability } from "../lib/institution-entitlements";
 import { assertInstitutionProductRole, type InstitutionalProductRoleKey } from "../lib/institution-product-roles";
-import { institutionalAccounts, cpdEvents, cpdAttendees, cpdCodeRevealLogs, institutionalStaffMembers, users, providerProfiles, facilityDepartments } from "../../drizzle/schema";
+import {
+  institutionalAccounts,
+  cpdEvents,
+  cpdAttendees,
+  cpdCodeRevealLogs,
+  institutionalStaffMembers,
+  institutionMemberships,
+  users,
+  providerProfiles,
+  facilityDepartments,
+} from "../../drizzle/schema";
 import { canonicalizeDepartmentLabel, departmentLabelsMatch } from "../../shared/clinical-departments";
-import { reconcileInstitutionalStaffMember } from "../services/facility-registry.service";
+import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
+import { applyCpdFacilityRelationship } from "../services/facility-registry.service";
 
 /** Shared cadre validator for input validation, matching the cpdAttendees.cadre column. */
 const cadreEnum = z.string().trim().min(1, "Please select or specify your cadre").max(128);
@@ -604,6 +615,7 @@ export const cpdRouter = router({
         cadreOther: z.string().trim().max(128).optional(),
         department: z.string().trim().min(1).max(256),
         facilityDepartmentId: z.number().int().positive().nullable().optional(),
+        facilityRelationship: z.enum(["permanent_facility", "locum_outreach"]).default("permanent_facility"),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -700,21 +712,9 @@ export const cpdRouter = router({
           message: "You have already registered for this event with this email.",
         });
       }
-      // Determine attendance type (primary_facility vs locum_outreach)
-      let attendanceType: "primary_facility" | "locum_outreach" | "guest_external" = "primary_facility";
-      const userStaffRows = await db
-        .select({
-          instId: institutionalStaffMembers.institutionalAccountId,
-        })
-        .from(institutionalStaffMembers)
-        .where(eq(institutionalStaffMembers.userId, ctx.user.id));
-
-      if (userStaffRows.length > 0) {
-        const matchesCurrent = userStaffRows.some((r) => r.instId === input.institutionId);
-        if (!matchesCurrent) {
-          attendanceType = "locum_outreach";
-        }
-      }
+      const attendanceType: "primary_facility" | "locum_outreach" = input.facilityRelationship === "permanent_facility"
+        ? "primary_facility"
+        : "locum_outreach";
 
       await db.insert(cpdAttendees).values({
         cpdEventId: event.id,
@@ -746,11 +746,7 @@ export const cpdRouter = router({
       // Auto-populate user's profile department from registration
       await syncUserProfileDepartment(db, ctx.user.id, resolvedDepartment);
 
-      // 2. Auto-populate one canonical institutional staff row. This does not
-      // grant membership: without an already-active institution membership the
-      // row remains pending and is visible as not yet assignable until the normal
-      // invitation/acceptance contract is completed.
-      await reconcileInstitutionalStaffMember(db, {
+      const facilityLink = await applyCpdFacilityRelationship(db, {
         institutionalAccountId: input.institutionId,
         userId: ctx.user.id,
         staffName: input.fullName,
@@ -761,10 +757,16 @@ export const cpdRouter = router({
         cadreOther: input.cadreOther ?? null,
         department: resolvedDepartment,
         facilityDepartmentId: resolvedFacilityDepartmentId,
-        enrollmentStatus: "enrolled",
+        relationship: input.facilityRelationship,
       });
 
-      return { success: true as const, attendanceType };
+      return {
+        success: true as const,
+        attendanceType,
+        facilityRelationship: input.facilityRelationship,
+        facilityLinkStatus: facilityLink.status,
+        membershipId: facilityLink.membershipId,
+      };
     }),
 
   /** Admin: list attendees, optionally filtered to one event. */
@@ -912,7 +914,7 @@ export const cpdRouter = router({
           and(
             eq(cpdAttendees.id, input.attendeeId),
             eq(cpdAttendees.cpdEventId, input.eventId),
-            eq(cpdAttendees.email, email)
+            sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${email}))`
           )
         )
         .limit(1);
@@ -968,7 +970,7 @@ export const cpdRouter = router({
         institutionalAccounts,
         eq(cpdAttendees.institutionalAccountId, institutionalAccounts.id)
       )
-      .where(eq(cpdAttendees.email, email))
+      .where(sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${email}))`)
       .orderBy(desc(cpdAttendees.id));
     // Find linked institutionalAccountIds for the current user
     const userStaffLinks = await db
@@ -1025,7 +1027,7 @@ export const cpdRouter = router({
           .from(cpdAttendees)
           .where(
             and(
-              eq(cpdAttendees.email, email),
+              sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${email}))`,
               inArray(cpdAttendees.cpdEventId, instEventIds)
             )
           );
@@ -1063,6 +1065,147 @@ export const cpdRouter = router({
       },
     };
   }),
+
+  /**
+   * Provider: show institutions where this account has attended CPD and the
+   * current institution-link state. CPD attendance is discovery evidence only;
+   * permanent linking remains an explicit provider action and is limited to a
+   * non-student Staff/RN identity.
+   */
+  getMyFacilityLinkOptions: protectedProcedure.query(async ({ ctx }) => {
+    const email = (ctx.user.email ?? "").trim().toLowerCase();
+    if (!email) return [];
+    const db = await requireDb();
+    const attendeeRows = await db
+      .select({
+        attendeeId: cpdAttendees.id,
+        institutionalAccountId: cpdAttendees.institutionalAccountId,
+        institutionName: institutionalAccounts.companyName,
+        department: cpdAttendees.department,
+        facilityDepartmentId: cpdAttendees.facilityDepartmentId,
+        cadre: cpdAttendees.cadre,
+        cadreOther: cpdAttendees.cadreOther,
+        attendanceType: cpdAttendees.attendanceType,
+      })
+      .from(cpdAttendees)
+      .innerJoin(institutionalAccounts, eq(institutionalAccounts.id, cpdAttendees.institutionalAccountId))
+      .where(sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${email}))`)
+      .orderBy(desc(cpdAttendees.id));
+
+    const latestByInstitution = new Map<number, (typeof attendeeRows)[number]>();
+    for (const row of attendeeRows) {
+      if (!latestByInstitution.has(row.institutionalAccountId)) latestByInstitution.set(row.institutionalAccountId, row);
+    }
+    const institutionIds = [...latestByInstitution.keys()];
+    if (institutionIds.length === 0) return [];
+
+    const staffRows = await db
+      .select({
+        id: institutionalStaffMembers.id,
+        institutionalAccountId: institutionalStaffMembers.institutionalAccountId,
+        userId: institutionalStaffMembers.userId,
+        staffEmail: institutionalStaffMembers.staffEmail,
+        facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+        removedAt: institutionalStaffMembers.removedAt,
+      })
+      .from(institutionalStaffMembers)
+      .where(and(
+        inArray(institutionalStaffMembers.institutionalAccountId, institutionIds),
+        or(eq(institutionalStaffMembers.userId, ctx.user.id), eq(institutionalStaffMembers.staffEmail, email)),
+      ));
+    const memberships = await db
+      .select({
+        id: institutionMemberships.id,
+        institutionalAccountId: institutionMemberships.institutionalAccountId,
+        membershipStatus: institutionMemberships.membershipStatus,
+        userId: institutionMemberships.userId,
+        invitedEmail: institutionMemberships.invitedEmail,
+      })
+      .from(institutionMemberships)
+      .where(and(
+        inArray(institutionMemberships.institutionalAccountId, institutionIds),
+        or(eq(institutionMemberships.userId, ctx.user.id), eq(institutionMemberships.invitedEmail, email)),
+      ));
+
+    return institutionIds.map((institutionId) => {
+      const attendee = latestByInstitution.get(institutionId)!;
+      const staff = staffRows
+        .filter((row) => row.institutionalAccountId === institutionId)
+        .sort((a, b) => Number(b.facilityLinkStatus === "linked") - Number(a.facilityLinkStatus === "linked"))[0];
+      const membership = memberships
+        .filter((row) => row.institutionalAccountId === institutionId)
+        .sort((a, b) => Number(b.membershipStatus === "active") - Number(a.membershipStatus === "active"))[0];
+      const eligibleRn = isRegisteredRnProfile({
+        providerType: ctx.user.providerType,
+        cadre: attendee.cadre,
+        cadreOther: attendee.cadreOther,
+      });
+      const linked = staff?.facilityLinkStatus === "linked" && membership?.membershipStatus === "active";
+      return {
+        institutionId,
+        institutionName: attendee.institutionName,
+        department: attendee.department,
+        facilityDepartmentId: attendee.facilityDepartmentId,
+        latestAttendanceId: attendee.attendeeId,
+        latestAttendanceType: attendee.attendanceType,
+        facilityLinkStatus: staff?.facilityLinkStatus ?? null,
+        membershipStatus: membership?.membershipStatus ?? null,
+        eligibleRn,
+        canConfirmPermanent: eligibleRn && !linked && staff?.removedAt == null && membership?.membershipStatus !== "suspended" && membership?.membershipStatus !== "ended",
+      };
+    });
+  }),
+
+  /** Provider: confirm a prior CPD host as the current permanent facility. */
+  confirmPermanentFacilityFromCpd: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      const email = (ctx.user.email ?? "").trim().toLowerCase();
+      if (!email) throw new TRPCError({ code: "BAD_REQUEST", message: "Your account has no email address configured." });
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.attendance.operate");
+
+      const [attendee] = await db
+        .select({
+          fullName: cpdAttendees.fullName,
+          email: cpdAttendees.email,
+          phone: cpdAttendees.phone,
+          cadre: cpdAttendees.cadre,
+          cadreOther: cpdAttendees.cadreOther,
+          department: cpdAttendees.department,
+          facilityDepartmentId: cpdAttendees.facilityDepartmentId,
+        })
+        .from(cpdAttendees)
+        .where(and(
+          eq(cpdAttendees.institutionalAccountId, input.institutionId),
+          sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${email}))`,
+        ))
+        .orderBy(desc(cpdAttendees.id))
+        .limit(1);
+      if (!attendee) throw new TRPCError({ code: "NOT_FOUND", message: "No CPD attendance record was found for this hospital and account." });
+
+      if (!isRegisteredRnProfile({ providerType: ctx.user.providerType, cadre: attendee.cadre, cadreOther: attendee.cadreOther })) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Permanent facility self-linking is available only to registered non-student Staff/RN profiles." });
+      }
+
+      const result = await applyCpdFacilityRelationship(db, {
+        institutionalAccountId: input.institutionId,
+        userId: ctx.user.id,
+        staffName: attendee.fullName,
+        staffEmail: email,
+        staffPhone: attendee.phone,
+        providerType: ctx.user.providerType,
+        cadre: attendee.cadre,
+        cadreOther: attendee.cadreOther,
+        department: attendee.department,
+        facilityDepartmentId: attendee.facilityDepartmentId,
+        relationship: "permanent_facility",
+      });
+      return {
+        success: true as const,
+        ...result,
+      };
+    }),
 
   /** Admin: Institutional CPD Analytics Dashboard */
   getInstitutionalCpdAnalytics: protectedProcedure

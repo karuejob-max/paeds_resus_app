@@ -151,7 +151,7 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
       <CardContent className="space-y-4">
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/60 p-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
           <ShieldCheck className="h-4 w-4 shrink-0" />
-          <span>Assigning an IERS responsibility role does not create a CPD record or grant a product subscription. Product access and clinical responsibility remain separate controls.</span>
+          <span>CPD-confirmed permanent facilities appear here as a linked general-staff account. Outreach/locum CPD attendance does not activate membership. Assigning an IERS responsibility role does not create a CPD record or grant a product subscription; product access and clinical responsibility remain separate controls.</span>
         </div>
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />

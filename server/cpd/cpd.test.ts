@@ -279,6 +279,11 @@ describe("CPD Router Procedures", () => {
     mockInsert.mockReset();
     mockAssertInstitutionAccess.mockReset();
     mockAssertInstitutionAccess.mockResolvedValue(undefined);
+    const fallbackLimit = vi.fn().mockResolvedValue([]);
+    const fallbackOrderBy = vi.fn().mockReturnValue({ limit: fallbackLimit });
+    const fallbackWhere = vi.fn().mockReturnValue({ limit: fallbackLimit, orderBy: fallbackOrderBy });
+    const fallbackFrom = vi.fn().mockReturnValue({ where: fallbackWhere });
+    mockSelect.mockImplementation(() => ({ from: fallbackFrom }));
     const mockUpdateWhere = vi.fn().mockResolvedValue({});
     const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
     mockUpdate.mockReturnValue({ set: mockUpdateSet });
@@ -393,12 +398,8 @@ describe("CPD Router Procedures", () => {
     const mockDepartmentsFrom = vi.fn().mockReturnValue({ where: mockDepartmentsWhere });
     mockSelect.mockReturnValueOnce({ from: mockDepartmentsFrom });
 
-    const mockLimit2 = vi.fn().mockResolvedValue([]);
-    const mockWhere2 = vi.fn().mockReturnValue({ limit: mockLimit2 });
-    const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
-    mockSelect.mockReturnValueOnce({ from: mockFrom2 });
-
-    const mockAttendanceWhere = vi.fn().mockResolvedValue([]);
+    const mockAttendanceLimit = vi.fn().mockResolvedValue([]);
+    const mockAttendanceWhere = vi.fn().mockReturnValue({ limit: mockAttendanceLimit });
     const mockAttendanceFrom = vi.fn().mockReturnValue({ where: mockAttendanceWhere });
     mockSelect.mockReturnValueOnce({ from: mockAttendanceFrom });
 
@@ -406,11 +407,6 @@ describe("CPD Router Procedures", () => {
     const mockProfileWhere = vi.fn().mockReturnValue({ limit: mockProfileLimit });
     const mockProfileFrom = vi.fn().mockReturnValue({ where: mockProfileWhere });
     mockSelect.mockReturnValueOnce({ from: mockProfileFrom });
-
-    const mockStaffLimit = vi.fn().mockResolvedValue([]);
-    const mockStaffWhere = vi.fn().mockReturnValue({ limit: mockStaffLimit });
-    const mockStaffFrom = vi.fn().mockReturnValue({ where: mockStaffWhere });
-    mockSelect.mockReturnValueOnce({ from: mockStaffFrom });
 
     const mockValues = vi.fn().mockResolvedValue({ success: true });
     mockInsert.mockReturnValue({ values: mockValues });
@@ -423,9 +419,12 @@ describe("CPD Router Procedures", () => {
       phone: "+254712345678",
       cadre: "KRCHN",
       department: "Pediatrics",
+      facilityRelationship: "locum_outreach",
     });
 
     expect(res.success).toBe(true);
+    expect(res.facilityRelationship).toBe("locum_outreach");
+    expect(res.facilityLinkStatus).toBe("outreach_recorded");
     expect(mockInsert).toHaveBeenCalled();
   });
 
@@ -440,12 +439,8 @@ describe("CPD Router Procedures", () => {
     const mockDepartmentsFrom = vi.fn().mockReturnValue({ where: mockDepartmentsWhere });
     mockSelect.mockReturnValueOnce({ from: mockDepartmentsFrom });
 
-    const mockLimit2 = vi.fn().mockResolvedValue([]);
-    const mockWhere2 = vi.fn().mockReturnValue({ limit: mockLimit2 });
-    const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
-    mockSelect.mockReturnValueOnce({ from: mockFrom2 });
-
-    const mockAttendanceWhere = vi.fn().mockResolvedValue([]);
+    const mockAttendanceLimit = vi.fn().mockResolvedValue([]);
+    const mockAttendanceWhere = vi.fn().mockReturnValue({ limit: mockAttendanceLimit });
     const mockAttendanceFrom = vi.fn().mockReturnValue({ where: mockAttendanceWhere });
     mockSelect.mockReturnValueOnce({ from: mockAttendanceFrom });
 
@@ -453,11 +448,6 @@ describe("CPD Router Procedures", () => {
     const mockProfileWhere = vi.fn().mockReturnValue({ limit: mockProfileLimit });
     const mockProfileFrom = vi.fn().mockReturnValue({ where: mockProfileWhere });
     mockSelect.mockReturnValueOnce({ from: mockProfileFrom });
-
-    const mockStaffLimit = vi.fn().mockResolvedValue([]);
-    const mockStaffWhere = vi.fn().mockReturnValue({ limit: mockStaffLimit });
-    const mockStaffFrom = vi.fn().mockReturnValue({ where: mockStaffWhere });
-    mockSelect.mockReturnValueOnce({ from: mockStaffFrom });
 
     const mockValues = vi.fn().mockResolvedValue({ success: true });
     mockInsert.mockReturnValue({ values: mockValues });
@@ -470,9 +460,12 @@ describe("CPD Router Procedures", () => {
       phone: "+254712345678",
       cadre: "KRCHN",
       department: "Pediatrics",
+      facilityRelationship: "permanent_facility",
     });
 
     expect(res.success).toBe(true);
+    expect(res.facilityRelationship).toBe("permanent_facility");
+    expect(res.facilityLinkStatus).toBe("linked");
     expect(mockAssertInstitutionAccess).not.toHaveBeenCalled();
   });
 
@@ -509,12 +502,8 @@ describe("CPD Router Procedures", () => {
     const mockDepartmentsFrom = vi.fn().mockReturnValue({ where: mockDepartmentsWhere });
     mockSelect.mockReturnValueOnce({ from: mockDepartmentsFrom });
 
-    const mockLimit2 = vi.fn().mockResolvedValue([]);
-    const mockWhere2 = vi.fn().mockReturnValue({ limit: mockLimit2 });
-    const mockFrom2 = vi.fn().mockReturnValue({ where: mockWhere2 });
-    mockSelect.mockReturnValueOnce({ from: mockFrom2 });
-
-    const mockAttendanceWhere = vi.fn().mockResolvedValue([]);
+    const mockAttendanceLimit = vi.fn().mockResolvedValue([]);
+    const mockAttendanceWhere = vi.fn().mockReturnValue({ limit: mockAttendanceLimit });
     const mockAttendanceFrom = vi.fn().mockReturnValue({ where: mockAttendanceWhere });
     mockSelect.mockReturnValueOnce({ from: mockAttendanceFrom });
 
@@ -522,11 +511,6 @@ describe("CPD Router Procedures", () => {
     const mockProfileWhere = vi.fn().mockReturnValue({ limit: mockProfileLimit });
     const mockProfileFrom = vi.fn().mockReturnValue({ where: mockProfileWhere });
     mockSelect.mockReturnValueOnce({ from: mockProfileFrom });
-
-    const mockStaffLimit = vi.fn().mockResolvedValue([]);
-    const mockStaffWhere = vi.fn().mockReturnValue({ limit: mockStaffLimit });
-    const mockStaffFrom = vi.fn().mockReturnValue({ where: mockStaffWhere });
-    mockSelect.mockReturnValueOnce({ from: mockStaffFrom });
 
     const mockValues = vi.fn().mockResolvedValue({ success: true });
     mockInsert.mockReturnValue({ values: mockValues });

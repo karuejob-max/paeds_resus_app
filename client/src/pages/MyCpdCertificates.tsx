@@ -19,7 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Award, Download, Loader2, Inbox, Key } from "lucide-react";
+import { Award, Building2, Download, Inbox, Key, Link2, Loader2, MapPin } from "lucide-react";
+import { toast } from "sonner";
 import CpdClaimDialog from "@/components/CpdClaimDialog";
 
 /**
@@ -53,6 +54,25 @@ export default function MyCpdCertificates() {
     enabled: Boolean(user),
     staleTime: 30_000,
   });
+  const facilityLinksQuery = trpc.cpd.getMyFacilityLinkOptions.useQuery(undefined, {
+    enabled: Boolean(user),
+    staleTime: 30_000,
+  });
+  const utils = trpc.useUtils();
+  const confirmFacilityMutation = trpc.cpd.confirmPermanentFacilityFromCpd.useMutation({
+    onSuccess: async (result) => {
+      if (result.status === "linked") {
+        toast.success("Permanent facility confirmed and account linked");
+      } else {
+        toast.message("Administrator review is still required for this facility");
+      }
+      await Promise.all([
+        facilityLinksQuery.refetch(),
+        utils.institution.getMyMemberships.invalidate(),
+      ]);
+    },
+    onError: (error) => toast.error(error.message || "Could not confirm this facility"),
+  });
 
   const records = certificatesQuery.data?.records ?? [];
   const matchedEmail = certificatesQuery.data?.email ?? user?.email ?? null;
@@ -71,6 +91,54 @@ export default function MyCpdCertificates() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
+      {(facilityLinksQuery.data?.length ?? 0) > 0 && (
+        <Card className="mb-6 border-blue-100 bg-blue-50/30 dark:border-blue-900/40 dark:bg-blue-950/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base"><Building2 className="h-5 w-5" />Facility relationships</CardTitle>
+            <CardDescription>
+              Confirm one hospital as your permanent facility, or leave other hospitals recorded as outreach/locum sites. A permanent confirmation creates only general institutional membership; IERS duties still require separate assignment and acceptance.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {facilityLinksQuery.data?.map((option) => {
+              const isLinked = option.facilityLinkStatus === "linked" && option.membershipStatus === "active";
+              const stateLabel = isLinked
+                ? "Permanent facility linked"
+                : option.latestAttendanceType === "locum_outreach"
+                  ? "Outreach / locum recorded"
+                  : option.membershipStatus === "suspended" || option.membershipStatus === "ended"
+                    ? "Administrator review required"
+                    : "Not linked yet";
+              return (
+                <div key={option.institutionId} className="flex flex-col gap-3 rounded-lg border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-2 font-medium"><Building2 className="h-4 w-4 shrink-0 text-blue-600" />{option.institutionName}</p>
+                    <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground"><MapPin className="h-3.5 w-3.5 shrink-0" />{option.department || "Department recorded in CPD"}</p>
+                    <Badge variant={isLinked ? "default" : option.latestAttendanceType === "locum_outreach" ? "outline" : "secondary"} className="mt-2">{stateLabel}</Badge>
+                  </div>
+                  {isLinked ? (
+                    <span className="text-xs text-muted-foreground">General staff membership active</span>
+                  ) : option.canConfirmPermanent ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      disabled={confirmFacilityMutation.isPending}
+                      onClick={() => confirmFacilityMutation.mutate({ institutionId: option.institutionId })}
+                    >
+                      <Link2 className="mr-2 h-4 w-4" />Confirm permanent facility
+                    </Button>
+                  ) : (
+                    <span className="text-xs text-amber-700 dark:text-amber-300">Contact this institution administrator</span>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
+
       {records.length > 0 && (() => {
         const totalPts = records.reduce((acc, r) => acc + (Number(r.cpdPoints) || 0), 0);
         const targetPts = 20;
