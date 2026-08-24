@@ -463,6 +463,16 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
             >
               <Building2 className="h-3.5 w-3.5" /> Hospital ERS
             </button>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
+              onClick={() => {
+                track("provider_conversion", "identity_strip_click", { target: "iers_orientation" });
+                setLocation("/iers/orientation");
+              }}
+            >
+              <BookOpen className="h-3.5 w-3.5" /> IERS guide
+            </button>
           </div>
         </div>
 
