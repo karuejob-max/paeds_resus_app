@@ -379,7 +379,13 @@ export const iersShiftTeamRouter = router({
         .where(and(eq(iersShiftRoleAssignments.id, input.assignmentId), eq(iersShiftRoleAssignments.providerUserId, ctx.user.id)))
         .limit(1);
       if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Assigned shift role not found." });
-      await requireProviderOperator(db, ctx.user, row.assignment.institutionId);
+      if (row.assignment.roleScope === "utl") {
+        // UTL is a dated operational duty for any eligible linked Staff/RN provider;
+        // standing IERS product roles govern coordination/reviewer operations, not acceptance of this assignment.
+        await requireActiveMembership(db, ctx.user, row.assignment.institutionId);
+      } else {
+        await requireProviderOperator(db, ctx.user, row.assignment.institutionId);
+      }
       if (!["pending_acceptance", "approved"].includes(row.assignment.assignmentStatus)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "This role is not awaiting your response." });
       }
