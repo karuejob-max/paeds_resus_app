@@ -10,6 +10,7 @@ import {
   Radio,
   ShieldCheck,
   Users,
+  ScanLine,
 } from "lucide-react";
 import ProviderInstitutionReadinessCard from "@/components/ProviderInstitutionReadinessCard";
 import ProviderIersActivationCard from "@/components/ProviderIersActivationCard";
@@ -81,6 +82,12 @@ export default function ProviderMyShift() {
             </Card>
           </TabsContent>
           <TabsContent value="respond" className="space-y-4">
+            <Card className="border-red-200 bg-red-50/60">
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div><p className="text-sm font-semibold text-red-950">Join an active resuscitation</p><p className="text-xs text-red-900/75">Scan the case QR shown in ResusGPS to link your arrival to the same code.</p></div>
+                <Button type="button" className="w-full shrink-0 bg-red-600 text-white hover:bg-red-700 sm:w-auto" onClick={() => setLocation("/activation-scan")}><ScanLine className="mr-2 h-4 w-4" />Scan case QR</Button>
+              </CardContent>
+            </Card>
             <ProviderIersActivationCard />
             <ProviderIersOperationsCard />
           </TabsContent>

@@ -21,9 +21,10 @@ import { assertInstitutionProductCapability } from "../lib/institution-entitleme
 import { assertInstitutionProductRole, type InstitutionalProductRoleKey } from "../lib/institution-product-roles";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { validateShiftInterval } from "../lib/iers-shift-times";
+import { classifyShiftInterval, currentShiftSortWeight, shiftSortKey, type ShiftState } from "../lib/iers-shift-current";
 import { assertShiftRoleTransition, normalizeShiftRoleKey, type ShiftRoleAssignmentStatus } from "../lib/iers-shift-role-state";
 import { isMissingTableError } from "../lib/is-missing-db-table";
-import { ensurePublishedTeamForLegacyUtlRoster, projectShiftRoleDecisionToLegacyUtlRoster } from "../services/iers-utl-sync.service";
+import { ensurePublishedTeamForLegacyUtlRoster, projectShiftRoleDecisionToLegacyUtlRoster, requestErtlAcceptance } from "../services/iers-utl-sync.service";
 
 const IERS_PROVIDER_ROLES: InstitutionalProductRoleKey[] = ["iers_coordinator", "iers_responder", "iers_reviewer", "iers_governance", "iers_viewer"];
 const ERT_MEMBER_ROLES = new Set([
@@ -161,6 +162,7 @@ type ShiftTeamView = {
   shiftEndDayOffset: number;
   teamVersion: number;
   teamStatus: "draft" | "published" | "active" | "closed" | "superseded";
+  teamState: ShiftState;
   assignments: ShiftTeamAssignmentView[];
 };
 
@@ -278,6 +280,8 @@ export const iersShiftTeamRouter = router({
       const result: ShiftTeamView[] = [];
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      const windowStart = new Date(today);
+      windowStart.setDate(windowStart.getDate() - 1);
       const horizon = new Date(today);
       horizon.setDate(horizon.getDate() + horizonDays);
 
@@ -300,7 +304,7 @@ export const iersShiftTeamRouter = router({
           .where(and(
             eq(shiftUtlRosters.institutionId, institutionId),
             eq(shiftUtlRosters.utlUserId, ctx.user.id),
-            gte(shiftUtlRosters.shiftDate, today),
+            gte(shiftUtlRosters.shiftDate, windowStart),
             lte(shiftUtlRosters.shiftDate, horizon),
             eq(shiftUtlRosters.status, "active"),
             inArray(shiftUtlRosters.assignmentStatus, ["pending_acceptance", "active"]),
@@ -320,7 +324,7 @@ export const iersShiftTeamRouter = router({
           .where(and(
             eq(iersShiftTeams.institutionId, institutionId),
             inArray(iersShiftTeams.poleId, poleIds),
-            gte(iersShiftTeams.shiftDate, today),
+            gte(iersShiftTeams.shiftDate, windowStart),
             lte(iersShiftTeams.shiftDate, horizon),
             inArray(iersShiftTeams.status, ["published", "active"]),
           ))
@@ -350,7 +354,8 @@ export const iersShiftTeamRouter = router({
             shiftEndTime: team.shiftEndTime,
             shiftEndDayOffset: team.shiftEndDayOffset,
             teamVersion: team.teamVersion,
-            teamStatus: team.status,
+                          teamStatus: team.status,
+              teamState: classifyShiftInterval(team, new Date(), "Africa/Nairobi"),
             assignments: teamAssignments.map(({ assignment, providerName, providerEmail, departmentName }) => ({
               id: assignment.id,
               providerUserId: assignment.providerUserId,
@@ -372,6 +377,14 @@ export const iersShiftTeamRouter = router({
           });
         }
       }
+      result.sort((left, right) => {
+        const leftWeight = currentShiftSortWeight(left.teamState);
+        const rightWeight = currentShiftSortWeight(right.teamState);
+        if (leftWeight !== rightWeight) return leftWeight - rightWeight;
+        const byStart = shiftSortKey(left).localeCompare(shiftSortKey(right));
+        if (byStart !== 0) return byStart;
+        return left.teamId - right.teamId;
+      });
       return result;
       } catch (error) {
         if (isMissingTableError(error)) return [];
@@ -424,6 +437,24 @@ export const iersShiftTeamRouter = router({
           decision: input.decision,
           reason: input.reason ?? null,
         });
+        if (input.decision === "accepted") {
+          const [ertlAssignment] = await db.select().from(iersShiftRoleAssignments).where(and(
+            eq(iersShiftRoleAssignments.teamId, row.team.id),
+            eq(iersShiftRoleAssignments.providerUserId, row.assignment.providerUserId),
+            eq(iersShiftRoleAssignments.roleScope, "ertl"),
+            eq(iersShiftRoleAssignments.assignmentStatus, "pending_acceptance"),
+          )).limit(1);
+          if (ertlAssignment) {
+            await requestErtlAcceptance(db, {
+              assignmentId: ertlAssignment.id,
+              team: row.team,
+              institutionId: row.team.institutionId,
+              providerUserId: ertlAssignment.providerUserId,
+              actorUserId: ctx.user.id,
+              reason: "The exact dated leading-department UTL accepted; the separate Scene Commander duty now awaits provider acceptance.",
+            });
+          }
+        }
       }
       await recordRoleEvent(db, {
         assignmentId: row.assignment.id,

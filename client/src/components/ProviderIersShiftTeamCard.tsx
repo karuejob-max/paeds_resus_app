@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Clock3, Loader2, Users } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, Loader2, Siren, Users } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { useLocation } from "wouter";
 import ProviderUtlReadinessCard from "@/components/ProviderUtlReadinessCard";
 import ProviderIersTargetedReportCard from "@/components/ProviderIersTargetedReportCard";
 
@@ -43,6 +45,12 @@ export default function ProviderIersShiftTeamCard() {
   const [switchState, setSwitchState] = useState<Record<string, { firstId: string; secondId: string; reason: string }>>({});
   const [assignState, setAssignState] = useState<Record<number, { roleKey: string; reason: string }>>({});
   const [decisionNote, setDecisionNote] = useState<Record<number, string>>({});
+  const [showActivationConfirm, setShowActivationConfirm] = useState<number | null>(null);
+  const [activationType, setActivationType] = useState<"code_blue" | "code_yellow" | "neonatal" | "sepsis" | "anaphylaxis" | "trauma" | "other">("code_blue");
+  const [activationLocation, setActivationLocation] = useState("");
+  const [activationBed, setActivationBed] = useState("");
+  const [activationNotes, setActivationNotes] = useState("");
+  const [, setLocation] = useLocation();
 
   const respondMutation = trpc.iersShiftTeam.respondToRole.useMutation({
     onSuccess: async () => {
@@ -77,6 +85,14 @@ export default function ProviderIersShiftTeamCard() {
     },
     onError: (error) => toast.error(error.message),
   });
+  const activateMutation = trpc.iers.triggerActivation.useMutation({
+    onSuccess: (result) => {
+      toast.success("ERT activated. Opening ResusGPS.");
+      setShowActivationConfirm(null);
+      setLocation(`/resus?activationId=${result.activationEventId}`);
+    },
+    onError: (error) => toast.error(error.message || "The ERT could not be activated."),
+  });
   const switchMutation = trpc.iersShiftTeam.switchMemberRoles.useMutation({
     onSuccess: async () => {
       toast.success("ERT roles switched; both providers must accept the new roles.");
@@ -86,6 +102,16 @@ export default function ProviderIersShiftTeamCard() {
   });
 
   const teams = teamsQuery.data ?? [];
+  const visibleTeams = useMemo(() => {
+    const nonPast = teams.filter((team) => team.teamState !== "past");
+    return [...nonPast].sort((left, right) => {
+      if (left.teamState === "current" && right.teamState !== "current") return -1;
+      if (right.teamState === "current" && left.teamState !== "current") return 1;
+      return new Date(left.shiftDate).getTime() - new Date(right.shiftDate).getTime();
+    });
+  }, [teams]);
+  const currentTeam = visibleTeams.find((team) => team.teamState === "current") ?? null;
+  const futureTeams = visibleTeams.filter((team) => team.teamState === "upcoming");
   const hasPendingAction = useMemo(
     () => teams.some((team) => team.assignments.some((assignment) => assignment.isCurrentUser && ["approved", "pending_acceptance"].includes(assignment.assignmentStatus))),
     [teams],
@@ -107,12 +133,39 @@ export default function ProviderIersShiftTeamCard() {
       <CardContent className="space-y-4">
         {teamsQuery.isLoading && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading your pole teams…</div>}
         {teamsQuery.isError && <p className="text-sm text-destructive">The shift team could not be loaded. Refresh and try again.</p>}
-        {!teamsQuery.isLoading && !teamsQuery.isError && teams.length === 0 && (
+        {!teamsQuery.isLoading && !teamsQuery.isError && visibleTeams.length === 0 && (
           <div className="rounded-lg border border-dashed border-rose-200 bg-white p-4 text-sm text-muted-foreground">
-            No published ERT team is available for your pole in the next seven days. This does not create automatic staffing; the institution must publish the dated team.
+            No current or upcoming published ERT is available for your pole. This does not create automatic staffing; the institution must publish the dated team.
           </div>
         )}
-        {teams.map((team) => {
+        {currentTeam && (
+          <div className="rounded-xl border-2 border-red-300 bg-red-50 p-3 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-red-800">ERT now</p>
+                <p className="mt-1 text-sm font-semibold text-red-950">{currentTeam.poleName} · current shift</p>
+                <p className="mt-1 text-xs text-red-900/75">This is the team to use now. Future teams are listed below only when needed.</p>
+              </div>
+              <Siren className="h-5 w-5 shrink-0 text-red-700" />
+            </div>
+            <Button type="button" className="w-full bg-red-600 text-white hover:bg-red-700" onClick={() => { setActivationLocation(currentTeam.poleName); setShowActivationConfirm(currentTeam.teamId); }} disabled={activateMutation.isPending}>
+              <Siren className="mr-2 h-4 w-4" /> Activate ERT
+            </Button>
+            {showActivationConfirm === currentTeam.teamId && (
+              <div className="space-y-3 rounded-lg border border-red-200 bg-white p-3">
+                <p className="text-sm font-semibold text-slate-950">Confirm ERT activation</p>
+                <p className="text-xs text-slate-600">This will notify the current dated ERT and open ResusGPS. Confirm the location before sending.</p>
+                <select className="h-9 w-full rounded-md border bg-background px-3 text-sm" value={activationType} onChange={(event) => setActivationType(event.target.value as typeof activationType)}>
+                  <option value="code_blue">Code Blue</option><option value="code_yellow">Code Yellow</option><option value="neonatal">Neonatal emergency</option><option value="sepsis">Sepsis</option><option value="anaphylaxis">Anaphylaxis</option><option value="trauma">Trauma</option><option value="other">Other</option>
+                </select>
+                <div className="grid gap-2 sm:grid-cols-2"><Input value={activationLocation} onChange={(event) => setActivationLocation(event.target.value)} placeholder="Ward / room / location" /><Input value={activationBed} onChange={(event) => setActivationBed(event.target.value)} placeholder="Bed number (optional)" /></div>
+                <Textarea value={activationNotes} onChange={(event) => setActivationNotes(event.target.value)} placeholder="Urgent access or resource note (optional)" rows={2} />
+                <div className="flex flex-wrap gap-2"><Button type="button" className="bg-red-600 text-white hover:bg-red-700" onClick={() => activateMutation.mutate({ institutionId: currentTeam.institutionId, teamId: currentTeam.teamId, activationType, location: activationLocation.trim(), bedNumber: activationBed.trim() || undefined, priority: "critical", notes: activationNotes.trim() || undefined })} disabled={activateMutation.isPending || activationLocation.trim().length < 2}>{activateMutation.isPending ? "Activating…" : "Confirm and open ResusGPS"}</Button><Button type="button" variant="outline" onClick={() => setShowActivationConfirm(null)}>Cancel</Button></div>
+              </div>
+            )}
+          </div>
+        )}
+        {visibleTeams.filter((team) => team.teamState === "current").map((team) => {
           const memberAssignments = team.assignments.filter((assignment) => assignment.roleScope === "ert_member");
           const currentAssignments = team.assignments.filter((assignment) => assignment.isCurrentUser);
           const currentAssignment = currentAssignments.find((assignment) => assignment.roleScope === "ertl") ?? currentAssignments[0];
@@ -245,6 +298,14 @@ export default function ProviderIersShiftTeamCard() {
           );
         })}
         {hasPendingAction && <p className="text-xs text-muted-foreground">A dated role is awaiting your response. Accepting confirms responsibility; it does not by itself prove that you are responding or at the scene.</p>}
+        {futureTeams.length > 0 && (
+          <div className="rounded-lg border border-slate-200 bg-white p-3">
+            <Button type="button" variant="ghost" className="w-full justify-between" onClick={() => setShowActivationConfirm(showActivationConfirm === -1 ? null : -1)}>
+              <span>Upcoming teams ({futureTeams.length})</span><span className="text-xs text-muted-foreground">{showActivationConfirm === -1 ? "Hide" : "View"}</span>
+            </Button>
+            {showActivationConfirm === -1 && <div className="mt-2 space-y-3">{futureTeams.map((team) => <div key={`future-${team.teamId}`} className="rounded-md border p-3 text-sm"><p className="font-medium">{team.poleName} · {team.shiftType}</p><p className="text-xs text-muted-foreground">{new Date(team.shiftDate).toLocaleDateString()} · {team.shiftStartTime.slice(0, 5)}–{team.shiftEndTime.slice(0, 5)}{team.shiftEndDayOffset === 1 ? " (+1 day)" : ""}</p></div>)}</div>}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

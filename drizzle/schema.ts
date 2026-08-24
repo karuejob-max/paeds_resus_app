@@ -1776,9 +1776,18 @@ export const iersActivationEvents = mysqlTable("iersActivationEvents", {
   id: int("id").autoincrement().primaryKey(),
   institutionalAccountId: int("institutionalAccountId").notNull(),
   activatedByUserId: int("activatedByUserId").notNull(),
+  /** The exact published/active dated team used for this activation, when available. */
+  teamId: int("teamId"),
+  teamVersion: int("teamVersion"),
+  poleId: int("poleId"),
+  /** Opaque case-link nonce; the QR payload is signed server-side and contains no patient identifier. */
+  caseQrNonce: varchar("caseQrNonce", { length: 128 }),
+  caseQrGeneratedByUserId: int("caseQrGeneratedByUserId"),
+  caseQrGeneratedAt: timestamp("caseQrGeneratedAt"),
   activationType: mysqlEnum("activationType", ["code_blue", "code_yellow", "neonatal", "sepsis", "anaphylaxis", "trauma", "other"]).notNull(),
   priority: mysqlEnum("priority", ["critical", "high", "routine"]).default("critical").notNull(),
   location: varchar("location", { length: 255 }).notNull(),
+  bedNumber: varchar("bedNumber", { length: 64 }),
   department: varchar("department", { length: 255 }),
   source: mysqlEnum("source", ["provider", "unit_team_leader", "ert_leader", "institution_admin", "downtime_reconciliation"]).default("provider").notNull(),
   status: mysqlEnum("status", ["draft", "triggered", "notifying", "acknowledged", "responding", "at_scene", "stabilized", "recovered", "debrief_pending", "closed", "cancelled", "false_alarm", "downtime_pending_sync", "failed_escalation"]).default("triggered").notNull(),
@@ -1809,9 +1818,12 @@ export const iersActivationResponders = mysqlTable("iersActivationResponders", {
   userId: int("userId").notNull(),
   assignmentType: mysqlEnum("assignmentType", ["primary", "backup", "observer"]).default("primary").notNull(),
   responsibilityRole: mysqlEnum("responsibilityRole", ["ert_leader", "ert_responder", "unit_team_leader", "er_coordinator", "erc_member", "general_staff"]).default("ert_responder").notNull(),
-  notificationStatus: mysqlEnum("notificationStatus", ["pending", "sent", "delivered", "failed", "acknowledged", "declined", "timed_out"]).default("pending").notNull(),
+  notificationStatus: mysqlEnum("notificationStatus", ["pending", "sent", "delivered", "failed", "received", "acknowledged", "declined", "timed_out"]).default("pending").notNull(),
   notifiedAt: timestamp("notifiedAt"),
+  receivedAt: timestamp("receivedAt"),
   acknowledgedAt: timestamp("acknowledgedAt"),
+  caseJoinedAt: timestamp("caseJoinedAt"),
+  caseJoinMethod: mysqlEnum("caseJoinMethod", ["activation_assignment", "qr_scan"]).default("activation_assignment"),
   declinedAt: timestamp("declinedAt"),
   declineReason: varchar("declineReason", { length: 500 }),
   responseAt: timestamp("responseAt"),
@@ -1825,6 +1837,51 @@ export const iersActivationResponders = mysqlTable("iersActivationResponders", {
 }));
 export type IersActivationResponder = typeof iersActivationResponders.$inferSelect;
 export type InsertIersActivationResponder = typeof iersActivationResponders.$inferInsert;
+
+/** Resource needs and claims attached to one activation; claims remain visible until arrival is confirmed. */
+export const iersActivationResources = mysqlTable("iers_activation_resources", {
+  id: int("id").autoincrement().primaryKey(),
+  activationEventId: int("activation_event_id").notNull(),
+  institutionId: int("institution_id").notNull(),
+  label: varchar("label", { length: 255 }).notNull(),
+  quantity: int("quantity").default(1).notNull(),
+  sourceType: mysqlEnum("source_type", ["readiness_gap", "manual"]).default("manual").notNull(),
+  sourceReadinessItemId: int("source_readiness_item_id"),
+  status: mysqlEnum("status", ["needed", "claimed", "in_transit", "arrived", "unavailable", "replaced"]).default("needed").notNull(),
+  claimedByUserId: int("claimed_by_user_id"),
+  claimedAt: timestamp("claimed_at"),
+  arrivedAt: timestamp("arrived_at"),
+  arrivalRecordedByUserId: int("arrival_recorded_by_user_id"),
+  note: varchar("note", { length: 1000 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  activationStatusIndex: index("iers_activation_resources_activation_status_idx").on(table.activationEventId, table.status),
+  institutionIndex: index("iers_activation_resources_institution_idx").on(table.institutionId, table.createdAt),
+}));
+export type IersActivationResource = typeof iersActivationResources.$inferSelect;
+export type InsertIersActivationResource = typeof iersActivationResources.$inferInsert;
+
+/** Append-only individual arrival evidence; self, witnessed, and QR-scanned arrivals remain distinguishable. */
+export const iersActivationArrivals = mysqlTable("iers_activation_arrivals", {
+  id: int("id").autoincrement().primaryKey(),
+  activationEventId: int("activation_event_id").notNull(),
+  institutionId: int("institution_id").notNull(),
+  teamId: int("team_id"),
+  roleSnapshotId: int("role_snapshot_id"),
+  providerUserId: int("provider_user_id").notNull(),
+  roleKey: varchar("role_key", { length: 64 }),
+  arrivalType: mysqlEnum("arrival_type", ["self", "witnessed", "qr_scan"]).notNull(),
+  recordedByUserId: int("recorded_by_user_id").notNull(),
+  occurredAt: timestamp("occurred_at").defaultNow().notNull(),
+  note: varchar("note", { length: 1000 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  activationArrivalIndex: index("iers_activation_arrivals_activation_time_idx").on(table.activationEventId, table.occurredAt),
+  providerArrivalIndex: index("iers_activation_arrivals_provider_idx").on(table.providerUserId, table.occurredAt),
+}));
+export type IersActivationArrival = typeof iersActivationArrivals.$inferSelect;
+export type InsertIersActivationArrival = typeof iersActivationArrivals.$inferInsert;
 
 /** Append-only state transition log for activation evidence and auditability. */
 export const iersActivationTimeline = mysqlTable("iersActivationTimeline", {

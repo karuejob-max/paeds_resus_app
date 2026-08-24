@@ -7,6 +7,7 @@ import { AspirationalSurfaceGate } from "./components/AspirationalSurfaceGate";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Header from "./components/Header";
 import { PendingAdminInviteBanner } from "./components/PendingAdminInviteBanner";
+import ProviderActivationAlert from "./components/ProviderActivationAlert";
 import PaedsAIAssistant from "./components/PaedsAIAssistant";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole, type UserRole } from "@/hooks/useUserRole";
@@ -72,6 +73,7 @@ const ProviderToday = lazy(() => import("./pages/ProviderToday"));
 const ProviderMyShift = lazy(() => import("./pages/ProviderMyShift"));
 const ProviderLearn = lazy(() => import("./pages/ProviderLearn"));
 const ProviderRecords = lazy(() => import("./pages/ProviderRecords"));
+const ProviderActivationQrScanner = lazy(() => import("./pages/ProviderActivationQrScanner"));
 const ProviderIersStaffing = lazy(() => import("./pages/ProviderIersStaffing"));
 const IersOrientationPublic = lazy(() => import("./pages/IersOrientationPublic"));
 const CPRMonitoring = lazy(() => import("./pages/CPRMonitoring"));
@@ -167,6 +169,7 @@ function Router() {
       </a>
       <Header />
       <PendingAdminInviteBanner />
+      <ProviderActivationAlert />
       <main id="main-content" className="flex-1" role="main">
         <LegalReconsentGate>
         <Suspense
@@ -199,6 +202,11 @@ function Router() {
           <Route path="/records">{() => (
             <RoleGate allowed={["provider"]}>
               <ProviderRecords />
+            </RoleGate>
+          )}</Route>
+          <Route path="/activation-scan">{() => (
+            <RoleGate allowed={["provider"]}>
+              <ProviderActivationQrScanner />
             </RoleGate>
           )}</Route>
           <Route path="/iers/orientation" component={IersOrientationPublic} />

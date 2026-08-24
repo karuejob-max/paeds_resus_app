@@ -18,7 +18,7 @@ import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 
 type DbExecutor = Pick<DbClient, "select" | "update" | "insert">;
 
-type ShiftTeamIdentity = {
+export type ShiftTeamIdentity = {
   id: number;
   institutionId: number;
   poleId: number;
@@ -47,6 +47,43 @@ type LegacyUtlDecision = "accepted" | "declined";
 
 function currentPublishedTeamStatus(team: ShiftTeamIdentity) {
   return team.status === "published" || team.status === "active";
+}
+
+export async function requestErtlAcceptance(
+  db: DbExecutor,
+  input: { assignmentId: number; team: ShiftTeamIdentity; institutionId: number; providerUserId: number; actorUserId: number; reason: string },
+) {
+  const [existingRequest] = await db
+    .select({ id: iersShiftRoleEvents.id })
+    .from(iersShiftRoleEvents)
+    .where(and(
+      eq(iersShiftRoleEvents.assignmentId, input.assignmentId),
+      eq(iersShiftRoleEvents.eventType, "ertl_acceptance_requested"),
+    ))
+    .limit(1);
+  if (existingRequest) return false;
+  await db.insert(iersShiftRoleEvents).values({
+    assignmentId: input.assignmentId,
+    teamId: input.team.id,
+    institutionId: input.institutionId,
+    actorUserId: input.actorUserId,
+    eventType: "ertl_acceptance_requested",
+    fromStatus: "proposed",
+    toStatus: "pending_acceptance",
+    fromRoleKey: null,
+    toRoleKey: "ertl",
+    reason: input.reason,
+  });
+  await db.insert(inAppNotifications).values({
+    userId: input.providerUserId,
+    type: "iers_shift_team",
+    title: "ERTL / Scene Commander acceptance required",
+    body: `You are the Scene Commander for the ${input.team.shiftType} shift on ${input.team.shiftDate.toISOString().slice(0, 10)}. Accept this separate ERTL role before coordinating the dated ERT.`,
+    actionUrl: "/my-shift?tab=team",
+    relatedId: input.assignmentId,
+    read: false,
+  });
+  return true;
 }
 
 async function recordProjectionEvent(
@@ -320,7 +357,7 @@ export async function ensurePublishedTeamForLegacyUtlRoster(
       providerUserId: rotation.ertlUserId,
     });
     if (ertlProvider) {
-      const assignmentStatus: ShiftRoleAssignmentStatus = rotation.assignmentStatus === "active" ? "accepted" : "pending_acceptance";
+      const assignmentStatus: ShiftRoleAssignmentStatus = "pending_acceptance";
       const [inserted] = await db.insert(iersShiftRoleAssignments).values({
         teamId: team.id,
         institutionId: roster.institutionId,
@@ -331,23 +368,24 @@ export async function ensurePublishedTeamForLegacyUtlRoster(
         roleScope: "ertl",
         roleKey: "ertl",
         assignmentStatus,
-        acceptedAt: assignmentStatus === "accepted" ? rotation.acceptedAt ?? new Date() : null,
+        acceptedAt: null,
         proposedByUserId: input.actorUserId,
       });
       const assignmentId = Number((inserted as unknown as { insertId: number }).insertId);
-      await db.insert(iersShiftRoleEvents).values({
-        assignmentId,
-        teamId: team.id,
-        institutionId: roster.institutionId,
-        actorUserId: input.actorUserId,
-        eventType: "legacy_ertl_rotation_projected",
-        fromStatus: "proposed",
-        toStatus: assignmentStatus,
-        fromRoleKey: null,
-        toRoleKey: "ertl",
-        reason: "Projected from the configured weekly ERTL rotation.",
-        metadata: JSON.stringify({ source: "ertlWeeklyRotations", rotationId: rotation.id }),
-      });
+        await db.insert(iersShiftRoleEvents).values({
+          assignmentId,
+          teamId: team.id,
+          institutionId: roster.institutionId,
+          actorUserId: input.actorUserId,
+          eventType: "legacy_ertl_rotation_projected",
+          fromStatus: "proposed",
+          toStatus: assignmentStatus,
+          fromRoleKey: null,
+          toRoleKey: "ertl",
+          reason: "Projected from the configured weekly rotation; provider acceptance is still required.",
+          metadata: JSON.stringify({ source: "ertlWeeklyRotations", rotationId: rotation.id }),
+        });
+        await requestErtlAcceptance(db, { assignmentId, team, institutionId: roster.institutionId, providerUserId: rotation.ertlUserId, actorUserId: input.actorUserId, reason: "The weekly leadership department is institution-derived; the dated ERTL must accept separately." });
       assignedErtlProviderIds.add(rotation.ertlUserId);
       projectedAssignmentCount += 1;
     }
@@ -360,7 +398,7 @@ export async function ensurePublishedTeamForLegacyUtlRoster(
   if (assignedErtlProviderIds.size === 0) {
     const designatedUtl = validRosters.find((row) => row.isShiftErtl === true || row.departmentId === rotation?.departmentId);
     if (designatedUtl) {
-      const assignmentStatus: ShiftRoleAssignmentStatus = designatedUtl.assignmentStatus === "active" ? "accepted" : "pending_acceptance";
+      const assignmentStatus: ShiftRoleAssignmentStatus = "pending_acceptance";
       const [inserted] = await db.insert(iersShiftRoleAssignments).values({
         teamId: team.id,
         institutionId: designatedUtl.institutionId,
@@ -371,7 +409,7 @@ export async function ensurePublishedTeamForLegacyUtlRoster(
         roleScope: "ertl",
         roleKey: "ertl",
         assignmentStatus,
-        acceptedAt: assignmentStatus === "accepted" ? designatedUtl.acceptedAt ?? new Date() : null,
+        acceptedAt: null,
         declinedAt: null,
         declineReason: null,
         proposedByUserId: input.actorUserId,
@@ -387,9 +425,10 @@ export async function ensurePublishedTeamForLegacyUtlRoster(
         toStatus: assignmentStatus,
         fromRoleKey: null,
         toRoleKey: "ertl",
-        reason: "The explicitly assigned UTL from the pole’s designated ERTL department is the Scene Commander for this dated shift.",
+        reason: "The explicitly assigned UTL from the pole’s designated ERTL department is the Scene Commander for this dated shift; separate ERTL acceptance is required.",
         metadata: JSON.stringify({ source: "shiftUtlRosters.isShiftErtl", rosterId: designatedUtl.id }),
       });
+      await requestErtlAcceptance(db, { assignmentId, team, institutionId: designatedUtl.institutionId, providerUserId: designatedUtl.utlUserId, actorUserId: input.actorUserId, reason: "The accepted UTL from the leading department is now the dated Scene Commander; the separate ERTL role must be accepted." });
       assignedErtlProviderIds.add(designatedUtl.utlUserId);
       projectedAssignmentCount += 1;
     }
