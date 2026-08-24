@@ -82,6 +82,7 @@ import { isMissingTableError } from "../lib/is-missing-db-table";
 import { isInstitutionInPilotProgram } from "@shared/pilot-program";
 import { validateDepartmentErcoAssignment } from "../lib/iers-department-governance";
 import { ensurePublishedTeamForLegacyUtlRoster, notifyDepartmentErcoOfUtlDecline, projectLegacyUtlRosterDecision, projectUtlRosterReassignment } from "../services/iers-utl-sync.service";
+import { ensureDefaultUtlReadinessTemplate } from "../services/iers-readiness-template.service";
 import { getIsoWeekKey, getIsoWeekRange, getMonthlyShiftRows, monthStartFromShiftDate, normalizeMonthStart } from "../lib/iers-monthly-rota";
 import { insertCanonicalFacilityDepartments } from "../lib/iers-department-setup";
 import { DEFAULT_SHIFT_TEMPLATES, formatShiftInterval, shiftTemplateForType, validateShiftInterval } from "../lib/iers-shift-times";
@@ -382,6 +383,7 @@ async function getProfileBackedRnCandidates(
       cadreOther: users.cadreOther,
       department: providerProfiles.department,
       profileDepartment: providerProfiles.department,
+      facilityDepartmentId: sql<number | null>`NULL`,
       membershipStatus: institutionMemberships.membershipStatus,
     })
     .from(providerProfiles)
@@ -396,24 +398,63 @@ async function getProfileBackedRnCandidates(
       isNotNull(providerProfiles.department),
     ));
 
-  const profileUserIds = profileRows.map((row) => row.userId);
-  const existingStaffRows = profileUserIds.length > 0
+  // CPD self-registration is also a legitimate institution-scoped discovery
+  // source. Older registrations may predate a provider profile or facilityId,
+  // so match the attendee email to the authenticated user and carry forward
+  // the canonical CPD department identity when it exists. Membership and
+  // linked-staff status remain separate assignment gates below.
+  const cpdRows = await db
+    .select({
+      userId: users.id,
+      staffName: users.name,
+      staffEmail: users.email,
+      staffPhone: users.phone,
+      providerType: users.providerType,
+      cadre: sql<string | null>`COALESCE(${users.cadre}, ${cpdAttendees.cadre})`,
+      cadreOther: sql<string | null>`COALESCE(${users.cadreOther}, ${cpdAttendees.cadreOther})`,
+      department: cpdAttendees.department,
+      profileDepartment: providerProfiles.department,
+      facilityDepartmentId: cpdAttendees.facilityDepartmentId,
+      membershipStatus: institutionMemberships.membershipStatus,
+    })
+    .from(cpdAttendees)
+    .innerJoin(users, sql`LOWER(TRIM(${users.email})) = LOWER(TRIM(${cpdAttendees.email}))`)
+    .leftJoin(providerProfiles, eq(providerProfiles.userId, users.id))
+    .leftJoin(institutionMemberships, and(
+      eq(institutionMemberships.institutionalAccountId, institutionId),
+      eq(institutionMemberships.userId, users.id),
+    ))
+    .where(eq(cpdAttendees.institutionalAccountId, institutionId));
+
+  const sourceRows = [...profileRows, ...cpdRows];
+  const sourceByUserId = new Map<number, (typeof sourceRows)[number]>();
+  for (const row of sourceRows) {
+    const previous = sourceByUserId.get(row.userId);
+    // Prefer a CPD source carrying a canonical department ID over an older
+    // profile-only source with only free-text department data.
+    if (!previous || (previous.facilityDepartmentId == null && row.facilityDepartmentId != null)) {
+      sourceByUserId.set(row.userId, row);
+    }
+  }
+  const uniqueSourceRows = [...sourceByUserId.values()];
+  const sourceUserIds = uniqueSourceRows.map((row) => row.userId);
+  const existingStaffRows = sourceUserIds.length > 0
     ? await db
       .select({ userId: institutionalStaffMembers.userId, facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId, removedAt: institutionalStaffMembers.removedAt })
       .from(institutionalStaffMembers)
       .where(and(
         eq(institutionalStaffMembers.institutionalAccountId, institutionId),
-        inArray(institutionalStaffMembers.userId, profileUserIds),
+        inArray(institutionalStaffMembers.userId, sourceUserIds),
       ))
     : [];
   const existingUserIds = new Set(existingRows.flatMap((row) => row.userId == null ? [] : [row.userId]));
   const removedUserIds = new Set(existingStaffRows.filter((row) => row.removedAt != null).flatMap((row) => row.userId == null ? [] : [row.userId]));
   const canonicallyScopedUserIds = new Set(existingStaffRows.filter((row) => row.removedAt == null && row.facilityDepartmentId != null && row.facilityDepartmentId !== department.id).flatMap((row) => row.userId == null ? [] : [row.userId]));
 
-  return profileRows
+  return uniqueSourceRows
     .filter((row) => {
       if (existingUserIds.has(row.userId) || removedUserIds.has(row.userId) || canonicallyScopedUserIds.has(row.userId)) return false;
-      return isRegisteredRnProfile(row) && departmentLabelsMatch(row.profileDepartment ?? row.department ?? "", department.departmentName);
+      return isRegisteredRnProfile(row) && providerBelongsToCanonicalDepartment(row, department);
     })
     .map((row) => ({
       id: -row.userId,
@@ -426,7 +467,7 @@ async function getProfileBackedRnCandidates(
       cadre: row.cadre,
       cadreOther: row.cadreOther,
       department: row.department,
-      facilityDepartmentId: null,
+      facilityDepartmentId: row.facilityDepartmentId ?? null,
       facilityLinkStatus: "pending",
       membershipStatus: row.membershipStatus ?? null,
       profileDepartment: row.profileDepartment,
@@ -1913,7 +1954,7 @@ export const institutionRouter = router({
           };
         }
 
-        const result = await db.insert(institutionalAccounts).values({
+                const result = await db.insert(institutionalAccounts).values({
           userId: ctx.user.id,
           companyName: input.hospitalName,
           industry: input.hospitalType,
@@ -1923,10 +1964,15 @@ export const institutionRouter = router({
           contactPhone: input.adminPhone,
           status: "active",
         });
-
+        const institutionId = (result as unknown as { insertId: number }).insertId;
+        try {
+          await ensureDefaultUtlReadinessTemplate(db, { institutionId, fallbackActorUserId: ctx.user.id });
+        } catch (error) {
+          if (!isMissingTableError(error)) throw error;
+        }
         return {
           success: true,
-          institutionId: (result as unknown as { insertId: number }).insertId || 1,
+          institutionId: institutionId || 1,
           message: "Institution registered successfully. Proceeding to payment...",
           nextStep: "payment" as const,
           alreadyRegistered: false as const,
@@ -2019,8 +2065,12 @@ export const institutionRouter = router({
         status: "prospect",
       });
 
-      const institutionId = (accountResult as unknown as { insertId: number }).insertId;
-
+            const institutionId = (accountResult as unknown as { insertId: number }).insertId;
+      try {
+        await ensureDefaultUtlReadinessTemplate(db, { institutionId, fallbackActorUserId: ctx.user.id });
+      } catch (error) {
+        if (!isMissingTableError(error)) throw error;
+      }
       // Primary admin — the registering user themselves.
       await db.insert(institutionalAccountAdmins).values({
         institutionalAccountId: institutionId,

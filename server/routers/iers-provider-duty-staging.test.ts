@@ -27,10 +27,13 @@ import {
   iersEvidenceRecords,
   careFacilities,
   providerProfiles,
+  cpdAttendees,
   iersShiftTeams,
   iersShiftRoleAssignments,
   iersShiftRoleEvents,
   inAppNotifications,
+  iersReadinessTemplates,
+  iersReadinessTemplateItems,
 } from "../../drizzle/schema";
 
 const stagingUrl = process.env.IERS_STAGING_DATABASE_URL || "";
@@ -68,6 +71,7 @@ type FixtureIds = {
   workspaceCapabilityId: number;
   facilityId: number;
   registeredProviderId: number;
+  cpdOnlyProviderId: number;
   publishedTeamId: number;
   publishedUtlAssignmentId: number;
   directTeamId: number;
@@ -174,6 +178,23 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       lastSignedIn: now,
     });
     const registeredProviderId = Number((registeredInsert as unknown as { insertId: number }).insertId);
+
+    const cpdOnlyEmail = `staging-cpd-only-rn-${suffix}@example.test`;
+    const [cpdOnlyInsert] = await db.insert(users).values({
+      openId: `staging-cpd-only-rn-${suffix}`,
+      name: "Staging CPD-only Staff RN",
+      email: cpdOnlyEmail,
+      loginMethod: "staging",
+      role: "user",
+      providerType: null,
+      cadre: null,
+      cadreOther: null,
+      userType: "individual",
+      createdAt: now,
+      updatedAt: now,
+      lastSignedIn: now,
+    });
+    const cpdOnlyProviderId = Number((cpdOnlyInsert as unknown as { insertId: number }).insertId);
 
     const [unrelatedInsert] = await db.insert(users).values({
       openId: `staging-unrelated-${suffix}`,
@@ -334,6 +355,20 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
 
     const [departmentInsert] = await db.insert(facilityDepartments).values({ institutionId, poleId, departmentName: "STAGING DEPARTMENT ALPHA", isActive: true, requiresPole: true, confirmedAt: now, confirmedByUserId: adminId, createdAt: now });
     const departmentId = Number((departmentInsert as unknown as { insertId: number }).insertId);
+    await db.insert(cpdAttendees).values({
+      cpdEventId: 1,
+      institutionalAccountId: institutionId,
+      fullName: "Staging CPD-only Staff RN",
+      email: cpdOnlyEmail,
+      phone: "+254700000099",
+      cadre: "Staff RN",
+      department: "STAGING DEPARTMENT ALPHA",
+      facilityDepartmentId: departmentId,
+      attendanceType: "primary_facility",
+      roleInEvent: "attendee",
+      checkInPunctuality: "on_time",
+      submittedAt: now,
+    });
     await db.insert(providerProfiles).values({
       userId: registeredProviderId,
       facilityId,
@@ -612,6 +647,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       workspaceCapabilityId: workspaceCapability.id,
       facilityId,
       registeredProviderId,
+      cpdOnlyProviderId,
       publishedTeamId,
       publishedUtlAssignmentId,
       directTeamId,
@@ -632,8 +668,13 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
   afterAll(async () => {
     if (!isLocalStaging || !db || !ids) return;
     const institutionIds = [ids.institutionId, ids.otherInstitutionId];
-    const userIds = [ids.adminId, ids.assignedProviderId, ids.registeredProviderId, ids.unrelatedProviderId, ids.replacementProviderId, ids.otherTenantProviderId];
+    const userIds = [ids.adminId, ids.assignedProviderId, ids.registeredProviderId, ids.cpdOnlyProviderId, ids.unrelatedProviderId, ids.replacementProviderId, ids.otherTenantProviderId];
     await db.delete(iersEvidenceRecords).where(inArray(iersEvidenceRecords.institutionId, institutionIds));
+    await db.delete(cpdAttendees).where(inArray(cpdAttendees.institutionalAccountId, institutionIds));
+    const readinessTemplateRows = await db.select({ id: iersReadinessTemplates.id }).from(iersReadinessTemplates).where(inArray(iersReadinessTemplates.institutionId, institutionIds));
+    const readinessTemplateIds = readinessTemplateRows.map((row) => row.id);
+    if (readinessTemplateIds.length > 0) await db.delete(iersReadinessTemplateItems).where(inArray(iersReadinessTemplateItems.templateId, readinessTemplateIds));
+    await db.delete(iersReadinessTemplates).where(inArray(iersReadinessTemplates.institutionId, institutionIds));
     await db.delete(iersShiftRoleEvents).where(inArray(iersShiftRoleEvents.institutionId, institutionIds));
     await db.delete(iersShiftRoleAssignments).where(inArray(iersShiftRoleAssignments.institutionId, institutionIds));
     await db.delete(iersShiftTeams).where(inArray(iersShiftTeams.institutionId, institutionIds));
@@ -688,6 +729,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     const pendingCandidates = await adminCaller.institution.getDepartmentNurseCandidates({ institutionId: ids.institutionId, departmentId: ids.departmentId });
     expect(pendingCandidates).toEqual(expect.arrayContaining([
       expect.objectContaining({ userId: ids.registeredProviderId, assignable: false, needsAccountLink: true }),
+      expect.objectContaining({ userId: ids.cpdOnlyProviderId, assignable: false, facilityDepartmentId: ids.departmentId, needsAccountLink: true }),
     ]));
     const invitation = await adminCaller.institution.inviteProvider({
       institutionId: ids.institutionId,
@@ -871,6 +913,10 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     expect(directLegacyRoster[0]?.assignmentStatus).toBe("active");
     const readiness = await assignedCaller.iers.getMyShiftReadiness();
     expect(readiness.some((assignment) => assignment.id === ids.rosterId)).toBe(true);
+    const universalChecklist = await assignedCaller.iersReadiness.getForMyUtl({ teamId: ids.publishedTeamId, shiftUtlRosterId: ids.rosterId });
+    expect(universalChecklist.template).toEqual(expect.objectContaining({ status: "active", templateVersion: "v1" }));
+    expect(universalChecklist.items.length).toBe(23);
+
     const signedOff = await assignedCaller.iers.signOffShiftReadiness({ shiftRosterId: ids.rosterId, note: "Staging readiness evidence" });
     expect(signedOff.success).toBe(true);
 

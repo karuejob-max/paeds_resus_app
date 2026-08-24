@@ -69,9 +69,9 @@ export default function ProviderUtlReadinessCard({ teamId, shiftUtlRosterId }: P
         </div>
       </CardHeader>
       {open && <CardContent className="space-y-4">
-        {readinessQuery.isLoading && <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading the approved facility checklist…</p>}
+        {readinessQuery.isLoading && <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading the universal facility checklist…</p>}
         {readinessQuery.isError && <p className="text-sm text-destructive">The readiness checklist could not be loaded. Refresh and try again.</p>}
-        {!readinessQuery.isLoading && !readinessQuery.isError && !readinessQuery.data?.template && <div className="rounded-lg border border-dashed bg-white p-3 text-sm text-muted-foreground">No approved UTL checklist is active for this institution yet. An institutional administrator and the local resuscitation/pharmacy governance process must approve the facility template before it can be used.</div>}
+        {!readinessQuery.isLoading && !readinessQuery.isError && !readinessQuery.data?.template && <div className="rounded-lg border border-dashed bg-white p-3 text-sm text-muted-foreground">The universal UTL crash-cart checklist should be available automatically for this institution. Refresh the page; if this message persists, ask an IERS administrator to open checklist governance once so the baseline can be repaired. A facility-specific local policy may later supersede the universal baseline.</div>}
         {readinessQuery.data?.template && <>
           <div className="rounded-lg border bg-white p-3 text-sm">
             <p className="font-semibold">{readinessQuery.data.template.templateName} · {readinessQuery.data.template.templateVersion}</p>
