@@ -1,11 +1,14 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
+import { eq } from "drizzle-orm";
+import { providerProfiles } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { sdk } from "./_core/sdk";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { getUserByEmail, createUserWithPassword, insertAdminAuditLog, updateUserContactInfo } from "./db";
+import { syncProviderProfileFacility } from "./services/facility-registry.service";
 import { normalizeEmailForAuth } from "@shared/normalize-email";
 import { normalizeUserPhone } from "@shared/user-phone";
 import { TRPCError } from "@trpc/server";
@@ -392,6 +395,25 @@ export const appRouter = router({
           cadre: input.cadre !== undefined ? input.cadre : undefined,
           cadreOther: input.cadreOther !== undefined ? input.cadreOther : undefined,
         });
+
+        // Cadre is edited from Account settings, while facility/department are
+        // held in providerProfiles. Re-run the existing facility sync after the
+        // identity update so a provider who has just declared Staff/RN is
+        // reconciled into the canonical institutional roster. The sync helper
+        // deliberately preserves pending link status until an institution has
+        // already granted and the provider has accepted membership.
+        const profileDb = await db.getDb();
+        if (profileDb) {
+          const [providerProfile] = await profileDb
+            .select({ facilityId: providerProfiles.facilityId })
+            .from(providerProfiles)
+            .where(eq(providerProfiles.userId, ctx.user.id))
+            .limit(1);
+          if (providerProfile?.facilityId != null) {
+            await syncProviderProfileFacility(ctx.user.id, providerProfile.facilityId);
+          }
+        }
+
         await db.createAuditLog({
           userId: ctx.user.id,
           action: "PROFILE_UPDATED",

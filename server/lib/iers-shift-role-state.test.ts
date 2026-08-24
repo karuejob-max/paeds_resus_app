@@ -13,6 +13,11 @@ describe("IERS shift-role state machine", () => {
     expect(() => assertShiftRoleTransition("pending_acceptance", "accepted")).not.toThrow();
   });
 
+  it("permits an approved UTL to be explicitly accepted", () => {
+    expect(canTransitionShiftRole("approved", "accepted")).toBe(true);
+    expect(() => assertShiftRoleTransition("approved", "accepted")).not.toThrow();
+  });
+
   it("rejects a direct jump from proposed to accepted", () => {
     expect(canTransitionShiftRole("proposed", "accepted")).toBe(false);
     expect(() => assertShiftRoleTransition("proposed", "accepted")).toThrow("Invalid shift-role transition");

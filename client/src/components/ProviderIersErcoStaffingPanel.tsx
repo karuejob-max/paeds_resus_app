@@ -127,6 +127,7 @@ export default function ProviderIersErcoStaffingPanel() {
         utils.institution.getMyDepartmentResponseAssignments.invalidate(),
         utils.institution.getMyProviderDutyAssignments.invalidate(),
         utils.iers.getMyShiftReadiness.invalidate(),
+        utils.iersShiftTeam.listMyShiftTeams.invalidate(),
       ]);
     },
     onError: (error) => toast.error(error.message || "Could not save this UTL assignment."),
@@ -141,6 +142,7 @@ export default function ProviderIersErcoStaffingPanel() {
         utils.institution.getMyDepartmentResponseAssignments.invalidate(),
         utils.institution.getMyProviderDutyAssignments.invalidate(),
         utils.iers.getMyShiftReadiness.invalidate(),
+        utils.iersShiftTeam.listMyShiftTeams.invalidate(),
       ]);
     },
     onError: (error) => toast.error(error.message || "Could not apply the practitioner to those shifts."),

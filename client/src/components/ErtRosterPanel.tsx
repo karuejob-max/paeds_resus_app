@@ -227,6 +227,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
     onSuccess: () => {
       toast.success("Shift UTL updated!");
       void refetchRoster();
+      void utils.iersShiftTeam.listMyShiftTeams.invalidate();
     },
     onError: (err) => toast.error(err.message || "Failed to update UTL"),
   });
@@ -245,6 +246,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
       toast.success(`${result.savedCount} UTL shift(s) saved; providers must accept their dated duties.`);
       setBulkDates([]);
       void utils.institution.getShiftUtlRoster.invalidate();
+      void utils.iersShiftTeam.listMyShiftTeams.invalidate();
     },
     onError: (err) => toast.error(err.message || "Could not apply the provider to those shifts."),
   });
@@ -320,6 +322,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
       toast.success(`Monthly UTL plan saved for ${result.assignedDepartments} department(s); ${result.generatedShifts} dated shift row(s) prepared.`);
       void utils.institution.getMonthlyUtlRota.invalidate({ institutionId, poleId: activePoleId ?? 0, monthStart });
       void utils.institution.getShiftUtlRoster.invalidate();
+      void utils.iersShiftTeam.listMyShiftTeams.invalidate();
     },
     onError: (err) => toast.error(err.message || "Could not save the monthly UTL plan."),
   });

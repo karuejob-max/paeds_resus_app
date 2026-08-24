@@ -46,7 +46,11 @@ export default function ProviderIersShiftTeamCard() {
   const respondMutation = trpc.iersShiftTeam.respondToRole.useMutation({
     onSuccess: async () => {
       toast.success("Shift-role response saved.");
-      await utils.iersShiftTeam.listMyShiftTeams.invalidate();
+      await Promise.all([
+        utils.iersShiftTeam.listMyShiftTeams.invalidate(),
+        utils.institution.getMyProviderDutyAssignments.invalidate(),
+        utils.iers.getMyShiftReadiness.invalidate(),
+      ]);
     },
     onError: (error) => toast.error(error.message),
   });

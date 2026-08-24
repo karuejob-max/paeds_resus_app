@@ -1,7 +1,7 @@
 /**
  * Canonical facility registry — search, resolve merges, sync institutions, geographic rollups.
  */
-import { and, desc, eq, gte, inArray, isNotNull, isNull, like, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, isNull, like, or, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import {
   careFacilities,
@@ -12,9 +12,11 @@ import {
   facilities,
   users,
   institutionalStaffMembers,
+  institutionMemberships,
   facilityDepartments,
 } from "../../drizzle/schema";
 import { inferDesignationFromCadre } from "../../shared/cadre-designation-mapping";
+import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { DEFAULT_FACILITY_COUNTRY } from "../../shared/kenya-counties";
 import { canonicalizeDepartmentLabel, departmentLabelsMatch } from "../../shared/clinical-departments";
 
@@ -281,6 +283,103 @@ export async function createCareFacility(input: {
   return { id, created: true as const };
 }
 
+export type InstitutionalStaffSyncInput = {
+  institutionalAccountId: number;
+  userId: number;
+  staffName: string;
+  staffEmail: string;
+  staffPhone?: string | null;
+  providerType?: string | null;
+  cadre?: string | null;
+  cadreOther?: string | null;
+  department?: string | null;
+  facilityDepartmentId?: number | null;
+  enrollmentStatus?: "pending" | "enrolled" | "in_progress" | "completed" | "dropped";
+};
+
+type InstitutionalStaffRole = "nurse" | "doctor" | "paramedic" | "midwife" | "lab_tech" | "respiratory_therapist" | "support_staff" | "other";
+
+function staffRoleFromRegisteredProfile(input: Pick<InstitutionalStaffSyncInput, "providerType" | "cadre" | "cadreOther">): InstitutionalStaffRole {
+  if (isRegisteredRnProfile({ providerType: input.providerType, cadre: input.cadre, cadreOther: input.cadreOther })) return "nurse";
+  if (input.providerType === "doctor") return "doctor";
+  if (input.providerType === "paramedic") return "paramedic";
+  if (input.providerType === "midwife") return "midwife";
+  if (input.providerType === "lab_tech") return "lab_tech";
+  if (input.providerType === "respiratory_therapist") return "respiratory_therapist";
+  if (input.providerType === "support_staff") return "support_staff";
+  return "other";
+}
+
+/**
+ * Reconcile a registered provider into one institution-scoped operational staff row.
+ * This never creates or activates institution membership. The row is linked only
+ * when an already-existing membership for the same institution is active; otherwise
+ * it remains pending until the normal invitation/acceptance contract is completed.
+ */
+export async function reconcileInstitutionalStaffMember(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  input: InstitutionalStaffSyncInput,
+) {
+  const email = input.staffEmail.trim().toLowerCase();
+  const [membership] = await db
+    .select({ membershipStatus: institutionMemberships.membershipStatus })
+    .from(institutionMemberships)
+    .where(and(
+      eq(institutionMemberships.institutionalAccountId, input.institutionalAccountId),
+      or(eq(institutionMemberships.userId, input.userId), eq(institutionMemberships.invitedEmail, email)),
+    ))
+    .orderBy(desc(institutionMemberships.id))
+    .limit(1);
+
+  let [existing] = await db
+    .select()
+    .from(institutionalStaffMembers)
+    .where(and(
+      eq(institutionalStaffMembers.institutionalAccountId, input.institutionalAccountId),
+      eq(institutionalStaffMembers.userId, input.userId),
+    ))
+    .orderBy(desc(institutionalStaffMembers.id))
+    .limit(1);
+  if (!existing) {
+    [existing] = await db
+      .select()
+      .from(institutionalStaffMembers)
+      .where(and(
+        eq(institutionalStaffMembers.institutionalAccountId, input.institutionalAccountId),
+        eq(institutionalStaffMembers.staffEmail, email),
+      ))
+      .orderBy(desc(institutionalStaffMembers.id))
+      .limit(1);
+  }
+
+  const facilityLinkStatus = membership?.membershipStatus === "active"
+    ? "linked" as const
+    : existing?.facilityLinkStatus === "rejected"
+      ? "rejected" as const
+      : "pending" as const;
+  const values = {
+    institutionalAccountId: input.institutionalAccountId,
+    userId: input.userId,
+    staffName: input.staffName.trim() || "Provider",
+    staffEmail: email,
+    staffPhone: input.staffPhone?.trim() || null,
+    staffRole: staffRoleFromRegisteredProfile(input),
+    designation: inferDesignationFromCadre(input.cadre) ?? existing?.designation ?? "other" as const,
+    department: input.department?.trim() || null,
+    facilityDepartmentId: input.facilityDepartmentId ?? null,
+    facilityLinkStatus,
+    enrollmentStatus: existing?.enrollmentStatus ?? input.enrollmentStatus ?? "pending" as const,
+    updatedAt: new Date(),
+  };
+
+  if (existing) {
+    await db.update(institutionalStaffMembers).set(values).where(eq(institutionalStaffMembers.id, existing.id));
+    return { staffMemberId: existing.id, facilityLinkStatus, membershipStatus: membership?.membershipStatus ?? null };
+  }
+  const result = await db.insert(institutionalStaffMembers).values(values);
+  return { staffMemberId: Number((result as unknown as { insertId: number }).insertId), facilityLinkStatus, membershipStatus: membership?.membershipStatus ?? null };
+}
+
 export async function syncProviderProfileFacility(
   userId: number,
   facilityId: number
@@ -324,67 +423,25 @@ export async function syncProviderProfileFacility(
     canonicalDepartmentId = departments.find((department) => departmentLabelsMatch(department.departmentName, normalizedProviderDepartment))?.id ?? null;
   }
 
-  // If the facility is associated with an institutional account,
-  // create a pending institutional link request if one doesn't exist already.
-  // Otherwise (2026-08-04, docs/IERP_NERP_PROGRAM_V2_SPEC.md §2): the
-  // learner's facility isn't a recognized institutional account -- an
-  // explicitly supported case for self-service enrollment, not an error.
-  // Create the row anyway, institutionalAccountId null, facilityLinkStatus
-  // auto-set to "linked" since there's no coordinator to approve it (§7).
-  // Root cause this fixes: without this row, declareMyDesignation (the
-  // very first self-service step) hard-fails with NOT_FOUND, and every
-  // phase/payment gate built across INST-25 silently has nothing to read.
   if (facility.institutionalAccountId) {
-    const existingLink = await db
-      .select({ id: institutionalStaffMembers.id })
-      .from(institutionalStaffMembers)
-      .where(and(
-        eq(institutionalStaffMembers.userId, userId),
-        eq(institutionalStaffMembers.institutionalAccountId, facility.institutionalAccountId)
-      ))
+    const [user] = await db
+      .select({ id: users.id, name: users.name, email: users.email, phone: users.phone, providerType: users.providerType, cadre: users.cadre, cadreOther: users.cadreOther })
+      .from(users)
+      .where(eq(users.id, userId))
       .limit(1);
-
-    if (existingLink.length === 0) {
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
-
-      if (user) {
-        let staffRole: "nurse" | "doctor" | "paramedic" | "midwife" | "lab_tech" | "respiratory_therapist" | "support_staff" | "other" = "other";
-        if (user.providerType === "nurse") staffRole = "nurse";
-        else if (user.providerType === "doctor") staffRole = "doctor";
-        else if (user.providerType === "paramedic") staffRole = "paramedic";
-        else if (user.providerType === "midwife") staffRole = "midwife";
-        else if (user.providerType === "lab_tech") staffRole = "lab_tech";
-        else if (user.providerType === "respiratory_therapist") staffRole = "respiratory_therapist";
-
-        await db.insert(institutionalStaffMembers).values({
-          institutionalAccountId: facility.institutionalAccountId,
-          userId: userId,
-          staffName: user.name || "Provider",
-          staffEmail: user.email || "",
-          staffPhone: user.phone || null,
-          staffRole: staffRole,
-          // Auto-apply designation from the user's already-declared cadre
-          // where it's unambiguous (CEO decision, 2026-07-21) — e.g. any
-          // RN-family cadre implies "permanent_nurse" regardless of which
-          // sub-specialty they picked. Falls back to "other" (unchanged
-          // behaviour) for anything not covered by inferDesignationFromCadre.
-          designation: inferDesignationFromCadre((user as any).cadre) ?? "other",
-          department: normalizedProviderDepartment,
-          facilityDepartmentId: canonicalDepartmentId,
-          facilityLinkStatus: "pending",
-          enrollmentStatus: "pending",
-        });
-      }
-    } else if (providerProfile?.department?.trim()) {
-      await db.update(institutionalStaffMembers).set({
+    if (user?.email) {
+      await reconcileInstitutionalStaffMember(db, {
+        institutionalAccountId: facility.institutionalAccountId,
+        userId,
+        staffName: user.name || "Provider",
+        staffEmail: user.email,
+        staffPhone: user.phone,
+        providerType: user.providerType,
+        cadre: user.cadre,
+        cadreOther: user.cadreOther,
         department: normalizedProviderDepartment,
         facilityDepartmentId: canonicalDepartmentId,
-        updatedAt: new Date(),
-      }).where(eq(institutionalStaffMembers.id, existingLink[0].id));
+      });
     }
   } else {
     const existingSelfServiceRow = await db

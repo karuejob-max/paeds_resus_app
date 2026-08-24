@@ -22,6 +22,7 @@ import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { validateShiftInterval } from "../lib/iers-shift-times";
 import { assertShiftRoleTransition, normalizeShiftRoleKey, type ShiftRoleAssignmentStatus } from "../lib/iers-shift-role-state";
 import { isMissingTableError } from "../lib/is-missing-db-table";
+import { projectShiftRoleDecisionToLegacyUtlRoster } from "../services/iers-utl-sync.service";
 
 const IERS_PROVIDER_ROLES: InstitutionalProductRoleKey[] = ["iers_coordinator", "iers_responder", "iers_reviewer", "iers_governance", "iers_viewer"];
 const ERT_MEMBER_ROLES = new Set([
@@ -378,6 +379,15 @@ export const iersShiftTeamRouter = router({
         declinedAt: input.decision === "declined" ? now : null,
         declineReason: input.decision === "declined" ? input.reason ?? null : null,
       }).where(eq(iersShiftRoleAssignments.id, row.assignment.id));
+      if (row.assignment.roleScope === "utl") {
+        await projectShiftRoleDecisionToLegacyUtlRoster(db, {
+          assignment: row.assignment,
+          team: row.team,
+          actorUserId: ctx.user.id,
+          decision: input.decision,
+          reason: input.reason ?? null,
+        });
+      }
       await recordRoleEvent(db, {
         assignmentId: row.assignment.id,
         teamId: row.team.id,

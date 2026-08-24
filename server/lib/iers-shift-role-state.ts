@@ -13,7 +13,7 @@ export type ShiftRoleAssignmentStatus = typeof SHIFT_ROLE_ASSIGNMENT_STATUSES[nu
 
 const TRANSITIONS: Record<ShiftRoleAssignmentStatus, readonly ShiftRoleAssignmentStatus[]> = {
   proposed: ["approved", "pending_acceptance", "superseded", "expired"],
-  approved: ["pending_acceptance", "superseded", "expired"],
+  approved: ["pending_acceptance", "accepted", "superseded", "expired"],
   pending_acceptance: ["accepted", "declined", "expired", "superseded"],
   accepted: ["superseded", "ended"],
   declined: ["approved", "pending_acceptance", "superseded", "expired"],
