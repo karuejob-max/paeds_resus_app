@@ -12,6 +12,7 @@ import {
   iersShiftRoleEvents,
   iersShiftRoleRecommendations,
   iersShiftTeams,
+  shiftUtlRosters,
   users,
 } from "../../drizzle/schema";
 import { getDb } from "../db";
@@ -22,7 +23,7 @@ import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { validateShiftInterval } from "../lib/iers-shift-times";
 import { assertShiftRoleTransition, normalizeShiftRoleKey, type ShiftRoleAssignmentStatus } from "../lib/iers-shift-role-state";
 import { isMissingTableError } from "../lib/is-missing-db-table";
-import { projectShiftRoleDecisionToLegacyUtlRoster } from "../services/iers-utl-sync.service";
+import { ensurePublishedTeamForLegacyUtlRoster, projectShiftRoleDecisionToLegacyUtlRoster } from "../services/iers-utl-sync.service";
 
 const IERS_PROVIDER_ROLES: InstitutionalProductRoleKey[] = ["iers_coordinator", "iers_responder", "iers_reviewer", "iers_governance", "iers_viewer"];
 const ERT_MEMBER_ROLES = new Set([
@@ -279,7 +280,22 @@ export const iersShiftTeamRouter = router({
             isNull(institutionalStaffMembers.removedAt),
             eq(facilityDepartments.isActive, true),
           ));
-        const poleIds = [...new Set(staffRows.flatMap((row) => row.poleId === null ? [] : [row.poleId]))];
+        const staffPoleIds = [...new Set(staffRows.flatMap((row) => row.poleId === null ? [] : [row.poleId]))];
+        const legacyRosters = await db
+          .select()
+          .from(shiftUtlRosters)
+          .where(and(
+            eq(shiftUtlRosters.institutionId, institutionId),
+            eq(shiftUtlRosters.utlUserId, ctx.user.id),
+            gte(shiftUtlRosters.shiftDate, today),
+            lte(shiftUtlRosters.shiftDate, horizon),
+            eq(shiftUtlRosters.status, "active"),
+            inArray(shiftUtlRosters.assignmentStatus, ["pending_acceptance", "active"]),
+          ));
+        for (const roster of legacyRosters) {
+          await ensurePublishedTeamForLegacyUtlRoster(db, { roster, actorUserId: ctx.user.id });
+        }
+        const poleIds = [...new Set([...staffPoleIds, ...legacyRosters.map((roster) => roster.poleId)])];
         if (poleIds.length === 0) continue;
         const teams = await db
           .select({

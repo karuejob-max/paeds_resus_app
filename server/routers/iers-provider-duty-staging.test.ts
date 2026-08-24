@@ -665,6 +665,11 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
   });
 
   it("executes the complete denial, acceptance, revocation, and readiness matrix through real tRPC callers", async () => {
+    const preSyncCandidates = await adminCaller.institution.getDepartmentNurseCandidates({ institutionId: ids.institutionId, departmentId: ids.departmentId });
+    expect(preSyncCandidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ userId: ids.registeredProviderId, assignable: false, facilityLinkStatus: "pending", needsAccountLink: true }),
+    ]));
+
     const profileSaved = await registeredCaller.provider.updateProfile({
       facilityId: ids.facilityId,
       department: "STAGING DEPARTMENT ALPHA",
@@ -764,7 +769,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       assignments: [{ departmentId: ids.departmentId, providerUserId: ids.assignedProviderId }],
     });
     expect(monthlyResult.assignedDepartments).toBe(1);
-    expect(monthlyResult.generatedShifts).toBe(0);
+    expect(monthlyResult.generatedShifts).toBeGreaterThan(0);
     const monthlyRows = await adminCaller.institution.getMonthlyUtlRota({ institutionId: ids.institutionId, poleId: ids.poleId, monthStart: "2026-08-01" });
     expect(monthlyRows).toEqual(expect.arrayContaining([
       expect.objectContaining({ departmentId: ids.departmentId, providerUserId: ids.assignedProviderId, assignmentStatus: "pending_acceptance" }),
@@ -774,7 +779,15 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       eq(shiftUtlRosters.departmentId, ids.departmentId),
       eq(shiftUtlRosters.monthlyUtlRotationId, monthlyRows[0]?.id ?? -1),
     ));
-    expect(generatedRows.length).toBe(0);
+    expect(generatedRows.length).toBeGreaterThan(0);
+    const generatedTeam = await db.select().from(iersShiftTeams).where(and(
+      eq(iersShiftTeams.institutionId, ids.institutionId),
+      eq(iersShiftTeams.poleId, ids.poleId),
+      eq(iersShiftTeams.shiftDate, generatedRows[0]!.shiftDate),
+      eq(iersShiftTeams.shiftType, generatedRows[0]!.shiftType),
+      eq(iersShiftTeams.status, "published"),
+    )).limit(1);
+    expect(generatedTeam[0]).toEqual(expect.objectContaining({ shiftDate: generatedRows[0]!.shiftDate, shiftType: generatedRows[0]!.shiftType }));
 
     const shiftTemplate = await adminCaller.institution.createInstitutionShiftTemplate({
       institutionId: ids.institutionId,
