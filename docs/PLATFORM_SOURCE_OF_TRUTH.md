@@ -21,6 +21,8 @@
 | [FPKB_SCHEMA_V1.md](./FPKB_SCHEMA_V1.md) | Complete database schema for the Failure Pattern Knowledge Base — 11 tables, indexes, migration sequence, seed data. |
 | [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md) | Field-by-field observation specification for Care Signal v3, Safe-Truth v1, ResusGPS session record, and Fellowship competency record. |
 | [FINANCIAL_STRATEGY_V1.md](./FINANCIAL_STRATEGY_V1.md) | Four-business revenue model, constitutional revenue principle, pricing, sequencing. |
+| [IERS_DOCUMENTATION_INDEX.md](./institutional/IERS_DOCUMENTATION_INDEX.md) | Canonical IERS documentation map for clients, providers, administrators, reviewers, support teams, and agents. |
+| [IERS_CLIENT_ONBOARDING_AND_OPERATING_MANUAL_V1.md](./institutional/IERS_CLIENT_ONBOARDING_AND_OPERATING_MANUAL_V1.md) | External-facing IERS onboarding and operating policy: roles, facility setup, duties, readiness, response, reporting, adaptive learning, troubleshooting, and agent handoff. |
 | [IERS_NEW_USER_ORIENTATION_GUIDE.md](./institutional/IERS_NEW_USER_ORIENTATION_GUIDE.md) | Practical IERS onboarding: portal lanes, role ownership, duty states, drill workflow, and safety boundaries. |
 | [IERS_CPD_DEPARTMENT_RECONCILIATION_DESIGN_V1.md](./institutional/IERS_CPD_DEPARTMENT_RECONCILIATION_DESIGN_V1.md) | Non-destructive CPD label reconciliation, explicit IERS pole eligibility, alert semantics, authorization, and migration contract. |
 

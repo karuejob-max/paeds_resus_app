@@ -30,6 +30,10 @@ Long-range aspirational material (not near-term commitments) lives under **[`doc
 
 **Courses & Fellowship:** [`docs/COURSE_PORTFOLIO_AND_ADF_STRATEGY.md`](docs/COURSE_PORTFOLIO_AND_ADF_STRATEGY.md) · [`docs/MICRO_COURSE_CATALOG_BACKLOG.md`](docs/MICRO_COURSE_CATALOG_BACKLOG.md) · [`docs/FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md`](docs/FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md).
 
+**IERS onboarding and policy:** [`docs/institutional/IERS_DOCUMENTATION_INDEX.md`](docs/institutional/IERS_DOCUMENTATION_INDEX.md) routes clients, providers, administrators, reviewers, support teams, and agents to the correct document; [`docs/institutional/IERS_CLIENT_ONBOARDING_AND_OPERATING_MANUAL_V1.md`](docs/institutional/IERS_CLIENT_ONBOARDING_AND_OPERATING_MANUAL_V1.md) is the external-facing operating manual.
+
+**IERMS institutional standard and rollout:** [`docs/institutional/IERMS_STANDARD_V1.md`](docs/institutional/IERMS_STANDARD_V1.md) defines the five readiness domains; [`docs/institutional/IERMS_IMPLEMENTATION_SUITE.md`](docs/institutional/IERMS_IMPLEMENTATION_SUITE.md) defines the 90-day implementation sequence; [`docs/institutional/IERS_FACILITY_ONBOARDING_APPENDIX_TEMPLATE.md`](docs/institutional/IERS_FACILITY_ONBOARDING_APPENDIX_TEMPLATE.md) captures each facility’s local contacts, departments, poles, readiness approvals, escalation routes, and downtime plan.
+
 **Clinical protocols (authoritative + ResusGPS map):** [`docs/clinical-protocols/README.md`](docs/clinical-protocols/README.md) — [`docs/clinical-protocols/RESUSGPS_REGISTRY.md`](docs/clinical-protocols/RESUSGPS_REGISTRY.md) lists pathway IDs.
 
 **E2E test courses:** [`docs/E2E_SERIOUSLY_ILL_CHILD_COURSE.md`](docs/E2E_SERIOUSLY_ILL_CHILD_COURSE.md) · [`docs/E2E_PAEDIATRIC_SEPTIC_SHOCK_COURSE.md`](docs/E2E_PAEDIATRIC_SEPTIC_SHOCK_COURSE.md).
