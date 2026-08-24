@@ -28,4 +28,8 @@ describe("IERS registered Staff/RN eligibility", () => {
     expect(displayStaffRole({ staffRole: "other", cadre: "KRN" })).toBe("nurse");
     expect(displayStaffRole({ staffRole: "doctor", cadre: "MO" })).toBe("doctor");
   });
+
+  it("does not allow a student marker to be overridden by nurse fields", () => {
+    expect(isRegisteredRnProfile({ staffRole: "nurse", providerType: "nurse", cadre: "Staff RN Student" })).toBe(false);
+  });
 });

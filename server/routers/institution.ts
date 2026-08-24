@@ -81,6 +81,7 @@ import { ENV } from "../_core/env";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { isInstitutionInPilotProgram } from "@shared/pilot-program";
 import { validateDepartmentErcoAssignment } from "../lib/iers-department-governance";
+import { notifyDepartmentErcoOfUtlDecline, projectLegacyUtlRosterDecision, projectUtlRosterReassignment } from "../services/iers-utl-sync.service";
 import { getIsoWeekKey, getIsoWeekRange, getMonthlyShiftRows, monthStartFromShiftDate, normalizeMonthStart } from "../lib/iers-monthly-rota";
 import { insertCanonicalFacilityDepartments } from "../lib/iers-department-setup";
 import { DEFAULT_SHIFT_TEMPLATES, formatShiftInterval, shiftTemplateForType, validateShiftInterval } from "../lib/iers-shift-times";
@@ -184,6 +185,16 @@ async function saveShiftUtlRosterRow(db: DbClient, user: Pick<typeof users.$infe
       declineReason: shouldResetSignOff ? null : existing.declineReason,
       readinessSignOffAt: shouldResetSignOff ? null : existing.readinessSignOffAt,
     }).where(eq(shiftUtlRosters.id, existing.id));
+    if (shouldResetSignOff) {
+      await projectUtlRosterReassignment(db, {
+        roster: existing,
+        nextProviderUserId: canonicalUtlUserId,
+        nextShiftStartTime: timing.startTime,
+        nextShiftEndTime: timing.endTime,
+        nextShiftEndDayOffset: timing.endDayOffset,
+        actorUserId: user.id,
+      });
+    }
     return { id: existing.id, isShiftErtl, interval: formatShiftInterval(timing), changed: shouldResetSignOff };
   }
 
@@ -336,9 +347,12 @@ function providerBelongsToCanonicalDepartment(
   },
   department: { id: number; departmentName: string },
 ) {
+  // A canonical facility-department id is authoritative once present. An older
+  // profile/free-text label must not leak a provider into another department.
+  if (row.facilityDepartmentId != null) return row.facilityDepartmentId === department.id;
   const profileDepartment = row.profileDepartment?.trim();
   if (profileDepartment) return departmentLabelsMatch(profileDepartment, department.departmentName);
-  return row.facilityDepartmentId === department.id || departmentLabelsMatch(row.department ?? "", department.departmentName);
+  return departmentLabelsMatch(row.department ?? "", department.departmentName);
 }
 
 async function resolveCanonicalDepartmentProvider(
@@ -378,6 +392,7 @@ async function resolveCanonicalDepartmentProvider(
     .where(and(
       eq(institutionalStaffMembers.institutionalAccountId, institutionId),
       eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+      isNull(institutionalStaffMembers.removedAt),
       eq(institutionMemberships.membershipStatus, "active"),
       isNotNull(institutionalStaffMembers.userId),
     ))
@@ -2110,6 +2125,7 @@ export const institutionRouter = router({
         ))
         .where(and(
           eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+          isNull(institutionalStaffMembers.removedAt),
           or(
             eq(institutionalStaffMembers.facilityDepartmentId, department.id),
             sql`${institutionalStaffMembers.facilityDepartmentId} IS NULL AND LOWER(TRIM(${institutionalStaffMembers.department})) = LOWER(TRIM(${department.departmentName}))`,
@@ -2205,6 +2221,7 @@ export const institutionRouter = router({
           ))
           .where(and(
             eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+            isNull(institutionalStaffMembers.removedAt),
             or(
               eq(institutionalStaffMembers.facilityDepartmentId, department.id),
               sql`${institutionalStaffMembers.facilityDepartmentId} IS NULL AND LOWER(TRIM(${institutionalStaffMembers.department})) = LOWER(TRIM(${department.departmentName}))`,
@@ -5120,8 +5137,24 @@ export const institutionRouter = router({
       await db.update(shiftUtlRosters).set(
         input.response === "accept"
           ? { assignmentStatus: "active", acceptedAt: new Date(), declinedAt: null, declineReason: null }
-          : { assignmentStatus: "declined", acceptedAt: null, declinedAt: new Date(), declineReason: input.declineReason },
+          : { assignmentStatus: "declined", acceptedAt: null, declinedAt: new Date(), declineReason: input.declineReason, readinessSignOffAt: null, readinessSignedOffByUserId: null, readinessNote: null },
       ).where(eq(shiftUtlRosters.id, roster.id));
+      await projectLegacyUtlRosterDecision(db, {
+        roster,
+        actorUserId: ctx.user.id,
+        decision: input.response === "accept" ? "accepted" : "declined",
+        reason: input.declineReason ?? null,
+      });
+      if (input.response === "decline") {
+        await notifyDepartmentErcoOfUtlDecline(db, {
+          institutionId: roster.institutionId,
+          departmentId: roster.departmentId,
+          rosterId: roster.id,
+          shiftDate: roster.shiftDate,
+          shiftType: roster.shiftType,
+          reason: input.declineReason ?? null,
+        });
+      }
       return { success: true, assignmentStatus: input.response === "accept" ? "active" : "declined" as const };
     }),
 

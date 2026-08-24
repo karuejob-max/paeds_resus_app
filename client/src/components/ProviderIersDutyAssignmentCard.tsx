@@ -37,6 +37,7 @@ export default function ProviderIersDutyAssignmentCard() {
     void utils.institution.getMyDepartmentResponseAssignments.invalidate();
     void utils.institution.getMyProviderDutyAssignments.invalidate();
     void utils.iers.getMyShiftReadiness.invalidate();
+    void utils.iersShiftTeam.listMyShiftTeams.invalidate();
   };
   const respondCoordinator = trpc.institution.respondToDepartmentResponseCoordinatorAssignment.useMutation({
     onSuccess: () => { toast.success("Your ERCo response was recorded."); refreshAssignments(); },

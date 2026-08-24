@@ -8,6 +8,7 @@ import { assertInstitutionProductCapability } from "../lib/institution-entitleme
 import { assertInstitutionProductRole, type InstitutionalProductRoleKey } from "../lib/institution-product-roles";
 import { institutionalAccounts, cpdEvents, cpdAttendees, cpdCodeRevealLogs, institutionalStaffMembers, users, providerProfiles, facilityDepartments } from "../../drizzle/schema";
 import { canonicalizeDepartmentLabel, departmentLabelsMatch } from "../../shared/clinical-departments";
+import { reconcileInstitutionalStaffMember } from "../services/facility-registry.service";
 
 /** Shared cadre validator for input validation, matching the cpdAttendees.cadre column. */
 const cadreEnum = z.string().trim().min(1, "Please select or specify your cadre").max(128);
@@ -745,46 +746,23 @@ export const cpdRouter = router({
       // Auto-populate user's profile department from registration
       await syncUserProfileDepartment(db, ctx.user.id, resolvedDepartment);
 
-      // 2. Auto-Staff Population: Auto-create institutional staff member record if not yet linked
-      const [existingStaff] = await db
-        .select({ id: institutionalStaffMembers.id })
-        .from(institutionalStaffMembers)
-        .where(
-          and(
-            eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
-            eq(institutionalStaffMembers.staffEmail, normalizedEmail)
-          )
-        )
-        .limit(1);
-
-      if (!existingStaff) {
-        let staffRole: "doctor" | "nurse" | "paramedic" | "midwife" | "lab_tech" | "respiratory_therapist" | "support_staff" | "other" = "other";
-        const cLower = input.cadre.toLowerCase();
-        if (cLower.includes("nurse") || cLower.includes("nursing") || cLower.includes("msn") || cLower.includes("hnd")) {
-          staffRole = "nurse";
-        } else if (cLower.includes("doctor") || cLower.includes("mo") || cLower.includes("medical officer") || cLower.includes("physician") || cLower.includes("consultant")) {
-          staffRole = "doctor";
-        } else if (cLower.includes("clinical officer") || cLower.includes("rco")) {
-          staffRole = "paramedic";
-        }
-
-        await db.insert(institutionalStaffMembers).values({
-          institutionalAccountId: input.institutionId,
-          userId: ctx.user.id,
-          staffName: input.fullName,
-          staffEmail: normalizedEmail,
-          staffPhone: input.phone,
-          staffRole,
-          department: resolvedDepartment,
-          facilityDepartmentId: resolvedFacilityDepartmentId,
-          enrollmentStatus: "enrolled",
-          facilityLinkStatus: "linked",
-        });
-      } else {
-        await db.update(institutionalStaffMembers)
-          .set({ department: resolvedDepartment, facilityDepartmentId: resolvedFacilityDepartmentId, updatedAt: new Date() })
-          .where(eq(institutionalStaffMembers.id, existingStaff.id));
-      }
+      // 2. Auto-populate one canonical institutional staff row. This does not
+      // grant membership: without an already-active institution membership the
+      // row remains pending and is visible as not yet assignable until the normal
+      // invitation/acceptance contract is completed.
+      await reconcileInstitutionalStaffMember(db, {
+        institutionalAccountId: input.institutionId,
+        userId: ctx.user.id,
+        staffName: input.fullName,
+        staffEmail: normalizedEmail,
+        staffPhone: input.phone,
+        providerType: ctx.user.providerType,
+        cadre: input.cadre,
+        cadreOther: input.cadreOther ?? null,
+        department: resolvedDepartment,
+        facilityDepartmentId: resolvedFacilityDepartmentId,
+        enrollmentStatus: "enrolled",
+      });
 
       return { success: true as const, attendanceType };
     }),
