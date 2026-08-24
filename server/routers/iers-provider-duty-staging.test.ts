@@ -897,6 +897,25 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     ));
     expect(autoErtlRotation[0]?.assignmentStatus).toBe("unassigned");
 
+    // A configured rotation department without a nominated ERTL must use the
+    // explicitly staffed UTL for the same department as the dated Scene Commander.
+    await db.update(ertlWeeklyRotations).set({ assignmentStatus: "pending_acceptance" }).where(eq(ertlWeeklyRotations.id, autoErtlRotation[0]!.id));
+    const projectedDirectTeams = await assignedCaller.iersShiftTeam.listMyShiftTeams({ horizonDays: 7 });
+    const projectedDirectTeam = projectedDirectTeams.find((team) => team.teamId === ids.directTeamId);
+    expect(projectedDirectTeam?.assignments).toEqual(expect.arrayContaining([
+      expect.objectContaining({ roleScope: "utl", providerUserId: ids.assignedProviderId, shiftUtlRosterId: expect.any(Number) }),
+      expect.objectContaining({ roleScope: "ertl", providerUserId: ids.assignedProviderId, shiftUtlRosterId: expect.any(Number), assignmentStatus: "pending_acceptance" }),
+    ]));
+    const projectedDirectErtl = projectedDirectTeam?.assignments.find((assignment) => assignment.roleScope === "ertl");
+    expect(projectedDirectErtl?.shiftUtlRosterId).toBeTruthy();
+    const repeatedProjection = await assignedCaller.iersShiftTeam.listMyShiftTeams({ horizonDays: 7 });
+    expect(repeatedProjection.find((team) => team.teamId === ids.directTeamId)?.assignments.filter((assignment) => assignment.roleScope === "ertl")).toHaveLength(1);
+    const directScopeRows = await db.select({ roleScope: iersShiftRoleAssignments.roleScope }).from(iersShiftRoleAssignments).where(and(
+      eq(iersShiftRoleAssignments.teamId, ids.directTeamId),
+      eq(iersShiftRoleAssignments.shiftUtlRosterId, projectedDirectErtl?.shiftUtlRosterId ?? -1),
+    ));
+    expect(directScopeRows.map((row) => row.roleScope).sort()).toEqual(["ertl", "utl"]);
+
     const utlAccepted = await assignedCaller.institution.respondToShiftUtlRoster({ rosterId: ids.rosterId, response: "accept" });
     expect(utlAccepted.assignmentStatus).toBe("active");
     const projectedLegacyAssignment = await db.select({ assignmentStatus: iersShiftRoleAssignments.assignmentStatus }).from(iersShiftRoleAssignments).where(eq(iersShiftRoleAssignments.id, ids.publishedUtlAssignmentId)).limit(1);
@@ -934,6 +953,76 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
 
     const signedOff = await assignedCaller.iers.signOffShiftReadiness({ shiftRosterId: ids.rosterId, note: "Staging readiness evidence" });
     expect(signedOff.success).toBe(true);
+
+    const directErtl = await db.insert(iersShiftRoleAssignments).values({
+      teamId: ids.publishedTeamId,
+      institutionId: ids.institutionId,
+      poleId: ids.poleId,
+      departmentId: ids.departmentId,
+      providerUserId: ids.assignedProviderId,
+      shiftUtlRosterId: null,
+      roleScope: "ertl",
+      roleKey: "ertl",
+      assignmentStatus: "pending_acceptance",
+      proposedByUserId: ids.adminId,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const directErtlAssignmentId = Number((directErtl as unknown as { insertId: number }).insertId);
+    await db.update(institutionProductRoles).set({ roleStatus: "ended", endedAt: new Date() }).where(and(
+      eq(institutionProductRoles.institutionalAccountId, ids.institutionId),
+      eq(institutionProductRoles.productId, ids.productId),
+      eq(institutionProductRoles.userId, ids.assignedProviderId),
+      eq(institutionProductRoles.roleKey, "iers_responder"),
+    ));
+    const ertlAccepted = await assignedCaller.iersShiftTeam.respondToRole({ assignmentId: directErtlAssignmentId, decision: "accepted" });
+    expect(ertlAccepted.assignmentStatus).toBe("accepted");
+    await db.update(institutionProductRoles).set({ roleStatus: "active", endedAt: null }).where(and(
+      eq(institutionProductRoles.institutionalAccountId, ids.institutionId),
+      eq(institutionProductRoles.productId, ids.productId),
+      eq(institutionProductRoles.userId, ids.assignedProviderId),
+      eq(institutionProductRoles.roleKey, "iers_responder"),
+    ));
+    const memberInsert = await db.insert(iersShiftRoleAssignments).values({
+      teamId: ids.publishedTeamId,
+      institutionId: ids.institutionId,
+      poleId: ids.poleId,
+      departmentId: ids.departmentId,
+      providerUserId: ids.unrelatedProviderId,
+      shiftUtlRosterId: null,
+      roleScope: "ert_member",
+      roleKey: "runner",
+      assignmentStatus: "pending_acceptance",
+      proposedByUserId: ids.adminId,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const memberAssignmentId = Number((memberInsert as unknown as { insertId: number }).insertId);
+    const assignedRole = await assignedCaller.iersShiftTeam.assignMemberRole({
+      teamId: ids.publishedTeamId,
+      assignmentId: memberAssignmentId,
+      roleKey: "airway_lead",
+      reason: "Staging ERTL role allocation",
+    });
+    expect(assignedRole.status).toBe("pending_acceptance");
+    const reassignedMember = await db.select({ roleKey: iersShiftRoleAssignments.roleKey, assignmentStatus: iersShiftRoleAssignments.assignmentStatus, acceptedAt: iersShiftRoleAssignments.acceptedAt, declinedAt: iersShiftRoleAssignments.declinedAt }).from(iersShiftRoleAssignments).where(eq(iersShiftRoleAssignments.id, memberAssignmentId)).limit(1);
+    expect(reassignedMember[0]).toEqual(expect.objectContaining({ roleKey: "airway_lead", assignmentStatus: "pending_acceptance", acceptedAt: null, declinedAt: null }));
+    await expectTrpcError(
+      () => replacementCaller.iersShiftTeam.recommendRole({ assignmentId: memberAssignmentId, requestedRoleKey: "breathing_lead", reason: "Staging non-assignee denial" }),
+      "NOT_FOUND",
+    );
+    const memberAccepted = await unrelatedCaller.iersShiftTeam.respondToRole({ assignmentId: memberAssignmentId, decision: "accepted" });
+    expect(memberAccepted.assignmentStatus).toBe("accepted");
+    const recommendation = await unrelatedCaller.iersShiftTeam.recommendRole({ assignmentId: memberAssignmentId, requestedRoleKey: "breathing_lead", reason: "Staging airway workload" });
+    expect(recommendation.recommendationId).toBeGreaterThan(0);
+    const recommendationDecision = await assignedCaller.iersShiftTeam.decideRoleRecommendation({ recommendationId: recommendation.recommendationId, decision: "approved", note: "Staging ERTL approval" });
+    expect(recommendationDecision.status).toBe("approved");
+    const recommendationReset = await db.select({ roleKey: iersShiftRoleAssignments.roleKey, assignmentStatus: iersShiftRoleAssignments.assignmentStatus, acceptedAt: iersShiftRoleAssignments.acceptedAt }).from(iersShiftRoleAssignments).where(eq(iersShiftRoleAssignments.id, memberAssignmentId)).limit(1);
+    expect(recommendationReset[0]).toEqual(expect.objectContaining({ roleKey: "breathing_lead", assignmentStatus: "pending_acceptance", acceptedAt: null }));
+    await expectTrpcError(
+      () => unrelatedCaller.iersShiftTeam.assignMemberRole({ teamId: ids.publishedTeamId, assignmentId: memberAssignmentId, roleKey: "circulation_lead", reason: "Should be denied to a non-ERTL" }),
+      "FORBIDDEN",
+    );
 
     const reassignedUtl = await assignedCaller.institution.submitShiftUtlRoster({
       institutionId: ids.institutionId,

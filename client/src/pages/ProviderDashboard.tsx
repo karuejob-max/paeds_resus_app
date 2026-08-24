@@ -34,6 +34,7 @@ import ProviderInstitutionReadinessCard from "@/components/ProviderInstitutionRe
 import ProviderIersActivationCard from "@/components/ProviderIersActivationCard";
 import ProviderIersDutyAssignmentCard from "@/components/ProviderIersDutyAssignmentCard";
 import ProviderIersShiftTeamCard from "@/components/ProviderIersShiftTeamCard";
+import ProviderIersOperationsCard from "@/components/ProviderIersOperationsCard";
 import ProviderShiftReadinessCard from "@/components/ProviderShiftReadinessCard";
 import ProviderIersEvidenceCard from "@/components/ProviderIersEvidenceCard";
 import ProviderIersActionCard from "@/components/ProviderIersActionCard";
@@ -479,11 +480,12 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
         {/* ── Institutional readiness responsibility ──────────────────────────── */}
         <ProviderInstitutionReadinessCard />
         <ProviderIersShiftTeamCard />
+        <ProviderIersActivationCard />
+        <ProviderIersOperationsCard />
         <ProviderIersDutyAssignmentCard />
         <ProviderShiftReadinessCard />
         <ProviderIersEvidenceCard />
         <ProviderIersActionCard />
-        <ProviderIersActivationCard />
 
         {/* ── My Performance ──────────────────────────────────────────────────── */}
         <MyPerformanceScorecard />
