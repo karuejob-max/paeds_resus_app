@@ -70,6 +70,7 @@ const PerformanceDashboard = lazy(() =>
 const ProviderProfile = lazy(() => import("./pages/ProviderProfile"));
 const ProviderDashboard = lazy(() => import("./pages/ProviderDashboard"));
 const ProviderIersStaffing = lazy(() => import("./pages/ProviderIersStaffing"));
+const IersOrientationPublic = lazy(() => import("./pages/IersOrientationPublic"));
 const CPRMonitoring = lazy(() => import("./pages/CPRMonitoring"));
 const VerifyCertificate = lazy(() => import("./pages/VerifyCertificate"));
 const Referral = lazy(() => import("./pages/Referral"));
@@ -182,6 +183,7 @@ function Router() {
           <Route path="/my-cpd-certificates" component={MyCpdCertificates} />
           <Route path="/my-cne-certificates">{() => <Redirect to="/my-cpd-certificates" />}</Route>
           <Route path="/home" component={Home} />
+          <Route path="/iers/orientation" component={IersOrientationPublic} />
           <Route path="/iers/staffing">{() => (
             <RoleGate allowed={["provider"]}>
               <ProviderIersStaffing />

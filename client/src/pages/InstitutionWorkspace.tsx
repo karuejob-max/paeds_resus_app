@@ -12,6 +12,7 @@ import {
   Activity,
   ArrowRight,
   Building2,
+  BookOpen,
   CheckCircle2,
   ClipboardCheck,
   CreditCard,
@@ -216,9 +217,14 @@ export default function InstitutionWorkspace() {
               One institution account, two products, and one shared administration layer. Providers and institutional leaders work from the same readiness record.
             </p>
           </div>
-          <Button className="w-full shrink-0 md:w-auto" variant="outline" onClick={() => setSection("administration")}>
-            <Settings2 className="mr-2 h-4 w-4" /> Administration
-          </Button>
+          <div className="flex w-full shrink-0 flex-col gap-2 md:w-auto md:flex-row">
+            <Button className="w-full md:w-auto" variant="outline" onClick={() => navigate("/iers/orientation")}>
+              <BookOpen className="mr-2 h-4 w-4" /> IERS guide
+            </Button>
+            <Button className="w-full md:w-auto" variant="outline" onClick={() => setSection("administration")}>
+              <Settings2 className="mr-2 h-4 w-4" /> Administration
+            </Button>
+          </div>
         </div>
 
         <div className="mb-6 grid gap-4 lg:grid-cols-3">
