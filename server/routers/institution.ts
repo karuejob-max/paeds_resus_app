@@ -2253,7 +2253,8 @@ export const institutionRouter = router({
         console.warn("[IERS] Background CPD facility-link repair failed", error);
       });
 
-      let rows: Array<typeof institutionalStaffMembers.$inferSelect>;
+      type InstitutionStaffRosterRow = Omit<typeof institutionalStaffMembers.$inferSelect, "assignedCourses">;
+      let rows: Array<InstitutionStaffRosterRow>;
       try {
         rows = await db
           .select({
@@ -2323,7 +2324,7 @@ export const institutionRouter = router({
           })
           .from(institutionalStaffMembers)
           .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
-        rows = legacyRows.map((row) => ({ ...row, removedAt: null, removedByUserId: null, removalReason: null })) as Array<typeof institutionalStaffMembers.$inferSelect>;
+        rows = legacyRows.map((row) => ({ ...row, removedAt: null, removedByUserId: null, removalReason: null }));
       }
       const memberships = await db
         .select({
