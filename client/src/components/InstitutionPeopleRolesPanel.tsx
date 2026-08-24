@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -76,6 +76,15 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
     enabled: !!institutionId,
     staleTime: 30_000,
   });
+  const cpdRepairRefreshIssued = useRef<number | null>(null);
+  useEffect(() => {
+    if (!institutionId || isLoading || cpdRepairRefreshIssued.current === institutionId) return;
+    cpdRepairRefreshIssued.current = institutionId;
+    const timeoutId = window.setTimeout(() => {
+      void refetch();
+    }, 1200);
+    return () => window.clearTimeout(timeoutId);
+  }, [institutionId, isLoading, refetch]);
   const { data: mismatchReports } = trpc.institution.getDepartmentMismatchReports.useQuery({ institutionId }, {
     enabled: !!institutionId,
     staleTime: 30_000,

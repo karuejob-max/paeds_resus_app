@@ -19,7 +19,7 @@ import {
 import { inferDesignationFromCadre } from "../../shared/cadre-designation-mapping";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { DEFAULT_FACILITY_COUNTRY } from "../../shared/kenya-counties";
-import { canonicalizeDepartmentLabel, departmentLabelsMatch } from "../../shared/clinical-departments";
+import { DEPARTMENT_ALIASES, canonicalizeDepartmentLabel, departmentLabelsMatch } from "../../shared/clinical-departments";
 
 export type FacilitySearchResult = {
   id: number;
@@ -619,58 +619,86 @@ export async function autoLinkCpdFacilitiesForUser(
 }
 
 const CPD_INSTITUTION_REPAIR_TTL_MS = 5 * 60_000;
-const cpdInstitutionRepairCache = new Map<number, { expiresAt: number; result: CpdFacilityLinkResult[] }>();
-const cpdInstitutionRepairInFlight = new Map<number, Promise<CpdFacilityLinkResult[]>>();
+const cpdInstitutionRepairCache = new Map<string, { expiresAt: number; result: CpdFacilityLinkResult[] }>();
+const cpdInstitutionRepairInFlight = new Map<string, Promise<CpdFacilityLinkResult[]>>();
 
 export async function autoLinkCpdFacilitiesForInstitution(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   institutionalAccountId: number,
+  departmentId?: number,
 ): Promise<CpdFacilityLinkResult[]> {
+  const cacheKey = `${institutionalAccountId}:${departmentId ?? "all"}`;
   const now = Date.now();
-  const cached = cpdInstitutionRepairCache.get(institutionalAccountId);
+  const cached = cpdInstitutionRepairCache.get(cacheKey);
   if (cached && cached.expiresAt > now) return cached.result;
-  const inFlight = cpdInstitutionRepairInFlight.get(institutionalAccountId);
+  const inFlight = cpdInstitutionRepairInFlight.get(cacheKey);
   if (inFlight) return inFlight;
 
   const repair = (async (): Promise<CpdFacilityLinkResult[]> => {
+    let department: { id: number; departmentName: string } | undefined;
+    if (departmentId != null) {
+      [department] = await db
+        .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
+        .from(facilityDepartments)
+        .where(and(
+          eq(facilityDepartments.id, departmentId),
+          eq(facilityDepartments.institutionId, institutionalAccountId),
+          eq(facilityDepartments.isActive, true),
+        ))
+        .limit(1);
+      if (!department) return [];
+    }
+
     const linkedMembers = await db
-    .select({ userId: institutionalStaffMembers.userId })
-    .from(institutionalStaffMembers)
-    .innerJoin(institutionMemberships, and(
-      eq(institutionMemberships.institutionalAccountId, institutionalAccountId),
-      eq(institutionMemberships.userId, institutionalStaffMembers.userId),
-      eq(institutionMemberships.membershipStatus, "active"),
-    ))
-    .where(and(
-      eq(institutionalStaffMembers.institutionalAccountId, institutionalAccountId),
-      eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
-      isNull(institutionalStaffMembers.removedAt),
-      isNotNull(institutionalStaffMembers.userId),
-    ));
+      .select({ userId: institutionalStaffMembers.userId })
+      .from(institutionalStaffMembers)
+      .innerJoin(institutionMemberships, and(
+        eq(institutionMemberships.institutionalAccountId, institutionalAccountId),
+        eq(institutionMemberships.userId, institutionalStaffMembers.userId),
+        eq(institutionMemberships.membershipStatus, "active"),
+      ))
+      .where(and(
+        eq(institutionalStaffMembers.institutionalAccountId, institutionalAccountId),
+        eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+        isNull(institutionalStaffMembers.removedAt),
+        isNotNull(institutionalStaffMembers.userId),
+      ));
     const alreadyLinkedUserIds = new Set(linkedMembers.flatMap((row) => row.userId == null ? [] : [row.userId]));
 
-    const attendeeRows = await db
-    .select({
-      userId: users.id,
-      fullName: cpdAttendees.fullName,
-      email: cpdAttendees.email,
-      phone: cpdAttendees.phone,
-      providerType: users.providerType,
-      userCadre: users.cadre,
-      userCadreOther: users.cadreOther,
-      cadre: cpdAttendees.cadre,
-      cadreOther: cpdAttendees.cadreOther,
-      department: cpdAttendees.department,
-      facilityDepartmentId: cpdAttendees.facilityDepartmentId,
-      attendanceType: cpdAttendees.attendanceType,
-    })
-    .from(cpdAttendees)
-    .innerJoin(users, sql`LOWER(TRIM(${users.email})) = LOWER(TRIM(${cpdAttendees.email}))`)
-    .where(and(
+    const attendeeFilters = [
       eq(cpdAttendees.institutionalAccountId, institutionalAccountId),
       sql`${cpdAttendees.attendanceType} <> 'guest_external'`,
-    ))
-    .orderBy(desc(cpdAttendees.id));
+    ];
+    if (department) {
+      const terms = [department.departmentName, ...(DEPARTMENT_ALIASES[department.departmentName] ?? [])]
+        .map((term) => term.trim().toLowerCase())
+        .filter((term, index, values) => term.length >= 3 && values.indexOf(term) === index);
+      const departmentMatch = or(
+        eq(cpdAttendees.facilityDepartmentId, department.id),
+        ...terms.map((term) => sql`LOWER(TRIM(${cpdAttendees.department})) LIKE ${`%${term}%`}`),
+      );
+      if (departmentMatch) attendeeFilters.push(departmentMatch);
+    }
+
+    const attendeeRows = await db
+      .select({
+        userId: users.id,
+        fullName: cpdAttendees.fullName,
+        email: cpdAttendees.email,
+        phone: cpdAttendees.phone,
+        providerType: users.providerType,
+        userCadre: users.cadre,
+        userCadreOther: users.cadreOther,
+        cadre: cpdAttendees.cadre,
+        cadreOther: cpdAttendees.cadreOther,
+        department: cpdAttendees.department,
+        facilityDepartmentId: cpdAttendees.facilityDepartmentId,
+        attendanceType: cpdAttendees.attendanceType,
+      })
+      .from(cpdAttendees)
+      .innerJoin(users, sql`LOWER(TRIM(${users.email})) = LOWER(TRIM(${cpdAttendees.email}))`)
+      .where(and(...attendeeFilters))
+      .orderBy(desc(cpdAttendees.id));
 
     const latestByUser = new Map<number, (typeof attendeeRows)[number]>();
     for (const row of attendeeRows) {
@@ -690,20 +718,20 @@ export async function autoLinkCpdFacilitiesForInstitution(
         cadre: attendee.userCadre ?? attendee.cadre,
         cadreOther: attendee.userCadreOther ?? attendee.cadreOther,
         department: attendee.department,
-        facilityDepartmentId: attendee.facilityDepartmentId,
+        facilityDepartmentId: attendee.facilityDepartmentId ?? department?.id ?? null,
         relationship: attendee.attendanceType === "locum_outreach" ? "locum_outreach" : "permanent_facility",
       }));
     }
     return results;
   })();
 
-  cpdInstitutionRepairInFlight.set(institutionalAccountId, repair);
+  cpdInstitutionRepairInFlight.set(cacheKey, repair);
   try {
     const result = await repair;
-    cpdInstitutionRepairCache.set(institutionalAccountId, { expiresAt: Date.now() + CPD_INSTITUTION_REPAIR_TTL_MS, result });
+    cpdInstitutionRepairCache.set(cacheKey, { expiresAt: Date.now() + CPD_INSTITUTION_REPAIR_TTL_MS, result });
     return result;
   } finally {
-    cpdInstitutionRepairInFlight.delete(institutionalAccountId);
+    cpdInstitutionRepairInFlight.delete(cacheKey);
   }
 }
 
