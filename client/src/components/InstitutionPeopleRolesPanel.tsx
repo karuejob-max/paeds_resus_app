@@ -154,6 +154,20 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
     },
     onError: (error) => toast.error(error.message || "Could not update institution scope status"),
   });
+  const retireStaffRecord = trpc.institution.retireInstitutionStaffRecord.useMutation({
+    onSuccess: async () => {
+      toast.success("Roster record retired from this institution; history was retained.");
+      setRemovalTarget(null);
+      setRemovalReason("");
+      setRemovalReportId(null);
+      await Promise.all([
+        utils.institution.getStaffMembers.invalidate({ institutionId }),
+        utils.institution.getInstitutionIersDutyAssignments.invalidate({ institutionId }),
+        utils.institution.getDepartmentMismatchReports.invalidate({ institutionId }),
+      ]);
+    },
+    onError: (error) => toast.error(error.message || "Could not retire this roster record"),
+  });
   const removeMember = trpc.institution.removeInstitutionMember.useMutation({
     onSuccess: async () => {
       toast.success("Person removed from this institution");
@@ -248,7 +262,7 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
               {mismatchStaff ? <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto] md:items-end">
                 <label className="space-y-1 text-xs"><span className="font-medium">Reallocate to current department</span><Select value={reallocationReportId === report.id ? reallocationDepartmentId : ""} onValueChange={(value) => { setReallocationReportId(report.id); setReallocationDepartmentId(value); }}><SelectTrigger><SelectValue placeholder="Choose department" /></SelectTrigger><SelectContent>{(facilityDepartments ?? []).map((department) => <SelectItem key={department.id} value={String(department.id)}>{department.departmentName}</SelectItem>)}</SelectContent></Select></label>
                 <label className="space-y-1 text-xs"><span className="font-medium">Reason</span><Input value={reallocationReportId === report.id ? reallocationReason : ""} onChange={(event) => { setReallocationReportId(report.id); setReallocationReason(event.target.value); }} placeholder="At least 10 characters" /></label>
-                <div className="flex flex-col gap-2 sm:flex-row md:flex-col"><Button type="button" size="sm" disabled={reallocationReportId !== report.id || !reallocationDepartmentId || reallocationReason.trim().length < 10 || reallocationMutation.isPending} onClick={() => reallocationMutation.mutate({ institutionId, staffMemberId: mismatchStaff.id, departmentId: Number(reallocationDepartmentId), reason: reallocationReason.trim(), mismatchReportId: report.id })}>{reallocationMutation.isPending ? "Saving…" : "Reallocate"}</Button><Button type="button" size="sm" variant="destructive" disabled={!mismatchStaff.membershipId || removeMember.isPending} onClick={() => { setRemovalTarget(mismatchStaff); setRemovalReason("Department mismatch reported; retiring from institution after administrator review."); setRemovalReportId(report.id); }}>Retire</Button></div>
+                <div className="flex flex-col gap-2 sm:flex-row md:flex-col"><Button type="button" size="sm" disabled={reallocationReportId !== report.id || !reallocationDepartmentId || reallocationReason.trim().length < 10 || reallocationMutation.isPending} onClick={() => reallocationMutation.mutate({ institutionId, staffMemberId: mismatchStaff.id, departmentId: Number(reallocationDepartmentId), reason: reallocationReason.trim(), mismatchReportId: report.id })}>{reallocationMutation.isPending ? "Saving…" : "Reallocate"}</Button><Button type="button" size="sm" variant="destructive" disabled={removeMember.isPending || retireStaffRecord.isPending} onClick={() => { setRemovalTarget(mismatchStaff); setRemovalReason("Department mismatch reported; retiring from institution after administrator review."); setRemovalReportId(report.id); }}>Retire</Button></div>
               </div> : <p className="mt-2 text-xs text-amber-800">The linked staff row is no longer available. Refresh the roster and review the account’s membership history.</p>}
             </div>)}
           </CardContent>
@@ -275,7 +289,7 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
             </div>
             <Input placeholder="Required reason (at least 10 characters)" value={removalReason} onChange={(event) => setRemovalReason(event.target.value)} />
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="button" variant="destructive" className="w-full sm:w-auto" disabled={!removalTarget.membershipId || removalReason.trim().length < 10 || removeMember.isPending} onClick={() => removalTarget.membershipId && removeMember.mutate({ institutionId, membershipId: removalTarget.membershipId, reason: removalReason.trim(), mismatchReportId: removalReportId ?? undefined })}>{removeMember.isPending ? "Removing…" : "Confirm removal"}</Button>
+              <Button type="button" variant="destructive" className="w-full sm:w-auto" disabled={removalReason.trim().length < 10 || removeMember.isPending || retireStaffRecord.isPending} onClick={() => { if (removalTarget.membershipId) { removeMember.mutate({ institutionId, membershipId: removalTarget.membershipId, reason: removalReason.trim(), mismatchReportId: removalReportId ?? undefined }); } else { retireStaffRecord.mutate({ institutionId, staffMemberId: removalTarget.id, reason: removalReason.trim(), mismatchReportId: removalReportId ?? undefined }); } }}>{removeMember.isPending || retireStaffRecord.isPending ? "Removing…" : removalTarget.membershipId ? "Confirm removal" : "Retire roster record"}</Button>
               <Button type="button" variant="outline" className="w-full sm:w-auto" disabled={removeMember.isPending} onClick={() => { setRemovalTarget(null); setRemovalReason(""); }}>Cancel</Button>
             </div>
           </div>
@@ -317,7 +331,7 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
                       </TableCell>
                       <TableCell><Badge variant={isRemoved ? "destructive" : member.facilityLinkStatus === "linked" ? "default" : "secondary"}>{isRemoved ? "Removed" : member.facilityLinkStatus === "linked" ? "Linked" : member.facilityLinkStatus ?? "Roster only"}</Badge></TableCell>
                       <TableCell>
-                        {isRemoved ? <span className="text-xs text-muted-foreground">Access ended</span> : member.membershipId ? <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" className="text-amber-700" onClick={() => { setUnlinkTarget(member); setUnlinkReason(""); }} disabled={unlinkMember.isPending || removeMember.isPending}><AlertTriangle className="mr-2 h-4 w-4" />Unlink</Button><Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); setRemovalReportId(null); }} disabled={removeMember.isPending || unlinkMember.isPending}><UserMinus className="mr-2 h-4 w-4" />Retire</Button></div> : <span className="text-xs text-muted-foreground">No membership</span>}
+                        {isRemoved ? <span className="text-xs text-muted-foreground">Access ended</span> : member.membershipId ? <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" className="text-amber-700" onClick={() => { setUnlinkTarget(member); setUnlinkReason(""); }} disabled={unlinkMember.isPending || removeMember.isPending || retireStaffRecord.isPending}><AlertTriangle className="mr-2 h-4 w-4" />Unlink</Button><Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); setRemovalReportId(null); }} disabled={removeMember.isPending || retireStaffRecord.isPending || unlinkMember.isPending}><UserMinus className="mr-2 h-4 w-4" />Retire</Button></div> : <Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); setRemovalReportId(null); }} disabled={removeMember.isPending || retireStaffRecord.isPending}><UserMinus className="mr-2 h-4 w-4" />Retire from roster</Button>}
                       </TableCell>
                     </TableRow>
                   );
