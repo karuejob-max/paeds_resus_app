@@ -98,11 +98,20 @@ High-level map (routes may evolve; check the codebase if in doubt):
 | Surface | Purpose |
 |---------|---------|
 | **ResusGPS** | Core provider emergency guidance (e.g. `/` and related flows). |
-| **Provider hub** | `/home` — dashboard: ResusGPS, enroll in courses, learning, links to act as institution or parent. |
+| **Provider hub / Individual Platform** | `/home` — minimal **Today** surface: one next-action card, active facility context, and direct destinations for ResusGPS, My Shift, Learn, and My Records. Detailed operational and learning content is lazy-loaded only when opened. |
 | **Instructor portal** | `/instructor-portal` — instructor journey status, **My assignments** (B2B sessions), resources placeholder; gated on certification + platform approval for full teaching access. |
 | **Parent / guardian** | `/parent-safe-truth` — Safe-Truth and parent-facing resources. |
 | **Institution** | Hospital admin institutional dashboards (canonical route: `/hospital-admin-dashboard`; legacy `/institutional-portal` may redirect) — institutional metrics and management. |
 | **Admin** | `/admin` — reports, insights, advanced tools; **admin** access is governed by [§7](#7-auth-and-roles). |
+
+### Individual Platform information architecture (locked for the minimal provider experience)
+
+The default individual-provider home is **Today**, not a catalogue of every available feature. Today may surface only the highest-priority provider action: a live activation response, a membership or dated-duty response, a readiness task, the next dated duty, or ResusGPS when no provider action is waiting. It must not claim that no action is waiting while the relevant workplace queries are still loading.
+
+The provider’s detail destinations are deliberately separated: **My Shift** contains dated ERT/UTL/ERTL duties, readiness, activation response, participation, targeted reports, anonymous Care/Code Signal entry points, evidence, and actions; **Learn** contains Fellowship and AHA learning journeys; **My Records** contains CPD attendance, certificates, facility relationships, profile, and account maintenance. The mobile bottom navigation uses **Today, Resus, Learn, and Records**. This is an information-architecture decision, not a removal of existing capabilities.
+
+ResusGPS remains the shortest path to structured bedside paediatric emergency guidance. A provider’s facility membership or learning enrollment must not be treated as proof of competency, activation attendance, or emergency dispatch authority. IERS controls continue to obey exact tenant, institution, pole, department, dated-shift, membership, assignment, and explicit-acceptance rules. Detailed workspaces should be lazy-loaded so the default home does not fetch or render every product card at once.
+
 
 ### Admin (platform owner)
 
