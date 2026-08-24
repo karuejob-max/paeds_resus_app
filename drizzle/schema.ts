@@ -4805,6 +4805,244 @@ export const shiftUtlRosters = mysqlTable("shift_utl_rosters", {
 export type ShiftUtlRoster = typeof shiftUtlRosters.$inferSelect;
 export type InsertShiftUtlRoster = typeof shiftUtlRosters.$inferInsert;
 
+/** Versioned planned team for one pole, date, and shift. */
+export const iersShiftTeams = mysqlTable("iers_shift_teams", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  poleId: int("pole_id").notNull(),
+  shiftDate: date("shift_date").notNull(),
+  shiftType: mysqlEnum("shift_type", ["morning", "evening", "night"]).notNull(),
+  shiftStartTime: time("shift_start_time").notNull(),
+  shiftEndTime: time("shift_end_time").notNull(),
+  shiftEndDayOffset: int("shift_end_day_offset").default(0).notNull(),
+  teamVersion: int("team_version").default(1).notNull(),
+  status: mysqlEnum("status", ["draft", "published", "active", "closed", "superseded"]).default("draft").notNull(),
+  createdByUserId: int("created_by_user_id").notNull(),
+  publishedAt: timestamp("published_at"),
+  closedAt: timestamp("closed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionShiftIndex: index("iers_shift_teams_institution_shift_idx").on(table.institutionId, table.shiftDate, table.shiftType),
+  poleShiftIndex: index("iers_shift_teams_pole_shift_idx").on(table.poleId, table.shiftDate, table.shiftType, table.teamVersion),
+}));
+export type IersShiftTeam = typeof iersShiftTeams.$inferSelect;
+export type InsertIersShiftTeam = typeof iersShiftTeams.$inferInsert;
+
+/** One provider's dated operational role in a versioned shift team. */
+export const iersShiftRoleAssignments = mysqlTable("iers_shift_role_assignments", {
+  id: int("id").autoincrement().primaryKey(),
+  teamId: int("team_id").notNull(),
+  institutionId: int("institution_id").notNull(),
+  poleId: int("pole_id").notNull(),
+  departmentId: int("department_id"),
+  providerUserId: int("provider_user_id").notNull(),
+  shiftUtlRosterId: int("shift_utl_roster_id"),
+  roleScope: mysqlEnum("role_scope", ["utl", "ertl", "ert_member"]).notNull(),
+  roleKey: varchar("role_key", { length: 64 }).notNull(),
+  assignmentStatus: mysqlEnum("assignment_status", ["proposed", "approved", "pending_acceptance", "accepted", "declined", "expired", "superseded", "ended"]).default("proposed").notNull(),
+  assignmentVersion: int("assignment_version").default(1).notNull(),
+  proposedByUserId: int("proposed_by_user_id").notNull(),
+  approvedByUserId: int("approved_by_user_id"),
+  acceptedAt: timestamp("accepted_at"),
+  declinedAt: timestamp("declined_at"),
+  declineReason: varchar("decline_reason", { length: 500 }),
+  supersededAt: timestamp("superseded_at"),
+  endedAt: timestamp("ended_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  teamProviderIndex: index("iers_shift_role_assignments_team_provider_idx").on(table.teamId, table.providerUserId),
+  institutionProviderIndex: index("iers_shift_role_assignments_institution_provider_idx").on(table.institutionId, table.providerUserId, table.assignmentStatus),
+  teamRoleIndex: index("iers_shift_role_assignments_team_role_idx").on(table.teamId, table.roleScope, table.roleKey),
+}));
+export type IersShiftRoleAssignment = typeof iersShiftRoleAssignments.$inferSelect;
+export type InsertIersShiftRoleAssignment = typeof iersShiftRoleAssignments.$inferInsert;
+
+/** A provider's proposed alternative role awaiting ERTL decision and provider acceptance. */
+export const iersShiftRoleRecommendations = mysqlTable("iers_shift_role_recommendations", {
+  id: int("id").autoincrement().primaryKey(),
+  assignmentId: int("assignment_id").notNull(),
+  teamId: int("team_id").notNull(),
+  institutionId: int("institution_id").notNull(),
+  requestedByUserId: int("requested_by_user_id").notNull(),
+  requestedRoleKey: varchar("requested_role_key", { length: 64 }).notNull(),
+  reason: varchar("reason", { length: 1000 }).notNull(),
+  status: mysqlEnum("status", ["pending", "approved", "declined", "withdrawn"]).default("pending").notNull(),
+  decidedByUserId: int("decided_by_user_id"),
+  decisionNote: varchar("decision_note", { length: 1000 }),
+  decidedAt: timestamp("decided_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  assignmentStatusIndex: index("iers_shift_role_recommendations_assignment_status_idx").on(table.assignmentId, table.status),
+  teamStatusIndex: index("iers_shift_role_recommendations_team_status_idx").on(table.teamId, table.status),
+}));
+export type IersShiftRoleRecommendation = typeof iersShiftRoleRecommendations.$inferSelect;
+export type InsertIersShiftRoleRecommendation = typeof iersShiftRoleRecommendations.$inferInsert;
+
+/** Append-only role assignment events for audit, dispute resolution, and learning. */
+export const iersShiftRoleEvents = mysqlTable("iers_shift_role_events", {
+  id: int("id").autoincrement().primaryKey(),
+  assignmentId: int("assignment_id").notNull(),
+  teamId: int("team_id").notNull(),
+  institutionId: int("institution_id").notNull(),
+  actorUserId: int("actor_user_id"),
+  eventType: varchar("event_type", { length: 64 }).notNull(),
+  fromStatus: varchar("from_status", { length: 64 }),
+  toStatus: varchar("to_status", { length: 64 }),
+  fromRoleKey: varchar("from_role_key", { length: 64 }),
+  toRoleKey: varchar("to_role_key", { length: 64 }),
+  reason: text("reason"),
+  metadata: text("metadata"),
+  occurredAt: timestamp("occurred_at").defaultNow().notNull(),
+}, (table) => ({
+  assignmentOccurredIndex: index("iers_shift_role_events_assignment_occurred_idx").on(table.assignmentId, table.occurredAt),
+  institutionOccurredIndex: index("iers_shift_role_events_institution_occurred_idx").on(table.institutionId, table.occurredAt),
+}));
+export type IersShiftRoleEvent = typeof iersShiftRoleEvents.$inferSelect;
+export type InsertIersShiftRoleEvent = typeof iersShiftRoleEvents.$inferInsert;
+
+/** Institution-governed, versioned UTL readiness checklist template. */
+export const iersReadinessTemplates = mysqlTable("iers_readiness_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  templateName: varchar("template_name", { length: 128 }).notNull(),
+  templateVersion: varchar("template_version", { length: 32 }).notNull(),
+  status: mysqlEnum("status", ["draft", "approved", "active", "superseded"]).default("active").notNull(),
+  approvedByUserId: int("approved_by_user_id"),
+  approvedAt: timestamp("approved_at"),
+  effectiveFrom: date("effective_from").notNull(),
+  supersededAt: timestamp("superseded_at"),
+  createdByUserId: int("created_by_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionStatusIndex: index("iers_readiness_templates_institution_status_idx").on(table.institutionId, table.status),
+  institutionVersionUnique: uniqueIndex("iers_readiness_templates_institution_version_unique").on(table.institutionId, table.templateVersion),
+}));
+export type IersReadinessTemplate = typeof iersReadinessTemplates.$inferSelect;
+export type InsertIersReadinessTemplate = typeof iersReadinessTemplates.$inferInsert;
+
+/** Controlled item taxonomy for an approved readiness template. */
+export const iersReadinessTemplateItems = mysqlTable("iers_readiness_template_items", {
+  id: int("id").autoincrement().primaryKey(),
+  templateId: int("template_id").notNull(),
+  itemCode: varchar("item_code", { length: 96 }).notNull(),
+  category: varchar("category", { length: 64 }).notNull(),
+  itemLabel: varchar("item_label", { length: 255 }).notNull(),
+  itemKind: mysqlEnum("item_kind", ["equipment", "drug", "safety", "document", "access"]).notNull(),
+  ageBand: mysqlEnum("age_band", ["universal", "neonatal", "infant_child", "adolescent_adult", "maternity", "trauma", "local"]).notNull(),
+  urgency: mysqlEnum("urgency", ["immediate", "accessible"]).notNull(),
+  isCritical: boolean("is_critical").default(false).notNull(),
+  expectedQuantity: int("expected_quantity"),
+  quantityUnit: varchar("quantity_unit", { length: 32 }),
+  requiresExpiryCheck: boolean("requires_expiry_check").default(false).notNull(),
+  requiresFunctionCheck: boolean("requires_function_check").default(false).notNull(),
+  sortOrder: int("sort_order").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  templateCodeUnique: uniqueIndex("iers_readiness_template_items_code_unique").on(table.templateId, table.itemCode),
+  templateOrderIndex: index("iers_readiness_template_items_order_idx").on(table.templateId, table.sortOrder),
+}));
+export type IersReadinessTemplateItem = typeof iersReadinessTemplateItems.$inferSelect;
+export type InsertIersReadinessTemplateItem = typeof iersReadinessTemplateItems.$inferInsert;
+
+/** One UTL physical readiness check against a fixed template version. */
+export const iersUtlReadinessChecks = mysqlTable("iers_utl_readiness_checks", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionId: int("institution_id").notNull(),
+  poleId: int("pole_id").notNull(),
+  departmentId: int("department_id").notNull(),
+  teamId: int("team_id"),
+  shiftUtlRosterId: int("shift_utl_roster_id"),
+  templateId: int("template_id").notNull(),
+  checkedByUserId: int("checked_by_user_id").notNull(),
+  idempotencyKey: varchar("idempotency_key", { length: 128 }).notNull(),
+  status: mysqlEnum("status", ["draft", "submitted", "ready", "ready_with_gaps", "not_ready", "superseded"]).default("draft").notNull(),
+  attestation: varchar("attestation", { length: 500 }).notNull(),
+  generalNote: text("general_note"),
+  checkedAt: timestamp("checked_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  institutionCheckedIndex: index("iers_utl_readiness_checks_institution_checked_idx").on(table.institutionId, table.checkedAt),
+  teamStatusIndex: index("iers_utl_readiness_checks_team_status_idx").on(table.teamId, table.status),
+  idempotencyUnique: uniqueIndex("iers_utl_readiness_checks_idempotency_unique").on(table.checkedByUserId, table.idempotencyKey),
+}));
+export type IersUtlReadinessCheck = typeof iersUtlReadinessChecks.$inferSelect;
+export type InsertIersUtlReadinessCheck = typeof iersUtlReadinessChecks.$inferInsert;
+
+/** Item-level observation for one UTL readiness check. */
+export const iersUtlReadinessCheckItems = mysqlTable("iers_utl_readiness_check_items", {
+  id: int("id").autoincrement().primaryKey(),
+  checkId: int("check_id").notNull(),
+  templateItemId: int("template_item_id").notNull(),
+  itemStatus: mysqlEnum("item_status", ["present_and_functional", "present_not_tested", "missing", "expired", "damaged", "insufficient_quantity", "inaccessible", "not_applicable", "not_observed"]).notNull(),
+  observedQuantity: int("observed_quantity"),
+  expiryDate: date("expiry_date"),
+  functionTested: boolean("function_tested"),
+  note: varchar("note", { length: 1000 }),
+  isCriticalGap: boolean("is_critical_gap").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  checkItemUnique: uniqueIndex("iers_utl_readiness_check_items_check_item_unique").on(table.checkId, table.templateItemId),
+  checkStatusIndex: index("iers_utl_readiness_check_items_check_status_idx").on(table.checkId, table.itemStatus),
+}));
+export type IersUtlReadinessCheckItem = typeof iersUtlReadinessCheckItems.$inferSelect;
+export type InsertIersUtlReadinessCheckItem = typeof iersUtlReadinessCheckItems.$inferInsert;
+
+/** Immutable activation-time copy of the planned team and role assignments. */
+export const iersActivationTeamSnapshots = mysqlTable("iers_activation_team_snapshots", {
+  id: int("id").autoincrement().primaryKey(),
+  activationEventId: int("activation_event_id").notNull(),
+  teamId: int("team_id").notNull(),
+  teamVersion: int("team_version").notNull(),
+  institutionId: int("institution_id").notNull(),
+  poleId: int("pole_id").notNull(),
+  departmentId: int("department_id").notNull(),
+  providerUserId: int("provider_user_id").notNull(),
+  roleScope: mysqlEnum("role_scope", ["utl", "ertl", "ert_member"]).notNull(),
+  roleKey: varchar("role_key", { length: 64 }).notNull(),
+  assignmentStatus: varchar("assignment_status", { length: 32 }).notNull(),
+  snapshottedAt: timestamp("snapshotted_at").defaultNow().notNull(),
+}, (table) => ({
+  activationProviderUnique: uniqueIndex("iers_activation_team_snapshots_provider_unique").on(table.activationEventId, table.providerUserId, table.roleKey),
+  activationIndex: index("iers_activation_team_snapshots_activation_idx").on(table.activationEventId, table.teamId),
+}));
+export type IersActivationTeamSnapshot = typeof iersActivationTeamSnapshots.$inferSelect;
+export type InsertIersActivationTeamSnapshot = typeof iersActivationTeamSnapshots.$inferInsert;
+
+/** Named, activation-linked, role-specific operational observation. */
+export const iersTargetedRoleReports = mysqlTable("iers_targeted_role_reports", {
+  id: int("id").autoincrement().primaryKey(),
+  activationEventId: int("activation_event_id").notNull(),
+  teamId: int("team_id").notNull(),
+  assignmentId: int("assignment_id").notNull(),
+  roleSnapshotId: int("role_snapshot_id").notNull(),
+  institutionId: int("institution_id").notNull(),
+  poleId: int("pole_id").notNull(),
+  departmentId: int("department_id").notNull(),
+  providerUserId: int("provider_user_id").notNull(),
+  idempotencyKey: varchar("idempotency_key", { length: 128 }).notNull(),
+  roleAtEvent: varchar("role_at_event", { length: 64 }).notNull(),
+  reportPhase: mysqlEnum("report_phase", ["recognition", "activation", "response", "stabilization", "recovery_debrief"]).notNull(),
+  observationCode: varchar("observation_code", { length: 96 }).notNull(),
+  timingCategory: varchar("timing_category", { length: 64 }),
+  narrative: varchar("narrative", { length: 2000 }),
+  noPatientIdentifiersAcknowledged: boolean("no_patient_identifiers_acknowledged").notNull().default(false),
+  submissionState: mysqlEnum("submission_state", ["submitted", "accepted", "returned", "superseded"]).notNull().default("submitted"),
+  submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+  supersededByReportId: int("superseded_by_report_id"),
+}, (table) => ({
+  activationSubmittedIndex: index("iers_targeted_role_reports_activation_submitted_idx").on(table.activationEventId, table.submittedAt),
+  providerSubmittedIndex: index("iers_targeted_role_reports_provider_submitted_idx").on(table.providerUserId, table.submittedAt),
+  idempotencyUnique: uniqueIndex("iers_targeted_role_reports_idempotency_unique").on(table.providerUserId, table.idempotencyKey),
+}));
+export type IersTargetedRoleReport = typeof iersTargetedRoleReports.$inferSelect;
+export type InsertIersTargetedRoleReport = typeof iersTargetedRoleReports.$inferInsert;
+
 // 5. IERMS Facility Audit Scorecards
 export const iermsAuditScorecards = mysqlTable("ierms_audit_scorecards", {
   id: int("id").autoincrement().primaryKey(),
