@@ -18,6 +18,7 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { assertInstitutionProductRole } from "../lib/institution-product-roles";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { deriveUtlReadinessStatus, isCriticalReadinessGap } from "../lib/iers-readiness-state";
+import { ensureDefaultUtlReadinessTemplate } from "../services/iers-readiness-template.service";
 import { TRPCError } from "@trpc/server";
 
 const ITEM_STATUSES = [
@@ -64,6 +65,7 @@ export const iersReadinessRouter = router({
       await requireActiveMember(db, ctx.user.id, input.institutionId);
       await assertInstitutionProductRole(db, ctx.user as any, input.institutionId, "iers", ["iers_coordinator", "iers_governance"]);
       try {
+        await ensureDefaultUtlReadinessTemplate(db, { institutionId: input.institutionId, fallbackActorUserId: ctx.user.id });
         const templates = await db.select().from(iersReadinessTemplates).where(eq(iersReadinessTemplates.institutionId, input.institutionId)).orderBy(desc(iersReadinessTemplates.createdAt));
         const result = [];
         for (const template of templates) {
@@ -101,6 +103,7 @@ export const iersReadinessRouter = router({
       try {
       const { team } = await resolveAcceptedUtl(db, ctx.user.id, input.teamId, input.shiftUtlRosterId);
       await requireActiveMember(db, ctx.user.id, team.institutionId);
+      await ensureDefaultUtlReadinessTemplate(db, { institutionId: team.institutionId, fallbackActorUserId: ctx.user.id });
       const [template] = await db.select().from(iersReadinessTemplates).where(and(eq(iersReadinessTemplates.institutionId, team.institutionId), eq(iersReadinessTemplates.status, "active"), lte(iersReadinessTemplates.effectiveFrom, team.shiftDate))).orderBy(desc(iersReadinessTemplates.effectiveFrom), desc(iersReadinessTemplates.id)).limit(1);
       if (!template) return { template: null, items: [], latestCheck: null };
       const items = await db.select().from(iersReadinessTemplateItems).where(and(eq(iersReadinessTemplateItems.templateId, template.id), eq(iersReadinessTemplateItems.isActive, true))).orderBy(asc(iersReadinessTemplateItems.sortOrder), asc(iersReadinessTemplateItems.id));

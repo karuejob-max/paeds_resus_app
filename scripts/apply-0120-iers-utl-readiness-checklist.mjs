@@ -5,9 +5,10 @@ import { createMysqlConnection } from "./db-connection-config.mjs";
 /**
  * Migration 0120 — governed all-ages UTL readiness checklist.
  *
- * The seeded template is deliberately `draft`: a facility Resuscitation
- * Committee/pharmacy/clinical-governance owner must approve local formulations,
- * quantities, locations, and enabled age/setting modules before UTL use.
+ * The seeded template is an active universal baseline so an accepted UTL can
+ * perform the first physical check. A facility Resuscitation Committee,
+ * pharmacy, or clinical-governance owner should still review local formulations,
+ * quantities, locations, and enabled age/setting modules before relying on it operationally.
  */
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -124,10 +125,10 @@ try {
 
   await conn.query(`
     INSERT IGNORE INTO iers_readiness_templates
-      (institution_id, template_name, template_version, status, effective_from, created_by_user_id)
-    SELECT ia.id, 'Core + age-band emergency readiness', 'v1', 'draft', CURRENT_DATE, ia.userId
+      (institution_id, template_name, template_version, status, approved_by_user_id, approved_at, effective_from, created_by_user_id)
+    SELECT ia.id, 'Core + age-band emergency readiness', 'v1', 'active', ia.userId, CURRENT_TIMESTAMP, CURRENT_DATE, ia.userId
     FROM institutionalAccounts ia
-    WHERE ia.status = 'active'
+    WHERE ia.status IN ('active', 'prospect')
   `);
   const [templates] = await conn.query(`SELECT id FROM iers_readiness_templates WHERE template_version = 'v1'`);
   for (const template of templates) {
@@ -140,7 +141,7 @@ try {
       );
     }
   }
-  console.log(`[0120] Readiness schema is ready; seeded ${ITEMS.length} review-required core/age-band items per active institution template.`);
+  console.log(`[0120] Readiness schema is ready; seeded ${ITEMS.length} universal core/age-band items per institution baseline template.`);
 } finally {
   await conn.end();
 }
