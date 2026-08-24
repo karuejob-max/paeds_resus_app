@@ -71,7 +71,8 @@ async function requireTeam(db: DbClient, teamId: number) {
 
 async function requireErtlForTeam(db: DbClient, user: ContextUser, teamId: number) {
   const team = await requireTeam(db, teamId);
-  await requireProviderOperator(db, user, team.institutionId);
+  if (!["published", "active"].includes(team.status)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Only the current published ERT team can be coordinated." });
+  await requireActiveMembership(db, user, team.institutionId);
   const [ertl] = await db
     .select()
     .from(iersShiftRoleAssignments)
@@ -208,7 +209,19 @@ export const iersShiftTeamRouter = router({
       if (!pole) throw new TRPCError({ code: "BAD_REQUEST", message: "The selected pole does not belong to this institution." });
       const roleKeys = input.assignments.map((assignment) => normalizeRoleKey(assignment.roleKey));
       const providerIds = input.assignments.map((assignment) => assignment.providerUserId);
-      if (new Set(providerIds).size !== providerIds.length) throw new TRPCError({ code: "BAD_REQUEST", message: "A provider can only hold one role in a published team." });
+      const assignmentsByProvider = new Map<number, typeof input.assignments>();
+      for (const assignment of input.assignments) {
+        const existing = assignmentsByProvider.get(assignment.providerUserId) ?? [];
+        existing.push(assignment);
+        assignmentsByProvider.set(assignment.providerUserId, existing);
+      }
+      for (const providerAssignments of assignmentsByProvider.values()) {
+        const scopes = new Set(providerAssignments.map((assignment) => assignment.roleScope));
+        const mayHoldUtlAndErtl = providerAssignments.length === 2 && scopes.has("utl") && scopes.has("ertl");
+        if (!mayHoldUtlAndErtl && providerAssignments.length > 1) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "A provider can only hold one role in a published team unless the designated UTL is also the dated ERTL/Scene Commander." });
+        }
+      }
       if (input.assignments.filter((assignment) => assignment.roleScope === "ertl").length !== 1) throw new TRPCError({ code: "BAD_REQUEST", message: "Each published team must have exactly one nominated ERTL." });
       if (input.assignments.filter((assignment) => assignment.roleScope === "utl").length !== 1) throw new TRPCError({ code: "BAD_REQUEST", message: "Each published team must have exactly one nominated UTL." });
       const memberRoleKeys = roleKeys.filter((_, index) => input.assignments[index]?.roleScope === "ert_member");
@@ -384,7 +397,9 @@ export const iersShiftTeamRouter = router({
         // standing IERS product roles govern coordination/reviewer operations, not acceptance of this assignment.
         await requireActiveMembership(db, ctx.user, row.assignment.institutionId);
       } else {
-        await requireProviderOperator(db, ctx.user, row.assignment.institutionId);
+        // Dated ERTL and ERT-member assignments are explicit team duties;
+        // active institutional membership is sufficient to accept or decline.
+        await requireActiveMembership(db, ctx.user, row.assignment.institutionId);
       }
       if (!["pending_acceptance", "approved"].includes(row.assignment.assignmentStatus)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "This role is not awaiting your response." });
@@ -443,7 +458,7 @@ export const iersShiftTeamRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       const [assignment] = await db.select().from(iersShiftRoleAssignments).where(and(eq(iersShiftRoleAssignments.id, input.assignmentId), eq(iersShiftRoleAssignments.providerUserId, ctx.user.id))).limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "Assigned ERT role not found." });
-      await requireProviderOperator(db, ctx.user, assignment.institutionId);
+      await requireActiveMembership(db, ctx.user, assignment.institutionId);
       const requestedRoleKey = normalizeRoleKey(input.requestedRoleKey);
       if (assignment.roleScope !== "ert_member" || !ERT_MEMBER_ROLES.has(requestedRoleKey)) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a supported ERT member role." });
       if (!["pending_acceptance", "accepted"].includes(assignment.assignmentStatus)) throw new TRPCError({ code: "BAD_REQUEST", message: "Only an active or awaiting ERT member role can be changed." });
@@ -483,6 +498,50 @@ export const iersShiftTeamRouter = router({
       await recordRoleEvent(db, { assignmentId: row.assignment.id, teamId: row.team.id, institutionId: row.assignment.institutionId, actorUserId: ctx.user.id, eventType: "role_recommendation_approved", fromStatus, toStatus: "pending_acceptance", fromRoleKey: row.assignment.roleKey, toRoleKey: row.recommendation.requestedRoleKey, reason: input.note ?? row.recommendation.reason });
       await notifyUser(db, row.assignment.providerUserId, "ERT role changed — acceptance required", `The ERTL approved your requested role change to ${row.recommendation.requestedRoleKey.replaceAll("_", " ")}. Accept or decline the new role.`, row.assignment.id, "/home");
       return { success: true, status: "approved" as const };
+    }),
+
+  /** Accepted ERTL assigns an operational role to an existing ERT member. */
+  assignMemberRole: protectedProcedure
+    .input(z.object({ teamId: z.number().int().positive(), assignmentId: z.number().int().positive(), roleKey: z.string().trim().min(2).max(64), reason: z.string().trim().min(3).max(1000) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      const { team } = await requireErtlForTeam(db, ctx.user, input.teamId);
+      const roleKey = normalizeRoleKey(input.roleKey);
+      if (!ERT_MEMBER_ROLES.has(roleKey)) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a supported ERT member role." });
+      const [assignment] = await db.select().from(iersShiftRoleAssignments).where(and(eq(iersShiftRoleAssignments.id, input.assignmentId), eq(iersShiftRoleAssignments.teamId, team.id))).limit(1);
+      if (!assignment || assignment.roleScope !== "ert_member") throw new TRPCError({ code: "NOT_FOUND", message: "ERT member assignment not found." });
+      if (!["pending_acceptance", "accepted"].includes(assignment.assignmentStatus)) throw new TRPCError({ code: "BAD_REQUEST", message: "Only an active or awaiting ERT member role can be reassigned." });
+      if (assignment.roleKey === roleKey) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a different ERT member role." });
+      const [collision] = await db.select({ id: iersShiftRoleAssignments.id }).from(iersShiftRoleAssignments).where(and(
+        eq(iersShiftRoleAssignments.teamId, team.id),
+        eq(iersShiftRoleAssignments.roleScope, "ert_member"),
+        eq(iersShiftRoleAssignments.roleKey, roleKey),
+        inArray(iersShiftRoleAssignments.assignmentStatus, ["pending_acceptance", "accepted"]),
+      )).limit(1);
+      if (collision) throw new TRPCError({ code: "CONFLICT", message: "That ERT member role is already assigned for this shift." });
+      await db.update(iersShiftRoleAssignments).set({
+        roleKey,
+        assignmentStatus: "pending_acceptance",
+        assignmentVersion: assignment.assignmentVersion + 1,
+        acceptedAt: null,
+        declinedAt: null,
+        declineReason: null,
+      }).where(eq(iersShiftRoleAssignments.id, assignment.id));
+      await recordRoleEvent(db, {
+        assignmentId: assignment.id,
+        teamId: team.id,
+        institutionId: assignment.institutionId,
+        actorUserId: ctx.user.id,
+        eventType: "role_assigned_by_ertl",
+        fromStatus: assignment.assignmentStatus,
+        toStatus: "pending_acceptance",
+        fromRoleKey: assignment.roleKey,
+        toRoleKey: roleKey,
+        reason: input.reason,
+      });
+      await notifyUser(db, assignment.providerUserId, "ERT role assigned — acceptance required", `The ERTL assigned you ${roleKey.replaceAll("_", " ")}. Accept or decline the new role.`, assignment.id, "/home");
+      return { success: true, status: "pending_acceptance" as const };
     }),
 
   /** Accepted ERTL can switch operational roles between two ERT members. */

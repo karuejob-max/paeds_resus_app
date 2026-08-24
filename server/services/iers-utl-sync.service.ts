@@ -243,17 +243,25 @@ export async function ensurePublishedTeamForLegacyUtlRoster(
     .select()
     .from(iersShiftRoleAssignments)
     .where(eq(iersShiftRoleAssignments.teamId, team.id));
-  const assignmentByRosterId = new Map(assignments.flatMap((assignment) => assignment.shiftUtlRosterId == null ? [] : [[assignment.shiftUtlRosterId, assignment]]));
+  const assignmentByRosterId = new Map<number, Map<string, typeof assignments[number]>>();
+  for (const assignment of assignments) {
+    if (assignment.shiftUtlRosterId == null) continue;
+    const byScope = assignmentByRosterId.get(assignment.shiftUtlRosterId) ?? new Map<string, typeof assignments[number]>();
+    if (byScope.has(assignment.roleScope)) return { projected: false as const, reason: "duplicate_roster_scope_assignment", teamId: team.id };
+    byScope.set(assignment.roleScope, assignment);
+    assignmentByRosterId.set(assignment.shiftUtlRosterId, byScope);
+  }
   const assignedProviderIds = new Set(assignments.map((assignment) => assignment.providerUserId));
+  const assignedErtlProviderIds = new Set(assignments.filter((assignment) => assignment.roleScope === "ertl" && ["pending_acceptance", "accepted"].includes(assignment.assignmentStatus)).map((assignment) => assignment.providerUserId));
   let projectedAssignmentCount = 0;
 
   for (const relatedRoster of validRosters) {
-    const existingAssignment = assignmentByRosterId.get(relatedRoster.id);
-    if (existingAssignment) {
-      if (existingAssignment.providerUserId !== relatedRoster.utlUserId) {
+    const existingAssignments = assignmentByRosterId.get(relatedRoster.id);
+    const existingUtlAssignment = existingAssignments?.get("utl");
+    if (existingUtlAssignment) {
+      if (existingUtlAssignment.providerUserId !== relatedRoster.utlUserId) {
         return { projected: false as const, reason: "roster_assignment_provider_mismatch", teamId: team.id };
       }
-      continue;
     }
     if (assignedProviderIds.has(relatedRoster.utlUserId)) continue;
 
@@ -301,11 +309,10 @@ export async function ensurePublishedTeamForLegacyUtlRoster(
       lte(ertlWeeklyRotations.startDate, roster.shiftDate),
       gte(ertlWeeklyRotations.endDate, roster.shiftDate),
       inArray(ertlWeeklyRotations.assignmentStatus, ["pending_acceptance", "active"]),
-      isNotNull(ertlWeeklyRotations.ertlUserId),
     ))
     .orderBy(desc(ertlWeeklyRotations.startDate), desc(ertlWeeklyRotations.id))
     .limit(1);
-  if (rotation?.ertlUserId != null && !assignedProviderIds.has(rotation.ertlUserId)) {
+  if (rotation?.ertlUserId != null && !assignedErtlProviderIds.has(rotation.ertlUserId)) {
     const ertlProvider = await getLinkedRnProvider(db, {
       institutionId: roster.institutionId,
       poleId: roster.poleId,
@@ -341,6 +348,49 @@ export async function ensurePublishedTeamForLegacyUtlRoster(
         reason: "Projected from the configured weekly ERTL rotation.",
         metadata: JSON.stringify({ source: "ertlWeeklyRotations", rotationId: rotation.id }),
       });
+      assignedErtlProviderIds.add(rotation.ertlUserId);
+      projectedAssignmentCount += 1;
+    }
+  }
+
+  // Policy fallback: the UTL from the pole’s designated rotation department is
+  // the Scene Commander/ERTL for this exact shift when no separately nominated
+  // valid ERTL was materialized. This is still explicit institution-authored
+  // staffing; it does not invent a provider or assign anyone automatically.
+  if (assignedErtlProviderIds.size === 0) {
+    const designatedUtl = validRosters.find((row) => row.isShiftErtl === true || row.departmentId === rotation?.departmentId);
+    if (designatedUtl) {
+      const assignmentStatus: ShiftRoleAssignmentStatus = designatedUtl.assignmentStatus === "active" ? "accepted" : "pending_acceptance";
+      const [inserted] = await db.insert(iersShiftRoleAssignments).values({
+        teamId: team.id,
+        institutionId: designatedUtl.institutionId,
+        poleId: designatedUtl.poleId,
+        departmentId: designatedUtl.departmentId,
+        providerUserId: designatedUtl.utlUserId,
+        shiftUtlRosterId: designatedUtl.id,
+        roleScope: "ertl",
+        roleKey: "ertl",
+        assignmentStatus,
+        acceptedAt: assignmentStatus === "accepted" ? designatedUtl.acceptedAt ?? new Date() : null,
+        declinedAt: null,
+        declineReason: null,
+        proposedByUserId: input.actorUserId,
+      });
+      const assignmentId = Number((inserted as unknown as { insertId: number }).insertId);
+      await db.insert(iersShiftRoleEvents).values({
+        assignmentId,
+        teamId: team.id,
+        institutionId: designatedUtl.institutionId,
+        actorUserId: input.actorUserId,
+        eventType: "designated_utl_ertl_projected",
+        fromStatus: "proposed",
+        toStatus: assignmentStatus,
+        fromRoleKey: null,
+        toRoleKey: "ertl",
+        reason: "The explicitly assigned UTL from the pole’s designated ERTL department is the Scene Commander for this dated shift.",
+        metadata: JSON.stringify({ source: "shiftUtlRosters.isShiftErtl", rosterId: designatedUtl.id }),
+      });
+      assignedErtlProviderIds.add(designatedUtl.utlUserId);
       projectedAssignmentCount += 1;
     }
   }

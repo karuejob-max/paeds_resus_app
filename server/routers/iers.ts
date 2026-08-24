@@ -268,6 +268,38 @@ export const iersRouter = router({
       return db.select().from(iersDrills).where(eq(iersDrills.institutionId, input.institutionId)).orderBy(desc(iersDrills.scheduledAt)).limit(input.limit);
     }),
 
+  /** Provider: list upcoming and active drills for every active institution membership. */
+  listMyDrills: protectedProcedure
+    .query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      const memberships = await db
+        .select({ institutionId: institutionMemberships.institutionalAccountId })
+        .from(institutionMemberships)
+        .where(and(eq(institutionMemberships.userId, ctx.user.id), eq(institutionMemberships.membershipStatus, "active")));
+      const institutionIds = [...new Set(memberships.map((membership) => membership.institutionId))];
+      if (institutionIds.length === 0) return [];
+      const entitledInstitutionIds: number[] = [];
+      for (const institutionId of institutionIds) {
+        try {
+          // Listing is a workspace-read operation; joining remains separately
+          // gated by the drills-operate entitlement below.
+          await assertInstitutionProductCapability(db, institutionId, "iers", "iers.workspace.read");
+          entitledInstitutionIds.push(institutionId);
+        } catch (error) {
+          if (error instanceof TRPCError && error.code === "FORBIDDEN") continue;
+          throw error;
+        }
+      }
+      if (entitledInstitutionIds.length === 0) return [];
+      return db
+        .select()
+        .from(iersDrills)
+        .where(and(inArray(iersDrills.institutionId, entitledInstitutionIds), inArray(iersDrills.status, ["planned", "in_progress"])))
+        .orderBy(desc(iersDrills.scheduledAt))
+        .limit(20);
+    }),
+
   /**
    * Pilot preflight: expose explicit acceptance gates before a drill is started.
    * This is advisory for navigation but intentionally truthful about missing evidence.
@@ -450,7 +482,8 @@ export const iersRouter = router({
       const [drill] = await db.select().from(iersDrills).where(eq(iersDrills.id, input.drillId)).limit(1);
       if (!drill) throw new TRPCError({ code: "NOT_FOUND", message: "Drill not found." });
       await assertInstitutionProductCapability(db, drill.institutionId, "iers", "iers.drills.operate");
-      await assertProviderCanOperate(db, ctx.user, drill.institutionId);
+      const membership = await getMembership(db, ctx.user.id, drill.institutionId);
+      if (!membership) throw new TRPCError({ code: "FORBIDDEN", message: "You are not an active provider member of this institution." });
       if (drill.status !== "in_progress") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Providers can join only an in-progress IERS drill." });
       }

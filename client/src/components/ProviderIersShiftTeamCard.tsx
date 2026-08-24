@@ -41,6 +41,7 @@ export default function ProviderIersShiftTeamCard() {
   const [declineReason, setDeclineReason] = useState<Record<number, string>>({});
   const [recommendation, setRecommendation] = useState<Record<number, { roleKey: string; reason: string }>>({});
   const [switchState, setSwitchState] = useState<Record<string, { firstId: string; secondId: string; reason: string }>>({});
+  const [assignState, setAssignState] = useState<Record<number, { roleKey: string; reason: string }>>({});
   const [decisionNote, setDecisionNote] = useState<Record<number, string>>({});
 
   const respondMutation = trpc.iersShiftTeam.respondToRole.useMutation({
@@ -65,6 +66,13 @@ export default function ProviderIersShiftTeamCard() {
     onSuccess: async () => {
       toast.success("Role recommendation decision saved.");
       setDecisionNote({});
+      await utils.iersShiftTeam.listMyShiftTeams.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const assignMemberRoleMutation = trpc.iersShiftTeam.assignMemberRole.useMutation({
+    onSuccess: async () => {
+      toast.success("ERT member role assigned; the provider must accept the new responsibility.");
       await utils.iersShiftTeam.listMyShiftTeams.invalidate();
     },
     onError: (error) => toast.error(error.message),
@@ -106,7 +114,10 @@ export default function ProviderIersShiftTeamCard() {
         )}
         {teams.map((team) => {
           const memberAssignments = team.assignments.filter((assignment) => assignment.roleScope === "ert_member");
-          const currentAssignment = team.assignments.find((assignment) => assignment.isCurrentUser);
+          const currentAssignments = team.assignments.filter((assignment) => assignment.isCurrentUser);
+          const currentAssignment = currentAssignments.find((assignment) => assignment.roleScope === "ertl") ?? currentAssignments[0];
+          const currentUtlAssignment = currentAssignments.find((assignment) => assignment.roleScope === "utl");
+          const ertlAssignment = team.assignments.find((assignment) => assignment.roleScope === "ertl");
           const teamKey = String(team.teamId);
           const currentSwitch = switchState[teamKey] ?? { firstId: "", secondId: "", reason: "" };
           const pendingRecommendations = team.assignments.flatMap((assignment) => assignment.recommendations.map((item) => ({ recommendation: item, assignment })));
@@ -120,6 +131,13 @@ export default function ProviderIersShiftTeamCard() {
                 </div>
                 <Badge variant={team.teamStatus === "active" ? "default" : "secondary"}>{team.teamStatus}</Badge>
               </div>
+              {ertlAssignment ? (
+                <p className="rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                  <strong>ERTL / Scene Commander:</strong> {ertlAssignment.providerName} · {ertlAssignment.assignmentStatus.replaceAll("_", " ")}
+                </p>
+              ) : (
+                <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">The ERTL has not yet been projected for this dated team. The institution must confirm the pole rotation or explicitly nominate an ERTL.</p>
+              )}
 
               <div className="space-y-2">
                 {team.assignments.map((assignment) => (
@@ -177,12 +195,34 @@ export default function ProviderIersShiftTeamCard() {
                 </div>
               )}
 
-              {currentAssignment?.roleScope === "utl" && currentAssignment.assignmentStatus === "accepted" && (
-                <ProviderUtlReadinessCard teamId={team.teamId} shiftUtlRosterId={currentAssignment.shiftUtlRosterId} />
+              {currentUtlAssignment?.assignmentStatus === "accepted" && (
+                <ProviderUtlReadinessCard teamId={team.teamId} shiftUtlRosterId={currentUtlAssignment.shiftUtlRosterId} />
               )}
 
               {currentAssignment && currentAssignment.assignmentStatus === "accepted" && (
                 <ProviderIersTargetedReportCard teamId={team.teamId} assignmentId={currentAssignment.id} />
+              )}
+
+              {isAcceptedErtl && memberAssignments.length > 0 && (
+                <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 space-y-3">
+                  <p className="text-sm font-semibold">Assign an ERT member responsibility</p>
+                  <p className="text-xs text-muted-foreground">Choose a role for an existing ERT member. Their acceptance is required and any previous acceptance/readiness is reset.</p>
+                  {memberAssignments.map((assignment) => {
+                    const state = assignState[assignment.id] ?? { roleKey: assignment.roleKey, reason: "" };
+                    return (
+                      <div key={`assign-${assignment.id}`} className="rounded-md border bg-white p-3 space-y-2">
+                        <p className="text-xs font-medium">{assignment.providerName}</p>
+                        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                          <select className="h-9 rounded-md border bg-background px-3 text-sm" value={state.roleKey} onChange={(event) => setAssignState((previous) => ({ ...previous, [assignment.id]: { ...state, roleKey: event.target.value } }))}>
+                            {ERT_MEMBER_ROLES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                          </select>
+                          <Textarea value={state.reason} onChange={(event) => setAssignState((previous) => ({ ...previous, [assignment.id]: { ...state, reason: event.target.value } }))} placeholder="Reason for the assignment" rows={1} />
+                        </div>
+                        <Button type="button" size="sm" onClick={() => assignMemberRoleMutation.mutate({ teamId: team.teamId, assignmentId: assignment.id, roleKey: state.roleKey, reason: state.reason })} disabled={assignMemberRoleMutation.isPending || state.roleKey === assignment.roleKey || state.reason.trim().length < 3}>Assign and request acceptance</Button>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
 
               {isAcceptedErtl && memberAssignments.length >= 2 && (
