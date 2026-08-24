@@ -26,6 +26,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, CheckCircle, CalendarClock, AlertCircle } from "lucide-react";
 import { DepartmentSelectors } from "@/components/DepartmentSelectors";
@@ -42,6 +43,7 @@ const registrationSchema = z
     subSpecialty: z.string().optional(),
     department: z.string().min(1, "Department is required"),
     facilityDepartmentId: z.number().int().positive().nullable().optional(),
+    facilityRelationship: z.enum(["permanent_facility", "locum_outreach"]),
   })
   .refine(
     (data) => {
@@ -88,6 +90,7 @@ export default function CpdRegister() {
     { institutionId },
     { enabled: Number.isInteger(institutionId) && institutionId > 0 }
   );
+  const myMembershipsQuery = trpc.institution.getMyMemberships.useQuery();
 
   const submitMutation = trpc.cpd.submitRegistration.useMutation();
   const utils = trpc.useUtils();
@@ -119,6 +122,7 @@ export default function CpdRegister() {
       subSpecialty: "",
       department: "",
       facilityDepartmentId: null,
+      facilityRelationship: "permanent_facility",
     },
   });
 
@@ -140,9 +144,12 @@ export default function CpdRegister() {
         subSpecialty: isStandardSub ? uCadreOther : "",
         department: prefillDept,
         facilityDepartmentId: prefillDepartmentId,
+        facilityRelationship: myMembershipsQuery.data?.some(
+          (membership) => membership.membershipStatus === "active" && membership.institutionalAccountId !== institutionId,
+        ) ? "locum_outreach" : "permanent_facility",
       });
     }
-  }, [user, form, currentEventQuery.data?.userDepartment, currentEventQuery.data?.userFacilityDepartmentId]);
+  }, [user, form, institutionId, myMembershipsQuery.data, currentEventQuery.data?.userDepartment, currentEventQuery.data?.userFacilityDepartmentId]);
 
   const cadre = form.watch("cadre");
   const cadreOther = form.watch("cadreOther");
@@ -177,6 +184,7 @@ export default function CpdRegister() {
         cadreOther: finalCadreOther,
         department: values.department,
         facilityDepartmentId: values.facilityDepartmentId ?? null,
+        facilityRelationship: values.facilityRelationship,
       });
       setSubmitted(true);
       form.reset();
@@ -262,6 +270,19 @@ export default function CpdRegister() {
                 Your attendance has been recorded. Your certificate will be issued by the CPD
                 coordinator.
               </p>
+              {submitMutation.data?.facilityLinkStatus === "linked" ? (
+                <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-800">
+                  This hospital is now confirmed as your permanent facility. Your account is linked as general staff; any IERS duty still requires a separate institutional assignment and your explicit acceptance.
+                </p>
+              ) : submitMutation.data?.facilityLinkStatus === "outreach_recorded" ? (
+                <p className="mt-3 rounded-md bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-800">
+                  This attendance was recorded as outreach/locum work. Your permanent facility was not changed and this hospital did not receive an active IERS membership for you.
+                </p>
+              ) : submitMutation.data?.facilityLinkStatus === "admin_review_required" ? (
+                <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+                  Attendance was recorded, but this facility relationship needs administrator review before it can become an active institutional link.
+                </p>
+              ) : null}
               <div className="flex flex-col gap-2.5 mt-6 w-full">
                 <Button className="w-full" onClick={() => window.location.href = "/my-cpd-certificates"}>
                   View My CPD Certificates
@@ -449,6 +470,43 @@ export default function CpdRegister() {
                         </FormItem>
                       );
                     }}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="facilityRelationship"
+                    render={({ field }) => (
+                      <FormItem className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+                        <FormLabel>How does this institution relate to your work? *</FormLabel>
+                        <FormControl>
+                          <RadioGroup
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            className="mt-2 space-y-3"
+                          >
+                            <label className="flex cursor-pointer items-start gap-2.5">
+                              <RadioGroupItem value="permanent_facility" className="mt-0.5" />
+                              <span>
+                                <span className="block text-sm font-medium">My permanent facility</span>
+                                <span className="block text-xs leading-relaxed text-muted-foreground">
+                                  Confirm this hospital as your main facility. If eligible, your signed-in account will be linked as general staff so the institution can manage your IERS participation.
+                                </span>
+                              </span>
+                            </label>
+                            <label className="flex cursor-pointer items-start gap-2.5">
+                              <RadioGroupItem value="locum_outreach" className="mt-0.5" />
+                              <span>
+                                <span className="block text-sm font-medium">Outreach / locum facility</span>
+                                <span className="block text-xs leading-relaxed text-muted-foreground">
+                                  Record this CPD attendance here without changing your permanent facility or activating IERS membership at this hospital.
+                                </span>
+                              </span>
+                            </label>
+                          </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
 
                   <Button

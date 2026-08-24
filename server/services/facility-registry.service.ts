@@ -1,7 +1,7 @@
 /**
  * Canonical facility registry — search, resolve merges, sync institutions, geographic rollups.
  */
-import { and, desc, eq, gte, inArray, isNotNull, isNull, like, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, isNull, like, ne, or, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import {
   careFacilities,
@@ -378,6 +378,202 @@ export async function reconcileInstitutionalStaffMember(
   }
   const result = await db.insert(institutionalStaffMembers).values(values);
   return { staffMemberId: Number((result as unknown as { insertId: number }).insertId), facilityLinkStatus, membershipStatus: membership?.membershipStatus ?? null };
+}
+
+export type CpdFacilityRelationship = "permanent_facility" | "locum_outreach";
+
+export type CpdFacilityLinkResult = {
+  relationship: CpdFacilityRelationship;
+  status: "linked" | "outreach_recorded" | "admin_review_required";
+  membershipId: number | null;
+  membershipStatus: "active" | "invited" | "suspended" | "ended" | null;
+  staffMemberId: number | null;
+};
+
+/**
+ * Apply an authenticated CPD attendee's explicit facility relationship.
+ *
+ * Permanent Staff/RN selection is a consented self-link through an institution's
+ * authenticated CPD event. It creates or accepts only a general-staff membership,
+ * never an IERS product role or dated emergency duty. Suspended, ended, rejected,
+ * or removed relationships remain under administrator control. Locum/outreach is
+ * recorded on the CPD attendance row by the caller and deliberately does not move
+ * the provider's primary facility or activate institutional membership.
+ */
+export async function applyCpdFacilityRelationship(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  input: {
+    institutionalAccountId: number;
+    userId: number;
+    staffName: string;
+    staffEmail: string;
+    staffPhone?: string | null;
+    providerType?: string | null;
+    cadre?: string | null;
+    cadreOther?: string | null;
+    department?: string | null;
+    facilityDepartmentId?: number | null;
+    relationship: CpdFacilityRelationship;
+  },
+): Promise<CpdFacilityLinkResult> {
+  const email = input.staffEmail.trim().toLowerCase();
+  const reconciled = await reconcileInstitutionalStaffMember(db, {
+    institutionalAccountId: input.institutionalAccountId,
+    userId: input.userId,
+    staffName: input.staffName,
+    staffEmail: email,
+    staffPhone: input.staffPhone,
+    providerType: input.providerType,
+    cadre: input.cadre,
+    cadreOther: input.cadreOther,
+    department: input.department,
+    facilityDepartmentId: input.facilityDepartmentId,
+    enrollmentStatus: "enrolled",
+  });
+
+  const [staff] = await db
+    .select({
+      id: institutionalStaffMembers.id,
+      facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+      removedAt: institutionalStaffMembers.removedAt,
+    })
+    .from(institutionalStaffMembers)
+    .where(eq(institutionalStaffMembers.id, reconciled.staffMemberId))
+    .limit(1);
+
+  const [membership] = await db
+    .select({
+      id: institutionMemberships.id,
+      userId: institutionMemberships.userId,
+      membershipStatus: institutionMemberships.membershipStatus,
+      staffMemberId: institutionMemberships.staffMemberId,
+    })
+    .from(institutionMemberships)
+    .where(and(
+      eq(institutionMemberships.institutionalAccountId, input.institutionalAccountId),
+      or(eq(institutionMemberships.userId, input.userId), eq(institutionMemberships.invitedEmail, email)),
+    ))
+    .orderBy(desc(institutionMemberships.id))
+    .limit(1);
+
+  if (input.relationship === "locum_outreach") {
+    return {
+      relationship: input.relationship,
+      status: "outreach_recorded",
+      membershipId: membership?.id ?? null,
+      membershipStatus: membership?.membershipStatus ?? null,
+      staffMemberId: reconciled.staffMemberId,
+    };
+  }
+
+  const [otherActiveMembership] = await db
+    .select({ institutionalAccountId: institutionMemberships.institutionalAccountId })
+    .from(institutionMemberships)
+    .where(and(
+      eq(institutionMemberships.userId, input.userId),
+      eq(institutionMemberships.membershipStatus, "active"),
+      ne(institutionMemberships.institutionalAccountId, input.institutionalAccountId),
+    ))
+    .limit(1);
+
+  const isEligibleRn = isRegisteredRnProfile({
+    providerType: input.providerType,
+    cadre: input.cadre,
+    cadreOther: input.cadreOther,
+  });
+  const needsAdminReview = !isEligibleRn
+    || Boolean(otherActiveMembership)
+
+    || staff?.facilityLinkStatus === "rejected"
+    || Boolean(staff?.removedAt)
+    || membership?.membershipStatus === "suspended"
+    || membership?.membershipStatus === "ended";
+
+  if (needsAdminReview) {
+    return {
+      relationship: input.relationship,
+      status: "admin_review_required",
+      membershipId: membership?.id ?? null,
+      membershipStatus: membership?.membershipStatus ?? null,
+      staffMemberId: reconciled.staffMemberId,
+    };
+  }
+
+  const now = new Date();
+  let membershipId = membership?.id ?? null;
+  if (membership?.id) {
+    if (membership.membershipStatus === "invited") {
+      await db
+        .update(institutionMemberships)
+        .set({
+          userId: input.userId,
+          staffMemberId: reconciled.staffMemberId,
+          membershipStatus: "active",
+          acceptedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(institutionMemberships.id, membership.id));
+    } else if (membership.membershipStatus !== "active") {
+      return {
+        relationship: input.relationship,
+        status: "admin_review_required",
+        membershipId: membership.id,
+        membershipStatus: membership.membershipStatus,
+        staffMemberId: reconciled.staffMemberId,
+      };
+    }
+  } else {
+    const inserted = await db.insert(institutionMemberships).values({
+      institutionalAccountId: input.institutionalAccountId,
+      userId: input.userId,
+      invitedEmail: email,
+      staffMemberId: reconciled.staffMemberId,
+      membershipStatus: "active",
+      responsibilityRole: "general_staff",
+      invitedByUserId: null,
+      acceptedAt: now,
+    });
+    membershipId = Number((inserted as unknown as { insertId: number }).insertId);
+  }
+
+  await db
+    .update(institutionalStaffMembers)
+    .set({
+      userId: input.userId,
+      facilityLinkStatus: "linked",
+      updatedAt: now,
+    })
+    .where(eq(institutionalStaffMembers.id, reconciled.staffMemberId));
+
+  const [facility] = await db
+    .select({ id: careFacilities.id, name: careFacilities.name, county: careFacilities.county, country: careFacilities.country })
+    .from(careFacilities)
+    .where(and(
+      eq(careFacilities.institutionalAccountId, input.institutionalAccountId),
+      isNull(careFacilities.mergedIntoId),
+    ))
+    .orderBy(desc(careFacilities.id))
+    .limit(1);
+  if (facility) {
+    await db
+      .update(providerProfiles)
+      .set({
+        facilityId: facility.id,
+        facilityName: facility.name,
+        facilityRegion: facility.county ?? null,
+        facilityCountry: facility.country,
+        updatedAt: now,
+      })
+      .where(eq(providerProfiles.userId, input.userId));
+  }
+
+  return {
+    relationship: input.relationship,
+    status: "linked",
+    membershipId,
+    membershipStatus: "active",
+    staffMemberId: reconciled.staffMemberId,
+  };
 }
 
 export async function syncProviderProfileFacility(
