@@ -40,7 +40,7 @@ export default function ProviderIersShiftTeamCard() {
   const utils = trpc.useUtils();
   const [declineReason, setDeclineReason] = useState<Record<number, string>>({});
   const [recommendation, setRecommendation] = useState<Record<number, { roleKey: string; reason: string }>>({});
-  const [switchState, setSwitchState] = useState<Record<number, { firstId: string; secondId: string; reason: string }>>({});
+  const [switchState, setSwitchState] = useState<Record<string, { firstId: string; secondId: string; reason: string }>>({});
   const [decisionNote, setDecisionNote] = useState<Record<number, string>>({});
 
   const respondMutation = trpc.iersShiftTeam.respondToRole.useMutation({
@@ -103,11 +103,12 @@ export default function ProviderIersShiftTeamCard() {
         {teams.map((team) => {
           const memberAssignments = team.assignments.filter((assignment) => assignment.roleScope === "ert_member");
           const currentAssignment = team.assignments.find((assignment) => assignment.isCurrentUser);
-          const currentSwitch = switchState[team.teamId] ?? { firstId: "", secondId: "", reason: "" };
+          const teamKey = String(team.teamId);
+          const currentSwitch = switchState[teamKey] ?? { firstId: "", secondId: "", reason: "" };
           const pendingRecommendations = team.assignments.flatMap((assignment) => assignment.recommendations.map((item) => ({ recommendation: item, assignment })));
           const isAcceptedErtl = currentAssignment?.roleScope === "ertl" && currentAssignment.assignmentStatus === "accepted";
           return (
-            <section key={team.teamId} className="rounded-xl border bg-white p-4 shadow-sm space-y-3">
+            <section key={teamKey} className="rounded-xl border bg-white p-4 shadow-sm space-y-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-semibold text-sm">{team.poleName} · {team.shiftType.replace("morning", "day").replace("evening", "evening").replace("night", "night")} shift</p>
@@ -184,16 +185,16 @@ export default function ProviderIersShiftTeamCard() {
                 <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 space-y-2">
                   <p className="text-sm font-semibold flex items-center gap-2"><Clock3 className="h-4 w-4 text-sky-700" /> Switch roles between ERT members</p>
                   <div className="grid gap-2 sm:grid-cols-2">
-                    <select className="h-9 rounded-md border bg-background px-3 text-sm" value={currentSwitch.firstId} onChange={(event) => setSwitchState((previous) => ({ ...previous, [team.teamId]: { ...currentSwitch, firstId: event.target.value } }))}>
+                    <select className="h-9 rounded-md border bg-background px-3 text-sm" value={currentSwitch.firstId} onChange={(event) => setSwitchState((previous) => ({ ...previous, [teamKey]: { ...currentSwitch, firstId: event.target.value } }))}>
                       <option value="">First provider</option>
                       {memberAssignments.map((assignment) => <option key={assignment.id} value={assignment.id}>{assignment.providerName} · {roleLabel(assignment.roleKey)}</option>)}
                     </select>
-                    <select className="h-9 rounded-md border bg-background px-3 text-sm" value={currentSwitch.secondId} onChange={(event) => setSwitchState((previous) => ({ ...previous, [team.teamId]: { ...currentSwitch, secondId: event.target.value } }))}>
+                    <select className="h-9 rounded-md border bg-background px-3 text-sm" value={currentSwitch.secondId} onChange={(event) => setSwitchState((previous) => ({ ...previous, [teamKey]: { ...currentSwitch, secondId: event.target.value } }))}>
                       <option value="">Second provider</option>
                       {memberAssignments.map((assignment) => <option key={assignment.id} value={assignment.id}>{assignment.providerName} · {roleLabel(assignment.roleKey)}</option>)}
                     </select>
                   </div>
-                  {currentSwitch.firstId && currentSwitch.secondId && <><Textarea value={currentSwitch.reason} onChange={(event) => setSwitchState((previous) => ({ ...previous, [team.teamId]: { ...currentSwitch, reason: event.target.value } }))} placeholder="Reason for the role switch" rows={2} /><Button type="button" size="sm" onClick={() => switchMutation.mutate({ firstAssignmentId: Number(currentSwitch.firstId), secondAssignmentId: Number(currentSwitch.secondId), reason: currentSwitch.reason })} disabled={switchMutation.isPending || currentSwitch.firstId === currentSwitch.secondId || currentSwitch.reason.trim().length < 3}>Switch selected roles</Button></>}
+                  {currentSwitch.firstId && currentSwitch.secondId && <><Textarea value={currentSwitch.reason} onChange={(event) => setSwitchState((previous) => ({ ...previous, [teamKey]: { ...currentSwitch, reason: event.target.value } }))} placeholder="Reason for the role switch" rows={2} /><Button type="button" size="sm" onClick={() => switchMutation.mutate({ firstAssignmentId: Number(currentSwitch.firstId), secondAssignmentId: Number(currentSwitch.secondId), reason: currentSwitch.reason })} disabled={switchMutation.isPending || currentSwitch.firstId === currentSwitch.secondId || currentSwitch.reason.trim().length < 3}>Switch selected roles</Button></>}
                 </div>
               )}
             </section>

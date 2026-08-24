@@ -49,7 +49,8 @@ async function ensureSnapshot(db: NonNullable<Awaited<ReturnType<typeof getDb>>>
   if (existing.length > 0) return existing;
   const assignments = await db.select().from(iersShiftRoleAssignments).where(eq(iersShiftRoleAssignments.teamId, team.id));
   for (const assignment of assignments) {
-    await db.insert(iersActivationTeamSnapshots).values({ activationEventId, teamId: team.id, teamVersion: team.teamVersion, institutionId: team.institutionId, poleId: team.poleId, departmentId: team.departmentId, providerUserId: assignment.providerUserId, roleScope: assignment.roleScope, roleKey: assignment.roleKey, assignmentStatus: assignment.assignmentStatus }).onDuplicateKeyUpdate({ set: { roleKey: assignment.roleKey } });
+    if (assignment.departmentId == null) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The ERT assignment has no department scope." });
+    await db.insert(iersActivationTeamSnapshots).values({ activationEventId, teamId: team.id, teamVersion: team.teamVersion, institutionId: team.institutionId, poleId: team.poleId, departmentId: assignment.departmentId, providerUserId: assignment.providerUserId, roleScope: assignment.roleScope, roleKey: assignment.roleKey, assignmentStatus: assignment.assignmentStatus }).onDuplicateKeyUpdate({ set: { roleKey: assignment.roleKey } });
   }
   return db.select().from(iersActivationTeamSnapshots).where(and(eq(iersActivationTeamSnapshots.activationEventId, activationEventId), eq(iersActivationTeamSnapshots.teamId, team.id)));
 }
@@ -101,10 +102,12 @@ export const iersTargetedReportsRouter = router({
       if (!assignment || !["accepted"].includes(assignment.assignmentStatus)) throw new TRPCError({ code: "FORBIDDEN", message: "Only an accepted assigned ERT role can submit a targeted role report." });
       const [existingRequest] = await db.select({ id: iersTargetedRoleReports.id }).from(iersTargetedRoleReports).where(and(eq(iersTargetedRoleReports.providerUserId, ctx.user.id), eq(iersTargetedRoleReports.idempotencyKey, input.clientRequestId))).limit(1);
       if (existingRequest) return { success: true, reportId: existingRequest.id, duplicate: true };
+      const departmentId = assignment.departmentId;
+      if (departmentId == null) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The accepted ERT assignment has no department scope." });
       const snapshots = await ensureSnapshot(db, input.activationEventId, team);
       const snapshot = snapshots.find((row) => row.providerUserId === ctx.user.id && row.roleKey === assignment.roleKey);
       if (!snapshot) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The activation team snapshot could not be resolved." });
-      const inserted = await db.insert(iersTargetedRoleReports).values({ activationEventId: event.id, teamId: team.id, assignmentId: assignment.id, roleSnapshotId: snapshot.id, institutionId: team.institutionId, poleId: team.poleId, departmentId: team.departmentId, providerUserId: ctx.user.id, idempotencyKey: input.clientRequestId, roleAtEvent: assignment.roleKey, reportPhase: input.reportPhase, observationCode: input.observationCode, timingCategory: input.timingCategory ?? null, narrative: input.narrative ?? null, noPatientIdentifiersAcknowledged: true, submissionState: "submitted", submittedAt: new Date() });
+      const inserted = await db.insert(iersTargetedRoleReports).values({ activationEventId: event.id, teamId: team.id, assignmentId: assignment.id, roleSnapshotId: snapshot.id, institutionId: team.institutionId, poleId: team.poleId, departmentId, providerUserId: ctx.user.id, idempotencyKey: input.clientRequestId, roleAtEvent: assignment.roleKey, reportPhase: input.reportPhase, observationCode: input.observationCode, timingCategory: input.timingCategory ?? null, narrative: input.narrative ?? null, noPatientIdentifiersAcknowledged: true, submissionState: "submitted", submittedAt: new Date() });
       return { success: true, reportId: Number((inserted as unknown as { insertId: number }).insertId) };
     }),
 });

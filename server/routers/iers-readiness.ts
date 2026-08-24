@@ -11,6 +11,7 @@ import {
   inAppNotifications,
   institutionDepartmentResponseCoordinators,
   institutionMemberships,
+  shiftUtlRosters,
 } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
@@ -45,11 +46,13 @@ async function notifyErco(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, in
 }
 
 async function resolveAcceptedUtl(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, userId: number, teamId: number, shiftUtlRosterId?: number) {
-  const rows = await db.select({ assignment: iersShiftRoleAssignments, team: iersShiftTeams }).from(iersShiftRoleAssignments).innerJoin(iersShiftTeams, eq(iersShiftTeams.id, iersShiftRoleAssignments.teamId)).where(and(eq(iersShiftRoleAssignments.teamId, teamId), eq(iersShiftRoleAssignments.providerUserId, userId), eq(iersShiftRoleAssignments.roleScope, "utl"), eq(iersShiftRoleAssignments.assignmentStatus, "accepted"))).limit(1);
+  const rows = await db.select({ assignment: iersShiftRoleAssignments, team: iersShiftTeams, roster: shiftUtlRosters }).from(iersShiftRoleAssignments).innerJoin(iersShiftTeams, eq(iersShiftTeams.id, iersShiftRoleAssignments.teamId)).leftJoin(shiftUtlRosters, eq(shiftUtlRosters.id, iersShiftRoleAssignments.shiftUtlRosterId)).where(and(eq(iersShiftRoleAssignments.teamId, teamId), eq(iersShiftRoleAssignments.providerUserId, userId), eq(iersShiftRoleAssignments.roleScope, "utl"), eq(iersShiftRoleAssignments.assignmentStatus, "accepted"))).limit(1);
   const row = rows[0];
   if (!row) throw new TRPCError({ code: "FORBIDDEN", message: "Only the accepted UTL for this dated team can complete the readiness check." });
   if (shiftUtlRosterId && row.assignment.shiftUtlRosterId !== shiftUtlRosterId) throw new TRPCError({ code: "BAD_REQUEST", message: "The UTL roster does not match this published team." });
-  return row;
+  const departmentId = row.roster?.departmentId ?? row.assignment.departmentId;
+  if (departmentId == null) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The accepted UTL duty has no department scope." });
+  return { ...row, departmentId };
 }
 
 export const iersReadinessRouter = router({
@@ -149,13 +152,13 @@ export const iersReadinessRouter = router({
       const status = deriveUtlReadinessStatus(definitions, observations);
       const existing = await db.select({ id: iersUtlReadinessChecks.id }).from(iersUtlReadinessChecks).where(and(eq(iersUtlReadinessChecks.teamId, input.teamId), eq(iersUtlReadinessChecks.checkedByUserId, ctx.user.id), ne(iersUtlReadinessChecks.status, "superseded")));
       if (existing.length > 0) await db.update(iersUtlReadinessChecks).set({ status: "superseded" }).where(eq(iersUtlReadinessChecks.id, existing[0].id));
-      const insertedCheck = await db.insert(iersUtlReadinessChecks).values({ institutionId: team.institutionId, poleId: team.poleId, departmentId: team.departmentId, teamId: team.id, shiftUtlRosterId: assignment.shiftUtlRosterId ?? null, templateId: template.id, checkedByUserId: ctx.user.id, idempotencyKey: input.clientRequestId, status, attestation: input.attestation, generalNote: input.generalNote ?? null, checkedAt: new Date() });
+      const insertedCheck = await db.insert(iersUtlReadinessChecks).values({ institutionId: team.institutionId, poleId: team.poleId, departmentId, teamId: team.id, shiftUtlRosterId: assignment.shiftUtlRosterId ?? null, templateId: template.id, checkedByUserId: ctx.user.id, idempotencyKey: input.clientRequestId, status, attestation: input.attestation, generalNote: input.generalNote ?? null, checkedAt: new Date() });
       const checkId = Number((insertedCheck as unknown as { insertId: number }).insertId);
       for (const item of input.items) {
         const definition = itemMap.get(item.templateItemId)!;
         await db.insert(iersUtlReadinessCheckItems).values({ checkId, templateItemId: item.templateItemId, itemStatus: item.itemStatus, observedQuantity: item.observedQuantity ?? null, expiryDate: item.expiryDate ?? null, functionTested: item.functionTested ?? null, note: item.note ?? null, isCriticalGap: isCriticalReadinessGap(definition, item) });
       }
-      if (criticalGapCount > 0) await notifyErco(db, team.institutionId, team.departmentId, "Critical crash-cart readiness gap", `The UTL readiness check for the ${team.shiftType} shift on ${team.shiftDate} found ${criticalGapCount} critical gap(s). Confirm mitigation before the shift.`, checkId);
+      if (criticalGapCount > 0) await notifyErco(db, team.institutionId, departmentId, "Critical crash-cart readiness gap", `The UTL readiness check for the ${team.shiftType} shift on ${team.shiftDate} found ${criticalGapCount} critical gap(s). Confirm mitigation before the shift.`, checkId);
       return { success: true, checkId, status, criticalGapCount, nonCriticalGapCount };
     }),
 });
