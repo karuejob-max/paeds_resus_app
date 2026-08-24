@@ -1515,6 +1515,142 @@ export const institutionRouter = router({
       return { success: true, status: "ended" as const, alreadyEnded: false, removedEmail: membership.invitedEmail };
     }),
 
+  /** Institution account admin: retire a roster-only/rejected staff row that has no membership record. */
+  retireInstitutionStaffRecord: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      staffMemberId: z.number().int().positive(),
+      reason: z.string().trim().min(10).max(1000),
+      mismatchReportId: z.number().int().positive().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+
+      const [staff] = await db
+        .select({
+          id: institutionalStaffMembers.id,
+          userId: institutionalStaffMembers.userId,
+          staffName: institutionalStaffMembers.staffName,
+          staffEmail: institutionalStaffMembers.staffEmail,
+          removedAt: institutionalStaffMembers.removedAt,
+        })
+        .from(institutionalStaffMembers)
+        .where(and(
+          eq(institutionalStaffMembers.id, input.staffMemberId),
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+        ))
+        .limit(1);
+      if (!staff) throw new TRPCError({ code: "NOT_FOUND", message: "Institution staff record not found." });
+      if (staff.userId === ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "You cannot retire your own institutional roster record." });
+      if (staff.removedAt) return { success: true as const, status: "removed" as const, alreadyRemoved: true as const };
+
+      const membershipTarget = staff.userId != null
+        ? or(eq(institutionMemberships.staffMemberId, staff.id), eq(institutionMemberships.userId, staff.userId))
+        : eq(institutionMemberships.staffMemberId, staff.id);
+      const [membership] = await db
+        .select({ id: institutionMemberships.id })
+        .from(institutionMemberships)
+        .where(and(
+          eq(institutionMemberships.institutionalAccountId, input.institutionId),
+          membershipTarget,
+          or(
+            eq(institutionMemberships.membershipStatus, "invited"),
+            eq(institutionMemberships.membershipStatus, "active"),
+            eq(institutionMemberships.membershipStatus, "suspended"),
+          ),
+        ))
+        .limit(1);
+      if (membership) throw new TRPCError({ code: "BAD_REQUEST", message: "This staff record has an institution membership. Use the normal member removal workflow instead." });
+
+      const now = new Date();
+      await db.transaction(async (tx) => {
+        await tx
+          .update(institutionalStaffMembers)
+          .set({ removedAt: now, removedByUserId: ctx.user.id, removalReason: input.reason, facilityLinkStatus: "rejected", updatedAt: now })
+          .where(and(
+            eq(institutionalStaffMembers.id, staff.id),
+            eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+          ));
+
+        if (staff.userId != null) {
+          await tx
+            .update(institutionProductRoles)
+            .set({ roleStatus: "ended", endedAt: now, updatedAt: now })
+            .where(and(
+              eq(institutionProductRoles.institutionalAccountId, input.institutionId),
+              eq(institutionProductRoles.userId, staff.userId),
+              or(eq(institutionProductRoles.roleStatus, "active"), eq(institutionProductRoles.roleStatus, "suspended")),
+            ));
+          await tx
+            .update(institutionAccountScopes)
+            .set({ scopeStatus: "ended", endedAt: now, updatedAt: now })
+            .where(and(
+              eq(institutionAccountScopes.institutionalAccountId, input.institutionId),
+              eq(institutionAccountScopes.userId, staff.userId),
+              or(eq(institutionAccountScopes.scopeStatus, "active"), eq(institutionAccountScopes.scopeStatus, "suspended")),
+            ));
+          await tx
+            .update(institutionDepartmentResponseCoordinators)
+            .set({ assignmentStatus: "ended", updatedAt: now })
+            .where(and(
+              eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId),
+              or(eq(institutionDepartmentResponseCoordinators.coordinatorUserId, staff.userId), eq(institutionDepartmentResponseCoordinators.backupUserId, staff.userId)),
+              or(eq(institutionDepartmentResponseCoordinators.assignmentStatus, "active"), eq(institutionDepartmentResponseCoordinators.assignmentStatus, "pending_acceptance")),
+            ));
+          await tx
+            .update(ertlWeeklyRotations)
+            .set({ assignmentStatus: "ended" })
+            .where(and(
+              eq(ertlWeeklyRotations.institutionId, input.institutionId),
+              eq(ertlWeeklyRotations.ertlUserId, staff.userId),
+              gte(ertlWeeklyRotations.endDate, now),
+              or(eq(ertlWeeklyRotations.assignmentStatus, "unassigned"), eq(ertlWeeklyRotations.assignmentStatus, "pending_acceptance"), eq(ertlWeeklyRotations.assignmentStatus, "active")),
+            ));
+          await tx
+            .update(monthlyUtlRotations)
+            .set({ assignmentStatus: "ended", providerUserId: null, updatedAt: now })
+            .where(and(
+              eq(monthlyUtlRotations.institutionId, input.institutionId),
+              eq(monthlyUtlRotations.providerUserId, staff.userId),
+              gte(monthlyUtlRotations.monthStart, now),
+              or(eq(monthlyUtlRotations.assignmentStatus, "unassigned"), eq(monthlyUtlRotations.assignmentStatus, "pending_acceptance"), eq(monthlyUtlRotations.assignmentStatus, "active")),
+            ));
+          await tx
+            .update(shiftUtlRosters)
+            .set({ assignmentStatus: "ended", status: "absent" })
+            .where(and(
+              eq(shiftUtlRosters.institutionId, input.institutionId),
+              eq(shiftUtlRosters.utlUserId, staff.userId),
+              gte(shiftUtlRosters.shiftDate, now),
+              or(eq(shiftUtlRosters.assignmentStatus, "unassigned"), eq(shiftUtlRosters.assignmentStatus, "pending_acceptance"), eq(shiftUtlRosters.assignmentStatus, "active")),
+            ));
+        }
+
+        await tx.insert(institutionalActionLogs).values({
+          institutionalAccountId: input.institutionId,
+          createdByUserId: ctx.user.id,
+          gapIdentified: `${staff.staffName} was retired from the institutional roster without an active membership.`,
+          systemChange: "STAFF_ROSTER_RETIREMENT",
+          status: "completed",
+          notes: JSON.stringify({ staffMemberId: staff.id, userId: staff.userId, staffEmail: staff.staffEmail, reason: input.reason }),
+        });
+        if (input.mismatchReportId) {
+          await tx
+            .update(institutionalActionLogs)
+            .set({ status: "completed", updatedAt: now })
+            .where(and(
+              eq(institutionalActionLogs.id, input.mismatchReportId),
+              eq(institutionalActionLogs.institutionalAccountId, input.institutionId),
+              eq(institutionalActionLogs.status, "open"),
+            ));
+        }
+      });
+
+      return { success: true as const, status: "removed" as const, alreadyRemoved: false as const };
+    }),
+
   searchKmhflFacilities,
 
   /** Hospital admin: Care Signal QI dashboard for this institution's facility name. */
