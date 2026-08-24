@@ -202,6 +202,7 @@ export default function ProviderToday() {
   const pendingReadiness = (readinessQuery.data ?? []).some((shift) => !shift.readinessSignOffAt);
   const nextUtl = dutiesQuery.data?.nextUtl ?? null;
   const nextErtl = dutiesQuery.data?.nextErtl ?? null;
+  const nextDuty = nextUtl ?? nextErtl;
   const workplaceDataLoading = membershipsQuery.isLoading || (hasActiveMembership && [activationsQuery, dutiesQuery, teamsQuery, readinessQuery].some((query) => query.isLoading));
   const attention = workplaceDataLoading
     ? {
