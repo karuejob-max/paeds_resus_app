@@ -673,10 +673,11 @@ export async function autoLinkCpdFacilitiesForInstitution(
       const terms = [department.departmentName, ...(DEPARTMENT_ALIASES[department.departmentName] ?? [])]
         .map((term) => term.trim().toLowerCase())
         .filter((term, index, values) => term.length >= 3 && values.indexOf(term) === index);
-      attendeeFilters.push(or(
+      const departmentMatch = or(
         eq(cpdAttendees.facilityDepartmentId, department.id),
         ...terms.map((term) => sql`LOWER(TRIM(${cpdAttendees.department})) LIKE ${`%${term}%`}`),
-      ));
+      );
+      if (departmentMatch) attendeeFilters.push(departmentMatch);
     }
 
     const attendeeRows = await db
