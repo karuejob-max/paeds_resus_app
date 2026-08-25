@@ -32,6 +32,14 @@ export function derivePoleRotationDepartmentId(
   return departments[index]?.id ?? null;
 }
 
+export function rotationAnchorForLeadershipWeek(departments: PoleRotationDepartment[], weekStart: Date | string, leadingDepartmentId: number): Date | null {
+  const departmentIndex = departments.findIndex((department) => department.id === leadingDepartmentId);
+  if (departmentIndex < 0) return null;
+  const anchor = mondayForDate(weekStart);
+  anchor.setUTCDate(anchor.getUTCDate() - (departmentIndex * 7));
+  return anchor;
+}
+
 export function isoWeekMonday(year: number, weekNumber: number): Date {
   const januaryFourth = new Date(Date.UTC(year, 0, 4));
   const day = januaryFourth.getUTCDay();

@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, gte, inArray, isNull, lte } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte } from "drizzle-orm";
 import { z } from "zod";
 import {
   facilityDepartments,
@@ -21,6 +21,7 @@ import { assertInstitutionProductCapability } from "../lib/institution-entitleme
 import { assertInstitutionProductRole, type InstitutionalProductRoleKey } from "../lib/institution-product-roles";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { validateShiftInterval } from "../lib/iers-shift-times";
+import { derivePoleRotationDepartmentId } from "../lib/iers-pole-rotation";
 import { classifyShiftInterval, currentShiftSortWeight, shiftSortKey, type ShiftState } from "../lib/iers-shift-current";
 import { assertShiftRoleTransition, normalizeShiftRoleKey, type ShiftRoleAssignmentStatus } from "../lib/iers-shift-role-state";
 import { isMissingTableError } from "../lib/is-missing-db-table";
@@ -209,8 +210,16 @@ export const iersShiftTeamRouter = router({
       const interval = validateShiftInterval({ startTime: input.shiftStartTime, endTime: input.shiftEndTime, endDayOffset: input.shiftEndDayOffset });
       const [pole] = await db.select().from(facilityPoles).where(and(eq(facilityPoles.id, input.poleId), eq(facilityPoles.institutionId, input.institutionId))).limit(1);
       if (!pole) throw new TRPCError({ code: "BAD_REQUEST", message: "The selected pole does not belong to this institution." });
+      const rotationDepartments = await db.select({ id: facilityDepartments.id, poleSequence: facilityDepartments.poleSequence, createdAt: facilityDepartments.createdAt }).from(facilityDepartments).where(and(
+        eq(facilityDepartments.institutionId, input.institutionId),
+        eq(facilityDepartments.poleId, input.poleId),
+        eq(facilityDepartments.isActive, true),
+        isNotNull(facilityDepartments.confirmedAt),
+        eq(facilityDepartments.requiresPole, true),
+      )).orderBy(asc(facilityDepartments.poleSequence), asc(facilityDepartments.createdAt), asc(facilityDepartments.id));
+      const leadingDepartmentId = derivePoleRotationDepartmentId(rotationDepartments, pole.rotationAnchorDate, input.shiftDate);
+      if (leadingDepartmentId == null) throw new TRPCError({ code: "BAD_REQUEST", message: "The selected pole has no confirmed operational department available for automatic ERTL rotation." });
       const roleKeys = input.assignments.map((assignment) => normalizeRoleKey(assignment.roleKey));
-      const providerIds = input.assignments.map((assignment) => assignment.providerUserId);
       const assignmentsByProvider = new Map<number, typeof input.assignments>();
       for (const assignment of input.assignments) {
         const existing = assignmentsByProvider.get(assignment.providerUserId) ?? [];
@@ -245,6 +254,11 @@ export const iersShiftTeamRouter = router({
         const departmentId = assignment.departmentId ?? provider.facilityDepartmentId;
         if (!departmentId) throw new TRPCError({ code: "BAD_REQUEST", message: "Every nominated provider must have a canonical department." });
         validatedAssignments.push({ providerUserId: assignment.providerUserId, departmentId, roleScope: assignment.roleScope, roleKey: normalizeRoleKey(assignment.roleKey), shiftUtlRosterId: assignment.shiftUtlRosterId ?? null });
+      }
+      const validatedUtl = validatedAssignments.find((assignment) => assignment.roleScope === "utl");
+      const validatedErtl = validatedAssignments.find((assignment) => assignment.roleScope === "ertl");
+      if (!validatedUtl || !validatedErtl || validatedUtl.providerUserId !== validatedErtl.providerUserId || validatedUtl.departmentId !== leadingDepartmentId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The ERTL / Scene Commander is automatic: publish the accepted UTL from this week's leading department as both UTL and ERTL." });
       }
 
       const latest = await db.select().from(iersShiftTeams).where(and(eq(iersShiftTeams.institutionId, input.institutionId), eq(iersShiftTeams.poleId, input.poleId), eq(iersShiftTeams.shiftDate, input.shiftDate), eq(iersShiftTeams.shiftType, input.shiftType))).orderBy(desc(iersShiftTeams.teamVersion)).limit(1);

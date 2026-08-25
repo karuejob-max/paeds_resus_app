@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import ProviderTodayActivationCard from "@/components/ProviderTodayActivationCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -91,9 +92,9 @@ export function buildProviderTodayAttention(signals: ProviderTodaySignals): Atte
   if (currentPendingRole) {
     return {
       eyebrow: "Shift responsibility",
-      title: `Review your ${currentPendingRole.roleScope === "ertl" ? "ERTL / Scene Commander" : currentPendingRole.roleKey.replaceAll("_", " ")} role`,
+      title: `A dated ${currentPendingRole.roleScope === "ertl" ? "ERTL / Scene Commander" : currentPendingRole.roleKey.replaceAll("_", " ")} responsibility needs your response`,
       detail: "Accept the dated responsibility or decline it with a reason. Acceptance does not prove that you are at the scene.",
-      action: "Review shift role",
+      action: "Open My Shift",
       destination: "/my-shift?tab=team",
       tone: "amber",
     };
@@ -193,6 +194,7 @@ export default function ProviderToday() {
   const pendingMembership = (membershipsQuery.data ?? []).find((membership) => membership.isPendingInvite);
   const activeActivations = activationsQuery.data ?? [];
   const teams = teamsQuery.data ?? [];
+  const currentTeam = teams.find((team) => team.teamState === "current") ?? null;
   const currentPendingRole = teams
     .flatMap((team) => team.assignments)
     .find(
@@ -235,11 +237,9 @@ export default function ProviderToday() {
       <div className="mx-auto max-w-2xl space-y-4 px-4 py-5 sm:py-7">
         <header className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">Paeds Resus</p>
-            <h1 className="mt-1 truncate text-2xl font-bold text-slate-950">
-              Today{user.name ? `, ${user.name.split(" ")[0]}` : ""}
+            <h1 className="truncate text-2xl font-bold text-slate-950">
+              Welcome back{user.name ? `, ${user.name.split(" ")[0]}` : ""}
             </h1>
-            <p className="mt-1 text-sm text-slate-500">Your next action, emergency tools, and professional workspaces.</p>
           </div>
           {isRefreshing && <Loader2 className="mt-2 h-4 w-4 shrink-0 animate-spin text-slate-400" aria-label="Refreshing" />}
         </header>
@@ -259,6 +259,12 @@ export default function ProviderToday() {
             {activeMemberships.length > 1 && <Badge variant="outline" className="ml-auto shrink-0">Review in Records</Badge>}
           </div>
         ) : null}
+
+        <ProviderTodayActivationCard
+          currentTeam={currentTeam ? { teamId: currentTeam.teamId, institutionId: currentTeam.institutionId, poleName: currentTeam.poleName } : null}
+          isLoading={teamsQuery.isLoading || membershipsQuery.isLoading}
+          hasActiveMembership={hasActiveMembership}
+        />
 
         <Card className={`overflow-hidden border ${toneClasses(attention.tone)}`}>
           <CardHeader className="pb-3">

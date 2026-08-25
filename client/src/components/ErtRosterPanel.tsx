@@ -127,6 +127,11 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const [bulkDates, setBulkDates] = useState<string[]>([]);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("none");
+  const [leadershipOverrideDepartmentId, setLeadershipOverrideDepartmentId] = useState("");
+  const [leadershipOverrideReason, setLeadershipOverrideReason] = useState("");
+  const [showLeadershipOverride, setShowLeadershipOverride] = useState(false);
+  const [cancelRosterId, setCancelRosterId] = useState<number | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
 
   const applyShiftPreset = (shiftType: "morning" | "evening" | "night") => {
     const preset = SHIFT_TIME_PRESETS[shiftType];
@@ -144,6 +149,10 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const { data: poles, isLoading: polesLoading } = trpc.institution.getFacilityPoles.useQuery(
     { institutionId },
     { enabled: !!institutionId }
+  );
+  const { data: adminStatus } = trpc.institution.getMyInstitutionAdminStatus.useQuery(
+    { institutionId },
+    { enabled: !!institutionId },
   );
 
   const { data: departments } = trpc.institution.getFacilityDepartments.useQuery(
@@ -215,12 +224,28 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
     onError: (err) => toast.error(err.message || "Could not update pole order"),
   });
 
-  const setErtlMutation = trpc.institution.setWeeklyErtlRotation.useMutation({
+  const overrideLeadershipMutation = trpc.institution.overrideWeeklyErtlLeadership.useMutation({
     onSuccess: () => {
-      toast.success("This week's ERTL department updated!");
+      toast.success("Leadership week updated; future unaccepted rotation rows refreshed.");
+      setShowLeadershipOverride(false);
+      setLeadershipOverrideReason("");
       void utils.institution.getWeeklyErtlRotation.invalidate({ institutionId, poleId: activePoleId ?? 0, weekNumber, year });
+      void utils.institution.getShiftUtlRoster.invalidate();
+      void utils.iersShiftTeam.listMyShiftTeams.invalidate();
     },
-    onError: (err) => toast.error(err.message || "Failed to update weekly ERTL"),
+    onError: (err) => toast.error(err.message || "Could not update the leadership week."),
+  });
+
+  const cancelUtlMutation = trpc.institution.cancelFutureShiftUtlAssignment.useMutation({
+    onSuccess: () => {
+      toast.success("Future UTL assignment canceled and recorded.");
+      setCancelRosterId(null);
+      setCancelReason("");
+      void refetchRoster();
+      void utils.institution.getShiftUtlRoster.invalidate();
+      void utils.iersShiftTeam.listMyShiftTeams.invalidate();
+    },
+    onError: (err) => toast.error(err.message || "Could not cancel the future UTL assignment."),
   });
 
   const submitRosterMutation = trpc.institution.submitShiftUtlRoster.useMutation({
@@ -361,6 +386,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const poleDepartments = [...(departments?.filter((d) => d.poleId === activePoleId && d.isActive && d.confirmedAt != null && d.requiresPole) ?? [])].sort((a, b) => (a.poleSequence ?? Number.MAX_SAFE_INTEGER) - (b.poleSequence ?? Number.MAX_SAFE_INTEGER) || a.departmentName.localeCompare(b.departmentName));
   const rotaDepartments = poleDepartments.filter((department) => nurseCandidateGroups?.some((group) => group.departmentId === department.id) ?? false);
   const ertlDepartmentId = weeklyRotation?.departmentId ?? null;
+  const isSelectedShiftUpcoming = new Date(`${selectedDate}T${selectedShiftStartTime.slice(0, 5)}:00`).getTime() > Date.now();
   const candidatesForDepartment = (departmentId: number) => nurseCandidateGroups?.find((group) => group.departmentId === departmentId)?.candidates ?? [];
   const providersForDepartment = (departmentId: number) => candidatesForDepartment(departmentId).filter((candidate) => candidate.assignable);
   const pendingLinkCandidatesForDepartment = (departmentId: number) => candidatesForDepartment(departmentId).filter((candidate) => candidate.needsAccountLink);
@@ -371,7 +397,6 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   });
   const filteredBulkAssignableCandidates = filteredBulkDepartmentCandidates.filter((candidate) => candidate.assignable && candidate.userId != null);
   const bulkPendingCandidates = filteredBulkDepartmentCandidates.filter((candidate) => !candidate.assignable);
-  const ertlDepartmentProviders = ertlDepartmentId == null ? [] : providersForDepartment(ertlDepartmentId);
 
   const saveMonthlyPlan = () => {
     if (!activePoleId || rotaDepartments.length === 0) return;
@@ -540,35 +565,37 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                 Weekly ERTL Rotation — week {weekNumber}, {year} ({weekStart} to {weekEnd})
               </p>
               <p className="text-xs text-amber-700 dark:text-amber-400">
-                Within each pole, departments take weekly turns producing the ERT Team Leader (ERTL). The department is selected from the persisted pole order; the named ERTL provider and on-duty UTL remain separate dated duties and require explicit selection and acceptance.
+                The ERTL / Scene Commander is automatic: after the leading department's UTL accepts the dated duty, that same provider receives the separate ERTL acceptance request. No one selects an ERTL provider here.
               </p>
               {activePoleId && poleDepartments.length > 0 && (
-                <div className="grid gap-2 pt-1 sm:flex sm:flex-wrap sm:items-center">
-                  <span className="text-xs font-medium text-amber-800 dark:text-amber-300">This week's ERTL department:</span>
-                  <Badge variant="outline" className="w-fit whitespace-normal">{poleDepartments.find((department) => department.id === ertlDepartmentId)?.departmentName ?? "Calculating from pole order…"}</Badge>
-                  <span className="text-xs text-amber-700 dark:text-amber-400">Selected automatically: first department added to this pole, then the next department each week. The rotation determines the department, not the provider.</span>
-                  <Select
-                    value={weeklyRotation?.ertlUserId ? String(weeklyRotation.ertlUserId) : "none"}
-                    onValueChange={(providerId) => ertlDepartmentId && setErtlMutation.mutate({
-                      institutionId,
-                      poleId: activePoleId,
-                      departmentId: ertlDepartmentId,
-                      weekNumber,
-                      year,
-                      startDate: weekStart,
-                      endDate: weekEnd,
-                      ertlUserId: providerId === "none" ? null : parseInt(providerId, 10),
-                    })}
-                  >
-                    <SelectTrigger className="w-full min-w-0 h-8 text-xs bg-white dark:bg-background sm:w-[220px]">
-                      <SelectValue placeholder="Assign named ERTL provider" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No named ERTL yet</SelectItem>
-                      {ertlDepartmentProviders.map((staff) => <SelectItem key={staff.userId} value={String(staff.userId)}>{staff.staffName} ({staff.staffRole})</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  {ertlDepartmentId && <Badge variant={weeklyRotation?.assignmentStatus === "active" ? "default" : "secondary"}>{weeklyRotation?.ertlUserId ? weeklyRotation.assignmentStatus === "pending_acceptance" ? "ERTL acceptance pending" : "ERTL accepted" : "No named ERTL"}</Badge>}
+                <div className="space-y-2 pt-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium text-amber-800 dark:text-amber-300">This week's leading department:</span>
+                    <Badge variant="outline" className="w-fit whitespace-normal">{poleDepartments.find((department) => department.id === ertlDepartmentId)?.departmentName ?? "Calculating from pole order…"}</Badge>
+                    {ertlDepartmentId && <Badge variant="secondary">UTL becomes ERTL after acceptance</Badge>}
+                  </div>
+                  <p className="text-xs text-amber-700 dark:text-amber-400">Departments lead in pole order from the Monday morning shift. An administrator can adjust the starting department when an operational change requires it; the sequence then refreshes forward.</p>
+                  {adminStatus?.isInstitutionAdmin && !showLeadershipOverride ? (
+                    <Button type="button" size="sm" variant="outline" className="bg-white" onClick={() => { setLeadershipOverrideDepartmentId(String(ertlDepartmentId ?? "")); setShowLeadershipOverride(true); }}>
+                      Adjust this week's leadership
+                    </Button>
+                  ) : adminStatus?.isInstitutionAdmin ? (
+                    <div className="space-y-2 rounded-md border border-amber-300 bg-white p-3">
+                      <p className="text-xs font-semibold text-slate-900">Choose the department that should lead this week</p>
+                      <Select value={leadershipOverrideDepartmentId} onValueChange={setLeadershipOverrideDepartmentId}>
+                        <SelectTrigger className="w-full min-w-0 text-xs"><SelectValue placeholder="Choose leading department" /></SelectTrigger>
+                        <SelectContent>{poleDepartments.map((department) => <SelectItem key={department.id} value={String(department.id)}>{department.departmentName}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <Input value={leadershipOverrideReason} onChange={(event) => setLeadershipOverrideReason(event.target.value)} placeholder="Reason for this operational adjustment" className="text-xs" />
+                      <p className="text-[11px] text-amber-800">Accepted or historical dated duties are not rewritten. Only future unaccepted rotation and team projections are refreshed.</p>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button type="button" size="sm" className="sm:flex-1" onClick={() => { if (!activePoleId || !leadershipOverrideDepartmentId) return; overrideLeadershipMutation.mutate({ institutionId, poleId: activePoleId, departmentId: Number(leadershipOverrideDepartmentId), weekNumber, year, startDate: weekStart, endDate: weekEnd, reason: leadershipOverrideReason.trim() }); }} disabled={overrideLeadershipMutation.isPending || !leadershipOverrideDepartmentId || leadershipOverrideReason.trim().length < 3}>
+                          {overrideLeadershipMutation.isPending ? "Refreshing rotation…" : "Save leadership adjustment"}
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" onClick={() => setShowLeadershipOverride(false)} disabled={overrideLeadershipMutation.isPending}>Cancel</Button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -713,6 +740,27 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                       )}
                     </div>
 
+                    {rosterEntry && isSelectedShiftUpcoming && rosterEntry.assignmentStatus !== "ended" && (
+                      <div className="border-t pt-2">
+                        {cancelRosterId !== rosterEntry.id ? (
+                          <Button type="button" size="sm" variant="outline" className="w-full border-rose-300 text-rose-800 hover:bg-rose-50" onClick={() => { setCancelRosterId(rosterEntry.id); setCancelReason(""); }}>
+                            Cancel future UTL assignment
+                          </Button>
+                        ) : (
+                          <div className="space-y-2 rounded-md border border-rose-200 bg-rose-50/60 p-2">
+                            <p className="text-xs font-medium text-rose-900">Why is this future assignment being canceled?</p>
+                            <Input value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} placeholder="Required reason" className="bg-white text-xs" />
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                              <Button type="button" size="sm" variant="destructive" className="sm:flex-1" onClick={() => cancelUtlMutation.mutate({ institutionId, rosterId: rosterEntry.id, reason: cancelReason.trim() })} disabled={cancelUtlMutation.isPending || cancelReason.trim().length < 3}>
+                                {cancelUtlMutation.isPending ? "Canceling…" : "Confirm cancellation"}
+                              </Button>
+                              <Button type="button" size="sm" variant="outline" onClick={() => setCancelRosterId(null)} disabled={cancelUtlMutation.isPending}>Keep assignment</Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="grid gap-1.5">
                       <span className="text-xs font-medium text-muted-foreground">Assign linked provider</span>
                       <Select
@@ -746,6 +794,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                   <TableHead>ERT Role Designation</TableHead>
                   <TableHead>Shift Readiness Check</TableHead>
                   <TableHead>UTL Status</TableHead>
+                  <TableHead>Future assignment</TableHead>
                   <TableHead className="text-left">Assign linked provider</TableHead>
                 </TableRow>
               </TableHeader>
@@ -789,6 +838,20 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                               <SelectItem value="completed">Completed</SelectItem>
                             </SelectContent>
                           </Select>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {rosterEntry && isSelectedShiftUpcoming && rosterEntry.assignmentStatus !== "ended" ? (
+                          cancelRosterId !== rosterEntry.id ? (
+                            <Button type="button" size="sm" variant="outline" className="whitespace-nowrap border-rose-300 text-rose-800 hover:bg-rose-50" onClick={() => { setCancelRosterId(rosterEntry.id); setCancelReason(""); }}>Cancel future</Button>
+                          ) : (
+                            <div className="min-w-[220px] space-y-2 rounded-md border border-rose-200 bg-rose-50 p-2">
+                              <Input value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} placeholder="Reason (required)" className="bg-white text-xs" />
+                              <div className="flex gap-1.5"><Button type="button" size="sm" variant="destructive" onClick={() => cancelUtlMutation.mutate({ institutionId, rosterId: rosterEntry.id, reason: cancelReason.trim() })} disabled={cancelUtlMutation.isPending || cancelReason.trim().length < 3}>{cancelUtlMutation.isPending ? "Canceling…" : "Confirm"}</Button><Button type="button" size="sm" variant="outline" onClick={() => setCancelRosterId(null)} disabled={cancelUtlMutation.isPending}>Keep</Button></div>
+                            </div>
+                          )
                         ) : (
                           <span className="text-xs text-muted-foreground italic">—</span>
                         )}

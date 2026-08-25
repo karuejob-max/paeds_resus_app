@@ -47,6 +47,9 @@ import {
   cpdEvents,
   cpdAttendees,
   inAppNotifications,
+  iersShiftTeams,
+  iersShiftRoleAssignments,
+  iersShiftRoleEvents,
 } from "../../drizzle/schema";
 import { runResusGpsAuditForInstitution } from "../lib/resusgps-auditor";
 import { assertNoInstructorDoubleBooking as assertNoInstructorDoubleBookingShared } from "../lib/instructor-double-booking-guard";
@@ -61,9 +64,10 @@ import { alias } from "drizzle-orm/mysql-core";
 import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, lte, sql, or, notInArray } from "drizzle-orm";
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
-import { assertInstitutionAccess, getAdministeredInstitutionIds, countInstitutionAdmins } from "../lib/institution-access";
+import { assertInstitutionAccess, getAdministeredInstitutionIds, countInstitutionAdmins, isInstitutionAdmin } from "../lib/institution-access";
 import { assertInstitutionProductCapability, assertWritableProductAccess } from "../lib/institution-entitlements";
-import { asDateOnly, derivePoleRotationDepartmentId, isoWeekMonday, mondayForDate } from "../lib/iers-pole-rotation";
+import { asDateOnly, derivePoleRotationDepartmentId, isoWeekMonday, mondayForDate, rotationAnchorForLeadershipWeek } from "../lib/iers-pole-rotation";
+import { classifyShiftInterval } from "../lib/iers-shift-current";
 import { assertInstitutionAccountScope } from "../lib/institution-account-scopes";
 import { assertInstitutionProductRole } from "../lib/institution-product-roles";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
@@ -172,7 +176,7 @@ async function saveShiftUtlRosterRow(db: DbClient, user: Pick<typeof users.$infe
     .limit(1);
 
   if (existing) {
-    const shouldResetSignOff = existing.utlUserId !== canonicalUtlUserId || existing.shiftStartTime !== timing.startTime || existing.shiftEndTime !== timing.endTime || existing.shiftEndDayOffset !== timing.endDayOffset;
+    const shouldResetSignOff = existing.assignmentStatus === "ended" || existing.utlUserId !== canonicalUtlUserId || existing.shiftStartTime !== timing.startTime || existing.shiftEndTime !== timing.endTime || existing.shiftEndDayOffset !== timing.endDayOffset;
     await db.update(shiftUtlRosters).set({
       utlUserId: canonicalUtlUserId,
       shiftStartTime: timing.startTime,
@@ -5275,6 +5279,16 @@ export const institutionRouter = router({
       }
     }),
 
+  getMyInstitutionAdminStatus: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [account] = await db.select({ id: institutionalAccounts.id }).from(institutionalAccounts).where(eq(institutionalAccounts.id, input.institutionId)).limit(1);
+      if (!account) throw new TRPCError({ code: "NOT_FOUND", message: "Institution not found." });
+      return { isInstitutionAdmin: ctx.user.role === "admin" || await isInstitutionAdmin(db, ctx.user.id, input.institutionId) };
+    }),
+
   createFacilityPole: protectedProcedure
     .input(z.object({
       institutionId: z.number(),
@@ -6381,9 +6395,10 @@ export const institutionRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "The ERTL department is selected automatically from the pole’s department order. Choose the named provider for the displayed department instead." });
       }
       await assertDepartmentBelongsToPole(db, input.institutionId, derivedDepartmentId, input.poleId);
-      const requestedErtlUserId = input.ertlUserId == null
-        ? null
-        : await resolveCanonicalDepartmentProvider(db, input.institutionId, derivedDepartmentId, input.ertlUserId);
+      if (input.ertlUserId != null) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The ERTL is assigned automatically to the accepted UTL of the leading department. Adjust the leadership department instead of selecting a provider." });
+      }
+      const requestedErtlUserId = null;
 
       const refreshDepartmentIds = new Set<number>([derivedDepartmentId]);
       const [existing] = await db
@@ -6457,6 +6472,145 @@ export const institutionRouter = router({
       return { success: true, ertlUserId: requestedErtlUserId, departmentId: derivedDepartmentId };
     }),
 
+  /**
+   * Re-anchor a pole's Monday-based leadership sequence from a selected week.
+   * This changes only future unaccepted rotation/team projections. Accepted or
+   * active dated duties remain historical evidence and are never rewritten.
+   */
+  overrideWeeklyErtlLeadership: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      poleId: z.number().int().positive(),
+      departmentId: z.number().int().positive(),
+      weekNumber: z.number().int().min(1).max(53),
+      year: z.number().int().min(2020).max(2200),
+      startDate: z.string(),
+      endDate: z.string(),
+      reason: z.string().trim().min(3).max(500),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [leadershipInstitution] = await db.select({ id: institutionalAccounts.id }).from(institutionalAccounts).where(eq(institutionalAccounts.id, input.institutionId)).limit(1);
+      if (!leadershipInstitution) throw new TRPCError({ code: "NOT_FOUND", message: "Institution not found." });
+      const isAdmin = ctx.user.role === "admin" || await isInstitutionAdmin(db, ctx.user.id, input.institutionId);
+      let hasLeadershipWriteAccess = isAdmin;
+      if (!hasLeadershipWriteAccess) {
+        try {
+          await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
+          hasLeadershipWriteAccess = true;
+        } catch (error) {
+          if (!(error instanceof TRPCError) || error.code !== "FORBIDDEN") throw error;
+        }
+      }
+      if (!hasLeadershipWriteAccess) throw new TRPCError({ code: "FORBIDDEN", message: "Only an institutional administrator or IERS governance lead can adjust the leadership week." });
+
+      const expectedStart = isoWeekMonday(input.year, input.weekNumber);
+      const requestedStart = mondayForDate(input.startDate);
+      const requestedEnd = new Date(requestedStart);
+      requestedEnd.setUTCDate(requestedEnd.getUTCDate() + 6);
+      if (asDateOnly(requestedStart) !== asDateOnly(expectedStart) || asDateOnly(new Date(input.endDate)) !== asDateOnly(requestedEnd)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Leadership overrides must use the complete Monday-to-Sunday ISO week supplied by the selected week." });
+      }
+      if (requestedStart < mondayForDate(new Date())) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Completed leadership weeks are historical records and cannot be rewritten. Choose the current or a future week." });
+      }
+
+      await assertDepartmentBelongsToPole(db, input.institutionId, input.departmentId, input.poleId);
+      const departments = await getOrderedPoleDepartments(db, input.institutionId, input.poleId);
+      const nextAnchor = rotationAnchorForLeadershipWeek(departments, requestedStart, input.departmentId);
+      if (!nextAnchor) throw new TRPCError({ code: "BAD_REQUEST", message: "The selected leadership department is not in this pole's confirmed rotation order." });
+
+      await db.update(facilityPoles).set({ rotationAnchorDate: nextAnchor }).where(and(
+        eq(facilityPoles.id, input.poleId),
+        eq(facilityPoles.institutionId, input.institutionId),
+      ));
+
+      const futureRotations = await db.select().from(ertlWeeklyRotations).where(and(
+        eq(ertlWeeklyRotations.institutionId, input.institutionId),
+        eq(ertlWeeklyRotations.poleId, input.poleId),
+        gte(ertlWeeklyRotations.startDate, requestedStart),
+        inArray(ertlWeeklyRotations.assignmentStatus, ["unassigned", "pending_acceptance", "declined"]),
+      ));
+      for (const rotation of futureRotations) {
+        const nextDepartmentId = derivePoleRotationDepartmentId(departments, nextAnchor, rotation.startDate);
+        if (nextDepartmentId == null) continue;
+        const changed = rotation.departmentId !== nextDepartmentId || rotation.ertlUserId != null || rotation.assignmentStatus !== "unassigned";
+        if (!changed) continue;
+        await db.update(ertlWeeklyRotations).set({
+          departmentId: nextDepartmentId,
+          ertlUserId: null,
+          assignmentStatus: "unassigned",
+          acceptedAt: null,
+          declinedAt: null,
+          declineReason: null,
+        }).where(eq(ertlWeeklyRotations.id, rotation.id));
+      }
+
+      const futureRosters = await db.select().from(shiftUtlRosters).where(and(
+        eq(shiftUtlRosters.institutionId, input.institutionId),
+        eq(shiftUtlRosters.poleId, input.poleId),
+        gte(shiftUtlRosters.shiftDate, requestedStart),
+        eq(shiftUtlRosters.status, "active"),
+        inArray(shiftUtlRosters.assignmentStatus, ["unassigned", "pending_acceptance", "declined"]),
+      ));
+      for (const roster of futureRosters) {
+        const nextDepartmentId = derivePoleRotationDepartmentId(departments, nextAnchor, roster.shiftDate);
+        const nextIsErtl = nextDepartmentId === roster.departmentId;
+        if (roster.isShiftErtl !== nextIsErtl) {
+          await db.update(shiftUtlRosters).set({ isShiftErtl: nextIsErtl }).where(eq(shiftUtlRosters.id, roster.id));
+        }
+        await ensurePublishedTeamForLegacyUtlRoster(db, {
+          roster: roster.isShiftErtl === nextIsErtl ? roster : { ...roster, isShiftErtl: nextIsErtl },
+          actorUserId: ctx.user.id,
+        });
+      }
+
+      const futureTeams = await db.select().from(iersShiftTeams).where(and(
+        eq(iersShiftTeams.institutionId, input.institutionId),
+        eq(iersShiftTeams.poleId, input.poleId),
+        gte(iersShiftTeams.shiftDate, requestedStart),
+        inArray(iersShiftTeams.status, ["published", "active"]),
+      ));
+      for (const team of futureTeams) {
+        const nextDepartmentId = derivePoleRotationDepartmentId(departments, nextAnchor, team.shiftDate);
+        if (nextDepartmentId == null) continue;
+        const staleAssignments = await db.select().from(iersShiftRoleAssignments).where(and(
+          eq(iersShiftRoleAssignments.teamId, team.id),
+          eq(iersShiftRoleAssignments.roleScope, "ertl"),
+          inArray(iersShiftRoleAssignments.assignmentStatus, ["proposed", "approved", "pending_acceptance", "declined"]),
+        ));
+        for (const assignment of staleAssignments) {
+          if (assignment.departmentId === nextDepartmentId) continue;
+          await db.update(iersShiftRoleAssignments).set({ assignmentStatus: "superseded", supersededAt: new Date() }).where(eq(iersShiftRoleAssignments.id, assignment.id));
+          await db.insert(iersShiftRoleEvents).values({
+            assignmentId: assignment.id,
+            teamId: team.id,
+            institutionId: input.institutionId,
+            actorUserId: ctx.user.id,
+            eventType: "ertl_leadership_override_superseded",
+            fromStatus: assignment.assignmentStatus,
+            toStatus: "superseded",
+            fromRoleKey: assignment.roleKey,
+            toRoleKey: assignment.roleKey,
+            reason: input.reason,
+            metadata: JSON.stringify({ previousDepartmentId: assignment.departmentId, nextDepartmentId }),
+          });
+        }
+      }
+
+      await db.insert(institutionalActionLogs).values({
+        institutionalAccountId: input.institutionId,
+        createdByUserId: ctx.user.id,
+        gapIdentified: "ERTL leadership week required an institutional adjustment.",
+        systemChange: JSON.stringify({ type: "ertl_leadership_override", poleId: input.poleId, weekNumber: input.weekNumber, year: input.year, departmentId: input.departmentId, rotationAnchorDate: asDateOnly(nextAnchor) }),
+        status: "completed",
+        notes: input.reason,
+      });
+
+      return { success: true, departmentId: input.departmentId, rotationAnchorDate: asDateOnly(nextAnchor), refreshedRotations: futureRotations.length, refreshedRosters: futureRosters.length, refreshedTeams: futureTeams.length };
+    }),
+
   // ============================================
   // IERMS™ SHIFT UTL ROSTER PROCEDURES
   // ============================================
@@ -6480,7 +6634,8 @@ export const institutionRouter = router({
           eq(shiftUtlRosters.institutionId, input.institutionId),
           eq(shiftUtlRosters.poleId, input.poleId),
           eq(shiftUtlRosters.shiftDate, new Date(input.shiftDate)),
-          eq(shiftUtlRosters.shiftType, input.shiftType)
+          eq(shiftUtlRosters.shiftType, input.shiftType),
+          notInArray(shiftUtlRosters.assignmentStatus, ["ended"]),
         ));
     }),
 
@@ -6504,6 +6659,127 @@ export const institutionRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       const saved = await saveShiftUtlRosterRow(db, ctx.user, input);
       return { success: true, ...saved };
+    }),
+
+  cancelFutureShiftUtlAssignment: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      rosterId: z.number().int().positive(),
+      reason: z.string().trim().min(3).max(500),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [cancellationInstitution] = await db.select({ id: institutionalAccounts.id }).from(institutionalAccounts).where(eq(institutionalAccounts.id, input.institutionId)).limit(1);
+      if (!cancellationInstitution) throw new TRPCError({ code: "NOT_FOUND", message: "Institution not found." });
+      const institutionAdmin = ctx.user.role === "admin" || await isInstitutionAdmin(db, ctx.user.id, input.institutionId);
+
+      const [roster] = await db.select().from(shiftUtlRosters).where(and(
+        eq(shiftUtlRosters.id, input.rosterId),
+        eq(shiftUtlRosters.institutionId, input.institutionId),
+      )).limit(1);
+      if (!roster) throw new TRPCError({ code: "NOT_FOUND", message: "UTL assignment not found in this institution." });
+      if (roster.assignmentStatus === "ended" || roster.status !== "active") {
+        throw new TRPCError({ code: "CONFLICT", message: "This UTL assignment is already closed." });
+      }
+      const shiftState = classifyShiftInterval(roster, new Date(), "Africa/Nairobi");
+      if (shiftState !== "upcoming") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Only a future UTL assignment can be canceled. Live or historical duties remain part of the audit record." });
+      }
+
+      let authorized = institutionAdmin;
+      if (!authorized) try {
+        await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
+        authorized = true;
+      } catch (error) {
+        if (!(error instanceof TRPCError) || error.code !== "FORBIDDEN") throw error;
+      }
+
+      if (!authorized) {
+        try {
+          await assertActiveProviderDutyAccess(db, ctx.user, input.institutionId);
+        } catch (error) {
+          if (!(error instanceof TRPCError) || error.code !== "FORBIDDEN") throw error;
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only IERS governance, the department ERCo, or the accepted current ERTL can cancel a future UTL assignment." });
+        }
+        const [departmentErco] = await db.select({ id: institutionDepartmentResponseCoordinators.id }).from(institutionDepartmentResponseCoordinators).where(and(
+          eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId),
+          eq(institutionDepartmentResponseCoordinators.departmentId, roster.departmentId),
+          eq(institutionDepartmentResponseCoordinators.coordinatorUserId, ctx.user.id),
+          eq(institutionDepartmentResponseCoordinators.assignmentStatus, "active"),
+        )).limit(1);
+        const [acceptedErtl] = await db.select({ id: iersShiftRoleAssignments.id }).from(iersShiftRoleAssignments).innerJoin(iersShiftTeams, eq(iersShiftTeams.id, iersShiftRoleAssignments.teamId)).where(and(
+          eq(iersShiftRoleAssignments.institutionId, input.institutionId),
+          eq(iersShiftRoleAssignments.providerUserId, ctx.user.id),
+          eq(iersShiftRoleAssignments.roleScope, "ertl"),
+          eq(iersShiftRoleAssignments.assignmentStatus, "accepted"),
+          eq(iersShiftTeams.institutionId, input.institutionId),
+          eq(iersShiftTeams.poleId, roster.poleId),
+          eq(iersShiftTeams.shiftDate, roster.shiftDate),
+          eq(iersShiftTeams.shiftType, roster.shiftType),
+          eq(iersShiftTeams.shiftStartTime, roster.shiftStartTime),
+          eq(iersShiftTeams.shiftEndTime, roster.shiftEndTime),
+          eq(iersShiftTeams.shiftEndDayOffset, roster.shiftEndDayOffset),
+          inArray(iersShiftTeams.status, ["published", "active"]),
+        )).limit(1);
+        if (!departmentErco && !acceptedErtl) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only IERS governance, the department ERCo, or the accepted current ERTL can cancel a future UTL assignment." });
+        }
+      }
+
+      const now = new Date();
+      await db.update(shiftUtlRosters).set({
+        assignmentStatus: "ended",
+        status: "absent",
+        readinessSignOffAt: null,
+        readinessSignedOffByUserId: null,
+        readinessNote: null,
+      }).where(eq(shiftUtlRosters.id, roster.id));
+
+      const linkedAssignments = await db.select().from(iersShiftRoleAssignments).where(and(
+        eq(iersShiftRoleAssignments.institutionId, input.institutionId),
+        eq(iersShiftRoleAssignments.shiftUtlRosterId, roster.id),
+        inArray(iersShiftRoleAssignments.assignmentStatus, ["proposed", "approved", "pending_acceptance", "accepted"]),
+      ));
+      for (const assignment of linkedAssignments) {
+        await db.update(iersShiftRoleAssignments).set({ assignmentStatus: "ended", endedAt: now }).where(eq(iersShiftRoleAssignments.id, assignment.id));
+        await db.insert(iersShiftRoleEvents).values({
+          assignmentId: assignment.id,
+          teamId: assignment.teamId,
+          institutionId: input.institutionId,
+          actorUserId: ctx.user.id,
+          eventType: "future_utl_assignment_canceled",
+          fromStatus: assignment.assignmentStatus,
+          toStatus: "ended",
+          fromRoleKey: assignment.roleKey,
+          toRoleKey: assignment.roleKey,
+          reason: input.reason,
+          metadata: JSON.stringify({ rosterId: roster.id }),
+        });
+      }
+
+      if (roster.utlUserId !== ctx.user.id) {
+        await db.insert(inAppNotifications).values({
+          userId: roster.utlUserId,
+          type: "iers_shift_team",
+          title: "Future UTL duty canceled",
+          body: `Your ${roster.shiftType} UTL duty on ${asDateOnly(roster.shiftDate)} was canceled. Reason: ${input.reason}`,
+          actionUrl: "/my-shift?tab=team",
+          relatedId: roster.id,
+          read: false,
+        });
+      }
+
+      await db.insert(institutionalActionLogs).values({
+        institutionalAccountId: input.institutionId,
+        createdByUserId: ctx.user.id,
+        gapIdentified: "A future UTL assignment was entered incorrectly or is no longer valid.",
+        systemChange: JSON.stringify({ type: "future_utl_assignment_canceled", rosterId: roster.id, shiftDate: asDateOnly(roster.shiftDate), shiftType: roster.shiftType }),
+        status: "completed",
+        notes: input.reason,
+      });
+
+      return { success: true, rosterId: roster.id, canceledRoleAssignments: linkedAssignments.length };
     }),
 
   /**
