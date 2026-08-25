@@ -1228,7 +1228,8 @@ export const iersRouter = router({
           eq(iersActivationResponders.userId, ctx.user.id),
           inArray(iersActivationEvents.status, ["notifying", "acknowledged", "responding", "at_scene", "stabilized", "debrief_pending"]),
         ))
-        .orderBy(desc(iersActivationEvents.triggeredAt));
+        .orderBy(desc(iersActivationEvents.triggeredAt))
+        .limit(20);
       return rows.map((row) => ({
         ...row,
         caseQrAvailable: Boolean(row.caseQrNonce),

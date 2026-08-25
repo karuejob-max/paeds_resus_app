@@ -323,12 +323,9 @@ export const iersShiftTeamRouter = router({
             eq(shiftUtlRosters.status, "active"),
             inArray(shiftUtlRosters.assignmentStatus, ["pending_acceptance", "active"]),
           ));
-        for (const roster of legacyRosters) {
-          await ensurePublishedTeamForLegacyUtlRoster(db, { roster, actorUserId: ctx.user.id });
-        }
         const poleIds = [...new Set([...staffPoleIds, ...legacyRosters.map((roster) => roster.poleId)])];
         if (poleIds.length === 0) continue;
-        const teams = await db
+        const loadTeams = () => db
           .select({
             team: iersShiftTeams,
             poleName: facilityPoles.poleName,
@@ -343,30 +340,60 @@ export const iersShiftTeamRouter = router({
             inArray(iersShiftTeams.status, ["published", "active"]),
           ))
           .orderBy(iersShiftTeams.shiftDate, iersShiftTeams.shiftType, desc(iersShiftTeams.teamVersion));
-        if (teams.length === 0) continue;
-        for (const { team } of teams) {
-          const teamRosters = await db.select().from(shiftUtlRosters).where(and(
+        let teams = await loadTeams();
+        const rosterKey = (roster: { institutionId: number; poleId: number; shiftDate: Date; shiftType: string; shiftStartTime: string; shiftEndTime: string; shiftEndDayOffset: number }) => [
+          roster.institutionId,
+          roster.poleId,
+          roster.shiftDate.toISOString().slice(0, 10),
+          roster.shiftType,
+          roster.shiftStartTime,
+          roster.shiftEndTime,
+          roster.shiftEndDayOffset,
+        ].join("|");
+        const teamKeysMissingErtl = new Set<string>();
+        if (teams.length > 0) {
+          const teamIds = teams.map(({ team }) => team.id);
+          const existingRoles = await db
+            .select({ teamId: iersShiftRoleAssignments.teamId, roleScope: iersShiftRoleAssignments.roleScope, assignmentStatus: iersShiftRoleAssignments.assignmentStatus })
+            .from(iersShiftRoleAssignments)
+            .where(inArray(iersShiftRoleAssignments.teamId, teamIds));
+          const teamsWithErtl = new Set(existingRoles.filter((role) => role.roleScope === "ertl" && ["proposed", "approved", "pending_acceptance", "accepted", "declined"].includes(role.assignmentStatus)).map((role) => role.teamId));
+          for (const { team } of teams) {
+            if (!teamsWithErtl.has(team.id)) teamKeysMissingErtl.add(rosterKey(team));
+          }
+        }
+        const repairRosters = new Map<string, typeof shiftUtlRosters.$inferSelect>();
+        if (teams.length === 0 || teamKeysMissingErtl.size > 0) {
+          const candidateRosters = await db.select().from(shiftUtlRosters).where(and(
             eq(shiftUtlRosters.institutionId, institutionId),
-            eq(shiftUtlRosters.poleId, team.poleId),
-            eq(shiftUtlRosters.shiftDate, team.shiftDate),
-            eq(shiftUtlRosters.shiftType, team.shiftType),
-            eq(shiftUtlRosters.shiftStartTime, team.shiftStartTime),
-            eq(shiftUtlRosters.shiftEndTime, team.shiftEndTime),
-            eq(shiftUtlRosters.shiftEndDayOffset, team.shiftEndDayOffset),
+            inArray(shiftUtlRosters.poleId, poleIds),
+            gte(shiftUtlRosters.shiftDate, windowStart),
+            lte(shiftUtlRosters.shiftDate, horizon),
             eq(shiftUtlRosters.status, "active"),
             inArray(shiftUtlRosters.assignmentStatus, ["pending_acceptance", "active"]),
           ));
-          for (const roster of teamRosters) {
-            await ensurePublishedTeamForLegacyUtlRoster(db, { roster, actorUserId: ctx.user.id });
+          for (const roster of candidateRosters) {
+            const key = rosterKey(roster);
+            if (teams.length === 0 || teamKeysMissingErtl.has(key)) repairRosters.set(key, roster);
           }
         }
+        for (const roster of repairRosters.values()) {
+          await ensurePublishedTeamForLegacyUtlRoster(db, { roster, actorUserId: ctx.user.id });
+        }
+        if (repairRosters.size > 0) {
+          teams = await loadTeams();
+        }
+        if (teams.length === 0) continue;
         const teamIds = teams.map(({ team }) => team.id);
         const assignments = await db
           .select({ assignment: iersShiftRoleAssignments, providerName: users.name, providerEmail: users.email, departmentName: facilityDepartments.departmentName })
           .from(iersShiftRoleAssignments)
           .leftJoin(users, eq(users.id, iersShiftRoleAssignments.providerUserId))
           .leftJoin(facilityDepartments, eq(facilityDepartments.id, iersShiftRoleAssignments.departmentId))
-          .where(inArray(iersShiftRoleAssignments.teamId, teamIds));
+          .where(and(
+            inArray(iersShiftRoleAssignments.teamId, teamIds),
+            inArray(iersShiftRoleAssignments.assignmentStatus, ["proposed", "approved", "pending_acceptance", "accepted", "declined"]),
+          ));
         const recommendations = await db
           .select()
           .from(iersShiftRoleRecommendations)

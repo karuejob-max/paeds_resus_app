@@ -33,6 +33,7 @@ function initialTab(): TabValue {
 export default function ProviderMyShift() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<TabValue>(initialTab);
+  const [showInstitutionResponsibilities, setShowInstitutionResponsibilities] = useState(false);
 
   const changeTab = (value: string) => {
     if (TAB_VALUES.includes(value as TabValue)) setActiveTab(value as TabValue);
@@ -69,8 +70,22 @@ export default function ProviderMyShift() {
 
           <TabsContent value="team" className="space-y-4">
             <ProviderInstitutionReadinessCard />
-            <ProviderIersDutyAssignmentCard />
             <ProviderIersShiftTeamCard />
+            <Card className="border-slate-200 bg-white">
+              <CardContent className="p-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full justify-between px-2 text-left"
+                  onClick={() => setShowInstitutionResponsibilities((visible) => !visible)}
+                  aria-expanded={showInstitutionResponsibilities}
+                >
+                  <span>Institution responsibilities</span>
+                  <span className="text-xs text-muted-foreground">{showInstitutionResponsibilities ? "Hide" : "Open when needed"}</span>
+                </Button>
+                {showInstitutionResponsibilities && <div className="mt-3"><ProviderIersDutyAssignmentCard /></div>}
+              </CardContent>
+            </Card>
           </TabsContent>
           <TabsContent value="readiness" className="space-y-4">
             <ProviderShiftReadinessCard />
