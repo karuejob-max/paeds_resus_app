@@ -24,7 +24,6 @@ import {
   Settings2,
   ShieldCheck,
   Users,
-  Wrench,
 } from "lucide-react";
 import { IersActivationPanel } from "@/components/IersActivationPanel";
 import { IersDrillPanel } from "@/components/IersDrillPanel";
@@ -213,9 +212,6 @@ export default function InstitutionWorkspace() {
               Institution Workspace
             </div>
             <h1 className="break-words text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{institutionName}</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-5 text-muted-foreground sm:text-base">
-              One institution account, two products, and one shared administration layer. Providers and institutional leaders work from the same readiness record.
-            </p>
           </div>
           <div className="flex w-full shrink-0 flex-col gap-2 md:w-auto md:flex-row">
             <Button className="w-full md:w-auto" variant="outline" onClick={() => navigate("/iers/orientation")}>
@@ -259,12 +255,11 @@ export default function InstitutionWorkspace() {
         </div>
 
         <Tabs value={activeSection} onValueChange={(value) => setSection(value as WorkspaceSection)}>
-          <TabsList className="mb-6 grid h-auto w-full grid-cols-1 gap-1 p-1 min-[380px]:grid-cols-2 sm:grid-cols-5">
+          <TabsList className="mb-6 grid h-auto w-full grid-cols-1 gap-1 p-1 min-[380px]:grid-cols-2 sm:grid-cols-4">
             <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="overview"><LayoutDashboard className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Overview</span></TabsTrigger>
             <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="iers"><HeartPulse className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>IERS</span></TabsTrigger>
             <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="cpd_portal"><ClipboardCheck className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>CPD Portal</span></TabsTrigger>
             <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="administration"><Settings2 className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Administration</span></TabsTrigger>
-            <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="connected"><Wrench className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Connected Services</span></TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
