@@ -397,7 +397,8 @@ export const iersRouter = router({
       const [duplicateActivation] = await db.select({ id: iersActivationEvents.id }).from(iersActivationEvents).where(and(...duplicateConditions)).orderBy(desc(iersActivationEvents.triggeredAt)).limit(1);
       if (duplicateActivation) throw new TRPCError({ code: "CONFLICT", message: `An active activation already exists for this location (case #${duplicateActivation.id}). Open that case instead of creating another.` });
 
-      const eventInsert = await db.insert(iersActivationEvents).values({
+      const activationCorrelationNonce = createActivationQrNonce();
+      await db.insert(iersActivationEvents).values({
         institutionalAccountId: input.institutionId,
         activatedByUserId: ctx.user.id,
         teamId: teamContext?.team.id ?? null,
@@ -416,9 +417,15 @@ export const iersRouter = router({
               ? "unit_team_leader"
               : "provider",
         status: "notifying",
+        caseQrNonce: activationCorrelationNonce,
         notes: input.notes || null,
       });
-      const activationEventId = (eventInsert as unknown as { insertId: number }).insertId;
+      const [createdActivation] = await db
+        .select({ id: iersActivationEvents.id })
+        .from(iersActivationEvents)
+        .where(eq(iersActivationEvents.caseQrNonce, activationCorrelationNonce))
+        .limit(1);
+      const activationEventId = createdActivation?.id;
       if (!activationEventId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Activation could not be created." });
 
       const snapshot = teamContext
@@ -849,7 +856,8 @@ export const iersRouter = router({
       const continuityDecision = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.activation.respond");
       assertIersActivationContinuity(continuityDecision);
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-      const eventInsert = await db.insert(iersActivationEvents).values({
+      const downtimeCorrelationNonce = createActivationQrNonce();
+      await db.insert(iersActivationEvents).values({
         institutionalAccountId: input.institutionId,
         activatedByUserId: ctx.user.id,
         activationType: input.activationType,
@@ -858,10 +866,17 @@ export const iersRouter = router({
         department: input.department || null,
         source: "downtime_reconciliation",
         status: "downtime_pending_sync",
+        caseQrNonce: downtimeCorrelationNonce,
         triggeredAt: input.triggeredAt,
         notes: input.notes,
       });
-      const activationEventId = (eventInsert as unknown as { insertId: number }).insertId;
+      const [createdDowntimeActivation] = await db
+        .select({ id: iersActivationEvents.id })
+        .from(iersActivationEvents)
+        .where(eq(iersActivationEvents.caseQrNonce, downtimeCorrelationNonce))
+        .limit(1);
+      const activationEventId = createdDowntimeActivation?.id;
+      if (!activationEventId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Downtime activation could not be created." });
       await appendTimeline(db, {
         activationEventId,
         institutionalAccountId: input.institutionId,
