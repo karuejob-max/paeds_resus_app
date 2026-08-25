@@ -118,6 +118,8 @@ An accepted ERTL may nominate an eligible active linked Staff/RN provider from t
 
 Provider activation must load and repair the exact current dated team before snapshotting or notifying responders. It must not create an activation against an incomplete UTL-only read model. Activation fan-out, responder states, resource evidence, arrival evidence, QR case-linking, and targeted reports remain tied to the immutable activation event and exact team scope.
 
+Activation creation must correlate the inserted event through a server-generated opaque nonce and re-fetch the event ID, rather than trusting a potentially absent Drizzle/mysql2 `insertId`. If event identification fails, the mutation must fail before snapshot/fan-out and must not claim that downstream responder notification occurred.
+
 ### Institutional Workspace information architecture (locked for the minimal institution experience)
 
 The canonical institution entry is `/institution`. Its primary navigation contains only **Overview**, **IERS**, **CPD Portal**, and **Administration**. Connected services remain available through preserved deep links but are not a default navigation lane. The obsolete `/hospital-admin-dashboard` route redirects to `/institution` so users do not encounter a competing legacy ERT or administration surface.
