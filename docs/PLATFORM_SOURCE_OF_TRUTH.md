@@ -101,7 +101,7 @@ High-level map (routes may evolve; check the codebase if in doubt):
 | **Provider hub / Individual Platform** | `/home` — minimal **Today** surface: one next-action card, active facility context, and direct destinations for ResusGPS, My Shift, Learn, and My Records. Detailed operational and learning content is lazy-loaded only when opened. |
 | **Instructor portal** | `/instructor-portal` — instructor journey status, **My assignments** (B2B sessions), resources placeholder; gated on certification + platform approval for full teaching access. |
 | **Parent / guardian** | `/parent-safe-truth` — Safe-Truth and parent-facing resources. |
-| **Institution** | Hospital admin institutional dashboards (canonical route: `/hospital-admin-dashboard`; legacy `/institutional-portal` may redirect) — institutional metrics and management. |
+| **Institution** | Canonical Institutional Workspace at `/institution`; the legacy `/hospital-admin-dashboard` and `/institutional-portal` paths redirect here — institutional products, IERS operations, CPD Portal, and administration. |
 | **Admin** | `/admin` — reports, insights, advanced tools; **admin** access is governed by [§7](#7-auth-and-roles). |
 
 ### Individual Platform information architecture (locked for the minimal provider experience)
@@ -112,10 +112,18 @@ The provider’s detail destinations are deliberately separated: **My Shift** co
 
 ResusGPS remains the shortest path to structured bedside paediatric emergency guidance. A provider’s facility membership or learning enrollment must not be treated as proof of competency, activation attendance, or emergency dispatch authority. IERS controls continue to obey exact tenant, institution, pole, department, dated-shift, membership, assignment, and explicit-acceptance rules. Detailed workspaces should be lazy-loaded so the default home does not fetch or render every product card at once.
 
+### Institutional Workspace information architecture (locked for the minimal institution experience)
+
+The canonical institution entry is `/institution`. Its primary navigation contains only **Overview**, **IERS**, **CPD Portal**, and **Administration**. Connected services remain available through preserved deep links but are not a default navigation lane. The obsolete `/hospital-admin-dashboard` route redirects to `/institution` so users do not encounter a competing legacy ERT or administration surface.
+
+The institutional ERT display must read the exact published/active versioned team for the selected institution, pole, date, and shift—the same source used by provider My Shift. It must not reconstruct a different team from a legacy UTL-only view. A provider who has separate UTL and automatic ERTL / Scene Commander assignments appears once with multiple role labels. If no canonical team is published, the portal shows an honest incomplete state rather than inventing coverage.
+
+People & roles defaults to active staff. Retired or removed staff remain available in an explicit history view for audit and possible re-linking. A re-link is an administrator-approved restoration of a **general institution membership only**; previous IERS duties, product roles, and administrative scopes are not restored automatically. Any new operational responsibility requires fresh dated assignment and explicit provider acceptance.
+
 
 ### Admin (platform owner)
 
-**Who:** Users with **`role === 'admin'`** in the database — typically granted when **`openId`** matches **`OWNER_OPEN_ID`** at auth/upsert ([§7](#7-auth-and-roles)). This is **Paeds Resus platform** administration, **not** the same persona as **institutional / hospital** staff (who use **`/hospital-admin-dashboard`** for their facility).
+**Who:** Users with **`role === 'admin'`** in the database — typically granted when **`openId`** matches **`OWNER_OPEN_ID`** at auth/upsert ([§7](#7-auth-and-roles)). This is **Paeds Resus platform** administration, **not** the same persona as **institutional / hospital** staff (who use **`/institution`** for their facility).
 
 **Primary entry:** **`/admin`** (Admin hub). Typical destinations include **`/admin/reports`** (canonical definitions [§8](#8-admin-reports-definitions)), M-Pesa reconciliation, Care Signal review queue, national signal, capstone grading, course administration, and advanced analytics surfaces linked from the hub.
 
@@ -147,7 +155,7 @@ When you propose changes, assume this stack unless leadership explicitly changes
 | **User types (DB) — migration pending** | Current: `individual` \| `parent` \| `institutional`. **Target (P0 migration):** `individual_actor` \| `organisation_actor`. The `parent` type is being retired — Safe-Truth requires no account. Do not build new features against the `parent` userType. See [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md) §5.4. |
 | **UI switch** | Any logged-in user may choose **Provider / Institution** in the UI post-migration. That choice is **not** persisted as a second `userType`; only **default** `userType` is stored for **post-login redirect**. |
 | **Admin** | `role === 'admin'` in the DB. Admin is **granted** when `openId === OWNER_OPEN_ID` at auth/upsert; **authorisation checks** use `ctx.user.role === 'admin'`. No admin by ad-hoc DB edits. |
-| **Post-login redirect** | By **default `userType` only:** `individual` → `/home`, `parent` → `/parent-safe-truth`, `institutional` → `/hospital-admin-dashboard` (legacy `/institutional-portal` may redirect). **No** "last-used role" persisted in DB yet. |
+| **Post-login redirect** | By **default `userType` only:** `individual` → `/home`, `parent` → `/parent-safe-truth`, `institutional` → `/institution` (legacy `/hospital-admin-dashboard` and `/institutional-portal` may redirect). **No** "last-used role" persisted in DB yet. |
 | **Institutional continuity** | Organisation Actor accounts belong to the institution, not the creating individual. **Minimum two named admin contacts required.** Recovery via institutional identity verification (facility letterhead, MoH registration number) — **not** personal credential reset. See [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md) §5.4. Not yet implemented — **P1**. |
 | **Provider cadre** | Mandatory profile field on individual accounts: Community Health Worker \| Enrolled Nurse \| Registered Nurse \| Clinical Officer (Diploma) \| Clinical Officer (Degree) \| Medical Officer \| Paediatrician \| Other Specialist \| Nursing Student \| Medical Student \| Other Trainee. Full list: [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md) §1.3. Not yet implemented — **P1**. |
 | **Fellowship pseudonymous token** | A provider may submit Care Signal anonymously while retaining Fellowship credit via a device-bound pseudonymous token, separate from named identity. See [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md) §5.5. Not yet implemented — **P1**. |
@@ -851,7 +859,7 @@ The PSOT is a living document. It is only as useful as the discipline of the age
 
 ### 23.4 Auth routing (unchanged)
 
-Logged-in users hitting `/` are redirected by **`userType`** to `/home`, `/parent-safe-truth`, or `/hospital-admin-dashboard` — **no change** to [§7](#7-auth-and-roles). Public SEO pages remain accessible when logged out; product workspaces remain gated.
+Logged-in users hitting `/` are redirected by **`userType`** to `/home`, `/parent-safe-truth`, or `/institution` — **no change** to [§7](#7-auth-and-roles). Public SEO pages remain accessible when logged out; product workspaces remain gated.
 
 ### 23.5 EAC expansion note
 
