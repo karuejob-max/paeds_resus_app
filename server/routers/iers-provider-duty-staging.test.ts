@@ -983,6 +983,19 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       eq(institutionProductRoles.userId, ids.assignedProviderId),
       eq(institutionProductRoles.roleKey, "iers_responder"),
     ));
+    const memberCandidates = await assignedCaller.iersShiftTeam.listErtMemberCandidates({ teamId: ids.publishedTeamId });
+    expect(memberCandidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ providerUserId: ids.replacementProviderId, departmentId: ids.departmentId }),
+    ]));
+    const nominatedMember = await assignedCaller.iersShiftTeam.nominateMemberRole({
+      teamId: ids.publishedTeamId,
+      providerUserId: ids.replacementProviderId,
+      roleKey: "runner",
+      reason: "Staging ERTL member nomination",
+    });
+    expect(nominatedMember.status).toBe("pending_acceptance");
+    const nominatedMemberRow = await db.select({ providerUserId: iersShiftRoleAssignments.providerUserId, roleScope: iersShiftRoleAssignments.roleScope, roleKey: iersShiftRoleAssignments.roleKey, assignmentStatus: iersShiftRoleAssignments.assignmentStatus, acceptedAt: iersShiftRoleAssignments.acceptedAt }).from(iersShiftRoleAssignments).where(eq(iersShiftRoleAssignments.id, nominatedMember.assignmentId)).limit(1);
+    expect(nominatedMemberRow[0]).toEqual(expect.objectContaining({ providerUserId: ids.replacementProviderId, roleScope: "ert_member", roleKey: "runner", assignmentStatus: "pending_acceptance", acceptedAt: null }));
     const memberInsert = await db.insert(iersShiftRoleAssignments).values({
       teamId: ids.publishedTeamId,
       institutionId: ids.institutionId,

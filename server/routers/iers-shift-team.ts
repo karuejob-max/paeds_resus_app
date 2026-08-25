@@ -545,6 +545,140 @@ export const iersShiftTeamRouter = router({
       return { success: true, status: "approved" as const };
     }),
 
+  /** Accepted ERTL lists eligible active linked Staff/RN providers in the team pole who are not already assigned to this team. */
+  listErtMemberCandidates: protectedProcedure
+    .input(z.object({ teamId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      const { team } = await requireErtlForTeam(db, ctx.user, input.teamId);
+      const existing = await db.select({ providerUserId: iersShiftRoleAssignments.providerUserId }).from(iersShiftRoleAssignments).where(and(
+        eq(iersShiftRoleAssignments.teamId, team.id),
+        inArray(iersShiftRoleAssignments.assignmentStatus, ["proposed", "approved", "pending_acceptance", "accepted"]),
+      ));
+      const assignedProviderIds = new Set(existing.map((row) => row.providerUserId));
+      const candidates = await db.select({
+        providerUserId: users.id,
+        providerName: users.name,
+        providerEmail: users.email,
+        providerType: users.providerType,
+        cadre: users.cadre,
+        cadreOther: users.cadreOther,
+        staffRole: institutionalStaffMembers.staffRole,
+        departmentId: institutionalStaffMembers.facilityDepartmentId,
+        departmentName: facilityDepartments.departmentName,
+      }).from(users)
+        .innerJoin(institutionalStaffMembers, and(
+          eq(institutionalStaffMembers.userId, users.id),
+          eq(institutionalStaffMembers.institutionalAccountId, team.institutionId),
+          eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+          isNull(institutionalStaffMembers.removedAt),
+        ))
+        .innerJoin(institutionMemberships, and(
+          eq(institutionMemberships.userId, users.id),
+          eq(institutionMemberships.institutionalAccountId, team.institutionId),
+          eq(institutionMemberships.membershipStatus, "active"),
+        ))
+        .innerJoin(facilityDepartments, and(
+          eq(facilityDepartments.id, institutionalStaffMembers.facilityDepartmentId),
+          eq(facilityDepartments.institutionId, team.institutionId),
+          eq(facilityDepartments.poleId, team.poleId),
+          eq(facilityDepartments.isActive, true),
+        ));
+      return candidates
+        .filter((candidate) => !assignedProviderIds.has(candidate.providerUserId) && isRegisteredRnProfile(candidate))
+        .map((candidate) => ({
+          providerUserId: candidate.providerUserId,
+          providerName: candidate.providerName ?? candidate.providerEmail ?? "Provider",
+          departmentId: candidate.departmentId,
+          departmentName: candidate.departmentName,
+        }))
+        .sort((left, right) => left.providerName.localeCompare(right.providerName));
+    }),
+
+  /** Accepted ERTL nominates an eligible provider as a new ERT member; the provider must accept or decline. */
+  nominateMemberRole: protectedProcedure
+    .input(z.object({ teamId: z.number().int().positive(), providerUserId: z.number().int().positive(), roleKey: z.string().trim().min(2).max(64), reason: z.string().trim().min(3).max(1000) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      const { team } = await requireErtlForTeam(db, ctx.user, input.teamId);
+      const roleKey = normalizeRoleKey(input.roleKey);
+      if (!ERT_MEMBER_ROLES.has(roleKey)) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a supported ERT member role." });
+      const [provider] = await db.select({
+        userId: users.id,
+        providerName: users.name,
+        providerEmail: users.email,
+        providerType: users.providerType,
+        cadre: users.cadre,
+        cadreOther: users.cadreOther,
+        staffRole: institutionalStaffMembers.staffRole,
+        departmentId: institutionalStaffMembers.facilityDepartmentId,
+        departmentName: facilityDepartments.departmentName,
+        poleId: facilityDepartments.poleId,
+      }).from(users)
+        .innerJoin(institutionalStaffMembers, and(
+          eq(institutionalStaffMembers.userId, users.id),
+          eq(institutionalStaffMembers.institutionalAccountId, team.institutionId),
+          eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+          isNull(institutionalStaffMembers.removedAt),
+        ))
+        .innerJoin(institutionMemberships, and(
+          eq(institutionMemberships.userId, users.id),
+          eq(institutionMemberships.institutionalAccountId, team.institutionId),
+          eq(institutionMemberships.membershipStatus, "active"),
+        ))
+        .innerJoin(facilityDepartments, and(
+          eq(facilityDepartments.id, institutionalStaffMembers.facilityDepartmentId),
+          eq(facilityDepartments.institutionId, team.institutionId),
+          eq(facilityDepartments.isActive, true),
+        ))
+        .where(eq(users.id, input.providerUserId))
+        .limit(1);
+      if (!provider || !isRegisteredRnProfile(provider)) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose an active linked Staff/RN provider from this institution." });
+      if (provider.poleId !== team.poleId) throw new TRPCError({ code: "FORBIDDEN", message: "The provider is outside this team’s pole scope." });
+      const [alreadyAssigned] = await db.select({ id: iersShiftRoleAssignments.id }).from(iersShiftRoleAssignments).where(and(
+        eq(iersShiftRoleAssignments.teamId, team.id),
+        eq(iersShiftRoleAssignments.providerUserId, input.providerUserId),
+        inArray(iersShiftRoleAssignments.assignmentStatus, ["proposed", "approved", "pending_acceptance", "accepted"]),
+      )).limit(1);
+      if (alreadyAssigned) throw new TRPCError({ code: "CONFLICT", message: "This provider is already assigned to the selected ERT." });
+      const [roleCollision] = await db.select({ id: iersShiftRoleAssignments.id }).from(iersShiftRoleAssignments).where(and(
+        eq(iersShiftRoleAssignments.teamId, team.id),
+        eq(iersShiftRoleAssignments.roleScope, "ert_member"),
+        eq(iersShiftRoleAssignments.roleKey, roleKey),
+        inArray(iersShiftRoleAssignments.assignmentStatus, ["proposed", "approved", "pending_acceptance", "accepted"]),
+      )).limit(1);
+      if (roleCollision) throw new TRPCError({ code: "CONFLICT", message: "That ERT member role is already assigned for this shift." });
+      const inserted = await db.insert(iersShiftRoleAssignments).values({
+        teamId: team.id,
+        institutionId: team.institutionId,
+        poleId: team.poleId,
+        departmentId: provider.departmentId,
+        providerUserId: input.providerUserId,
+        shiftUtlRosterId: null,
+        roleScope: "ert_member",
+        roleKey,
+        assignmentStatus: "pending_acceptance",
+        proposedByUserId: ctx.user.id,
+      });
+      const assignmentId = Number((inserted as unknown as { insertId: number }).insertId);
+      await recordRoleEvent(db, {
+        assignmentId,
+        teamId: team.id,
+        institutionId: team.institutionId,
+        actorUserId: ctx.user.id,
+        eventType: "role_assigned_by_ertl",
+        fromStatus: "proposed",
+        toStatus: "pending_acceptance",
+        fromRoleKey: null,
+        toRoleKey: roleKey,
+        reason: input.reason,
+      });
+      await notifyUser(db, input.providerUserId, "ERT member role assigned — acceptance required", `The ERTL assigned you ${roleKey.replaceAll("_", " ")}. Accept or decline the dated responsibility.`, assignmentId, "/home");
+      return { success: true, assignmentId, status: "pending_acceptance" as const };
+    }),
+
   /** Accepted ERTL assigns an operational role to an existing ERT member. */
   assignMemberRole: protectedProcedure
     .input(z.object({ teamId: z.number().int().positive(), assignmentId: z.number().int().positive(), roleKey: z.string().trim().min(2).max(64), reason: z.string().trim().min(3).max(1000) }))
