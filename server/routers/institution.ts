@@ -5284,8 +5284,7 @@ export const institutionRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      const [account] = await db.select({ id: institutionalAccounts.id }).from(institutionalAccounts).where(eq(institutionalAccounts.id, input.institutionId)).limit(1);
-      if (!account) throw new TRPCError({ code: "NOT_FOUND", message: "Institution not found." });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
       return { isInstitutionAdmin: ctx.user.role === "admin" || await isInstitutionAdmin(db, ctx.user.id, input.institutionId) };
     }),
 
