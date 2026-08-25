@@ -57,7 +57,6 @@ const ForProviders = lazy(() => import("./pages/ForProviders"));
 const ForInstitutions = lazy(() => import("./pages/ForInstitutions"));
 const ForParents = lazy(() => import("./pages/ForParents"));
 const AHACoursesPublic = lazy(() => import("./pages/AHACoursesPublic"));
-const HospitalAdminDashboard = lazy(() => import("./pages/HospitalAdminDashboard"));
 const InstitutionWorkspace = lazy(() => import("./pages/InstitutionWorkspace"));
 const Enroll = lazy(() => import("./pages/Enroll"));
 const LearnerDashboard = lazy(() => import("./pages/LearnerDashboard"));
@@ -344,11 +343,7 @@ function Router() {
           <Route path="/for-providers" component={ForProviders} />
           <Route path="/for-institutions" component={ForInstitutions} />
           <Route path="/for-parents" component={ForParents} />
-          <Route path="/hospital-admin-dashboard">{() => (
-            <RoleGate allowed={["institution"]}>
-              <HospitalAdminDashboard />
-            </RoleGate>
-          )}</Route>
+          <Route path="/hospital-admin-dashboard">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution" /></RoleGate>}</Route>
           {/* Legacy tab deep links now land in the canonical product workspace. */}
           <Route path="/hospital-admin-dashboard/training">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=iers&iersTab=competency" /></RoleGate>}</Route>
           <Route path="/hospital-admin-dashboard/action-log">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=iers&iersTab=evidence" /></RoleGate>}</Route>

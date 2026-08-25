@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { AlertTriangle, CalendarClock, KeyRound, Loader2, RefreshCw, Search, ShieldCheck, UserMinus, Users } from "lucide-react";
+import { AlertTriangle, CalendarClock, KeyRound, Loader2, RefreshCw, Search, ShieldCheck, UserCheck, UserMinus, Users } from "lucide-react";
 
 const GOVERNANCE_ROLES = [
   ["general_staff", "General staff"],
@@ -65,6 +65,9 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
   const [accountScopeKey, setAccountScopeKey] = useState("");
   const [removalTarget, setRemovalTarget] = useState<StaffRow | null>(null);
   const [removalReason, setRemovalReason] = useState("");
+  const [restoreTarget, setRestoreTarget] = useState<StaffRow | null>(null);
+  const [restoreReason, setRestoreReason] = useState("");
+  const [showRetired, setShowRetired] = useState(false);
   const [unlinkTarget, setUnlinkTarget] = useState<StaffRow | null>(null);
   const [unlinkReason, setUnlinkReason] = useState("");
   const [removalReportId, setRemovalReportId] = useState<number | null>(null);
@@ -72,7 +75,7 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
   const [reallocationDepartmentId, setReallocationDepartmentId] = useState("");
   const [reallocationReason, setReallocationReason] = useState("");
   const [activeSection, setActiveSection] = useState<"roster" | "duties" | "product_roles" | "scopes">("roster");
-  const { data, isLoading, isFetching, refetch } = trpc.institution.getStaffMembers.useQuery({ institutionId }, {
+  const { data, isLoading, isFetching, refetch } = trpc.institution.getStaffMembers.useQuery({ institutionId, includeRemoved: showRetired }, {
     enabled: !!institutionId,
     staleTime: 30_000,
   });
@@ -167,6 +170,19 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
       ]);
     },
     onError: (error) => toast.error(error.message || "Could not retire this roster record"),
+  });
+  const restoreRetiredLink = trpc.institution.restoreRetiredStaffLink.useMutation({
+    onSuccess: async () => {
+      toast.success("Institution link restored; previous IERS duties still require fresh assignment and acceptance.");
+      setRestoreTarget(null);
+      setRestoreReason("");
+      await Promise.all([
+        utils.institution.getStaffMembers.invalidate({ institutionId, includeRemoved: true }),
+        utils.institution.getStaffMembers.invalidate({ institutionId, includeRemoved: false }),
+        utils.institution.getPendingLinkRequests.invalidate({ institutionId }),
+      ]);
+    },
+    onError: (error) => toast.error(error.message || "Could not restore this institution link"),
   });
   const removeMember = trpc.institution.removeInstitutionMember.useMutation({
     onSuccess: async () => {
@@ -267,15 +283,36 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
             </div>)}
           </CardContent>
         </Card>}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search name, email, department, or role" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input className="pl-9" placeholder="Search name, email, department, or role" value={search} onChange={(event) => setSearch(event.target.value)} />
+          </div>
+          <Button type="button" size="sm" variant={showRetired ? "secondary" : "outline"} className="w-full sm:w-auto" onClick={() => setShowRetired((current) => !current)}>
+            {showRetired ? "Hide retired history" : "Show retired history"}
+          </Button>
         </div>
         {unlinkTarget && (
           <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
             <div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /><div className="min-w-0"><p className="font-medium text-amber-900 dark:text-amber-100">Unlink {unlinkTarget.staffName} from this institution?</p><p className="text-xs text-amber-800 dark:text-amber-200">This ends institutional access and future IERS duties but keeps the platform account, CPD history, and staff audit record. A later CPD attendance will not silently reactivate the membership.</p></div></div>
             <Input placeholder="Required reason (at least 10 characters)" value={unlinkReason} onChange={(event) => setUnlinkReason(event.target.value)} />
             <div className="flex flex-col gap-2 sm:flex-row"><Button type="button" className="w-full sm:w-auto" disabled={!unlinkTarget.membershipId || unlinkReason.trim().length < 10 || unlinkMember.isPending} onClick={() => unlinkTarget.membershipId && unlinkMember.mutate({ institutionId, membershipId: unlinkTarget.membershipId, reason: unlinkReason.trim() })}>{unlinkMember.isPending ? "Unlinking…" : "Confirm unlink"}</Button><Button type="button" variant="outline" className="w-full sm:w-auto" disabled={unlinkMember.isPending} onClick={() => { setUnlinkTarget(null); setUnlinkReason(""); }}>Cancel</Button></div>
+          </div>
+        )}
+        {restoreTarget && (
+          <div className="space-y-3 rounded-lg border border-emerald-300 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
+            <div className="flex items-start gap-2">
+              <UserCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-300" />
+              <div className="min-w-0">
+                <p className="font-medium text-emerald-900 dark:text-emerald-100">Restore {restoreTarget.staffName} to this institution?</p>
+                <p className="text-xs text-emerald-800 dark:text-emerald-200">This restores a general institution link only. Previous IERS duties, product roles, and administrative scopes are not restored automatically; any new operational responsibility must be assigned and accepted again.</p>
+              </div>
+            </div>
+            <Input placeholder="Required reason (at least 10 characters)" value={restoreReason} onChange={(event) => setRestoreReason(event.target.value)} />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button type="button" className="w-full bg-emerald-700 hover:bg-emerald-800 sm:w-auto" disabled={restoreReason.trim().length < 10 || restoreRetiredLink.isPending} onClick={() => restoreRetiredLink.mutate({ institutionId, staffMemberId: restoreTarget.id, reason: restoreReason.trim() })}>{restoreRetiredLink.isPending ? "Restoring…" : "Confirm re-link"}</Button>
+              <Button type="button" variant="outline" className="w-full sm:w-auto" disabled={restoreRetiredLink.isPending} onClick={() => { setRestoreTarget(null); setRestoreReason(""); }}>Cancel</Button>
+            </div>
           </div>
         )}
         {removalTarget && (
@@ -324,14 +361,14 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
                       <TableCell><Badge variant="outline" className="capitalize">{member.staffRole.replaceAll("_", " ")}</Badge></TableCell>
                       <TableCell className="text-sm text-muted-foreground">{member.department || "Not assigned"}</TableCell>
                       <TableCell>
-                        <Select value={currentRole} onValueChange={(value) => updateRole.mutate({ institutionId, staffMemberId: member.id, governanceRole: value as GovernanceRole })} disabled={updateRole.isPending}>
+                        <Select value={currentRole} onValueChange={(value) => updateRole.mutate({ institutionId, staffMemberId: member.id, governanceRole: value as GovernanceRole })} disabled={isRemoved || updateRole.isPending}>
                           <SelectTrigger className="w-[190px]"><SelectValue /></SelectTrigger>
                           <SelectContent>{GOVERNANCE_ROLES.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell><Badge variant={isRemoved ? "destructive" : member.facilityLinkStatus === "linked" ? "default" : "secondary"}>{isRemoved ? "Removed" : member.facilityLinkStatus === "linked" ? "Linked" : member.facilityLinkStatus ?? "Roster only"}</Badge></TableCell>
+                      <TableCell><Badge variant={isRemoved ? "destructive" : member.facilityLinkStatus === "linked" ? "default" : "secondary"}>{isRemoved ? "Retired · access ended" : member.facilityLinkStatus === "linked" ? "Linked" : member.facilityLinkStatus ?? "Roster only"}</Badge></TableCell>
                       <TableCell>
-                        {isRemoved ? <span className="text-xs text-muted-foreground">Access ended</span> : member.membershipId ? <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" className="text-amber-700" onClick={() => { setUnlinkTarget(member); setUnlinkReason(""); }} disabled={unlinkMember.isPending || removeMember.isPending || retireStaffRecord.isPending}><AlertTriangle className="mr-2 h-4 w-4" />Unlink</Button><Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); setRemovalReportId(null); }} disabled={removeMember.isPending || retireStaffRecord.isPending || unlinkMember.isPending}><UserMinus className="mr-2 h-4 w-4" />Retire</Button></div> : <Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); setRemovalReportId(null); }} disabled={removeMember.isPending || retireStaffRecord.isPending}><UserMinus className="mr-2 h-4 w-4" />Retire from roster</Button>}
+                        {isRemoved ? (member.userId ? <Button type="button" size="sm" variant="outline" className="text-emerald-700" onClick={() => { setRestoreTarget(member); setRestoreReason(""); }} disabled={restoreRetiredLink.isPending}><UserCheck className="mr-2 h-4 w-4" />Restore institution link</Button> : <span className="text-xs text-muted-foreground">Account link required before restoration</span>) : member.membershipId ? <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" className="text-amber-700" onClick={() => { setUnlinkTarget(member); setUnlinkReason(""); }} disabled={unlinkMember.isPending || removeMember.isPending || retireStaffRecord.isPending}><AlertTriangle className="mr-2 h-4 w-4" />Unlink</Button><Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); setRemovalReportId(null); }} disabled={removeMember.isPending || retireStaffRecord.isPending || unlinkMember.isPending}><UserMinus className="mr-2 h-4 w-4" />Retire</Button></div> : <Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); setRemovalReportId(null); }} disabled={removeMember.isPending || retireStaffRecord.isPending}><UserMinus className="mr-2 h-4 w-4" />Retire from roster</Button>}
                       </TableCell>
                     </TableRow>
                   );

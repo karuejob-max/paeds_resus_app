@@ -200,6 +200,15 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
     },
     { enabled: !!institutionId && !!activePoleId }
   );
+  const { data: canonicalTeam, isLoading: canonicalTeamLoading } = trpc.institution.getCanonicalShiftTeam.useQuery(
+    {
+      institutionId,
+      poleId: activePoleId ?? 0,
+      shiftDate: selectedDate,
+      shiftType: selectedShift,
+    },
+    { enabled: !!institutionId && !!activePoleId, staleTime: 15_000 }
+  );
 
   const { data: weeklyRotation } = trpc.institution.getWeeklyErtlRotation.useQuery(
     { institutionId, poleId: activePoleId ?? 0, weekNumber, year },
@@ -603,16 +612,23 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
         </CardContent>
       </Card>
 
-      {/* ERT Billboard Live Widget */}
-      <ErtBillboardWidget
-        poleId={activePoleId}
-        shiftDate={selectedDate}
-        shiftType={selectedShift}
-        shiftRosters={shiftRosters}
-        poleDepartments={poleDepartments}
-        staffMembers={staffMembers}
-        ertlDepartmentId={ertlDepartmentId}
-      />
+      {/* Canonical ERT Billboard */}
+      {canonicalTeamLoading ? (
+        <Card className="min-w-0 border-slate-300"><CardContent className="py-8 text-center text-sm text-muted-foreground">Loading the selected shift’s published ERT…</CardContent></Card>
+      ) : canonicalTeam ? (
+        <ErtBillboardWidget
+          poleId={activePoleId}
+          shiftDate={selectedDate}
+          shiftType={selectedShift}
+          shiftRosters={shiftRosters}
+          poleDepartments={poleDepartments}
+          staffMembers={staffMembers}
+          ertlDepartmentId={ertlDepartmentId}
+          canonicalTeam={canonicalTeam}
+        />
+      ) : (
+        <Card className="min-w-0 border-dashed"><CardContent className="py-8 text-center"><p className="text-sm font-medium">No published ERT for this selected shift</p><p className="mt-1 text-xs text-muted-foreground">The institutional portal now shows only the canonical published/active team used by providers. Complete and publish dated staffing for this pole and shift to make it visible.</p></CardContent></Card>
+      )}
 
       {/* Explicit monthly UTL source planning */}
       <Card className="min-w-0 border-amber-500/30">

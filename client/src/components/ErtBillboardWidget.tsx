@@ -1,6 +1,7 @@
 import { Shield, CheckCircle, Clock, Star, Users } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { groupInstitutionalErtAssignments } from "@/lib/institution-ert";
 
 interface ErtBillboardWidgetProps {
   poleId: number | null;
@@ -10,6 +11,22 @@ interface ErtBillboardWidgetProps {
   poleDepartments: any[];
   staffMembers: any[] | undefined;
   ertlDepartmentId: number | null;
+  canonicalTeam?: {
+    team: { teamVersion: number };
+    assignments: Array<{
+      providerUserId: number;
+      providerName: string | null;
+      departmentId: number | null;
+      departmentName: string | null;
+      roleScope: "utl" | "ertl" | "ert_member";
+      roleKey: string;
+      assignmentStatus: string;
+      acceptedAt: Date | string | null;
+      declinedAt: Date | string | null;
+      declineReason: string | null;
+      shiftUtlRosterId: number | null;
+    }>;
+  } | null;
 }
 
 export function ErtBillboardWidget({
@@ -20,13 +37,21 @@ export function ErtBillboardWidget({
   poleDepartments,
   staffMembers,
   ertlDepartmentId,
+  canonicalTeam,
 }: ErtBillboardWidgetProps) {
   if (!poleId || poleDepartments.length === 0) {
     return null;
   }
 
-  // Get active roster list
-  const activeResponders = poleDepartments.map((dept) => {
+  // The institution portal must show the same published/active dated team as My Shift.
+  // During a brief query transition, retain the legacy UTL view rather than showing an invented team.
+  const activeResponders = canonicalTeam?.assignments.length
+    ? groupInstitutionalErtAssignments(canonicalTeam.assignments, (shiftRosters ?? []).map((row) => ({
+        id: row.id,
+        status: row.status,
+        readinessSignOffAt: row.readinessSignOffAt,
+      })))
+    : poleDepartments.map((dept) => {
     const rosterEntry = shiftRosters?.find((r) => r.departmentId === dept.id);
     const assignedStaff = staffMembers?.find(
       (s) => s.userId != null && s.userId === rosterEntry?.utlUserId
@@ -37,6 +62,7 @@ export function ErtBillboardWidget({
       department: dept.departmentName,
       staff: assignedStaff,
       rosterId: rosterEntry?.id,
+      roles: [isErtl ? "ERTL / Scene Commander" : "UTL"],
       isErtl,
       status: rosterEntry?.status ?? "active",
       assignmentStatus: rosterEntry?.assignmentStatus,
@@ -57,10 +83,10 @@ export function ErtBillboardWidget({
       <CardHeader className="pb-3 border-b border-white/10">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1">
-            <CardTitle className="text-xl font-bold flex items-center gap-2 text-primary-foreground tracking-tight">
-              <Shield className="w-5.5 h-5.5 text-primary-foreground animate-pulse" />
-              Emergency Response Team (ERT) Billboard
-            </CardTitle>
+              <CardTitle className="text-xl font-bold flex items-center gap-2 text-primary-foreground tracking-tight">
+                <Shield className="w-5.5 h-5.5 text-primary-foreground animate-pulse" />
+                Current Emergency Response Team (ERT)
+              </CardTitle>
             <CardDescription className="text-slate-400 text-xs">
               Live shift view for {shiftDate} ({shiftType.toUpperCase()})
             </CardDescription>

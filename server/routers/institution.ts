@@ -2378,7 +2378,7 @@ export const institutionRouter = router({
     }),
 
   getStaffMembers: protectedProcedure
-    .input(z.object({ institutionId: z.number() }))
+    .input(z.object({ institutionId: z.number(), includeRemoved: z.boolean().optional() }))
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
@@ -2389,6 +2389,7 @@ export const institutionRouter = router({
       }
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const includeRemoved = input.includeRemoved === true;
       void autoLinkCpdFacilitiesForInstitution(db, input.institutionId).catch((error) => {
         console.warn("[IERS] Background CPD facility-link repair failed", error);
       });
@@ -2429,7 +2430,10 @@ export const institutionRouter = router({
             updatedAt: institutionalStaffMembers.updatedAt,
           })
           .from(institutionalStaffMembers)
-          .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
+          .where(and(
+            eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+            ...(includeRemoved ? [] : [isNull(institutionalStaffMembers.removedAt)]),
+          ));
       } catch (error) {
         if (!isMissingSchemaColumnError(error)) throw error;
         const legacyRows = await db
@@ -2463,7 +2467,10 @@ export const institutionRouter = router({
             updatedAt: institutionalStaffMembers.updatedAt,
           })
           .from(institutionalStaffMembers)
-          .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
+          .where(and(
+            eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+            ...(includeRemoved ? [] : [isNull(institutionalStaffMembers.removedAt)]),
+          ));
         rows = legacyRows.map((row) => ({ ...row, removedAt: null, removedByUserId: null, removalReason: null }));
       }
       const memberships = await db
@@ -5048,6 +5055,119 @@ export const institutionRouter = router({
       return { success: true, status };
     }),
 
+  /** Institution account admin: explicitly restore a retired staff record as an institution-linked general staff member. */
+  restoreRetiredStaffLink: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      staffMemberId: z.number().int().positive(),
+      reason: z.string().trim().min(10).max(1000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+
+      const [staff] = await db
+        .select({
+          id: institutionalStaffMembers.id,
+          userId: institutionalStaffMembers.userId,
+          staffName: institutionalStaffMembers.staffName,
+          staffEmail: institutionalStaffMembers.staffEmail,
+          removedAt: institutionalStaffMembers.removedAt,
+        })
+        .from(institutionalStaffMembers)
+        .where(and(
+          eq(institutionalStaffMembers.id, input.staffMemberId),
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+        ))
+        .limit(1);
+      if (!staff) throw new TRPCError({ code: "NOT_FOUND", message: "Institution staff record not found." });
+      if (!staff.removedAt) throw new TRPCError({ code: "BAD_REQUEST", message: "This staff record is not retired." });
+      if (!staff.userId) throw new TRPCError({ code: "BAD_REQUEST", message: "This staff record has no linked provider account. Use the normal invitation or account-link workflow." });
+
+      const membershipTarget = or(
+        eq(institutionMemberships.staffMemberId, staff.id),
+        eq(institutionMemberships.userId, staff.userId),
+      );
+      const [membership] = await db
+        .select({
+          id: institutionMemberships.id,
+          membershipStatus: institutionMemberships.membershipStatus,
+        })
+        .from(institutionMemberships)
+        .where(and(
+          eq(institutionMemberships.institutionalAccountId, input.institutionId),
+          membershipTarget,
+        ))
+        .orderBy(desc(institutionMemberships.id))
+        .limit(1);
+
+      const now = new Date();
+      let membershipId = membership?.id ?? null;
+      await db.transaction(async (tx) => {
+        await tx.update(institutionalStaffMembers).set({
+          removedAt: null,
+          removedByUserId: null,
+          removalReason: null,
+          facilityLinkStatus: "linked",
+          enrollmentStatus: "enrolled",
+          updatedAt: now,
+        }).where(and(
+          eq(institutionalStaffMembers.id, staff.id),
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+        ));
+
+        if (membership) {
+          await tx.update(institutionMemberships).set({
+            userId: staff.userId,
+            staffMemberId: staff.id,
+            invitedEmail: staff.staffEmail.trim().toLowerCase(),
+            membershipStatus: "active",
+            responsibilityRole: "general_staff",
+            acceptedAt: now,
+            suspendedAt: null,
+            endedAt: null,
+            updatedAt: now,
+          }).where(eq(institutionMemberships.id, membership.id));
+        } else {
+          const inserted = await tx.insert(institutionMemberships).values({
+            institutionalAccountId: input.institutionId,
+            userId: staff.userId,
+            invitedEmail: staff.staffEmail.trim().toLowerCase(),
+            staffMemberId: staff.id,
+            membershipStatus: "active",
+            responsibilityRole: "general_staff",
+            invitedByUserId: ctx.user.id,
+            acceptedAt: now,
+          });
+          membershipId = Number((inserted as unknown as { insertId: number }).insertId);
+        }
+
+        if (membershipId) {
+          await tx.insert(institutionMembershipEvents).values({
+            institutionalAccountId: input.institutionId,
+            membershipId,
+            staffMemberId: staff.id,
+            userId: staff.userId,
+            eventType: membership ? "reactivated" : "restored",
+            previousMembershipStatus: membership?.membershipStatus ?? "retired",
+            currentMembershipStatus: "active",
+            actorUserId: ctx.user.id,
+            reason: input.reason.trim(),
+          });
+        }
+        await tx.insert(institutionalActionLogs).values({
+          institutionalAccountId: input.institutionId,
+          createdByUserId: ctx.user.id,
+          gapIdentified: `${staff.staffName} was explicitly re-linked to the institution after retirement review.`,
+          systemChange: "STAFF_RETIRED_LINK_RESTORED",
+          status: "completed",
+          notes: JSON.stringify({ staffMemberId: staff.id, userId: staff.userId, staffEmail: staff.staffEmail, reason: input.reason.trim() }),
+        });
+      });
+
+      return { success: true as const, membershipId, restoredStaffMemberId: staff.id };
+    }),
   // ─────────────────────────────────────────────────────────────────────────
   // COHORT-PROOF-1: Learner uploads their AHA elearning.heart.org proof URL.
   // Sets phase1ProofUrl on their institutionalStaffMember row.
@@ -6613,6 +6733,63 @@ export const institutionRouter = router({
   // ============================================
   // IERMS™ SHIFT UTL ROSTER PROCEDURES
   // ============================================
+
+  getCanonicalShiftTeam: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      poleId: z.number().int().positive(),
+      shiftDate: z.string(),
+      shiftType: z.enum(["morning", "evening", "night"]),
+    }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertIersPoleRotaReadAccess(db, ctx.user, input.institutionId, input.poleId);
+      const [team] = await db.select({
+        id: iersShiftTeams.id,
+        institutionId: iersShiftTeams.institutionId,
+        poleId: iersShiftTeams.poleId,
+        shiftDate: iersShiftTeams.shiftDate,
+        shiftType: iersShiftTeams.shiftType,
+        shiftStartTime: iersShiftTeams.shiftStartTime,
+        shiftEndTime: iersShiftTeams.shiftEndTime,
+        shiftEndDayOffset: iersShiftTeams.shiftEndDayOffset,
+        teamVersion: iersShiftTeams.teamVersion,
+        status: iersShiftTeams.status,
+      }).from(iersShiftTeams).where(and(
+        eq(iersShiftTeams.institutionId, input.institutionId),
+        eq(iersShiftTeams.poleId, input.poleId),
+        eq(iersShiftTeams.shiftDate, new Date(`${input.shiftDate}T00:00:00Z`)),
+        eq(iersShiftTeams.shiftType, input.shiftType),
+        inArray(iersShiftTeams.status, ["published", "active"]),
+      )).orderBy(desc(iersShiftTeams.teamVersion)).limit(1);
+      if (!team) return null;
+
+      const assignments = await db.select({
+        id: iersShiftRoleAssignments.id,
+        providerUserId: iersShiftRoleAssignments.providerUserId,
+        providerName: users.name,
+        providerEmail: users.email,
+        departmentId: iersShiftRoleAssignments.departmentId,
+        departmentName: facilityDepartments.departmentName,
+        roleScope: iersShiftRoleAssignments.roleScope,
+        roleKey: iersShiftRoleAssignments.roleKey,
+        assignmentStatus: iersShiftRoleAssignments.assignmentStatus,
+        acceptedAt: iersShiftRoleAssignments.acceptedAt,
+        declinedAt: iersShiftRoleAssignments.declinedAt,
+        declineReason: iersShiftRoleAssignments.declineReason,
+        shiftUtlRosterId: iersShiftRoleAssignments.shiftUtlRosterId,
+      }).from(iersShiftRoleAssignments)
+        .leftJoin(users, eq(users.id, iersShiftRoleAssignments.providerUserId))
+        .leftJoin(facilityDepartments, eq(facilityDepartments.id, iersShiftRoleAssignments.departmentId))
+        .where(and(
+          eq(iersShiftRoleAssignments.teamId, team.id),
+          notInArray(iersShiftRoleAssignments.assignmentStatus, ["ended", "expired", "superseded"]),
+        ))
+        .orderBy(asc(iersShiftRoleAssignments.roleScope), asc(iersShiftRoleAssignments.departmentId), asc(iersShiftRoleAssignments.id));
+
+      return { team, assignments };
+    }),
 
   getShiftUtlRoster: protectedProcedure
     .input(z.object({
