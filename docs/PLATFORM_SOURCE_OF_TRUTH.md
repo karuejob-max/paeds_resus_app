@@ -112,6 +112,12 @@ The provider’s detail destinations are deliberately separated: **My Shift** co
 
 ResusGPS remains the shortest path to structured bedside paediatric emergency guidance. A provider’s facility membership or learning enrollment must not be treated as proof of competency, activation attendance, or emergency dispatch authority. IERS controls continue to obey exact tenant, institution, pole, department, dated-shift, membership, assignment, and explicit-acceptance rules. Detailed workspaces should be lazy-loaded so the default home does not fetch or render every product card at once.
 
+For a dated ERT, the automatic ERTL / Scene Commander is the same provider as the explicit UTL of the leading confirmed operational department. The two scopes may coexist for one provider and must be displayed as one person with separate role states. Projection and read-repair must be scope-aware: an existing UTL assignment must not prevent the separate ERTL scope from being materialized, and repair must be idempotent for every exact visible institution/pole/date/shift/interval team.
+
+An accepted ERTL may nominate an eligible active linked Staff/RN provider from the same institution and pole as an `ert_member`, or change the responsibility of an existing member. Neither operation silently staffs a provider: the nominated or reassigned provider receives a pending dated responsibility and must explicitly accept or decline. Role collisions, cross-tenant providers, inactive/removed staff, non-Staff/RN profiles, and out-of-pole candidates fail closed.
+
+Provider activation must load and repair the exact current dated team before snapshotting or notifying responders. It must not create an activation against an incomplete UTL-only read model. Activation fan-out, responder states, resource evidence, arrival evidence, QR case-linking, and targeted reports remain tied to the immutable activation event and exact team scope.
+
 ### Institutional Workspace information architecture (locked for the minimal institution experience)
 
 The canonical institution entry is `/institution`. Its primary navigation contains only **Overview**, **IERS**, **CPD Portal**, and **Administration**. Connected services remain available through preserved deep links but are not a default navigation lane. The obsolete `/hospital-admin-dashboard` route redirects to `/institution` so users do not encounter a competing legacy ERT or administration surface.
