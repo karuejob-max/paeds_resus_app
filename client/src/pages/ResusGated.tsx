@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getAnalyticsSessionId } from "@/lib/analytics-session";
 import ResusGPS from "./ResusGPS";
+import ProviderIersActivationCaseContext from "@/components/ProviderIersActivationCaseContext";
 import { AlertCircle, ArrowLeft, RefreshCcw, Siren } from "lucide-react";
 
 function mapUserTypeToRole(userType: string | null | undefined): UserRole {
@@ -52,11 +53,21 @@ function getResusGateCopy(role: UserRole) {
 export default function ResusGated() {
   const { user, loading } = useAuth();
   const { role } = useUserRole();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const effectiveRole = role ?? mapUserTypeToRole(user?.userType);
   const roleHomePath = getRoleHomePath(effectiveRole);
   const gateCopy = getResusGateCopy(effectiveRole);
   const [slowLoad, setSlowLoad] = useState(false);
+  const activationContext = useMemo(() => {
+    const query = new URLSearchParams(location.split("?")[1] ?? "");
+    const activationId = Number(query.get("activationId"));
+    return { activationId: Number.isInteger(activationId) && activationId > 0 ? activationId : null, caseToken: query.get("caseToken") };
+  }, [location]);
+  const qrJoinedRef = useRef<string | null>(null);
+  const joinByCaseQr = trpc.iers.joinByCaseQr.useMutation({
+    onSuccess: (result) => setLocation(`/resus?activationId=${result.activationEventId}`),
+    onError: () => { qrJoinedRef.current = null; },
+  });
   const {
     data: access,
     isLoading,
@@ -71,6 +82,12 @@ export default function ResusGated() {
 
   const trackProductActivity = trpc.events.trackEvent.useMutation();
   const resusEnteredRef = useRef(false);
+
+  useEffect(() => {
+    if (!user || !activationContext.caseToken || qrJoinedRef.current === activationContext.caseToken || joinByCaseQr.isPending) return;
+    qrJoinedRef.current = activationContext.caseToken;
+    joinByCaseQr.mutate({ caseToken: activationContext.caseToken });
+  }, [activationContext.caseToken, user?.id]);
 
   /** PSOT §8 / §12: standard analyticsEvents path — ResusGPS rollup uses resus_* event types. */
   useEffect(() => {
@@ -201,5 +218,10 @@ export default function ResusGated() {
     );
   }
 
-  return <ResusGPS />;
+  return (
+    <div className="min-h-screen bg-background">
+      {activationContext.activationId ? <div className="mx-auto max-w-5xl px-4 pt-4"><ProviderIersActivationCaseContext activationEventId={activationContext.activationId} /></div> : null}
+      <ResusGPS />
+    </div>
+  );
 }

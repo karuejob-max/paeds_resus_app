@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, Clock3, MapPin, Siren } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
@@ -11,9 +12,17 @@ function label(value: string) {
 
 export default function ProviderIersActivationCard() {
   const utils = trpc.useUtils();
+  const [, setLocation] = useLocation();
   const activationQuery = trpc.iers.getMyActivations.useQuery(undefined, {
     refetchInterval: 15_000,
     retry: 1,
+  });
+  const receiveActivation = trpc.iers.receiveActivation.useMutation({
+    onSuccess: async () => {
+      toast.success("Activation receipt recorded.");
+      await utils.iers.getMyActivations.invalidate();
+    },
+    onError: (error) => toast.error(error.message || "Could not record notification receipt."),
   });
   const acknowledge = trpc.iers.acknowledge.useMutation({
     onSuccess: async () => {
@@ -47,6 +56,7 @@ export default function ProviderIersActivationCard() {
       <CardContent className="p-4 space-y-3">
         {activationQuery.data.map((activation) => {
           const pending = ["pending", "sent", "delivered"].includes(activation.responderStatus);
+          const received = activation.responderStatus === "received";
           const acknowledged = activation.responderStatus === "acknowledged";
           const declined = activation.responderStatus === "declined";
           return (
@@ -56,6 +66,7 @@ export default function ProviderIersActivationCard() {
                   <p className="font-semibold text-slate-900 text-sm">{label(activation.activationType)}</p>
                   <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
                     <MapPin className="h-3 w-3" /> {activation.location}
+                    {activation.bedNumber ? ` · Bed ${activation.bedNumber}` : ""}
                     {activation.department ? ` · ${activation.department}` : ""}
                   </p>
                 </div>
@@ -69,10 +80,10 @@ export default function ProviderIersActivationCard() {
                   <Button
                     size="sm"
                     className="bg-red-600 hover:bg-red-700 text-white"
-                    disabled={acknowledge.isPending}
-                    onClick={() => acknowledge.mutate({ activationEventId: activation.id, accept: true })}
+                    disabled={receiveActivation.isPending}
+                    onClick={() => receiveActivation.mutate({ activationEventId: activation.id })}
                   >
-                    <CheckCircle2 className="h-4 w-4 mr-2" /> Acknowledge
+                    <CheckCircle2 className="h-4 w-4 mr-2" /> I received this
                   </Button>
                   <Button
                     size="sm"
@@ -86,10 +97,17 @@ export default function ProviderIersActivationCard() {
                 </div>
               )}
 
+              {received && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs text-emerald-700"><CheckCircle2 className="h-4 w-4" /> Receipt recorded. Confirm whether you can respond.</div>
+                  <div className="flex flex-wrap gap-2"><Button size="sm" className="bg-red-600 hover:bg-red-700 text-white" disabled={acknowledge.isPending} onClick={() => acknowledge.mutate({ activationEventId: activation.id, accept: true })}>I can respond</Button><Button size="sm" variant="outline" disabled={acknowledge.isPending} onClick={() => acknowledge.mutate({ activationEventId: activation.id, accept: false, reason: "Unable to respond" })}>Unable to respond</Button></div>
+                </div>
+              )}
+
               {acknowledged && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-xs text-emerald-700">
-                    <CheckCircle2 className="h-4 w-4" /> Acknowledged — record your movement to the scene.
+                    <CheckCircle2 className="h-4 w-4" /> Responding status accepted — record your movement to the scene.
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button
@@ -111,6 +129,8 @@ export default function ProviderIersActivationCard() {
                   </div>
                 </div>
               )}
+
+              {(received || acknowledged || ["responding", "at_scene"].includes(activation.status)) && <Button type="button" size="sm" variant="outline" className="w-full" onClick={() => setLocation(`/resus?activationId=${activation.id}`)}>Open ResusGPS case</Button>}
 
               {declined && (
                 <p className="text-xs text-amber-700 flex items-center gap-2">
