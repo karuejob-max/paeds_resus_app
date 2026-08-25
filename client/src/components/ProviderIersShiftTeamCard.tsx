@@ -27,6 +27,22 @@ function roleLabel(roleKey: string) {
     ?? roleKey.replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
+function assignmentLabel(assignment: { roleScope: string; roleKey: string }) {
+  if (assignment.roleScope === "ertl") return "ERTL / Scene Commander";
+  if (assignment.roleScope === "utl") return "UTL";
+  return roleLabel(assignment.roleKey);
+}
+
+export function groupAssignmentsByProvider<T extends { providerUserId: number }>(assignments: T[]): T[][] {
+  const groups = new Map<number, T[]>();
+  for (const assignment of assignments) {
+    const providerAssignments = groups.get(assignment.providerUserId) ?? [];
+    providerAssignments.push(assignment);
+    groups.set(assignment.providerUserId, providerAssignments);
+  }
+  return [...groups.values()];
+}
+
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "accepted") return "default";
   if (status === "declined") return "destructive";
@@ -50,6 +66,8 @@ export default function ProviderIersShiftTeamCard() {
   const [activationLocation, setActivationLocation] = useState("");
   const [activationBed, setActivationBed] = useState("");
   const [activationNotes, setActivationNotes] = useState("");
+  const [cancelRosterId, setCancelRosterId] = useState<number | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
   const [, setLocation] = useLocation();
 
   const respondMutation = trpc.iersShiftTeam.respondToRole.useMutation({
@@ -97,6 +115,18 @@ export default function ProviderIersShiftTeamCard() {
     onSuccess: async () => {
       toast.success("ERT roles switched; both providers must accept the new roles.");
       await utils.iersShiftTeam.listMyShiftTeams.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const cancelUtlMutation = trpc.institution.cancelFutureShiftUtlAssignment.useMutation({
+    onSuccess: async () => {
+      toast.success("Future UTL assignment canceled and recorded.");
+      setCancelRosterId(null);
+      setCancelReason("");
+      await Promise.all([
+        utils.iersShiftTeam.listMyShiftTeams.invalidate(),
+        utils.institution.getMyProviderDutyAssignments.invalidate(),
+      ]);
     },
     onError: (error) => toast.error(error.message),
   });
@@ -186,49 +216,65 @@ export default function ProviderIersShiftTeamCard() {
               </div>
               {ertlAssignment ? (
                 <p className="rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                  <strong>ERTL / Scene Commander:</strong> {ertlAssignment.providerName} · {ertlAssignment.assignmentStatus.replaceAll("_", " ")}
+                  <strong>ERTL / Scene Commander:</strong> Role assigned · {ertlAssignment.assignmentStatus.replaceAll("_", " ")}
                 </p>
               ) : (
-                <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">The ERTL has not yet been projected for this dated team. The institution must confirm the pole rotation or explicitly nominate an ERTL.</p>
+                <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">The ERTL has not yet been projected for this dated team. Confirm the leading department and staff its UTL for this exact shift; the accepted UTL will then receive the ERTL request.</p>
               )}
 
               <div className="space-y-2">
-                {team.assignments.map((assignment) => (
-                  <div key={assignment.id} className={`rounded-lg border p-3 ${assignment.isCurrentUser ? "border-rose-300 bg-rose-50/60" : "bg-slate-50/50"}`}>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-medium">{assignment.providerName}</p>
-                        <p className="text-xs text-muted-foreground">{roleLabel(assignment.roleKey)}{assignment.departmentName ? ` · ${assignment.departmentName}` : ""}</p>
-                      </div>
-                      <Badge variant={statusVariant(assignment.assignmentStatus)}>{assignment.assignmentStatus.replaceAll("_", " ")}</Badge>
-                    </div>
-                    {assignment.isCurrentUser && ["approved", "pending_acceptance"].includes(assignment.assignmentStatus) && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Button type="button" size="sm" onClick={() => respondMutation.mutate({ assignmentId: assignment.id, decision: "accepted" })} disabled={respondMutation.isPending}><CheckCircle2 className="mr-1 h-4 w-4" /> Accept role</Button>
-                        <Button type="button" size="sm" variant="outline" onClick={() => setDeclineReason((previous) => ({ ...previous, [assignment.id]: previous[assignment.id] ?? "" }))}>Decline</Button>
-                      </div>
-                    )}
-                    {assignment.isCurrentUser && declineReason[assignment.id] !== undefined && ["approved", "pending_acceptance"].includes(assignment.assignmentStatus) && (
-                      <div className="mt-2 space-y-2">
-                        <Textarea value={declineReason[assignment.id]} onChange={(event) => setDeclineReason((previous) => ({ ...previous, [assignment.id]: event.target.value }))} placeholder="Why can you not accept this dated role?" rows={2} />
-                        <Button type="button" size="sm" variant="destructive" onClick={() => respondMutation.mutate({ assignmentId: assignment.id, decision: "declined", reason: declineReason[assignment.id] })} disabled={respondMutation.isPending || declineReason[assignment.id].trim().length < 3}>Confirm decline</Button>
-                      </div>
-                    )}
-                    {assignment.isCurrentUser && assignment.roleScope === "ert_member" && ["accepted", "pending_acceptance"].includes(assignment.assignmentStatus) && (
-                      <div className="mt-3 space-y-2 border-t pt-3">
-                        <p className="text-xs font-medium">Recommend a different role to the ERTL</p>
-                        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                          <select className="h-9 rounded-md border bg-background px-3 text-sm" value={recommendation[assignment.id]?.roleKey ?? ""} onChange={(event) => setRecommendation((previous) => ({ ...previous, [assignment.id]: { roleKey: event.target.value, reason: previous[assignment.id]?.reason ?? "" } }))}>
-                            <option value="">Choose role</option>
-                            {ERT_MEMBER_ROLES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                          </select>
-                          <Textarea value={recommendation[assignment.id]?.reason ?? ""} onChange={(event) => setRecommendation((previous) => ({ ...previous, [assignment.id]: { roleKey: previous[assignment.id]?.roleKey ?? "", reason: event.target.value } }))} placeholder="Reason for the recommendation" rows={1} />
+                {groupAssignmentsByProvider(team.assignments).map((providerAssignments) => {
+                  const provider = providerAssignments[0];
+                  if (!provider) return null;
+                  return (
+                    <div key={`provider-${provider.providerUserId}`} className={`rounded-lg border p-3 ${provider.isCurrentUser ? "border-rose-300 bg-rose-50/60" : "bg-slate-50/50"}`}>
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{provider.providerName}</p>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {providerAssignments.map((assignment) => <Badge key={`role-${assignment.id}`} variant={assignment.roleScope === "ertl" ? "default" : "outline"} className="whitespace-normal text-left">{assignmentLabel(assignment)}</Badge>)}
+                          </div>
                         </div>
-                        <Button type="button" size="sm" variant="outline" onClick={() => { const value = recommendation[assignment.id]; if (value?.roleKey && value.reason.trim().length >= 3) recommendMutation.mutate({ assignmentId: assignment.id, requestedRoleKey: value.roleKey, reason: value.reason }); }} disabled={recommendMutation.isPending || !recommendation[assignment.id]?.roleKey || (recommendation[assignment.id]?.reason.trim().length ?? 0) < 3}>Send recommendation</Button>
+                        <span className="text-xs text-muted-foreground">{provider.departmentName ?? "Team member"}</span>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      <div className="mt-2 space-y-2">
+                        {providerAssignments.map((assignment) => (
+                          <div key={assignment.id} className="rounded-md border bg-white/80 p-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-xs font-medium">{assignmentLabel(assignment)}</p>
+                              <Badge variant={statusVariant(assignment.assignmentStatus)}>{assignment.assignmentStatus.replaceAll("_", " ")}</Badge>
+                            </div>
+                            {assignment.isCurrentUser && ["approved", "pending_acceptance"].includes(assignment.assignmentStatus) && (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <Button type="button" size="sm" onClick={() => respondMutation.mutate({ assignmentId: assignment.id, decision: "accepted" })} disabled={respondMutation.isPending}><CheckCircle2 className="mr-1 h-4 w-4" /> Accept role</Button>
+                                <Button type="button" size="sm" variant="outline" onClick={() => setDeclineReason((previous) => ({ ...previous, [assignment.id]: previous[assignment.id] ?? "" }))}>Decline</Button>
+                              </div>
+                            )}
+                            {assignment.isCurrentUser && declineReason[assignment.id] !== undefined && ["approved", "pending_acceptance"].includes(assignment.assignmentStatus) && (
+                              <div className="mt-2 space-y-2">
+                                <Textarea value={declineReason[assignment.id]} onChange={(event) => setDeclineReason((previous) => ({ ...previous, [assignment.id]: event.target.value }))} placeholder="Why can you not accept this dated role?" rows={2} />
+                                <Button type="button" size="sm" variant="destructive" onClick={() => respondMutation.mutate({ assignmentId: assignment.id, decision: "declined", reason: declineReason[assignment.id] })} disabled={respondMutation.isPending || declineReason[assignment.id].trim().length < 3}>Confirm decline</Button>
+                              </div>
+                            )}
+                            {assignment.isCurrentUser && assignment.roleScope === "ert_member" && ["accepted", "pending_acceptance"].includes(assignment.assignmentStatus) && (
+                              <div className="mt-3 space-y-2 border-t pt-3">
+                                <p className="text-xs font-medium">Recommend a different role to the ERTL</p>
+                                <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                                  <select className="h-9 rounded-md border bg-background px-3 text-sm" value={recommendation[assignment.id]?.roleKey ?? ""} onChange={(event) => setRecommendation((previous) => ({ ...previous, [assignment.id]: { roleKey: event.target.value, reason: previous[assignment.id]?.reason ?? "" } }))}>
+                                    <option value="">Choose role</option>
+                                    {ERT_MEMBER_ROLES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                                  </select>
+                                  <Textarea value={recommendation[assignment.id]?.reason ?? ""} onChange={(event) => setRecommendation((previous) => ({ ...previous, [assignment.id]: { roleKey: previous[assignment.id]?.roleKey ?? "", reason: event.target.value } }))} placeholder="Reason for the recommendation" rows={1} />
+                                </div>
+                                <Button type="button" size="sm" variant="outline" onClick={() => { const value = recommendation[assignment.id]; if (value?.roleKey && value.reason.trim().length >= 3) recommendMutation.mutate({ assignmentId: assignment.id, requestedRoleKey: value.roleKey, reason: value.reason }); }} disabled={recommendMutation.isPending || !recommendation[assignment.id]?.roleKey || (recommendation[assignment.id]?.reason.trim().length ?? 0) < 3}>Send recommendation</Button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               {isAcceptedErtl && pendingRecommendations.length > 0 && (
@@ -300,10 +346,48 @@ export default function ProviderIersShiftTeamCard() {
         {hasPendingAction && <p className="text-xs text-muted-foreground">A dated role is awaiting your response. Accepting confirms responsibility; it does not by itself prove that you are responding or at the scene.</p>}
         {futureTeams.length > 0 && (
           <div className="rounded-lg border border-slate-200 bg-white p-3">
-            <Button type="button" variant="ghost" className="w-full justify-between" onClick={() => setShowActivationConfirm(showActivationConfirm === -1 ? null : -1)}>
+            <Button type="button" variant="ghost" className="w-full justify-between" onClick={() => setShowActivationConfirm(showActivationConfirm === -1 ? null : -1)} aria-expanded={showActivationConfirm === -1}>
               <span>Upcoming teams ({futureTeams.length})</span><span className="text-xs text-muted-foreground">{showActivationConfirm === -1 ? "Hide" : "View"}</span>
             </Button>
-            {showActivationConfirm === -1 && <div className="mt-2 space-y-3">{futureTeams.map((team) => <div key={`future-${team.teamId}`} className="rounded-md border p-3 text-sm"><p className="font-medium">{team.poleName} · {team.shiftType}</p><p className="text-xs text-muted-foreground">{new Date(team.shiftDate).toLocaleDateString()} · {team.shiftStartTime.slice(0, 5)}–{team.shiftEndTime.slice(0, 5)}{team.shiftEndDayOffset === 1 ? " (+1 day)" : ""}</p></div>)}</div>}
+            {showActivationConfirm === -1 && (
+              <div className="mt-2 space-y-3">
+                {futureTeams.map((team) => {
+                  const acceptedErtl = team.assignments.some((assignment) => assignment.isCurrentUser && assignment.roleScope === "ertl" && assignment.assignmentStatus === "accepted");
+                  const futureUtlAssignments = team.assignments.filter((assignment) => assignment.roleScope === "utl" && assignment.shiftUtlRosterId != null && ["approved", "pending_acceptance", "accepted"].includes(assignment.assignmentStatus));
+                  return (
+                    <div key={`future-${team.teamId}`} className="rounded-md border p-3 text-sm">
+                      <p className="font-medium">{team.poleName} · {team.shiftType}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(team.shiftDate).toLocaleDateString()} · {team.shiftStartTime.slice(0, 5)}–{team.shiftEndTime.slice(0, 5)}{team.shiftEndDayOffset === 1 ? " (+1 day)" : ""}</p>
+                      {acceptedErtl && futureUtlAssignments.length > 0 && (
+                        <div className="mt-3 space-y-2 border-t pt-3">
+                          <p className="text-xs font-medium">Correct a future UTL assignment</p>
+                          {futureUtlAssignments.map((assignment) => {
+                            const rosterId = assignment.shiftUtlRosterId;
+                            if (rosterId == null) return null;
+                            return (
+                              <div key={`future-utl-${assignment.id}`} className="rounded-md bg-slate-50 p-2">
+                                <p className="text-xs">{assignment.providerName} · {assignment.departmentName ?? "Department"}</p>
+                                {cancelRosterId !== rosterId ? (
+                                  <Button type="button" size="sm" variant="outline" className="mt-2 border-rose-300 text-rose-800 hover:bg-rose-50" onClick={() => { setCancelRosterId(rosterId); setCancelReason(""); }}>Cancel future UTL</Button>
+                                ) : (
+                                  <div className="mt-2 space-y-2">
+                                    <Input value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} placeholder="Reason (required)" className="bg-white text-xs" />
+                                    <div className="flex flex-wrap gap-2">
+                                      <Button type="button" size="sm" variant="destructive" onClick={() => cancelUtlMutation.mutate({ institutionId: assignment.institutionId, rosterId, reason: cancelReason.trim() })} disabled={cancelUtlMutation.isPending || cancelReason.trim().length < 3}>{cancelUtlMutation.isPending ? "Canceling…" : "Confirm cancellation"}</Button>
+                                      <Button type="button" size="sm" variant="outline" onClick={() => setCancelRosterId(null)} disabled={cancelUtlMutation.isPending}>Keep</Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </CardContent>

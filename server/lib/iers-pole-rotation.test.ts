@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { derivePoleRotationDepartmentId, isoWeekMonday, mondayForDate } from "./iers-pole-rotation";
+import { derivePoleRotationDepartmentId, isoWeekMonday, mondayForDate, rotationAnchorForLeadershipWeek } from "./iers-pole-rotation";
 
 const departments = [
   { id: 10, poleSequence: 1, createdAt: new Date("2026-08-03T08:00:00Z") },
@@ -29,5 +29,11 @@ describe("deterministic IERS pole ERTL rotation", () => {
   it("normalizes ISO week dates to Monday", () => {
     expect(mondayForDate("2026-08-06").toISOString().slice(0, 10)).toBe("2026-08-03");
     expect(isoWeekMonday(2026, 34).toISOString().slice(0, 10)).toBe("2026-08-17");
+  });
+
+  it("re-anchors the sequence when an administrator chooses a different leader", () => {
+    expect(rotationAnchorForLeadershipWeek(departments, "2026-08-17", 20)?.toISOString().slice(0, 10)).toBe("2026-08-10");
+    expect(derivePoleRotationDepartmentId(departments, rotationAnchorForLeadershipWeek(departments, "2026-08-17", 20), "2026-08-17")).toBe(20);
+    expect(rotationAnchorForLeadershipWeek(departments, "2026-08-17", 999)).toBeNull();
   });
 });

@@ -51,7 +51,7 @@ describe("buildProviderTodayAttention", () => {
 
     expect(result).toMatchObject({
       eyebrow: "Shift responsibility",
-      title: "Review your ERTL / Scene Commander role",
+      title: "A dated ERTL / Scene Commander responsibility needs your response",
       destination: "/my-shift?tab=team",
       tone: "amber",
     });
