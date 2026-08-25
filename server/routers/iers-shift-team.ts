@@ -344,6 +344,22 @@ export const iersShiftTeamRouter = router({
           ))
           .orderBy(iersShiftTeams.shiftDate, iersShiftTeams.shiftType, desc(iersShiftTeams.teamVersion));
         if (teams.length === 0) continue;
+        for (const { team } of teams) {
+          const teamRosters = await db.select().from(shiftUtlRosters).where(and(
+            eq(shiftUtlRosters.institutionId, institutionId),
+            eq(shiftUtlRosters.poleId, team.poleId),
+            eq(shiftUtlRosters.shiftDate, team.shiftDate),
+            eq(shiftUtlRosters.shiftType, team.shiftType),
+            eq(shiftUtlRosters.shiftStartTime, team.shiftStartTime),
+            eq(shiftUtlRosters.shiftEndTime, team.shiftEndTime),
+            eq(shiftUtlRosters.shiftEndDayOffset, team.shiftEndDayOffset),
+            eq(shiftUtlRosters.status, "active"),
+            inArray(shiftUtlRosters.assignmentStatus, ["pending_acceptance", "active"]),
+          ));
+          for (const roster of teamRosters) {
+            await ensurePublishedTeamForLegacyUtlRoster(db, { roster, actorUserId: ctx.user.id });
+          }
+        }
         const teamIds = teams.map(({ team }) => team.id);
         const assignments = await db
           .select({ assignment: iersShiftRoleAssignments, providerName: users.name, providerEmail: users.email, departmentName: facilityDepartments.departmentName })
