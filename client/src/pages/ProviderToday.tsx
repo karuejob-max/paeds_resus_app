@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -152,25 +153,37 @@ export default function ProviderToday() {
     retry: 1,
   });
   const hasActiveMembership = Boolean(membershipsQuery.data?.some((membership) => membership.membershipStatus === "active"));
+  const [secondaryQueriesReady, setSecondaryQueriesReady] = useState(false);
+  useEffect(() => {
+    if (!isAuthenticated || !hasActiveMembership) {
+      setSecondaryQueriesReady(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setSecondaryQueriesReady(true), 250);
+    return () => window.clearTimeout(timer);
+  }, [hasActiveMembership, isAuthenticated]);
   const activationsQuery = trpc.iers.getMyActivations.useQuery(undefined, {
     enabled: isAuthenticated && hasActiveMembership,
-    staleTime: 10_000,
-    refetchInterval: isAuthenticated ? 15_000 : false,
+    staleTime: 15_000,
+    // ProviderActivationAlert owns the urgent five-second poll globally. This
+    // observer reads the shared cache without starting a second timer.
+    refetchInterval: false,
     retry: 1,
   });
   const dutiesQuery = trpc.institution.getMyProviderDutyAssignments.useQuery(undefined, {
-    enabled: isAuthenticated && hasActiveMembership,
+    enabled: isAuthenticated && hasActiveMembership && secondaryQueriesReady,
     staleTime: 15_000,
     retry: 1,
   });
-  const teamsQuery = trpc.iersShiftTeam.listMyShiftTeams.useQuery({ horizonDays: 7 }, {
+  const teamsQuery = trpc.iersShiftTeam.listMyShiftTeams.useQuery({ horizonDays: 0 }, {
     enabled: isAuthenticated && hasActiveMembership,
-    staleTime: 15_000,
-    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: 1,
   });
   const readinessQuery = trpc.iers.getMyShiftReadiness.useQuery(undefined, {
-    enabled: isAuthenticated && hasActiveMembership,
+    enabled: isAuthenticated && hasActiveMembership && secondaryQueriesReady,
     staleTime: 30_000,
     retry: 1,
   });
@@ -206,7 +219,7 @@ export default function ProviderToday() {
   const nextUtl = dutiesQuery.data?.nextUtl ?? null;
   const nextErtl = dutiesQuery.data?.nextErtl ?? null;
   const nextDuty = nextUtl ?? nextErtl;
-  const workplaceDataLoading = membershipsQuery.isLoading || (hasActiveMembership && [activationsQuery, dutiesQuery, teamsQuery, readinessQuery].some((query) => query.isLoading));
+  const workplaceDataLoading = membershipsQuery.isLoading || (hasActiveMembership && (!secondaryQueriesReady || [activationsQuery, dutiesQuery, teamsQuery, readinessQuery].some((query) => query.isLoading)));
   const attention = workplaceDataLoading
     ? {
         eyebrow: "Checking your workspace",

@@ -51,9 +51,11 @@ function statusVariant(status: string): "default" | "secondary" | "destructive" 
 }
 
 export default function ProviderIersShiftTeamCard() {
-  const teamsQuery = trpc.iersShiftTeam.listMyShiftTeams.useQuery({ horizonDays: 7 }, {
-    staleTime: 15_000,
-    refetchOnWindowFocus: true,
+  const [showMoreFutureTeams, setShowMoreFutureTeams] = useState(false);
+  const teamsQuery = trpc.iersShiftTeam.listMyShiftTeams.useQuery({ horizonDays: showMoreFutureTeams ? 14 : 2 }, {
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
   const utils = trpc.useUtils();
   const [declineReason, setDeclineReason] = useState<Record<number, string>>({});
@@ -385,7 +387,7 @@ export default function ProviderIersShiftTeamCard() {
           );
         })}
         {hasPendingAction && <p className="text-xs text-muted-foreground">A dated role is awaiting your response. Accepting confirms responsibility; it does not by itself prove that you are responding or at the scene.</p>}
-        {futureTeams.length > 0 && (
+        {(futureTeams.length > 0 || !showMoreFutureTeams) && (
           <div className="rounded-lg border border-slate-200 bg-white p-3">
             <Button type="button" variant="ghost" className="w-full justify-between" onClick={() => setShowActivationConfirm(showActivationConfirm === -1 ? null : -1)} aria-expanded={showActivationConfirm === -1}>
               <span>Upcoming teams ({futureTeams.length})</span><span className="text-xs text-muted-foreground">{showActivationConfirm === -1 ? "Hide" : "View"}</span>
@@ -429,6 +431,7 @@ export default function ProviderIersShiftTeamCard() {
                 })}
               </div>
             )}
+            {!showMoreFutureTeams && <Button type="button" variant="outline" className="mt-3 w-full" onClick={() => setShowMoreFutureTeams(true)}>View more future teams</Button>}
           </div>
         )}
       </CardContent>

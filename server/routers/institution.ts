@@ -5878,6 +5878,14 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       try {
+        // Today and the compact duty summary need current/near-future work only;
+        // historical records remain available through institutional history views.
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const windowStart = new Date(today);
+        windowStart.setDate(windowStart.getDate() - 1);
+        const horizon = new Date(today);
+        horizon.setDate(horizon.getDate() + 90);
         const ertl = await db
           .select({
             id: ertlWeeklyRotations.id,
@@ -5899,7 +5907,12 @@ export const institutionRouter = router({
           .from(ertlWeeklyRotations)
           .leftJoin(facilityDepartments, eq(facilityDepartments.id, ertlWeeklyRotations.departmentId))
           .leftJoin(facilityPoles, eq(facilityPoles.id, ertlWeeklyRotations.poleId))
-          .where(eq(ertlWeeklyRotations.ertlUserId, ctx.user.id));
+          .where(and(
+            eq(ertlWeeklyRotations.ertlUserId, ctx.user.id),
+            gte(ertlWeeklyRotations.startDate, windowStart),
+            lte(ertlWeeklyRotations.startDate, horizon),
+            inArray(ertlWeeklyRotations.assignmentStatus, ["unassigned", "pending_acceptance", "active", "declined"]),
+          ));
         const utl = await db
           .select({
             id: shiftUtlRosters.id,
@@ -5924,7 +5937,12 @@ export const institutionRouter = router({
           .from(shiftUtlRosters)
           .leftJoin(facilityDepartments, eq(facilityDepartments.id, shiftUtlRosters.departmentId))
           .leftJoin(facilityPoles, eq(facilityPoles.id, shiftUtlRosters.poleId))
-          .where(eq(shiftUtlRosters.utlUserId, ctx.user.id));
+          .where(and(
+            eq(shiftUtlRosters.utlUserId, ctx.user.id),
+            gte(shiftUtlRosters.shiftDate, windowStart),
+            lte(shiftUtlRosters.shiftDate, horizon),
+            inArray(shiftUtlRosters.assignmentStatus, ["unassigned", "pending_acceptance", "active", "declined"]),
+          ));
         const allowedInstitutionIds = await getActiveProviderDutyInstitutionIds(
           db,
           ctx.user,
