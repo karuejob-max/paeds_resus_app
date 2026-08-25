@@ -60,6 +60,7 @@ export default function ProviderIersShiftTeamCard() {
   const [recommendation, setRecommendation] = useState<Record<number, { roleKey: string; reason: string }>>({});
   const [switchState, setSwitchState] = useState<Record<string, { firstId: string; secondId: string; reason: string }>>({});
   const [assignState, setAssignState] = useState<Record<number, { roleKey: string; reason: string }>>({});
+  const [nominationState, setNominationState] = useState<Record<number, { providerUserId: string; roleKey: string; reason: string }>>({});
   const [decisionNote, setDecisionNote] = useState<Record<number, string>>({});
   const [showActivationConfirm, setShowActivationConfirm] = useState<number | null>(null);
   const [activationType, setActivationType] = useState<"code_blue" | "code_yellow" | "neonatal" | "sepsis" | "anaphylaxis" | "trauma" | "other">("code_blue");
@@ -100,6 +101,15 @@ export default function ProviderIersShiftTeamCard() {
     onSuccess: async () => {
       toast.success("ERT member role assigned; the provider must accept the new responsibility.");
       await utils.iersShiftTeam.listMyShiftTeams.invalidate();
+      await utils.iersShiftTeam.listErtMemberCandidates.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const nominateMemberRoleMutation = trpc.iersShiftTeam.nominateMemberRole.useMutation({
+    onSuccess: async () => {
+      toast.success("ERT member nominated; the provider must accept the responsibility.");
+      await utils.iersShiftTeam.listMyShiftTeams.invalidate();
+      await utils.iersShiftTeam.listErtMemberCandidates.invalidate();
     },
     onError: (error) => toast.error(error.message),
   });
@@ -145,6 +155,11 @@ export default function ProviderIersShiftTeamCard() {
   const hasPendingAction = useMemo(
     () => teams.some((team) => team.assignments.some((assignment) => assignment.isCurrentUser && ["approved", "pending_acceptance"].includes(assignment.assignmentStatus))),
     [teams],
+  );
+  const currentErtlUser = currentTeam?.assignments.some((assignment) => assignment.isCurrentUser && assignment.roleScope === "ertl" && assignment.assignmentStatus === "accepted") ?? false;
+  const memberCandidatesQuery = trpc.iersShiftTeam.listErtMemberCandidates.useQuery(
+    { teamId: currentTeam?.teamId ?? 0 },
+    { enabled: currentErtlUser && currentTeam != null, staleTime: 15_000, retry: 1 },
   );
 
   const refresh = () => void teamsQuery.refetch();
@@ -300,6 +315,32 @@ export default function ProviderIersShiftTeamCard() {
 
               {currentAssignment && currentAssignment.assignmentStatus === "accepted" && (
                 <ProviderIersTargetedReportCard teamId={team.teamId} assignmentId={currentAssignment.id} />
+              )}
+
+              {isAcceptedErtl && (
+                <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 space-y-3">
+                  <p className="text-sm font-semibold">Add an ERT member</p>
+                  <p className="text-xs text-muted-foreground">Select an eligible active linked Staff/RN provider from this pole. The provider will receive the role and must accept or decline it.</p>
+                  {memberCandidatesQuery.isLoading ? <p className="text-xs text-muted-foreground">Loading eligible providers…</p> : memberCandidatesQuery.isError ? <p className="text-xs text-destructive">Eligible providers could not be loaded. Refresh the team and try again.</p> : (memberCandidatesQuery.data ?? []).length === 0 ? <p className="text-xs text-muted-foreground">No unassigned eligible provider is available in this pole. Confirm their active link, department, and Staff/RN profile first.</p> : (() => {
+                    const nomination = nominationState[team.teamId] ?? { providerUserId: "", roleKey: "", reason: "" };
+                    return <div className="space-y-2">
+                      <select className="h-9 w-full rounded-md border bg-background px-3 text-sm" aria-label="ERT member provider" value={nomination.providerUserId} onChange={(event) => setNominationState((previous) => ({ ...previous, [team.teamId]: { ...nomination, providerUserId: event.target.value } }))}>
+                        <option value="">Choose provider</option>
+                        {(memberCandidatesQuery.data ?? []).map((candidate) => <option key={candidate.providerUserId} value={candidate.providerUserId}>{candidate.providerName} · {candidate.departmentName ?? "Department"}</option>)}
+                      </select>
+                      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                        <select className="h-9 rounded-md border bg-background px-3 text-sm" aria-label="ERT member role" value={nomination.roleKey} onChange={(event) => setNominationState((previous) => ({ ...previous, [team.teamId]: { ...nomination, roleKey: event.target.value } }))}>
+                          <option value="">Choose role</option>
+                          {ERT_MEMBER_ROLES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                        </select>
+                        <Textarea value={nomination.reason} onChange={(event) => setNominationState((previous) => ({ ...previous, [team.teamId]: { ...nomination, reason: event.target.value } }))} placeholder="Reason for the assignment" rows={1} />
+                      </div>
+                      <Button type="button" size="sm" onClick={() => nominateMemberRoleMutation.mutate({ teamId: team.teamId, providerUserId: Number(nomination.providerUserId), roleKey: nomination.roleKey, reason: nomination.reason })} disabled={nominateMemberRoleMutation.isPending || !nomination.providerUserId || !nomination.roleKey || nomination.reason.trim().length < 3}>
+                        {nominateMemberRoleMutation.isPending ? "Assigning…" : "Assign and request acceptance"}
+                      </Button>
+                    </div>;
+                  })()}
+                </div>
               )}
 
               {isAcceptedErtl && memberAssignments.length > 0 && (

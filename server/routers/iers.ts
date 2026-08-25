@@ -46,6 +46,7 @@ import { evaluateIersPilotReadiness } from "../lib/iers-pilot-readiness";
 import { assertInstitutionProcedureAccess } from "../lib/institution-capabilities";
 import { classifyShiftInterval } from "../lib/iers-shift-current";
 import { createActivationQrNonce, createActivationQrToken, parseActivationQrToken } from "../lib/iers-activation-qr";
+import { ensurePublishedTeamForLegacyUtlRoster } from "../services/iers-utl-sync.service";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 type ActivationStatus =
@@ -157,6 +158,23 @@ type ActivationTeamContext = {
   assignments: Array<typeof iersShiftRoleAssignments.$inferSelect>;
 };
 
+async function repairCurrentTeamFromLegacyRosters(db: DbClient, team: typeof iersShiftTeams.$inferSelect, actorUserId: number) {
+  const rosters = await db.select().from(shiftUtlRosters).where(and(
+    eq(shiftUtlRosters.institutionId, team.institutionId),
+    eq(shiftUtlRosters.poleId, team.poleId),
+    eq(shiftUtlRosters.shiftDate, team.shiftDate),
+    eq(shiftUtlRosters.shiftType, team.shiftType),
+    eq(shiftUtlRosters.shiftStartTime, team.shiftStartTime),
+    eq(shiftUtlRosters.shiftEndTime, team.shiftEndTime),
+    eq(shiftUtlRosters.shiftEndDayOffset, team.shiftEndDayOffset),
+    eq(shiftUtlRosters.status, "active"),
+    inArray(shiftUtlRosters.assignmentStatus, ["pending_acceptance", "active"]),
+  )).orderBy(asc(shiftUtlRosters.id));
+  for (const roster of rosters) {
+    await ensurePublishedTeamForLegacyUtlRoster(db, { roster, actorUserId });
+  }
+}
+
 async function loadCurrentTeamForProvider(db: DbClient, userId: number, institutionId: number, explicitTeamId?: number, allowInstitutionAdmin = false): Promise<ActivationTeamContext> {
   if (explicitTeamId) {
     const [team] = await db.select().from(iersShiftTeams).where(and(
@@ -174,11 +192,13 @@ async function loadCurrentTeamForProvider(db: DbClient, userId: number, institut
     if (classifyShiftInterval(team, new Date(), "Africa/Nairobi") !== "current") {
       throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Activate only the ERT currently on duty. Open My Shift to select the active team." });
     }
+    await repairCurrentTeamFromLegacyRosters(db, team, userId);
+    const [refreshedTeam] = await db.select().from(iersShiftTeams).where(eq(iersShiftTeams.id, team.id)).limit(1);
     const assignments = await db.select().from(iersShiftRoleAssignments).where(and(
       eq(iersShiftRoleAssignments.teamId, team.id),
       inArray(iersShiftRoleAssignments.assignmentStatus, ["pending_acceptance", "accepted"]),
     ));
-    return { team, assignments };
+    return { team: refreshedTeam ?? team, assignments };
   }
 
   const staffRows = await db.select({ poleId: facilityDepartments.poleId }).from(institutionalStaffMembers)
@@ -207,11 +227,13 @@ async function loadCurrentTeamForProvider(db: DbClient, userId: number, institut
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: currentTeams.length === 0 ? "No published ERT is currently on duty for your pole." : "More than one ERT is currently on duty for your scope. Select the exact team before activating." });
   }
   const team = currentTeams[0];
+  await repairCurrentTeamFromLegacyRosters(db, team, userId);
+  const [refreshedTeam] = await db.select().from(iersShiftTeams).where(eq(iersShiftTeams.id, team.id)).limit(1);
   const assignments = await db.select().from(iersShiftRoleAssignments).where(and(
     eq(iersShiftRoleAssignments.teamId, team.id),
     inArray(iersShiftRoleAssignments.assignmentStatus, ["pending_acceptance", "accepted"]),
   ));
-  return { team, assignments };
+  return { team: refreshedTeam ?? team, assignments };
 }
 
 async function createActivationTeamSnapshot(db: DbClient, input: { activationEventId: number; team: typeof iersShiftTeams.$inferSelect; assignments: Array<typeof iersShiftRoleAssignments.$inferSelect> }) {

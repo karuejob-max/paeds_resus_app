@@ -288,7 +288,7 @@ export async function ensurePublishedTeamForLegacyUtlRoster(
     byScope.set(assignment.roleScope, assignment);
     assignmentByRosterId.set(assignment.shiftUtlRosterId, byScope);
   }
-  const assignedProviderIds = new Set(assignments.map((assignment) => assignment.providerUserId));
+  const existingUtlProviderIds = new Set(assignments.filter((assignment) => assignment.roleScope === "utl").map((assignment) => assignment.providerUserId));
   let projectedAssignmentCount = 0;
 
   for (const relatedRoster of validRosters) {
@@ -298,8 +298,12 @@ export async function ensurePublishedTeamForLegacyUtlRoster(
       if (existingUtlAssignment.providerUserId !== relatedRoster.utlUserId) {
         return { projected: false as const, reason: "roster_assignment_provider_mismatch", teamId: team.id };
       }
+      existingUtlProviderIds.add(relatedRoster.utlUserId);
+      continue;
     }
-    if (assignedProviderIds.has(relatedRoster.utlUserId)) continue;
+    if (existingUtlProviderIds.has(relatedRoster.utlUserId)) {
+      return { projected: false as const, reason: "duplicate_utl_provider_assignment", teamId: team.id };
+    }
 
     const assignmentStatus: ShiftRoleAssignmentStatus = relatedRoster.assignmentStatus === "active" ? "accepted" : "pending_acceptance";
     const now = new Date();
@@ -332,7 +336,7 @@ export async function ensurePublishedTeamForLegacyUtlRoster(
       reason: "Projected from an explicit institution-authored dated UTL roster.",
       metadata: JSON.stringify({ source: "shiftUtlRosters", rosterId: relatedRoster.id, teamCreated }),
     });
-    assignedProviderIds.add(relatedRoster.utlUserId);
+    existingUtlProviderIds.add(relatedRoster.utlUserId);
     projectedAssignmentCount += 1;
   }
 
