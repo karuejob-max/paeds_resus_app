@@ -161,8 +161,8 @@ async function getLinkedRnProvider(
  * ERT read model. This is a projection of an existing institution-authored duty,
  * not automatic staffing: the UTL remains pending until the provider accepts it.
  * Rows with the same pole/date/shift/exact interval are grouped into one team.
- * If no valid configured ERTL is available, the published team is intentionally
- * partial and the UI can show the missing governance assignment rather than hiding
+ * If no explicit leading-department UTL exists for the exact shift, the published
+ * team is intentionally partial and the UI can show the missing governance assignment rather than hiding
  * an otherwise valid UTL duty and its crash-cart checklist.
  */
 export async function ensurePublishedTeamForLegacyUtlRoster(
@@ -289,7 +289,6 @@ export async function ensurePublishedTeamForLegacyUtlRoster(
     assignmentByRosterId.set(assignment.shiftUtlRosterId, byScope);
   }
   const assignedProviderIds = new Set(assignments.map((assignment) => assignment.providerUserId));
-  const assignedErtlProviderIds = new Set(assignments.filter((assignment) => assignment.roleScope === "ertl" && ["pending_acceptance", "accepted"].includes(assignment.assignmentStatus)).map((assignment) => assignment.providerUserId));
   let projectedAssignmentCount = 0;
 
   for (const relatedRoster of validRosters) {
@@ -345,59 +344,23 @@ export async function ensurePublishedTeamForLegacyUtlRoster(
       eq(ertlWeeklyRotations.poleId, roster.poleId),
       lte(ertlWeeklyRotations.startDate, roster.shiftDate),
       gte(ertlWeeklyRotations.endDate, roster.shiftDate),
-      inArray(ertlWeeklyRotations.assignmentStatus, ["pending_acceptance", "active"]),
+      inArray(ertlWeeklyRotations.assignmentStatus, ["unassigned", "pending_acceptance", "active", "declined"]),
     ))
     .orderBy(desc(ertlWeeklyRotations.startDate), desc(ertlWeeklyRotations.id))
     .limit(1);
-  if (rotation?.ertlUserId != null && !assignedErtlProviderIds.has(rotation.ertlUserId)) {
-    const ertlProvider = await getLinkedRnProvider(db, {
-      institutionId: roster.institutionId,
-      poleId: roster.poleId,
-      departmentId: rotation.departmentId,
-      providerUserId: rotation.ertlUserId,
-    });
-    if (ertlProvider) {
-      const assignmentStatus: ShiftRoleAssignmentStatus = "pending_acceptance";
-      const [inserted] = await db.insert(iersShiftRoleAssignments).values({
-        teamId: team.id,
-        institutionId: roster.institutionId,
-        poleId: roster.poleId,
-        departmentId: rotation.departmentId,
-        providerUserId: rotation.ertlUserId,
-        shiftUtlRosterId: null,
-        roleScope: "ertl",
-        roleKey: "ertl",
-        assignmentStatus,
-        acceptedAt: null,
-        proposedByUserId: input.actorUserId,
-      });
-      const assignmentId = Number((inserted as unknown as { insertId: number }).insertId);
-        await db.insert(iersShiftRoleEvents).values({
-          assignmentId,
-          teamId: team.id,
-          institutionId: roster.institutionId,
-          actorUserId: input.actorUserId,
-          eventType: "legacy_ertl_rotation_projected",
-          fromStatus: "proposed",
-          toStatus: assignmentStatus,
-          fromRoleKey: null,
-          toRoleKey: "ertl",
-          reason: "Projected from the configured weekly rotation; provider acceptance is still required.",
-          metadata: JSON.stringify({ source: "ertlWeeklyRotations", rotationId: rotation.id }),
-        });
-        await requestErtlAcceptance(db, { assignmentId, team, institutionId: roster.institutionId, providerUserId: rotation.ertlUserId, actorUserId: input.actorUserId, reason: "The weekly leadership department is institution-derived; the dated ERTL must accept separately." });
-      assignedErtlProviderIds.add(rotation.ertlUserId);
-      projectedAssignmentCount += 1;
-    }
-  }
 
-  // Policy fallback: the UTL from the pole’s designated rotation department is
-  // the Scene Commander/ERTL for this exact shift when no separately nominated
-  // valid ERTL was materialized. This is still explicit institution-authored
+  // The ERTL is never a separately selected provider. It is always the UTL
+  // from the leading department for this exact pole/date/shift. The rotation
+  // row supplies the department only; the roster supplies the provider.
+  const designatedUtl = validRosters.find((row) => row.isShiftErtl === true || row.departmentId === rotation?.departmentId);
+  const designatedErtlAlreadyExists = designatedUtl
+    ? assignments.some((assignment) => assignment.roleScope === "ertl" && assignment.shiftUtlRosterId === designatedUtl.id && assignment.providerUserId === designatedUtl.utlUserId && ["pending_acceptance", "accepted"].includes(assignment.assignmentStatus))
+    : false;
+
+  // Policy: the UTL from the pole’s designated rotation department is the
+  // Scene Commander/ERTL for this exact shift. This remains institution-authored
   // staffing; it does not invent a provider or assign anyone automatically.
-  if (assignedErtlProviderIds.size === 0) {
-    const designatedUtl = validRosters.find((row) => row.isShiftErtl === true || row.departmentId === rotation?.departmentId);
-    if (designatedUtl) {
+  if (!designatedErtlAlreadyExists && designatedUtl) {
       const assignmentStatus: ShiftRoleAssignmentStatus = "pending_acceptance";
       const [inserted] = await db.insert(iersShiftRoleAssignments).values({
         teamId: team.id,
@@ -428,12 +391,11 @@ export async function ensurePublishedTeamForLegacyUtlRoster(
         reason: "The explicitly assigned UTL from the pole’s designated ERTL department is the Scene Commander for this dated shift; separate ERTL acceptance is required.",
         metadata: JSON.stringify({ source: "shiftUtlRosters.isShiftErtl", rosterId: designatedUtl.id }),
       });
-      await requestErtlAcceptance(db, { assignmentId, team, institutionId: designatedUtl.institutionId, providerUserId: designatedUtl.utlUserId, actorUserId: input.actorUserId, reason: "The accepted UTL from the leading department is now the dated Scene Commander; the separate ERTL role must be accepted." });
-      assignedErtlProviderIds.add(designatedUtl.utlUserId);
+      if (designatedUtl.assignmentStatus === "active") {
+        await requestErtlAcceptance(db, { assignmentId, team, institutionId: designatedUtl.institutionId, providerUserId: designatedUtl.utlUserId, actorUserId: input.actorUserId, reason: "The leading-department UTL accepted the dated duty; the separate ERTL / Scene Commander role now requires acceptance." });
+      }
       projectedAssignmentCount += 1;
     }
-  }
-
   return { projected: teamCreated || projectedAssignmentCount > 0, teamId: team.id, projectedAssignmentCount };
 }
 
