@@ -284,6 +284,8 @@ export const learningRouter = router({
         SEEDED_COURSES.add(pt);
       }
 
+      // Diagnostic repair must run even when the catalog is already cached: a prior
+      // deployment may have created the course row without its baseline quiz.
       const diagnosticProgram = AHA_DIAGNOSTIC_PROGRAMS.find(
         (candidate) => candidate === pt
       );
