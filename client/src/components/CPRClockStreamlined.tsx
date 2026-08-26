@@ -36,6 +36,7 @@ import {
   Mic,
   MicOff,
   Wind,
+  MoreHorizontal,
   Pencil
 } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -45,6 +46,7 @@ import {
   evaluateRhythmTransition, 
   evaluateMedicationEligibility, 
   calculateShockEnergy,
+  getCprShockEnergyLabel,
   calculateCprMedicationDose,
   calculateAmiodaroneDose,
   getCompressionCycleStatus,
@@ -73,6 +75,10 @@ interface Props {
   externalRunning?: boolean;
   autoStart?: boolean;
   lifeSupportPack?: LifeSupportPackResult;
+  /** Return ROSC to the parent ResusGPS flow for post-cardiac-arrest care. */
+  onROSC?: () => void;
+  /** The integrated flow owns demographics in ResusGPS; standalone mode may edit them locally. */
+  allowPatientInfoEdit?: boolean;
   useSharedState?: boolean;
 }
 
@@ -123,6 +129,8 @@ export function CPRClockStreamlined({
   externalRunning,
   autoStart,
   lifeSupportPack,
+  onROSC,
+  allowPatientInfoEdit = true,
   useSharedState,
 }: Props) {
   const shared = useCprClockShared();
@@ -195,6 +203,8 @@ export function CPRClockStreamlined({
   const [windowShockAction, setWindowShockAction] = useState<'shock_delivered' | 'no_shock' | null>(null);
   const [windowNoShockReason, setWindowNoShockReason] = useState('');
   const [showSummaryCard, setShowSummaryCard] = useState(false);
+  const [showTools, setShowTools] = useState(false);
+  const [showRoscConfirm, setShowRoscConfirm] = useState(false);
   const [showPostRoscProtocol, setShowPostRoscProtocol] = useState(false);
   const [postRoscChecklist, setPostRoscChecklist] = useState({
     ttm_initiated: false,
@@ -267,15 +277,17 @@ export function CPRClockStreamlined({
     phase: phase as CprEngineState['phase'],
   };
   const isShockableRhythm = effectiveRhythmType === 'vf_pvt';
+  const cprEnginePack = lifeSupportPack?.pack === 'ACLS' ? 'ACLS' : 'PALS';
 
-  // Calculate doses
-  const epiDose = Math.round(patientWeight * 0.01 * 100) / 100;
-  const amiodaroneDoseInfo = calculateAmiodaroneDose(effectiveShockCount, patientWeight);
+  // Calculate doses using the selected adult or paediatric arrest pack.
+  const epiDose = cprEnginePack === 'ACLS' ? 1 : Math.round(patientWeight * 0.01 * 100) / 100;
+  const amiodaroneDoseInfo = calculateAmiodaroneDose(effectiveShockCount, patientWeight, cprEnginePack);
   const amiodaroneDose = amiodaroneDoseInfo.eligible
     ? amiodaroneDoseInfo.doseMg
     : Math.min(Math.round(patientWeight * 5), 300);
-  const lidocaineDose = Math.min(Math.round(patientWeight * 1), 100);
+  const lidocaineDose = cprEnginePack === 'ACLS' ? 100 : Math.min(Math.round(patientWeight * 1), 100);
   const shockEnergy = calculateShockEnergy(patientWeight, effectiveShockCount);
+  const shockEnergyLabel = getCprShockEnergyLabel(patientWeight, effectiveShockCount, lifeSupportPack?.pack ?? 'PALS');
   const compressionCycle = getCompressionCycleStatus(effectiveCompressionElapsed);
   const activeAlerts = evaluateCprGpsAlerts({
     compressionElapsed: effectiveCompressionElapsed,
@@ -288,6 +300,7 @@ export function CPRClockStreamlined({
     cycleNumber: effectiveCycleNumber,
     weightKg: patientWeight,
     defibDelayed: !sessionId,
+    lifeSupportPack: lifeSupportPack?.pack,
   });
 
   // Format time
@@ -599,7 +612,7 @@ export function CPRClockStreamlined({
       effectiveArrestDuration,
       engineState,
       isShockable,
-      { defibDelayed: !sessionId }
+      { defibDelayed: !sessionId, lifeSupportPack: cprEnginePack }
     );
     if (syncShared && shared) {
       shared.setRhythmType(type);
@@ -640,7 +653,8 @@ export function CPRClockStreamlined({
       const medAfterShock = evaluateMedicationEligibility(
         effectiveArrestDuration,
         { ...engineSnapshot, shockCount: nextShockCount },
-        true
+        true,
+        { lifeSupportPack: cprEnginePack }
       );
       if (medAfterShock.antiarrhythmicEligible) setShowAntiarrhythmicChoice(true);
     } else {
@@ -664,8 +678,10 @@ export function CPRClockStreamlined({
     setPhase('post_shock');
     
     // Use engine to calculate energy
-    const energy = calculateShockEnergy(patientWeight, newShockCount - 1);
-    addEvent(`Shock ${newShockCount} delivered`, `${energy} J`);
+    const energy = lifeSupportPack?.pack === 'ACLS'
+      ? getCprShockEnergyLabel(patientWeight, newShockCount - 1, 'ACLS')
+      : `${calculateShockEnergy(patientWeight, newShockCount - 1)} J`;
+    addEvent(`Shock ${newShockCount} delivered`, energy);
     speak(`Shock delivered. Resume CPR immediately.`);
     
     // Resume compressions
@@ -683,7 +699,12 @@ export function CPRClockStreamlined({
       phase: 'post_shock',
     };
     
-    const medResult = evaluateMedicationEligibility(effectiveArrestDuration, engineState, true);
+    const medResult = evaluateMedicationEligibility(
+      effectiveArrestDuration,
+      engineState,
+      true,
+      { lifeSupportPack: cprEnginePack }
+    );
     
     if (medResult.epiEligible && medResult.recommendation) {
       speak(medResult.recommendation);
@@ -722,7 +743,7 @@ export function CPRClockStreamlined({
     }
     
     // Use engine to calculate dose
-    const doseMeta = calculateCprMedicationDose('epinephrine', patientWeight);
+    const doseMeta = calculateCprMedicationDose('epinephrine', patientWeight, cprEnginePack);
     addEvent(
       `Epinephrine dose ${newEpiDoses}`, 
       `${doseMeta.dose} ${doseMeta.unit}${doseMeta.preparation ? ` (${doseMeta.preparation})` : ''}`
@@ -737,7 +758,7 @@ export function CPRClockStreamlined({
     setAntiarrhythmicDoses(prev => prev + 1);
     setShowAntiarrhythmicChoice(false);
     
-    const amioInfo = calculateAmiodaroneDose(effectiveShockCount, patientWeight);
+    const amioInfo = calculateAmiodaroneDose(effectiveShockCount, patientWeight, cprEnginePack);
     if (choice === 'amiodarone') {
       const doseMg = amioInfo.eligible ? amioInfo.doseMg : amiodaroneDose;
       addEvent('Amiodarone given', amioInfo.label || `${doseMg} mg IV`);
@@ -771,8 +792,13 @@ export function CPRClockStreamlined({
         totalDuration: arrestDuration,
       });
     }
-    
-    // Auto-open post-ROSC protocol after 2 seconds
+
+    if (onROSC) {
+      onROSC();
+      return;
+    }
+
+    // Standalone CPR-GPS keeps its own post-ROSC checklist when no parent flow is present.
     setTimeout(() => {
       setShowPostRoscProtocol(true);
       speak('Initiating post-resuscitation care protocol.');
@@ -833,6 +859,26 @@ export function CPRClockStreamlined({
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
+      {showRoscConfirm && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/90 p-4" role="dialog" aria-modal="true" aria-labelledby="rosc-confirm-title">
+          <Card className="w-full max-w-md border-emerald-500/60 bg-gray-900 text-white">
+            <CardContent className="space-y-4 p-5 md:p-6">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-400" aria-hidden />
+                <div>
+                  <h2 id="rosc-confirm-title" className="text-lg font-bold">Confirm ROSC</h2>
+                  <p className="mt-1 text-sm text-gray-300">Confirm a sustained pulse and signs of circulation before leaving CPR-GPS.</p>
+                </div>
+              </div>
+              <p className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-100">After confirmation, CPR-GPS will stop its arrest timer and ResusGPS will open post-cardiac-arrest care.</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Button variant="outline" onClick={() => setShowRoscConfirm(false)} className="min-h-12 border-gray-600 text-white">Back to CPR</Button>
+                <Button onClick={() => { setShowRoscConfirm(false); achieveROSC(); }} className="min-h-12 bg-emerald-600 hover:bg-emerald-700">Confirm ROSC</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
       {/* Header - Mobile Optimized */}
       <div className="bg-gray-900 border-b border-gray-700 px-3 py-2 md:px-6 md:py-4 flex items-center justify-between">
         <div className="flex items-center gap-2 md:gap-4">
@@ -842,83 +888,115 @@ export function CPRClockStreamlined({
             <p className="text-gray-400 text-xs md:text-sm">{patientWeight}kg • {formatTime(arrestDuration)}</p>
           </div>
           
-          {/* Edit Patient Info button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowPatientInfoDialog(true)}
-            className="text-white h-8 w-8 md:h-10 md:w-10"
-          >
-            <Pencil className="h-4 w-4 md:h-5 md:w-5" />
-          </Button>
+          {/* Demographics are edited in the parent ResusGPS flow when embedded. */}
+          {allowPatientInfoEdit && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowPatientInfoDialog(true)}
+              className="text-white h-8 w-8 md:h-10 md:w-10"
+              aria-label="Edit patient information"
+            >
+              <Pencil className="h-4 w-4 md:h-5 md:w-5" />
+            </Button>
+          )}
         </div>
         
-        <div className="flex items-center gap-1 md:gap-2">
-          {/* Voice activation */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={isListening ? stopListening : startListening}
-            className={`${isListening ? 'text-red-500' : 'text-white'} h-8 w-8 md:h-10 md:w-10`}
-          >
-            {isListening ? <Mic className="h-4 w-4 md:h-5 md:w-5" /> : <MicOff className="h-4 w-4 md:h-5 md:w-5" />}
-          </Button>
-          
-          {/* Metronome toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMetronomeEnabled(!metronomeEnabled)}
-            className="text-white h-8 w-8 md:h-10 md:w-10"
-          >
-            <Wind className="h-4 w-4 md:h-5 md:w-5" />
-          </Button>
-          
-          {/* Audio toggle */}
+        <div className="relative flex items-center gap-1 md:gap-2">
+          {/* Audio cues stay visible because they are part of the primary arrest safety loop. */}
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setAudioEnabled(!audioEnabled)}
             className="text-white h-8 w-8 md:h-10 md:w-10"
+            aria-label={audioEnabled ? 'Turn audio cues off' : 'Turn audio cues on'}
+            title={audioEnabled ? 'Audio cues on' : 'Audio cues off'}
           >
             {audioEnabled ? <Volume2 className="h-4 w-4 md:h-5 md:w-5" /> : <VolumeX className="h-4 w-4 md:h-5 md:w-5" />}
           </Button>
-          
-          {/* Team panel */}
+
           <Button
             variant="ghost"
-            size="icon"
-            onClick={() => setShowTeamPanel(!showTeamPanel)}
-            className="text-white"
+            size="sm"
+            onClick={() => setShowTools((current) => !current)}
+            className="text-white h-8 px-2 gap-1"
+            aria-expanded={showTools}
+            aria-label="Open CPR-GPS tools"
           >
-            <Users className="h-5 w-5" />
-            {teamMembers.length > 0 && (
-              <Badge className="absolute -top-1 -right-1 bg-purple-500 text-xs">
-                {teamMembers.length}
-              </Badge>
-            )}
+            <MoreHorizontal className="h-4 w-4" />
+            <span className="hidden sm:inline">Tools</span>
           </Button>
-          
-          {/* QR code */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowQrCode(!showQrCode)}
-            className="text-white"
-          >
-            <QrCode className="h-5 w-5" />
-          </Button>
-          
-          {/* Summary card */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowSummaryCard(!showSummaryCard)}
-            className="text-white h-8 w-8 md:h-10 md:w-10"
-            title="Arrest Summary"
-          >
-            <Activity className="h-4 w-4 md:h-5 md:w-5" />
-          </Button>
+
+          {showTools && (
+            <div className="absolute right-0 top-10 z-40 w-64 rounded-xl border border-gray-700 bg-gray-900 p-2 shadow-xl">
+              <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-400">CPR-GPS tools</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={isListening ? stopListening : startListening}
+                  className={`${isListening ? 'text-red-400' : 'text-white'} justify-start gap-2`}
+                >
+                  {isListening ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+                  Voice
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setMetronomeEnabled((current) => !current)}
+                  className="text-white justify-start gap-2"
+                >
+                  <Wind className="h-4 w-4" />
+                  {metronomeEnabled ? 'Metronome on' : 'Metronome off'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowTeamPanel((current) => !current)}
+                  className="text-white justify-start gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  Team {teamMembers.length > 0 ? `(${teamMembers.length})` : ''}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowQrCode((current) => !current)}
+                  className="text-white justify-start gap-2"
+                >
+                  <QrCode className="h-4 w-4" />
+                  QR
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSummaryCard((current) => !current)}
+                  className="text-white justify-start gap-2 col-span-2"
+                >
+                  <Activity className="h-4 w-4" />
+                  Arrest summary
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowReversibleCauses(true)}
+                  className="text-white justify-start gap-2"
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  H&apos;s &amp; T&apos;s
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAdvancedAirwayPrompt(true)}
+                  className="text-white justify-start gap-2"
+                >
+                  <Wind className="h-4 w-4" />
+                  Advanced airway
+                </Button>
+              </div>
+            </div>
+          )}
           
           {/* Close */}
           <Button variant="ghost" size="icon" onClick={onClose} className="text-white">
@@ -1021,7 +1099,7 @@ export function CPRClockStreamlined({
                         SHOCK READY
                       </div>
                       <div className="text-base md:text-2xl text-gray-300 mb-3 md:mb-6">
-                        {shockEnergy} J • Clear and shock
+                        {shockEnergyLabel} • Clear and shock
                       </div>
                       <div className="flex flex-col md:flex-row gap-2 md:gap-4 justify-center">
                         <Button
@@ -1078,7 +1156,7 @@ export function CPRClockStreamlined({
               </Button>
 
               <Button
-                onClick={achieveROSC}
+                onClick={() => setShowRoscConfirm(true)}
                 size="lg"
                 className="bg-green-600 hover:bg-green-700 text-white text-sm md:text-xl py-3 md:py-6 h-auto"
               >
@@ -1086,25 +1164,6 @@ export function CPRClockStreamlined({
                 <span className="truncate">ROSC</span>
               </Button>
 
-              <Button
-                onClick={() => setShowReversibleCauses(true)}
-                size="lg"
-                variant="outline"
-                className="text-white border-gray-600 text-xs md:text-lg py-3 md:py-6 h-auto"
-              >
-                <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 mr-1 md:mr-2" />
-                <span className="truncate">H's & T's</span>
-              </Button>
-
-              <Button
-                onClick={() => setShowAdvancedAirwayPrompt(true)}
-                size="lg"
-                variant="outline"
-                className="text-white border-gray-600 text-xs md:text-lg py-3 md:py-6 h-auto"
-              >
-                <Wind className="h-4 w-4 md:h-5 md:w-5 mr-1 md:mr-2" />
-                <span className="truncate">Adv Airway</span>
-              </Button>
             </div>
 
             {/* Stats - Mobile Optimized */}
@@ -1258,7 +1317,7 @@ export function CPRClockStreamlined({
               <div className="text-center mb-6">
                 <Zap className="h-16 w-16 text-yellow-500 mx-auto mb-4 animate-pulse" />
                 <h2 className="text-3xl font-bold text-white mb-2">CHARGE DEFIBRILLATOR</h2>
-                <p className="text-gray-300">Charge to {shockEnergy} Joules</p>
+                <p className="text-gray-300">{lifeSupportPack?.pack === 'ACLS' ? shockEnergyLabel : `Charge to ${shockEnergy} Joules`}</p>
               </div>
               
               <div className="space-y-4">
@@ -1267,7 +1326,7 @@ export function CPRClockStreamlined({
                     setDefibCharging(true);
                     setShowChargePrompt(false);
                     triggerHaptic('medium');
-                    addEvent('Defibrillator charged', `${shockEnergy}J`);
+                    addEvent('Defibrillator charged', lifeSupportPack?.pack === 'ACLS' ? shockEnergyLabel : `${shockEnergy}J`);
                     speak('Defibrillator charged and ready.');
                   }}
                   size="lg"

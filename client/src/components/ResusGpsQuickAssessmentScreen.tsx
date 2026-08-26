@@ -1,143 +1,182 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import { ArrowRight, CheckCircle2, CircleHelp, Heart, Siren, UserRound, Wind } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import {
-  deriveQuickAssessmentRecommendation,
-  QUICK_ASSESSMENT_PILLARS,
-  toggleQuickAssessmentCue,
-  type QuickAssessmentPillarId,
-} from '@/lib/resus/resusGpsUxHelpers';
-import {
-  Activity,
-  ArrowRight,
-  CheckCircle2,
-  Eye,
-  Heart,
-  Siren,
-} from 'lucide-react';
+import { getAgeCategory, resolveBlsAssessment, type BLSAssessmentAnswer } from '@/lib/resus/abcdeEngine';
 
-const PILLAR_ICON: Record<QuickAssessmentPillarId, ReactNode> = {
-  appearance: <Eye className="h-5 w-5" aria-hidden />,
-  work_of_breathing: <Activity className="h-5 w-5" aria-hidden />,
-  circulation: <Heart className="h-5 w-5" aria-hidden />,
-};
-
-const PILLAR_ACCENT: Record<QuickAssessmentPillarId, string> = {
-  appearance: 'border-violet-500/30 bg-violet-500/10',
-  work_of_breathing: 'border-sky-500/30 bg-sky-500/10',
-  circulation: 'border-rose-500/30 bg-rose-500/10',
-};
+type Responsiveness = 'responsive' | 'unresponsive';
+type Breathing = 'normal' | 'abnormal' | 'absent';
+type Pulse = 'present' | 'absent' | 'unknown';
 
 interface ResusGpsQuickAssessmentScreenProps {
-  onAnswer: (answer: 'sick' | 'not_sick') => void;
+  patientAge?: string | null;
+  onAnswer: (answer: BLSAssessmentAnswer) => void;
 }
 
-export function ResusGpsQuickAssessmentScreen({ onAnswer }: ResusGpsQuickAssessmentScreenProps) {
-  const [selectedCueIds, setSelectedCueIds] = useState<Set<string>>(() => new Set());
+const CHOICE_STYLE = 'w-full min-h-[56px] justify-start text-left whitespace-normal';
 
-  const recommendation = useMemo(
-    () => deriveQuickAssessmentRecommendation(selectedCueIds),
-    [selectedCueIds]
+function ChoiceButton({
+  active,
+  children,
+  onClick,
+  tone = 'default',
+}: {
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
+  tone?: 'default' | 'danger' | 'warning';
+}) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        CHOICE_STYLE,
+        active && tone === 'danger' && 'border-red-500 bg-red-500/15 text-red-700 dark:text-red-200 ring-2 ring-red-500/30',
+        active && tone === 'warning' && 'border-amber-500 bg-amber-500/15 text-amber-800 dark:text-amber-100 ring-2 ring-amber-500/30',
+        active && tone === 'default' && 'border-primary bg-primary/10 ring-2 ring-primary/20',
+      )}
+    >
+      {children}
+    </Button>
   );
+}
 
-  const recommendationTone =
-    recommendation.level === 'sick'
-      ? 'border-destructive/40 bg-destructive/10 text-destructive'
-      : recommendation.level === 'reassess'
-        ? 'border-amber-500/40 bg-amber-500/10 text-amber-950 dark:text-amber-50'
-        : 'border-border bg-muted/40 text-muted-foreground';
+export function ResusGpsQuickAssessmentScreen({ patientAge, onAnswer }: ResusGpsQuickAssessmentScreenProps) {
+  const [responsiveness, setResponsiveness] = useState<Responsiveness | null>(null);
+  const [breathing, setBreathing] = useState<Breathing | null>(null);
+  const [pulse, setPulse] = useState<Pulse | null>(null);
+
+  const ageCategory = getAgeCategory(patientAge ?? null);
+  const pulseSite = ageCategory === 'neonate' || ageCategory === 'infant'
+    ? 'brachial pulse'
+    : ageCategory === 'child'
+      ? 'carotid or femoral pulse'
+      : 'carotid pulse';
+
+  const decision = useMemo(() => {
+    if (!responsiveness || !breathing || !pulse) return null;
+    return resolveBlsAssessment(responsiveness, breathing, pulse);
+  }, [responsiveness, breathing, pulse]);
+
+  const canContinue = decision !== null;
 
   return (
-    <div className="flex flex-col min-h-[70vh] px-3 sm:px-4 py-6 max-w-lg mx-auto w-full">
-      <header className="text-center mb-5">
-        <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-1">Quick look</h2>
-        <p className="text-sm text-muted-foreground leading-snug max-w-sm mx-auto">
-          Three seconds across the room — does this patient look sick?
-        </p>
+    <div className="flex flex-col min-h-[70vh] px-3 sm:px-4 py-4 sm:py-6 max-w-xl mx-auto w-full">
+      <header className="mb-4 sm:mb-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">Step 1 · BLS assessment</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground mt-1">Is this cardiac arrest?</h2>
+            <p className="text-sm text-muted-foreground leading-snug mt-1">
+              Check responsiveness, normal breathing, and a pulse. If unsure, treat the arrest pathway as the safer branch and call for help.
+            </p>
+          </div>
+          <Badge variant="outline" className="shrink-0">Age: {patientAge || 'not entered'}</Badge>
+        </div>
       </header>
 
-      <div className="space-y-3 mb-4">
-        {QUICK_ASSESSMENT_PILLARS.map((pillar) => {
-          const pillarSelected = pillar.cues.some((c) => selectedCueIds.has(c.id));
-          return (
-            <Card
-              key={pillar.id}
-              className={cn(
-                'border transition-colors',
-                pillarSelected ? PILLAR_ACCENT[pillar.id] : 'border-border bg-card'
-              )}
-            >
-              <CardContent className="pt-4 pb-3 px-3 sm:px-4">
-                <div className="flex items-start gap-2 mb-3">
-                  <span className={cn('mt-0.5 opacity-80', pillarSelected && 'text-foreground')}>
-                    {PILLAR_ICON[pillar.id]}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-foreground text-sm sm:text-base">{pillar.label}</p>
-                    <p className="text-xs text-muted-foreground leading-snug">{pillar.scanFor}</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {pillar.cues.map((cue) => {
-                    const active = selectedCueIds.has(cue.id);
-                    return (
-                      <button
-                        key={cue.id}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => setSelectedCueIds((prev) => toggleQuickAssessmentCue(prev, cue.id))}
-                        className={cn(
-                          'rounded-full px-3 py-1.5 text-xs sm:text-sm font-medium border transition-colors min-h-[36px]',
-                          active
-                            ? 'border-destructive/60 bg-destructive/15 text-destructive'
-                            : 'border-border bg-background text-foreground hover:bg-muted/60'
-                        )}
-                      >
-                        {cue.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+      <div className="space-y-3">
+        <Card className={cn('border', responsiveness && 'border-primary/50')}>
+          <CardHeader className="pb-2 px-3 sm:px-4">
+            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+              <UserRound className="h-5 w-5 text-violet-600" aria-hidden />
+              1. Responsiveness
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">Tap the patient and speak loudly.</p>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2 px-3 sm:px-4 pb-3">
+            <ChoiceButton active={responsiveness === 'responsive'} onClick={() => setResponsiveness('responsive')}>
+              <CheckCircle2 className="h-5 w-5 mr-2 shrink-0 text-green-600" aria-hidden />
+              Responsive
+            </ChoiceButton>
+            <ChoiceButton active={responsiveness === 'unresponsive'} tone="danger" onClick={() => setResponsiveness('unresponsive')}>
+              <Siren className="h-5 w-5 mr-2 shrink-0 text-red-600" aria-hidden />
+              Unresponsive
+            </ChoiceButton>
+          </CardContent>
+        </Card>
+
+        <Card className={cn('border', breathing && 'border-primary/50')}>
+          <CardHeader className="pb-2 px-3 sm:px-4">
+            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+              <Wind className="h-5 w-5 text-sky-600" aria-hidden />
+              2. Breathing
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">Look for normal breathing; gasping is not normal breathing.</p>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-2 px-3 sm:px-4 pb-3">
+            <ChoiceButton active={breathing === 'normal'} onClick={() => setBreathing('normal')}>
+              <CheckCircle2 className="h-5 w-5 mr-2 shrink-0 text-green-600" aria-hidden />
+              Normal
+            </ChoiceButton>
+            <ChoiceButton active={breathing === 'abnormal'} tone="warning" onClick={() => setBreathing('abnormal')}>
+              <CircleHelp className="h-5 w-5 mr-2 shrink-0 text-amber-600" aria-hidden />
+              Abnormal / gasping
+            </ChoiceButton>
+            <ChoiceButton active={breathing === 'absent'} tone="danger" onClick={() => setBreathing('absent')}>
+              <Siren className="h-5 w-5 mr-2 shrink-0 text-red-600" aria-hidden />
+              Absent
+            </ChoiceButton>
+          </CardContent>
+        </Card>
+
+        <Card className={cn('border', pulse && 'border-primary/50')}>
+          <CardHeader className="pb-2 px-3 sm:px-4">
+            <CardTitle className="text-sm sm:text-base flex items-center gap-2">
+              <Heart className="h-5 w-5 text-rose-600" aria-hidden />
+              3. Pulse
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">Check for no more than 10 seconds at the age-appropriate site: {pulseSite}.</p>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-2 px-3 sm:px-4 pb-3">
+            <ChoiceButton active={pulse === 'present'} onClick={() => setPulse('present')}>
+              <CheckCircle2 className="h-5 w-5 mr-2 shrink-0 text-green-600" aria-hidden />
+              Present
+            </ChoiceButton>
+            <ChoiceButton active={pulse === 'absent'} tone="danger" onClick={() => setPulse('absent')}>
+              <Siren className="h-5 w-5 mr-2 shrink-0 text-red-600" aria-hidden />
+              Absent
+            </ChoiceButton>
+            <ChoiceButton active={pulse === 'unknown'} tone="warning" onClick={() => setPulse('unknown')}>
+              <CircleHelp className="h-5 w-5 mr-2 shrink-0 text-amber-600" aria-hidden />
+              Not sure
+            </ChoiceButton>
+          </CardContent>
+        </Card>
       </div>
 
-      <div
-        className={cn('rounded-xl border px-3 py-2.5 mb-4 text-center', recommendationTone)}
-        role="status"
-        aria-live="polite"
-      >
-        <p className="text-sm font-medium leading-snug">{recommendation.headline}</p>
-        <p className="text-xs opacity-90 mt-0.5 leading-snug">{recommendation.detail}</p>
-      </div>
+      {decision === 'cardiac_arrest' && (
+        <div className="mt-4 rounded-xl border-2 border-red-500 bg-red-500/10 p-3" role="alert">
+          <p className="font-bold text-red-800 dark:text-red-200">Cardiac arrest suspected</p>
+          <p className="text-sm text-red-900/80 dark:text-red-100/80 mt-1">Call for help, start chest compressions, and open CPR-GPS now.</p>
+        </div>
+      )}
+      {decision === 'no_cardiac_arrest' && (
+        <div className="mt-4 rounded-xl border border-primary/40 bg-primary/10 p-3" role="status">
+          <p className="font-bold text-foreground">No cardiac arrest branch selected</p>
+          <p className="text-sm text-muted-foreground mt-1">Continue to XABCDE primary survey. Airway and breathing threats remain urgent.</p>
+        </div>
+      )}
 
-      <div className="space-y-3 mt-auto">
+      <div className="mt-4 sm:mt-5">
         <Button
           size="lg"
-          variant="destructive"
-          className="w-full py-6 text-base sm:text-lg font-bold min-h-[52px]"
-          onClick={() => onAnswer('sick')}
+          className={cn('w-full min-h-[56px] text-base sm:text-lg font-bold', decision === 'cardiac_arrest' && 'bg-red-600 hover:bg-red-700')}
+          disabled={!canContinue}
+          onClick={() => onAnswer(decision!)}
         >
-          <Siren className="h-5 w-5 mr-2 shrink-0" aria-hidden />
-          Patient looks sick
-        </Button>
-        <Button
-          size="lg"
-          variant="outline"
-          className="w-full py-5 text-base min-h-[48px]"
-          onClick={() => onAnswer('not_sick')}
-        >
-          <CheckCircle2 className="h-5 w-5 mr-2 shrink-0" aria-hidden />
-          Patient looks well
+          {decision === 'cardiac_arrest' ? 'Start CPR-GPS' : 'Continue to XABCDE primary survey'}
+          <ArrowRight className="h-5 w-5 ml-2" aria-hidden />
         </Button>
       </div>
 
-      <p className="text-center text-xs text-muted-foreground mt-4 flex items-center justify-center gap-1 leading-snug">
-        <ArrowRight className="h-3 w-3 shrink-0" aria-hidden />
-        Next: ABCDE primary survey — airway, breathing, circulation, disability, exposure
+      <p className="text-center text-xs text-muted-foreground mt-3 leading-snug">
+        The next step is age-aware guidance. Do not wait for a perfect history before treating immediate threats.
       </p>
     </div>
   );

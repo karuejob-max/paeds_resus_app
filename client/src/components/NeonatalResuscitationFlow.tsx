@@ -20,14 +20,19 @@ import {
   type NeonatalAssessment,
 } from '@/lib/resus/neonatal-resuscitation-engine';
 
-export function NeonatalResuscitationFlow() {
+interface NeonatalResuscitationFlowProps {
+  birthWeightGrams?: number;
+  onClose?: () => void;
+}
+
+export function NeonatalResuscitationFlow({ birthWeightGrams, onClose }: NeonatalResuscitationFlowProps) {
   const [step, setStep] = useState<'initial' | 'assessment' | 'interventions' | 'summary'>('initial');
   const [timer, setTimer] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
   const [assessment, setAssessment] = useState<Partial<NeonatalAssessment>>({
     ageMinutes: 0,
-    birthWeight: 3500,
+    birthWeight: birthWeightGrams ?? 3500,
     gestationalAge: 40,
     term: true,
     toneAtBirth: 'good',
@@ -45,6 +50,12 @@ export function NeonatalResuscitationFlow() {
     color: 'pink',
     meconiumAspiration: false,
   });
+
+  useEffect(() => {
+    if (birthWeightGrams !== undefined && step === 'initial') {
+      setAssessment((previous) => ({ ...previous, birthWeight: birthWeightGrams }));
+    }
+  }, [birthWeightGrams, step]);
 
   // Timer for resuscitation
   useEffect(() => {
@@ -81,7 +92,17 @@ export function NeonatalResuscitationFlow() {
 
   return (
     <div className="w-full max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
-      <h1 className="text-3xl font-bold mb-6 text-blue-700">👶 Neonatal Resuscitation (NRP)</h1>
+      <div className="mb-6 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-blue-700 md:text-3xl">Neonatal Resuscitation (NRP)</h1>
+          <p className="mt-1 text-sm text-gray-600">Delivery-room newborn pathway inside the ResusGPS emergency flow.</p>
+        </div>
+        {onClose && (
+          <button type="button" onClick={onClose} className="min-h-11 rounded border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700">
+            Return to ResusGPS
+          </button>
+        )}
+      </div>
 
       {/* Resuscitation Timer */}
       {step !== 'initial' && (

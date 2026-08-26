@@ -37,12 +37,16 @@ import {
 } from '@shared/clinical-spo2-targets';
 import { applyVitalsAutofillToEvidence } from '@shared/clinical-evidence';
 import { getSecondarySurveyFields } from '@shared/secondary-survey-gating';
-import { validateResusWeight } from './patientDemographics';
+import type { ResusSetting } from './cpr-pack-resolver';
+import {
+  validateResusWeight,
+ } from './patientDemographics';
 
 // ─── Types ──────────────────────────────────────────────────
 
 export type Phase =
   | 'IDLE'
+  | 'BLS_ASSESSMENT'
   | 'QUICK_ASSESSMENT'
   | 'PRIMARY_SURVEY'
   | 'INTERVENTION'
@@ -173,11 +177,30 @@ export interface FluidTracker {
   bolusHistory: { timestamp: number; volumeMl: number; fluidType: string }[];
 }
 
+export type BLSAssessmentAnswer = 'cardiac_arrest' | 'no_cardiac_arrest';
+export type BLSResponsiveness = 'responsive' | 'unresponsive';
+export type BLSBreathing = 'normal' | 'abnormal' | 'absent';
+export type BLSPulse = 'present' | 'absent' | 'unknown';
+
+export function resolveBlsAssessment(
+  responsiveness: BLSResponsiveness | null,
+  breathing: BLSBreathing | null,
+  pulse: BLSPulse | null,
+): BLSAssessmentAnswer | null {
+  if (!responsiveness || !breathing || !pulse) return null;
+  // Treat a confirmed absent pulse as arrest even if another observation conflicts.
+  const arrestSuspected = pulse === 'absent'
+    || (responsiveness === 'unresponsive' && breathing !== 'normal' && pulse === 'unknown');
+  return arrestSuspected ? 'cardiac_arrest' : 'no_cardiac_arrest';
+}
+
 export interface ResusSession {
   id: string;
   phase: Phase;
   currentLetter: ABCDELetter;
   quickAssessment: 'sick' | 'not_sick' | null;
+  /** Explicit first-response branch selected at the BLS gate. */
+  blsAssessment?: BLSAssessmentAnswer;
   findings: Finding[];
   threats: Threat[];
   activeThreat?: Threat | null;
@@ -188,6 +211,8 @@ export interface ResusSession {
   concurrentDiagnoses: string[];
   patientWeight: number | null;
   patientAge: string | null;
+  /** Clinical context needed to select NRP safely; age alone does not imply delivery-room NRP. */
+  resusSetting?: ResusSetting;
   isTrauma: boolean;
   events: ClinicalEvent[];
   startTime: number;
@@ -222,6 +247,41 @@ export interface ResusSession {
   /** After fluid bolus — structured reassessment required before continuing */
   pendingFluidReassessment?: boolean;
   fluidReassessmentEvidence?: Record<string, { status: 'value'; value: string } | { status: 'not_available' } | { status: 'present' } | { status: 'absent' }>;
+  /** Parent-owned post-ROSC checklist; optional for backward-compatible persisted sessions. */
+  postCardiacArrestCare?: PostCardiacArrestCare;
+}
+
+export interface PostCardiacArrestCare {
+  completedItemIds: string[];
+  completedAt?: number;
+}
+
+export const POST_CARDIAC_ARREST_CARE_ITEMS = [
+  { id: 'airway_oxygenation', label: 'Airway and oxygenation reassessed' },
+  { id: 'breathing_ventilation', label: 'Breathing and ventilation reassessed' },
+  { id: 'circulation_hemodynamics', label: 'Circulation, rhythm, and blood pressure reassessed' },
+  { id: 'neurology_seizure', label: 'Neurology and seizure risk reassessed' },
+  { id: 'glucose_temperature', label: 'Glucose and temperature checked' },
+  { id: 'escalation_handoff', label: 'Senior/critical-care escalation and handoff completed' },
+] as const;
+
+export function updatePostCardiacArrestCare(
+  session: ResusSession,
+  itemId: string,
+  checked: boolean,
+): ResusSession {
+  const next = deepCopy(session);
+  const current = new Set(next.postCardiacArrestCare?.completedItemIds ?? []);
+  if (checked) current.add(itemId);
+  else current.delete(itemId);
+  const completedItemIds = [...current];
+  const complete = POST_CARDIAC_ARREST_CARE_ITEMS.every((item) => current.has(item.id));
+  next.postCardiacArrestCare = {
+    completedItemIds,
+    completedAt: complete ? (next.postCardiacArrestCare?.completedAt ?? Date.now()) : undefined,
+  };
+  log(next, 'note', `${checked ? 'Completed' : 'Reopened'} post-ROSC care item: ${itemId}`);
+  return next;
 }
 
 // ─── ABCDE Assessment Questions ─────────────────────────────
@@ -259,24 +319,62 @@ export interface AssessmentQuestion {
 
 export function getAgeCategory(ageStr: string | null): 'neonate' | 'infant' | 'child' | 'adolescent' | 'adult' {
   if (!ageStr) return 'child';
-  const lower = ageStr.toLowerCase();
+  const lower = ageStr.trim().toLowerCase();
   const nums = lower.match(/\d+(\.\d+)?/g);
   if (!nums) return 'child';
   const val = parseFloat(nums[0]);
-  
-  if (lower.includes('day') || lower.includes('d')) return 'neonate';
-  if (lower.includes('week') || lower.includes('wk')) return val <= 4 ? 'neonate' : 'infant';
-  if (lower.includes('month') || lower.includes('mo') || lower.includes('m')) {
-    return val <= 1 ? 'neonate' : val <= 12 ? 'infant' : 'child';
+  const hasUnit = /[a-z]/.test(lower);
+
+  // Use word-boundary unit checks; broad substring checks misclassified "month" as neonatal.
+  if (/\d+(\.\d+)?\s*(day|days|d)\b/.test(lower)) return 'neonate';
+  if (/\d+(\.\d+)?\s*(week|weeks|wk|wks|w)\b/.test(lower)) return val <= 4 ? 'neonate' : 'infant';
+  if (/\d+(\.\d+)?\s*(month|months|mo|mos|m)\b/.test(lower)) {
+    return val < 1 ? 'neonate' : val <= 12 ? 'infant' : 'child';
   }
-  if (lower.includes('year') || lower.includes('yr') || lower.includes('y') || !lower.match(/[a-z]/)) {
+  if (/\d+(\.\d+)?\s*(year|years|yr|yrs|y)\b/.test(lower) || !hasUnit) {
     if (val < 1) return 'infant';
-    if (val < 6) return 'child';
     if (val < 13) return 'child';
     if (val < 18) return 'adolescent';
     return 'adult';
   }
   return 'child';
+}
+
+export interface ForeignBodyAirwayGuidance {
+  population: 'infant' | 'child_or_adult';
+  title: string;
+  steps: string[];
+  escalation: string;
+}
+
+/**
+ * AHA/AAP 2025-aligned foreign-body airway obstruction cue for the live XABCDE airway question.
+ * Neonates are treated as infants for an acquired choking event; delivery-room NRP is a separate context.
+ */
+export function getForeignBodyAirwayGuidance(ageStr: string | null): ForeignBodyAirwayGuidance {
+  const age = getAgeCategory(ageStr);
+  if (age === 'neonate' || age === 'infant') {
+    return {
+      population: 'infant',
+      title: 'Infant choking — 5 back blows, then 5 chest thrusts',
+      steps: [
+        'Support the infant face-down with the head lower than the chest.',
+        'Give 5 back blows between the shoulder blades.',
+        'Turn face-up while supporting the head and give 5 chest thrusts.',
+      ],
+      escalation: 'Repeat cycles until the object is expelled or the infant becomes unresponsive; if unresponsive, start CPR and look for the object when opening the airway.',
+    };
+  }
+
+  return {
+    population: 'child_or_adult',
+    title: 'Child/adult choking — 5 back blows, then 5 abdominal thrusts',
+    steps: [
+      'Give 5 back blows between the shoulder blades.',
+      'Give 5 abdominal thrusts with the appropriate hand position.',
+    ],
+    escalation: 'Repeat cycles until the object is expelled or the patient becomes unresponsive; if unresponsive, start CPR and look for the object when opening the airway.',
+  };
 }
 
 // ─── Vital Sign Interpretation (age-aware) ──────────────────
@@ -1633,7 +1731,12 @@ const safetyRules: SafetyRule[] = [
 
 // ─── Session Management ─────────────────────────────────────
 
-export function createSession(weight?: number | null, age?: string | null, isTrauma?: boolean): ResusSession {
+export function createSession(
+  weight?: number | null,
+  age?: string | null,
+  isTrauma?: boolean,
+  resusSetting: ResusSetting = 'hospital',
+): ResusSession {
   if (weight !== null && weight !== undefined) {
     const validation = validateResusWeight(weight);
     if (!validation.valid) throw new RangeError(validation.message);
@@ -1653,6 +1756,7 @@ export function createSession(weight?: number | null, age?: string | null, isTra
     concurrentDiagnoses: [],
     patientWeight: weight ?? null,
     patientAge: age ?? null,
+    resusSetting,
     isTrauma: isTrauma ?? false,
     events: [],
     startTime: Date.now(),
@@ -1678,6 +1782,14 @@ export function createSession(weight?: number | null, age?: string | null, isTra
 }
 
 // ─── Mid-Case Patient Info Update ───────────────────────────
+
+export function updateResusSetting(session: ResusSession, resusSetting: ResusSetting): ResusSession {
+  if (session.resusSetting === resusSetting) return session;
+  const next = deepCopy(session);
+  next.resusSetting = resusSetting;
+  log(next, 'patient_info_updated', `Resuscitation setting updated: ${resusSetting}`);
+  return next;
+}
 
 export function updatePatientInfo(session: ResusSession, weight: number | null, age: string | null): ResusSession {
   if (weight !== null) {
@@ -1712,25 +1824,38 @@ export function updatePatientInfo(session: ResusSession, weight: number | null, 
 
 export function startQuickAssessment(session: ResusSession): ResusSession {
   const next = deepCopy(session);
-  next.phase = 'QUICK_ASSESSMENT';
+  next.phase = 'BLS_ASSESSMENT';
   next.startTime = Date.now();
-  log(next, 'phase_change', 'Session started → QUICK ASSESSMENT');
+  log(next, 'phase_change', 'Session started → BLS ASSESSMENT');
   return next;
 }
 
-export function answerQuickAssessment(session: ResusSession, answer: 'sick' | 'not_sick'): ResusSession {
+export function answerQuickAssessment(
+  session: ResusSession,
+  answer: 'sick' | 'not_sick' | BLSAssessmentAnswer
+): ResusSession {
   const next = deepCopy(session);
-  next.quickAssessment = answer;
-  log(next, 'phase_change', `Quick Assessment: ${answer === 'sick' ? 'SICK — Activate Emergency Response' : 'NOT SICK — Routine assessment'}`);
+  const isArrest = answer === 'cardiac_arrest';
+  const noArrest = answer === 'no_cardiac_arrest';
+  next.quickAssessment = isArrest || answer === 'sick' ? 'sick' : 'not_sick';
+  if (isArrest || noArrest) next.blsAssessment = answer;
+  log(
+    next,
+    'phase_change',
+    isArrest
+      ? 'BLS Assessment: CARDIAC ARREST SUSPECTED — start CPR-GPS'
+      : noArrest
+        ? 'BLS Assessment: NO CARDIAC ARREST — continue XABCDE'
+        : `Quick Assessment: ${answer === 'sick' ? 'SICK — continue emergency assessment' : 'NOT SICK — continue assessment'}`
+  );
+
+  if (isArrest) {
+    return triggerCardiacArrest(next);
+  }
 
   next.phase = 'PRIMARY_SURVEY';
-  if (answer === 'sick') {
-    next.currentLetter = next.isTrauma ? 'X' : 'A';
-    log(next, 'phase_change', `→ PRIMARY SURVEY starting at ${next.currentLetter}`);
-  } else {
-    next.currentLetter = 'A';
-    log(next, 'phase_change', '→ PRIMARY SURVEY (routine)');
-  }
+  next.currentLetter = 'X';
+  log(next, 'phase_change', '→ PRIMARY SURVEY starting at X — exsanguination first');
   return next;
 }
 
@@ -2166,8 +2291,8 @@ export function achieveROSC(session: ResusSession): ResusSession {
 
 // ─── Helper Functions ───────────────────────────────────────
 
-function getNextLetter(current: ABCDELetter, isTrauma: boolean): ABCDELetter | null {
-  const order: ABCDELetter[] = isTrauma ? ['X', 'A', 'B', 'C', 'D', 'E'] : ['A', 'B', 'C', 'D', 'E'];
+function getNextLetter(current: ABCDELetter, _isTrauma: boolean): ABCDELetter | null {
+  const order: ABCDELetter[] = ['X', 'A', 'B', 'C', 'D', 'E'];
   const idx = order.indexOf(current);
   if (idx < 0 || idx >= order.length - 1) return null;
   return order[idx + 1];
