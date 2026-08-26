@@ -256,7 +256,7 @@ export default function MicroCoursePlayerDB() {
   );
 
   const firstModuleId = courseDetails?.modules?.[0]?.id;
-  const { data: firstModuleContent } = trpc.learning.getModuleContent.useQuery(
+  const { data: firstModuleContent, isLoading: firstModuleContentLoading } = trpc.learning.getModuleContent.useQuery(
     { moduleId: firstModuleId ?? 0 },
     { enabled: !!firstModuleId }
   );
@@ -591,7 +591,7 @@ export default function MicroCoursePlayerDB() {
   const isLastModule = currentModuleIndex === modules.length - 1;
   const diagnosticQuiz = useMemo(() => {
     const list = firstModuleContent?.quizzes ?? [];
-    return list.find((q: { title?: string }) => examKindFromQuizTitle(q.title) === "diagnostic") ?? list[0];
+    return list.find((q: { title?: string }) => examKindFromQuizTitle(q.title) === "diagnostic");
   }, [firstModuleContent]);
   const summativeQuiz = useMemo(() => {
     const base =
@@ -1379,6 +1379,23 @@ export default function MicroCoursePlayerDB() {
             isSaving={completeFellowshipSimulation.isPending}
             onComplete={(opts) => void handleFellowshipSimComplete(opts)}
           />
+        ) : showDiagnosticQuiz && firstModuleContentLoading ? (
+            <Card className="border-none shadow-xl overflow-hidden">
+              <CardContent className="p-8 flex items-center justify-center gap-3 text-muted-foreground">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Loading diagnostic baseline...
+              </CardContent>
+            </Card>
+        ) : showDiagnosticQuiz && !diagnosticQuiz ? (
+            <Card className="border-none shadow-xl overflow-hidden">
+              <CardHeader className="bg-amber-50 border-b border-amber-100 p-8">
+                <CardTitle className="text-2xl font-bold text-amber-950">Diagnostic baseline unavailable</CardTitle>
+              </CardHeader>
+              <CardContent className="p-8 space-y-4 text-amber-950">
+                <p>The diagnostic baseline could not be loaded safely. No module quiz will be submitted under the diagnostic label.</p>
+                <p className="text-sm text-amber-800">Refresh the page. If this persists, contact support before continuing.</p>
+              </CardContent>
+            </Card>
         ) : showDiagnosticQuiz || showFormativeQuiz || showSummativeExam ? (
             <FormativeQuizView 
             moduleTitle={

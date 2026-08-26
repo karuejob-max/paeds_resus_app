@@ -18,6 +18,8 @@ import {
   enrollments,
 } from "../../drizzle/schema";
 import { ensurePalsAhaCatalog } from "../lib/ensure-pals-aha-catalog";
+import { ensureAhaDiagnosticQuiz } from "../lib/ensure-aha-diagnostic-quiz";
+import { AHA_DIAGNOSTIC_PROGRAMS } from "../data/aha-diagnostic-banks";
 import { ensurePals2025Content } from "../lib/ensure-pals-2025-content";
 import {
   ensureSeriouslyIllChildFellowshipCatalog,
@@ -280,6 +282,18 @@ export const learningRouter = router({
           await ensureInstructorCourseCatalog(db);
         }
         SEEDED_COURSES.add(pt);
+      }
+
+      const diagnosticProgram = AHA_DIAGNOSTIC_PROGRAMS.find(
+        (candidate) => candidate === pt
+      );
+      if (diagnosticProgram) {
+        const diagnosticAnchor = await resolveAhaCourseAnchor(db, diagnosticProgram);
+        await ensureAhaDiagnosticQuiz(
+          db,
+          diagnosticAnchor?.id ?? courseRow.id,
+          diagnosticProgram
+        );
       }
 
       const courseModules = await (db as any)

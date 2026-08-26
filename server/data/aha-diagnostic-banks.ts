@@ -13,6 +13,15 @@ export type AhaDiagnosticQuestionSeed = {
 
 export const AHA_DIAGNOSTIC_MIN_QUESTIONS = 10;
 
+/** AHA programs with a one-time diagnostic baseline. Instructor has no diagnostic bank. */
+export const AHA_DIAGNOSTIC_PROGRAMS = [
+  "bls",
+  "acls",
+  "pals",
+  "nrp",
+  "heartsaver",
+] as const;
+
 const blsBank: AhaDiagnosticQuestionSeed[] = [
   {
     question: "What compression rate is recommended for adult high-quality CPR?",
