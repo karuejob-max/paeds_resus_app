@@ -13,8 +13,8 @@ export type RhythmClassification = 'shockable' | 'non_shockable';
 export type ShockActionType = 'shock_delivered' | 'no_shock';
 
 export const CPR_CYCLE_SECONDS = 120;
-/** T-30s before rhythm check — charge defibrillator (CEO CPR-GPS). */
-export const PRECHARGE_ALERT_SECONDS = 30;
+/** T-15s before rhythm check — charge defibrillator to reduce the pause. */
+export const PRECHARGE_ALERT_SECONDS = 15;
 export const RHYTHM_WINDOW_SECONDS = 10;
 export const CYCLE_BLOCK_SECONDS = CPR_CYCLE_SECONDS + RHYTHM_WINDOW_SECONDS;
 export const VENTILATION_CUE_SECONDS = 6;
@@ -56,7 +56,8 @@ export type CprGpsAlertType =
   | 'epinephrine_prep'
   | 'amiodarone_due'
   | 'advanced_airway'
-  | 'reversible_causes';
+  | 'reversible_causes'
+  | 'defibrillator_delayed';
 
 export interface CprGpsAlert {
   type: CprGpsAlertType;
@@ -221,6 +222,15 @@ export function evaluateCprGpsAlerts(input: CprGpsAlertInput): CprGpsAlert[] {
     defibDelayed = false,
     lifeSupportPack = 'PALS',
   } = input;
+
+  if (isShockable && defibDelayed) {
+    alerts.push({
+      type: 'defibrillator_delayed',
+      severity: 'critical',
+      message: 'Defibrillator unavailable or delayed — continue CPR and follow the approved local early-epinephrine protocol.',
+      speakText: 'Defibrillator delayed. Continue CPR and follow local protocol.',
+    });
+  }
 
   if (inReassessment && rhythmWindowElapsed !== null) {
     const remaining = Math.max(0, RHYTHM_WINDOW_SECONDS - rhythmWindowElapsed);
@@ -450,6 +460,9 @@ export function getCprShockEnergyLabel(
 ): string {
   if (lifeSupportPack === 'ACLS') return 'Adult biphasic 120–200 J (follow device manufacturer setting)';
   if (lifeSupportPack === 'NRP') return 'Use the governed NRP delivery-room algorithm';
+  if (shockCount >= 2) {
+    return `At least ${calculateShockEnergy(weightKg, shockCount)} J (≥4 J/kg PALS); escalate up to 10 J/kg or adult maximum only per local/device protocol`;
+  }
   return `${calculateShockEnergy(weightKg, shockCount)} J (PALS weight-based)`;
 }
 

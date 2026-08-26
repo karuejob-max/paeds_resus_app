@@ -10,9 +10,8 @@
  * 6. Advanced airway prompts
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { triggerHaptic } from '@/lib/haptics';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -30,6 +29,7 @@ import {
   RotateCcw,
   Volume2,
   VolumeX,
+  Vibrate,
   QrCode,
   Users,
   UserPlus,
@@ -42,6 +42,7 @@ import {
 import QRCode from 'qrcode';
 import { trpc } from '@/lib/trpc';
 import { useVoiceCommands } from '@/hooks/useVoiceCommands';
+import { useCprFeedback } from '@/hooks/useCprFeedback';
 import { 
   evaluateRhythmTransition, 
   evaluateMedicationEligibility, 
@@ -67,10 +68,21 @@ import { useCprClockShared } from '@/components/cpr/CprClockSharedContext';
 import { CprDocumentationLog } from '@/components/cpr/CprDocumentationLog';
 import type { LifeSupportPackResult } from '@/lib/resus/cpr-pack-resolver';
 import { CprArrestCommandConsole } from '@/components/CprArrestCommandConsole';
+import {
+  acknowledgeCprGpsEvent,
+  enqueueCprGpsEvent,
+  loadCprGpsEventOutbox,
+  loadCprGpsSnapshot,
+  persistCprGpsSnapshot,
+  clearCprGpsSnapshot,
+  type CprGpsEventOutboxItem,
+} from '@/lib/resus/cprGpsSessionStore';
 
 interface Props {
   patientWeight: number;
   patientAgeMonths?: number;
+  /** Parent case key used only for local recovery; never a patient identifier. */
+  caseKey?: string;
   onClose: () => void;
   externalElapsed?: number;
   externalRunning?: boolean;
@@ -86,6 +98,16 @@ interface Props {
 type ArrestPhase = 'initial_assessment' | 'compressions' | 'reassessment' | 'rhythm_check' | 'charging' | 'shock_ready' | 'post_shock';
 type TeamRole = 'team_leader' | 'compressions' | 'airway' | 'iv_access' | 'medications' | 'recorder' | 'observer';
 type AntiarrhythmicChoice = 'amiodarone' | 'lidocaine' | null;
+
+type CprEventType = CprGpsEventOutboxItem['eventType'];
+
+function cprEventTypeForAction(action: string): CprEventType {
+  if (action.includes('Shock')) return 'defibrillation';
+  if (action.includes('Epi') || action.includes('Amiodarone') || action.includes('Lidocaine')) return 'medication';
+  if (action.includes('Airway') || action.includes('Ventilation')) return 'airway';
+  if (action.includes('ROSC')) return 'outcome';
+  return 'note';
+}
 
 interface ArrestEvent {
   id: string;
@@ -125,6 +147,7 @@ const ROLE_COLORS: Record<TeamRole, string> = {
 export function CPRClockStreamlined({
   patientWeight,
   patientAgeMonths,
+  caseKey,
   onClose,
   externalElapsed,
   externalRunning,
@@ -195,8 +218,11 @@ export function CPRClockStreamlined({
   const [showAntiarrhythmicChoice, setShowAntiarrhythmicChoice] = useState(false);
   const [showAdvancedAirwayPrompt, setShowAdvancedAirwayPrompt] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [metronomeEnabled, setMetronomeEnabled] = useState(true);
   const [defibCharging, setDefibCharging] = useState(false);
+  const [defibrillatorDelayed, setDefibrillatorDelayed] = useState(false);
+  const [chargeForShock, setChargeForShock] = useState(false);
   const [showChargePrompt, setShowChargePrompt] = useState(false);
   const [showRhythmActionCapture, setShowRhythmActionCapture] = useState(false);
   const [windowRhythmClassification, setWindowRhythmClassification] = useState<RhythmClassification | null>(null);
@@ -207,6 +233,9 @@ export function CPRClockStreamlined({
   const [showTools, setShowTools] = useState(false);
   const [showRoscConfirm, setShowRoscConfirm] = useState(false);
   const [showPostRoscProtocol, setShowPostRoscProtocol] = useState(false);
+  const [recoveredFromLocal, setRecoveredFromLocal] = useState(false);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === 'undefined' ? true : navigator.onLine);
   const [postRoscChecklist, setPostRoscChecklist] = useState({
     ttm_initiated: false,
     fever_prevention_72h: false,
@@ -232,6 +261,9 @@ export function CPRClockStreamlined({
   const audioContextRef = useRef<AudioContext | null>(null);
   const firedAlertsRef = useRef<Set<string>>(new Set());
   const rhythmWindowLoggedRef = useRef(false);
+  const outboxFlushRef = useRef<Set<string>>(new Set());
+  const recoveryCheckedRef = useRef(!caseKey);
+  const sessionCreateAttemptedRef = useRef(false);
   
   // tRPC mutations and queries
   const createSession = trpc.cprSession.createSession.useMutation();
@@ -244,6 +276,66 @@ export function CPRClockStreamlined({
     { sessionId: sessionId! },
     { enabled: !!sessionId, refetchInterval: 2000 }
   );
+
+  useEffect(() => {
+    const updateOnlineState = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', updateOnlineState);
+    window.addEventListener('offline', updateOnlineState);
+    return () => {
+      window.removeEventListener('online', updateOnlineState);
+      window.removeEventListener('offline', updateOnlineState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!caseKey) return;
+    let cancelled = false;
+    loadCprGpsSnapshot(caseKey).then((snapshot) => {
+      if (cancelled) return;
+      recoveryCheckedRef.current = true;
+      if (!snapshot || snapshot.roscAchieved) return;
+      const restoredArrestDuration = externalElapsed ?? snapshot.arrestDuration;
+      const restoredIsRunning = externalRunning ?? snapshot.isRunning;
+      setPhase(snapshot.phase);
+      setAdvancedAirwayPlaced(snapshot.advancedAirwayPlaced);
+      setDefibrillatorDelayed(snapshot.defibrillatorDelayed);
+      setDefibCharging(snapshot.defibCharging);
+      setChargeForShock(snapshot.chargeForShock);
+      setRhythmWindowElapsed(snapshot.rhythmWindowElapsed);
+      setReassessmentTime(snapshot.reassessmentTime);
+      if (syncShared && shared) {
+        shared.hydrate({
+          engineState: snapshot.engineState,
+          arrestDuration: restoredArrestDuration,
+          compressionElapsed: snapshot.compressionElapsed,
+          cycleNumber: snapshot.cycleNumber,
+          cycleTime: snapshot.cycleTime,
+          isRunning: restoredIsRunning,
+          events: snapshot.events,
+          roscAchieved: snapshot.roscAchieved,
+          rhythmType: snapshot.rhythmType,
+        });
+      } else {
+        setArrestDuration(restoredArrestDuration);
+        setCompressionElapsed(snapshot.compressionElapsed);
+        setCycleNumber(snapshot.cycleNumber);
+        setCycleTime(snapshot.cycleTime);
+        setShockCount(snapshot.engineState.shockCount);
+        setEpiDoses(snapshot.engineState.epiDoses);
+        setLastEpiTime(snapshot.engineState.lastEpiTime);
+        setAntiarrhythmicDoses(snapshot.engineState.antiarrhythmicDoses);
+        setRhythmType(snapshot.rhythmType);
+        setRoscAchieved(snapshot.roscAchieved);
+
+        setEvents(snapshot.events);
+        setIsRunning(restoredIsRunning);
+      }
+      setRecoveredFromLocal(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [caseKey, externalElapsed, externalRunning, shared, syncShared]);
 
   const effectiveArrestDuration =
     externalElapsed !== undefined
@@ -268,15 +360,108 @@ export function CPRClockStreamlined({
   const effectiveRoscAchieved = syncShared ? shared!.roscAchieved : roscAchieved;
   const effectiveCompressionElapsed = syncShared ? shared!.compressionElapsed : compressionElapsed;
   const effectiveCycleNumber = syncShared ? shared!.cycleNumber : cycleNumber;
+  const effectiveEvents = syncShared ? shared!.events : events;
+  const {
+    audioSupported,
+    audioUnlocked,
+    hapticsSupported,
+    unlockAudio,
+    speak,
+    stopSpeech,
+    pulse,
+    clearSpokenKeys,
+  } = useCprFeedback({ audioEnabled, hapticsEnabled });
 
-  const engineSnapshot: CprEngineState = {
+  const engineSnapshot = useMemo<CprEngineState>(() => ({
     shockCount: effectiveShockCount,
     epiDoses: effectiveEpiDoses,
     lastEpiTime: effectiveLastEpiTime,
     antiarrhythmicDoses: effectiveAntiarrhythmicDoses,
     rhythmType: effectiveRhythmType || 'unknown',
     phase: phase as CprEngineState['phase'],
-  };
+  }), [effectiveShockCount, effectiveEpiDoses, effectiveLastEpiTime, effectiveAntiarrhythmicDoses, effectiveRhythmType, phase]);
+
+  useEffect(() => {
+    if (!caseKey || !recoveryCheckedRef.current || effectiveEvents.length === 0) return;
+    if (effectiveRoscAchieved) {
+      clearCprGpsSnapshot(caseKey);
+      return;
+    }
+    persistCprGpsSnapshot({
+      caseKey,
+      savedAt: Date.now(),
+      arrestDuration: effectiveArrestDuration,
+      compressionElapsed: effectiveCompressionElapsed,
+      cycleNumber: effectiveCycleNumber,
+      cycleTime: effectiveCompressionElapsed,
+      isRunning: effectiveIsRunning,
+      phase,
+      engineState: engineSnapshot,
+      rhythmType: effectiveRhythmType,
+      roscAchieved: effectiveRoscAchieved,
+      advancedAirwayPlaced,
+      defibrillatorDelayed,
+      defibCharging,
+      chargeForShock,
+      rhythmWindowElapsed,
+      reassessmentTime,
+      events: effectiveEvents,
+    });
+  }, [
+    caseKey,
+    effectiveArrestDuration,
+    effectiveCompressionElapsed,
+    effectiveCycleNumber,
+    phase,
+    engineSnapshot,
+    effectiveRhythmType,
+    effectiveRoscAchieved,
+    advancedAirwayPlaced,
+    defibCharging,
+    chargeForShock,
+    rhythmWindowElapsed,
+    reassessmentTime,
+    effectiveEvents,
+  ]);
+
+  useEffect(() => {
+    if (!caseKey) return;
+    void loadCprGpsEventOutbox(caseKey).then((items) => setPendingSyncCount(items.length));
+  }, [caseKey]);
+
+  const flushPendingEvents = useCallback(async () => {
+    if (!caseKey || !sessionId || !isOnline) return;
+    const items = await loadCprGpsEventOutbox(caseKey);
+    for (const item of items) {
+      if (outboxFlushRef.current.has(item.localEventId)) continue;
+      outboxFlushRef.current.add(item.localEventId);
+      logEvent.mutate(
+        {
+          sessionId,
+          memberId: item.memberId ?? undefined,
+          eventType: item.eventType,
+          eventTime: item.eventTime,
+          description: item.description,
+          value: item.value,
+          metadata: item.metadata,
+        },
+        {
+          onSuccess: () => {
+            acknowledgeCprGpsEvent(item.localEventId);
+            setPendingSyncCount((count) => Math.max(0, count - 1));
+          },
+          onError: () => {
+            outboxFlushRef.current.delete(item.localEventId);
+          },
+        },
+      );
+    }
+  }, [caseKey, isOnline, logEvent, sessionId]);
+
+  useEffect(() => {
+    void flushPendingEvents();
+  }, [flushPendingEvents]);
+
   const isShockableRhythm = effectiveRhythmType === 'vf_pvt';
   const cprEnginePack = lifeSupportPack?.pack === 'ACLS' ? 'ACLS' : 'PALS';
 
@@ -300,7 +485,7 @@ export function CPRClockStreamlined({
     advancedAirwayPlaced,
     cycleNumber: effectiveCycleNumber,
     weightKg: patientWeight,
-    defibDelayed: !sessionId,
+    defibDelayed: defibrillatorDelayed,
     lifeSupportPack: lifeSupportPack?.pack,
   });
 
@@ -316,24 +501,17 @@ export function CPRClockStreamlined({
     return 'bg-green-600 hover:bg-green-700';
   };
 
-  // Voice synthesis
-  const speak = useCallback((text: string) => {
-    if (!audioEnabled) return;
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.1;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    window.speechSynthesis.speak(utterance);
-  }, [audioEnabled]);
-
-  // Metronome (100-120 bpm = 600ms interval for 100 bpm)
+  // Metronome (100-120 bpm = 600ms interval for 100 bpm). This is a
+  // timing aid only; it is never compression-quality feedback.
   const playMetronomeBeep = useCallback(() => {
-    if (!metronomeEnabled || !audioEnabled) return;
-    
+    if (!metronomeEnabled || !audioEnabled || !audioUnlocked || typeof window === 'undefined') return;
+
     if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContextConstructor = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextConstructor) return;
+      audioContextRef.current = new AudioContextConstructor();
     }
-    
+
     const ctx = audioContextRef.current;
     const oscillator = ctx.createOscillator();
     const gainNode = ctx.createGain();
@@ -349,7 +527,7 @@ export function CPRClockStreamlined({
     
     oscillator.start(ctx.currentTime);
     oscillator.stop(ctx.currentTime + 0.1);
-  }, [metronomeEnabled, audioEnabled]);
+  }, [metronomeEnabled, audioEnabled, audioUnlocked]);
 
   // Start metronome
   useEffect(() => {
@@ -383,7 +561,8 @@ export function CPRClockStreamlined({
       setCycleNumber((n) => n + 1);
     }
     firedAlertsRef.current.clear();
-  }, [syncShared, shared]);
+    clearSpokenKeys();
+  }, [syncShared, shared, clearSpokenKeys]);
 
   const addEvent = useCallback((action: string, details?: string) => {
     const ts =
@@ -393,7 +572,7 @@ export function CPRClockStreamlined({
           ? shared.arrestDuration
           : arrestDuration;
     const event: ArrestEvent = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       timestamp: ts,
       action,
       details,
@@ -403,43 +582,69 @@ export function CPRClockStreamlined({
       shared.addEvent(action, details);
     }
 
-    if (sessionId) {
-      logEvent.mutate({
+    const eventType = cprEventTypeForAction(action);
+    const queueForRetry = () => {
+      if (!caseKey) return;
+      enqueueCprGpsEvent({
+        localEventId: event.id,
+        caseKey,
         sessionId,
-        memberId: memberId || undefined,
-        eventType: action.includes('Shock') ? 'defibrillation' : 
-                   action.includes('Epi') || action.includes('Amiodarone') || action.includes('Lidocaine') ? 'medication' :
-                   action.includes('ROSC') ? 'outcome' : 'note',
+        memberId,
+        eventType,
         eventTime: ts,
         description: action,
         value: details,
+        queuedAt: Date.now(),
       });
-    }
-  }, [arrestDuration, sessionId, memberId, syncShared, shared, externalElapsed, logEvent]);
+      setPendingSyncCount((count) => count + 1);
+    };
 
-  // Create session on mount
-  useEffect(() => {
-    if (!sessionId) {
-      createSession.mutate(
-        { patientWeight, patientAgeMonths },
+    if (!sessionId || !isOnline) {
+      queueForRetry();
+    } else {
+      logEvent.mutate(
         {
-          onSuccess: async (data) => {
-            setSessionId(data.sessionId ?? null);
-            setSessionCode(data.sessionCode);
-            
-            // Generate QR code
-            const joinUrl = `${window.location.origin}/join-cpr/${data.sessionCode}`;
-            const qrUrl = await QRCode.toDataURL(joinUrl, {
-              width: 300,
-              margin: 2,
-              color: { dark: '#000000', light: '#FFFFFF' },
-            });
-            setQrCodeUrl(qrUrl);
-          },
-        }
+          sessionId,
+          memberId: memberId || undefined,
+          eventType,
+          eventTime: ts,
+          description: action,
+          value: details,
+        },
+        { onError: queueForRetry },
       );
     }
-  }, []);
+  }, [arrestDuration, sessionId, memberId, syncShared, shared, externalElapsed, logEvent, caseKey, isOnline]);
+
+  // Create a server session only when the device reports connectivity. The
+  // local CPR snapshot/outbox remains usable while offline.
+  useEffect(() => {
+    if (!autoStart && !isRunning) return;
+    if (sessionId || !isOnline || sessionCreateAttemptedRef.current) return;
+    sessionCreateAttemptedRef.current = true;
+    createSession.mutate(
+      { patientWeight, patientAgeMonths },
+      {
+        onSuccess: async (data) => {
+          setSessionId(data.sessionId ?? null);
+          setMemberId(data.memberId ?? null);
+          setSessionCode(data.sessionCode);
+
+          const joinUrl = `${window.location.origin}/join-cpr/${data.sessionCode}`;
+          const qrUrl = await QRCode.toDataURL(joinUrl, {
+            width: 300,
+            margin: 2,
+            color: { dark: '#000000', light: '#FFFFFF' },
+          });
+          setQrCodeUrl(qrUrl);
+        },
+        onError: () => {
+          // Allow a later online event to retry once without blocking local CPR.
+          sessionCreateAttemptedRef.current = false;
+        },
+      },
+    );
+  }, [autoStart, createSession, isOnline, isRunning, patientAgeMonths, patientWeight, sessionId]);
 
   // Speak one-shot CPR-GPS alerts (audio/visual per platform)
   useEffect(() => {
@@ -448,15 +653,16 @@ export function CPRClockStreamlined({
       if (firedAlertsRef.current.has(key)) continue;
       if (!alert.speakText) continue;
       firedAlertsRef.current.add(key);
-      speak(alert.speakText);
-      if (alert.severity === 'critical') triggerHaptic('critical');
-      else if (alert.severity === 'warning') triggerHaptic('medium');
+      speak(alert.speakText, key);
+      if (alert.severity === 'critical') pulse('critical');
+      else if (alert.severity === 'warning') pulse('medium');
     }
-  }, [activeAlerts, effectiveCompressionElapsed, rhythmWindowElapsed, speak]);
+  }, [activeAlerts, effectiveCompressionElapsed, rhythmWindowElapsed, speak, pulse]);
 
   useEffect(() => {
     const precharge = activeAlerts.some((a) => a.type === 'precharge_defibrillator');
     if (precharge && isShockableRhythm && !defibCharging) {
+      setChargeForShock(false);
       setShowChargePrompt(true);
     }
     const airway = activeAlerts.some((a) => a.type === 'advanced_airway');
@@ -485,6 +691,7 @@ export function CPRClockStreamlined({
               setPhase('reassessment');
               setReassessmentTime(RHYTHM_WINDOW_SECONDS);
               setRhythmWindowElapsed(0);
+              setShowRhythmCheck(true);
               rhythmWindowLoggedRef.current = false;
               setDefibCharging(false);
               addEvent('2-minute cycle complete', `Cycle ${effectiveCycleNumber} — reassessment due`);
@@ -501,7 +708,7 @@ export function CPRClockStreamlined({
           intubationStartTime !== null &&
           shouldTriggerIntubatedVentilationCue(effectiveArrestDuration - intubationStartTime, advancedAirwayPlaced)
         ) {
-          triggerHaptic('medium');
+          pulse('medium');
           speak('Ventilate now.');
           addEvent('Ventilation cue', 'Intubated ventilation at 6-second cadence');
         }
@@ -572,6 +779,7 @@ export function CPRClockStreamlined({
 
   // Start arrest - IMMEDIATE rhythm assessment workflow
   const startArrest = () => {
+    unlockAudio();
     if (syncShared && shared) shared.setIsRunning(true);
     setIsRunning(true);
     setPhase('initial_assessment');
@@ -581,6 +789,7 @@ export function CPRClockStreamlined({
 
   // Pads attached - assess rhythm immediately
   const handlePadsAttached = () => {
+    unlockAudio();
     setShowRhythmCheck(true);
     addEvent('Pads attached');
     speak('Pads attached. Assess rhythm now.');
@@ -613,16 +822,24 @@ export function CPRClockStreamlined({
       effectiveArrestDuration,
       engineState,
       isShockable,
-      { defibDelayed: !sessionId, lifeSupportPack: cprEnginePack }
+      { defibDelayed: defibrillatorDelayed, lifeSupportPack: cprEnginePack }
     );
     if (syncShared && shared) {
       shared.setRhythmType(type);
       shared.setEngineState((s) => ({ ...s, rhythmType: type, phase: rhythmResult.nextPhase }));
     }
     
-    // Hold progression until explicit rhythm/shock action is captured.
-    setPhase('reassessment');
-    setShowRhythmActionCapture(true);
+    // Hold progression until the physical rhythm action is deliberately completed.
+    // Shockable rhythms use the charge -> clear/shock path; non-shockable rhythms
+    // require a documented no-shock reason before compressions resume.
+    if (isShockable) {
+      setPhase('charging');
+      setChargeForShock(true);
+      setShowChargePrompt(true);
+    } else {
+      setPhase('reassessment');
+      setShowRhythmActionCapture(true);
+    }
     addEvent(`${type.toUpperCase()} detected`, rhythmResult.message);
     speak(rhythmResult.message);
     if (medResult.epiEligible && medResult.recommendation) {
@@ -632,6 +849,7 @@ export function CPRClockStreamlined({
 
   const submitRhythmWindowAction = () => {
     if (!windowRhythmClassification || !windowShockAction) return;
+    if (windowRhythmClassification === 'shockable' || windowShockAction !== 'no_shock') return;
     const decision = applyRhythmWindowDecision(effectiveShockCount, {
       rhythmClassification: windowRhythmClassification,
       rhythmType: windowRhythmType || undefined,
@@ -641,26 +859,7 @@ export function CPRClockStreamlined({
     setShowRhythmActionCapture(false);
     addEvent('Rhythm window action', decision.actionSummary);
 
-    if (windowShockAction === 'shock_delivered') {
-      const nextShockCount = decision.nextShockCount;
-      setShockCount(nextShockCount);
-      if (syncShared && shared) {
-        shared.setEngineState((s) => ({ ...s, shockCount: nextShockCount, phase: 'post_shock' }));
-      }
-      speak(`Shock ${nextShockCount} delivered. Resume compressions.`);
-      if (nextShockCount === 1 && !advancedAirwayPlaced) {
-        setShowAdvancedAirwayPrompt(true);
-      }
-      const medAfterShock = evaluateMedicationEligibility(
-        effectiveArrestDuration,
-        { ...engineSnapshot, shockCount: nextShockCount },
-        true,
-        { lifeSupportPack: cprEnginePack }
-      );
-      if (medAfterShock.antiarrhythmicEligible) setShowAntiarrhythmicChoice(true);
-    } else {
-      speak('No shock delivered. Resume compressions now.');
-    }
+    speak('No shock delivered. Resume compressions now.');
     setRhythmFeedback(null);
     setRhythmWindowElapsed(null);
     resetCompressionCycle();
@@ -668,11 +867,15 @@ export function CPRClockStreamlined({
     setPhase('compressions');
   };
 
-  // Deliver shock using cpr-engine
+  // Deliver shock using cpr-engine. The UI must be in the explicit shock-ready
+  // state and the provider must have documented that the defibrillator is charged.
   const deliverShock = () => {
-    triggerHaptic('critical'); // Haptic feedback for shock
+    if (phase !== 'shock_ready' || !defibCharging) return;
+    pulse('critical'); // Haptic feedback for shock
     const newShockCount = effectiveShockCount + 1;
     setShockCount(newShockCount);
+    setDefibCharging(false);
+    setChargeForShock(false);
     if (syncShared && shared) {
       shared.setEngineState((s) => ({ ...s, shockCount: newShockCount, phase: 'post_shock' }));
     }
@@ -731,7 +934,7 @@ export function CPRClockStreamlined({
 
   // Give epinephrine using cpr-engine
   const giveEpinephrine = () => {
-    triggerHaptic('critical'); // Haptic feedback for epinephrine
+    pulse('critical'); // Haptic feedback for epinephrine
     const newEpiDoses = effectiveEpiDoses + 1;
     setEpiDoses(newEpiDoses);
     setLastEpiTime(effectiveArrestDuration);
@@ -754,7 +957,7 @@ export function CPRClockStreamlined({
 
   // Give antiarrhythmic
   const giveAntiarrhythmic = (choice: 'amiodarone' | 'lidocaine') => {
-    triggerHaptic('critical'); // Haptic feedback for antiarrhythmic
+    pulse('critical'); // Haptic feedback for antiarrhythmic
     setAntiarrhythmic(choice);
     setAntiarrhythmicDoses(prev => prev + 1);
     setShowAntiarrhythmicChoice(false);
@@ -857,6 +1060,30 @@ export function CPRClockStreamlined({
 
   // Team members from session data
   const teamMembers: TeamMember[] = sessionData?.teamMembers || [];
+  const invalidWeight = !Number.isFinite(patientWeight) || patientWeight <= 0;
+  const adultPathwayMissing = patientAgeMonths !== undefined && patientAgeMonths >= 144 && lifeSupportPack?.pack !== 'ACLS';
+
+  if (invalidWeight || adultPathwayMissing || lifeSupportPack?.pack === 'NRP') {
+    const message = invalidWeight
+      ? 'A verified patient weight is required before CPR-GPS can display dose or energy guidance.'
+      : lifeSupportPack?.pack === 'NRP'
+        ? 'Delivery-room newborn resuscitation uses the dedicated NRP pathway. Do not use this generic CPR console.'
+        : 'Adult age context detected, but an explicit ACLS pathway was not supplied. Follow the approved adult emergency protocol.';
+    return (
+      <main className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-slate-950 p-4 sm:p-6">
+        <Card className="w-full max-w-lg border-amber-400/70 bg-amber-950/40 text-white">
+          <CardContent className="space-y-4 p-5 sm:p-7">
+            <AlertTriangle className="h-10 w-10 text-amber-300" aria-hidden />
+            <h2 className="text-xl font-bold">CPR-GPS pathway confirmation required</h2>
+            <p className="text-sm leading-6 text-amber-50">{message}</p>
+            <Button onClick={onClose} variant="outline" className="min-h-12 border-amber-200/60 text-white hover:bg-amber-50/10">
+              Return to ResusGPS
+            </Button>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
@@ -908,10 +1135,20 @@ export function CPRClockStreamlined({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setAudioEnabled(!audioEnabled)}
+            onClick={() => {
+              if (!audioEnabled) {
+                setAudioEnabled(true);
+                unlockAudio();
+              } else if (!audioUnlocked) {
+                unlockAudio();
+              } else {
+                setAudioEnabled(false);
+                stopSpeech();
+              }
+            }}
             className="text-white h-8 w-8 md:h-10 md:w-10"
-            aria-label={audioEnabled ? 'Turn audio cues off' : 'Turn audio cues on'}
-            title={audioEnabled ? 'Audio cues on' : 'Audio cues off'}
+            aria-label={!audioEnabled ? 'Turn audio cues on' : !audioUnlocked ? 'Enable audio cues' : 'Turn audio cues off'}
+            title={!audioEnabled ? 'Audio cues off' : !audioUnlocked ? 'Tap to enable audio cues' : 'Audio cues on'}
           >
             {audioEnabled ? <Volume2 className="h-4 w-4 md:h-5 md:w-5" /> : <VolumeX className="h-4 w-4 md:h-5 md:w-5" />}
           </Button>
@@ -950,6 +1187,34 @@ export function CPRClockStreamlined({
                   <Wind className="h-4 w-4" />
                   {metronomeEnabled ? 'Metronome on' : 'Metronome off'}
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setHapticsEnabled((current) => !current)}
+                  className="text-white justify-start gap-2"
+                  aria-label={hapticsEnabled ? 'Turn haptic cues off' : 'Turn haptic cues on'}
+                >
+                  <Vibrate className="h-4 w-4" />
+                  {hapticsEnabled ? 'Haptics on' : 'Haptics off'}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const delayed = !defibrillatorDelayed;
+                    setDefibrillatorDelayed(delayed);
+                    if (delayed) setDefibCharging(false);
+                    addEvent('Defibrillator availability updated', delayed ? 'Delayed or unavailable' : 'Available');
+                  }}
+                  className="text-white justify-start gap-2"
+                  aria-pressed={defibrillatorDelayed}
+                >
+                  <Zap className="h-4 w-4" />
+                  Defib: {defibrillatorDelayed ? 'delayed' : 'available'}
+                </Button>
+                <p className="col-span-2 rounded-md bg-slate-800 px-2 py-1 text-[11px] text-slate-300">
+                  Audio: {audioSupported ? (audioUnlocked ? 'ready' : 'tap the speaker to enable') : 'unavailable — text cues remain active'} · Haptics: {hapticsSupported ? 'available' : 'unavailable'}
+                </p>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1013,6 +1278,14 @@ export function CPRClockStreamlined({
         </div>
       )}
 
+      {(recoveredFromLocal || pendingSyncCount > 0 || !isOnline) && (
+        <div className="border-b border-slate-700 bg-slate-900 px-3 py-2 text-center text-xs text-slate-300" role="status">
+          {recoveredFromLocal && <span className="mr-3 font-semibold text-emerald-300">Recovered local CPR state</span>}
+          <span>{isOnline ? 'Device online' : 'Offline — local guidance and event log remain available'}</span>
+          {pendingSyncCount > 0 && <span className="ml-2 text-amber-300">· {pendingSyncCount} event{pendingSyncCount === 1 ? '' : 's'} awaiting server confirmation</span>}
+        </div>
+      )}
+
       <CprArrestCommandConsole
         phase={phase}
         effectiveIsRunning={effectiveIsRunning}
@@ -1033,7 +1306,7 @@ export function CPRClockStreamlined({
           effectiveArrestDuration,
           engineSnapshot,
           effectiveRhythmType === 'vf_pvt',
-          { defibDelayed: !sessionId, lifeSupportPack: cprEnginePack },
+          { defibDelayed: defibrillatorDelayed, lifeSupportPack: cprEnginePack },
         )}
         epiDose={epiDose}
         shockEnergyLabel={shockEnergyLabel}
@@ -1042,6 +1315,7 @@ export function CPRClockStreamlined({
         onPadsAttached={handlePadsAttached}
         onDeliverShock={deliverShock}
         onDisarmDefib={disarmDefib}
+        defibReady={defibCharging && !defibrillatorDelayed}
         onGiveEpinephrine={giveEpinephrine}
         onShowRoscConfirm={() => setShowRoscConfirm(true)}
         documentationLog={
@@ -1103,7 +1377,7 @@ export function CPRClockStreamlined({
               <div className="text-center mb-6">
                 <Zap className="h-16 w-16 text-yellow-500 mx-auto mb-4 animate-pulse" />
                 <h2 className="text-3xl font-bold text-white mb-2">CHARGE DEFIBRILLATOR</h2>
-                <p className="text-gray-300">{lifeSupportPack?.pack === 'ACLS' ? shockEnergyLabel : `Charge to ${shockEnergy} Joules`}</p>
+                <p className="text-gray-300">{shockEnergyLabel}</p>
               </div>
               
               <div className="space-y-4">
@@ -1111,8 +1385,9 @@ export function CPRClockStreamlined({
                   onClick={() => {
                     setDefibCharging(true);
                     setShowChargePrompt(false);
-                    triggerHaptic('medium');
-                    addEvent('Defibrillator charged', lifeSupportPack?.pack === 'ACLS' ? shockEnergyLabel : `${shockEnergy}J`);
+                    if (chargeForShock) setPhase('shock_ready');
+                    pulse('medium');
+                    addEvent('Defibrillator charged', shockEnergyLabel);
                     speak('Defibrillator charged and ready.');
                   }}
                   size="lg"
@@ -1121,7 +1396,7 @@ export function CPRClockStreamlined({
                   <div className="flex flex-col items-center gap-1">
                     <div className="flex items-center gap-2">
                       <Zap className="h-6 w-6" />
-                      <span className="text-xl font-bold">Charge Complete</span>
+                      <span className="text-xl font-bold">I charged the defibrillator</span>
                     </div>
                     <span className="text-base">Ready to Shock</span>
                   </div>
@@ -1544,32 +1819,38 @@ export function CPRClockStreamlined({
           <Card className="bg-gray-800 border-gray-700 w-full max-w-2xl">
             <CardContent className="p-8 space-y-4">
               <h2 className="text-2xl font-bold text-white">Document Rhythm Window Action</h2>
-              <p className="text-gray-300">Capture rhythm interpretation and defibrillation action before next cycle.</p>
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  className={windowShockAction === 'shock_delivered' ? 'bg-yellow-600 hover:bg-yellow-700 text-black' : 'bg-gray-700 hover:bg-gray-600 text-white'}
-                  onClick={() => setWindowShockAction('shock_delivered')}
-                >
-                  Shock Delivered
-                </Button>
-                <Button
-                  className={windowShockAction === 'no_shock' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'}
-                  onClick={() => setWindowShockAction('no_shock')}
-                >
-                  No Shock
-                </Button>
-              </div>
-              {windowShockAction === 'no_shock' && (
-                <Input
-                  placeholder="Optional reason (required to submit no-shock)"
-                  value={windowNoShockReason}
-                  onChange={(e) => setWindowNoShockReason(e.target.value)}
-                  className="bg-gray-900 border-gray-700 text-white"
-                />
+              <p className="text-gray-300">Capture the rhythm interpretation and the action taken before compressions resume.</p>
+              {windowRhythmClassification === 'shockable' ? (
+                <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4 text-yellow-100">
+                  <p className="font-semibold">Shockable rhythm selected</p>
+                  <p className="mt-1 text-sm">Use the charge, clear, and shock controls. Do not record a shock here unless it was delivered through that sequence.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-lg border border-slate-600 bg-slate-900 p-4 text-slate-100">
+                    <p className="font-semibold">No shock is expected for this documented rhythm.</p>
+                    <p className="mt-1 text-sm text-slate-300">Record why no shock was delivered before resuming compressions.</p>
+                  </div>
+                  <Button
+                    className={windowShockAction === 'no_shock' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'}
+                    onClick={() => setWindowShockAction('no_shock')}
+                  >
+                    No shock delivered
+                  </Button>
+                  {windowShockAction === 'no_shock' && (
+                    <Input
+                      aria-label="Reason no shock was delivered"
+                      placeholder="Reason no shock was delivered (required)"
+                      value={windowNoShockReason}
+                      onChange={(e) => setWindowNoShockReason(e.target.value)}
+                      className="bg-gray-900 border-gray-700 text-white"
+                    />
+                  )}
+                </>
               )}
               <Button
                 onClick={submitRhythmWindowAction}
-                disabled={!windowShockAction || (windowShockAction === 'no_shock' && !windowNoShockReason.trim())}
+                disabled={windowRhythmClassification === 'shockable' || !windowShockAction || (windowShockAction === 'no_shock' && !windowNoShockReason.trim())}
                 className="w-full bg-green-600 hover:bg-green-700 text-white"
               >
                 Save and Resume Compressions

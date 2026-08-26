@@ -40,8 +40,10 @@ export function TeamLeaderView({
 }: TeamLeaderViewProps) {
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [selectedOutcome, setSelectedOutcome] = useState<string>('');
+  const [assignmentError, setAssignmentError] = useState('');
 
   const endSessionMutation = trpc.cprSession.endSession.useMutation();
+  const updateRoleMutation = trpc.cprSession.updateRole.useMutation();
 
   const handleEndSession = async () => {
     if (!selectedOutcome) return;
@@ -69,6 +71,23 @@ export function TeamLeaderView({
       case 'recorder': return 'bg-gray-600';
       default: return 'bg-gray-500';
     }
+  };
+
+  const assignableRoles = [
+    { value: 'compressions', label: 'Compressions' },
+    { value: 'airway', label: 'Airway' },
+    { value: 'iv_access', label: 'IV/IO Access' },
+    { value: 'medications', label: 'Medications' },
+    { value: 'recorder', label: 'Recorder' },
+    { value: 'observer', label: 'Observer' },
+  ] as const;
+
+  const handleAssignRole = (memberId: number, role: string) => {
+    setAssignmentError('');
+    updateRoleMutation.mutate(
+      { memberId, role: role as (typeof assignableRoles)[number]['value'] },
+      { onError: (error) => setAssignmentError(error.message || 'Role assignment failed') },
+    );
   };
 
   const getRoleLabel = (role: string) => {
@@ -113,12 +132,34 @@ export function TeamLeaderView({
                     <Badge className="bg-gray-600">Left</Badge>
                   )}
                 </div>
-                <Badge className={`${getRoleBadgeColor(member.role)} text-white text-xs`}>
-                  {getRoleLabel(member.role)}
-                </Badge>
-              </div>
+                  <Badge className={`${getRoleBadgeColor(member.role)} text-white text-xs`}>
+                    {getRoleLabel(member.role)}
+                  </Badge>
+                  {member.role !== 'team_leader' && (
+                    <label className="mt-3 block text-xs text-gray-300">
+                      Assigned role
+                      <select
+                        aria-label={`Assign role to ${member.providerName}`}
+                        value={member.role || 'observer'}
+                        onChange={(event) => handleAssignRole(member.id, event.target.value)}
+                        disabled={updateRoleMutation.isPending}
+                        className="mt-1 min-h-10 w-full rounded border border-gray-600 bg-gray-900 px-2 text-sm text-white"
+                      >
+                        {assignableRoles.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </div>
             ))}
           </div>
+          {assignmentError && (
+            <p className="mt-3 rounded border border-red-500/60 bg-red-950/40 p-2 text-sm text-red-100" role="alert">
+              {assignmentError}
+            </p>
+          )}
+          <p className="mt-3 text-xs text-gray-400">The server keeps one Team Leader. Participants may change their own assigned role, while only the session creator or current Team Leader can assign another member.</p>
         </CardContent>
       </Card>
 

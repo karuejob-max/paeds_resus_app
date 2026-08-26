@@ -8,6 +8,8 @@ const pack: LifeSupportPackResult = {
   pack: 'PALS',
   label: 'Paediatric Advanced Life Support (PALS)',
   rationale: 'Test fixture',
+  ageBand: 'infant_child',
+  contentVersion: '2025 AHA/AAP reference',
 };
 
 const cycle: CompressionCycleStatus = {
@@ -34,6 +36,7 @@ function renderConsole(overrides: Partial<React.ComponentProps<typeof CprArrestC
       effectiveShockCount={0}
       effectiveEpiDoses={0}
       effectiveRhythmType={null}
+      defibReady={false}
       epiState="not_due"
       epiDose={0.18}
       shockEnergyLabel="36 J (PALS weight-based)"
@@ -65,12 +68,20 @@ describe('CprArrestCommandConsole', () => {
     const html = renderConsole({
       phase: 'shock_ready',
       effectiveRhythmType: 'vf_pvt',
+      defibReady: true,
       shockEnergyLabel: 'Adult biphasic 120–200 J (follow device manufacturer setting)',
     });
 
     expect(html).toContain('CLEAR &amp; SHOCK');
     expect(html).toContain('Disarm');
     expect(html).not.toContain('CONTINUE COMPRESSIONS');
+  });
+
+  it('disables shock until the device is explicitly confirmed charged', () => {
+    const html = renderConsole({ phase: 'shock_ready', effectiveRhythmType: 'vf_pvt', defibReady: false });
+    expect(html).toContain('CLEAR &amp; SHOCK');
+    expect(html).toContain('disabled');
+    expect(html).toContain('Confirm the defibrillator is charged');
   });
 
   it('makes ROSC a deliberate recovery state rather than another crowded arrest action', () => {

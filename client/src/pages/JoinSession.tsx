@@ -33,7 +33,6 @@ export default function JoinSession() {
   const joinSessionMutation = trpc.cprSession.joinSession.useMutation();
 
   const roles = [
-    { value: 'team_leader', label: 'Team Leader', description: 'Oversee resuscitation, assign roles' },
     { value: 'compressions', label: 'Compressions', description: 'Perform chest compressions' },
     { value: 'airway', label: 'Airway', description: 'Manage airway and ventilation' },
     { value: 'iv_access', label: 'IV/IO Access', description: 'Establish vascular access' },
@@ -82,9 +81,9 @@ export default function JoinSession() {
             <Heart className="h-6 w-6 text-brand-orange" />
             Join Resuscitation Session
           </CardTitle>
-          <p className="text-muted-foreground text-sm">
-            Enter the session code to join an active CPR session as a team member
-          </p>
+            <p className="text-muted-foreground text-sm">
+              Enter the session code to join an active CPR session. The session creator or current team leader assigns leadership and final roles.
+            </p>
         </CardHeader>
         <CardContent className="space-y-6">
           {error && (
@@ -110,7 +109,7 @@ export default function JoinSession() {
               maxLength={8}
             />
             <p className="text-muted-foreground text-xs">
-              Ask the Team Leader for the session code or scan the QR code
+              Ask the session creator or Team Leader for the session code or scan the QR code
             </p>
           </div>
 
@@ -131,7 +130,7 @@ export default function JoinSession() {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-foreground">Select Your Role</Label>
+              <Label className="text-foreground">Choose your starting role</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {roles.map((role) => (
                 <Button

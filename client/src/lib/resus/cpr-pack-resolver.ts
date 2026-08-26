@@ -12,10 +12,15 @@ const PUBERTY_AGE_MONTHS = 144; // 12 years
 
 /** NRP is a delivery-room/newborn context; age alone must not switch a hospital arrest into NRP. */
 
+export type LifeSupportAgeBand = 'newborn_delivery_room' | 'infant_child' | 'adult';
+
 export interface LifeSupportPackResult {
   pack: LifeSupportPack;
   label: string;
   rationale: string;
+  ageBand: LifeSupportAgeBand;
+  /** Clinical content release label; this is not a claim of local governance approval. */
+  contentVersion: '2025 AHA/AAP reference';
 }
 
 /**
@@ -26,11 +31,17 @@ export function resolveLifeSupportPack(
   puberty?: boolean,
   setting?: ResusSetting
 ): LifeSupportPackResult {
+  if (!Number.isFinite(ageMonths) || ageMonths < 0) {
+    throw new Error('A valid non-negative patient age is required to select a life-support pathway.');
+  }
+
   if (setting === 'delivery_room') {
     return {
       pack: 'NRP',
       label: 'Neonatal Resuscitation (NRP)',
       rationale: 'Delivery-room/newborn resuscitation context',
+      ageBand: 'newborn_delivery_room',
+      contentVersion: '2025 AHA/AAP reference',
     };
   }
 
@@ -39,6 +50,8 @@ export function resolveLifeSupportPack(
       pack: 'ACLS',
       label: 'Adult ACLS',
       rationale: 'Post-pubertal or age ≥12 years — adult cardiac arrest algorithms',
+      ageBand: 'adult',
+      contentVersion: '2025 AHA/AAP reference',
     };
   }
 
@@ -46,5 +59,7 @@ export function resolveLifeSupportPack(
     pack: 'PALS',
     label: 'Paediatric Advanced Life Support (PALS)',
     rationale: 'Infant/child — PALS cardiac arrest algorithms',
+    ageBand: 'infant_child',
+    contentVersion: '2025 AHA/AAP reference',
   };
 }

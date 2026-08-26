@@ -45,6 +45,7 @@ interface Props {
   onPadsAttached: () => void;
   onDeliverShock: () => void;
   onDisarmDefib: () => void;
+  defibReady?: boolean;
   onGiveEpinephrine: () => void;
   onShowRoscConfirm: () => void;
   documentationLog: React.ReactNode;
@@ -139,12 +140,14 @@ export function CprArrestCommandConsole({
   onPadsAttached,
   onDeliverShock,
   onDisarmDefib,
+  defibReady = false,
   onGiveEpinephrine,
   onShowRoscConfirm,
   documentationLog,
 }: Props) {
   const action = currentActionCopy(phase, compressionCycle, reassessmentTime, shockEnergyLabel);
   const visibleAlert = activeAlerts.find((alert) => alert.severity === 'critical') ?? activeAlerts[0];
+  const nextAlert = activeAlerts.find((alert) => alert !== visibleAlert && alert.severity !== 'info');
   const rhythmWindowRemaining =
     rhythmWindowElapsed === null ? null : Math.max(0, 10 - rhythmWindowElapsed);
 
@@ -207,7 +210,7 @@ export function CprArrestCommandConsole({
           </div>
           <div className="shrink-0 text-right">
             <p className="font-mono text-2xl font-bold leading-none text-white sm:text-3xl">{formatTime(effectiveArrestDuration)}</p>
-            <p className="mt-1 text-[11px] text-slate-400">{patientWeight} kg · {lifeSupportPack?.pack ?? 'PALS'} pathway</p>
+            <p className="mt-1 text-[11px] text-slate-400">{patientWeight} kg · {lifeSupportPack?.pack ?? 'PALS'} pathway · {lifeSupportPack?.contentVersion ?? 'reference content'}</p>
           </div>
         </div>
 
@@ -246,10 +249,11 @@ export function CprArrestCommandConsole({
 
             {phase === 'shock_ready' && (
               <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                <Button onClick={onDeliverShock} className="min-h-14 bg-amber-400 text-lg font-black text-black hover:bg-amber-300 sm:text-xl">
+                <Button onClick={onDeliverShock} disabled={!defibReady} className="min-h-14 bg-amber-400 text-lg font-black text-black hover:bg-amber-300 sm:text-xl">
                   <Zap className="mr-2 h-6 w-6" aria-hidden />
                   CLEAR &amp; SHOCK
                 </Button>
+                {!defibReady && <p className="text-center text-xs font-semibold text-amber-200 sm:col-span-2">Confirm the defibrillator is charged before shocking.</p>}
                 <Button onClick={onDisarmDefib} variant="outline" className="min-h-14 border-white/40 bg-transparent text-white hover:bg-white/10">
                   Disarm
                 </Button>
@@ -272,8 +276,16 @@ export function CprArrestCommandConsole({
         </div>
 
         {visibleAlert && (
-          <div className={`rounded-xl border px-3 py-2.5 text-sm font-semibold ${visibleAlert.severity === 'critical' ? 'border-red-500/70 bg-red-950/50 text-red-100' : visibleAlert.severity === 'warning' ? 'border-amber-400/70 bg-amber-950/40 text-amber-100' : 'border-sky-400/70 bg-sky-950/40 text-sky-100'}`} role="alert">
+          <div className={`rounded-xl border px-3 py-2.5 text-sm font-semibold ${visibleAlert.severity === 'critical' ? 'animate-pulse border-red-500/70 bg-red-950/50 text-red-100' : visibleAlert.severity === 'warning' ? 'border-amber-400/70 bg-amber-950/40 text-amber-100' : 'border-sky-400/70 bg-sky-950/40 text-sky-100'}`} role="alert">
+            <span className="mr-2 text-[10px] uppercase tracking-[0.16em] opacity-75">Priority cue</span>
             {visibleAlert.message}
+          </div>
+        )}
+
+        {nextAlert && (
+          <div className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200" aria-label="Next critical cue">
+            <span className="mr-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Next cue</span>
+            {nextAlert.message}
           </div>
         )}
 

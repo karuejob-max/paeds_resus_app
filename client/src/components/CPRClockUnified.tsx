@@ -16,6 +16,8 @@ interface Props {
   patientWeight: number;
   patientAgeMonths?: number;
   onClose: () => void;
+  /** Parent ResusGPS case key for local CPR recovery; not a patient identifier. */
+  caseKey?: string;
   /** Parent ResusGPS timer — avoids duplicate arrest clocks */
   externalElapsed?: number;
   externalRunning?: boolean;
@@ -33,6 +35,7 @@ interface Props {
 function CPRClockUnifiedInner({
   patientWeight,
   patientAgeMonths,
+  caseKey,
   onClose,
   externalElapsed,
   externalRunning,
@@ -47,6 +50,7 @@ function CPRClockUnifiedInner({
   const commonProps = {
     patientWeight,
     patientAgeMonths,
+    caseKey,
     onClose,
     externalElapsed,
     externalRunning,

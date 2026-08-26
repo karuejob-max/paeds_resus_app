@@ -32,7 +32,7 @@ import { NeonatalResuscitationFlow } from '@/components/NeonatalResuscitationFlo
 import { ClinicalContentSafetyFooter } from '@/components/ClinicalContentSafetyFooter';
 import { ClinicalUseDisclaimer } from '@/components/ClinicalUseDisclaimer';
 import { AgeInput } from '@/components/AgeInput';
-import { estimateWeightFromAge, parseAgeString, ageToMonths, type StructuredAge } from '@/lib/resus/age-calculator';
+import { parseAgeString, ageToMonths, type StructuredAge } from '@/lib/resus/age-calculator';
 import { validateResusWeight } from '@/lib/resus/patientDemographics';
 import { DiagnosisCard } from '@/components/DiagnosisCard';
 import { getDoseRationale } from '@/lib/resus/dose-rationale';
@@ -105,6 +105,7 @@ import {
   clearSampleHistory,
   type PersistedSampleHistory,
 } from '@/lib/resus/resusSessionStore';
+import { loadCprGpsSnapshot } from '@/lib/resus/cprGpsSessionStore';
 import {
   AlertTriangle,
   Activity,
@@ -260,7 +261,14 @@ function useTimer() {
     setRunning(false);
   }, []);
 
-  return { elapsed, running, start, stop, reset };
+  const hydrate = useCallback((seconds: number) => {
+    const safeSeconds = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
+    setElapsed(safeSeconds);
+    baseElapsedRef.current = safeSeconds;
+    startWallRef.current = Date.now();
+  }, []);
+
+  return { elapsed, running, start, stop, reset, hydrate };
 }
 
 function formatTime(seconds: number): string {
@@ -1164,7 +1172,12 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
                 onClick={() => {
                   setSession(resumeCandidate);
                   setResumeCandidate(null);
-                  if (resumeCandidate.phase !== 'IDLE') timer.start();
+                  if (resumeCandidate.phase !== 'IDLE') {
+                    void loadCprGpsSnapshot(resumeCandidate.id).then((snapshot) => {
+                      if (snapshot) timer.hydrate(snapshot.arrestDuration);
+                      timer.start();
+                    });
+                  }
                 }}
               >
                 Resume case
@@ -1392,9 +1405,10 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
         ) : session.phase === 'CARDIAC_ARREST' && showCPRClock && lifeSupportPack?.pack === 'NRP' && cprDemographicsReady ? (
           <NeonatalResuscitationFlow birthWeightGrams={Math.round(weight! * 1000)} onClose={() => setShowCPRClock(false)} />
         ) : session.phase === 'CARDIAC_ARREST' && showCPRClock && cprDemographicsReady ? (
-          <CPRClockUnified
+            <CPRClockUnified
             patientWeight={weight!}
             patientAgeMonths={patientAgeMonthsForCpr ?? undefined}
+            caseKey={session.id}
             lifeSupportPack={lifeSupportPack ?? undefined}
             externalElapsed={timer.elapsed}
             externalRunning={timer.running}
@@ -1532,7 +1546,7 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
               )}
               {!tempWeight && (
                 <p className="text-xs text-amber-400 mt-1">
-                  Without weight, drug doses show per-kg calculations only
+                  A verified weight is required before CPR-GPS shows calculated doses or energy.
                 </p>
               )}
             </div>
@@ -1543,18 +1557,10 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
                 onAgeChange={(age: StructuredAge) => {
                   const formattedAge = `${age.years}y ${age.months}m ${age.weeks}w`;
                   setTempAge(formattedAge);
-                  // Auto-calculate weight from age if not manually set
-                  if (!tempWeight) {
-                    const calculatedWeight = estimateWeightFromAge(age);
-                    if (calculatedWeight) {
-                      setTempWeight(calculatedWeight.toString());
-                      toast.success(`Weight auto-calculated: ${calculatedWeight} kg`);
-                    }
-                  }
                 }}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Weight auto-calculated from age (can be overridden)
+                Enter a measured or clinically verified weight. CPR-GPS does not substitute an age-based estimate for a dose-bearing weight.
               </p>
               {isNeonatalCase(tempAge || null) && (
                 <div className="mt-3 rounded-lg border border-blue-500/40 bg-blue-500/10 p-3">

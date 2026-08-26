@@ -20,7 +20,7 @@ const patterns: Record<HapticPattern, number | number[]> = {
  * Trigger haptic feedback if supported
  */
 export function triggerHaptic(pattern: HapticPattern = 'medium'): void {
-  if (!('vibrate' in navigator)) {
+  if (typeof navigator === 'undefined' || !('vibrate' in navigator)) {
     return; // Vibration API not supported
   }
 
@@ -36,14 +36,14 @@ export function triggerHaptic(pattern: HapticPattern = 'medium'): void {
  * Check if haptic feedback is supported
  */
 export function isHapticSupported(): boolean {
-  return 'vibrate' in navigator;
+  return typeof navigator !== 'undefined' && 'vibrate' in navigator;
 }
 
 /**
  * Stop any ongoing vibration
  */
 export function stopHaptic(): void {
-  if ('vibrate' in navigator) {
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     navigator.vibrate(0);
   }
 }

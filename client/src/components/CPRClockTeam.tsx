@@ -30,6 +30,7 @@ import {
 import QRCode from 'qrcode';
 import { trpc } from '@/lib/trpc';
 import { useVoiceCommands } from '@/hooks/useVoiceCommands';
+import { useCprFeedback } from '@/hooks/useCprFeedback';
 import {
   calculateShockEnergy,
   calculateCprMedicationDose,
@@ -42,6 +43,8 @@ import type { LifeSupportPackResult } from '@/lib/resus/cpr-pack-resolver';
 interface Props {
   patientWeight: number;
   patientAgeMonths?: number;
+  /** Parent case key used for shared recovery scope; team mode keeps the same context. */
+  caseKey?: string;
   onClose: () => void;
   externalElapsed?: number;
   externalRunning?: boolean;
@@ -143,6 +146,10 @@ export function CPRClockTeam({
   const [showRhythmCheck, setShowRhythmCheck] = useState(false);
   const [showReversibleCauses, setShowReversibleCauses] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const { audioSupported, audioUnlocked, unlockAudio, speak, stopSpeech } = useCprFeedback({
+    audioEnabled,
+    hapticsEnabled: false,
+  });
   
   // Refs — using rAF + wall-clock anchor to prevent setInterval drift
   // when the browser tab is backgrounded during a long resuscitation.
@@ -193,15 +200,6 @@ export function CPRClockTeam({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Voice synthesis
-  const speak = useCallback((text: string) => {
-    if (!audioEnabled) return;
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.1;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    window.speechSynthesis.speak(utterance);
-  }, [audioEnabled]);
 
   // Create session on mount
   useEffect(() => {
@@ -211,6 +209,7 @@ export function CPRClockTeam({
         {
           onSuccess: async (data) => {
             setSessionId(data.sessionId ?? null);
+            setMemberId(data.memberId ?? null);
             setSessionCode(data.sessionCode);
             
             // Generate QR code
@@ -349,6 +348,7 @@ export function CPRClockTeam({
 
   // Start arrest
   const startArrest = () => {
+    unlockAudio();
     if (syncShared && shared) shared.setIsRunning(true);
     setIsRunning(true);
     addEvent('CPR Started', 'Begin compressions');
@@ -646,9 +646,20 @@ export function CPRClockTeam({
             size="sm"
             variant="ghost"
             className="text-white hover:bg-white/20"
-            onClick={() => setAudioEnabled(!audioEnabled)}
+            onClick={() => {
+              if (!audioEnabled) {
+                setAudioEnabled(true);
+                unlockAudio();
+              } else if (!audioUnlocked) {
+                unlockAudio();
+              } else {
+                setAudioEnabled(false);
+                stopSpeech();
+              }
+            }}
           >
             {audioEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+          <span className="sr-only">{audioSupported ? (audioUnlocked ? 'Audio cues enabled' : 'Tap to enable audio cues') : 'Audio cues unavailable; text cues remain active'}</span>
           </Button>
           <Button
             size="sm"
