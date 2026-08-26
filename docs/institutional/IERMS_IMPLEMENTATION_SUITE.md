@@ -45,7 +45,7 @@ The IERMS™ rollout is a structured, 4-phase process spanning **90 days**, lead
 
 ### Phase 3: AHA-Aligned Training Mesh & Care Signal Onboarding (Days 46–75)
 
-- **Step 3.1: Role-Mapped Cohort Enrollment:** Onboard clinical staff into the Paeds Resus training mesh (BLS, ACLS, PALS, NRP) via the Institutional Portal (`/hospital-admin-dashboard`).
+- **Step 3.1: Role-Mapped Cohort Enrollment:** Onboard clinical staff into the Paeds Resus training mesh (BLS, ACLS, PALS, NRP) via Institution Workspace → Learning → Cohorts & competency (`/institution?section=learning&learningTab=competency`).
 - **Step 3.2: Prerequisite & Pace Verification:** Ensure all learners complete BLS before progressing to ACLS/PALS hands-on sessions. Enforce Nurse Instalment Pace safeguards.
 - **Step 3.3: Care Signal Onboarding:** Onboard nursing and medical staff to Care Signal for blameless near-miss and incident reporting. Establish monthly QI review workflow.
 - **Step 3.4: Internal Instructor Mentorship:** Identify candidate instructors for the 3-tier instructor pipeline (Provisional → Qualified → Lead Instructor).
@@ -53,13 +53,13 @@ The IERMS™ rollout is a structured, 4-phase process spanning **90 days**, lead
 
 ---
 
-### Phase 4: 90-Day Evaluation, Dashboard Sign-Off & Accreditation (Days 76–90+)
+### Phase 4: 90-Day Evaluation, Readiness Review & Improvement Sign-Off (Days 76–90+)
 
-- **Step 4.1: Final 90-Day IERMS™ Audit:** Re-evaluate the facility using the [IERMS_AUDIT_SCORECARD_V1.md](./IERMS_AUDIT_SCORECARD_V1.md). Target score: **≥ 70 Points (Level 3 IERMS™ Certified)**.
-- **Step 4.2: Institutional Dashboard Review:** Verify activation metrics, response times (< 3 minutes target), equipment fix closures, and training coverage on the Institutional Dashboard (`/hospital-admin-dashboard`).
+- **Step 4.1: Final 90-Day IERMS™ Audit:** Re-evaluate the facility using the [IERMS_AUDIT_SCORECARD_V1.md](./IERMS_AUDIT_SCORECARD_V1.md). Target score: **≥ 70 Points (Level 3 improvement maturity)**; this is an internal improvement signal, not accreditation or certification.
+- **Step 4.2: Institutional Workspace Review:** Verify activation metrics, response timelines, equipment fix closures, and training coverage in the canonical Institutional Workspace (`/institution?section=iers&iersTab=report`).
 - **Step 4.3: Executive Summary Hand-Off:** Present the formal IERMS™ Cohort Completion & Readiness Summary report to the CEO, CNO, and County Health Team.
-- **Step 4.4: Annual Re-Accreditation Schedule:** Schedule annual maintenance audits and continuous Care Signal QI rollups.
-- **Deliverables:** IERMS™ Certificate of Accreditation, Executive Presentation Artifact, Annual Renewal Schedule.
+- **Step 4.4: Annual Re-assessment Schedule:** Schedule annual maintenance audits and continuous Care Signal QI rollups.
+- **Deliverables:** Institutional Readiness & Improvement Summary, Executive Presentation Artifact, Annual Renewal Schedule. Any credential or accreditation claim requires separate governance approval and must not be implied by an internal readiness score.
 
 ---
 

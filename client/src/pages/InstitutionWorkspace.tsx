@@ -13,10 +13,8 @@ import {
   ArrowRight,
   Building2,
   BookOpen,
-  CheckCircle2,
   ClipboardCheck,
   CreditCard,
-  ExternalLink,
   FileText,
   HeartPulse,
   LayoutDashboard,
@@ -30,18 +28,16 @@ import { IersDrillPanel } from "@/components/IersDrillPanel";
 import { IersEvidencePanel } from "@/components/IersEvidencePanel";
 import { IersExecutiveReportPanel } from "@/components/IersExecutiveReportPanel";
 import { IersImplementationPlanPanel } from "@/components/IersImplementationPlanPanel";
-import { CohortProgressWidget } from "@/components/CohortProgressWidget";
-import { Phase1ProofReviewWidget } from "@/components/Phase1ProofReviewWidget";
 import { ErtRosterPanel } from "@/components/ErtRosterPanel";
 import { EquipmentAuditPanel } from "@/components/EquipmentAuditPanel";
 import IersReadinessTemplateAdminPanel from "@/components/IersReadinessTemplateAdminPanel";
 import IersAdaptiveLearningPanel from "@/components/IersAdaptiveLearningPanel";
 import { InstitutionErcoGovernancePanel } from "@/components/InstitutionErcoGovernancePanel";
 import { IersDepartmentSetupPanel } from "@/components/IersDepartmentSetupPanel";
-import { InstitutionIersCompetencyPanel } from "@/components/InstitutionIersCompetencyPanel";
-import CpdPanel from "@/components/CpdPanel";
 import InstitutionAdministrationPanel from "@/components/InstitutionAdministrationPanel";
 import InstitutionConnectedServicesPanel from "@/components/InstitutionConnectedServicesPanel";
+import InstitutionLearningOperationsPanel from "@/components/InstitutionLearningOperationsPanel";
+import InstitutionHomePanel from "@/components/InstitutionHomePanel";
 
 const PRODUCT_LABELS = {
   iers: {
@@ -61,7 +57,7 @@ const PRODUCT_LABELS = {
 } as const;
 
 type ProductKey = keyof typeof PRODUCT_LABELS;
-type WorkspaceSection = "overview" | ProductKey | "administration" | "connected";
+type WorkspaceSection = "overview" | "iers" | "learning" | "administration" | "connected";
 type IersWorkforceTab = "departments" | "erco" | "roster" | "equipment";
 
 type ProductStatus = "trial" | "active" | "grace" | "past_due" | "expired" | "suspended" | "cancelled" | "legacy_unclassified" | "not_subscribed";
@@ -70,7 +66,7 @@ function getInitialWorkspaceState(): { section: WorkspaceSection; iersTab: strin
   if (typeof window === "undefined") return { section: "overview", iersTab: "command", workforceTab: "departments" };
   const params = new URLSearchParams(window.location.search);
   const requested = params.get("section");
-  const section: WorkspaceSection = requested === "iers" || requested === "cpd_portal" || requested === "administration" || requested === "connected" ? requested : "overview";
+  const section: WorkspaceSection = requested === "cpd_portal" ? "learning" : requested === "learning" || requested === "iers" || requested === "administration" || requested === "connected" ? requested : "overview";
   const requestedWorkforceTab = params.get("workforceTab");
   const workforceTab: IersWorkforceTab = requestedWorkforceTab === "erco" || requestedWorkforceTab === "roster" || requestedWorkforceTab === "equipment" ? requestedWorkforceTab : "departments";
   return { section, iersTab: params.get("iersTab") || "command", workforceTab };
@@ -189,8 +185,12 @@ export default function InstitutionWorkspace() {
   const cpdEnabled = canUseProduct(productStatus.cpd_portal);
 
   const goToProduct = (product: ProductKey) => {
-    setSection(product);
-    if (product === "iers") setIersTab("command");
+    if (product === "iers") {
+      setSection("iers");
+      setIersTab("command");
+      return;
+    }
+    setSection("learning");
   };
 
   const renderProductStatus = (product: ProductKey) => {
@@ -256,30 +256,20 @@ export default function InstitutionWorkspace() {
 
         <Tabs value={activeSection} onValueChange={(value) => setSection(value as WorkspaceSection)}>
           <TabsList className="mb-6 grid h-auto w-full grid-cols-1 gap-1 p-1 min-[380px]:grid-cols-2 sm:grid-cols-4">
-            <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="overview"><LayoutDashboard className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Overview</span></TabsTrigger>
-            <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="iers"><HeartPulse className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>IERS</span></TabsTrigger>
-            <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="cpd_portal"><ClipboardCheck className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>CPD Portal</span></TabsTrigger>
+            <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="overview"><LayoutDashboard className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Home</span></TabsTrigger>
+            <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="iers"><HeartPulse className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Readiness</span></TabsTrigger>
+            <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="learning"><ClipboardCheck className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Learning</span></TabsTrigger>
             <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="administration"><Settings2 className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Administration</span></TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Choose the operating lane</CardTitle>
-                <CardDescription>IERS handles emergency readiness. CPD Portal handles professional development. Administration controls the institution.</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-3">
-                <Button variant="outline" className="h-auto justify-start p-4 text-left" onClick={() => goToProduct("iers")}>
-                  <div><div className="font-semibold">Run emergency readiness</div><div className="mt-1 text-xs text-muted-foreground">Activation, ERT, equipment, drills, evidence, QI.</div></div><ArrowRight className="ml-auto h-4 w-4" />
-                </Button>
-                <Button variant="outline" className="h-auto justify-start p-4 text-left" onClick={() => goToProduct("cpd_portal")}>
-                  <div><div className="font-semibold">Manage professional development</div><div className="mt-1 text-xs text-muted-foreground">CPD events, attendance, certificates, and workforce insight.</div></div><ArrowRight className="ml-auto h-4 w-4" />
-                </Button>
-                <Button variant="outline" className="h-auto justify-start p-4 text-left" onClick={() => setSection("administration")}>
-                  <div><div className="font-semibold">Manage the account</div><div className="mt-1 text-xs text-muted-foreground">People, roles, contracts, billing, and renewal.</div></div><ArrowRight className="ml-auto h-4 w-4" />
-                </Button>
-              </CardContent>
-            </Card>
+            <InstitutionHomePanel
+              institutionId={institutionId}
+              iersEnabled={iersEnabled}
+              onOpenLearning={() => setSection("learning")}
+              onOpenReadiness={() => goToProduct("iers")}
+              onOpenAdministration={() => setSection("administration")}
+            />
             {(!iersEnabled || !cpdEnabled) && (
               <Alert>
                 <LockKeyhole className="h-4 w-4" />
@@ -335,8 +325,8 @@ export default function InstitutionWorkspace() {
             )}
           </TabsContent>
 
-          <TabsContent value="cpd_portal">
-            {cpdEnabled ? <CpdPanel institutionId={institutionId} /> : <ProductLockedState product="CPD Portal" status={productStatus.cpd_portal} onAdministration={() => setActiveSection("administration")} />}
+          <TabsContent value="learning">
+            {iersEnabled || cpdEnabled ? <InstitutionLearningOperationsPanel institutionId={institutionId} iersEnabled={iersEnabled} cpdEnabled={cpdEnabled} /> : <ProductLockedState product="Learning" status={productStatus.cpd_portal} onAdministration={() => setActiveSection("administration")} />}
           </TabsContent>
 
           <TabsContent value="administration" className="space-y-6">

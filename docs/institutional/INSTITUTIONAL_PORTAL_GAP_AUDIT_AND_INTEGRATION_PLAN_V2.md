@@ -5,6 +5,12 @@
 **Audited production/application baseline:** `main` at `47cfc63`  
 **Purpose:** Verify the remaining gaps against the original Institutional Portal Architecture Audit and define the safest integration order before the first IERS pilot drill.
 
+## Refactor update — 26 August 2026
+
+The institutional portal has now been consolidated around four user-facing lanes: **Home**, **Readiness**, **Learning**, and **Administration**. Learning Operations owns institutional cohorts, competency schedules, attendance, CPD records, certificates, and staff-development oversight while preserving the distinction between institutional learning records and individual bedside activity. Home now prioritises setup and operational attention using existing tenant-scoped data rather than presenting another static KPI wall.
+
+The former all-in-one hospital dashboard is compatibility-only: old bookmarks and deep links redirect to the canonical workspace, user-facing navigation and search no longer promote it, and the legacy service is hidden from normal Connected Services discovery. Existing IERS, CPD, administration, Safe Truth, Care Signal, and training data models remain in place; this is a navigation and ownership consolidation, not a data migration.
+
 ## Executive decision
 
 The new institutional workspace is a valid product shell, not yet the complete institutional platform described in the original architecture contract. The high-value product split is present: one institutional account now exposes **IERS**, **CPD Portal**, shared **Administration**, and **Connected Services**, with independent product subscriptions and server-side product capability checks. Production migration `0100` is applied, the 22-check verifier passes, and the live IERS-only, CPD-only, and dual-product scenarios were verified for the approved test institution.

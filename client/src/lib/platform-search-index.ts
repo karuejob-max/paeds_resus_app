@@ -213,9 +213,9 @@ const STATIC_ITEMS: PlatformSearchItem[] = [
 
   // Institution
   item({
-    id: "hospital-admin",
-    label: "Hospital admin dashboard",
-    href: "/hospital-admin-dashboard",
+    id: "institution-workspace",
+    label: "Institution Workspace",
+    href: "/institution",
     category: "Tools",
     requiresAuth: true,
     allowedRoles: ["institution"],

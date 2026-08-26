@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building2, CreditCard, FileText, LifeBuoy, ShieldCheck, Users } from "lucide-react";
+import { Building2, CreditCard, FileText, LifeBuoy, ShieldCheck, Users, Wrench } from "lucide-react";
 import { InstitutionDetailsCard } from "@/components/InstitutionDetailsCard";
 import { InstitutionProductAccessPanel } from "@/components/InstitutionProductAccessPanel";
 import { InstitutionPeopleRolesPanel } from "@/components/InstitutionPeopleRolesPanel";
@@ -105,8 +105,9 @@ export function InstitutionAdministrationPanel({ institutionId, institution }: {
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Data & exports</CardTitle><CardDescription>Product exports remain product-filtered. Use the IERS executive snapshot for readiness evidence and CPD Portal exports for staff development records.</CardDescription></CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
-            <Button asChild variant="outline"><a href="/institution#iers">Open IERS evidence and snapshot</a></Button>
-            <Button asChild variant="outline"><a href="/institution#cpd_portal">Open CPD Portal records</a></Button>
+            <Button asChild variant="outline"><a href="/institution?section=iers&iersTab=evidence">Open IERS evidence and actions</a></Button>
+            <Button asChild variant="outline"><a href="/institution?section=learning&learningTab=cpd&cpdTab=certificates">Open CPD certificates and exports</a></Button>
+            <Button asChild variant="outline"><a href="/institution?section=connected"><Wrench className="mr-2 h-4 w-4" />Review managed services</a></Button>
           </CardContent>
         </Card>
         <InstitutionDataLifecyclePanel institutionId={institutionId} />

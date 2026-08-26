@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, or } from "drizzle-orm";
 import { getDb } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
 import {
@@ -92,7 +92,7 @@ const FALLBACK_CONNECTED_SERVICES = [
   { serviceKey: "safe_truth", displayName: "Safe Truth", description: "Patient-safety reporting remains separate from institutional analytics while its product boundary is governed.", owner: "Paeds Resus clinical governance", lifecycleStatus: "transitional", privacyClass: "accountless_public", entitlementProductKey: null, routeKey: "/parent-safe-truth", reviewLabel: "Accountless public route; not emergency dispatch", lastReviewedAt: null, nextReviewAt: null, enabled: true },
   { serviceKey: "care_code_signal", displayName: "Care Signal & Code Signal", description: "Clinical learning signals feed institutional quality improvement without copying patient identifiers into IERS evidence.", owner: "IERS quality improvement", lifecycleStatus: "connected", privacyClass: "institutional_aggregate", entitlementProductKey: "iers", routeKey: "/care-signal", reviewLabel: "Connected to IERS QI", lastReviewedAt: null, nextReviewAt: null, enabled: true },
   { serviceKey: "training_certification", displayName: "Training & certification", description: "AHA courses and individual learning remain separate from institutional IERS and CPD Portal subscriptions.", owner: "Training operations", lifecycleStatus: "connected", privacyClass: "individual_learning", entitlementProductKey: null, routeKey: "/aha-courses", reviewLabel: "Separate learner product", lastReviewedAt: null, nextReviewAt: null, enabled: true },
-  { serviceKey: "legacy_dashboard", displayName: "Legacy institutional dashboard", description: "The former all-in-one portal remains available only as a compatibility surface while mature workflows are migrated.", owner: "Platform migration", lifecycleStatus: "compatibility", privacyClass: "mixed_review_required", entitlementProductKey: null, routeKey: "/hospital-admin-dashboard", reviewLabel: "Compatibility route — migrate deliberately", lastReviewedAt: null, nextReviewAt: null, enabled: true },
+  { serviceKey: "legacy_dashboard", displayName: "Legacy institutional dashboard", description: "Retired. Kept only as a compatibility route for old bookmarks and integrations; not part of the institutional product navigation.", owner: "Platform migration", lifecycleStatus: "compatibility", privacyClass: "mixed_review_required", entitlementProductKey: null, routeKey: "/hospital-admin-dashboard", reviewLabel: "Hidden from normal navigation; compatibility only", lastReviewedAt: null, nextReviewAt: null, enabled: false },
 ] as const;
 
 const FALLBACK_CATALOG = [
@@ -189,10 +189,15 @@ export const institutionProductsRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertInstitutionProductRole(db, ctx.user, input.institutionId, "connected_services", ["connected_services_viewer", "connected_services_manager"]);
       try {
-        const services = await db.select().from(institutionConnectedServices).where(eq(institutionConnectedServices.enabled, true)).orderBy(institutionConnectedServices.serviceKey);
-        return services.length ? services : FALLBACK_CONNECTED_SERVICES;
+        const services = await db.select().from(institutionConnectedServices).where(
+          and(
+            eq(institutionConnectedServices.enabled, true),
+            ne(institutionConnectedServices.serviceKey, "legacy_dashboard")
+          )
+        ).orderBy(institutionConnectedServices.serviceKey);
+        return services.length ? services : FALLBACK_CONNECTED_SERVICES.filter(service => service.enabled);
       } catch (error) {
-        if (isMissingTableError(error)) return FALLBACK_CONNECTED_SERVICES;
+        if (isMissingTableError(error)) return FALLBACK_CONNECTED_SERVICES.filter(service => service.enabled);
         throw error;
       }
     }),
