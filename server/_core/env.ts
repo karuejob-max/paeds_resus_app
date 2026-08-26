@@ -27,6 +27,10 @@ export const ENV = {
    */
   llmFeaturesEnabled: (process.env.LLM_FEATURES_ENABLED ?? "").trim().toLowerCase() === "true",
   appBaseUrl: process.env.APP_BASE_URL ?? "",
+  /** Optional IERS Web Push VAPID configuration; delivery remains in-app-only until all three are set. */
+  iersVapidSubject: (process.env.IERS_VAPID_SUBJECT ?? "").trim(),
+  iersVapidPublicKey: (process.env.IERS_VAPID_PUBLIC_KEY ?? "").trim(),
+  iersVapidPrivateKey: (process.env.IERS_VAPID_PRIVATE_KEY ?? "").trim(),
   authMode: process.env.AUTH_MODE ?? "email",
   /** Session max age in ms. Set SESSION_MAX_AGE_MS (e.g. 1800000 for 30 min). If unset, 1 year for backward compatibility. */
   sessionMaxAgeMs: process.env.SESSION_MAX_AGE_MS ? Number(process.env.SESSION_MAX_AGE_MS) : ONE_YEAR_MS,

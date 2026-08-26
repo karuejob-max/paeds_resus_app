@@ -1838,6 +1838,46 @@ export const iersActivationResponders = mysqlTable("iersActivationResponders", {
 export type IersActivationResponder = typeof iersActivationResponders.$inferSelect;
 export type InsertIersActivationResponder = typeof iersActivationResponders.$inferInsert;
 
+/** One browser/device subscription per endpoint; endpointHash avoids indexing a long URL. */
+export const iersPushSubscriptions = mysqlTable("iers_push_subscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull(),
+  endpointHash: varchar("endpoint_hash", { length: 64 }).notNull(),
+  endpoint: text("endpoint").notNull(),
+  p256dh: varchar("p256dh", { length: 512 }).notNull(),
+  auth: varchar("auth", { length: 256 }).notNull(),
+  userAgent: varchar("user_agent", { length: 512 }),
+  isActive: boolean("is_active").default(true).notNull(),
+  lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  endpointHashUnique: uniqueIndex("iers_push_subscriptions_endpoint_hash_unique").on(table.endpointHash),
+  userActiveIndex: index("iers_push_subscriptions_user_active_idx").on(table.userId, table.isActive),
+}));
+export type IersPushSubscription = typeof iersPushSubscriptions.$inferSelect;
+export type InsertIersPushSubscription = typeof iersPushSubscriptions.$inferInsert;
+
+/** Durable outbound push attempt evidence; sent means accepted by the push service, not device receipt. */
+export const iersPushDeliveryLog = mysqlTable("iers_push_delivery_log", {
+  id: int("id").autoincrement().primaryKey(),
+  deliveryKey: varchar("delivery_key", { length: 191 }).notNull(),
+  activationEventId: int("activation_event_id").notNull(),
+  userId: int("user_id").notNull(),
+  subscriptionId: int("subscription_id").notNull(),
+  status: mysqlEnum("status", ["pending", "sent", "failed", "expired"]).default("pending").notNull(),
+  errorMessage: varchar("error_message", { length: 500 }),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  deliveryKeyUnique: uniqueIndex("iers_push_delivery_log_key_unique").on(table.deliveryKey),
+  activationIndex: index("iers_push_delivery_log_activation_idx").on(table.activationEventId, table.status),
+  subscriptionIndex: index("iers_push_delivery_log_subscription_idx").on(table.subscriptionId, table.createdAt),
+}));
+export type IersPushDeliveryLog = typeof iersPushDeliveryLog.$inferSelect;
+export type InsertIersPushDeliveryLog = typeof iersPushDeliveryLog.$inferInsert;
+
 /** Resource needs and claims attached to one activation; claims remain visible until arrival is confirmed. */
 export const iersActivationResources = mysqlTable("iers_activation_resources", {
   id: int("id").autoincrement().primaryKey(),

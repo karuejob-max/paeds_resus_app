@@ -47,6 +47,7 @@ import { assertInstitutionProcedureAccess } from "../lib/institution-capabilitie
 import { classifyShiftInterval } from "../lib/iers-shift-current";
 import { createActivationQrNonce, createActivationQrToken, parseActivationQrToken } from "../lib/iers-activation-qr";
 import { ensurePublishedTeamForLegacyUtlRoster } from "../services/iers-utl-sync.service";
+import { dispatchIersActivationPush } from "./iers-notifications";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 type ActivationStatus =
@@ -502,6 +503,20 @@ export const iersRouter = router({
         });
         notifiedCount += 1;
       }
+
+      void dispatchIersActivationPush(
+        db,
+        {
+          activationEventId,
+          title: `${input.activationType.replaceAll("_", " ")} activation — ${input.location}${input.bedNumber ? ` · Bed ${input.bedNumber}` : ""}`,
+          body: `A ${input.priority} activation is active for your dated ERT. Location: ${input.location}${input.bedNumber ? `, bed ${input.bedNumber}` : ""}.${resourceLabels.length ? ` Needed resources: ${resourceLabels.join(", ")}.` : ""} Acknowledge immediately if you can respond.`,
+          url: `/resus?activationId=${activationEventId}`,
+          tag: `iers-activation-${activationEventId}`,
+        },
+        responders.map((responder) => responder.userId).filter((userId): userId is number => Boolean(userId)),
+      ).catch((error) => {
+        console.warn("[IERS] Web Push dispatch failed without affecting activation:", error);
+      });
 
       await db
         .update(iersActivationEvents)

@@ -79,6 +79,7 @@ import { iersShiftTeamRouter } from "./routers/iers-shift-team";
 import { iersReadinessRouter } from "./routers/iers-readiness";
 import { iersTargetedReportsRouter } from "./routers/iers-targeted-reports";
 import { iersAdaptiveLearningRouter } from "./routers/iers-adaptive-learning";
+import { iersNotificationsRouter } from "./routers/iers-notifications";
 import { cpdRouter } from "./routers/cpd";
 import { institutionProductsRouter } from "./routers/institution-products";
 import { institutionalNotificationsRouter } from "./routers/institutional-notifications";
@@ -506,6 +507,7 @@ export const appRouter = router({
   iersReadiness: iersReadinessRouter,
   iersTargetedReports: iersTargetedReportsRouter,
   iersAdaptiveLearning: iersAdaptiveLearningRouter,
+  iersNotifications: iersNotificationsRouter,
   cpd: cpdRouter,
   institutionalNotifications: institutionalNotificationsRouter,
   productionSecurity: productionSecurityRouter,

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { MapPin, Siren } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -6,6 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { fireIersForegroundAlert, showIersUrgentNotification } from "@/lib/iers-notification-client";
 
 function label(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -25,6 +27,7 @@ export default function ProviderActivationAlert() {
     },
     onError: (error) => toast.error(error.message || "Could not record receipt."),
   });
+  const alertKeyRef = useRef<string | null>(null);
   const acknowledge = trpc.iers.acknowledge.useMutation({
     onSuccess: async () => {
       toast.success("Response commitment recorded.");
@@ -36,6 +39,24 @@ export default function ProviderActivationAlert() {
   const activation = activationsQuery.data?.find((item) => ["pending", "sent", "delivered", "received"].includes(item.responderStatus));
   const pendingReceipt = Boolean(activation && ["pending", "sent", "delivered"].includes(activation.responderStatus));
   const pendingResponse = activation?.responderStatus === "received";
+
+  useEffect(() => {
+    if (!activation) {
+      alertKeyRef.current = null;
+      return;
+    }
+    if (!pendingReceipt || alertKeyRef.current === `${activation.id}:${activation.responderStatus}`) return;
+    alertKeyRef.current = `${activation.id}:${activation.responderStatus}`;
+    fireIersForegroundAlert();
+    void showIersUrgentNotification({
+      activationEventId: activation.id,
+      title: `${label(activation.activationType)} activation — respond now`,
+      body: `Location: ${activation.location}${activation.bedNumber ? `, bed ${activation.bedNumber}` : ""}${activation.department ? ` · ${activation.department}` : ""}. Acknowledge immediately if you can respond.`,
+      url: `/resus?activationId=${activation.id}`,
+      tag: `iers-activation-${activation.id}`,
+    });
+  }, [activation, pendingReceipt]);
+
   if (!activation) return null;
 
   return (
@@ -43,7 +64,7 @@ export default function ProviderActivationAlert() {
       <AlertDialogContent className="border-red-400 p-5 sm:max-w-lg">
         <AlertDialogHeader className="text-left">
           <AlertDialogTitle className="flex items-center gap-2 text-red-950"><Siren className="h-5 w-5 text-red-700" />ERT activation — respond now</AlertDialogTitle>
-          <AlertDialogDescription className="text-left text-slate-700">A live activation has been assigned to you. Confirm receipt, then state whether you can respond. This does not replace clinical assessment or ResusGPS.</AlertDialogDescription>
+          <AlertDialogDescription className="text-left text-slate-700">A live activation has been assigned to you. Confirm receipt, then state whether you can respond. If you enabled urgent alerts, this also uses foreground sound/vibration when your device permits it. This does not replace clinical assessment or ResusGPS.</AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-3 rounded-lg border border-red-200 bg-red-50 p-3">
           <p className="text-sm font-semibold text-red-950">{label(activation.activationType)}</p>
