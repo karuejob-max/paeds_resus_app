@@ -17,6 +17,7 @@ export type InstitutionalProductRoleKey =
   | "iers_governance"
   | "iers_viewer"
   | "cpd_coordinator"
+  | "cpd_education_coordinator"
   | "cpd_reviewer"
   | "cpd_reporter"
   | "cpd_viewer"
@@ -39,7 +40,15 @@ export const PRODUCT_ROLE_DEFINITIONS: Record<InstitutionalProductKey, Array<{
   ],
   cpd_portal: [
     { roleKey: "cpd_coordinator", label: "CPD coordinator", description: "Manages CPD sessions, attendance, certificates, and settings." },
-    { roleKey: "cpd_reviewer", label: "CPD reviewer", description: "Reviews attendance, certificates, and professional-development records." },
+        {
+      roleKey: "cpd_education_coordinator",
+      label: "Department Education Coordinator",
+      description:
+        "Creates and coordinates learning sessions for an assigned department; cannot view other departments’ private records unless separately authorized.",
+    },
+    {
+      roleKey: "cpd_reviewer",
+      label: "CPD reviewer", description: "Reviews attendance, certificates, and professional-development records." },
     { roleKey: "cpd_reporter", label: "CPD reporter", description: "Views staff-development and CPD decision reports." },
     { roleKey: "cpd_viewer", label: "CPD viewer", description: "Views the CPD Portal without changing records." },
   ],

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { trpc } from "@/lib/trpc";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 function secondsBetween(start: Date | string, end: Date | string | null | undefined) {
   if (!end) return null;
@@ -26,6 +27,12 @@ export function IersExecutiveReportPanel({ institutionId }: { institutionId: num
   const averageAcknowledgement = acknowledgementTimes.length ? Math.round(acknowledgementTimes.reduce((sum, value) => sum + value, 0) / acknowledgementTimes.length) : null;
   const closedActions = actions.filter((action) => action.status === "closed").length;
   const completedDrills = drills.filter((drill) => drill.status === "completed").length;
+  const readinessProfile = [
+    { metric: "Evidence", value: scorecardQuery.data?.totalScore ?? 0 },
+    { metric: "Critical gate", value: scorecardQuery.data?.criticalCriteriaComplete ? 100 : 0 },
+    { metric: "Drills", value: drills.length ? Math.round((completedDrills / drills.length) * 100) : 0 },
+    { metric: "Actions", value: actions.length ? Math.round((closedActions / actions.length) * 100) : 0 },
+  ];
 
   const downloadCsv = () => {
     const score = scorecardQuery.data;
@@ -62,7 +69,7 @@ export function IersExecutiveReportPanel({ institutionId }: { institutionId: num
         </CardContent>
       </Card>
       <Card className="border-slate-200">
-        <CardHeader className="flex flex-row items-start justify-between gap-4"><div><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-teal-700" /> IERS executive snapshot</CardTitle><CardDescription>Decision-grade metrics from reviewed evidence, activation timelines, drills, and owned actions. Unrecorded data is shown as unrecorded.</CardDescription></div><Button size="sm" variant="outline" onClick={downloadCsv}><Download className="h-4 w-4 mr-2" />CSV snapshot</Button></CardHeader>
+        <CardHeader className="flex flex-row items-start justify-between gap-4"><div><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-teal-700" /> IERS executive snapshot</CardTitle><CardDescription>Decision-grade metrics from reviewed evidence, activation timelines, drills, and owned actions. Unrecorded data is shown as unrecorded.</CardDescription></div><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={downloadCsv}><Download className="h-4 w-4 mr-2" />CSV snapshot</Button><Button size="sm" variant="outline" onClick={() => window.print()}>Print / share</Button></div></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 p-4">
           <div className="rounded-lg border p-4"><p className="text-xs text-muted-foreground">Evidence score</p><p className="text-2xl font-bold text-teal-800">{scorecardQuery.data ? `${scorecardQuery.data.totalScore}/100` : "—"}</p><Progress value={scorecardQuery.data?.totalScore ?? 0} className="mt-2" /></div>
           <div className="rounded-lg border p-4"><p className="text-xs text-muted-foreground">First acknowledgement</p><p className="text-2xl font-bold">{averageAcknowledgement == null ? "Not recorded" : `${averageAcknowledgement}s`}</p><p className="text-xs text-muted-foreground mt-1">{acknowledgementTimes.length} activations with timestamps</p></div>
@@ -70,6 +77,8 @@ export function IersExecutiveReportPanel({ institutionId }: { institutionId: num
           <div className="rounded-lg border p-4"><p className="text-xs text-muted-foreground">Action closure</p><p className="text-2xl font-bold">{actions.length ? `${closedActions}/${actions.length}` : "—"}</p><p className="text-xs text-muted-foreground mt-1">Closed only after leader verification</p></div>
         </CardContent>
       </Card>
+
+      <Card><CardHeader><CardTitle className="text-base">Readiness profile</CardTitle><CardDescription>Visual summary of current evidence, critical-gate, drill, and verified-action status. This is not an accreditation score.</CardDescription></CardHeader><CardContent className="h-[260px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={readinessProfile} layout="vertical" margin={{ left: 16, right: 18, top: 4, bottom: 4 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} /><XAxis type="number" domain={[0, 100]} unit="%" /><YAxis type="category" dataKey="metric" width={90} tick={{ fontSize: 11 }} /><Tooltip formatter={(value) => [`${value}%`, "Status"]} /><Bar dataKey="value" fill="#0f766e" radius={[0, 5, 5, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card><CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-teal-700" /> Critical gate</CardTitle></CardHeader><CardContent>{scorecardQuery.data?.criticalCriteriaComplete ? <Badge className="bg-emerald-600">Complete</Badge> : <Badge variant="outline" className="border-amber-300 text-amber-800">Incomplete</Badge>}<p className="text-xs text-muted-foreground mt-2">A total score cannot bypass missing critical evidence.</p></CardContent></Card>

@@ -61,6 +61,7 @@
     "db:apply-0123": "node scripts/apply-0123-iers-notification-layer.mjs",
     "db:apply-0124": "node scripts/apply-0124-facility-membership-requests.mjs",
     "db:apply-0125": "node scripts/apply-0125-user-notification-preferences.mjs",
+    "db:apply-0126": "node scripts/apply-0126-institution-learning-operations.mjs",
     "db:fresh-migrate": "node scripts/db-snapshot-and-fresh-migrate.mjs",
     "db:test-connection": "node scripts/test-db-connection.mjs",
     "verify:fpkb-app-layer": "tsx -r dotenv/config scripts/verify-fpkb-app-layer.mjs",
