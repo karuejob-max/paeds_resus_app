@@ -15,7 +15,7 @@ const TRANSITIONS: Record<ShiftRoleAssignmentStatus, readonly ShiftRoleAssignmen
   proposed: ["approved", "pending_acceptance", "superseded", "expired"],
   approved: ["pending_acceptance", "accepted", "superseded", "expired"],
   pending_acceptance: ["accepted", "declined", "expired", "superseded"],
-  accepted: ["superseded", "ended"],
+  accepted: ["pending_acceptance", "superseded", "ended"],
   declined: ["approved", "pending_acceptance", "superseded", "expired"],
   expired: ["approved", "pending_acceptance", "superseded"],
   superseded: [],

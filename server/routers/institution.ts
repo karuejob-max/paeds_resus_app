@@ -769,7 +769,7 @@ async function ensureMonthlyUtlShifts(
     }
 
     if (input.providerUserId == null) continue;
-    const result = await db.insert(shiftUtlRosters).values({
+    await db.insert(shiftUtlRosters).values({
       institutionId: input.institutionId,
       poleId: input.poleId,
       departmentId: input.departmentId,
@@ -785,8 +785,14 @@ async function ensureMonthlyUtlShifts(
       assignmentStatus: "pending_acceptance",
       status: "active",
     });
-    const rosterId = (result as unknown as { insertId: number }).insertId;
-    const [created] = await db.select().from(shiftUtlRosters).where(eq(shiftUtlRosters.id, rosterId)).limit(1);
+    const [created] = await db.select().from(shiftUtlRosters).where(and(
+      eq(shiftUtlRosters.institutionId, input.institutionId),
+      eq(shiftUtlRosters.poleId, input.poleId),
+      eq(shiftUtlRosters.departmentId, input.departmentId),
+      eq(shiftUtlRosters.shiftDate, new Date(row.shiftDate)),
+      eq(shiftUtlRosters.shiftType, row.shiftType),
+      eq(shiftUtlRosters.monthlyUtlRotationId, input.monthlyUtlRotationId),
+    )).orderBy(desc(shiftUtlRosters.id)).limit(1);
     if (created) {
       await ensurePublishedTeamForLegacyUtlRoster(db, { roster: created, actorUserId: input.actorUserId });
       generatedShifts += 1;

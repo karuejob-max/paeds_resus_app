@@ -553,9 +553,18 @@ export const iersShiftTeamRouter = router({
       const team = await requireTeam(db, assignment.teamId);
       const [ertl] = await db.select({ providerUserId: iersShiftRoleAssignments.providerUserId }).from(iersShiftRoleAssignments).where(and(eq(iersShiftRoleAssignments.teamId, team.id), eq(iersShiftRoleAssignments.roleScope, "ertl"), eq(iersShiftRoleAssignments.assignmentStatus, "accepted"))).limit(1);
       if (!ertl) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "An accepted ERTL must exist before role changes can be proposed." });
-      const result = await db.insert(iersShiftRoleRecommendations).values({ assignmentId: assignment.id, teamId: team.id, institutionId: assignment.institutionId, requestedByUserId: ctx.user.id, requestedRoleKey, reason: input.reason, status: "pending" });
-      await notifyUser(db, ertl.providerUserId, "ERT role recommendation needs review", `A team member recommends ${requestedRoleKey.replaceAll("_", " ")}. Review and approve or decline the change.`, (result as unknown as { insertId: number }).insertId, "/home");
-      return { success: true, recommendationId: (result as unknown as { insertId: number }).insertId };
+      await db.insert(iersShiftRoleRecommendations).values({ assignmentId: assignment.id, teamId: team.id, institutionId: assignment.institutionId, requestedByUserId: ctx.user.id, requestedRoleKey, reason: input.reason, status: "pending" });
+      const [createdRecommendation] = await db.select({ id: iersShiftRoleRecommendations.id }).from(iersShiftRoleRecommendations).where(and(
+        eq(iersShiftRoleRecommendations.assignmentId, assignment.id),
+        eq(iersShiftRoleRecommendations.teamId, team.id),
+        eq(iersShiftRoleRecommendations.institutionId, assignment.institutionId),
+        eq(iersShiftRoleRecommendations.requestedByUserId, ctx.user.id),
+        eq(iersShiftRoleRecommendations.requestedRoleKey, requestedRoleKey),
+        eq(iersShiftRoleRecommendations.status, "pending"),
+      )).orderBy(desc(iersShiftRoleRecommendations.id)).limit(1);
+      if (!createdRecommendation) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The ERT role recommendation could not be confirmed." });
+      await notifyUser(db, ertl.providerUserId, "ERT role recommendation needs review", `A team member recommends ${requestedRoleKey.replaceAll("_", " ")}. Review and approve or decline the change.`, createdRecommendation.id, "/home");
+      return { success: true, recommendationId: createdRecommendation.id };
     }),
 
   /** Accepted ERTL approves or declines a member recommendation. */
@@ -693,7 +702,7 @@ export const iersShiftTeamRouter = router({
         inArray(iersShiftRoleAssignments.assignmentStatus, ["proposed", "approved", "pending_acceptance", "accepted"]),
       )).limit(1);
       if (roleCollision) throw new TRPCError({ code: "CONFLICT", message: "That ERT member role is already assigned for this shift." });
-      const inserted = await db.insert(iersShiftRoleAssignments).values({
+      await db.insert(iersShiftRoleAssignments).values({
         teamId: team.id,
         institutionId: team.institutionId,
         poleId: team.poleId,
@@ -705,7 +714,16 @@ export const iersShiftTeamRouter = router({
         assignmentStatus: "pending_acceptance",
         proposedByUserId: ctx.user.id,
       });
-      const assignmentId = Number((inserted as unknown as { insertId: number }).insertId);
+      const [createdAssignment] = await db.select({ id: iersShiftRoleAssignments.id }).from(iersShiftRoleAssignments).where(and(
+        eq(iersShiftRoleAssignments.teamId, team.id),
+        eq(iersShiftRoleAssignments.institutionId, team.institutionId),
+        eq(iersShiftRoleAssignments.providerUserId, input.providerUserId),
+        eq(iersShiftRoleAssignments.roleScope, "ert_member"),
+        eq(iersShiftRoleAssignments.roleKey, roleKey),
+        eq(iersShiftRoleAssignments.assignmentStatus, "pending_acceptance"),
+      )).orderBy(desc(iersShiftRoleAssignments.id)).limit(1);
+      if (!createdAssignment) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "ERT member assignment could not be confirmed." });
+      const assignmentId = createdAssignment.id;
       await recordRoleEvent(db, {
         assignmentId,
         teamId: team.id,
