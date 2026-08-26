@@ -6,6 +6,7 @@ import {
 import { registerServiceWorker } from "./registerSW";
 
 const AUDIO_ENABLED_KEY = "paeds-resus:iers-audio-enabled";
+const openBrowserNotifications = new Map<string, Notification>();
 
 export type IersPushSubscriptionPayload = {
   endpoint: string;
@@ -153,13 +154,31 @@ export async function showIersUrgentNotification(
       tag: payload.tag,
       requireInteraction: true,
     });
+    openBrowserNotifications.set(payload.tag, notification);
     notification.onclick = () => {
       window.focus();
       window.location.assign(payload.url);
       notification.close();
+      openBrowserNotifications.delete(payload.tag);
+    };
+    notification.onclose = () => {
+      openBrowserNotifications.delete(payload.tag);
     };
   } catch (error) {
     console.warn("[IERS] Browser notification could not be shown:", error);
+  }
+}
+
+export async function closeIersUrgentNotification(tag: string): Promise<void> {
+  openBrowserNotifications.get(tag)?.close();
+  openBrowserNotifications.delete(tag);
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    const notifications = await registration?.getNotifications({ tag });
+    notifications?.forEach(notification => notification.close());
+  } catch (error) {
+    console.warn("[IERS] Browser notification could not be dismissed:", error);
   }
 }
 

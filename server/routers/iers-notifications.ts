@@ -182,6 +182,116 @@ export async function dispatchIersActivationPush(
   return result;
 }
 
+export type IersActivationClosurePushPayload = {
+  activationEventId: number;
+  status: "closed" | "cancelled" | "false_alarm";
+  tag: string;
+};
+
+/**
+ * Best-effort closure delivery. The service worker uses this message to close
+ * any persistent notification with the activation tag. Timeline and status in
+ * the database remain authoritative if this push is unavailable.
+ */
+export async function dispatchIersActivationClosurePush(
+  db: Awaited<ReturnType<typeof getDb>>,
+  payload: IersActivationClosurePushPayload,
+  userIds: number[]
+): Promise<IersPushDispatchResult> {
+  const result: IersPushDispatchResult = {
+    configured: isIersWebPushConfigured(),
+    attempted: 0,
+    sent: 0,
+    failed: 0,
+    expired: 0,
+  };
+  if (!db || !userIds.length || !isIersWebPushConfigured()) return result;
+
+  configureWebPush();
+  const subscriptions = await db
+    .select()
+    .from(iersPushSubscriptions)
+    .where(
+      and(
+        inArray(iersPushSubscriptions.userId, [...new Set(userIds)]),
+        eq(iersPushSubscriptions.isActive, true)
+      )
+    );
+
+  for (const subscription of subscriptions) {
+    result.attempted += 1;
+    const deliveryKey = `${payload.activationEventId}:closure:${payload.status}:${subscription.userId}:${subscription.id}`;
+    const [existing] = await db
+      .select({
+        id: iersPushDeliveryLog.id,
+        status: iersPushDeliveryLog.status,
+      })
+      .from(iersPushDeliveryLog)
+      .where(eq(iersPushDeliveryLog.deliveryKey, deliveryKey))
+      .limit(1);
+    if (existing?.status === "sent") {
+      result.sent += 1;
+      continue;
+    }
+    if (!existing) {
+      await db.insert(iersPushDeliveryLog).values({
+        deliveryKey,
+        activationEventId: payload.activationEventId,
+        userId: subscription.userId,
+        subscriptionId: subscription.id,
+        status: "pending",
+      });
+    }
+
+    try {
+      await webpush.sendNotification(
+        {
+          endpoint: subscription.endpoint,
+          keys: { p256dh: subscription.p256dh, auth: subscription.auth },
+        },
+        JSON.stringify({
+          type: "iers_activation_closed",
+          activationEventId: payload.activationEventId,
+          status: payload.status,
+          tag: payload.tag,
+        }),
+        { TTL: 60, urgency: "high", topic: `${payload.tag}-close`.slice(0, 32) }
+      );
+      await db
+        .update(iersPushDeliveryLog)
+        .set({ status: "sent", sentAt: new Date(), errorMessage: null })
+        .where(eq(iersPushDeliveryLog.deliveryKey, deliveryKey));
+      await db
+        .update(iersPushSubscriptions)
+        .set({ lastUsedAt: new Date(), updatedAt: new Date() })
+        .where(eq(iersPushSubscriptions.id, subscription.id));
+      result.sent += 1;
+    } catch (error) {
+      const errorMessage = safePushError(error);
+      const statusCode =
+        typeof error === "object" && error !== null && "statusCode" in error
+          ? Number((error as { statusCode?: unknown }).statusCode)
+          : 0;
+      const expired = statusCode === 404 || statusCode === 410;
+      await db
+        .update(iersPushDeliveryLog)
+        .set({ status: expired ? "expired" : "failed", errorMessage })
+        .where(eq(iersPushDeliveryLog.deliveryKey, deliveryKey));
+      if (expired) {
+        await db
+          .update(iersPushSubscriptions)
+          .set({ isActive: false, updatedAt: new Date() })
+          .where(eq(iersPushSubscriptions.id, subscription.id));
+        result.expired += 1;
+      } else {
+        result.failed += 1;
+      }
+    }
+  }
+
+  return result;
+}
+
 const subscriptionInput = iersPushSubscriptionInput;
 
 export const iersNotificationsRouter = router({
