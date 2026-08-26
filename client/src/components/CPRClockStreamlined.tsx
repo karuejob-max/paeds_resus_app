@@ -66,6 +66,7 @@ import {
 import { useCprClockShared } from '@/components/cpr/CprClockSharedContext';
 import { CprDocumentationLog } from '@/components/cpr/CprDocumentationLog';
 import type { LifeSupportPackResult } from '@/lib/resus/cpr-pack-resolver';
+import { CprArrestCommandConsole } from '@/components/CprArrestCommandConsole';
 
 interface Props {
   patientWeight: number;
@@ -1012,260 +1013,45 @@ export function CPRClockStreamlined({
         </div>
       )}
 
-      {/* Main content */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        {!effectiveIsRunning && !effectiveRoscAchieved && !autoStart ? (
-          // Start screen
-          <div className="text-center space-y-6">
-            <div className="text-6xl font-bold text-white mb-4">CPR-GPS READY</div>
-            <Button
-              onClick={startArrest}
-              size="lg"
-              className="bg-red-600 hover:bg-red-700 text-white text-2xl px-12 py-8 h-auto"
-            >
-              <Play className="h-8 w-8 mr-4" />
-              START CPR-GPS
-            </Button>
-          </div>
-        ) : !effectiveIsRunning && !effectiveRoscAchieved && autoStart ? (
-          <div className="text-center space-y-4">
-            <div className="text-2xl font-bold text-white">Syncing CPR-GPS clock…</div>
-          </div>
-        ) : phase === 'initial_assessment' ? (
-          // Initial assessment - attach pads
-          <div className="text-center space-y-6">
-            <div className="text-5xl font-bold text-white mb-4">ATTACH PADS</div>
-            <div className="text-xl text-gray-300">Continue compressions while attaching</div>
-            <Button
-              onClick={handlePadsAttached}
-              size="lg"
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xl px-8 py-6 h-auto"
-            >
-              <CheckCircle2 className="h-6 w-6 mr-3" />
-              Pads Attached - Assess Rhythm
-            </Button>
-          </div>
-        ) : effectiveRoscAchieved ? (
-          // ROSC achieved
-          <div className="text-center space-y-6">
-            <CheckCircle2 className="h-24 w-24 text-green-500 mx-auto" />
-            <div className="text-5xl font-bold text-green-500">ROSC ACHIEVED</div>
-            <div className="text-xl text-gray-300">Total duration: {formatTime(effectiveArrestDuration)}</div>
-            <div className="text-lg text-gray-400">
-              {effectiveShockCount} shocks • {effectiveEpiDoses} epi doses
-            </div>
-          </div>
-        ) : (
-          // Active resuscitation
-          <div className="w-full max-w-4xl space-y-6">
-            {/* Current action */}
-            <Card className="bg-gray-800 border-gray-700">
-              <CardContent className="p-8">
-                <div className="text-center">
-                  {phase === 'compressions' && (
-                    <>
-                      <div className="text-3xl md:text-6xl font-bold text-red-500 mb-4 animate-pulse">
-                        COMPRESSIONS
-                      </div>
-                      <div className="text-lg md:text-2xl text-gray-300">
-                        Next rhythm check in {formatTime(compressionCycle.countdownToRhythmCheck)}
-                      </div>
-                    </>
-                  )}
-                  {phase === 'reassessment' && (
-                    <>
-                      <div className="text-3xl md:text-6xl font-bold text-blue-500 mb-4 animate-pulse">
-                        REASSESSMENT
-                      </div>
-                      <div className="text-xl md:text-3xl text-gray-300 mb-4">
-                        {reassessmentTime}s
-                      </div>
-                      <div className="text-base md:text-xl text-gray-400">
-                        Assess rhythm
-                      </div>
-                    </>
-                  )}
-                  {phase === 'charging' && (
-                    <>
-                      <div className="text-5xl font-bold text-yellow-500 mb-4">
-                        CHARGING
-                      </div>
-                      <div className="text-xl text-gray-300">Clear the patient</div>
-                    </>
-                  )}
-                  {phase === 'shock_ready' && (
-                    <>
-                      <div className="text-3xl md:text-6xl font-bold text-yellow-500 mb-2 md:mb-4 animate-pulse">
-                        SHOCK READY
-                      </div>
-                      <div className="text-base md:text-2xl text-gray-300 mb-3 md:mb-6">
-                        {shockEnergyLabel} • Clear and shock
-                      </div>
-                      <div className="flex flex-col md:flex-row gap-2 md:gap-4 justify-center">
-                        <Button
-                          onClick={deliverShock}
-                          size="lg"
-                          className="bg-yellow-600 hover:bg-yellow-700 text-black text-lg md:text-2xl px-4 md:px-8 py-4 md:py-6 h-auto w-full md:w-auto"
-                        >
-                          <Zap className="h-5 w-5 md:h-8 md:w-8 mr-2 md:mr-3" />
-                          SHOCK
-                        </Button>
-                        <Button
-                          onClick={disarmDefib}
-                          size="lg"
-                          variant="outline"
-                          className="text-white border-gray-600 text-sm md:text-xl px-3 md:px-6 py-4 md:py-6 h-auto w-full md:w-auto"
-                        >
-                          Disarm
-                        </Button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Action buttons - Mobile Optimized */}
-            <div className="grid grid-cols-2 gap-2 md:gap-4">
-              <Button
-                onClick={giveEpinephrine}
-                size="lg"
-                className={`text-white text-sm md:text-xl py-3 md:py-6 h-auto ${getEpiButtonClass(
-                  getEpinephrineTimingState(
-                    effectiveArrestDuration,
-                    {
-                      shockCount: effectiveShockCount,
-                      epiDoses: effectiveEpiDoses,
-                      lastEpiTime: effectiveLastEpiTime,
-                      antiarrhythmicDoses: effectiveAntiarrhythmicDoses,
-                      rhythmType: effectiveRhythmType || 'unknown',
-                      phase: phase as CprEngineState['phase'],
-                    },
-                    effectiveRhythmType === 'vf_pvt'
-                  )
-                )}`}
-                disabled={lastEpiTime !== null && (arrestDuration - lastEpiTime) < 180}
-              >
-                <Syringe className="h-4 w-4 md:h-6 md:w-6 mr-1 md:mr-2" />
-                <span className="truncate">Epi {epiDose}mg</span>
-                {lastEpiTime !== null && (arrestDuration - lastEpiTime) < 180 && (
-                  <span className="ml-1 text-xs hidden md:inline">
-                    ({180 - (arrestDuration - lastEpiTime)}s)
-                  </span>
-                )}
-              </Button>
-
-              <Button
-                onClick={() => setShowRoscConfirm(true)}
-                size="lg"
-                className="bg-green-600 hover:bg-green-700 text-white text-sm md:text-xl py-3 md:py-6 h-auto"
-              >
-                <CheckCircle2 className="h-4 w-4 md:h-6 md:w-6 mr-1 md:mr-2" />
-                <span className="truncate">ROSC</span>
-              </Button>
-
-            </div>
-
-            {/* Stats - Mobile Optimized */}
-            <div className="grid grid-cols-4 gap-1 md:gap-4">
-              <Card className="bg-gray-800 border-gray-700">
-                <CardContent className="p-2 md:p-4 text-center">
-                  <div className="text-xl md:text-3xl font-bold text-cyan-300">{effectiveCycleNumber}</div>
-                  <div className="text-xs md:text-sm text-gray-400">Cycle</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-gray-800 border-gray-700">
-                <CardContent className="p-2 md:p-4 text-center">
-                  <div className="text-xl md:text-3xl font-bold text-white">{shockCount}</div>
-                  <div className="text-xs md:text-sm text-gray-400">Shocks</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-gray-800 border-gray-700">
-                <CardContent className="p-2 md:p-4 text-center">
-                  <div className="text-xl md:text-3xl font-bold text-white">{epiDoses}</div>
-                  <div className="text-xs md:text-sm text-gray-400">Epi</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-gray-800 border-gray-700">
-                <CardContent className="p-2 md:p-4 text-center">
-                  <div className="text-sm md:text-3xl font-bold text-white">
-                    {rhythmType === 'vf_pvt' ? 'VF/pVT' : rhythmType === 'pea' ? 'PEA' : rhythmType === 'asystole' ? 'Asystole' : 'Unknown'}
-                  </div>
-                  <div className="text-xs md:text-sm text-gray-400">Rhythm</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-gray-800 border-gray-700">
-                <CardContent className="p-2 md:p-4 text-center">
-                  <div className="text-sm md:text-3xl font-bold text-white">
-                    {antiarrhythmic ? (antiarrhythmic === 'amiodarone' ? 'Amio' : 'Lido') : 'None'}
-                  </div>
-                  <div className="text-xs md:text-sm text-gray-400">Anti</div>
-                </CardContent>
-              </Card>
-            </div>
-            {rhythmFeedback && (
-              <Card
-                className={
-                  rhythmFeedback.severity === 'warning'
-                    ? 'border-yellow-500 bg-yellow-950/40'
-                    : 'border-red-500 bg-red-950/40'
-                }
-              >
-                <CardContent className="p-3 md:p-4">
-                  <p className="font-bold text-white">{rhythmFeedback.title}</p>
-                  <p className="text-sm text-gray-200 mt-1">{rhythmFeedback.message}</p>
-                </CardContent>
-              </Card>
-            )}
-
-            {activeAlerts.length > 0 && (
-              <Card className="bg-gray-900 border-gray-700">
-                <CardContent className="p-3 md:p-4 space-y-1">
-                  {activeAlerts.map((alert) => (
-                    <div
-                      key={`${alert.type}-${alert.message}`}
-                      className={`text-sm ${
-                        alert.severity === 'critical'
-                          ? 'text-red-400 font-semibold'
-                          : alert.severity === 'warning'
-                            ? 'text-yellow-400'
-                            : 'text-cyan-300'
-                      }`}
-                    >
-                      {alert.message}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-            <Card className="bg-gray-900 border-gray-700">
-              <CardContent className="p-3 md:p-4">
-                <div className="text-sm md:text-base text-gray-300">
-                  Next action: <span className="font-semibold text-white">{compressionCycle.nextAction}</span>
-                </div>
-                {compressionCycle.phase === 'precharge_alert' && (
-                  <div className="text-yellow-400 text-sm mt-1">
-                    Pre-charge alert active (T-30s to rhythm check).
-                  </div>
-                )}
-                {phase === 'reassessment' && rhythmWindowElapsed !== null && (
-                  <div className="text-blue-300 text-sm mt-1">
-                    10-second rhythm/shock window:{' '}
-                    {Math.max(0, RHYTHM_WINDOW_SECONDS - rhythmWindowElapsed)}s remaining.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <CprDocumentationLog
-              entries={syncShared && shared ? shared.events : events}
-              formatTime={formatTime}
-              onLogQuickAction={addEvent}
-            />
-          </div>
+      <CprArrestCommandConsole
+        phase={phase}
+        effectiveIsRunning={effectiveIsRunning}
+        effectiveRoscAchieved={effectiveRoscAchieved}
+        autoStart={autoStart}
+        effectiveArrestDuration={effectiveArrestDuration}
+        patientWeight={patientWeight}
+        lifeSupportPack={lifeSupportPack}
+        compressionCycle={compressionCycle}
+        reassessmentTime={reassessmentTime}
+        rhythmWindowElapsed={rhythmWindowElapsed}
+        activeAlerts={activeAlerts}
+        effectiveCycleNumber={effectiveCycleNumber}
+        effectiveShockCount={effectiveShockCount}
+        effectiveEpiDoses={effectiveEpiDoses}
+        effectiveRhythmType={effectiveRhythmType}
+        epiState={getEpinephrineTimingState(
+          effectiveArrestDuration,
+          engineSnapshot,
+          effectiveRhythmType === 'vf_pvt',
+          { defibDelayed: !sessionId, lifeSupportPack: cprEnginePack },
         )}
-      </div>
+        epiDose={epiDose}
+        shockEnergyLabel={shockEnergyLabel}
+        formatTime={formatTime}
+        onStartArrest={startArrest}
+        onPadsAttached={handlePadsAttached}
+        onDeliverShock={deliverShock}
+        onDisarmDefib={disarmDefib}
+        onGiveEpinephrine={giveEpinephrine}
+        onShowRoscConfirm={() => setShowRoscConfirm(true)}
+        documentationLog={
+          <CprDocumentationLog
+            entries={syncShared && shared ? shared.events : events}
+            formatTime={formatTime}
+            onLogQuickAction={addEvent}
+          />
+        }
+      />
 
       {/* Rhythm check overlay */}
       {showRhythmCheck && (
