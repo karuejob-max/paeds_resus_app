@@ -28,72 +28,49 @@ describe("Advanced Systems Routers", () => {
   });
 
   describe("Clinical Decision Support", () => {
-    it("should get diagnostic algorithms", async () => {
-      const result = await caller.clinicalDecisionSupport.getDiagnosticAlgorithm({
-        symptoms: ["fever", "cough", "difficulty breathing"],
-        patientAge: 5,
-        vitalSigns: {
-          temperature: 39.5,
-          heartRate: 120,
-          respiratoryRate: 35,
-          oxygenSaturation: 92,
-          bloodPressure: "110/65",
-        },
-      });
+    it("fails closed for stale clinical endpoints and directs callers to ResusGPS", async () => {
+      const calls = [
+        caller.clinicalDecisionSupport.getDiagnosticAlgorithm({
+          symptoms: ["fever", "cough", "difficulty breathing"],
+          patientAge: 5,
+          vitalSigns: {
+            temperature: 39.5,
+            heartRate: 120,
+            respiratoryRate: 35,
+            oxygenSaturation: 92,
+            bloodPressure: "110/65",
+          },
+        }),
+        caller.clinicalDecisionSupport.getTreatmentProtocol({
+          diagnosis: "sepsis",
+          patientAge: 8,
+          patientWeight: 25,
+        }),
+        caller.clinicalDecisionSupport.calculatePediatricDosing({
+          medication: "epinephrine",
+          patientAge: 5,
+          patientWeight: 18,
+          indication: "cardiac arrest",
+        }),
+        caller.clinicalDecisionSupport.checkDrugInteractions({
+          medication: "amoxicillin",
+          medications: ["paracetamol"],
+        }),
+        caller.clinicalDecisionSupport.getSeverityAssessmentScale({
+          scale: "PEWS",
+          parameters: {
+            heartRate: 120,
+            respiratoryRate: 30,
+            bloodPressure: 110,
+          },
+        }),
+      ];
 
-      expect(result.success).toBe(true);
-      expect(result.differentials).toBeDefined();
-      expect(Array.isArray(result.differentials)).toBe(true);
-    });
-
-    it("should get treatment protocols", async () => {
-      const result = await caller.clinicalDecisionSupport.getTreatmentProtocol({
-        diagnosis: "sepsis",
-        patientAge: 8,
-        patientWeight: 25,
-      });
-
-      expect(result.success).toBe(true);
-      expect(result.protocol).toBeDefined();
-    });
-
-    it("should calculate pediatric dosing", async () => {
-      const result = await caller.clinicalDecisionSupport.calculatePediatricDosing({
-        medication: "epinephrine",
-        patientAge: 5,
-        patientWeight: 18,
-        indication: "cardiac arrest",
-      });
-
-      expect(result.success).toBe(true);
-      expect(result).toBeDefined();
-    });
-
-    it("should check drug interactions", async () => {
-      const result = await caller.clinicalDecisionSupport.checkDrugInteractions({
-        medication: "amoxicillin",
-        medications: ["paracetamol"],
-      });
-
-      expect(result.success).toBe(true);
-      if (result.interactions) {
-        expect(result.interactions).toBeDefined();
-      }
-    });
-
-    it("should get severity assessment scale", async () => {
-      const result = await caller.clinicalDecisionSupport.getSeverityAssessmentScale({
-        scale: "PEWS",
-        parameters: {
-          heartRate: 120,
-          respiratoryRate: 30,
-          bloodPressure: 110,
-        },
-      });
-
-      expect(result.success).toBe(true);
-      if (result.result && typeof result.result.score === 'number') {
-        expect(result.result.score).toBeGreaterThanOrEqual(0);
+      for (const call of calls) {
+        await expect(call).rejects.toMatchObject({
+          code: "PRECONDITION_FAILED",
+          message: expect.stringContaining("canonical ResusGPS"),
+        });
       }
     });
   });

@@ -41,10 +41,11 @@ export function ClinicalUseDisclaimer() {
       <Info className="h-4 w-4 text-[#1a4d4d] dark:text-teal-200" />
       <AlertDescription className="text-sm text-[#1a4d4d] dark:text-teal-100 flex flex-col gap-3">
         <div>
-          <strong>ResusGPS intended use:</strong> structured paediatric emergency{" "}
-          <strong>reference support</strong> for trained providers. Not medical advice. Not an emergency service — call{" "}
-          <strong>{formatKenyaEmergencyShort()}</strong>; EAC: {formatEacEmergencyInline()}. Your facility protocol and
-          senior review always prevail.
+          <strong>ResusGPS intended use:</strong> structured neonatal and paediatric emergency{" "}
+          <strong>reference support</strong> for trained providers. Adult pathways are not currently supported; use your
+          approved adult emergency protocol and do not apply ResusGPS paediatric doses to an adult. Not medical advice.
+          Not an emergency service — call <strong>{formatKenyaEmergencyShort()}</strong>; EAC: {formatEacEmergencyInline()}.
+          Your facility protocol and senior review always prevail.
         </div>
         <label className="flex items-start gap-2 cursor-pointer">
           <Checkbox checked={acknowledged} onCheckedChange={(v) => setAcknowledged(v === true)} />

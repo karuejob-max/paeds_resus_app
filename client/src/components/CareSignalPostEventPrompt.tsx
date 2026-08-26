@@ -28,6 +28,7 @@ interface CareSignalPostEventPromptProps {
   onClose: () => void;
   diagnosis: string;
   outcome?: string;
+  sessionId: string;
 }
 
 function diagnosisToEventType(diagnosis: string): string {
@@ -62,20 +63,12 @@ function isSepticShockCase(diagnosis: string, eventType: string): boolean {
   return eventType === "septic_shock" || /septic|sepsis/i.test(diagnosis);
 }
 
-function getAnalyticsSessionId(): string {
-  if (typeof window === "undefined") return "server";
-  const stored = sessionStorage.getItem("analytics_session_id");
-  if (stored) return stored;
-  const newId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-  sessionStorage.setItem("analytics_session_id", newId);
-  return newId;
-}
-
 export function CareSignalPostEventPrompt({
   open,
   onClose,
   diagnosis,
   outcome,
+  sessionId,
 }: CareSignalPostEventPromptProps) {
   const [, navigate] = useLocation();
   const trackEventMutation = trpc.events.trackEvent.useMutation();
@@ -93,7 +86,7 @@ export function CareSignalPostEventPrompt({
     void trackEventMutation.mutateAsync({
       eventType: "holistic_loop",
       eventName,
-      sessionId: getAnalyticsSessionId(),
+      sessionId,
       pageUrl: "/resus",
       eventData: {
         diagnosis,

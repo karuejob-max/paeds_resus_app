@@ -6,6 +6,7 @@
  */
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { parseResusWeight } from '@/lib/resus/patientDemographics';
 
 interface PatientDemographics {
   age: string;
@@ -77,11 +78,7 @@ export function PatientDemographicsProvider({ children }: { children: ReactNode 
   };
 
   // Parse weight to number (handles kg input)
-  const getWeightInKg = (): number | null => {
-    if (!demographics.weight) return null;
-    const weight = parseFloat(demographics.weight);
-    return isNaN(weight) ? null : weight;
-  };
+  const getWeightInKg = (): number | null => parseResusWeight(demographics.weight);
 
   // Parse age to years (handles various formats)
   const getAgeInYears = (): number | null => {

@@ -40,6 +40,7 @@ import {
   AlertCircle,
   BookOpen,
 } from 'lucide-react';
+import { validateResusWeight } from '@/lib/resus/patientDemographics';
 import {
   type ConditionProtocol,
   type ActiveConditionState,
@@ -74,7 +75,8 @@ export function ConditionProtocolSheet({
   initialConditionId,
   onProtocolProgress,
 }: ConditionProtocolSheetProps) {
-  const weight = session.patientWeight ?? 10;
+  const weight = session.patientWeight;
+  const hasValidWeight = weight !== null && validateResusWeight(weight).valid;
   const ageCategory = getAgeCategory(session.patientAge);
 
   const [selectedCondition, setSelectedCondition] = useState<ExtendedConditionId>(
@@ -87,13 +89,13 @@ export function ConditionProtocolSheet({
   );
   const [expandedDoses, setExpandedDoses] = useState<Record<string, boolean>>({});
 
-  const protocol: ConditionProtocol = useMemo(
-    () => buildExtendedProtocol(selectedCondition, weight, ageCategory),
-    [selectedCondition, weight, ageCategory]
+  const protocol: ConditionProtocol | null = useMemo(
+    () => (!hasValidWeight ? null : buildExtendedProtocol(selectedCondition, weight, ageCategory)),
+    [selectedCondition, weight, ageCategory, hasValidWeight]
   );
 
   const activeState = conditionStates[selectedCondition];
-  const progress = getProtocolProgress(protocol, activeState);
+  const progress = protocol ? getProtocolProgress(protocol, activeState) : null;
 
   function setStepStatus(stepId: string, status: StepStatus) {
     setConditionStates(prev => {
@@ -105,7 +107,7 @@ export function ConditionProtocolSheet({
       if (status === 'done' && onProtocolProgress) {
         const updatedState = next[selectedCondition];
         const completedCount = Object.values(updatedState.stepStatuses).filter(s => s === 'done').length;
-        onProtocolProgress(selectedCondition, completedCount, protocol.steps.length);
+        onProtocolProgress(selectedCondition, completedCount, protocol?.steps.length ?? 0);
       }
       return next;
     });
@@ -129,7 +131,8 @@ export function ConditionProtocolSheet({
 
   // Group steps by phase
   const stepsByPhase = useMemo(() => {
-    const phases: Record<string, typeof protocol.steps> = {};
+    if (!protocol) return {} as Record<string, ConditionProtocol['steps']>;
+    const phases: Record<string, ConditionProtocol['steps']> = {};
     for (const step of protocol.steps) {
       if (!phases[step.phase]) phases[step.phase] = [];
       phases[step.phase].push(step);
@@ -145,6 +148,21 @@ export function ConditionProtocolSheet({
     { id: 'anaphylaxis',        label: 'Anaphylaxis',        icon: '⚡', color: 'bg-red-100 text-red-700 border-red-300' },
     { id: 'severe_asthma',      label: 'Severe Asthma',     icon: '🫁', color: 'bg-blue-100 text-blue-700 border-blue-300' },
   ];
+
+  if (!hasValidWeight || !protocol || !progress) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="h-auto p-4">
+          <SheetHeader>
+            <SheetTitle>Verify patient weight</SheetTitle>
+            <SheetDescription>
+              Enter and verify the actual weight before viewing calculated condition-protocol doses. Do not use an estimated or default weight for medication preparation.
+            </SheetDescription>
+          </SheetHeader>
+        </SheetContent>
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

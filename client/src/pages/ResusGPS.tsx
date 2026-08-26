@@ -31,6 +31,7 @@ import { ClinicalContentSafetyFooter } from '@/components/ClinicalContentSafetyF
 import { ClinicalUseDisclaimer } from '@/components/ClinicalUseDisclaimer';
 import { AgeInput } from '@/components/AgeInput';
 import { estimateWeightFromAge, parseAgeString, ageToMonths, type StructuredAge } from '@/lib/resus/age-calculator';
+import { validateResusWeight } from '@/lib/resus/patientDemographics';
 import { DiagnosisCard } from '@/components/DiagnosisCard';
 import { getDoseRationale } from '@/lib/resus/dose-rationale';
 import { DoseRationaleCard } from '@/components/DoseRationaleCard';
@@ -278,7 +279,7 @@ function approximateAgeMonths(age: string | null): number {
 // ─── Main Component ─────────────────────────────────────────
 
 export default function ResusGPS() {
-  const { demographics, setDemographics, getWeightInKg } = usePatientDemographics();
+  const { demographics, setDemographics, clearDemographics, getWeightInKg } = usePatientDemographics();
   const analytics = useResusAnalytics();
   const analyticsRef = useRef(analytics);
   analyticsRef.current = analytics;
@@ -290,7 +291,10 @@ export default function ResusGPS() {
   // ── On mount: check for an unfinished persisted session + last SAMPLE ───────
   useEffect(() => {
     loadPersistedResusSession().then((saved) => {
-      if (saved && saved.phase !== 'IDLE') setResumeCandidate(saved);
+      if (saved && saved.phase !== 'IDLE') {
+        analyticsRef.current.resetSessionId(saved.id);
+        setResumeCandidate(saved);
+      }
     });
     loadLastSampleHistory().then((sample) => {
       if (sample) setPreFillSample(sample);
@@ -453,9 +457,16 @@ export default function ResusGPS() {
 
   const handleStart = (isTrauma: boolean) => {
     trackButtonClick(isTrauma ? 'Start Trauma Assessment' : 'Start Assessment', { isTrauma });
-    const s = createSession(getWeightInKg(), demographics.age || null, isTrauma);
+    const rawWeight = demographics.weight.trim();
+    const weight = getWeightInKg();
+    if (rawWeight && weight === null) {
+      toast.error(validateResusWeight(Number(rawWeight)).message ?? 'Verify the patient weight before starting.');
+      return;
+    }
+    const s = createSession(weight, demographics.age || null, isTrauma);
     const started = startQuickAssessment(s);
     setSession(started);
+    analytics.resetSessionId(started.id);
     setFellowshipSavedSessionId(null);
     setSavedCasesByCondition({});
     timer.reset();
@@ -616,12 +627,26 @@ export default function ResusGPS() {
   };
 
   const handleUpdatePatientInfo = () => {
-    const newWeight = tempWeight ? parseFloat(tempWeight) : null;
+    const rawWeight = tempWeight.trim();
+    const newWeight = rawWeight ? Number(rawWeight) : null;
+    const validation = newWeight === null ? { valid: true as const } : validateResusWeight(newWeight);
+    if (!validation.valid) {
+      toast.error(validation.message ?? 'Verify the patient weight before saving.');
+      return;
+    }
     const newAge = tempAge || null;
     if (newWeight !== null || newAge !== null) {
-      setSession(prev => updatePatientInfo(prev, newWeight, newAge));
-      if (newWeight) setDemographics({ ...demographics, weight: tempWeight, age: tempAge || demographics.age });
-      if (newAge) setDemographics({ ...demographics, age: tempAge, weight: tempWeight || demographics.weight });
+      try {
+        setSession(prev => updatePatientInfo(prev, newWeight, newAge));
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Verify the patient information before saving.');
+        return;
+      }
+      if (newWeight !== null) {
+        setDemographics({ ...demographics, weight: tempWeight, age: tempAge || demographics.age });
+      } else if (newAge) {
+        setDemographics({ ...demographics, age: tempAge, weight: demographics.weight });
+      }
     }
     setPatientInfoOpen(false);
   };
@@ -669,12 +694,14 @@ export default function ResusGPS() {
   }, [serverSampleHistory, preFillSample]);
 
   const enrichSessionForFellowshipCredit = useCallback((s: ResusSession) => {
-    const care = resolveDefinitiveCare(
-      s.definitiveDiagnosis,
-      s.patientWeight ?? 10,
-      s.patientAge,
-      s.concurrentDiagnoses ?? []
-    );
+    const care = s.patientWeight === null
+      ? null
+      : resolveDefinitiveCare(
+          s.definitiveDiagnosis,
+          s.patientWeight,
+          s.patientAge,
+          s.concurrentDiagnoses ?? []
+        );
     return {
       ...s,
       definitiveCareSteps: care?.allSteps,
@@ -716,7 +743,7 @@ export default function ResusGPS() {
         sessionId: activeSession.id,
         primaryDiagnosis,
         patientAgeMonths: approximateAgeMonths(activeSession.patientAge),
-        patientWeightKg: activeSession.patientWeight || 0,
+        patientWeightKg: activeSession.patientWeight ?? undefined,
         isTrauma: activeSession.isTrauma,
         isCardiacArrest: activeSession.phase === 'CARDIAC_ARREST',
         interventionCount: interactionCount,
@@ -876,9 +903,13 @@ export default function ResusGPS() {
 
   const handleDefinitiveCareStepChange = useCallback(
     (stepId: string, status: 'done') => {
+      if (session.patientWeight === null || !validateResusWeight(session.patientWeight).valid) {
+        toast.error('Verify the patient weight before opening calculated definitive-care steps.', { duration: 4000 });
+        return;
+      }
       const care = resolveDefinitiveCare(
         session.definitiveDiagnosis,
-        session.patientWeight ?? 10,
+        session.patientWeight,
         session.patientAge,
         session.concurrentDiagnoses ?? []
       );
@@ -947,7 +978,7 @@ export default function ResusGPS() {
           sessionId: session.id,
           primaryDiagnosis: exportPathway,
           patientAgeMonths: approximateAgeMonths(session.patientAge),
-          patientWeightKg: session.patientWeight || 0,
+          patientWeightKg: session.patientWeight ?? undefined,
           isTrauma: session.isTrauma,
           isCardiacArrest: session.phase === 'CARDIAC_ARREST',
           interventionCount: interactionCount,
@@ -1022,7 +1053,7 @@ export default function ResusGPS() {
             sessionId: session.id,
             primaryDiagnosis: pathway,
             patientAgeMonths: approximateAgeMonths(session.patientAge),
-            patientWeightKg: session.patientWeight || 0,
+            patientWeightKg: session.patientWeight ?? undefined,
             isTrauma: session.isTrauma,
             isCardiacArrest: session.phase === 'CARDIAC_ARREST',
             interventionCount: interactionCount,
@@ -1055,7 +1086,10 @@ export default function ResusGPS() {
       });
     }
 
-    setSession(createSession(getWeightInKg(), demographics.age || null));
+    clearDemographics();
+    const nextSession = createSession(null, null);
+    setSession(nextSession);
+    analytics.resetSessionId(nextSession.id);
     setFellowshipSavedSessionId(null);
     setSavedCasesByCondition({});
     timer.reset();
@@ -1577,6 +1611,7 @@ export default function ResusGPS() {
         onClose={() => setShowCareSignalPrompt(false)}
         diagnosis={careSignalPromptDiagnosis}
         outcome={session.outcome || 'survived'}
+        sessionId={session.id}
       />
 
       {session.phase !== 'IDLE' && (
@@ -1657,9 +1692,10 @@ function TopBar({
 
   return (
     <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border [--resus-topbar-offset:2.75rem]">
-      <div className="container max-w-2xl flex items-center gap-2 py-2">
+      <div className="container max-w-2xl overflow-x-auto overscroll-x-contain">
+        <div className="flex min-w-max items-center gap-2 py-2">
         {/* Timer */}
-        <div className="flex items-center gap-1.5 text-sm font-mono">
+        <div className="flex shrink-0 items-center gap-1.5 text-sm font-mono">
           <Timer className="h-4 w-4 text-muted-foreground" />
           <span className={timer.elapsed > 300 ? 'text-amber-400' : 'text-foreground'}>
             {formatTime(timer.elapsed)}
@@ -1671,7 +1707,7 @@ function TopBar({
         {/* Patient Info (clickable to edit) */}
         <button
           onClick={onOpenPatientInfo}
-          className="flex items-center gap-1 text-sm hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors"
+          className="flex shrink-0 items-center gap-1 text-sm hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors"
         >
           <User className="h-3.5 w-3.5 text-muted-foreground" />
           {weight ? (
@@ -1847,6 +1883,7 @@ function TopBar({
         <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onNewCase}>
           <RotateCcw className="h-4 w-4" />
         </Button>
+              </div>
       </div>
     </div>
   );
@@ -1906,7 +1943,7 @@ function IdleScreen({
           </div>
           {!weight && (
             <p className="text-xs text-amber-400/80 mt-2 text-center">
-              You can start without weight — add it anytime during the case
+              Start the assessment now. Verify actual weight before using any calculated medication dose.
             </p>
           )}
         </CardContent>

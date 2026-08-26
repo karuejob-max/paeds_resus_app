@@ -47,6 +47,7 @@ import {
 } from '@/lib/resus/definitive-care-engine';
 
 import { computeDefinitiveCareStepProgress } from '@shared/definitive-care-completion';
+import { validateResusWeight } from '@/lib/resus/patientDemographics';
 
 import type { ResusSession } from '@/lib/resus/abcdeEngine';
 
@@ -190,25 +191,28 @@ function FallbackStepCard({
 
 export function DefinitiveCarePanel({ session, onStepChange, onComplete }: DefinitiveCarePanelProps) {
 
-  const weight = session.patientWeight ?? 10;
+  const weight = session.patientWeight;
+  const hasValidWeight = weight !== null && validateResusWeight(weight).valid;
 
   const care = useMemo(
 
     () =>
 
-      resolveDefinitiveCare(
+      !hasValidWeight
+        ? null
+        : resolveDefinitiveCare(
 
-        session.definitiveDiagnosis,
+            session.definitiveDiagnosis,
 
-        weight,
+            weight,
 
-        session.patientAge,
+            session.patientAge,
 
-        session.concurrentDiagnoses ?? []
+            session.concurrentDiagnoses ?? []
 
-      ),
+          ),
 
-    [session.definitiveDiagnosis, session.concurrentDiagnoses, weight, session.patientAge]
+    [session.definitiveDiagnosis, session.concurrentDiagnoses, weight, session.patientAge, hasValidWeight]
 
   );
 
@@ -247,6 +251,21 @@ export function DefinitiveCarePanel({ session, onStepChange, onComplete }: Defin
   }, [progress?.isComplete, session.definitiveCareProgress?.completedAt, onComplete]);
 
 
+
+  if (!hasValidWeight) {
+    return (
+      <Card className="border-amber-500/50 bg-amber-500/10">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base text-amber-900 dark:text-amber-100">Verify patient weight</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-amber-900/80 dark:text-amber-100/80">
+            Enter and verify the actual weight before viewing calculated definitive-care doses. Do not use an estimated or default weight for medication preparation.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!care) return null;
 

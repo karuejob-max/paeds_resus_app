@@ -26,6 +26,28 @@ const QUEUE_STORE = 'analyticsQueue';
 const DB_NAME = 'PaedsResusDB';
 const DB_VERSION = 3; // bump to add analyticsQueue store
 
+function createResusAnalyticsSessionId(clinicalSessionId?: string): string {
+  const normalized = clinicalSessionId?.trim();
+  return normalized ? `resus_case_${normalized}` : `resus_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+function getInitialResusAnalyticsSessionId(): string {
+  try {
+    const stored = sessionStorage.getItem('resus_session_id');
+    if (stored) return stored;
+  } catch {
+    // Private browsing or restricted storage; use an in-memory session ID.
+  }
+
+  const nextId = createResusAnalyticsSessionId();
+  try {
+    sessionStorage.setItem('resus_session_id', nextId);
+  } catch {
+    // The in-memory ID remains valid when sessionStorage is unavailable.
+  }
+  return nextId;
+}
+
 function openAnalyticsDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -123,16 +145,18 @@ interface ResusEventData {
 }
 
 export function useResusAnalytics() {
-  const sessionIdRef = useRef<string>(
-    (() => {
-      let sessionId = sessionStorage.getItem('resus_session_id');
-      if (!sessionId) {
-        sessionId = `resus_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        sessionStorage.setItem('resus_session_id', sessionId);
-      }
-      return sessionId;
-    })()
-  );
+  const sessionIdRef = useRef<string>(getInitialResusAnalyticsSessionId());
+
+  const resetSessionId = useCallback((clinicalSessionId?: string): string => {
+    const nextId = createResusAnalyticsSessionId(clinicalSessionId);
+    sessionIdRef.current = nextId;
+    try {
+      sessionStorage.setItem('resus_session_id', nextId);
+    } catch {
+      // sessionStorage may be unavailable in private browsing; the in-memory ID remains valid.
+    }
+    return nextId;
+  }, []);
 
   const trackEventMutation = trpc.events.trackEvent.useMutation();
 
@@ -255,5 +279,6 @@ export function useResusAnalytics() {
 
     // Session info
     getSessionId: () => sessionIdRef.current,
+    resetSessionId,
   };
 }

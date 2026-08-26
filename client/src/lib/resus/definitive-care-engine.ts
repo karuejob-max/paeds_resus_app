@@ -36,7 +36,10 @@ import {
 
 } from './conditionProtocols';
 
-import { getAgeCategory } from './abcdeEngine';
+import { validateResusWeight } from './patientDemographics';
+import {
+  getAgeCategory,
+ } from './abcdeEngine';
 
 
 
@@ -513,6 +516,7 @@ export function resolveDefinitiveCare(
 ): DefinitiveCareContext | null {
 
   if (!diagnosis?.trim()) return null;
+  if (!validateResusWeight(weightKg).valid) return null;
 
 
 
@@ -551,7 +555,7 @@ export function resolveDefinitiveCare(
 
 
   if (protocolId) {
-    let protocol = buildExtendedProtocol(protocolId, weightKg || 10, ageCategory);
+    let protocol = buildExtendedProtocol(protocolId, weightKg, ageCategory);
     protocol = appendCoDiagnosisSteps(protocol, coIds);
 
     const dischargeProtocolSteps: ProtocolStep[] = dischargeSteps.map((s) => ({
