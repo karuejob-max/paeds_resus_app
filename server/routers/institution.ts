@@ -65,6 +65,7 @@ import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, lte, 
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
 import { assertInstitutionAccess, getAdministeredInstitutionIds, countInstitutionAdmins, isInstitutionAdmin } from "../lib/institution-access";
+import { materializeMembershipAndStaff } from "./facility-linking";
 import { assertInstitutionProductCapability, assertWritableProductAccess } from "../lib/institution-entitlements";
 import { asDateOnly, derivePoleRotationDepartmentId, isoWeekMonday, mondayForDate, rotationAnchorForLeadershipWeek } from "../lib/iers-pole-rotation";
 import { classifyShiftInterval } from "../lib/iers-shift-current";
@@ -5042,23 +5043,74 @@ export const institutionRouter = router({
       }
 
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-
-      const status = input.approve ? "linked" : "rejected";
-      const enrollmentStatus = input.approve ? "enrolled" : "dropped";
-
-      await db
-        .update(institutionalStaffMembers)
-        .set({
-          facilityLinkStatus: status,
-          enrollmentStatus: enrollmentStatus,
-          updatedAt: new Date()
-        })
+      const [staff] = await db
+        .select()
+        .from(institutionalStaffMembers)
         .where(and(
           eq(institutionalStaffMembers.id, input.staffMemberId),
-          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId)
-        ));
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+        ))
+        .limit(1);
+      if (!staff) throw new TRPCError({ code: "NOT_FOUND", message: "Institution staff member not found." });
+      if (staff.removedAt) throw new TRPCError({ code: "CONFLICT", message: "This provider has been retired from the institution." });
 
-      return { success: true, status };
+      if (!input.approve) {
+        await db.transaction(async (tx) => {
+          await tx.update(institutionalStaffMembers).set({ facilityLinkStatus: "rejected", enrollmentStatus: "dropped", updatedAt: new Date() }).where(eq(institutionalStaffMembers.id, staff.id));
+          await tx.insert(institutionalActionLogs).values({
+            institutionalAccountId: input.institutionId,
+            createdByUserId: ctx.user.id,
+            gapIdentified: `${staff.staffEmail} requested a facility link and the administrator rejected it.`,
+            systemChange: "FACILITY_LINK_REQUEST_REJECTED",
+            status: "completed",
+            notes: JSON.stringify({ staffMemberId: staff.id, legacy: true }),
+          });
+        });
+        return { success: true as const, status: "rejected" as const };
+      }
+
+      if (staff.userId == null) {
+        await db.update(institutionalStaffMembers).set({ facilityLinkStatus: "linked", enrollmentStatus: "enrolled", updatedAt: new Date() }).where(eq(institutionalStaffMembers.id, staff.id));
+        return { success: true as const, status: "linked" as const, membershipId: null };
+      }
+
+      const [provider] = await db
+        .select({ name: users.name, phone: users.phone, providerType: users.providerType, email: users.email })
+        .from(users)
+        .where(eq(users.id, staff.userId))
+        .limit(1);
+      if (!provider) throw new TRPCError({ code: "NOT_FOUND", message: "The provider account no longer exists." });
+      const result = await db.transaction(async (tx) => {
+        const materialized = await materializeMembershipAndStaff(tx, {
+          institutionId: input.institutionId,
+          userId: staff.userId!,
+          email: provider.email?.trim().toLowerCase() || staff.staffEmail.trim().toLowerCase(),
+          name: provider.name?.trim() || staff.staffName,
+          phone: provider.phone ?? staff.staffPhone ?? null,
+          providerType: provider.providerType,
+          department: staff.department,
+          facilityDepartmentId: staff.facilityDepartmentId,
+          staffMemberId: staff.id,
+        });
+        await tx.insert(institutionalActionLogs).values({
+          institutionalAccountId: input.institutionId,
+          createdByUserId: ctx.user.id,
+          gapIdentified: `${staff.staffEmail} had a legacy pending facility link reviewed by an administrator.`,
+          systemChange: "FACILITY_LINK_MEMBERSHIP_REPAIRED",
+          status: "completed",
+          notes: JSON.stringify({ staffMemberId: staff.id, membershipId: materialized.membershipId, legacy: true }),
+        });
+        return materialized;
+      });
+      await db.insert(inAppNotifications).values({
+        userId: staff.userId!,
+        type: "facility_membership",
+        title: "Facility relationship approved",
+        body: "Your general institutional membership is active. IERS duties still require separate assignment and acceptance.",
+        relatedId: staff.id,
+        actionUrl: "/records",
+      }).catch(() => undefined);
+      return { success: true as const, status: "linked" as const, ...result };
     }),
 
   /** Institution account admin: explicitly restore a retired staff record as an institution-linked general staff member. */

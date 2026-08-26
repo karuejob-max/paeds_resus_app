@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ArrowLeft, Award, Building2, Download, FileText, Loader2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
+import { ProviderFacilityLinkingCard } from "@/components/ProviderFacilityLinkingCard";
 
 function daysUntil(value: Date | string | null | undefined) {
   if (!value) return null;
@@ -154,8 +155,10 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
           </CardContent>
         </Card>
 
+        <ProviderFacilityLinkingCard />
+
         <Card className="border-teal-200 bg-white">
-          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Building2 className="h-5 w-5 text-teal-700" />Facility relationships</CardTitle><CardDescription>Review the hospitals linked to your account. Facility membership does not automatically create an IERS duty.</CardDescription></CardHeader>
+          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Building2 className="h-5 w-5 text-teal-700" />Current facility memberships</CardTitle><CardDescription>Review the hospitals linked to your account. Facility membership does not automatically create an IERS duty.</CardDescription></CardHeader>
           <CardContent className="space-y-2">
             {activeMemberships.length > 0 ? activeMemberships.map((membership) => <div key={membership.id} className="rounded-lg border border-teal-100 p-3"><p className="text-sm font-medium text-slate-900">{membership.companyName}</p><p className="mt-1 text-xs text-slate-500">{[membership.department, membership.staffRole, membership.responsibilityRole].filter(Boolean).join(" · ") || "Active institutional membership"}</p></div>) : <p className="text-sm text-slate-500">No active facility relationship is linked yet.</p>}
           </CardContent>

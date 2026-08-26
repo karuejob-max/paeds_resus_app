@@ -70,6 +70,7 @@ import { parentSafeTruthRouter } from "./routers/parent-safetruth";
 import { safeTruthV1Router } from "./routers/safe-truth-v1";
 import { adminStatsRouter } from "./routers/admin-stats";
 import { facilitiesRouter } from "./routers/facilities";
+import { facilityLinkingRouter } from "./routers/facility-linking";
 import { referralsRouter } from "./routers/referrals";
 import { institutionRouter } from "./routers/institution";
 import { institutionAdminsRouter } from "./routers/institution-admins";
@@ -496,6 +497,7 @@ export const appRouter = router({
   adminStats: adminStatsRouter,
   adminLearning: adminLearningRouter,
   facilities: facilitiesRouter,
+  facilityLinking: facilityLinkingRouter,
   fpkb: fpkbRouter,
   referrals: referralsRouter,
   institution: institutionRouter,

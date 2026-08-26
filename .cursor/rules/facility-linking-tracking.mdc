@@ -1,0 +1,28 @@
+---
+description: Track the individual-to-registered-facility linking initiative safely across agents
+globs:
+  - "server/routers/facility-linking.ts"
+  - "server/services/facility-linking.service.ts"
+  - "client/src/components/FacilityLinking*"
+  - "client/src/pages/ProviderRecords.tsx"
+  - "client/src/components/PendingLinkRequestsWidget.tsx"
+  - "drizzle/schema.ts"
+  - "scripts/apply-0124-*"
+  - "docs/INDIVIDUAL_FACILITY_LINKING_*"
+---
+
+Before starting work in these paths:
+
+1. Read `docs/INDIVIDUAL_FACILITY_LINKING_SPEC.md` and `docs/INDIVIDUAL_FACILITY_LINKING_EXECUTION_PLAN.md`.
+2. Read `docs/WORK_STATUS.md`, `docs/PLATFORM_SOURCE_OF_TRUTH.md`, and `AGENTS.md`.
+3. Run `git fetch origin main` and confirm which task is marked In progress and which branch owns it.
+4. Do not duplicate an existing request, approval, invitation, CPD-link, or IERS-duty implementation.
+5. Do not edit `drizzle/schema.ts`, `package.json`, `docs/WORK_STATUS.md`, or `AGENTS.md` without checking the shared-file collision protocol and the remote migration reservation.
+
+When finishing work:
+
+1. Run the focused checks for the files changed.
+2. Update the execution plan with status, agent, date, and evidence.
+3. Add a concise `WORK_STATUS.md` entry or critique when the task is complete or a collision is found.
+4. Commit and push to the owned feature branch. Never push directly to `main`.
+5. Before PR creation or merge, re-fetch `origin/main` and verify the intended shared-file lines survived.
