@@ -10,6 +10,7 @@ import {
   buildSevereAnaemiaProtocol,
   buildAcuteKidneyInjuryProtocol,
 } from './fellowship-definitive-protocols';
+import { validateResusWeight } from './patientDemographics';
 
 /**
  * conditionProtocols.ts
@@ -1467,6 +1468,11 @@ export function buildExtendedProtocol(
   weight: number,
   ageCategory: string
 ): ConditionProtocol {
+  const validation = validateResusWeight(weight);
+  if (!validation.valid) {
+    throw new RangeError(validation.message);
+  }
+
   switch (id) {
     case 'septic_shock':       return buildSepticShockProtocol(weight, ageCategory);
     case 'status_epilepticus': return buildStatusEpilepticusProtocol(weight, ageCategory);
