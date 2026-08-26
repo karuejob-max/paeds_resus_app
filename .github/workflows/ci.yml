@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  # Allows protected-branch re-verification when a PR event is delayed.
   workflow_dispatch:
   push:
     branches: [main, develop]
