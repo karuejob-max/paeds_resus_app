@@ -8,7 +8,7 @@
  * The runner intentionally delegates each step to the repository's existing
  * scripts so their idempotency, SSL configuration, and error handling remain
  * the source of truth. It stops immediately on any failed step, including the department governance and deterministic pole-order migration 0116,
- * plus member-removal audit and multi-pole ordering migration 0117, exact UTL shift-time migration 0118, versioned shift-team role migration 0119, governed UTL readiness checklist migration 0120, targeted ERT role-report migration 0121, activation case-link migration 0122, notification persistence migration 0123, and explicit facility-membership request migration 0124.
+ * plus member-removal audit and multi-pole ordering migration 0117, exact UTL shift-time migration 0118, versioned shift-team role migration 0119, governed UTL readiness checklist migration 0120, targeted ERT role-report migration 0121, activation case-link migration 0122, notification persistence migration 0123, explicit facility-membership request migration 0124, and durable user notification preferences migration 0125.
 
  */
 import { spawn } from "node:child_process";
@@ -46,6 +46,7 @@ const steps = [
   "db:apply-0122",
   "db:apply-0123",
   "db:apply-0124",
+  "db:apply-0125",
   "db:verify-iers",
 ];
 

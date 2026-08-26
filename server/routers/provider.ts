@@ -172,18 +172,26 @@ export const providerRouter = router({
       const db = await getDb();
       if (!db) throw new Error("Database connection failed");
 
-      // Calculate completion percentage
-      let completionPercentage = 0;
+      const [existingProfile] = await db
+        .select()
+        .from(providerProfiles)
+        .where(eq(providerProfiles.userId, ctx.user.id))
+        .limit(1);
+
+      // Calculate completion from the merged persisted profile. Dedicated workplace
+      // edits must not make professional-profile completion fall backward merely
+      // because they do not resubmit unchanged facility context.
+      const mergedProfile = { ...existingProfile, ...input };
       const fields = [
-        input.licenseNumber,
-        input.specialization,
-        input.yearsOfExperience,
-        input.facilityId ?? input.facilityName,
-        input.facilityType,
-        input.facilityRegion,
-        input.bio,
+        mergedProfile.licenseNumber,
+        mergedProfile.specialization,
+        mergedProfile.yearsOfExperience,
+        mergedProfile.facilityId ?? mergedProfile.facilityName,
+        mergedProfile.facilityType,
+        mergedProfile.facilityRegion,
+        mergedProfile.bio,
       ];
-      completionPercentage = Math.round((fields.filter(f => f !== undefined && f !== null).length / fields.length) * 100);
+      const completionPercentage = Math.round((fields.filter(f => f !== undefined && f !== null && f !== "").length / fields.length) * 100);
 
       const updateData: any = {
         ...input,

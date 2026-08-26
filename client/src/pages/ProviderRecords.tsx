@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ArrowLeft, Award, Building2, Download, FileText, Loader2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
-import { ProviderFacilityLinkingCard } from "@/components/ProviderFacilityLinkingCard";
 
 function daysUntil(value: Date | string | null | undefined) {
   if (!value) return null;
@@ -155,7 +154,10 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
           </CardContent>
         </Card>
 
-        <ProviderFacilityLinkingCard />
+        <Card className="border-teal-200 bg-white">
+          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Building2 className="h-5 w-5 text-teal-700" />Workplace relationships</CardTitle><CardDescription>Requests and institution memberships are managed in one dedicated access surface so facility context is not confused with professional evidence.</CardDescription></CardHeader>
+          <CardContent><Button type="button" variant="outline" className="w-full justify-between" onClick={() => setLocation("/workplaces")}>Open Workplaces &amp; access <ArrowRightIcon /></Button></CardContent>
+        </Card>
 
         <Card className="border-teal-200 bg-white">
           <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Building2 className="h-5 w-5 text-teal-700" />Current facility memberships</CardTitle><CardDescription>Review the hospitals linked to your account. Facility membership does not automatically create an IERS duty.</CardDescription></CardHeader>
@@ -165,8 +167,8 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
         </Card>
 
         <Card className="border-slate-200 bg-white">
-          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><UserRound className="h-5 w-5 text-slate-700" />Profile and account</CardTitle><CardDescription>Keep your name, cadre, department, facility relationship, and account details current.</CardDescription></CardHeader>
-          <CardContent className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => setLocation("/provider-profile")}>Open profile</Button><Button type="button" variant="outline" onClick={() => setLocation("/account")}>Account settings</Button></CardContent>
+          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><UserRound className="h-5 w-5 text-slate-700" />Identity and access</CardTitle><CardDescription>Professional identity belongs in your profile; sign-in identity and security belong in Account &amp; security.</CardDescription></CardHeader>
+          <CardContent className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => setLocation("/provider-profile")}>Professional profile</Button><Button type="button" variant="outline" onClick={() => setLocation("/workplaces")}>Workplaces &amp; access</Button><Button type="button" variant="outline" onClick={() => setLocation("/account")}>Account &amp; security</Button></CardContent>
         </Card>
       </div>
       {feedbackState ? <CertificateDownloadFeedbackDialog open={true} onOpenChange={(open) => { if (!open) setFeedbackState(null); }} certificateId={feedbackState.certificateId} courseLabel={feedbackState.courseLabel} onFeedbackSaved={() => { const sourceCertificateId = feedbackState.sourceCertificateId; setFeedbackState(null); const certificate = certificates.find((item) => item.id === sourceCertificateId); if (certificate) handleDownload(certificate); }} /> : null}

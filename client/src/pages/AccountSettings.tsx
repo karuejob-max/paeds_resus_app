@@ -5,21 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  SelectGroup,
-  SelectLabel,
-  SelectSeparator,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import type { PhoneCountryMode } from "@shared/user-phone";
 import { normalizeUserPhone } from "@shared/user-phone";
-import CadreProgressiveSelector from "@/components/CadreProgressiveSelector";
-import { ALL_STANDARD_SPECIALTIES } from "@/lib/cadre-taxonomy";
 
 export default function AccountSettings() {
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
@@ -27,9 +16,6 @@ export default function AccountSettings() {
   const [name, setName] = useState("");
   const [phoneMode, setPhoneMode] = useState<PhoneCountryMode>("ke");
   const [phoneValue, setPhoneValue] = useState("");
-  const [cadre, setCadre] = useState("");
-  const [cadreOther, setCadreOther] = useState("");
-  const [customOther, setCustomOther] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -39,32 +25,6 @@ export default function AccountSettings() {
   useEffect(() => {
     if (!user) return;
     setName(user.name?.trim() ?? "");
-    const uCadre = (user as any).cadre ?? "";
-    setCadre(uCadre);
-
-    const cOther = (user as any).cadreOther ?? "";
-    const isStandardSub = ALL_STANDARD_SPECIALTIES.includes(cOther);
-
-    if (
-      cOther &&
-      !isStandardSub &&
-      [
-        "Consultant Physician",
-        "MSN",
-        "HND",
-        "Consultant Physician Student",
-        "MSN Student",
-        "HND Student",
-        "RCO HND",
-      ].includes(uCadre)
-    ) {
-      setCadreOther("Other");
-      setCustomOther(cOther);
-    } else {
-      setCadreOther(cOther);
-      setCustomOther(["Other Staff", "Other Intern", "Other Student"].includes(uCadre) ? cOther : "");
-    }
-
     const p = user.phone?.trim();
     if (p?.startsWith("+254")) {
       setPhoneMode("ke");
@@ -125,15 +85,10 @@ export default function AccountSettings() {
       }
     }
 
-    const isOtherCadre = ["Other Staff", "Other Intern", "Other Student"].includes(cadre);
-    const finalCadreOther = isOtherCadre ? customOther : (cadreOther === "Other" ? customOther : cadreOther);
-
     updateProfile.mutate({
       name: trimmed,
       phoneMode,
       phoneValue: phoneValue.trim() === "" ? "" : phoneValue,
-      cadre: cadre || null,
-      cadreOther: finalCadreOther || null,
     });
   };
 
@@ -151,17 +106,17 @@ export default function AccountSettings() {
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-lg mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Account settings</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Account &amp; security</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Update the name shown on certificates and your sign-in password.
+            Manage the identity and contact details attached to your sign-in, your password, notifications, and privacy requests.
           </p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Your details</CardTitle>
+            <CardTitle>Account identity &amp; contact</CardTitle>
             <CardDescription>
-              Use your full name exactly as you want it on course certificates.
+              Use your full name exactly as you want it on course certificates. Professional cadre and workplace relationships live in their own workspaces.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -204,16 +159,19 @@ export default function AccountSettings() {
                   Leave blank if you prefer not to add a number. We use it for course reminders when you enroll.
                 </p>
               </div>
-              <div className="space-y-2 border-t pt-4">
-                <Label>Professional Cadre</Label>
-                <CadreProgressiveSelector
-                  value={cadre}
-                  onChange={setCadre}
-                  cadreOtherValue={customOther}
-                  onCadreOtherChange={setCustomOther}
-                  subSpecialtyValue={cadreOther}
-                  onSubSpecialtyChange={setCadreOther}
-                />
+              <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900/50 dark:bg-blue-950/20">
+                <p className="text-sm font-medium text-foreground">Professional information belongs in your Professional profile</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Cadre, qualification, department, and workplace relationships affect access and institutional matching. Keep them together in the professional workspace rather than in account security.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link href="/provider-profile">
+                    <Button type="button" variant="outline" size="sm">Open Professional profile</Button>
+                  </Link>
+                  <Link href="/workplaces">
+                    <Button type="button" variant="ghost" size="sm">Manage workplaces</Button>
+                  </Link>
+                </div>
               </div>
 
               <p className="text-xs text-muted-foreground">Email: {user.email}</p>
@@ -221,6 +179,21 @@ export default function AccountSettings() {
                 {updateProfile.isPending ? "Saving…" : "Save details"}
               </Button>
             </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Notifications and privacy</CardTitle>
+            <CardDescription>Manage alerts and access the platform’s privacy controls separately from your professional identity.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Link href="/account/notifications">
+              <Button type="button" variant="outline">Notification preferences</Button>
+            </Link>
+            <Link href="/legal/data-request">
+              <Button type="button" variant="ghost">Privacy and data requests</Button>
+            </Link>
           </CardContent>
         </Card>
 

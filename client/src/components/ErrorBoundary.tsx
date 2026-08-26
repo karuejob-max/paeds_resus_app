@@ -11,6 +11,11 @@ interface State {
   error: Error | null;
 }
 
+function isRecoverableRouteError(error: Error | null) {
+  const message = error?.message ?? "";
+  return /chunk|dynamically imported module|failed to fetch dynamically imported module|loading css/i.test(message);
+}
+
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -31,13 +36,21 @@ class ErrorBoundary extends Component<Props, State> {
               className="text-destructive mb-6 flex-shrink-0"
             />
 
-            <h2 className="text-xl mb-4">An unexpected error occurred.</h2>
+            <h2 className="text-xl mb-4">
+              {isRecoverableRouteError(this.state.error) ? "This page needs a fresh reload." : "An unexpected error occurred."}
+            </h2>
 
-            <div className="p-4 w-full rounded bg-muted overflow-auto mb-6">
-              <pre className="text-sm text-muted-foreground whitespace-break-spaces">
-                {this.state.error?.stack}
-              </pre>
-            </div>
+            {isRecoverableRouteError(this.state.error) ? (
+              <p className="mb-6 max-w-xl text-center text-sm text-muted-foreground">
+                The platform received a new page bundle while you were navigating. Reloading is safe and will not change your account or clinical records.
+              </p>
+            ) : (
+              <div className="p-4 w-full rounded bg-muted overflow-auto mb-6">
+                <pre className="text-sm text-muted-foreground whitespace-break-spaces">
+                  {this.state.error?.stack}
+                </pre>
+              </div>
+            )}
 
             <button
               onClick={() => window.location.reload()}
@@ -48,7 +61,7 @@ class ErrorBoundary extends Component<Props, State> {
               )}
             >
               <RotateCcw size={16} />
-              Reload Page
+              {isRecoverableRouteError(this.state.error) ? "Reload page" : "Reload Page"}
             </button>
           </div>
         </div>

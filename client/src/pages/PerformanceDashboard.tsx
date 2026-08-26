@@ -54,7 +54,7 @@ export function PerformanceDashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-foreground">Performance Dashboard</h1>
-              <p className="text-muted-foreground mt-1">Track your performance metrics and compete on leaderboards</p>
+              <p className="text-muted-foreground mt-1">Review personal performance insight and activity. Comparative views are shown only when the underlying cohort and denominator are meaningful.</p>
             </div>
 
             <div className="flex items-center gap-3">
@@ -161,7 +161,7 @@ export function PerformanceDashboard() {
                 <div className="text-center py-8">
                   <p className="text-muted-foreground mb-3">No performance data available yet</p>
                   <p className="text-sm text-muted-foreground mb-4">Start using ResusGPS to track your performance metrics</p>
-                  <a href="/resus-gps" className="inline-block px-4 py-2 bg-brand-orange text-white rounded-md text-sm hover:opacity-90 transition">
+                  <a href="/resus" className="inline-block px-4 py-2 bg-brand-orange text-white rounded-md text-sm hover:opacity-90 transition">
                     Go to ResusGPS
                   </a>
                 </div>

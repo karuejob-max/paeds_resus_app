@@ -35,6 +35,15 @@ describe("platform-search-index", () => {
     expect(results.some((r) => r.id === "micro-dka-i")).toBe(true);
   });
 
+  it("exposes the redesigned account and workplace destinations", () => {
+    const provider = { isAuthenticated: true, isAdmin: false, role: "provider" as const };
+    const results = filterPlatformSearchItems(index, "workplace", provider);
+    expect(results.some((r) => r.id === "workplaces" && r.href === "/workplaces")).toBe(true);
+    expect(index.some((i) => i.id === "my-performance" && i.href === "/performance-dashboard")).toBe(true);
+    expect(index.some((i) => i.id === "notification-preferences" && i.href === "/account/notifications")).toBe(true);
+    expect(index.some((i) => i.id === "account" && i.label === "Account & security")).toBe(true);
+  });
+
   it("shows ResusGPS for provider search", () => {
     const provider = { isAuthenticated: true, isAdmin: false, role: "provider" as const };
     const results = filterPlatformSearchItems(index, "ResusGPS", provider);

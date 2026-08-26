@@ -1,8 +1,14 @@
 import { adminProcedure, router, protectedProcedure } from "../_core/trpc";
 import { z } from "zod";
-import { notificationService } from "../notifications";
+import { notificationService, type NotificationPreferences } from "../notifications";
 import { getDb } from "../db";
-import { analyticsEvents, microCourseEnrollments, microCourses, users } from "../../drizzle/schema";
+import {
+  analyticsEvents,
+  microCourseEnrollments,
+  microCourses,
+  userNotificationPreferences,
+  users,
+} from "../../drizzle/schema";
 import { and, desc, eq, gte, inArray, isNotNull, ne } from "drizzle-orm";
 import { trackEvent } from "../services/analytics.service";
 import { sendRecommendationNotification } from "../services/notification.service";
@@ -28,6 +34,56 @@ type LifecycleDispatchResult = {
 };
 
 const CHANNEL_RETRY_MAX_ATTEMPTS = 2;
+
+const DEFAULT_NOTIFICATION_PREFERENCES: Omit<NotificationPreferences, "userId"> = {
+  emailNotifications: true,
+  smsNotifications: true,
+  pushNotifications: true,
+  enrollmentAlerts: true,
+  paymentAlerts: true,
+  certificateAlerts: true,
+  courseUpdates: true,
+  quizReminders: true,
+  achievementNotifications: true,
+};
+
+async function getDurableNotificationPreferences(userId: number): Promise<NotificationPreferences> {
+  const db = await getDb();
+  if (!db) return notificationService.getPreferences(userId);
+  try {
+    const [row] = await db
+      .select()
+      .from(userNotificationPreferences)
+      .where(eq(userNotificationPreferences.userId, userId))
+      .limit(1);
+    const preferences: NotificationPreferences = row
+      ? { ...DEFAULT_NOTIFICATION_PREFERENCES, ...row, userId }
+      : { ...DEFAULT_NOTIFICATION_PREFERENCES, userId };
+    notificationService.setPreferences(userId, preferences);
+    return preferences;
+  } catch {
+    return notificationService.getPreferences(userId);
+  }
+}
+
+async function saveDurableNotificationPreferences(
+  userId: number,
+  input: Partial<Omit<NotificationPreferences, "userId">>
+): Promise<NotificationPreferences> {
+  const db = await getDb();
+  if (db) {
+    try {
+      await db
+        .insert(userNotificationPreferences)
+        .values({ userId, ...DEFAULT_NOTIFICATION_PREFERENCES, ...input })
+        .onDuplicateKeyUpdate({ set: { ...input, updatedAt: new Date() } });
+    } catch {
+      // Keep the existing in-memory fallback available during a rolling deploy.
+    }
+  }
+  notificationService.setPreferences(userId, input);
+  return getDurableNotificationPreferences(userId);
+}
 const CHANNEL_RETRY_BACKOFF_SECONDS = [60];
 const CHANNEL_DEGRADATION_WINDOW_HOURS = 24;
 const CHANNEL_DEGRADATION_MIN_ATTEMPTS = 20;
@@ -220,7 +276,7 @@ async function dispatchLifecycleNudgesForUser(input: {
           .limit(1)
       )[0]
     : null;
-  const preferences = notificationService.getPreferences(input.userId);
+  const preferences = await getDurableNotificationPreferences(input.userId);
 
   const nudges = (await computeLifecycleNudgesForUser(input.userId)).slice(0, input.limit);
   if (!nudges.length) {
@@ -819,8 +875,8 @@ export const notificationsRouter = router({
   /**
    * Get notification preferences
    */
-  getPreferences: protectedProcedure.query(({ ctx }) => {
-    const preferences = notificationService.getPreferences(ctx.user.id);
+  getPreferences: protectedProcedure.query(async ({ ctx }) => {
+    const preferences = await getDurableNotificationPreferences(ctx.user.id);
     return {
       success: true,
       preferences,
@@ -875,12 +931,12 @@ export const notificationsRouter = router({
         achievementNotifications: z.boolean().optional(),
       })
     )
-    .mutation(({ input, ctx }) => {
-      notificationService.setPreferences(ctx.user.id, input);
+    .mutation(async ({ input, ctx }) => {
+      const preferences = await saveDurableNotificationPreferences(ctx.user.id, input);
       return {
         success: true,
         message: "Preferences updated successfully",
-        preferences: notificationService.getPreferences(ctx.user.id),
+        preferences,
       };
     }),
 });

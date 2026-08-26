@@ -1,396 +1,72 @@
-import React, { useState } from "react";
-import { trpc } from "@/lib/trpc";
+import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertCircle, TrendingUp } from "lucide-react";
 import { ProviderProfileForm } from "@/components/ProviderProfileForm";
-import { AlertCircle, CheckCircle2, TrendingUp, Users, Award, DollarSign } from "lucide-react";
+import { ProfessionalIdentityCard } from "@/components/ProfessionalIdentityCard";
 
 export default function ProviderProfile() {
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
-  const [activeTab, setActiveTab] = useState("profile");
-
   const profileQuery = trpc.provider.getProfile.useQuery();
-  const dashboardQuery = trpc.provider.getDashboard.useQuery();
-  const statsQuery = trpc.provider.getProviderStats.useQuery();
 
-  if (loading || profileQuery.isLoading || dashboardQuery.isLoading) {
+  if (loading || profileQuery.isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading profile...</p>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600" />
+          <p className="text-muted-foreground">Loading professional profile…</p>
         </div>
       </div>
     );
   }
 
   const profile = profileQuery.data;
-  const dashboard = dashboardQuery.data;
-  const stats = statsQuery.data;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">{user?.name || "Provider Profile"}</h1>
-          <div className="flex flex-wrap gap-2 items-center mt-2 text-sm text-gray-600">
-            <span>Manage your professional profile and view your performance metrics</span>
-            {profile?.department && (
-              <>
-                <span className="text-gray-300">|</span>
-                <span className="font-semibold text-blue-600 bg-blue-50/80 px-2.5 py-0.5 rounded-full border border-blue-100 dark:border-blue-900/30 dark:bg-blue-950/20 dark:text-blue-400">
-                  {profile.department}
-                </span>
-              </>
-            )}
-          </div>
+    <div className="min-h-screen bg-muted/30 p-4 md:p-8">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Professional profile</h1>
+          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+            Keep your professional identity, qualifications, and provider information accurate. Account security and workplace access are managed separately so one field is not mistaken for another.
+          </p>
+          {profile?.department ? (
+            <p className="mt-2 text-sm font-medium text-primary">Current workplace department: {profile.department}</p>
+          ) : null}
         </div>
 
-        {/* Profile Completion Status */}
-        {profile && (profile.profileCompletionPercentage ?? 0) < 100 && (
-          <Card className="mb-6 border-yellow-200 bg-yellow-50">
-            <CardContent className="pt-6">
-              <div className="flex items-start gap-4">
-                <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="font-semibold text-yellow-900">Complete Your Profile</h3>
-                  <p className="text-sm text-yellow-800 mt-1">
-                    Your profile is {profile.profileCompletionPercentage ?? 0}% complete. Complete your profile to unlock all features.
-                  </p>
-                  <div className="w-full bg-yellow-200 rounded-full h-2 mt-3">
-                    <div
-                      className="bg-yellow-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${profile.profileCompletionPercentage ?? 0}%` }}
-                    ></div>
-                  </div>
-                </div>
+        {profile && (profile.profileCompletionPercentage ?? 0) < 100 ? (
+          <Card className="border-amber-200 bg-amber-50/60 dark:border-amber-900/50 dark:bg-amber-950/20">
+            <CardContent className="flex items-start gap-3 pt-6">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+              <div>
+                <h2 className="font-semibold text-amber-950 dark:text-amber-100">Complete your professional profile</h2>
+                <p className="mt-1 text-sm text-amber-900/80 dark:text-amber-100/80">
+                  Your profile is {profile.profileCompletionPercentage ?? 0}% complete. Completing it improves matching and learning context; it does not grant institutional duties or emergency dispatch authority.
+                </p>
               </div>
             </CardContent>
           </Card>
-        )}
+        ) : null}
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="comparison">Peer Comparison</TabsTrigger>
-          </TabsList>
+        <ProfessionalIdentityCard />
+        <ProviderProfileForm />
 
-          {/* Profile Tab */}
-          <TabsContent value="profile" className="space-y-6">
-            <ProviderProfileForm />
-          </TabsContent>
-
-          {/* Performance Tab */}
-          <TabsContent value="performance" className="space-y-6">
-            {dashboard && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Lives Saved */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium text-gray-600">Lives Saved</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold text-green-600">
-                        {dashboard.currentMetrics.livesSavedCount}
-                      </span>
-                      <span className="text-xs text-gray-500">this month</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Diagnostic Accuracy */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium text-gray-600">Diagnostic Accuracy</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold text-blue-600">
-                        {Number(dashboard.currentMetrics.diagnosticAccuracy || 0).toFixed(1)}%
-                      </span>
-                      <span className="text-xs text-gray-500">accuracy</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Decision Speed */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium text-gray-600">Avg Decision Time</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold text-purple-600">
-                        {dashboard.currentMetrics.avgDecisionTime}
-                      </span>
-                      <span className="text-xs text-gray-500">seconds</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Earnings */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium text-gray-600">Earnings</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold text-orange-600">
-                        KES {((dashboard.currentMetrics.earnings ?? 0) / 100).toLocaleString()}
-                      </span>
-                      <span className="text-xs text-gray-500">this month</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {/* Detailed Metrics */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Monthly Performance Metrics</CardTitle>
-                <CardDescription>Your performance this month</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm font-medium">Protocol Adherence</span>
-                        <span className="text-sm font-semibold">
-                          {Number(dashboard?.currentMetrics.protocolAdherence || 0).toFixed(1)}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-green-600 h-2 rounded-full"
-                          style={{ width: `${Number(dashboard?.currentMetrics.protocolAdherence || 0)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm font-medium">Patient Survival Rate</span>
-                        <span className="text-sm font-semibold">
-                          {Number(dashboard?.currentMetrics.patientSurvivalRate || 0).toFixed(1)}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{ width: `${Number(dashboard?.currentMetrics.patientSurvivalRate || 0)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Patients Monitored</span>
-                      <span className="text-2xl font-bold">
-                        {dashboard?.currentMetrics.patientsMonitoredCount}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Decisions Logged</span>
-                      <span className="text-2xl font-bold">
-                        {dashboard?.currentMetrics.decisionsLogged}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Courses Completed</span>
-                      <span className="text-2xl font-bold">
-                        {dashboard?.currentMetrics.coursesCompleted}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Peer Comparison Tab */}
-          <TabsContent value="comparison" className="space-y-6">
-            {stats && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Diagnostic Accuracy Comparison */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Diagnostic Accuracy</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm">Your Accuracy</span>
-                        <span className="font-semibold">{stats.comparison.diagnosticAccuracy.mine}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{ width: `${Math.min(stats.comparison.diagnosticAccuracy.mine, 100)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm">Peer Average</span>
-                        <span className="font-semibold">{stats.comparison.diagnosticAccuracy.peers}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-gray-400 h-2 rounded-full"
-                          style={{ width: `${Math.min(stats.comparison.diagnosticAccuracy.peers, 100)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="w-4 h-4 text-green-600" />
-                        <span className="text-sm">
-                          You're {stats.comparison.diagnosticAccuracy.percentile > 0 ? "above" : "below"} average by{" "}
-                          <strong>{Math.abs(stats.comparison.diagnosticAccuracy.percentile)}%</strong>
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Decision Speed Comparison */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Decision Speed</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm">Your Speed</span>
-                        <span className="font-semibold">{stats.comparison.decisionSpeed.mine}s</span>
-                      </div>
-                      <p className="text-xs text-gray-500">Lower is better</p>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm">Peer Average</span>
-                        <span className="font-semibold">{stats.comparison.decisionSpeed.peers}s</span>
-                      </div>
-                      <p className="text-xs text-gray-500">Lower is better</p>
-                    </div>
-
-                    <div className="pt-2 border-t">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="w-4 h-4 text-green-600" />
-                        <span className="text-sm">
-                          You're {stats.comparison.decisionSpeed.percentile > 0 ? "faster" : "slower"} by{" "}
-                          <strong>{Math.abs(stats.comparison.decisionSpeed.percentile)}%</strong>
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Protocol Adherence Comparison */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Protocol Adherence</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm">Your Adherence</span>
-                        <span className="font-semibold">{stats.comparison.protocolAdherence.mine}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-green-600 h-2 rounded-full"
-                          style={{ width: `${Math.min(stats.comparison.protocolAdherence.mine, 100)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm">Peer Average</span>
-                        <span className="font-semibold">{stats.comparison.protocolAdherence.peers}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-gray-400 h-2 rounded-full"
-                          style={{ width: `${Math.min(stats.comparison.protocolAdherence.peers, 100)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t">
-                      <div className="flex items-center gap-2">
-                        <Award className="w-4 h-4 text-blue-600" />
-                        <span className="text-sm">
-                          You're {stats.comparison.protocolAdherence.percentile > 0 ? "above" : "below"} average by{" "}
-                          <strong>{Math.abs(stats.comparison.protocolAdherence.percentile)}%</strong>
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Patient Survival Rate Comparison */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Patient Survival Rate</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm">Your Survival Rate</span>
-                        <span className="font-semibold">{stats.comparison.patientSurvivalRate.mine}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-red-600 h-2 rounded-full"
-                          style={{ width: `${Math.min(stats.comparison.patientSurvivalRate.mine, 100)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm">Peer Average</span>
-                        <span className="font-semibold">{stats.comparison.patientSurvivalRate.peers}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-gray-400 h-2 rounded-full"
-                          style={{ width: `${Math.min(stats.comparison.patientSurvivalRate.peers, 100)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-green-600" />
-                        <span className="text-sm">
-                          You're {stats.comparison.patientSurvivalRate.percentile > 0 ? "above" : "below"} average by{" "}
-                          <strong>{Math.abs(stats.comparison.patientSurvivalRate.percentile)}%</strong>
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" /> My performance</CardTitle>
+            <CardDescription>
+              Performance analytics are separate from professional identity. They are personal insight, not a public ranking or proof of competency.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/performance-dashboard">
+              <Button type="button" variant="outline">Open My performance</Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
