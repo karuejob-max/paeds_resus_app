@@ -5,6 +5,8 @@ import { ensureHeartsaverCatalog } from "../server/lib/ensure-heartsaver-catalog
 import { ensurePalsAhaCatalog } from "../server/lib/ensure-pals-aha-catalog";
 import { ensureNrpCatalog } from "../server/lib/ensure-nrp-catalog";
 import { ensureInstructorCourseCatalog } from "../server/lib/ensure-instructor-course-catalog";
+import { ensureAhaDiagnosticQuiz } from "../server/lib/ensure-aha-diagnostic-quiz";
+import { AHA_DIAGNOSTIC_PROGRAMS } from "../server/data/aha-diagnostic-banks";
 import { resolveAhaCourseAnchor } from "../server/lib/resolve-aha-course-anchor";
 
 async function main() {
@@ -26,8 +28,22 @@ async function main() {
     else if (program === "nrp") await ensureNrpCatalog(db);
     else if (program === "instructor") await ensureInstructorCourseCatalog(db);
     
-    // This also ensures quizzes
-    await resolveAhaCourseAnchor(db, program);
+    const anchor = await resolveAhaCourseAnchor(db, program);
+    const diagnosticProgram = AHA_DIAGNOSTIC_PROGRAMS.find(
+      (candidate) => candidate === program
+    );
+    if (diagnosticProgram) {
+      if (!anchor?.id) {
+        throw new Error(`[Seed] ${program.toUpperCase()} anchor not found; diagnostic baseline cannot be created.`);
+      }
+      const diagnosticQuizId = await ensureAhaDiagnosticQuiz(db, anchor.id, diagnosticProgram);
+      if (!diagnosticQuizId) {
+        throw new Error(`[Seed] ${program.toUpperCase()} diagnostic baseline could not be created.`);
+      }
+      console.log(
+        `[Seed] ${program.toUpperCase()} diagnostic baseline ensured (quiz ${diagnosticQuizId}).`
+      );
+    }
     console.log(`[Seed] ${program.toUpperCase()} complete.`);
   }
 

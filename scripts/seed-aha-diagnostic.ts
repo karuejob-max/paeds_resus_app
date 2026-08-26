@@ -5,13 +5,14 @@
  */
 import { getDb } from "../server/db";
 import { ensureAhaDiagnosticQuiz } from "../server/lib/ensure-aha-diagnostic-quiz";
+import { AHA_DIAGNOSTIC_PROGRAMS } from "../server/data/aha-diagnostic-banks";
 import {
   ensureAhaProgramCatalog,
   resolveAhaCourseAnchor,
   type AhaAnchorProgramType,
 } from "../server/lib/resolve-aha-course-anchor";
 
-const PROGRAMS: AhaAnchorProgramType[] = ["bls", "acls", "pals", "nrp", "heartsaver"];
+const PROGRAMS: AhaAnchorProgramType[] = [...AHA_DIAGNOSTIC_PROGRAMS];
 
 async function main() {
   const db = await getDb();
