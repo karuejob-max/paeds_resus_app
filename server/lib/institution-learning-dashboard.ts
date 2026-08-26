@@ -22,6 +22,10 @@ type DashboardInput = {
   periodEnd?: string;
 };
 
+function dateOnlyAsDate(value: string): Date {
+  return new Date(`${value}T00:00:00.000Z`);
+}
+
 export function resolveLearningPeriod(input: DashboardInput): LearningPeriod {
   if (input.periodStart && input.periodEnd) {
     return {
@@ -122,8 +126,14 @@ export async function loadInstitutionLearningDashboard(
               institutionId
             ),
             eq(institutionLearningTargets.status, "active"),
-            lte(institutionLearningTargets.periodStart, period.periodEnd),
-            gte(institutionLearningTargets.periodEnd, period.periodStart)
+            lte(
+              institutionLearningTargets.periodStart,
+              dateOnlyAsDate(period.periodEnd)
+            ),
+            gte(
+              institutionLearningTargets.periodEnd,
+              dateOnlyAsDate(period.periodStart)
+            )
           )
         )
         .orderBy(

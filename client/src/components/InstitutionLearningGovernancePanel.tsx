@@ -250,7 +250,10 @@ export default function InstitutionLearningGovernancePanel({
             >
               <option value="">Choose linked staff member</option>
               {linkedStaff.map(person => (
-                <option key={person.userId} value={person.userId}>
+                <option
+                  key={person.userId ?? person.id}
+                  value={person.userId ?? ""}
+                >
                   {person.staffName} · {person.staffRole}
                 </option>
               ))}
@@ -593,7 +596,10 @@ export default function InstitutionLearningGovernancePanel({
                 >
                   <option value="">Choose person</option>
                   {linkedStaff.map(person => (
-                    <option key={person.userId} value={person.userId}>
+                    <option
+                      key={person.userId ?? person.id}
+                      value={person.userId ?? ""}
+                    >
                       {person.staffName}
                     </option>
                   ))}

@@ -33,6 +33,33 @@ export type LearningPeriod = {
   periodEnd: string;
 };
 
+type LearningAttendanceStatus =
+  | "strong"
+  | "on_track"
+  | "needs_support"
+  | "no_data";
+type LearningTargetStatus = "met" | "in_progress" | "needs_support" | "no_data";
+
+function attendanceStatus(
+  eligible: number,
+  attendanceRate: number
+): LearningAttendanceStatus {
+  if (eligible === 0) return "no_data";
+  if (attendanceRate >= 75) return "strong";
+  if (attendanceRate >= 50) return "on_track";
+  return "needs_support";
+}
+
+function targetStatus(
+  targetValue: number,
+  actualValue: number
+): LearningTargetStatus {
+  if (targetValue <= 0) return "no_data";
+  if (actualValue >= targetValue) return "met";
+  if (actualValue > 0) return "in_progress";
+  return "needs_support";
+}
+
 type EventRow = {
   id: number;
   name: string;
@@ -445,14 +472,7 @@ export function computeInstitutionLearningAnalytics(input: {
       attendanceRate,
       cneAttended: stats.cne,
       clinicalAttended: stats.clinical,
-      status:
-        stats.eligible === 0
-          ? "no_data"
-          : attendanceRate >= 75
-            ? "strong"
-            : attendanceRate >= 50
-              ? "on_track"
-              : "needs_support",
+      status: attendanceStatus(stats.eligible, attendanceRate),
     };
   });
 
@@ -475,14 +495,7 @@ export function computeInstitutionLearningAnalytics(input: {
       attendedSeats: stats.attended,
       attendanceRate,
       peopleAttended: stats.people.size,
-      status:
-        stats.expected === 0
-          ? "no_data"
-          : attendanceRate >= 75
-            ? "strong"
-            : attendanceRate >= 50
-              ? "on_track"
-              : "needs_support",
+      status: attendanceStatus(stats.expected, attendanceRate),
     };
   });
 
@@ -591,14 +604,7 @@ export function computeInstitutionLearningAnalytics(input: {
       targetValue,
       actualValue,
       progressPercent,
-      status:
-        targetValue <= 0
-          ? "no_data"
-          : actualValue >= targetValue
-            ? "met"
-            : actualValue > 0
-              ? "in_progress"
-              : "needs_support",
+      status: targetStatus(targetValue, actualValue),
       periodStart: target.periodStart,
       periodEnd: target.periodEnd,
       courseProgramType: target.courseProgramType,

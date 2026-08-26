@@ -102,6 +102,10 @@ function parseDateOnly(value: string): string {
   return value;
 }
 
+function dateOnlyAsDate(value: string): Date {
+  return new Date(`${parseDateOnly(value)}T00:00:00.000Z`);
+}
+
 async function isInstitutionAdmin(db: any, user: any, institutionId: number) {
   try {
     await assertInstitutionAccess(db, user, institutionId);
@@ -156,7 +160,9 @@ async function assertLearningAccess(
   ) {
     return {
       roleKey: "cpd_education_coordinator" as const,
-      departmentIds: coordinatorRows.map(row => row.departmentId),
+      departmentIds: coordinatorRows.map(
+        (row: { departmentId: number }) => row.departmentId
+      ),
     };
   }
   throw new TRPCError({
@@ -744,8 +750,14 @@ export const institutionLearningRouter = router({
       ];
       if (period)
         predicates.push(
-          lte(institutionLearningTargets.periodStart, period.periodEnd) as any,
-          gte(institutionLearningTargets.periodEnd, period.periodStart) as any
+          lte(
+            institutionLearningTargets.periodStart,
+            dateOnlyAsDate(period.periodEnd)
+          ),
+          gte(
+            institutionLearningTargets.periodEnd,
+            dateOnlyAsDate(period.periodStart)
+          )
         );
       const rows = await db
         .select()
@@ -833,8 +845,8 @@ export const institutionLearningRouter = router({
         userId: input.userId ?? null,
         metricKey: input.metricKey,
         periodType: input.periodType,
-        periodStart: input.periodStart,
-        periodEnd: input.periodEnd,
+        periodStart: dateOnlyAsDate(input.periodStart),
+        periodEnd: dateOnlyAsDate(input.periodEnd),
         targetValue: String(input.targetValue),
         courseProgramType: input.courseProgramType ?? null,
         coursePhase: input.coursePhase ?? null,
