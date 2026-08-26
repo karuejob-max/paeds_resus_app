@@ -94,7 +94,7 @@ const STATIC_ITEMS: PlatformSearchItem[] = [
   // Provider dashboard
   item({
     id: "provider-home",
-    label: "Provider dashboard",
+    label: "Individual workspace",
     href: "/home",
     category: "Help",
     keywords: ["dashboard", "learner"],
@@ -203,7 +203,7 @@ const STATIC_ITEMS: PlatformSearchItem[] = [
   }),
   item({
     id: "certificates",
-    label: "My certificates",
+    label: "Certificates and records",
     href: "/certificates",
     category: "Tools",
     keywords: ["download", "credential"],
@@ -211,10 +211,30 @@ const STATIC_ITEMS: PlatformSearchItem[] = [
     allowedRoles: ["provider"],
   }),
 
+  item({
+    id: "workplaces",
+    label: "Workplaces & access",
+    href: "/workplaces",
+    category: "Help",
+    description: "Manage registered institution relationships without granting duties automatically",
+    keywords: ["facility", "membership", "institution", "department", "access"],
+    requiresAuth: true,
+    allowedRoles: ["provider"],
+  }),
+  item({
+    id: "my-performance",
+    label: "My performance",
+    href: "/performance-dashboard",
+    category: "Help",
+    description: "View personal performance insight and activity",
+    keywords: ["analytics", "metrics", "scorecard", "leaderboard"],
+    requiresAuth: true,
+    allowedRoles: ["provider"],
+  }),
   // Institution
   item({
     id: "institution-workspace",
-    label: "Institution Workspace",
+    label: "Institution workspace",
     href: "/institution",
     category: "Tools",
     requiresAuth: true,
@@ -245,9 +265,17 @@ const STATIC_ITEMS: PlatformSearchItem[] = [
   }),
   item({
     id: "account",
-    label: "Account settings",
+    label: "Account & security",
     href: "/account",
     category: "Help",
+    requiresAuth: true,
+  }),
+  item({
+    id: "notification-preferences",
+    label: "Notification preferences",
+    href: "/account/notifications",
+    category: "Help",
+    keywords: ["alerts", "email", "SMS", "push"],
     requiresAuth: true,
   }),
   item({

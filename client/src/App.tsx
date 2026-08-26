@@ -11,6 +11,7 @@ import ProviderActivationAlert from "./components/ProviderActivationAlert";
 import PaedsAIAssistant from "./components/PaedsAIAssistant";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole, type UserRole } from "@/hooks/useUserRole";
+import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
 import { buildLoginUrl, getCurrentAppPath } from "@/lib/authRedirect";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,8 @@ const Register = lazy(() => import("./pages/Register"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const AccountSettings = lazy(() => import("./pages/AccountSettings"));
+const NotificationPreferences = lazy(() => import("./pages/NotificationPreferences"));
+const WorkplacesAndAccess = lazy(() => import("./pages/WorkplacesAndAccess"));
 const SafeTruthV1 = lazy(() => import("./pages/SafeTruthV1"));
 const CareSignal = lazy(() => import("./pages/CareSignal"));
 const CodeSignal = lazy(() => import("./pages/CodeSignal"));
@@ -184,6 +187,12 @@ function Router() {
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password" component={ResetPassword} />
           <Route path="/account" component={AccountSettings} />
+          <Route path="/account/notifications" component={NotificationPreferences} />
+          <Route path="/workplaces">{() => (
+            <RoleGate allowed={["provider"]}>
+              <WorkplacesAndAccess />
+            </RoleGate>
+          )}</Route>
           <Route path="/feedback" component={FeedbackPage} />
           <Route path="/my-cpd-certificates" component={MyCpdCertificates} />
           <Route path="/my-cne-certificates">{() => <Redirect to="/my-cpd-certificates" />}</Route>
@@ -690,6 +699,18 @@ function getRouteLoadingCopy(pathname: string) {
       description: "Checking your account and the best next step.",
     };
   }
+  if (pathname.startsWith("/workplaces")) {
+    return {
+      title: "Loading Workplaces & access…",
+      description: "Checking your institution relationships and access state.",
+    };
+  }
+  if (pathname.startsWith("/account")) {
+    return {
+      title: "Loading Account & security…",
+      description: "Preparing your account identity, preferences, and privacy controls.",
+    };
+  }
 
   return {
     title: "Loading page…",
@@ -720,14 +741,19 @@ function SuspenseRouteFallback() {
 }
 
 function RoleGate({ allowed, children }: { allowed: UserRole[]; children: ReactNode }) {
-  const { user, isAuthenticated, loading } = useAuth();
-  const { role } = useUserRole();
-  const effectiveRole = role ?? mapUserTypeToRole(user?.userType);
+  const { isAuthenticated, loading } = useAuth();
+  const { effectiveWorkspace, hasInstitutionAccess, isInstitutionAccessKnown } = useWorkspaceAccess();
   const [location, setLocation] = useLocation();
   const loadingCopy = getRouteLoadingCopy(location);
+  const routeRequestsInstitution =
+    location.startsWith("/institution") || location.startsWith("/hospital-admin-dashboard");
+  const effectiveRole: UserRole =
+    routeRequestsInstitution && hasInstitutionAccess ? "institution" : effectiveWorkspace;
+  const institutionAccessPending =
+    isAuthenticated && allowed.includes("institution") && !isInstitutionAccessKnown;
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || institutionAccessPending) return;
     if (!isAuthenticated) {
       setLocation(buildLoginUrl(getCurrentAppPath()));
       return;
@@ -735,9 +761,9 @@ function RoleGate({ allowed, children }: { allowed: UserRole[]; children: ReactN
     if (effectiveRole && !allowed.includes(effectiveRole)) {
       setLocation(getRoleHomePath(effectiveRole));
     }
-  }, [allowed, effectiveRole, isAuthenticated, loading, setLocation]);
+  }, [allowed, effectiveRole, institutionAccessPending, isAuthenticated, loading, setLocation]);
 
-  if (loading) {
+  if (loading || institutionAccessPending) {
     return <RouteLoadingState title={loadingCopy.title} description={loadingCopy.description} />;
   }
   if (!isAuthenticated) {
@@ -754,9 +780,12 @@ function RoleGate({ allowed, children }: { allowed: UserRole[]; children: ReactN
       <div className="max-w-2xl mx-auto px-4 py-12">
         <Card>
           <CardHeader>
-            <CardTitle>Access restricted for this role</CardTitle>
+            <CardTitle>Access restricted for this workspace</CardTitle>
           </CardHeader>
           <CardContent>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Your workspace selection is not itself a permission. This route is available only when the server confirms the required account or institution access.
+            </p>
             <Button onClick={() => setLocation(fallback)}>Go to your dashboard</Button>
           </CardContent>
         </Card>

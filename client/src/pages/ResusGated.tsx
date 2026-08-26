@@ -27,11 +27,11 @@ function getResusGateCopy(role: UserRole) {
   if (role === "institution") {
     return {
       errorFallback:
-        "Try again or return to your institutional dashboard. If you need the provider workspace, switch roles from the account menu first.",
+        "Try again or return to your institutional dashboard. If you need the individual workspace, use Switch workspace in the account menu first.",
       unavailableCta: "Return to institutional dashboard",
       unavailableDestination: "/institution",
       accessAlert:
-        "ResusGPS is available from the provider workspace. Use the account menu to switch to Provider when you need bedside guidance.",
+        "ResusGPS is available from the individual workspace. Use Switch workspace in the account menu when you need bedside guidance.",
       accessCta: "Back to institutional dashboard",
       accessDestination: "/institution",
     };

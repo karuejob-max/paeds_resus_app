@@ -1,7 +1,7 @@
 /**
  * Verify the production IERS schema and essential operational columns.
  *
- * Run after applying migrations 0094–0100:
+ * Run after applying the guarded institutional migrations, including migration 0125:
  *   pnpm run db:verify-iers
  *
  * The first IERS migrations use the repository's existing camelCase table
@@ -94,6 +94,7 @@ export const REQUIRED_TABLES = [
   { key: "targetedRoleReports", label: "targeted ERT role reports", names: ["iers_targeted_role_reports"] },
   { key: "pushSubscriptions", label: "IERS Web Push subscriptions", names: ["iers_push_subscriptions"] },
   { key: "pushDeliveryLog", label: "IERS push delivery log", names: ["iers_push_delivery_log"] },
+  { key: "userNotificationPreferences", label: "durable user notification preferences", names: ["userNotificationPreferences", "user_notification_preferences"] },
 ];
 
 export const REQUIRED_COLUMNS = [

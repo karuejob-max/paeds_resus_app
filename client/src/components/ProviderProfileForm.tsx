@@ -20,9 +20,10 @@ import { DepartmentSelectors } from "./DepartmentSelectors";
 
 interface ProviderProfileFormProps {
   onComplete?: () => void;
+  showWorkplaceContext?: boolean;
 }
 
-export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComplete }) => {
+export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComplete, showWorkplaceContext = false }) => {
   const [formData, setFormData] = useState({
     licenseNumber: "",
     specialization: "",
@@ -131,9 +132,20 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const { facilityName, facilityType, facilityRegion, facilityPhone, facilityEmail, department, ...professionalData } = formData;
       const result = await updateProfileMutation.mutateAsync({
-        ...formData,
-        facilityId: facility?.facilityId,
+        ...professionalData,
+        ...(showWorkplaceContext
+          ? {
+              facilityId: facility?.facilityId,
+              facilityName,
+              facilityType,
+              facilityRegion,
+              facilityPhone,
+              facilityEmail,
+              department,
+            }
+          : {}),
       });
       setCompletionPercentage(result.completionPercentage);
       if (result.completionPercentage >= 80 && onComplete) {
@@ -150,9 +162,9 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
     <div className="w-full max-w-2xl mx-auto p-4">
       <Card>
         <CardHeader>
-          <CardTitle>Complete Your Profile</CardTitle>
+          <CardTitle>Professional profile</CardTitle>
           <CardDescription>
-            Help us understand your background and facility to provide better support
+            Manage your license, specialty, experience, certifications, languages, and professional biography. Primary care-delivery context is managed in Workplaces &amp; access.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -207,7 +219,7 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
                 </div>
               </div>
 
-              <div className="space-y-3 border-t pt-4">
+              {showWorkplaceContext ? <div className="space-y-3 border-t pt-4">
                 {linkedDepartmentsQuery.data && linkedDepartmentsQuery.data.length > 0 && (
                   <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50/40 p-3 dark:border-blue-900/50 dark:bg-blue-950/20">
                     <Label>Institution canonical department</Label>
@@ -231,7 +243,7 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
                   value={formData.department}
                   onChange={(val) => setFormData(prev => ({ ...prev, department: val }))}
                 />}
-              </div>
+              </div> : null}
 
               {/* Certifications */}
               <div className="space-y-2">
@@ -302,8 +314,7 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
               </div>
             </div>
 
-            {/* Facility Information Section */}
-            <div className="space-y-4 border-t pt-4">
+            {showWorkplaceContext ? <div className="space-y-4 border-t pt-4">
               <h3 className="font-semibold text-lg">Facility Information</h3>
               {(getProfileMutation.data?.facilityHistory?.length ?? 0) > 0 && (
                 <div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50/40 p-3 dark:border-blue-900/50 dark:bg-blue-950/20">
@@ -410,7 +421,7 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
                   rows={4}
                 />
               </div>
-            </div>
+            </div> : null}
 
             {/* Completion Status */}
             {completionPercentage >= 80 && (

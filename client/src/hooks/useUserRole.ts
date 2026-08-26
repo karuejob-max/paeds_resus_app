@@ -12,10 +12,10 @@ function readStoredRole(): UserRole {
 }
 
 /**
- * Hook to get and manage user role from localStorage
- * Provides reactive updates when role changes
+ * Hook to get and manage the selected workspace view from localStorage.
+ * This is a navigation preference only; server route guards remain authoritative.
  *
- * Initial state is read synchronously so the first paint (e.g. Home redirect) sees the role
+ * Initial state is read synchronously so the first paint (e.g. Home redirect) sees the selected workspace
  * chosen in the Header. A delayed read in useEffect alone left role null on first render and
  * sent institutional users back to the hospital dashboard after switching to Healthcare Provider.
  */

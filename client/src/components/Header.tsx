@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { useUserRole } from "@/hooks/useUserRole";
+import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
 import { Button } from "@/components/ui/button";
 import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Briefcase, Shield } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -14,22 +14,14 @@ import { trpc } from "@/lib/trpc";
 /** ResusGPS — canonical route for the bedside tool (see PLATFORM_SOURCE_OF_TRUTH §5). */
 const RESUS_GPS_NAV = { label: "ResusGPS", href: "/resus", icon: "⚡" } as const;
 
-function mapUserTypeToHeaderRole(ut: string | null | undefined): "provider" | "institution" | null {
-  if (!ut) return null;
-  const m: Record<string, "provider" | "institution"> = {
-    individual: "provider",
-    institutional: "institution",
-  };
-  return m[ut] ?? null;
-}
-
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
-  const { role, setUserRole } = useUserRole();
-  const effectiveRole = useMemo(
-    () => (isAuthenticated ? role ?? mapUserTypeToHeaderRole(user?.userType) : null),
-    [isAuthenticated, role, user?.userType]
-  );
+  const {
+    effectiveWorkspace,
+    setUserRole,
+    workspaceOptions,
+  } = useWorkspaceAccess();
+  const effectiveRole = isAuthenticated ? effectiveWorkspace : null;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
@@ -65,17 +57,6 @@ export default function Header() {
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [accountDropdownOpen, roleDropdownOpen, learnDropdownOpen]);
-
-  // Sync role from userType when authenticated and role not set (e.g. after login)
-  useEffect(() => {
-    if (!isAuthenticated || !user?.userType || role) return;
-    const map: Record<string, "provider" | "institution"> = {
-      individual: "provider",
-      institutional: "institution",
-    };
-    const r = map[user.userType];
-    if (r) setUserRole(r);
-  }, [isAuthenticated, user?.userType, role, setUserRole]);
 
   // Get navigation based on role — Dashboard first so provider/parent/institution can get home
   const getNavigation = () => {
@@ -126,10 +107,11 @@ export default function Header() {
   const primaryNavItems = navigation.filter((item) => item.group !== "learn");
   const learnNavItems = navigation.filter((item) => item.group === "learn");
 
-  const roleOptions = [
-    { value: "provider", label: "Individual", icon: Stethoscope },
-    { value: "institution", label: "Institution", icon: Briefcase },
-  ];
+  const roleOptions = workspaceOptions.map(option => ({
+    ...option,
+    label: option.value === "provider" ? "Individual" : "Institution",
+    icon: option.value === "provider" ? Stethoscope : Briefcase,
+  }));
   const roleDisplayLabel: Record<"provider" | "institution", string> = {
     provider: "Individual",
     institution: "Institution",
@@ -202,7 +184,7 @@ export default function Header() {
                 onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
                 aria-haspopup="true"
                 aria-expanded={roleDropdownOpen}
-                aria-label={`Switch role (current: ${effectiveRole})`}
+                aria-label={`Switch workspace (current: ${effectiveRole})`}
                 className="flex items-center gap-2 px-3 py-2 text-foreground hover:bg-accent rounded-lg transition text-sm font-medium border border-border focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 {effectiveRole === "provider" && <Stethoscope className="w-4 h-4" />}
@@ -215,7 +197,7 @@ export default function Header() {
                 <div
                   className="absolute left-0 mt-2 w-56 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border z-10"
                   role="listbox"
-                  aria-label="Role options"
+                  aria-label="Workspace options"
                 >
                   <div className="p-2">
                     {roleOptions.map((option) => {
@@ -228,15 +210,9 @@ export default function Header() {
                           aria-selected={effectiveRole === option.value}
                           onClick={() => {
                             const r = option.value as "provider" | "institution";
-                            const prev = effectiveRole;
                             setUserRole(r);
                             setRoleDropdownOpen(false);
-                            if (r === "provider" && prev === "institution") {
-                              window.location.assign("/home");
-                              return;
-                            }
-                            if (r === "provider") setLocation("/home");
-                            else setLocation("/institution");
+                            setLocation(r === "provider" ? "/home" : "/institution");
                           }}
                           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition text-sm ${
                             effectiveRole === option.value
@@ -375,52 +351,75 @@ export default function Header() {
                       <div className="px-3 py-2 border-b border-border">
                         <p className="font-semibold text-sm text-foreground">{user?.name}</p>
                         <p className="text-xs text-muted-foreground">{user?.email}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {effectiveRole === "institution" ? "Institution workspace" : "Individual workspace"}
+                        </p>
                       </div>
 
-                      {/* Quick Links — role-aware Dashboard */}
                       <div className="py-2 space-y-1">
-                        <Link href="/feedback">
-                          <div
-                            className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
-                            onClick={() => setAccountDropdownOpen(false)}
-                          >
-                            Send feedback
-                          </div>
-                        </Link>
+                        <p className="px-3 pt-1 pb-1 text-xs font-semibold text-muted-foreground">Your account</p>
                         <Link href="/account">
                           <div
                             className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
                             onClick={() => setAccountDropdownOpen(false)}
                           >
-                            Account settings
+                            Account &amp; security
                           </div>
                         </Link>
-                        <Link href={effectiveRole === "institution" ? "/institution" : "/home"}>
+                        <Link href="/account/notifications">
                           <div
                             className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
                             onClick={() => setAccountDropdownOpen(false)}
                           >
-                            Dashboard
+                            Notification preferences
                           </div>
                         </Link>
                         {effectiveRole === "provider" && (
-                          <Link href="/resus">
+                          <>
+                            <Link href="/provider-profile">
+                              <div
+                                className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
+                                onClick={() => setAccountDropdownOpen(false)}
+                              >
+                                Professional profile
+                              </div>
+                            </Link>
+                            <Link href="/workplaces">
+                              <div
+                                className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
+                                onClick={() => setAccountDropdownOpen(false)}
+                              >
+                                Workplaces &amp; access
+                              </div>
+                            </Link>
+                            <Link href="/records">
+                              <div
+                                className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
+                                onClick={() => setAccountDropdownOpen(false)}
+                              >
+                                My records
+                              </div>
+                            </Link>
+                            <Link href="/performance-dashboard">
+                              <div
+                                className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
+                                onClick={() => setAccountDropdownOpen(false)}
+                              >
+                                My performance
+                              </div>
+                            </Link>
+                          </>
+                        )}
+                        {effectiveRole === "institution" && (
+                          <Link href="/institution">
                             <div
                               className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
                               onClick={() => setAccountDropdownOpen(false)}
                             >
-                              ResusGPS
+                              Institution workspace
                             </div>
                           </Link>
                         )}
-                        <Link href={effectiveRole === "institution" ? "/institution" : "/provider-profile"}>
-                          <div
-                            className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
-                            onClick={() => setAccountDropdownOpen(false)}
-                          >
-                            {effectiveRole === "provider" ? "Profile" : "My dashboard"}
-                          </div>
-                        </Link>
                         {(user as { role?: string })?.role === "admin" && (
                           <Link href="/admin">
                             <div
@@ -428,7 +427,7 @@ export default function Header() {
                               onClick={() => setAccountDropdownOpen(false)}
                             >
                               <Shield className="h-4 w-4" />
-                              Admin
+                              Platform admin
                             </div>
                           </Link>
                         )}
@@ -561,22 +560,16 @@ export default function Header() {
             {/* Mobile Role Selector */}
             {isAuthenticated && effectiveRole && (
               <div className="px-3 py-2 mb-3 border-b border-border pb-3">
-                <p className="text-xs font-semibold text-muted-foreground mb-2">Switch Role:</p>
+                        <p className="text-xs font-semibold text-muted-foreground mb-2">Switch workspace:</p>
                 <div className="space-y-1">
                   {roleOptions.map((option) => (
                     <button
                       key={option.value}
                       onClick={() => {
                         const r = option.value as "provider" | "institution";
-                        const prev = effectiveRole;
                         setUserRole(r);
                         setMobileMenuOpen(false);
-                        if (r === "provider" && prev === "institution") {
-                          window.location.assign("/home");
-                          return;
-                        }
-                        if (r === "provider") setLocation("/home");
-                        else setLocation("/institution");
+                        setLocation(r === "provider" ? "/home" : "/institution");
                       }}
                       className={`w-full text-left px-3 py-2 rounded text-sm ${
                         effectiveRole === option.value

@@ -4049,6 +4049,31 @@ export const inAppNotifications = mysqlTable("inAppNotifications", {
 export type InAppNotification = typeof inAppNotifications.$inferSelect;
 export type InsertInAppNotification = typeof inAppNotifications.$inferInsert;
 
+/** Durable user-owned notification preferences for Account & security. */
+export const userNotificationPreferences = mysqlTable(
+  "userNotificationPreferences",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    emailNotifications: boolean("emailNotifications").notNull().default(true),
+    smsNotifications: boolean("smsNotifications").notNull().default(true),
+    pushNotifications: boolean("pushNotifications").notNull().default(true),
+    enrollmentAlerts: boolean("enrollmentAlerts").notNull().default(true),
+    paymentAlerts: boolean("paymentAlerts").notNull().default(true),
+    certificateAlerts: boolean("certificateAlerts").notNull().default(true),
+    courseUpdates: boolean("courseUpdates").notNull().default(true),
+    quizReminders: boolean("quizReminders").notNull().default(true),
+    achievementNotifications: boolean("achievementNotifications").notNull().default(true),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    userIdUnique: uniqueIndex("userNotificationPreferences_userId_unique").on(table.userId),
+  })
+);
+export type UserNotificationPreferences = typeof userNotificationPreferences.$inferSelect;
+export type InsertUserNotificationPreferences = typeof userNotificationPreferences.$inferInsert;
+
 /** Audit log for every inbound M-Pesa / Daraja callback (forensics beyond payments.status). */
 export const mpesaWebhookLog = mysqlTable("mpesaWebhookLog", {
   id: int("id").autoincrement().primaryKey(),

@@ -12,7 +12,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { useUserRole } from "@/hooks/useUserRole";
+import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
 import { trpc } from "@/lib/trpc";
 import { getAnalyticsSessionId } from "@/lib/analytics-session";
 import {
@@ -26,15 +26,6 @@ import {
   type SearchContext,
 } from "@/lib/platform-search-index";
 import { cn } from "@/lib/utils";
-
-function mapUserTypeToRole(ut: string | null | undefined): AppRole {
-  if (!ut) return null;
-  const m: Record<string, AppRole> = {
-    individual: "provider",
-    institutional: "institution",
-  };
-  return m[ut] ?? null;
-}
 
 function HighlightMatch({ text, query }: { text: string; query: string }) {
   const q = normalizeSearchQuery(query);
@@ -64,11 +55,11 @@ export function GlobalSearch({ className, variant = "icon" }: GlobalSearchProps)
   const [query, setQuery] = useState("");
   const [, setLocation] = useLocation();
   const { user, isAuthenticated } = useAuth();
-  const { role } = useUserRole();
+  const { effectiveWorkspace } = useWorkspaceAccess();
   const trackEventMutation = trpc.events.trackEvent.useMutation();
 
   const isAdmin = (user as { role?: string })?.role === "admin";
-  const effectiveRole = isAuthenticated ? role ?? mapUserTypeToRole(user?.userType) : null;
+  const effectiveRole: AppRole = isAuthenticated ? effectiveWorkspace : null;
 
   const context: SearchContext = useMemo(
     () => ({
