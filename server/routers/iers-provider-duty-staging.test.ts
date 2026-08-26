@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { appRouter } from "../routers";
 import { getDb } from "../db";
 import type { TrpcContext } from "../_core/context";
@@ -28,9 +28,16 @@ import {
   careFacilities,
   providerProfiles,
   cpdAttendees,
+  cpdEvents,
   iersShiftTeams,
   iersShiftRoleAssignments,
   iersShiftRoleEvents,
+  iersActivationEvents,
+  iersActivationResponders,
+  iersActivationResources,
+  iersActivationArrivals,
+  iersActivationTimeline,
+  iersActivationTeamSnapshots,
   inAppNotifications,
   iersReadinessTemplates,
   iersReadinessTemplateItems,
@@ -126,6 +133,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
   let registeredCaller: ReturnType<typeof appRouter.createCaller>;
   let unrelatedCaller: ReturnType<typeof appRouter.createCaller>;
   let replacementCaller: ReturnType<typeof appRouter.createCaller>;
+  let cpdOnlyCaller: ReturnType<typeof appRouter.createCaller>;
   let otherTenantCaller: ReturnType<typeof appRouter.createCaller>;
 
   beforeAll(async () => {
@@ -298,6 +306,18 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       ))
       .limit(1);
     if (!workspaceCapability) throw new Error("The IERS workspace-read capability is missing from the staging database.");
+    for (const capabilityKey of ["iers.activation.operate", "iers.activation.respond"] as const) {
+      const [activationCapability] = await db
+        .select({ id: institutionalProductCapabilities.id })
+        .from(institutionalProductCapabilities)
+        .where(and(
+          eq(institutionalProductCapabilities.productId, productId),
+          eq(institutionalProductCapabilities.capabilityKey, capabilityKey),
+          eq(institutionalProductCapabilities.status, "active"),
+        ))
+        .limit(1);
+      if (!activationCapability) throw new Error(`The ${capabilityKey} capability is missing from the staging database.`);
+    }
 
     const [subscriptionInsert] = await db.insert(institutionProductSubscriptions).values({
       institutionalAccountId: institutionId,
@@ -331,6 +351,26 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
         createdAt: now,
         updatedAt: now,
       },
+      {
+        institutionalAccountId: institutionId,
+        productId,
+        subscriptionId,
+        capabilityKey: "iers.activation.operate",
+        entitlementStatus: "active",
+        startsAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        institutionalAccountId: institutionId,
+        productId,
+        subscriptionId,
+        capabilityKey: "iers.activation.respond",
+        entitlementStatus: "active",
+        startsAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
     ]);
 
     await db.insert(institutionMemberships).values([
@@ -345,6 +385,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       { institutionalAccountId: institutionId, productId, userId: assignedProviderId, invitedEmail: assignedEmail, roleKey: "iers_responder", roleStatus: "active", grantedByUserId: adminId, grantedAt: now, createdAt: now, updatedAt: now },
       { institutionalAccountId: institutionId, productId, userId: unrelatedProviderId, invitedEmail: `staging-unrelated-${suffix}@example.test`, roleKey: "iers_responder", roleStatus: "active", grantedByUserId: adminId, grantedAt: now, createdAt: now, updatedAt: now },
       { institutionalAccountId: institutionId, productId, userId: replacementProviderId, invitedEmail: `staging-replacement-${suffix}@example.test`, roleKey: "iers_responder", roleStatus: "active", grantedByUserId: adminId, grantedAt: now, createdAt: now, updatedAt: now },
+      { institutionalAccountId: institutionId, productId, userId: registeredProviderId, invitedEmail: registeredEmail, roleKey: "iers_responder", roleStatus: "active", grantedByUserId: adminId, grantedAt: now, createdAt: now, updatedAt: now },
       { institutionalAccountId: otherInstitutionId, productId, userId: otherTenantProviderId, invitedEmail: `staging-other-tenant-${suffix}@example.test`, roleKey: "iers_responder", roleStatus: "active", grantedByUserId: adminId, grantedAt: now, createdAt: now, updatedAt: now },
     ]);
 
@@ -355,8 +396,30 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
 
     const [departmentInsert] = await db.insert(facilityDepartments).values({ institutionId, poleId, departmentName: "STAGING DEPARTMENT ALPHA", isActive: true, requiresPole: true, confirmedAt: now, confirmedByUserId: adminId, createdAt: now });
     const departmentId = Number((departmentInsert as unknown as { insertId: number }).insertId);
+    await db.insert(institutionalStaffMembers).values({
+      institutionalAccountId: institutionId,
+      userId: cpdOnlyProviderId,
+      staffName: "Staging CPD-only Staff RN",
+      staffEmail: cpdOnlyEmail,
+      staffRole: "nurse",
+      governanceRole: "general_staff",
+      department: "STAGING DEPARTMENT ALPHA",
+      facilityDepartmentId: departmentId,
+      facilityLinkStatus: "linked",
+      enrollmentStatus: "enrolled",
+      createdAt: now,
+      updatedAt: now,
+    });
+    const [cpdEventInsert] = await db.insert(cpdEvents).values({
+      institutionalAccountId: institutionId,
+      name: "Staging IERS CPD event",
+      eventDate: today,
+      isOpen: false,
+      createdAt: now,
+    });
+    const cpdEventId = Number((cpdEventInsert as unknown as { insertId: number }).insertId);
     await db.insert(cpdAttendees).values({
-      cpdEventId: 1,
+      cpdEventId,
       institutionalAccountId: institutionId,
       fullName: "Staging CPD-only Staff RN",
       email: cpdOnlyEmail,
@@ -662,6 +725,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     assignedCaller = appRouter.createCaller(createContext({ id: assignedProviderId, name: "Staging Assigned Provider", email: assignedEmail }));
     unrelatedCaller = appRouter.createCaller(createContext({ id: unrelatedProviderId, name: "Staging Unrelated Provider", email: `staging-unrelated-${suffix}@example.test` }));
     replacementCaller = appRouter.createCaller(createContext({ id: replacementProviderId, name: "Staging Replacement Provider", email: `staging-replacement-${suffix}@example.test` }));
+    cpdOnlyCaller = appRouter.createCaller(createContext({ id: cpdOnlyProviderId, name: "Staging CPD-only Staff RN", email: cpdOnlyEmail }));
     otherTenantCaller = appRouter.createCaller(createContext({ id: otherTenantProviderId, name: "Staging Other Tenant Provider", email: `staging-other-tenant-${suffix}@example.test` }));
   });
 
@@ -671,6 +735,13 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     const userIds = [ids.adminId, ids.assignedProviderId, ids.registeredProviderId, ids.cpdOnlyProviderId, ids.unrelatedProviderId, ids.replacementProviderId, ids.otherTenantProviderId];
     await db.delete(iersEvidenceRecords).where(inArray(iersEvidenceRecords.institutionId, institutionIds));
     await db.delete(cpdAttendees).where(inArray(cpdAttendees.institutionalAccountId, institutionIds));
+    await db.delete(cpdEvents).where(inArray(cpdEvents.institutionalAccountId, institutionIds));
+    await db.delete(iersActivationArrivals).where(inArray(iersActivationArrivals.institutionId, institutionIds));
+    await db.delete(iersActivationResources).where(inArray(iersActivationResources.institutionId, institutionIds));
+    await db.delete(iersActivationResponders).where(inArray(iersActivationResponders.institutionalAccountId, institutionIds));
+    await db.delete(iersActivationTimeline).where(inArray(iersActivationTimeline.institutionalAccountId, institutionIds));
+    await db.delete(iersActivationTeamSnapshots).where(inArray(iersActivationTeamSnapshots.institutionId, institutionIds));
+    await db.delete(iersActivationEvents).where(inArray(iersActivationEvents.institutionalAccountId, institutionIds));
     const readinessTemplateRows = await db.select({ id: iersReadinessTemplates.id }).from(iersReadinessTemplates).where(inArray(iersReadinessTemplates.institutionId, institutionIds));
     const readinessTemplateIds = readinessTemplateRows.map((row) => row.id);
     if (readinessTemplateIds.length > 0) await db.delete(iersReadinessTemplateItems).where(inArray(iersReadinessTemplateItems.templateId, readinessTemplateIds));
@@ -954,7 +1025,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     const signedOff = await assignedCaller.iers.signOffShiftReadiness({ shiftRosterId: ids.rosterId, note: "Staging readiness evidence" });
     expect(signedOff.success).toBe(true);
 
-    const directErtl = await db.insert(iersShiftRoleAssignments).values({
+    await db.insert(iersShiftRoleAssignments).values({
       teamId: ids.publishedTeamId,
       institutionId: ids.institutionId,
       poleId: ids.poleId,
@@ -968,7 +1039,15 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       createdAt: now,
       updatedAt: now,
     });
-    const directErtlAssignmentId = Number((directErtl as unknown as { insertId: number }).insertId);
+    const [directErtlRow] = await db.select({ id: iersShiftRoleAssignments.id }).from(iersShiftRoleAssignments).where(and(
+      eq(iersShiftRoleAssignments.teamId, ids.publishedTeamId),
+      eq(iersShiftRoleAssignments.institutionId, ids.institutionId),
+      eq(iersShiftRoleAssignments.providerUserId, ids.assignedProviderId),
+      eq(iersShiftRoleAssignments.roleScope, "ertl"),
+      eq(iersShiftRoleAssignments.roleKey, "ertl"),
+      eq(iersShiftRoleAssignments.assignmentStatus, "pending_acceptance"),
+    )).orderBy(desc(iersShiftRoleAssignments.id)).limit(1);
+    const directErtlAssignmentId = directErtlRow?.id ?? Number.NaN;
     await db.update(institutionProductRoles).set({ roleStatus: "ended", endedAt: new Date() }).where(and(
       eq(institutionProductRoles.institutionalAccountId, ids.institutionId),
       eq(institutionProductRoles.productId, ids.productId),
@@ -996,7 +1075,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     expect(nominatedMember.status).toBe("pending_acceptance");
     const nominatedMemberRow = await db.select({ providerUserId: iersShiftRoleAssignments.providerUserId, roleScope: iersShiftRoleAssignments.roleScope, roleKey: iersShiftRoleAssignments.roleKey, assignmentStatus: iersShiftRoleAssignments.assignmentStatus, acceptedAt: iersShiftRoleAssignments.acceptedAt }).from(iersShiftRoleAssignments).where(eq(iersShiftRoleAssignments.id, nominatedMember.assignmentId)).limit(1);
     expect(nominatedMemberRow[0]).toEqual(expect.objectContaining({ providerUserId: ids.replacementProviderId, roleScope: "ert_member", roleKey: "runner", assignmentStatus: "pending_acceptance", acceptedAt: null }));
-    const memberInsert = await db.insert(iersShiftRoleAssignments).values({
+    await db.insert(iersShiftRoleAssignments).values({
       teamId: ids.publishedTeamId,
       institutionId: ids.institutionId,
       poleId: ids.poleId,
@@ -1010,7 +1089,15 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       createdAt: now,
       updatedAt: now,
     });
-    const memberAssignmentId = Number((memberInsert as unknown as { insertId: number }).insertId);
+    const [memberAssignmentRow] = await db.select({ id: iersShiftRoleAssignments.id }).from(iersShiftRoleAssignments).where(and(
+      eq(iersShiftRoleAssignments.teamId, ids.publishedTeamId),
+      eq(iersShiftRoleAssignments.institutionId, ids.institutionId),
+      eq(iersShiftRoleAssignments.providerUserId, ids.unrelatedProviderId),
+      eq(iersShiftRoleAssignments.roleScope, "ert_member"),
+      eq(iersShiftRoleAssignments.roleKey, "runner"),
+      eq(iersShiftRoleAssignments.assignmentStatus, "pending_acceptance"),
+    )).orderBy(desc(iersShiftRoleAssignments.id)).limit(1);
+    const memberAssignmentId = memberAssignmentRow?.id ?? Number.NaN;
     const assignedRole = await assignedCaller.iersShiftTeam.assignMemberRole({
       teamId: ids.publishedTeamId,
       assignmentId: memberAssignmentId,
@@ -1036,6 +1123,164 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       () => unrelatedCaller.iersShiftTeam.assignMemberRole({ teamId: ids.publishedTeamId, assignmentId: memberAssignmentId, roleKey: "circulation_lead", reason: "Should be denied to a non-ERTL" }),
       "FORBIDDEN",
     );
+
+    const replacementRoleAccepted = await replacementCaller.iersShiftTeam.respondToRole({ assignmentId: nominatedMember.assignmentId, decision: "accepted" });
+    expect(replacementRoleAccepted.assignmentStatus).toBe("accepted");
+    const decliningMember = await assignedCaller.iersShiftTeam.nominateMemberRole({
+      teamId: ids.publishedTeamId,
+      providerUserId: ids.registeredProviderId,
+      roleKey: "medications_lead",
+      reason: "Staging activation decline responder",
+    });
+    expect(decliningMember.status).toBe("pending_acceptance");
+
+    await expectTrpcError(
+      () => otherTenantCaller.iers.triggerActivation({
+        institutionId: ids.institutionId,
+        teamId: ids.publishedTeamId,
+        activationType: "code_blue",
+        location: "STAGING WARD",
+        bedNumber: "B-405",
+        department: "STAGING DEPARTMENT ALPHA",
+        priority: "critical",
+      }),
+      "FORBIDDEN",
+    );
+
+    const activation = await assignedCaller.iers.triggerActivation({
+      institutionId: ids.institutionId,
+      teamId: ids.publishedTeamId,
+      activationType: "code_blue",
+      location: "STAGING WARD",
+      bedNumber: "B-404",
+      department: "STAGING DEPARTMENT ALPHA",
+      priority: "critical",
+      resourceNeeds: [
+        { label: "Portable defibrillator", quantity: 1 },
+        { label: "Pediatric airway kit", quantity: 1 },
+      ],
+      notes: "Disposable staging activation; simulation fixture.",
+    });
+    expect(activation).toEqual(expect.objectContaining({ success: true, notifiedCount: 4, escalationFailed: false }));
+    const activationEventId = activation.activationEventId;
+    const [activationEvent] = await db.select().from(iersActivationEvents).where(eq(iersActivationEvents.id, activationEventId)).limit(1);
+    expect(activationEvent).toEqual(expect.objectContaining({
+      institutionalAccountId: ids.institutionId,
+      teamId: ids.publishedTeamId,
+      status: "notifying",
+      location: "STAGING WARD",
+      bedNumber: "B-404",
+      department: "STAGING DEPARTMENT ALPHA",
+      caseQrNonce: null,
+    }));
+    expect(activationEvent?.notes).not.toContain("patient");
+
+    const [activationSnapshotRows, activationResponderRows, activationResourceRows] = await Promise.all([
+      db.select().from(iersActivationTeamSnapshots).where(eq(iersActivationTeamSnapshots.activationEventId, activationEventId)),
+      db.select().from(iersActivationResponders).where(eq(iersActivationResponders.activationEventId, activationEventId)),
+      db.select().from(iersActivationResources).where(eq(iersActivationResources.activationEventId, activationEventId)),
+    ]);
+    expect(activationSnapshotRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ providerUserId: ids.assignedProviderId, roleScope: "utl", assignmentStatus: "accepted" }),
+      expect.objectContaining({ providerUserId: ids.assignedProviderId, roleScope: "ertl", assignmentStatus: "accepted" }),
+      expect.objectContaining({ providerUserId: ids.replacementProviderId, roleScope: "ert_member", assignmentStatus: "accepted" }),
+      expect.objectContaining({ providerUserId: ids.registeredProviderId, roleScope: "ert_member", assignmentStatus: "pending_acceptance" }),
+    ]));
+    expect(new Set(activationResponderRows.map((row) => row.userId))).toEqual(new Set([
+      ids.assignedProviderId,
+      ids.replacementProviderId,
+      ids.unrelatedProviderId,
+      ids.registeredProviderId,
+    ]));
+    expect(activationResponderRows).toHaveLength(4);
+    expect(activationResourceRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "Portable defibrillator", status: "needed", quantity: 1 }),
+      expect.objectContaining({ label: "Pediatric airway kit", status: "needed", quantity: 1 }),
+    ]));
+    expect(activationResourceRows.every((resource) => resource.status === "needed")).toBe(true);
+
+    const assignedActivations = await assignedCaller.iers.getMyActivations();
+    expect(assignedActivations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: activationEventId, location: "STAGING WARD", bedNumber: "B-404", responderStatus: "sent", caseQrAvailable: false }),
+    ]));
+    const assignedCaseBeforeQr = await assignedCaller.iers.getMyActivationCase({ activationEventId });
+    expect(assignedCaseBeforeQr).toEqual(expect.objectContaining({ caseLinked: false, caseQrAvailable: false, caseToken: null, location: "STAGING WARD", bedNumber: "B-404" }));
+    expect(assignedCaseBeforeQr.resources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "Portable defibrillator", status: "needed", claimedByMe: false }),
+    ]));
+    expect(assignedCaseBeforeQr.teamMembers.filter((member) => member.providerUserId === ids.assignedProviderId)).toHaveLength(1);
+
+    await registeredCaller.iers.receiveActivation({ activationEventId });
+    const declineResult = await registeredCaller.iers.acknowledge({ activationEventId, accept: false, reason: "Staging provider unavailable for this response." });
+    expect(declineResult).toEqual({ success: true, status: "declined" });
+    const [declinedResponder] = await db.select().from(iersActivationResponders).where(and(eq(iersActivationResponders.activationEventId, activationEventId), eq(iersActivationResponders.userId, ids.registeredProviderId))).limit(1);
+    expect(declinedResponder).toEqual(expect.objectContaining({ notificationStatus: "declined", declineReason: "Staging provider unavailable for this response." }));
+
+    await assignedCaller.iers.receiveActivation({ activationEventId });
+    expect((await assignedCaller.iers.acknowledge({ activationEventId, accept: true })).status).toBe("acknowledged");
+    expect((await assignedCaller.iers.markResponse({ activationEventId, state: "responding" })).status).toBe("responding");
+    const qr = await assignedCaller.iers.generateCaseQr({ activationEventId });
+    expect(qr).toEqual(expect.objectContaining({ success: true, activationEventId, caseToken: expect.any(String) }));
+    const [qrState] = await db.select({ caseQrNonce: iersActivationEvents.caseQrNonce, caseQrGeneratedByUserId: iersActivationEvents.caseQrGeneratedByUserId }).from(iersActivationEvents).where(eq(iersActivationEvents.id, activationEventId)).limit(1);
+    expect(qrState?.caseQrNonce).toBeTruthy();
+    expect(qrState?.caseQrGeneratedByUserId).toBe(ids.assignedProviderId);
+    await expectTrpcError(() => replacementCaller.iers.generateCaseQr({ activationEventId }), "PRECONDITION_FAILED");
+
+    await replacementCaller.iers.receiveActivation({ activationEventId });
+    expect((await replacementCaller.iers.acknowledge({ activationEventId, accept: true })).status).toBe("acknowledged");
+    const [replacementResource] = await db.select({ id: iersActivationResources.id }).from(iersActivationResources).where(and(eq(iersActivationResources.activationEventId, activationEventId), eq(iersActivationResources.label, "Portable defibrillator"))).limit(1);
+    if (!replacementResource) throw new Error("The staging activation resource was not created.");
+    await expectTrpcError(() => unrelatedCaller.iers.claimActivationResource({ resourceId: replacementResource.id }), "FORBIDDEN");
+    expect((await replacementCaller.iers.claimActivationResource({ resourceId: replacementResource.id, note: "Staging responder bringing defibrillator" })).status).toBe("claimed");
+    const [claimedResource] = await db.select({ status: iersActivationResources.status }).from(iersActivationResources).where(eq(iersActivationResources.id, replacementResource.id)).limit(1);
+    expect(claimedResource?.status).toBe("claimed");
+    const replacementCaseBeforeArrival = await replacementCaller.iers.getMyActivationCase({ activationEventId });
+    expect(replacementCaseBeforeArrival.resources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: replacementResource.id, status: "claimed", claimedByMe: true }),
+    ]));
+    expect((await replacementCaller.iers.markActivationResourceArrived({ resourceId: replacementResource.id, note: "Staging arrival confirmed" })).status).toBe("arrived");
+    const [arrivedResource] = await db.select({ status: iersActivationResources.status, arrivedAt: iersActivationResources.arrivedAt }).from(iersActivationResources).where(eq(iersActivationResources.id, replacementResource.id)).limit(1);
+    expect(arrivedResource?.status).toBe("arrived");
+    expect(arrivedResource?.arrivedAt).toBeTruthy();
+
+    const joined = await replacementCaller.iers.joinByCaseQr({ caseToken: qr.caseToken });
+    expect(joined).toEqual(expect.objectContaining({ success: true, activationEventId, status: "at_scene", caseToken: qr.caseToken }));
+    const repeatedJoin = await replacementCaller.iers.joinByCaseQr({ caseToken: qr.caseToken });
+    expect(repeatedJoin).toEqual(expect.objectContaining({ success: true, activationEventId, status: "at_scene" }));
+    const replacementArrivals = await db.select().from(iersActivationArrivals).where(and(eq(iersActivationArrivals.activationEventId, activationEventId), eq(iersActivationArrivals.providerUserId, ids.replacementProviderId), eq(iersActivationArrivals.arrivalType, "qr_scan")));
+    expect(replacementArrivals).toHaveLength(1);
+    await expectTrpcError(() => cpdOnlyCaller.iers.joinByCaseQr({ caseToken: qr.caseToken }), "FORBIDDEN");
+    await expectTrpcError(() => otherTenantCaller.iers.joinByCaseQr({ caseToken: qr.caseToken }), "FORBIDDEN");
+
+    const [unrelatedResponder] = await db.select({ notificationStatus: iersActivationResponders.notificationStatus }).from(iersActivationResponders).where(and(eq(iersActivationResponders.activationEventId, activationEventId), eq(iersActivationResponders.userId, ids.unrelatedProviderId))).limit(1);
+    expect(unrelatedResponder?.notificationStatus).toBe("sent");
+    await expectTrpcError(() => unrelatedCaller.iers.recordActivationArrival({ activationEventId, providerUserId: ids.assignedProviderId, arrivalType: "witnessed", note: "Not at scene" }), "FORBIDDEN");
+    expect((await assignedCaller.iers.recordActivationArrival({ activationEventId, providerUserId: ids.unrelatedProviderId, arrivalType: "witnessed", note: "Staging ERTL witnessed responder arrival" })).status).toBe("at_scene");
+    await expectTrpcError(() => assignedCaller.iers.recordActivationArrival({ activationEventId, providerUserId: ids.registeredProviderId, arrivalType: "witnessed", note: "Declined provider must not be recorded" }), "CONFLICT");
+    const activationArrivals = await db.select().from(iersActivationArrivals).where(eq(iersActivationArrivals.activationEventId, activationEventId));
+    expect(activationArrivals).toEqual(expect.arrayContaining([
+      expect.objectContaining({ providerUserId: ids.replacementProviderId, arrivalType: "qr_scan" }),
+      expect.objectContaining({ providerUserId: ids.unrelatedProviderId, arrivalType: "witnessed", recordedByUserId: ids.assignedProviderId }),
+    ]));
+
+    const activationCase = await assignedCaller.iers.getMyActivationCase({ activationEventId });
+    expect(activationCase.status).toBe("at_scene");
+    expect(activationCase.teamMembers.filter((member) => member.providerUserId === ids.assignedProviderId)).toHaveLength(1);
+    const activationTimeline = await assignedCaller.iers.getTimeline({ institutionId: ids.institutionId, activationEventId });
+    expect(activationTimeline.map((entry) => entry.eventType)).toEqual(expect.arrayContaining([
+      "activation_triggered",
+      "responder_notification_received",
+      "responder_acknowledged",
+      "responder_declined",
+      "responder_responding",
+      "case_qr_generated",
+      "case_qr_scanned",
+      "activation_resource_claimed",
+      "activation_resource_arrived",
+      "responder_arrival_witnessed",
+    ]));
+    expect(activationTimeline.every((entry) => entry.institutionalAccountId === ids.institutionId)).toBe(true);
+    expect(activationTimeline.map((entry) => entry.note ?? "").join(" ")).not.toMatch(/patient|name|identifier/i);
 
     const reassignedUtl = await assignedCaller.institution.submitShiftUtlRoster({
       institutionId: ids.institutionId,
