@@ -317,7 +317,7 @@ export default function InstitutionWorkspace() {
           </TabsContent>
 
           <TabsContent value="learning">
-            {iersEnabled || cpdEnabled ? <InstitutionLearningOperationsPanel institutionId={institutionId} iersEnabled={iersEnabled} cpdEnabled={cpdEnabled} /> : <ProductLockedState product="Learning" status={productStatus.cpd_portal} onAdministration={() => setActiveSection("administration")} />}
+            {iersEnabled || cpdEnabled ?             <InstitutionLearningOperationsPanel institutionId={institutionId} iersEnabled={iersEnabled} cpdEnabled={cpdEnabled} onOpenReadiness={() => { setSection("iers"); setIersTab("report"); }} /> : <ProductLockedState product="Learning" status={productStatus.cpd_portal} onAdministration={() => setActiveSection("administration")} />}
           </TabsContent>
 
           <TabsContent value="administration" className="space-y-6">

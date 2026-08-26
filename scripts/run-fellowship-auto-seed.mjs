@@ -18,6 +18,7 @@ const STEP_TIMEOUT_MS = Math.max(
 );
 
 const SEED_STEPS = [
+  { label: "institution learning schema", npmScript: "db:apply-0126" },
   { label: "batch p0", npmScript: "seed:fellowship-content:p0" },
   { label: "batch respiratory", npmScript: "seed:fellowship-content:respiratory" },
   { label: "batch shock", npmScript: "seed:fellowship-content:shock" },

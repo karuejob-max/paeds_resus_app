@@ -4288,7 +4288,15 @@ export const cpdEvents = mysqlTable("cpdEvents", {
   cpdCode: varchar("cpdCode", { length: 128 }),
   approvingCouncil: varchar("approvingCouncil", { length: 128 }),
   cpdPoints: decimal("cpdPoints", { precision: 4, scale: 1 }),
-  eventType: mysqlEnum("eventType", ["cne", "cme", "cpd_general", "grand_rounds", "journal_club", "workshop"]).default("cpd_general").notNull(),
+  eventType: mysqlEnum("eventType", ["cne", "cme", "cpd_general", "grand_rounds", "journal_club", "workshop", "m_and_m", "other_cadre"]).default("cpd_general").notNull(),
+  /** Audience determines who should be expected to attend and how the session appears in reports. */
+  audienceScope: mysqlEnum("audienceScope", ["facility_wide", "nursing_wide", "clinical", "m_and_m", "other_cadre"]).default("facility_wide").notNull(),
+  /** Optional label for other-cadre audiences, such as Finance, Housekeeping, or Kitchen staff. */
+  audienceLabel: varchar("audienceLabel", { length: 128 }),
+  /** Canonical institution department for department-scoped sessions; legacy presenterDepartment remains for display. */
+  facilityDepartmentId: int("facilityDepartmentId"),
+  /** ISO calendar date for reliable monthly, quarterly, and annual reporting; eventDate remains the legacy display field. */
+  eventDateAt: date("eventDateAt"),
   presenterUserId: int("presenterUserId"),
   presenterName: varchar("presenterName", { length: 255 }),
   presenterCadre: varchar("presenterCadre", { length: 128 }),
@@ -4299,6 +4307,25 @@ export const cpdEvents = mysqlTable("cpdEvents", {
 
 export type CpdEvent = typeof cpdEvents.$inferSelect;
 export type InsertCpdEvent = typeof cpdEvents.$inferInsert;
+
+/** Presenter roster for a CPD session; presenters are not counted as attendees unless they register separately. */
+export const cpdEventCoPresenters = mysqlTable("cpdEventCoPresenters", {
+  id: int("id").autoincrement().primaryKey(),
+  cpdEventId: int("cpdEventId").notNull(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  userId: int("userId"),
+  fullName: varchar("fullName", { length: 255 }).notNull(),
+  email: varchar("email", { length: 320 }),
+  cadre: varchar("cadre", { length: 128 }),
+  department: varchar("department", { length: 128 }),
+  addedByUserId: int("addedByUserId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => ({
+  eventIndex: index("cpd_event_co_presenters_event_idx").on(table.cpdEventId),
+  institutionIndex: index("cpd_event_co_presenters_institution_idx").on(table.institutionalAccountId),
+}));
+export type CpdEventCoPresenter = typeof cpdEventCoPresenters.$inferSelect;
+export type InsertCpdEventCoPresenter = typeof cpdEventCoPresenters.$inferInsert;
 
 /** Public CPD registrations (one row per registrant per event). */
 export const cpdAttendees = mysqlTable("cpdAttendees", {
@@ -4767,6 +4794,50 @@ export const facilityDepartments = mysqlTable("facility_departments", {
 }));
 export type FacilityDepartment = typeof facilityDepartments.$inferSelect;
 export type InsertFacilityDepartment = typeof facilityDepartments.$inferInsert;
+
+/** Department-scoped CPD Education Coordinator assignments; independent of IERS response roles. */
+export const institutionEducationCoordinators = mysqlTable("institutionEducationCoordinators", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  departmentId: int("departmentId").notNull(),
+  userId: int("userId").notNull(),
+  assignmentStatus: mysqlEnum("assignmentStatus", ["active", "ended"]).default("active").notNull(),
+  assignedByUserId: int("assignedByUserId").notNull(),
+  assignedAt: timestamp("assignedAt").defaultNow().notNull(),
+  endedAt: timestamp("endedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  departmentIndex: index("institution_education_coordinators_department_idx").on(table.institutionalAccountId, table.departmentId, table.assignmentStatus),
+  userIndex: index("institution_education_coordinators_user_idx").on(table.institutionalAccountId, table.userId, table.assignmentStatus),
+}));
+export type InstitutionEducationCoordinator = typeof institutionEducationCoordinators.$inferSelect;
+export type InsertInstitutionEducationCoordinator = typeof institutionEducationCoordinators.$inferInsert;
+
+/** Facility, department, or individual learning expectations for a bounded reporting period. */
+export const institutionLearningTargets = mysqlTable("institutionLearningTargets", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  targetScope: mysqlEnum("targetScope", ["facility", "department", "individual"]).notNull(),
+  departmentId: int("departmentId"),
+  userId: int("userId"),
+  metricKey: mysqlEnum("metricKey", ["cpd_sessions", "cpd_attendance_rate", "cne_sessions", "clinical_cpd_sessions", "m_and_m_sessions", "life_support_completed", "course_phase_completion"]).notNull(),
+  periodType: mysqlEnum("periodType", ["monthly", "quarterly", "annual"]).notNull(),
+  periodStart: date("periodStart").notNull(),
+  periodEnd: date("periodEnd").notNull(),
+  targetValue: decimal("targetValue", { precision: 10, scale: 2 }).notNull(),
+  courseProgramType: mysqlEnum("courseProgramType", ["bls", "acls", "pals", "nrp", "heartsaver", "instructor"]),
+  coursePhase: mysqlEnum("coursePhase", ["cognitive", "phase_2", "phase_3", "completed"]),
+  status: mysqlEnum("status", ["active", "archived"]).default("active").notNull(),
+  createdByUserId: int("createdByUserId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  periodIndex: index("institution_learning_targets_period_idx").on(table.institutionalAccountId, table.status, table.periodStart, table.periodEnd),
+  scopeIndex: index("institution_learning_targets_scope_idx").on(table.institutionalAccountId, table.targetScope, table.departmentId, table.userId),
+}));
+export type InstitutionLearningTarget = typeof institutionLearningTargets.$inferSelect;
+export type InsertInstitutionLearningTarget = typeof institutionLearningTargets.$inferInsert;
 
 /** Current review state for one normalized historic CPD department label per institution. */
 export const institutionDepartmentReconciliations = mysqlTable("institution_department_reconciliations", {

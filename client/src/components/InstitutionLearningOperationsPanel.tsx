@@ -3,7 +3,9 @@ import {
   Award,
   BookOpenCheck,
   CalendarDays,
+  FileBarChart2,
   GraduationCap,
+  UserRoundCheck,
   UsersRound,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,14 +22,27 @@ import { Phase1ProofReviewWidget } from "@/components/Phase1ProofReviewWidget";
 import { InstitutionIersCompetencyPanel } from "@/components/InstitutionIersCompetencyPanel";
 import { BulkEnrollmentPanel } from "@/components/BulkEnrollmentPanel";
 import CpdPanel from "@/components/CpdPanel";
+import InstitutionLearningIntelligencePanel from "@/components/InstitutionLearningIntelligencePanel";
+import InstitutionLearningGovernancePanel from "@/components/InstitutionLearningGovernancePanel";
 
-type LearningTab = "overview" | "competency" | "cpd";
+type LearningTab =
+  | "overview"
+  | "competency"
+  | "cpd"
+  | "intelligence"
+  | "governance";
 
 function getInitialLearningTab(): LearningTab {
   if (typeof window === "undefined") return "overview";
   const params = new URLSearchParams(window.location.search);
   const requested = params.get("learningTab");
-  if (requested === "competency" || requested === "cpd") return requested;
+  if (
+    requested === "competency" ||
+    requested === "cpd" ||
+    requested === "intelligence" ||
+    requested === "governance"
+  )
+    return requested;
   if (params.get("cpdTab")) return "cpd";
   return "overview";
 }
@@ -36,18 +51,23 @@ export default function InstitutionLearningOperationsPanel({
   institutionId,
   iersEnabled,
   cpdEnabled,
+  onOpenReadiness,
 }: {
   institutionId: number;
   iersEnabled: boolean;
   cpdEnabled: boolean;
+  onOpenReadiness?: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<LearningTab>(() => {
     const requested = getInitialLearningTab();
     if (requested === "competency" && !iersEnabled) {
       return cpdEnabled ? "cpd" : "overview";
     }
-    if (requested === "cpd" && !cpdEnabled) {
+    if ((requested === "cpd" || requested === "governance") && !cpdEnabled) {
       return iersEnabled ? "competency" : "overview";
+    }
+    if (requested === "intelligence" && !iersEnabled && !cpdEnabled) {
+      return "overview";
     }
     return requested;
   });
@@ -119,7 +139,7 @@ export default function InstitutionLearningOperationsPanel({
         value={activeTab}
         onValueChange={value => setLearningTab(value as LearningTab)}
       >
-        <TabsList className="sticky top-2 z-20 grid h-auto w-full grid-cols-1 gap-1 bg-background/95 p-1 shadow-sm backdrop-blur min-[420px]:grid-cols-3 sm:static sm:bg-transparent sm:p-0 sm:shadow-none">
+        <TabsList className="sticky top-2 z-20 grid h-auto w-full grid-cols-1 gap-1 bg-background/95 p-1 shadow-sm backdrop-blur min-[420px]:grid-cols-2 sm:grid-cols-5 sm:static sm:bg-transparent sm:p-0 sm:shadow-none">
           <TabsTrigger value="overview" className="min-h-10 text-xs sm:text-sm">
             <BookOpenCheck className="mr-2 hidden h-4 w-4 sm:block" />
             Learning overview
@@ -137,6 +157,22 @@ export default function InstitutionLearningOperationsPanel({
             <TabsTrigger value="cpd" className="min-h-10 text-xs sm:text-sm">
               <Award className="mr-2 hidden h-4 w-4 sm:block" />
               CPD Portal
+            </TabsTrigger>
+          )}
+          {cpdEnabled && (
+            <TabsTrigger
+              value="intelligence"
+              className="min-h-10 text-xs sm:text-sm"
+            >
+              Intelligence & reports
+            </TabsTrigger>
+          )}
+          {cpdEnabled && (
+            <TabsTrigger
+              value="governance"
+              className="min-h-10 text-xs sm:text-sm"
+            >
+              Coordinators & targets
             </TabsTrigger>
           )}
         </TabsList>
@@ -186,7 +222,7 @@ export default function InstitutionLearningOperationsPanel({
             )}
             {cpdEnabled && (
               <Card>
-                <CardHeader className="pb-3">
+                <CardHeader>
                   <Award className="h-5 w-5 text-violet-700" />
                   <CardTitle className="text-base">
                     Manage CPD records
@@ -201,6 +237,50 @@ export default function InstitutionLearningOperationsPanel({
                     onClick={() => setLearningTab("cpd")}
                   >
                     Open CPD Portal
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+            {cpdEnabled && (
+              <Card>
+                <CardHeader>
+                  <FileBarChart2 className="h-5 w-5 text-blue-700" />
+                  <CardTitle className="text-base">
+                    See learning intelligence
+                  </CardTitle>
+                  <CardDescription>
+                    Compare departments and people to learning targets, then
+                    download stakeholder reports.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    variant="outline"
+                    onClick={() => setLearningTab("intelligence")}
+                  >
+                    Open intelligence
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+            {cpdEnabled && (
+              <Card>
+                <CardHeader>
+                  <UserRoundCheck className="h-5 w-5 text-emerald-700" />
+                  <CardTitle className="text-base">
+                    Set coordinators and targets
+                  </CardTitle>
+                  <CardDescription>
+                    Give each department a coordinator and define facility,
+                    department, or individual expectations.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    variant="outline"
+                    onClick={() => setLearningTab("governance")}
+                  >
+                    Open governance
                   </Button>
                 </CardContent>
               </Card>
@@ -275,6 +355,17 @@ export default function InstitutionLearningOperationsPanel({
 
         <TabsContent value="cpd" className="mt-6">
           <CpdPanel institutionId={institutionId} />
+        </TabsContent>
+
+        <TabsContent value="intelligence" className="mt-6">
+          <InstitutionLearningIntelligencePanel
+            institutionId={institutionId}
+            onOpenReadiness={iersEnabled ? onOpenReadiness : undefined}
+          />
+        </TabsContent>
+
+        <TabsContent value="governance" className="mt-6">
+          <InstitutionLearningGovernancePanel institutionId={institutionId} />
         </TabsContent>
       </Tabs>
     </div>
