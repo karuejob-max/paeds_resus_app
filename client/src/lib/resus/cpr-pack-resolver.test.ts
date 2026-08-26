@@ -5,6 +5,8 @@ describe('resolveLifeSupportPack', () => {
   it('returns NRP for delivery room regardless of age', () => {
     const r = resolveLifeSupportPack(24, false, 'delivery_room');
     expect(r.pack).toBe('NRP');
+    expect(r.ageBand).toBe('newborn_delivery_room');
+    expect(r.contentVersion).toBe('2025 AHA/AAP reference');
   });
 
   it('returns PALS for a hospital infant even when under 1 month', () => {
@@ -25,5 +27,11 @@ describe('resolveLifeSupportPack', () => {
   it('returns PALS for typical school-age child', () => {
     const r = resolveLifeSupportPack(72);
     expect(r.pack).toBe('PALS');
+    expect(r.ageBand).toBe('infant_child');
+  });
+
+  it('rejects invalid ages instead of silently selecting a pathway', () => {
+    expect(() => resolveLifeSupportPack(Number.NaN)).toThrow(/valid non-negative patient age/i);
+    expect(() => resolveLifeSupportPack(-1)).toThrow(/valid non-negative patient age/i);
   });
 });

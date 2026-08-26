@@ -40,16 +40,17 @@ export const cprSessionRouter = router({
       }).$returningId();
 
       // Add creator as first team member (team leader by default)
-      await db.insert(cprTeamMembers).values({
+      const [creatorMember] = await db.insert(cprTeamMembers).values({
         sessionId: session.id,
         userId: ctx.user.id,
         providerName: ctx.user.name || 'Provider',
         role: 'team_leader',
-      });
+      }).$returningId();
 
       return {
         sessionId: session.id,
         sessionCode,
+        memberId: creatorMember.id,
       };
     }),
 
@@ -58,7 +59,9 @@ export const cprSessionRouter = router({
     .input(z.object({
       sessionCode: z.string().min(6).max(8),
       providerName: z.string(),
-      role: z.enum(['team_leader', 'compressions', 'airway', 'iv_access', 'medications', 'recorder', 'observer']),
+      // Public joiners cannot self-assign team leadership; the creator/current
+      // team leader must assign or approve that role.
+      role: z.enum(['compressions', 'airway', 'iv_access', 'medications', 'recorder', 'observer']),
     }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -144,7 +147,8 @@ export const cprSessionRouter = router({
       const db = await getDb();
       if (!db) throw new Error('Database not available');
 
-      // Verify member belongs to user
+      // A participant may change their own role. Assigning another person is
+      // reserved for the session creator or currently assigned team leader.
       const members = await db.select().from(cprTeamMembers).where(eq(cprTeamMembers.id, input.memberId)).limit(1);
       const member = members[0];
 
@@ -153,7 +157,38 @@ export const cprSessionRouter = router({
       }
 
       if (member.userId !== ctx.user.id) {
-        throw new Error('Cannot update another user\'s role');
+        const sessions = await db.select({ createdBy: cprSessions.createdBy })
+          .from(cprSessions)
+          .where(eq(cprSessions.id, member.sessionId))
+          .limit(1);
+        const session = sessions[0];
+        const leaders = await db.select({ id: cprTeamMembers.id })
+          .from(cprTeamMembers)
+          .where(and(
+            eq(cprTeamMembers.sessionId, member.sessionId),
+            eq(cprTeamMembers.userId, ctx.user.id),
+            eq(cprTeamMembers.role, 'team_leader'),
+            isNull(cprTeamMembers.leftAt),
+          ))
+          .limit(1);
+        const canAssign = session?.createdBy === ctx.user.id || leaders.length > 0;
+        if (!canAssign) {
+          throw new Error('Only the session creator or current team leader can assign another member\'s role');
+        }
+      }
+
+      if (input.role === 'team_leader' && member.role !== 'team_leader') {
+        const existingLeaders = await db.select({ id: cprTeamMembers.id })
+          .from(cprTeamMembers)
+          .where(and(
+            eq(cprTeamMembers.sessionId, member.sessionId),
+            eq(cprTeamMembers.role, 'team_leader'),
+            isNull(cprTeamMembers.leftAt),
+          ))
+          .limit(1);
+        if (existingLeaders.length > 0) {
+          throw new Error('A team leader is already assigned. Reassign the current leader first.');
+        }
       }
 
       await db.update(cprTeamMembers)

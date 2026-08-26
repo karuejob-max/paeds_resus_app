@@ -3,8 +3,10 @@ import {
   calculateAmiodaroneDose,
   calculateCprMedicationDose,
   calculateShockEnergy,
+  getCompressionCycleStatus,
   evaluateMedicationEligibility,
   getCprShockEnergyLabel,
+  evaluateCprGpsAlerts,
 } from './cpr-engine';
 
 describe('CPR-GPS life-support pack behavior', () => {
@@ -15,6 +17,30 @@ describe('CPR-GPS life-support pack behavior', () => {
 
   it('uses an adult ACLS device-selected energy range rather than a paediatric joule number', () => {
     expect(getCprShockEnergyLabel(80, 0, 'ACLS')).toMatch(/120–200 J/);
+  });
+
+  it('prompts defibrillator pre-charge at T-15 and labels escalation for later PALS shocks', () => {
+    expect(getCompressionCycleStatus(104).phase).toBe('compressions');
+    expect(getCompressionCycleStatus(105).phase).toBe('precharge_alert');
+    expect(getCompressionCycleStatus(120).phase).toBe('rhythm_check_due');
+    expect(getCprShockEnergyLabel(20, 2, 'PALS')).toMatch(/At least 80 J/);
+  });
+
+  it('warns explicitly when a shockable rhythm has a delayed defibrillator', () => {
+    const alerts = evaluateCprGpsAlerts({
+      compressionElapsed: 80,
+      rhythmWindowElapsed: null,
+      inReassessment: false,
+      arrestDuration: 80,
+      state: { shockCount: 0, epiDoses: 0, lastEpiTime: null, antiarrhythmicDoses: 0, rhythmType: 'vf_pvt', phase: 'compressions' },
+      isShockable: true,
+      advancedAirwayPlaced: false,
+      cycleNumber: 1,
+      weightKg: 20,
+      defibDelayed: true,
+      lifeSupportPack: 'PALS',
+    });
+    expect(alerts.find((alert) => alert.type === 'defibrillator_delayed')).toMatchObject({ severity: 'critical' });
   });
 
   it('uses PALS weight-based and ACLS fixed epinephrine dosing', () => {

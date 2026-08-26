@@ -32,6 +32,17 @@ export interface CprClockSharedValue {
   setRoscAchieved: React.Dispatch<React.SetStateAction<boolean>>;
   rhythmType: RhythmType | null;
   setRhythmType: React.Dispatch<React.SetStateAction<RhythmType | null>>;
+  hydrate: (snapshot: {
+    engineState: CprEngineState;
+    arrestDuration: number;
+    compressionElapsed: number;
+    cycleNumber: number;
+    cycleTime: number;
+    isRunning: boolean;
+    events: CprArrestEvent[];
+    roscAchieved: boolean;
+    rhythmType: RhythmType | null;
+  }) => void;
 }
 
 const CprClockSharedContext = createContext<CprClockSharedValue | null>(null);
@@ -80,6 +91,28 @@ export function CprClockSharedProvider({
     ]);
   }, [arrestDuration]);
 
+  const hydrate = useCallback((snapshot: {
+    engineState: CprEngineState;
+    arrestDuration: number;
+    compressionElapsed: number;
+    cycleNumber: number;
+    cycleTime: number;
+    isRunning: boolean;
+    events: CprArrestEvent[];
+    roscAchieved: boolean;
+    rhythmType: RhythmType | null;
+  }) => {
+    setEngineState(snapshot.engineState);
+    setArrestDuration(snapshot.arrestDuration);
+    setCompressionElapsed(snapshot.compressionElapsed);
+    setCycleNumber(snapshot.cycleNumber);
+    setCycleTime(snapshot.cycleTime);
+    setIsRunning(snapshot.isRunning);
+    setEvents(snapshot.events);
+    setRoscAchieved(snapshot.roscAchieved);
+    setRhythmType(snapshot.rhythmType);
+  }, []);
+
   const value = useMemo<CprClockSharedValue>(
     () => ({
       engineState,
@@ -100,6 +133,7 @@ export function CprClockSharedProvider({
       setRoscAchieved,
       rhythmType,
       setRhythmType,
+      hydrate,
     }),
     [
       engineState,
@@ -112,6 +146,7 @@ export function CprClockSharedProvider({
       addEvent,
       roscAchieved,
       rhythmType,
+      hydrate,
     ]
   );
 

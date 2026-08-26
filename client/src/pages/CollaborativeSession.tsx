@@ -28,7 +28,6 @@ export default function CollaborativeSession() {
   
   const sessionId = parseInt(params.id || '0');
   const urlParams = new URLSearchParams(searchParams);
-  const role = urlParams.get('role') || 'observer';
   const memberId = parseInt(urlParams.get('memberId') || '0');
 
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -119,6 +118,9 @@ export default function CollaborativeSession() {
   }
 
   const { session, teamMembers, events } = sessionData;
+  const assignedMember = teamMembers.find((member) => member.id === memberId);
+  // The server is authoritative. The URL role is only a legacy hint and never grants access.
+  const role = assignedMember?.role || 'observer';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-900 to-gray-900">
