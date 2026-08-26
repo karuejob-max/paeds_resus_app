@@ -86,10 +86,10 @@ describe('CPR Engine - Medication Eligibility', () => {
 });
 
 describe('CPR Engine - CPR-GPS Cycle Workflow', () => {
-  it('should trigger pre-charge alert at T-30 seconds (compression cycle)', () => {
+  it('should trigger pre-charge alert at T-15 seconds (compression cycle)', () => {
     const status = getCompressionCycleStatus(PRECHARGE_AT_COMPRESSION_ELAPSED);
     expect(status.phase).toBe('precharge_alert');
-    expect(status.countdownToRhythmCheck).toBe(30);
+    expect(status.countdownToRhythmCheck).toBe(15);
   });
 
   it('should enter 10-second rhythm/shock reassessment window', () => {
