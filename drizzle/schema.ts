@@ -1714,6 +1714,40 @@ export type SafeTruthGovernancePolicyEvent = typeof safeTruthGovernancePolicyEve
 export type InsertSafeTruthGovernancePolicyEvent = typeof safeTruthGovernancePolicyEvents.$inferInsert;
 
 /**
+ * Explicit provider requests to join an institution-owned facility. This is
+ * separate from providerProfiles.facilityId: selecting a facility for care
+ * context does not prove employment or grant institution access.
+ */
+export const facilityMembershipRequests = mysqlTable("facilityMembershipRequests", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  careFacilityId: int("careFacilityId").notNull(),
+  userId: int("userId").notNull(),
+  requesterEmail: varchar("requesterEmail", { length: 320 }).notNull(),
+  requesterName: varchar("requesterName", { length: 255 }),
+  relationshipType: mysqlEnum("relationshipType", ["permanent_staff", "locum_outreach"]).default("permanent_staff").notNull(),
+  /** Non-null only while pending; MySQL unique indexes allow multiple NULLs. */
+  pendingRequestKey: varchar("pendingRequestKey", { length: 128 }),
+  department: varchar("department", { length: 255 }),
+  facilityDepartmentId: int("facilityDepartmentId"),
+  status: mysqlEnum("status", ["pending", "approved", "rejected", "withdrawn"]).default("pending").notNull(),
+  staffMemberId: int("staffMemberId"),
+  membershipId: int("membershipId"),
+  reviewedByUserId: int("reviewedByUserId"),
+  reviewedAt: timestamp("reviewedAt"),
+  reviewReason: text("reviewReason"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  pendingRequestKeyUnique: uniqueIndex("facilityMembershipRequests_pending_request_key_unique").on(table.pendingRequestKey),
+  institutionStatusIndex: index("facilityMembershipRequests_institution_status_idx").on(table.institutionalAccountId, table.status, table.createdAt),
+  userStatusIndex: index("facilityMembershipRequests_user_status_idx").on(table.userId, table.status, table.createdAt),
+  facilityIndex: index("facilityMembershipRequests_facility_idx").on(table.careFacilityId, table.status),
+}));
+export type FacilityMembershipRequest = typeof facilityMembershipRequests.$inferSelect;
+export type InsertFacilityMembershipRequest = typeof facilityMembershipRequests.$inferInsert;
+
+/**
  * Shared provider–institution membership. This is deliberately separate from
  * institutionalStaffMembers: the latter remains the operational roster and
  * training record, while this table is the identity/permission contract for

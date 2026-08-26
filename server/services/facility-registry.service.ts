@@ -26,6 +26,7 @@ export type FacilitySearchResult = {
   name: string;
   county: string | null;
   country: string;
+  institutionalAccountId: number | null;
   badge: string;
   /**
    * Enrichment from the unified `facilities` table (migration 0059 + 0060
@@ -232,6 +233,7 @@ export async function searchCareFacilities(input: {
       name: r.name,
       county: r.county,
       country: r.country,
+      institutionalAccountId: r.institutionalAccountId ?? null,
       badge: r.isSystem
         ? "System"
         : r.institutionalAccountId

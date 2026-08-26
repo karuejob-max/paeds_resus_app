@@ -18,6 +18,7 @@ export type FacilitySelection = {
   facilityId: number;
   facilityName: string;
   county: string | null;
+  institutionalAccountId?: number | null;
   country: string;
   /** Present once this facility has been bridged to the unified facilities
    *  table (see scripts/apply-0060-facilities-backfill.mjs) — null otherwise. */
@@ -66,6 +67,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
         facilityName: r.facility.name,
         county: r.facility.county,
         country: r.facility.country,
+        institutionalAccountId: r.facility.institutionalAccountId ?? null,
         facilityOwnership: r.facility.facilityOwnership,
       });
       setQuery(r.facility.name);
@@ -98,6 +100,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
     name: string;
     county: string | null;
     country: string;
+    institutionalAccountId?: number | null;
     facilityOwnership?: FacilitySelection["facilityOwnership"];
     adminLevel2?: string | null;
   }) => {
@@ -106,6 +109,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
       facilityName: r.name,
       county: r.county,
       country: r.country,
+      institutionalAccountId: r.institutionalAccountId ?? null,
       facilityOwnership: r.facilityOwnership ?? null,
       adminLevel2: r.adminLevel2 ?? null,
     });
