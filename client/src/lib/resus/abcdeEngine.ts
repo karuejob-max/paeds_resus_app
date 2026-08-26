@@ -37,6 +37,7 @@ import {
 } from '@shared/clinical-spo2-targets';
 import { applyVitalsAutofillToEvidence } from '@shared/clinical-evidence';
 import { getSecondarySurveyFields } from '@shared/secondary-survey-gating';
+import { validateResusWeight } from './patientDemographics';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -1633,6 +1634,11 @@ const safetyRules: SafetyRule[] = [
 // ─── Session Management ─────────────────────────────────────
 
 export function createSession(weight?: number | null, age?: string | null, isTrauma?: boolean): ResusSession {
+  if (weight !== null && weight !== undefined) {
+    const validation = validateResusWeight(weight);
+    if (!validation.valid) throw new RangeError(validation.message);
+  }
+
   return {
     id: `resus-${Date.now()}`,
     phase: 'IDLE',
@@ -1674,6 +1680,11 @@ export function createSession(weight?: number | null, age?: string | null, isTra
 // ─── Mid-Case Patient Info Update ───────────────────────────
 
 export function updatePatientInfo(session: ResusSession, weight: number | null, age: string | null): ResusSession {
+  if (weight !== null) {
+    const validation = validateResusWeight(weight);
+    if (!validation.valid) throw new RangeError(validation.message);
+  }
+
   const next = deepCopy(session);
   const changes: string[] = [];
   if (weight !== null && weight !== next.patientWeight) {

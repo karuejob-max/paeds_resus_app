@@ -1,5 +1,13 @@
 import { z } from "zod";
 import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
+import { TRPCError } from "@trpc/server";
+
+const legacyClinicalProcedure = protectedProcedure.use(() => {
+  throw new TRPCError({
+    code: "PRECONDITION_FAILED",
+    message: "This legacy clinical endpoint is disabled. Use the canonical ResusGPS bedside flow.",
+  });
+});
 
 /**
  * Clinical Decision Support System Router
@@ -10,7 +18,7 @@ export const clinicalDecisionSupportRouter = router({
   /**
    * Get diagnostic algorithm for symptoms
    */
-  getDiagnosticAlgorithm: protectedProcedure
+  getDiagnosticAlgorithm: legacyClinicalProcedure
     .input(
       z.object({
         symptoms: z.array(z.string()),
@@ -69,7 +77,7 @@ export const clinicalDecisionSupportRouter = router({
   /**
    * Get treatment protocol for condition
    */
-  getTreatmentProtocol: protectedProcedure
+  getTreatmentProtocol: legacyClinicalProcedure
     .input(
       z.object({
         diagnosis: z.string(),
@@ -144,7 +152,7 @@ export const clinicalDecisionSupportRouter = router({
   /**
    * Calculate pediatric dosing
    */
-  calculatePediatricDosing: protectedProcedure
+  calculatePediatricDosing: legacyClinicalProcedure
     .input(
       z.object({
         medication: z.string(),
@@ -197,7 +205,7 @@ export const clinicalDecisionSupportRouter = router({
   /**
    * Check drug interactions
    */
-  checkDrugInteractions: protectedProcedure
+  checkDrugInteractions: legacyClinicalProcedure
     .input(
       z.object({
         medications: z.array(z.string()),
@@ -239,7 +247,7 @@ export const clinicalDecisionSupportRouter = router({
   /**
    * Get risk stratification
    */
-  getRiskStratification: protectedProcedure
+  getRiskStratification: legacyClinicalProcedure
     .input(
       z.object({
         condition: z.string(),
@@ -301,7 +309,7 @@ export const clinicalDecisionSupportRouter = router({
   /**
    * Get severity assessment scale
    */
-  getSeverityAssessmentScale: protectedProcedure
+  getSeverityAssessmentScale: legacyClinicalProcedure
     .input(
       z.object({
         scale: z.enum(["PEWS", "qSOFA", "SIRS", "NEWS"]),
@@ -373,7 +381,7 @@ export const clinicalDecisionSupportRouter = router({
   /**
    * Get contraindication check
    */
-  getContraindicationCheck: protectedProcedure
+  getContraindicationCheck: legacyClinicalProcedure
     .input(
       z.object({
         medication: z.string(),
@@ -415,7 +423,7 @@ export const clinicalDecisionSupportRouter = router({
   /**
    * Get evidence-based recommendations
    */
-  getEvidenceBasedRecommendations: protectedProcedure
+  getEvidenceBasedRecommendations: legacyClinicalProcedure
     .input(
       z.object({
         condition: z.string(),
@@ -476,7 +484,7 @@ export const clinicalDecisionSupportRouter = router({
   /**
    * Get real-time clinical alerts
    */
-  getRealTimeClinicalAlerts: protectedProcedure
+  getRealTimeClinicalAlerts: legacyClinicalProcedure
     .input(
       z.object({
         patientId: z.number(),
@@ -531,7 +539,7 @@ export const clinicalDecisionSupportRouter = router({
   /**
    * Get outcome prediction
    */
-  getOutcomePrediction: protectedProcedure
+  getOutcomePrediction: legacyClinicalProcedure
     .input(
       z.object({
         condition: z.string(),
