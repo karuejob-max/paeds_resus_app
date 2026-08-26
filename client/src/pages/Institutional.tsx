@@ -83,9 +83,9 @@ export default function Institutional() {
             <Button asChild className="bg-[#ff6633] hover:bg-[#e85a2e]" onClick={() => trackButtonClick("institutional_ers_contact")}>
               <a href="#quote">Contact / request onboarding</a>
             </Button>
-            <Link href="/hospital-admin-dashboard">
+            <Link href="/institution">
               <Button variant="outline" className="border-white/50 text-white hover:bg-white/10" onClick={() => trackButtonClick("institutional_hospital_admin")}>
-                Hospital admin portal
+                Institution Workspace
               </Button>
             </Link>
             <Link href="/institutional-onboarding">
@@ -119,7 +119,7 @@ export default function Institutional() {
           <div className="rounded-xl border border-white/20 p-6 bg-white/5">
             <h2 className="text-lg font-semibold mb-2">Already onboarded?</h2>
             <p className="text-sm text-orange-100/90 mb-4">
-              Use the hospital admin portal for roster management, session scheduling, and training analytics.
+              Use the Institution Workspace for roster management, learning operations, and readiness evidence.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link href="/login">
@@ -128,7 +128,7 @@ export default function Institutional() {
                   Sign in
                 </Button>
               </Link>
-              <Link href="/hospital-admin-dashboard">
+              <Link href="/institution">
                 <Button variant="outline" className="border-white/50 text-white hover:bg-white/10">
                   Open portal
                 </Button>

@@ -345,11 +345,11 @@ function Router() {
           <Route path="/for-parents" component={ForParents} />
           <Route path="/hospital-admin-dashboard">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution" /></RoleGate>}</Route>
           {/* Legacy tab deep links now land in the canonical product workspace. */}
-          <Route path="/hospital-admin-dashboard/training">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=iers&iersTab=competency" /></RoleGate>}</Route>
+          <Route path="/hospital-admin-dashboard/training">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=learning&learningTab=competency" /></RoleGate>}</Route>
           <Route path="/hospital-admin-dashboard/action-log">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=iers&iersTab=evidence" /></RoleGate>}</Route>
           <Route path="/hospital-admin-dashboard/safe-truth">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=connected" /></RoleGate>}</Route>
           <Route path="/hospital-admin-dashboard/reports">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=iers&iersTab=report" /></RoleGate>}</Route>
-          <Route path="/institutional-portal/training">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=iers&iersTab=competency" /></RoleGate>}</Route>
+          <Route path="/institutional-portal/training">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=learning&learningTab=competency" /></RoleGate>}</Route>
           <Route path="/institutional-portal/action-log">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=iers&iersTab=evidence" /></RoleGate>}</Route>
           <Route path="/institutional-portal/reports">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=iers&iersTab=report" /></RoleGate>}</Route>
           <Route path="/care-signal-analytics">{() => (

@@ -113,8 +113,8 @@ export async function handleCareSignalInstitutionalFollowUp(
       userId: recipientId,
       type: "care_signal_action_prompt",
       title: "New Care Signal — action needed",
-      body: `A provider submitted a Care Signal report at ${displayFacility}. Review the gap and document your hospital's system change in the Action Log tab.`,
-      actionUrl: "/hospital-admin-dashboard?tab=action-log",
+      body: `A provider submitted a Care Signal report at ${displayFacility}. Review the gap and document your hospital's system change in the IERS evidence and actions view.`,
+      actionUrl: "/institution?section=iers&iersTab=evidence",
       relatedId: actionLogId,
       read: false,
     });

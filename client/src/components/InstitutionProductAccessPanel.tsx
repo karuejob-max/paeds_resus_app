@@ -85,7 +85,7 @@ export function InstitutionProductAccessPanel({ institutionId }: { institutionId
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button asChild size="sm" variant="outline"><a href="mailto:paedsresus254@gmail.com?subject=Institution%20product%20renewal"><CreditCard className="mr-2 h-4 w-4" />Request renewal</a></Button>
-                <Link href={product.productKey === "iers" ? "/institution#iers" : "/institution#cpd_portal"}>
+                <Link href={product.productKey === "iers" ? "/institution?section=iers&iersTab=command" : "/institution?section=learning&learningTab=cpd&cpdTab=overview"}>
                   <Button size="sm" variant="ghost">Open workspace <ExternalLink className="ml-2 h-4 w-4" /></Button>
                 </Link>
               </div>

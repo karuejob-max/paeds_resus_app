@@ -170,16 +170,16 @@ export default function AdminHub() {
 
           <Card
             className="cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => setLocation("/hospital-admin-dashboard")}
+            onClick={() => setLocation("/institution")}
           >
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5" />
-                  Hospital Admin Dashboard
+                  Institution Workspace
                 </CardTitle>
                 <CardDescription>
-                  Institutional metrics, staff, and training overview
+                  Institutional administration, learning operations, and readiness overview
                 </CardDescription>
               </div>
             </CardHeader>

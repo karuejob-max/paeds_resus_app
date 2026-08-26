@@ -685,7 +685,7 @@ export default function LearnerDashboard() {
                   <Button size="sm" variant="outline" onClick={() => navigate("/institutional-onboarding")}>
                     Institutional onboarding
                   </Button>
-                  <Button size="sm" onClick={() => navigate("/hospital-admin-dashboard")}>
+                  <Button size="sm" onClick={() => navigate("/institution")}>
                     Hospital portal
                   </Button>
                 </AlertDescription>
@@ -747,7 +747,7 @@ export default function LearnerDashboard() {
             )}
             {institutionId ? (
               <div className="flex flex-wrap gap-3">
-                <Button onClick={() => navigate("/hospital-admin-dashboard")}>Open full hospital dashboard</Button>
+                <Button onClick={() => navigate("/institution")}>Open institution workspace</Button>
               </div>
             ) : null}
           </div>

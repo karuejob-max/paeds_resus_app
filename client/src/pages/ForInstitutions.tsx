@@ -132,9 +132,9 @@ export default function ForInstitutions() {
 
             </Link>
 
-            <Link href="/hospital-admin-dashboard">
+            <Link href="/institution">
 
-              <Button variant="outline">Hospital admin</Button>
+              <Button variant="outline">Institution Workspace</Button>
 
             </Link>
 
