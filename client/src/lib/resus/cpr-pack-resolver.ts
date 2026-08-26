@@ -10,8 +10,7 @@ export type ResusSetting = 'hospital' | 'prehospital' | 'delivery_room';
 /** Approximate puberty threshold (years) when ACLS adult pathways may apply. */
 const PUBERTY_AGE_MONTHS = 144; // 12 years
 
-/** Neonatal / delivery-room context (months). */
-const NRP_MAX_AGE_MONTHS = 1;
+/** NRP is a delivery-room/newborn context; age alone must not switch a hospital arrest into NRP. */
 
 export interface LifeSupportPackResult {
   pack: LifeSupportPack;
@@ -27,11 +26,11 @@ export function resolveLifeSupportPack(
   puberty?: boolean,
   setting?: ResusSetting
 ): LifeSupportPackResult {
-  if (setting === 'delivery_room' || ageMonths < NRP_MAX_AGE_MONTHS) {
+  if (setting === 'delivery_room') {
     return {
       pack: 'NRP',
       label: 'Neonatal Resuscitation (NRP)',
-      rationale: 'Age under 1 month or delivery-room setting',
+      rationale: 'Delivery-room/newborn resuscitation context',
     };
   }
 

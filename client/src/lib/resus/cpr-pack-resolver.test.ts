@@ -7,9 +7,9 @@ describe('resolveLifeSupportPack', () => {
     expect(r.pack).toBe('NRP');
   });
 
-  it('returns NRP for age under 1 month', () => {
+  it('returns PALS for a hospital infant even when under 1 month', () => {
     const r = resolveLifeSupportPack(0);
-    expect(r.pack).toBe('NRP');
+    expect(r.pack).toBe('PALS');
   });
 
   it('returns ACLS when puberty flagged', () => {

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createSession, updatePatientInfo } from './abcdeEngine';
+import {
+  createSession,
+  updatePatientInfo,
+  updateResusSetting,
+  POST_CARDIAC_ARREST_CARE_ITEMS,
+  updatePostCardiacArrestCare,
+  resolveBlsAssessment,
+} from './abcdeEngine';
 
 describe('canonical ResusGPS engine safety boundaries', () => {
   it('does not create a session with an impossible weight', () => {
@@ -20,5 +27,33 @@ describe('canonical ResusGPS engine safety boundaries', () => {
     const updated = updatePatientInfo(session, 25, '5 years');
     expect(updated.patientWeight).toBe(25);
     expect(updated.fluidTracker.totalVolumePerKg).toBe(0);
+  });
+
+  it('takes the BLS arrest branch safely when pulse is absent or uncertain', () => {
+    expect(resolveBlsAssessment(null, null, null)).toBeNull();
+    expect(resolveBlsAssessment('responsive', 'normal', 'present')).toBe('no_cardiac_arrest');
+    expect(resolveBlsAssessment('responsive', 'normal', 'absent')).toBe('cardiac_arrest');
+    expect(resolveBlsAssessment('unresponsive', 'abnormal', 'unknown')).toBe('cardiac_arrest');
+  });
+
+  it('requires explicit delivery-room context for neonatal NRP selection', () => {
+    const hospitalCase = createSession(3, '1 day');
+    expect(hospitalCase.resusSetting).toBe('hospital');
+    const deliveryRoomCase = updateResusSetting(hospitalCase, 'delivery_room');
+    expect(deliveryRoomCase.resusSetting).toBe('delivery_room');
+    expect(hospitalCase.resusSetting).toBe('hospital');
+  });
+
+  it('records post-ROSC checklist completion and reopens safely', () => {
+    let session = createSession(20, '5 years');
+    for (const item of POST_CARDIAC_ARREST_CARE_ITEMS) {
+      session = updatePostCardiacArrestCare(session, item.id, true);
+    }
+    expect(session.postCardiacArrestCare?.completedItemIds).toHaveLength(POST_CARDIAC_ARREST_CARE_ITEMS.length);
+    expect(session.postCardiacArrestCare?.completedAt).toEqual(expect.any(Number));
+
+    const reopened = updatePostCardiacArrestCare(session, POST_CARDIAC_ARREST_CARE_ITEMS[0].id, false);
+    expect(reopened.postCardiacArrestCare?.completedItemIds).not.toContain(POST_CARDIAC_ARREST_CARE_ITEMS[0].id);
+    expect(reopened.postCardiacArrestCare?.completedAt).toBeUndefined();
   });
 });

@@ -22,6 +22,12 @@ interface Props {
   /** Skip READY / START CPR when arrest already running in ResusGPS */
   autoStart?: boolean;
   lifeSupportPack?: LifeSupportPackResult;
+  /** Return ROSC to the parent ResusGPS flow for post-cardiac-arrest care. */
+  onROSC?: () => void;
+  /** The integrated emergency flow uses one CPR surface; standalone callers may keep mode switching. */
+  allowModeSwitch?: boolean;
+  /** The integrated flow owns demographics in ResusGPS. */
+  allowPatientInfoEdit?: boolean;
 }
 
 function CPRClockUnifiedInner({
@@ -32,6 +38,9 @@ function CPRClockUnifiedInner({
   externalRunning,
   autoStart,
   lifeSupportPack,
+  onROSC,
+  allowModeSwitch = true,
+  allowPatientInfoEdit = true,
 }: Props) {
   const [mode, setMode] = useState<'solo' | 'team'>('solo');
 
@@ -43,6 +52,8 @@ function CPRClockUnifiedInner({
     externalRunning,
     autoStart,
     lifeSupportPack,
+    onROSC,
+    allowPatientInfoEdit,
     useSharedState: true as const,
   };
 
@@ -54,22 +65,24 @@ function CPRClockUnifiedInner({
             {lifeSupportPack.pack}: {lifeSupportPack.label}
           </Badge>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setMode((prev) => (prev === 'solo' ? 'team' : 'solo'))}
-          className="bg-background/80 backdrop-blur ml-auto"
-        >
-          {mode === 'solo' ? (
-            <>
-              <Users className="h-4 w-4 mr-2" /> Switch to Team Mode
-            </>
-          ) : (
-            <>
-              <User className="h-4 w-4 mr-2" /> Switch to Solo Mode
-            </>
-          )}
-        </Button>
+        {allowModeSwitch && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setMode((prev) => (prev === 'solo' ? 'team' : 'solo'))}
+            className="bg-background/80 backdrop-blur ml-auto"
+          >
+            {mode === 'solo' ? (
+              <>
+                <Users className="h-4 w-4 mr-2" /> Switch to Team Mode
+              </>
+            ) : (
+              <>
+                <User className="h-4 w-4 mr-2" /> Switch to Solo Mode
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
       {mode === 'solo' ? (

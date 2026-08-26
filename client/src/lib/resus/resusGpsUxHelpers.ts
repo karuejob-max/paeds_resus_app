@@ -27,12 +27,14 @@ export interface VitalAgeEvaluation {
 export function parsePatientAgeYears(ageStr: string | null | undefined): number | null {
   if (!ageStr?.trim()) return null;
   const s = ageStr.trim().toLowerCase();
-  const yMatch = s.match(/(\d+(?:\.\d+)?)\s*y/);
+  const yMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:years?|yrs?|y)\b/);
   if (yMatch) return parseFloat(yMatch[1]);
-  const mMatch = s.match(/(\d+(?:\.\d+)?)\s*m/);
+  const mMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:months?|mos?|mo|m)\b/);
   if (mMatch) return parseFloat(mMatch[1]) / 12;
-  const wMatch = s.match(/(\d+(?:\.\d+)?)\s*w/);
+  const wMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:weeks?|wks?|wk|w)\b/);
   if (wMatch) return parseFloat(wMatch[1]) / 52;
+  const dMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:days?|d)\b/);
+  if (dMatch) return parseFloat(dMatch[1]) / 365.25;
   const num = parseFloat(s);
   if (!Number.isNaN(num) && num < 18) return num;
   return null;
@@ -278,7 +280,7 @@ export function groupActiveThreatsByLetter(threats: Threat[]): Array<{ letter: A
 }
 
 export function isActiveResusPhase(phase: Phase): boolean {
-  return phase === 'PRIMARY_SURVEY' || phase === 'INTERVENTION' || phase === 'CARDIAC_ARREST';
+  return phase === 'BLS_ASSESSMENT' || phase === 'PRIMARY_SURVEY' || phase === 'INTERVENTION' || phase === 'CARDIAC_ARREST';
 }
 
 export function isPostPrimaryPhase(phase: Phase): boolean {
@@ -288,6 +290,11 @@ export function isPostPrimaryPhase(phase: Phase): boolean {
 /** Single-line phase guidance aligned with fellowship micro-course reassessment patterns. */
 export function getResusPhaseGuidance(session: ResusSession): { headline: string; detail?: string } | null {
   switch (session.phase) {
+    case 'BLS_ASSESSMENT':
+      return {
+        headline: 'BLS gate — responsiveness, breathing, and pulse',
+        detail: 'Arrest suspected → CPR-GPS. Otherwise continue XABCDE primary survey.',
+      };
     case 'QUICK_ASSESSMENT':
       return {
         headline: '3-second look — appearance, breathing effort, skin perfusion',
@@ -415,7 +422,7 @@ export function getPrimaryNextStepBanner(
     pendingReassessmentInterventionId?: string | null;
   }
 ): PrimaryNextStepBanner | null {
-  if (session.phase === 'IDLE' || session.phase === 'QUICK_ASSESSMENT') return null;
+  if (session.phase === 'IDLE' || session.phase === 'BLS_ASSESSMENT' || session.phase === 'QUICK_ASSESSMENT') return null;
 
   const pendingReassessment = options.pendingReassessmentInterventionId
     ? findInterventionById(session, options.pendingReassessmentInterventionId)

@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { BottomNav } from '@/components/BottomNav';
 import { RecommendationBanner } from '@/components/RecommendationBanner';
 import { CPRClockUnified } from '@/components/CPRClockUnified';
-import { resolveLifeSupportPack } from '@/lib/resus/cpr-pack-resolver';
+import { resolveLifeSupportPack, type ResusSetting } from '@/lib/resus/cpr-pack-resolver';
 import { useResusAnalytics } from '@/hooks/useResusAnalytics';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { trpc } from '@/lib/trpc';
@@ -27,6 +27,8 @@ import { CareSignalPostEventPrompt } from '@/components/CareSignalPostEventPromp
 import { ResusGpsFellowshipPillarBanner } from '@/components/ResusGpsFellowshipPillarBanner';
 import { ResusGpsNextStepBanner } from '@/components/ResusGpsNextStepBanner';
 import { ResusGpsQuickAssessmentScreen } from '@/components/ResusGpsQuickAssessmentScreen';
+import { PostCardiacArrestCarePanel } from '@/components/PostCardiacArrestCarePanel';
+import { NeonatalResuscitationFlow } from '@/components/NeonatalResuscitationFlow';
 import { ClinicalContentSafetyFooter } from '@/components/ClinicalContentSafetyFooter';
 import { ClinicalUseDisclaimer } from '@/components/ClinicalUseDisclaimer';
 import { AgeInput } from '@/components/AgeInput';
@@ -48,6 +50,7 @@ import { usePatientDemographics } from '@/contexts/PatientDemographicsContext';
 import { useUndo } from '@/hooks/useUndo';
 import {
   type ResusSession,
+  type BLSAssessmentAnswer,
   type AssessmentQuestion,
   type Threat,
   type Intervention,
@@ -74,6 +77,7 @@ import {
   exportClinicalRecord,
   exportSessionSummaryOnePager,
   updatePatientInfo,
+  updateResusSetting,
   acknowledgeSafetyAlert,
   calcDose,
   setDefinitiveDiagnosis,
@@ -88,6 +92,8 @@ import {
   updateSAMPLE,
   primarySurveyQuestions,
   getAgeCategory,
+  getForeignBodyAirwayGuidance,
+  updatePostCardiacArrestCare,
 } from '@/lib/resus/abcdeEngine';
 import { pushToUndoStack, undo, redo } from '@/lib/resus/undo-manager';
 import {
@@ -266,7 +272,7 @@ function formatTime(seconds: number): string {
 function approximateAgeMonths(age: string | null): number {
   if (!age) return 0;
   const structured = parseAgeString(age);
-  if (structured) return Math.max(0, Math.round(ageToMonths(structured)));
+  if (structured) return Math.max(0, ageToMonths(structured));
   const lower = age.toLowerCase();
   const n = parseInt(lower.match(/\d+/)?.[0] ?? '0', 10);
   if (lower.includes('month')) return n;
@@ -278,7 +284,7 @@ function approximateAgeMonths(age: string | null): number {
 
 // ─── Main Component ─────────────────────────────────────────
 
-export default function ResusGPS() {
+export default function ResusGPS({ hasActivationContext = false }: { hasActivationContext?: boolean }) {
   const { demographics, setDemographics, clearDemographics, getWeightInKg } = usePatientDemographics();
   const analytics = useResusAnalytics();
   const analyticsRef = useRef(analytics);
@@ -314,6 +320,7 @@ export default function ResusGPS() {
   const [patientInfoOpen, setPatientInfoOpen] = useState(false);
   const [tempWeight, setTempWeight] = useState('');
   const [tempAge, setTempAge] = useState('');
+  const [tempSetting, setTempSetting] = useState<ResusSetting>('hospital');
   const [numberInput, setNumberInput] = useState('');
   const [numberInput2, setNumberInput2] = useState('');
   const [expandedThreat, setExpandedThreat] = useState<string | null>(null);
@@ -456,11 +463,27 @@ export default function ResusGPS() {
   // ─── Handlers ───────────────────────────────────────────
 
   const handleStart = (isTrauma: boolean) => {
-    trackButtonClick(isTrauma ? 'Start Trauma Assessment' : 'Start Assessment', { isTrauma });
-    const rawWeight = demographics.weight.trim();
+    trackButtonClick('Start ResusGPS emergency flow', { isTrauma });
     const weight = getWeightInKg();
-    if (rawWeight && weight === null) {
-      toast.error(validateResusWeight(Number(rawWeight)).message ?? 'Verify the patient weight before starting.');
+    if (!demographics.age.trim()) {
+      toast.error('Enter the patient age before starting age-specific guidance.');
+      setTempWeight(demographics.weight || '');
+      setTempAge(demographics.age || '');
+      setTempSetting(session.resusSetting ?? 'hospital');
+      setPatientInfoOpen(true);
+      return;
+    }
+    if (weight === null) {
+      toast.error('Enter and confirm the patient weight before starting BLS guidance.');
+      setTempWeight(demographics.weight || '');
+      setTempAge(demographics.age || '');
+      setTempSetting(session.resusSetting ?? 'hospital');
+      setPatientInfoOpen(true);
+      return;
+    }
+    const weightValidation = validateResusWeight(weight);
+    if (!weightValidation.valid) {
+      toast.error(weightValidation.message ?? 'Verify the patient weight before starting.');
       return;
     }
     const s = createSession(weight, demographics.age || null, isTrauma);
@@ -475,10 +498,15 @@ export default function ResusGPS() {
     analytics.trackAssessmentStart(demographics.age || undefined, getWeightInKg() ?? undefined);
   };
 
-  const handleQuickAssessment = (answer: 'sick' | 'not_sick') => {
+  const handleQuickAssessment = (answer: BLSAssessmentAnswer) => {
     setSession(prev => answerQuickAssessment(prev, answer));
     setNumberInput('');
     setNumberInput2('');
+    if (answer === 'cardiac_arrest') {
+      setShowCPRClock(true);
+      if (!timer.running) timer.start();
+      analytics.trackCardiacArrestTriggered();
+    }
   };
 
   const handleAnswer = (question: AssessmentQuestion, answer: string, numVal?: number, numVal2?: number) => {
@@ -606,6 +634,7 @@ export default function ResusGPS() {
     analytics.trackCardiacArrestTriggered();
   };
 
+  const isNeonatalCase = (age: string | null) => age !== null && approximateAgeMonths(age) < 1;
   const patientAgeMonthsForCpr = session.patientAge
     ? approximateAgeMonths(session.patientAge)
     : demographics.age
@@ -614,14 +643,24 @@ export default function ResusGPS() {
   const cprDemographicsReady =
     weight != null && weight > 0 && patientAgeMonthsForCpr != null && patientAgeMonthsForCpr >= 0;
   const lifeSupportPack = cprDemographicsReady
-    ? resolveLifeSupportPack(patientAgeMonthsForCpr)
+    ? resolveLifeSupportPack(
+        patientAgeMonthsForCpr,
+        undefined,
+        isNeonatalCase(session.patientAge) ? session.resusSetting : 'hospital',
+      )
     : null;
+
+  const handlePostCardiacArrestCareChange = useCallback((itemId: string, checked: boolean) => {
+    setSession((previous) => updatePostCardiacArrestCare(previous, itemId, checked));
+  }, [setSession]);
 
   const handleROSC = () => {
     setSession(prev => {
       const withUndo = pushToUndoStack(prev, 'ROSC achieved');
       return achieveROSC(withUndo);
     });
+    timer.stop();
+    setShowCPRClock(false);
     // Track ROSC achieved
     analytics.trackROSCachieved();
   };
@@ -637,7 +676,11 @@ export default function ResusGPS() {
     const newAge = tempAge || null;
     if (newWeight !== null || newAge !== null) {
       try {
-        setSession(prev => updatePatientInfo(prev, newWeight, newAge));
+        setSession(prev => {
+          const updated = updatePatientInfo(prev, newWeight, newAge);
+          const setting = getAgeCategory(newAge) === 'neonate' ? tempSetting : 'hospital';
+          return updateResusSetting(updated, setting);
+        });
       } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Verify the patient information before saving.');
         return;
@@ -1180,6 +1223,7 @@ export default function ResusGPS() {
         onOpenPatientInfo={() => {
           setTempWeight(session.patientWeight?.toString() || '');
           setTempAge(session.patientAge || '');
+          setTempSetting(session.resusSetting ?? 'hospital');
           setPatientInfoOpen(true);
         }}
         onOpenInterventions={() => setInterventionPanelOpen(true)}
@@ -1260,8 +1304,11 @@ export default function ResusGPS() {
           />
         )}
 
-        {session.phase === 'QUICK_ASSESSMENT' && (
-          <ResusGpsQuickAssessmentScreen onAnswer={handleQuickAssessment} />
+        {(session.phase === 'BLS_ASSESSMENT' || session.phase === 'QUICK_ASSESSMENT') && (
+          <ResusGpsQuickAssessmentScreen
+            patientAge={session.patientAge ?? demographics.age}
+            onAnswer={handleQuickAssessment}
+          />
         )}
 
         {session.phase === 'PRIMARY_SURVEY' && (
@@ -1334,6 +1381,7 @@ export default function ResusGPS() {
                 onClick={() => {
                   setTempWeight(demographics.weight || '');
                   setTempAge(demographics.age || session.patientAge || '');
+                  setTempSetting(session.resusSetting ?? 'hospital');
                   setPatientInfoOpen(true);
                 }}
               >
@@ -1341,6 +1389,8 @@ export default function ResusGPS() {
               </Button>
             </CardContent>
           </Card>
+        ) : session.phase === 'CARDIAC_ARREST' && showCPRClock && lifeSupportPack?.pack === 'NRP' && cprDemographicsReady ? (
+          <NeonatalResuscitationFlow birthWeightGrams={Math.round(weight! * 1000)} onClose={() => setShowCPRClock(false)} />
         ) : session.phase === 'CARDIAC_ARREST' && showCPRClock && cprDemographicsReady ? (
           <CPRClockUnified
             patientWeight={weight!}
@@ -1349,6 +1399,9 @@ export default function ResusGPS() {
             externalElapsed={timer.elapsed}
             externalRunning={timer.running}
             autoStart
+            onROSC={handleROSC}
+            allowModeSwitch={false}
+            allowPatientInfoEdit={false}
             onClose={() => setShowCPRClock(false)}
           />
         ) : session.phase === 'CARDIAC_ARREST' ? (
@@ -1381,6 +1434,9 @@ export default function ResusGPS() {
             preFillSample={preFillSample}
             samplePreFillDismissed={samplePreFillDismissed}
             setSamplePreFillDismissed={setSamplePreFillDismissed}
+            hasActivationContext={hasActivationContext}
+            lifeSupportPackLabel={lifeSupportPack?.label ?? 'age-appropriate life-support'}
+            onPostCardiacArrestCareChange={handlePostCardiacArrestCareChange}
           />
         )}
       </main>
@@ -1500,6 +1556,22 @@ export default function ResusGPS() {
               <p className="text-xs text-muted-foreground mt-1">
                 Weight auto-calculated from age (can be overridden)
               </p>
+              {isNeonatalCase(tempAge || null) && (
+                <div className="mt-3 rounded-lg border border-blue-500/40 bg-blue-500/10 p-3">
+                  <label htmlFor="resus-setting" className="text-sm font-semibold text-foreground">Newborn resuscitation context</label>
+                  <select
+                    id="resus-setting"
+                    value={tempSetting}
+                    onChange={(event) => setTempSetting(event.target.value as ResusSetting)}
+                    className="mt-2 min-h-11 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
+                  >
+                    <option value="hospital">Hospital/ward — PALS paediatric arrest pathway</option>
+                    <option value="prehospital">Prehospital — PALS paediatric arrest pathway</option>
+                    <option value="delivery_room">At birth/delivery room — NRP pathway</option>
+                  </select>
+                  <p className="mt-2 text-xs text-muted-foreground">NRP is selected only for a delivery-room/newborn-at-birth context; age alone does not imply NRP.</p>
+                </div>
+              )}
             </div>
           </div>
           </div>
@@ -1902,6 +1974,8 @@ function IdleScreen({
   onStart: (isTrauma: boolean) => void;
   onOpenPatientInfo: () => void;
 }) {
+  const [isTrauma, setIsTrauma] = useState(false);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
       <div className="text-center mb-8">
@@ -1941,33 +2015,37 @@ function IdleScreen({
               )}
             </div>
           </div>
-          {!weight && (
+          {(!weight || !age) && (
             <p className="text-xs text-amber-400/80 mt-2 text-center">
-              Start the assessment now. Verify actual weight before using any calculated medication dose.
+              Enter and confirm age and actual weight before the BLS gate so guidance is age-appropriate.
             </p>
           )}
         </CardContent>
       </Card>
 
-      {/* Start Buttons */}
+      {/* One emergency entry; trauma is context, not a separate pathway. */}
       <div className="w-full max-w-sm space-y-3">
         <Button
           size="lg"
-          className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-2"
-          onClick={() => onStart(false)}
+          className="w-full min-h-[60px] text-lg py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-2"
+          onClick={() => onStart(isTrauma)}
         >
-          <Activity className="h-5 w-5" />
-          START ASSESSMENT
+          <Siren className="h-5 w-5" />
+          START RESUSGPS
         </Button>
         <Button
-          size="lg"
-          variant="outline"
-          className="w-full py-5 gap-2 border-red-500/30 text-red-400 hover:bg-red-500/10"
-          onClick={() => onStart(true)}
+          type="button"
+          variant={isTrauma ? 'default' : 'outline'}
+          className="w-full min-h-[44px] gap-2"
+          onClick={() => setIsTrauma((current) => !current)}
+          aria-pressed={isTrauma}
         >
-          <AlertTriangle className="h-5 w-5" />
-          TRAUMA ASSESSMENT (XABCDE)
+          <AlertTriangle className="h-4 w-4" />
+          {isTrauma ? 'Trauma context: on' : 'Add trauma context (optional)'}
         </Button>
+        <p className="text-xs text-muted-foreground text-center">
+          Every case follows the same sequence: BLS → CPR-GPS or XABCDE → secondary survey → report/debrief.
+        </p>
       </div>
     </div>
   );
@@ -1998,7 +2076,7 @@ function PrimarySurveyScreen({
   if (!question) return null;
 
   const letterConfig = LETTER_CONFIG[session.currentLetter];
-  const letterOrder: ABCDELetter[] = session.isTrauma ? ['X', 'A', 'B', 'C', 'D', 'E'] : ['A', 'B', 'C', 'D', 'E'];
+  const letterOrder: ABCDELetter[] = ['X', 'A', 'B', 'C', 'D', 'E'];
   const currentIdx = letterOrder.indexOf(session.currentLetter);
   const progress = ((currentIdx + (questions.length - unanswered.length) / questions.length) / letterOrder.length) * 100;
 
@@ -2041,6 +2119,24 @@ function PrimarySurveyScreen({
           </p>
         </div>
       </div>
+
+      {question.id === 'choking' && (
+        <Card className="mb-4 border-amber-500/40 bg-amber-500/10">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm text-foreground">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              Age-aware foreign-body airway obstruction cue
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-foreground">
+            <p className="font-semibold">{getForeignBodyAirwayGuidance(session.patientAge).title}</p>
+            <ol className="list-decimal space-y-1 pl-5">
+              {getForeignBodyAirwayGuidance(session.patientAge).steps.map((step) => <li key={step}>{step}</li>)}
+            </ol>
+            <p className="text-xs text-muted-foreground">{getForeignBodyAirwayGuidance(session.patientAge).escalation}</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Question */}
       <Card className="bg-card border-border">
@@ -2153,8 +2249,9 @@ function NumberInput({
           value={value}
           onChange={e => onChange(e.target.value)}
           className={`text-lg bg-background text-foreground ${
-            vitalAbnormal ? 'border-amber-500 ring-1 ring-amber-500/40' : ''
+            vitalAbnormal ? 'border-2 border-red-600 bg-red-50/30 ring-2 ring-red-500/40 dark:bg-red-950/20' : ''
           }`}
+          aria-invalid={vitalAbnormal}
           min={config.min}
           max={config.max}
           step={config.step}
@@ -2171,18 +2268,25 @@ function NumberInput({
           {(() => {
             const interp = config.interpret(numVal, session);
             return (
-              <Badge
-                variant="outline"
-                className={`text-sm ${
-                  interp.severity === 'critical'
-                    ? 'border-red-500/50 text-red-400 bg-red-500/10'
-                    : interp.severity === 'urgent'
-                    ? 'border-amber-500/50 text-amber-400 bg-amber-500/10'
-                    : 'border-green-500/50 text-green-400 bg-green-500/10'
-                }`}
-              >
-                {interp.label}
-              </Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                {vitalAbnormal && (
+                  <Badge variant="destructive" className="text-xs font-bold">
+                    ABNORMAL FOR AGE
+                  </Badge>
+                )}
+                <Badge
+                  variant="outline"
+                  className={`text-sm ${
+                    interp.severity === 'critical'
+                      ? 'border-red-500/50 text-red-400 bg-red-500/10'
+                      : interp.severity === 'urgent'
+                      ? 'border-amber-500/50 text-amber-400 bg-amber-500/10'
+                      : 'border-green-500/50 text-green-400 bg-green-500/10'
+                  }`}
+                >
+                  {interp.label}
+                </Badge>
+              </div>
             );
           })()}
         </div>
@@ -2555,6 +2659,9 @@ function PostPrimaryScreen({
   preFillSample,
   samplePreFillDismissed,
   setSamplePreFillDismissed,
+  hasActivationContext,
+  lifeSupportPackLabel,
+  onPostCardiacArrestCareChange,
 }: {
   session: ResusSession;
   setSession: (s: ResusSession) => void;
@@ -2574,6 +2681,9 @@ function PostPrimaryScreen({
   preFillSample: PersistedSampleHistory | null;
   samplePreFillDismissed: boolean;
   setSamplePreFillDismissed: (v: boolean) => void;
+  hasActivationContext: boolean;
+  lifeSupportPackLabel: string;
+  onPostCardiacArrestCareChange: (itemId: string, checked: boolean) => void;
 }) {
   const { trackButtonClick } = useAnalytics('ResusGPS');
   const resusAnalytics = useResusAnalytics();
@@ -2605,6 +2715,12 @@ function PostPrimaryScreen({
   const sampleComplete = isSampleStepComplete(session);
   const evidenceComplete = isEvidenceStepComplete(session);
   const diagnosisUnlocked = canShowDiagnosisSelection(session) || Boolean(session.definitiveDiagnosis);
+  const showActivationHandoff = hasActivationContext && (diagnosisUnlocked || session.phase === 'ONGOING');
+  const postRoscOccurred = session.events.some((event) => event.type === 'rosc');
+
+  const handleOpenActivationPanel = () => {
+    document.getElementById('iers-activation-context')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const handleUnifiedSampleChange = useCallback(
     (rec: ClinicalEvidenceRecord) => {
@@ -2688,6 +2804,14 @@ function PostPrimaryScreen({
 
   return (
     <div className="py-6 space-y-6">
+      {postRoscOccurred && (
+        <PostCardiacArrestCarePanel
+          care={session.postCardiacArrestCare}
+          lifeSupportPackLabel={lifeSupportPackLabel}
+          onChange={onPostCardiacArrestCareChange}
+        />
+      )}
+
       {/* Vital Signs Summary */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
@@ -2870,6 +2994,30 @@ function PostPrimaryScreen({
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {showActivationHandoff && (
+        <Card className="border-indigo-300 bg-indigo-50/30 dark:bg-indigo-950/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm text-foreground">
+              <FileText className="h-4 w-4 text-indigo-600" />
+              Close the IERS loop
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              This case came from an ERT activation. Submit your named role-at-event report in the IERS panel,
+              then the authorized ERTL, UTL, ERCo, or institution administrator records the debrief and closes the activation.
+              Do not enter patient identifiers in either report.
+            </p>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 sm:flex-row">
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={handleOpenActivationPanel}>
+              Open IERS role report
+            </Button>
+            <Button type="button" className="w-full sm:w-auto" onClick={onSaveSession} disabled={isSaving}>
+              {isSaving ? 'Saving case…' : 'Save ResusGPS case'}
+            </Button>
           </CardContent>
         </Card>
       )}

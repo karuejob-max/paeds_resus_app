@@ -220,8 +220,8 @@ export default function ResusGated() {
 
   return (
     <div className="min-h-screen bg-background">
-      {activationContext.activationId ? <div className="mx-auto max-w-5xl px-4 pt-4"><ProviderIersActivationCaseContext activationEventId={activationContext.activationId} /></div> : null}
-      <ResusGPS />
+      {activationContext.activationId ? <div id="iers-activation-context" className="mx-auto max-w-5xl px-4 pt-4"><ProviderIersActivationCaseContext activationEventId={activationContext.activationId} /></div> : null}
+      <ResusGPS hasActivationContext={Boolean(activationContext.activationId)} />
     </div>
   );
 }

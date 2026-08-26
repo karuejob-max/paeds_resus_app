@@ -19,12 +19,17 @@ import {
 } from './resusGpsUxHelpers';
 import {
   advanceSecondarySurveyStep,
+  answerQuickAssessment,
   completeFluidReassessment,
   completeIntervention,
   createSession,
   startQuickAssessment,
   type Intervention,
   type ResusSession,
+  getCurrentQuestions,
+  answerPrimarySurvey,
+  getForeignBodyAirwayGuidance,
+  getAgeCategory,
   type Threat,
 } from './abcdeEngine';
 
@@ -59,6 +64,62 @@ function sessionWithThreat(
 }
 
 describe('resusGpsUxHelpers', () => {
+  it('starts every new emergency at the explicit BLS assessment gate', () => {
+    const session = startQuickAssessment(createSession(12, '2y 0m 0w', false));
+    expect(session.phase).toBe('BLS_ASSESSMENT');
+    expect(getResusPhaseGuidance(session)?.headline).toMatch(/BLS gate/i);
+    expect(isActiveResusPhase(session.phase)).toBe(true);
+  });
+
+  it('routes suspected arrest directly to CPR-GPS and no-arrest cases to XABCDE', () => {
+    const arrest = answerQuickAssessment(
+      startQuickAssessment(createSession(8, '8m 0w 0d', false)),
+      'cardiac_arrest'
+    );
+    expect(arrest.phase).toBe('CARDIAC_ARREST');
+    expect(arrest.blsAssessment).toBe('cardiac_arrest');
+
+    const nonArrest = answerQuickAssessment(
+      startQuickAssessment(createSession(70, '20y 0m 0w', false)),
+      'no_cardiac_arrest'
+    );
+    expect(nonArrest.phase).toBe('PRIMARY_SURVEY');
+    expect(nonArrest.currentLetter).toBe('X');
+    expect(nonArrest.blsAssessment).toBe('no_cardiac_arrest');
+  });
+
+  it('progresses non-trauma primary survey through X before airway', () => {
+    let session = answerQuickAssessment(
+      startQuickAssessment(createSession(15, '4y 0m 0w', false)),
+      'no_cardiac_arrest'
+    );
+    const xQuestions = getCurrentQuestions(session);
+    expect(xQuestions.length).toBeGreaterThan(0);
+    for (const question of xQuestions) {
+      const safeOption = question.options?.find((option) => option.severity === undefined);
+      session = answerPrimarySurvey(session, question.id, safeOption?.value ?? 'no', question);
+    }
+    expect(session.currentLetter).toBe('A');
+  });
+
+  it('classifies days/weeks as neonatal and one month as infant', () => {
+    expect(getAgeCategory('1 day')).toBe('neonate');
+    expect(getAgeCategory('4 weeks')).toBe('neonate');
+    expect(getAgeCategory('1 month')).toBe('infant');
+    expect(getAgeCategory('30 years')).toBe('adult');
+  });
+
+  it('shows infant choking guidance for a 1-month-old', () => {
+    const guidance = getForeignBodyAirwayGuidance('1 month');
+    expect(guidance.population).toBe('infant');
+    expect(guidance.title).toMatch(/5 back blows.*5 chest thrusts/i);
+  });
+
+  it('shows child/adult choking guidance for a 2-year-old and adult', () => {
+    expect(getForeignBodyAirwayGuidance('2 years').title).toMatch(/5 back blows.*5 abdominal thrusts/i);
+    expect(getForeignBodyAirwayGuidance('30 years').population).toBe('child_or_adult');
+  });
+
   it('maps ABCDE letters to fellowship-style group labels', () => {
     expect(abcdeLetterToGroupLabel('A')).toBe('Airway');
     expect(abcdeLetterToGroupLabel('C')).toBe('Circulation');
@@ -224,11 +285,11 @@ describe('resusGpsUxHelpers', () => {
     expect(selected.has('a_limp')).toBe(false);
   });
 
-  it('returns quick assessment phase guidance aligned with fellowship teaching', () => {
+  it('returns BLS gate guidance aligned with the unified emergency flow', () => {
     const session = startQuickAssessment(createSession(10, '2y 0m 0w', false));
     const guidance = getResusPhaseGuidance(session);
-    expect(guidance?.headline).toMatch(/3-second look/i);
-    expect(guidance?.detail).toMatch(/ABCDE/i);
+    expect(guidance?.headline).toMatch(/BLS gate/i);
+    expect(guidance?.detail).toMatch(/CPR-GPS.*XABCDE/i);
   });
 
   it('integrates with abcdeEngine completeIntervention lifecycle', () => {
@@ -281,6 +342,8 @@ describe('resusGpsUxHelpers', () => {
     expect(parsePatientAgeYears('5 years')).toBe(5);
     expect(parsePatientAgeYears('5y 0m 0w')).toBe(5);
     expect(parsePatientAgeYears('6 months')).toBeCloseTo(0.5, 1);
+    expect(parsePatientAgeYears('1 day')).toBeCloseTo(1 / 365.25, 4);
+    expect(parsePatientAgeYears('4 weeks')).toBeCloseTo(4 / 52, 2);
   });
 
   it('does not show fellowship submit banner during secondary survey SAMPLE step', () => {

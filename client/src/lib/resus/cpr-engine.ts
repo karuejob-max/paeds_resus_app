@@ -3,6 +3,8 @@
  * Extracted from UI components to ensure consistency across Solo/Team modes.
  */
 
+import type { LifeSupportPack } from './cpr-pack-resolver';
+
 export type ArrestPhase = 'initial_assessment' | 'compressions' | 'reassessment' | 'rhythm_check' | 'charging' | 'shock_ready' | 'post_shock';
 export type RhythmType = 'vf_pvt' | 'pea' | 'asystole' | 'rosc' | 'unknown';
 export type EpiTimingState = 'not_due' | 'almost_due' | 'overdue';
@@ -74,6 +76,7 @@ export interface CprGpsAlertInput {
   cycleNumber: number;
   weightKg: number;
   defibDelayed?: boolean;
+  lifeSupportPack?: LifeSupportPack;
 }
 
 export interface RhythmWindowDocumentation {
@@ -169,15 +172,28 @@ export function getRhythmClassificationFeedback(
 
 export function calculateAmiodaroneDose(
   shockCount: number,
-  weightKg: number
+  weightKg: number,
+  lifeSupportPack: Exclude<LifeSupportPack, 'NRP'> = 'PALS',
 ): { eligible: boolean; doseMg: number; label: string } {
   if (shockCount === 3) {
-    const doseMg = Math.min(Math.round(weightKg * 5), 300);
-    return { eligible: true, doseMg, label: `${doseMg} mg IV (5 mg/kg, max 300 mg) — after 3rd shock` };
+    const doseMg = lifeSupportPack === 'ACLS' ? 300 : Math.min(Math.round(weightKg * 5), 300);
+    return {
+      eligible: true,
+      doseMg,
+      label: lifeSupportPack === 'ACLS'
+        ? '300 mg IV/IO — after 3rd shock (adult ACLS)'
+        : `${doseMg} mg IV (5 mg/kg, max 300 mg) — after 3rd shock`,
+    };
   }
   if (shockCount === 5) {
-    const doseMg = Math.min(Math.round(weightKg * 2.5), 150);
-    return { eligible: true, doseMg, label: `${doseMg} mg IV (2.5 mg/kg, max 150 mg) — after 5th shock` };
+    const doseMg = lifeSupportPack === 'ACLS' ? 150 : Math.min(Math.round(weightKg * 2.5), 150);
+    return {
+      eligible: true,
+      doseMg,
+      label: lifeSupportPack === 'ACLS'
+        ? '150 mg IV/IO — after 5th shock (adult ACLS)'
+        : `${doseMg} mg IV (2.5 mg/kg, max 150 mg) — after 5th shock`,
+    };
   }
   return { eligible: false, doseMg: 0, label: '' };
 }
@@ -203,6 +219,7 @@ export function evaluateCprGpsAlerts(input: CprGpsAlertInput): CprGpsAlert[] {
     cycleNumber,
     weightKg,
     defibDelayed = false,
+    lifeSupportPack = 'PALS',
   } = input;
 
   if (inReassessment && rhythmWindowElapsed !== null) {
@@ -240,7 +257,7 @@ export function evaluateCprGpsAlerts(input: CprGpsAlertInput): CprGpsAlert[] {
     });
   }
 
-  const med = evaluateMedicationEligibility(arrestDuration, state, isShockable, { defibDelayed });
+  const med = evaluateMedicationEligibility(arrestDuration, state, isShockable, { defibDelayed, lifeSupportPack: lifeSupportPack === 'NRP' ? 'PALS' : lifeSupportPack });
   const epiState = getEpinephrineTimingState(arrestDuration, state, isShockable, { defibDelayed });
   if (med.epiEligible) {
     alerts.push({
@@ -259,7 +276,7 @@ export function evaluateCprGpsAlerts(input: CprGpsAlertInput): CprGpsAlert[] {
   }
 
   if (isShockable && med.antiarrhythmicEligible) {
-    const doseInfo = calculateAmiodaroneDose(state.shockCount, weightKg);
+    const doseInfo = calculateAmiodaroneDose(state.shockCount, weightKg, lifeSupportPack === 'NRP' ? 'PALS' : lifeSupportPack);
     alerts.push({
       type: 'amiodarone_due',
       severity: 'warning',
@@ -421,9 +438,19 @@ export function isShockAdvised(rhythm: RhythmType): boolean {
  * Calculates recommended shock energy (AHA PALS: 2J/kg, then 4J/kg, then >=4J/kg, max 10J/kg or adult dose).
  */
 export function calculateShockEnergy(weightKg: number, shockCount: number): number {
-  const energyPerKg = shockCount === 0 ? 2 : shockCount === 1 ? 4 : 4; // Simplified for now, can be 4-10J/kg
+  const energyPerKg = shockCount === 0 ? 2 : shockCount === 1 ? 4 : 4; // PALS: 2 J/kg, then 4 J/kg
   const energy = weightKg * energyPerKg;
-  return Math.min(Math.round(energy), 200); // Max 200J for peds initial cycles
+  return Math.min(Math.round(energy), 200); // PALS ceiling for this display helper
+}
+
+export function getCprShockEnergyLabel(
+  weightKg: number,
+  shockCount: number,
+  lifeSupportPack: LifeSupportPack = 'PALS',
+): string {
+  if (lifeSupportPack === 'ACLS') return 'Adult biphasic 120–200 J (follow device manufacturer setting)';
+  if (lifeSupportPack === 'NRP') return 'Use the governed NRP delivery-room algorithm';
+  return `${calculateShockEnergy(weightKg, shockCount)} J (PALS weight-based)`;
 }
 
 /**
@@ -432,6 +459,8 @@ export function calculateShockEnergy(weightKg: number, shockCount: number): numb
 export interface MedicationEligibilityOptions {
   /** Shockable rhythm but defibrillator unavailable or not yet attached — allow earlier epi per 2025 guidance. */
   defibDelayed?: boolean;
+  /** PALS or ACLS dosing context. NRP is handled by the delivery-room pathway, not this generic clock. */
+  lifeSupportPack?: Exclude<LifeSupportPack, 'NRP'>;
 }
 
 export function evaluateMedicationEligibility(
@@ -444,7 +473,8 @@ export function evaluateMedicationEligibility(
   let antiarrhythmicEligible = false;
   let recommendation: string | null = null;
 
-  const { defibDelayed = false } = options;
+  const { defibDelayed = false, lifeSupportPack = 'PALS' } = options;
+  const isAdultAclS = lifeSupportPack === 'ACLS';
 
   // Epinephrine (every 3-5 min)
   if (state.lastEpiTime === null) {
@@ -454,7 +484,9 @@ export function evaluateMedicationEligibility(
     if (!isShockable || shockableFirstEpiOk) {
       epiEligible = true;
       recommendation = !isShockable
-        ? 'Give epinephrine now (non-shockable rhythm).'
+        ? isAdultAclS
+          ? 'Give adult ACLS epinephrine 1 mg IV/IO now (repeat every 3–5 minutes).'
+          : 'Give epinephrine now (non-shockable rhythm).'
         : defibDelayed && state.shockCount < 2
           ? 'Prepare epinephrine (defibrillation delayed).'
           : 'Prepare epinephrine.';
@@ -464,13 +496,16 @@ export function evaluateMedicationEligibility(
     recommendation = 'Consider epinephrine (3-5 min since last dose).';
   }
 
-  // Amiodarone: 300 mg IV after 3rd shock; 150 mg IV after 5th shock (PALS)
+  // Antiarrhythmic timing is shared; dose is fixed for ACLS and weight-based for PALS.
   if (isShockable && (state.shockCount === 3 || state.shockCount === 5)) {
     const doseIndex = state.shockCount === 3 ? 0 : 1;
     if (state.antiarrhythmicDoses <= doseIndex) {
       antiarrhythmicEligible = true;
-      recommendation =
-        state.shockCount === 3
+      recommendation = isAdultAclS
+        ? state.shockCount === 3
+          ? 'Give amiodarone 300 mg IV/IO after the 3rd shock (or local ACLS antiarrhythmic protocol).'
+          : 'Give amiodarone 150 mg IV/IO after the 5th shock (or local ACLS antiarrhythmic protocol).'
+        : state.shockCount === 3
           ? 'Give amiodarone 300 mg IV (or 5 mg/kg, max 300 mg) after 3rd shock.'
           : 'Give amiodarone 150 mg IV (or 2.5 mg/kg, max 150 mg) after 5th shock.';
     }
@@ -484,8 +519,13 @@ export function evaluateMedicationEligibility(
  */
 export function calculateCprMedicationDose(
   medication: 'epinephrine' | 'amiodarone' | 'lidocaine',
-  weightKg: number
+  weightKg: number,
+  lifeSupportPack: Exclude<LifeSupportPack, 'NRP'> = 'PALS',
 ): { dose: number; unit: string; preparation?: string } {
+  if (lifeSupportPack === 'ACLS' && medication === 'epinephrine') {
+    return { dose: 1, unit: 'mg', preparation: 'Adult ACLS IV/IO dose; repeat every 3–5 minutes per governed protocol' };
+  }
+
   switch (medication) {
     case 'epinephrine':
       // 0.01 mg/kg (0.1 mL/kg of 1:10,000)
