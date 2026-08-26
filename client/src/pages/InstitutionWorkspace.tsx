@@ -287,7 +287,6 @@ export default function InstitutionWorkspace() {
                   <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="command">Command centre</TabsTrigger>
                   <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="evidence">Evidence & actions</TabsTrigger>
                   <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="drills">Drills & debriefs</TabsTrigger>
-                  <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="competency">Competency & training</TabsTrigger>
                   <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="workforce">ERT & equipment</TabsTrigger>
                   <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="plan">Implementation plan</TabsTrigger>
                   <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="report">Executive snapshot</TabsTrigger>
@@ -295,14 +294,6 @@ export default function InstitutionWorkspace() {
                 <TabsContent value="command"><IersActivationPanel institutionId={institutionId} /></TabsContent>
                 <TabsContent value="evidence"><IersEvidencePanel institutionId={institutionId} /></TabsContent>
                 <TabsContent value="drills"><IersDrillPanel institutionId={institutionId} /></TabsContent>
-                <TabsContent value="competency" className="space-y-6">
-                  <Card className="border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20">
-                    <CardHeader><CardTitle className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-amber-700" />Competency & training</CardTitle><CardDescription>Schedule and document emergency-readiness competency, review cohort progress, and review phase-one proof. Training completion is not the same as IERS operational readiness; both must be evidenced.</CardDescription></CardHeader>
-                  </Card>
-                  <InstitutionIersCompetencyPanel institutionId={institutionId} />
-                  <CohortProgressWidget institutionId={institutionId} />
-                  <Phase1ProofReviewWidget institutionId={institutionId} />
-                </TabsContent>
                 <TabsContent value="workforce" className="space-y-6">
                   <Tabs value={activeWorkforceTab} onValueChange={(value) => setWorkforceTab(value as IersWorkforceTab)}>
                     <TabsList className="sticky top-16 z-10 flex h-auto w-full max-w-full min-w-0 justify-start gap-1 overflow-x-auto overscroll-x-contain bg-background/95 p-1 shadow-sm backdrop-blur sm:flex-wrap sm:overflow-visible sm:shadow-none">

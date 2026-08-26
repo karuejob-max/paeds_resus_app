@@ -224,7 +224,7 @@ export default function InstitutionHomePanel({
             ) : nextSession ? (
               <>
                 <p className="font-semibold">
-                  {nextSession.programType.toUpperCase()} ·{" "}
+                  {(nextSession.programType ?? "competency").toUpperCase()} · {""}
                   {new Date(nextSession.scheduledDate).toLocaleDateString()}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
