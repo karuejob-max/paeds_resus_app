@@ -17,6 +17,7 @@ const snapshot = {
   compressionElapsed: 42,
   cycleNumber: 1,
   cycleTime: 42,
+  isRunning: true,
   phase: 'compressions' as const,
   engineState: {
     shockCount: 0,

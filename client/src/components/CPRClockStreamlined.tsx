@@ -394,6 +394,7 @@ export function CPRClockStreamlined({
       compressionElapsed: effectiveCompressionElapsed,
       cycleNumber: effectiveCycleNumber,
       cycleTime: effectiveCompressionElapsed,
+      isRunning: effectiveIsRunning,
       phase,
       engineState: engineSnapshot,
       rhythmType: effectiveRhythmType,
@@ -858,26 +859,7 @@ export function CPRClockStreamlined({
     setShowRhythmActionCapture(false);
     addEvent('Rhythm window action', decision.actionSummary);
 
-    if (windowShockAction === 'shock_delivered') {
-      const nextShockCount = decision.nextShockCount;
-      setShockCount(nextShockCount);
-      if (syncShared && shared) {
-        shared.setEngineState((s) => ({ ...s, shockCount: nextShockCount, phase: 'post_shock' }));
-      }
-      speak(`Shock ${nextShockCount} delivered. Resume compressions.`);
-      if (nextShockCount === 1 && !advancedAirwayPlaced) {
-        setShowAdvancedAirwayPrompt(true);
-      }
-      const medAfterShock = evaluateMedicationEligibility(
-        effectiveArrestDuration,
-        { ...engineSnapshot, shockCount: nextShockCount },
-        true,
-        { lifeSupportPack: cprEnginePack }
-      );
-      if (medAfterShock.antiarrhythmicEligible) setShowAntiarrhythmicChoice(true);
-    } else {
-      speak('No shock delivered. Resume compressions now.');
-    }
+    speak('No shock delivered. Resume compressions now.');
     setRhythmFeedback(null);
     setRhythmWindowElapsed(null);
     resetCompressionCycle();

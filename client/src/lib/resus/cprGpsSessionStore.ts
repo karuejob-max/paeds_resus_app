@@ -27,6 +27,7 @@ export interface CprGpsSnapshot {
   compressionElapsed: number;
   cycleNumber: number;
   cycleTime: number;
+  isRunning: boolean;
   phase: ArrestPhase;
   engineState: CprEngineState;
   rhythmType: RhythmType | null;
