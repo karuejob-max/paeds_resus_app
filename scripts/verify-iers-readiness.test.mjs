@@ -59,6 +59,8 @@ test("IERS verifier accepts the deployed mixed table naming contract", () => {
     "iers_utl_readiness_check_items",
     "iers_activation_team_snapshots",
     "iers_targeted_role_reports",
+    "iers_push_subscriptions",
+    "iers_push_delivery_log",
   ]);
 
   for (const requirement of REQUIRED_TABLES) {
@@ -181,6 +183,11 @@ test("IERS verifier accepts camelCase columns for the first two migration groups
     "report_phase",
     "no_patient_identifiers_acknowledged",
     "submission_state",
+    "endpoint_hash",
+    "is_active",
+    "last_seen_at",
+    "activation_event_id",
+    "delivery_key",
   ]);
 
   for (const requirement of REQUIRED_COLUMNS) {

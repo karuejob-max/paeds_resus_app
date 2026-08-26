@@ -92,6 +92,8 @@ export const REQUIRED_TABLES = [
   { key: "utlReadinessCheckItems", label: "UTL readiness check items", names: ["iers_utl_readiness_check_items"] },
   { key: "activationTeamSnapshots", label: "activation team snapshots", names: ["iers_activation_team_snapshots"] },
   { key: "targetedRoleReports", label: "targeted ERT role reports", names: ["iers_targeted_role_reports"] },
+  { key: "pushSubscriptions", label: "IERS Web Push subscriptions", names: ["iers_push_subscriptions"] },
+  { key: "pushDeliveryLog", label: "IERS push delivery log", names: ["iers_push_delivery_log"] },
 ];
 
 export const REQUIRED_COLUMNS = [
@@ -234,6 +236,12 @@ export const REQUIRED_COLUMNS = [
   { tableKey: "targetedRoleReports", label: "targeted report phase", names: ["report_phase"] },
   { tableKey: "targetedRoleReports", label: "targeted report no-patient-identifiers acknowledgement", names: ["no_patient_identifiers_acknowledged"] },
   { tableKey: "targetedRoleReports", label: "targeted report submission state", names: ["submission_state"] },
+  { tableKey: "pushSubscriptions", label: "push subscription endpoint hash", names: ["endpoint_hash"] },
+  { tableKey: "pushSubscriptions", label: "push subscription active state", names: ["is_active"] },
+  { tableKey: "pushSubscriptions", label: "push subscription last seen", names: ["last_seen_at"] },
+  { tableKey: "pushDeliveryLog", label: "push delivery activation", names: ["activation_event_id"] },
+  { tableKey: "pushDeliveryLog", label: "push delivery status", names: ["status"] },
+  { tableKey: "pushDeliveryLog", label: "push delivery idempotency key", names: ["delivery_key"] },
 ];
 
 async function main() {

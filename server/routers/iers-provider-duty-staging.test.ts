@@ -1134,6 +1134,15 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     });
     expect(decliningMember.status).toBe("pending_acceptance");
 
+    const notificationStatus = await assignedCaller.iersNotifications.getStatus();
+    expect(notificationStatus).toEqual(expect.objectContaining({ migrationReady: true, configured: false, active: false }));
+    const notificationWithoutServerKeys = await assignedCaller.iersNotifications.subscribe({
+      endpoint: "https://push.example.test/staging-subscription",
+      keys: { p256dh: "staging-p256dh-key-123456", auth: "staging-auth-key" },
+      userAgent: "IERS staging fixture",
+    });
+    expect(notificationWithoutServerKeys).toEqual({ success: false, reason: "not_configured" });
+
     await expectTrpcError(
       () => otherTenantCaller.iers.triggerActivation({
         institutionId: ids.institutionId,

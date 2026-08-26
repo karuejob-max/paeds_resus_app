@@ -3,6 +3,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import ProviderTodayActivationCard from "@/components/ProviderTodayActivationCard";
+import IersNotificationSetup from "@/components/IersNotificationSetup";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -272,6 +273,8 @@ export default function ProviderToday() {
             {activeMemberships.length > 1 && <Badge variant="outline" className="ml-auto shrink-0">Review in Records</Badge>}
           </div>
         ) : null}
+
+        <IersNotificationSetup enabled={hasActiveMembership} />
 
         <ProviderTodayActivationCard
           currentTeam={currentTeam ? { teamId: currentTeam.teamId, institutionId: currentTeam.institutionId, poleName: currentTeam.poleName } : null}

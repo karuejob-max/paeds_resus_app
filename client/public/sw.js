@@ -10,7 +10,7 @@
  * Critical for LMIC settings where connectivity is intermittent.
  */
 
-const CACHE_VERSION = 'paeds-resus-v3';
+const CACHE_VERSION = 'paeds-resus-v4';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const API_CACHE     = `${CACHE_VERSION}-api`;
@@ -104,16 +104,32 @@ self.addEventListener('push', (event) => {
       icon: '/favicon.png',
       badge: '/favicon.png',
       tag: data.tag || 'paeds-resus',
-      data: data.url ? { url: data.url } : undefined,
+      requireInteraction: data.requireInteraction === true,
+      renotify: data.renotify !== false,
+      data: {
+        type: data.type || 'notification',
+        activationEventId: data.activationEventId,
+        url: data.url || '/',
+      },
     })
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  if (event.notification.data && event.notification.data.url) {
-    event.waitUntil(clients.openWindow(event.notification.data.url));
-  }
+  const targetUrl = event.notification.data && event.notification.data.url
+    ? new URL(event.notification.data.url, self.location.origin).href
+    : self.location.origin;
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client && 'navigate' in client) {
+          return client.navigate(targetUrl).then(() => client.focus());
+        }
+      }
+      return clients.openWindow ? clients.openWindow(targetUrl) : undefined;
+    })
+  );
 });
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
