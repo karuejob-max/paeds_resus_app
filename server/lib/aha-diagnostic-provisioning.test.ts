@@ -63,6 +63,7 @@ function makeMissingDiagnosticDb() {
   return { db, insertedQuizValues, insertedQuestionValues };
 }
 
+// Guards the failure mode where the course exists but its diagnostic baseline does not.
 describe("AHA diagnostic provisioning", () => {
   it("defines diagnostic baselines for every diagnostic-enabled AHA program, not instructor", () => {
     expect(AHA_DIAGNOSTIC_PROGRAMS).toEqual(["bls", "acls", "pals", "nrp", "heartsaver"]);
