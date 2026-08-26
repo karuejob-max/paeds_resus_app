@@ -94,7 +94,8 @@ function answerLetterNormal(session: ResusSession, letter: string): ResusSession
 function getToLetterC(weight = 18, age = '5 years'): ResusSession {
   let s = createSession(weight, age);
   s = startQuickAssessment(s);
-  s = answerQuickAssessment(s, 'sick');
+  s = answerQuickAssessment(s, 'no_cardiac_arrest');
+  s = answer(s, 'catastrophic_hemorrhage', 'no');
   s = answerLetterNormal(s, 'A');
   // If any urgent threats at A, handle them
   if (s.phase === 'INTERVENTION') s = returnToPrimarySurvey(s);
@@ -181,28 +182,35 @@ describe('Age Category Detection', () => {
 // ═══════════════════════════════════════════════════════════════
 
 describe('Quick Assessment Flow', () => {
-  it('transitions IDLE → QUICK_ASSESSMENT → PRIMARY_SURVEY', () => {
+  it('transitions IDLE → BLS_ASSESSMENT → PRIMARY_SURVEY at X', () => {
     let s = createSession(18, '5 years');
     expect(s.phase).toBe('IDLE');
     s = startQuickAssessment(s);
-    expect(s.phase).toBe('QUICK_ASSESSMENT');
-    s = answerQuickAssessment(s, 'sick');
+    expect(s.phase).toBe('BLS_ASSESSMENT');
+    s = answerQuickAssessment(s, 'no_cardiac_arrest');
+    expect(s.currentLetter).toBe('X');
+    s = answer(s, 'catastrophic_hemorrhage', 'no');
     expect(s.phase).toBe('PRIMARY_SURVEY');
-    expect(s.quickAssessment).toBe('sick');
+    expect(s.quickAssessment).toBe('not_sick');
+    expect(s.blsAssessment).toBe('no_cardiac_arrest');
     expect(s.currentLetter).toBe('A');
   });
 
   it('starts at X for trauma', () => {
     let s = createSession(18, '5 years', true);
     s = startQuickAssessment(s);
-    s = answerQuickAssessment(s, 'sick');
+    s = answerQuickAssessment(s, 'no_cardiac_arrest');
     expect(s.currentLetter).toBe('X');
+    s = answer(s, 'catastrophic_hemorrhage', 'no');
+    expect(s.currentLetter).toBe('A');
   });
 
-  it('not_sick also starts PRIMARY_SURVEY at A', () => {
+  it('no cardiac arrest starts PRIMARY_SURVEY at X', () => {
     let s = createSession(18, '5 years');
     s = startQuickAssessment(s);
-    s = answerQuickAssessment(s, 'not_sick');
+    s = answerQuickAssessment(s, 'no_cardiac_arrest');
+    expect(s.currentLetter).toBe('X');
+    s = answer(s, 'catastrophic_hemorrhage', 'no');
     expect(s.phase).toBe('PRIMARY_SURVEY');
     expect(s.currentLetter).toBe('A');
   });
@@ -218,7 +226,8 @@ describe('AVPU at Airway (A)', () => {
   beforeEach(() => {
     session = createSession(18, '5 years');
     session = startQuickAssessment(session);
-    session = answerQuickAssessment(session, 'sick');
+    session = answerQuickAssessment(session, 'no_cardiac_arrest');
+  session = answer(session, 'catastrophic_hemorrhage', 'no');
   });
 
   it('AVPU is the first question at A', () => {
@@ -263,7 +272,8 @@ describe('AVPU at Airway (A)', () => {
     // Infant
     let infantS = createSession(6, '6 months');
     infantS = startQuickAssessment(infantS);
-    infantS = answerQuickAssessment(infantS, 'sick');
+    infantS = answerQuickAssessment(infantS, 'no_cardiac_arrest');
+    infantS = answer(infantS, 'catastrophic_hemorrhage', 'no');
     infantS = answer(infantS, 'avpu', 'unresponsive');
     const infantThreat = getActiveThreats(infantS).find(t => t.id === 'unresponsive_airway');
     expect(infantThreat!.interventions[0].action).toContain('NEUTRAL');
@@ -271,7 +281,8 @@ describe('AVPU at Airway (A)', () => {
     // Child
     let childS = createSession(18, '5 years');
     childS = startQuickAssessment(childS);
-    childS = answerQuickAssessment(childS, 'sick');
+    childS = answerQuickAssessment(childS, 'no_cardiac_arrest');
+    childS = answer(childS, 'catastrophic_hemorrhage', 'no');
     childS = answer(childS, 'avpu', 'unresponsive');
     const childThreat = getActiveThreats(childS).find(t => t.id === 'unresponsive_airway');
     expect(childThreat!.interventions[0].action).toContain('SNIFFING');
@@ -288,7 +299,8 @@ describe('Choking Pathway', () => {
   beforeEach(() => {
     session = createSession(18, '5 years');
     session = startQuickAssessment(session);
-    session = answerQuickAssessment(session, 'sick');
+    session = answerQuickAssessment(session, 'no_cardiac_arrest');
+  session = answer(session, 'catastrophic_hemorrhage', 'no');
     session = answer(session, 'avpu', 'alert');
     session = answer(session, 'airway_status', 'patent');
   });
@@ -306,7 +318,8 @@ describe('Choking Pathway', () => {
   it('infant gets chest thrusts instead of abdominal thrusts', () => {
     let infantS = createSession(6, '6 months');
     infantS = startQuickAssessment(infantS);
-    infantS = answerQuickAssessment(infantS, 'sick');
+    infantS = answerQuickAssessment(infantS, 'no_cardiac_arrest');
+    infantS = answer(infantS, 'catastrophic_hemorrhage', 'no');
     infantS = answer(infantS, 'avpu', 'alert');
     infantS = answer(infantS, 'airway_status', 'patent');
     infantS = answer(infantS, 'choking', 'ineffective_cough');
@@ -387,7 +400,8 @@ describe("Ringer's Lactate Default Fluid", () => {
   it('uses Normal Saline for neonates in shock', () => {
     let s = createSession(3.5, '2 days');
     s = startQuickAssessment(s);
-    s = answerQuickAssessment(s, 'sick');
+    s = answerQuickAssessment(s, 'no_cardiac_arrest');
+  s = answer(s, 'catastrophic_hemorrhage', 'no');
     s = answerLetterNormal(s, 'A');
     if (s.phase === 'INTERVENTION') s = returnToPrimarySurvey(s);
     s = answerLetterNormal(s, 'B');
@@ -457,7 +471,8 @@ describe('Drug Name on Every Dose', () => {
   it('every intervention with a dose has a non-empty drug name', () => {
     let s = createSession(18, '5 years');
     s = startQuickAssessment(s);
-    s = answerQuickAssessment(s, 'sick');
+    s = answerQuickAssessment(s, 'no_cardiac_arrest');
+  s = answer(s, 'catastrophic_hemorrhage', 'no');
     s = answer(s, 'avpu', 'unresponsive');
     const threats = getActiveThreats(s);
     for (const threat of threats) {
@@ -479,7 +494,8 @@ describe('Metabolic Acidosis Differentials', () => {
   it('deep labored breathing triggers metabolic acidosis, not just DKA', () => {
     let s = createSession(18, '5 years');
     s = startQuickAssessment(s);
-    s = answerQuickAssessment(s, 'sick');
+    s = answerQuickAssessment(s, 'no_cardiac_arrest');
+  s = answer(s, 'catastrophic_hemorrhage', 'no');
     s = answerLetterNormal(s, 'A');
     if (s.phase === 'INTERVENTION') s = returnToPrimarySurvey(s);
     s = answer(s, 'breathing_effort', 'deep_labored');
@@ -621,7 +637,8 @@ describe('Intervention Lifecycle', () => {
   it('tracks pending → in_progress → completed status', () => {
     let s = createSession(18, '5 years');
     s = startQuickAssessment(s);
-    s = answerQuickAssessment(s, 'sick');
+    s = answerQuickAssessment(s, 'no_cardiac_arrest');
+  s = answer(s, 'catastrophic_hemorrhage', 'no');
     s = answer(s, 'avpu', 'unresponsive');
     const threats = getActiveThreats(s);
     const intervention = threats[0].interventions[0];
@@ -703,7 +720,8 @@ describe('Definitive Diagnosis', () => {
   it('sets primary diagnosis without changing phase until startDefinitiveCare', () => {
     let s = createSession(18, '5 years');
     s = startQuickAssessment(s);
-    s = answerQuickAssessment(s, 'sick');
+    s = answerQuickAssessment(s, 'no_cardiac_arrest');
+  s = answer(s, 'catastrophic_hemorrhage', 'no');
     s = { ...s, phase: 'SECONDARY_SURVEY' };
     s = setDefinitiveDiagnosis(s, 'Septic Shock');
     expect(s.phase).toBe('SECONDARY_SURVEY');
@@ -717,7 +735,8 @@ describe('Concurrent co-diagnoses', () => {
   it('persists co-diagnosis on addConcurrentDiagnosis without replacing primary', () => {
     let s = createSession(18, '5 years');
     s = startQuickAssessment(s);
-    s = answerQuickAssessment(s, 'sick');
+    s = answerQuickAssessment(s, 'no_cardiac_arrest');
+  s = answer(s, 'catastrophic_hemorrhage', 'no');
     s = setDefinitiveDiagnosis(s, 'septic_shock');
     s = addConcurrentDiagnosis(s, 'severe_anaemia');
     expect(s.definitiveDiagnosis).toBe('septic_shock');
@@ -741,7 +760,8 @@ describe('Clinical Record Export', () => {
   it('exports a comprehensive clinical record', () => {
     let s = createSession(18, '5 years');
     s = startQuickAssessment(s);
-    s = answerQuickAssessment(s, 'sick');
+    s = answerQuickAssessment(s, 'no_cardiac_arrest');
+  s = answer(s, 'catastrophic_hemorrhage', 'no');
     s = answer(s, 'avpu', 'alert');
     const record = exportClinicalRecord(s);
     expect(record).toContain('PAEDS RESUS');
@@ -754,7 +774,8 @@ describe('Clinical Record Export', () => {
   it('omits SAMPLE keystroke noise from clinical timeline', () => {
     let s = createSession(18, '5 years');
     s = startQuickAssessment(s);
-    s = answerQuickAssessment(s, 'sick');
+    s = answerQuickAssessment(s, 'no_cardiac_arrest');
+  s = answer(s, 'catastrophic_hemorrhage', 'no');
     s = updateSAMPLE(s, 'signs', 'C');
     s = updateSAMPLE(s, 'signs', 'Co');
     s = updateSAMPLE(s, 'signs', 'Cough');
@@ -784,7 +805,8 @@ describe('Full Sepsis Scenario — End to End', () => {
   it('walks through a complete warm shock sepsis presentation', () => {
     let s = createSession(18, '5 years');
     s = startQuickAssessment(s);
-    s = answerQuickAssessment(s, 'sick');
+    s = answerQuickAssessment(s, 'no_cardiac_arrest');
+  s = answer(s, 'catastrophic_hemorrhage', 'no');
 
     // A: Voice responsive, patent airway
     s = answer(s, 'avpu', 'voice');
@@ -858,7 +880,8 @@ describe('Objective Vital Signs Storage', () => {
   it('stores HR, RR, SpO2 as numbers', () => {
     let s = createSession(18, '5 years');
     s = startQuickAssessment(s);
-    s = answerQuickAssessment(s, 'sick');
+    s = answerQuickAssessment(s, 'no_cardiac_arrest');
+  s = answer(s, 'catastrophic_hemorrhage', 'no');
     s = answerLetterNormal(s, 'A');
     if (s.phase === 'INTERVENTION') s = returnToPrimarySurvey(s);
     s = answer(s, 'breathing_effort', 'normal');
@@ -898,7 +921,8 @@ describe('Threat Detection from Objective Values', () => {
   it('detects hypoxia from SpO2 < 90', () => {
     let s = createSession(18, '5 years');
     s = startQuickAssessment(s);
-    s = answerQuickAssessment(s, 'sick');
+    s = answerQuickAssessment(s, 'no_cardiac_arrest');
+  s = answer(s, 'catastrophic_hemorrhage', 'no');
     s = answerLetterNormal(s, 'A');
     if (s.phase === 'INTERVENTION') s = returnToPrimarySurvey(s);
     s = answer(s, 'breathing_effort', 'labored');
