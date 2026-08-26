@@ -1223,7 +1223,12 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       expect.objectContaining({ label: "Portable defibrillator", status: "needed", claimedByMe: false }),
     ]));
     expect(assignedCaseBeforeQr.teamMembers.filter((member) => member.providerUserId === ids.assignedProviderId)).toHaveLength(1);
-
+    const memberCaseBeforeDecline = await registeredCaller.iers.getMyActivationCase({ activationEventId });
+    expect(memberCaseBeforeDecline.canAdvance).toBe(false);
+    await expectTrpcError(
+      () => registeredCaller.iers.advance({ institutionId: ids.institutionId, activationEventId, state: "cancelled", note: "Member cannot call off this activation." }),
+      "FORBIDDEN",
+    );
     await registeredCaller.iers.receiveActivation({ activationEventId });
     const declineResult = await registeredCaller.iers.acknowledge({ activationEventId, accept: false, reason: "Staging provider unavailable for this response." });
     expect(declineResult).toEqual({ success: true, status: "declined" });
