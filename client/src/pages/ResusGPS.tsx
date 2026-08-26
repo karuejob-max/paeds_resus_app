@@ -629,7 +629,7 @@ export default function ResusGPS() {
   const handleUpdatePatientInfo = () => {
     const rawWeight = tempWeight.trim();
     const newWeight = rawWeight ? Number(rawWeight) : null;
-    const validation = rawWeight ? validateResusWeight(newWeight) : { valid: true };
+    const validation = newWeight === null ? { valid: true as const } : validateResusWeight(newWeight);
     if (!validation.valid) {
       toast.error(validation.message ?? 'Verify the patient weight before saving.');
       return;

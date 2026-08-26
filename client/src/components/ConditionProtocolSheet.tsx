@@ -149,7 +149,7 @@ export function ConditionProtocolSheet({
     { id: 'severe_asthma',      label: 'Severe Asthma',     icon: '🫁', color: 'bg-blue-100 text-blue-700 border-blue-300' },
   ];
 
-  if (!hasValidWeight || !protocol) {
+  if (!hasValidWeight || !protocol || !progress) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="bottom" className="h-auto p-4">
