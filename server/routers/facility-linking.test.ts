@@ -103,10 +103,15 @@ describeStaging(
         index => `facility-link-provider-${index}-${suffix}@example.test`
       );
       const unrelatedEmail = `facility-link-unrelated-${suffix}@example.test`;
+      const openIds = [
+        `facility-link-admin-${suffix}`,
+        ...providerEmails.map((_, index) => `facility-link-provider-${index + 1}-${suffix}`),
+        `facility-link-unrelated-${suffix}`,
+      ];
 
-      const userRows = await db.insert(users).values([
+      await db.insert(users).values([
         {
-          openId: `facility-link-admin-${suffix}`,
+          openId: openIds[0],
           name: "Facility Link Admin",
           email: adminEmail,
           role: "user",
@@ -116,7 +121,7 @@ describeStaging(
           lastSignedIn: now,
         },
         ...providerEmails.map((email, index) => ({
-          openId: `facility-link-provider-${index + 1}-${suffix}`,
+          openId: openIds[index + 1],
           name: `Facility Link Provider ${index + 1}`,
           email,
           role: "user" as const,
@@ -126,7 +131,7 @@ describeStaging(
           lastSignedIn: now,
         })),
         {
-          openId: `facility-link-unrelated-${suffix}`,
+          openId: openIds[4],
           name: "Unrelated Provider",
           email: unrelatedEmail,
           role: "user",
@@ -136,47 +141,57 @@ describeStaging(
           lastSignedIn: now,
         },
       ]);
-      const firstUserId = Number(
-        (userRows as unknown as { insertId?: number }).insertId ?? 0
-      );
-      if (!firstUserId)
-        throw new Error("Could not seed facility-link test users.");
-      const adminId = firstUserId;
-      const providerIds = [adminId + 1, adminId + 2, adminId + 3];
-      const unrelatedId = adminId + 4;
+      const seededUsers = await db
+        .select({ id: users.id, openId: users.openId })
+        .from(users)
+        .where(inArray(users.openId, openIds));
+      const idByOpenId = new Map(seededUsers.map((user) => [user.openId, user.id]));
+      const adminId = idByOpenId.get(openIds[0]);
+      const providerIds = openIds.slice(1, 4).map((openId) => idByOpenId.get(openId));
+      const unrelatedId = idByOpenId.get(openIds[4]);
+      if (!adminId || providerIds.some((id): id is undefined => id == null) || !unrelatedId) {
+        throw new Error("Could not resolve seeded facility-link test users.");
+      }
+      const resolvedProviderIds = providerIds as number[];
 
-      const accountRows = await db.insert(institutionalAccounts).values({
+      const institutionName = `Facility Link Staging Institution ${suffix}`;
+      await db.insert(institutionalAccounts).values({
         userId: adminId,
-        companyName: `Facility Link Staging Institution ${suffix}`,
+        companyName: institutionName,
         industry: "hospital",
         staffCount: 10,
         contactName: "Facility Link Admin",
         contactEmail: adminEmail,
         status: "active",
       });
-      const institutionId = Number(
-        (accountRows as unknown as { insertId?: number }).insertId ?? 0
-      );
-      if (!institutionId)
-        throw new Error("Could not seed facility-link test institution.");
+      const [institution] = await db
+        .select({ id: institutionalAccounts.id })
+        .from(institutionalAccounts)
+        .where(eq(institutionalAccounts.companyName, institutionName))
+        .limit(1);
+      const institutionId = institution?.id;
+      if (!institutionId) throw new Error("Could not resolve facility-link test institution.");
       await db.insert(institutionalAccountAdmins).values({
         institutionalAccountId: institutionId,
         userId: adminId,
         addedByUserId: null,
       });
 
-      const facilityRows = await db.insert(careFacilities).values({
-        name: `Facility Link Staging Hospital ${suffix}`,
+      const facilityName = `Facility Link Staging Hospital ${suffix}`;
+      await db.insert(careFacilities).values({
+        name: facilityName,
         county: "Nairobi",
         country: "Kenya",
         institutionalAccountId: institutionId,
         isSystem: false,
       });
-      const facilityId = Number(
-        (facilityRows as unknown as { insertId?: number }).insertId ?? 0
-      );
-      if (!facilityId)
-        throw new Error("Could not seed facility-link test facility.");
+      const [facility] = await db
+        .select({ id: careFacilities.id })
+        .from(careFacilities)
+        .where(and(eq(careFacilities.name, facilityName), eq(careFacilities.institutionalAccountId, institutionId)))
+        .limit(1);
+      const facilityId = facility?.id;
+      if (!facilityId) throw new Error("Could not resolve facility-link test facility.");
 
       ids = { adminId, providerIds, institutionId, facilityId };
       providerCaller = appRouter.createCaller(
