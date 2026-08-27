@@ -57,7 +57,7 @@ type CourseModuleRow = NonNullable<
 
 export default function MicroCoursePlayerDB() {
   const { courseId: routeSlug } = useParams<{ courseId: string }>();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const [location, navigate] = useLocation();
   const search = useSearch();
@@ -129,11 +129,11 @@ export default function MicroCoursePlayerDB() {
 
   // Persistence for capstone
   useEffect(() => {
-    const inProgress = localStorage.getItem(`capstone-in-progress-${slug}`);
+    const inProgress = user?.id ? localStorage.getItem(`capstone-in-progress-${user.id}-${slug}`) : null;
     if (inProgress === "true" && !showCertificateReady && !showCapstoneSim) {
       setShowCapstoneSim(true);
     }
-  }, [slug, showCertificateReady, showCapstoneSim]);
+  }, [slug, showCertificateReady, showCapstoneSim, user?.id]);
   
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
@@ -162,7 +162,7 @@ export default function MicroCoursePlayerDB() {
   }, [showDiagnosticQuiz, showFormativeQuiz, showSummativeExam, showCapstoneSim, showFellowshipSim, quizSubmitted]);
   
   // Track progress — persisted to localStorage so resume works on page refresh
-  const progressKey = `course-progress-${slug}`;
+  const progressKey = `course-progress-${user?.id ?? "anonymous"}-${slug}`;
   const [maxReachedModuleIndex, setMaxReachedModuleIndex] = useState(() => {
     try { return parseInt(localStorage.getItem(progressKey + '-module') ?? '0', 10) || 0; } catch { return 0; }
   });
@@ -181,8 +181,8 @@ export default function MicroCoursePlayerDB() {
 
   // Persist capstone state
   useEffect(() => {
-    try { localStorage.setItem(progressKey + '-capstone-in-progress', String(capstoneInProgress)); } catch {}
-  }, [capstoneInProgress, progressKey]);
+    try { if (user?.id) localStorage.setItem(`capstone-in-progress-${user.id}-${slug}`, String(capstoneInProgress)); } catch {}
+  }, [capstoneInProgress, progressKey, slug, user?.id]);
 
   // Capstone should not be auto-restored on mount to avoid trapping the user.
   // It will be triggered manually when reaching the end of modules.
@@ -278,12 +278,13 @@ export default function MicroCoursePlayerDB() {
   const isUsingOfflineCourse = !remoteCourseDetails && Boolean(offlineCourseDetails);
 
   useEffect(() => {
-    if (!remoteCourseDetails || !courseAggregateId) return;
+    if (!remoteCourseDetails || !courseAggregateId || !user?.id) return;
     const version = String((remoteCourseDetails as any).updatedAt ?? (remoteCourseDetails as any).version ?? "live");
     void saveOfflineSnapshot({
-      key: offlineStoreKeys.course(courseAggregateId, version),
+      key: offlineStoreKeys.course(courseAggregateId, version, user.id),
       kind: "course_package",
       aggregateId: courseAggregateId,
+      actorId: user.id,
       version,
       payload: remoteCourseDetails,
       savedAt: Date.now(),
@@ -291,18 +292,18 @@ export default function MicroCoursePlayerDB() {
       expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
       lastServerSyncAt: Date.now(),
     });
-  }, [courseAggregateId, remoteCourseDetails]);
+  }, [courseAggregateId, remoteCourseDetails, user?.id]);
 
   useEffect(() => {
-    if (remoteCourseDetails || !courseAggregateId) return;
+    if (remoteCourseDetails || !courseAggregateId || !user?.id) return;
     void listOfflineSnapshots("course_package").then((rows) => {
-      const match = rows.find((row) => row.aggregateId === courseAggregateId && getOfflineSnapshotFreshness(row) !== "expired");
+      const match = rows.find((row) => row.aggregateId === courseAggregateId && row.actorId === user.id && getOfflineSnapshotFreshness(row) !== "expired");
       if (match) {
         setOfflineCourseDetails(match.payload);
         setOfflineCourseFreshness(getOfflineSnapshotFreshness(match));
       }
     });
-  }, [courseAggregateId, remoteCourseDetails]);
+  }, [courseAggregateId, remoteCourseDetails, user?.id]);
 
   const currentModuleId = useMemo(() => {
     return courseDetails?.modules?.[currentModuleIndex]?.id;
@@ -326,12 +327,13 @@ export default function MicroCoursePlayerDB() {
   const isUsingOfflineModule = !remoteModuleContent && Boolean(offlineModuleContent);
 
   useEffect(() => {
-    if (!remoteModuleContent || !currentModuleId) return;
+    if (!remoteModuleContent || !currentModuleId || !user?.id) return;
     const version = String((courseDetails as any)?.updatedAt ?? (courseDetails as any)?.version ?? "live");
     void saveOfflineSnapshot({
-      key: offlineStoreKeys.module(currentModuleId, version),
+      key: offlineStoreKeys.module(currentModuleId, version, user.id),
       kind: "course_module",
       aggregateId: String(currentModuleId),
+      actorId: user.id,
       version,
       payload: remoteModuleContent,
       savedAt: Date.now(),
@@ -339,26 +341,27 @@ export default function MicroCoursePlayerDB() {
       expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
       lastServerSyncAt: Date.now(),
     });
-  }, [courseDetails, currentModuleId, remoteModuleContent]);
+  }, [courseDetails, currentModuleId, remoteModuleContent, user?.id]);
 
   useEffect(() => {
-    if (remoteModuleContent || !currentModuleId) return;
+    if (remoteModuleContent || !currentModuleId || !user?.id) return;
     void listOfflineSnapshots("course_module").then((rows) => {
-      const match = rows.find((row) => row.aggregateId === String(currentModuleId) && getOfflineSnapshotFreshness(row) !== "expired");
+      const match = rows.find((row) => row.aggregateId === String(currentModuleId) && row.actorId === user.id && getOfflineSnapshotFreshness(row) !== "expired");
       if (match) {
         setOfflineModuleContent(match.payload);
         setOfflineModuleFreshness(getOfflineSnapshotFreshness(match));
       }
     });
-  }, [currentModuleId, remoteModuleContent]);
+  }, [currentModuleId, remoteModuleContent, user?.id]);
 
   useEffect(() => {
-    if (!remoteFirstModuleContent || !firstModuleId) return;
+    if (!remoteFirstModuleContent || !firstModuleId || !user?.id) return;
     const version = String((courseDetails as any)?.updatedAt ?? (courseDetails as any)?.version ?? "live");
     void saveOfflineSnapshot({
-      key: offlineStoreKeys.module(firstModuleId, version),
+      key: offlineStoreKeys.module(firstModuleId, version, user.id),
       kind: "course_module",
       aggregateId: String(firstModuleId),
+      actorId: user.id,
       version,
       payload: remoteFirstModuleContent,
       savedAt: Date.now(),
@@ -366,15 +369,15 @@ export default function MicroCoursePlayerDB() {
       expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
       lastServerSyncAt: Date.now(),
     });
-  }, [courseDetails, firstModuleId, remoteFirstModuleContent]);
+  }, [courseDetails, firstModuleId, remoteFirstModuleContent, user?.id]);
 
   useEffect(() => {
-    if (remoteFirstModuleContent || !firstModuleId) return;
+    if (remoteFirstModuleContent || !firstModuleId || !user?.id) return;
     void listOfflineSnapshots("course_module").then((rows) => {
-      const match = rows.find((row) => row.aggregateId === String(firstModuleId) && getOfflineSnapshotFreshness(row) !== "expired");
+      const match = rows.find((row) => row.aggregateId === String(firstModuleId) && row.actorId === user.id && getOfflineSnapshotFreshness(row) !== "expired");
       if (match) setOfflineFirstModuleContent(match.payload);
     });
-  }, [firstModuleId, remoteFirstModuleContent]);
+  }, [firstModuleId, remoteFirstModuleContent, user?.id]);
 
   const { data: myEnrollments } = trpc.courses.getUserEnrollments.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -730,16 +733,17 @@ export default function MicroCoursePlayerDB() {
   const [offlineDownloadProgress, setOfflineDownloadProgress] = useState(0);
 
   const downloadCourseOffline = async () => {
-    if (!isOnline || !courseDetails || !courseAggregateId || modules.length === 0) return;
+    if (!isOnline || !courseDetails || !courseAggregateId || !user?.id || modules.length === 0) return;
     setIsDownloadingOffline(true);
     setOfflineDownloadProgress(0);
     const version = String((courseDetails as any).updatedAt ?? (courseDetails as any).version ?? "live");
     const now = Date.now();
     try {
       await saveOfflineSnapshot({
-        key: offlineStoreKeys.course(courseAggregateId, version),
+        key: offlineStoreKeys.course(courseAggregateId, version, user.id),
         kind: "course_package",
         aggregateId: courseAggregateId,
+        actorId: user.id,
         version,
         payload: courseDetails,
         savedAt: now,
@@ -752,9 +756,10 @@ export default function MicroCoursePlayerDB() {
         const content = await utils.learning.getModuleContent.fetch({ moduleId: Number(module.id) });
         if (content) {
           await saveOfflineSnapshot({
-            key: offlineStoreKeys.module(Number(module.id), version),
+            key: offlineStoreKeys.module(Number(module.id), version, user.id),
             kind: "course_module",
             aggregateId: String(module.id),
+            actorId: user.id,
             version,
             payload: content,
             savedAt: now,

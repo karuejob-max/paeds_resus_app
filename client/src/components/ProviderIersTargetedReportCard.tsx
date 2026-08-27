@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { FileText, Loader2, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -21,6 +22,7 @@ type TargetedReportDraft = {
 };
 
 export default function ProviderIersTargetedReportCard({ teamId, assignmentId }: Props) {
+  const { user } = useAuth();
   const [activationEventId, setActivationEventId] = useState("");
   const [reportPhase, setReportPhase] = useState("response");
   const [observationCode, setObservationCode] = useState("other");
@@ -73,8 +75,8 @@ export default function ProviderIersTargetedReportCard({ teamId, assignmentId }:
   };
 
   const saveDraftOffline = async () => {
-    if (!activationEventId || !noIdentifiers) {
-      toast.error("Choose the activation and confirm that the report contains no patient identifiers before saving.");
+    if (!activationEventId || !selectedActivation?.institutionId || !user?.id || !noIdentifiers) {
+      toast.error("Choose the activation, confirm the report has no patient identifiers, and ensure your account is available before saving.");
       return;
     }
     try {
@@ -83,6 +85,8 @@ export default function ProviderIersTargetedReportCard({ teamId, assignmentId }:
         aggregateType: "targeted_report",
         aggregateId: `${teamId}:${assignmentId}`,
         actionType: "review_and_submit_targeted_report",
+        tenantId: selectedActivation.institutionId,
+        actorId: user.id,
         payload: draftPayload,
         clientCreatedAt: Date.now(),
       });

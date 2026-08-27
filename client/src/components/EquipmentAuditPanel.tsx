@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ function draftId(institutionId: number, department: string, auditType: string) {
 }
 
 export function EquipmentAuditPanel({ institutionId }: EquipmentAuditPanelProps) {
+  const { user } = useAuth();
   const utils = trpc.useUtils();
   const [department, setDepartment] = useState("Paediatric Medical Ward");
   const [auditType, setAuditType] = useState<"daily_seal_check" | "monthly_100_percent">("daily_seal_check");
@@ -128,6 +130,7 @@ export function EquipmentAuditPanel({ institutionId }: EquipmentAuditPanelProps)
         aggregateType: "crash_cart_check",
         aggregateId: `${institutionId}:${department}:${auditType}`,
         tenantId: institutionId,
+        actorId: user?.id,
         actionType: "review_and_submit_equipment_audit",
         payload,
         clientCreatedAt: Date.now(),
