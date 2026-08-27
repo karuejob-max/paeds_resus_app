@@ -35,6 +35,7 @@ export const adminNavItems: NavItem[] = [
 
 // Learning & Development - ONLY WORKING PAGES
 export const learningNavItems: NavItem[] = [
+  { label: "Learning guide", href: "/learning/guide", description: "How to use individual and institutional Learning" },
   { label: "Care Signal", href: "/care-signal", description: "Provider incident & near-miss reporting" },
   { label: "BLS Course", href: "/course/bls", description: "Basic Life Support training" },
 ];
@@ -82,6 +83,7 @@ export const footerSections = {
 // Dashboard sidebar navigation for authenticated users - ONLY WORKING PAGES
 export const dashboardNavItems: NavItem[] = [
   { label: "Learner Dashboard", href: "/home", icon: "📊" },
+  { label: "Learning guide", href: "/learning/guide", icon: "🧭" },
   { label: "Payment", href: "/payment", icon: "💳" },
   { label: "Care Signal", href: "/care-signal", icon: "🔍" },
   { label: "BLS Course", href: "/course/bls", icon: "❤️" },
@@ -102,6 +104,7 @@ export const breadcrumbMap: Record<string, string[]> = {
   "/kaizen-dashboard": ["Home", "Admin", "Kaizen KPI"],
   "/predictive-intervention": ["Home", "ML", "Predictive Alerts"],
   "/personalized-learning": ["Home", "ML", "Learning Path"],
+  "/learning/guide": ["Home", "Learning", "Guide"],
   "/enroll": ["Home", "Enroll"],
   "/protocols": ["Home", "Protocols"],
   "/care-signal-analytics": ["Home", "Admin", "Care Signal analytics"],

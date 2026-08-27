@@ -76,6 +76,7 @@ export default function Header() {
         // adjacent, not scattered, is what actually prevents mix-ups.
         { label: "Code Signal", href: "/code-signal", icon: "🫀" },
         { label: "Fellowship", href: "/fellowship", icon: "📚", group: "learn" },
+        { label: "Learning guide", href: "/learning/guide", icon: "🧭", group: "learn" },
         { label: "Fellowship guide", href: "/fellowship/about", icon: "📖", group: "learn" },
         { label: "Life Support", href: "/aha-courses", icon: "🩺", group: "learn" },
         { label: "My CPD", href: "/my-cpd-certificates", icon: "📜", group: "learn" },
@@ -88,6 +89,7 @@ export default function Header() {
     if (r === "institution") {
       return [
         { label: "Dashboard", href: "/institution", icon: "📊" },
+        { label: "Learning guide", href: "/learning/guide", icon: "🧭" },
       ];
     }
     return [];

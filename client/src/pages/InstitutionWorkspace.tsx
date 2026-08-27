@@ -221,6 +221,9 @@ export default function InstitutionWorkspace() {
             <Button className="w-full md:w-auto" variant="outline" onClick={() => navigate("/iers/orientation")}>
               <BookOpen className="mr-2 h-4 w-4" /> IERS guide
             </Button>
+            <Button className="w-full md:w-auto" variant="outline" onClick={() => navigate("/learning/guide")}>
+              <BookOpen className="mr-2 h-4 w-4" /> Learning guide
+            </Button>
             {isInstitutionAdmin ? <Button className="w-full md:w-auto" variant="outline" onClick={() => setSection("administration")}>
               <Settings2 className="mr-2 h-4 w-4" /> Administration
             </Button> : null}

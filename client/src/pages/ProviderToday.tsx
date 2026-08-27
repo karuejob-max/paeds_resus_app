@@ -351,6 +351,9 @@ export default function ProviderToday() {
           <Button type="button" variant="outline" className="h-auto justify-start gap-2 bg-white py-3" onClick={() => setLocation("/iers/orientation")}>
             <ClipboardCheck className="h-4 w-4 text-teal-700" /> IERS guide
           </Button>
+          <Button type="button" variant="outline" className="h-auto justify-start gap-2 bg-white py-3" onClick={() => setLocation("/learning/guide")}>
+            <BookOpen className="h-4 w-4 text-violet-700" /> Learning guide
+          </Button>
           <Button type="button" variant="outline" className="h-auto justify-start gap-2 bg-white py-3" onClick={() => setLocation("/activation-scan")}>
             <ScanLine className="h-4 w-4 text-red-700" /> Scan case QR
           </Button>
