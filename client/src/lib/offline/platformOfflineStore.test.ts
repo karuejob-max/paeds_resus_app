@@ -3,7 +3,9 @@ import {
   clearOfflineDataForActor,
   enqueueOfflineCommand,
   getOfflineSnapshot,
+  getOfflineSnapshotFreshness,
   getOfflineSyncCounts,
+  listOfflineReviewCommands,
   listOfflineCommands,
   offlineStoreKeys,
   saveOfflineSnapshot,
@@ -34,6 +36,23 @@ describe("platform offline store", () => {
     expect(snapshot?.version).toBe(`test-${testSuffix}`);
     expect(snapshot?.payload.title).toBe("Synthetic BLS module");
     expect(snapshot?.payload.sections).toEqual(["Airway"]);
+  });
+
+  it("classifies snapshots as fresh, stale, or expired", () => {
+    const savedAt = 1_000_000;
+    const snapshot = {
+      key: "freshness-test",
+      kind: "iers_shift_snapshot" as const,
+      aggregateId: "shift-1",
+      version: "v1",
+      payload: {},
+      savedAt,
+      staleAfterMs: 60_000,
+      expiresAt: savedAt + 300_000,
+    };
+    expect(getOfflineSnapshotFreshness(snapshot, savedAt + 30_000)).toBe("fresh");
+    expect(getOfflineSnapshotFreshness(snapshot, savedAt + 60_000)).toBe("stale");
+    expect(getOfflineSnapshotFreshness(snapshot, savedAt + 300_000)).toBe("expired");
   });
 
   it("queues commands with stable local IDs and exposes pending state", async () => {
@@ -80,6 +99,8 @@ describe("platform offline store", () => {
 
     const counts = await getOfflineSyncCounts();
     expect(counts.requiresReview).toBeGreaterThanOrEqual(1);
+    const review = await listOfflineReviewCommands(1000);
+    expect(review.some((command) => command.localEventId === localEventId)).toBe(true);
     const pending = await listOfflineCommands(1000);
     expect(pending.some((command) => command.localEventId === localEventId)).toBe(false);
   });

@@ -42,8 +42,10 @@ import type { SummativeBlockKind } from "@shared/microcourse-exam-policy";
 import QuizGuideCard from "@/components/QuizGuideCard";
 import {
   getOfflineSnapshot,
+  getOfflineSnapshotFreshness,
   listOfflineSnapshots,
   offlineStoreKeys,
+  type OfflineSnapshotFreshness,
   saveOfflineSnapshot,
 } from "@/lib/offline/platformOfflineStore";
 
@@ -56,8 +58,19 @@ type CourseModuleRow = NonNullable<
 export default function MicroCoursePlayerDB() {
   const { courseId: routeSlug } = useParams<{ courseId: string }>();
   const { isAuthenticated } = useAuth();
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const [location, navigate] = useLocation();
   const search = useSearch();
+
+  useEffect(() => {
+    const updateOnline = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", updateOnline);
+    window.addEventListener("offline", updateOnline);
+    return () => {
+      window.removeEventListener("online", updateOnline);
+      window.removeEventListener("offline", updateOnline);
+    };
+  }, []);
 
   // `/micro-course/:courseId` or legacy `/course/bls` style paths (no :courseId param)
   const slug = useMemo(() => {
@@ -259,6 +272,7 @@ export default function MicroCoursePlayerDB() {
   );
   const remoteCourseDetails = isAhaCourse ? ahaCourseDetails : fellowshipCourseDetails;
   const [offlineCourseDetails, setOfflineCourseDetails] = useState<any>(null);
+  const [offlineCourseFreshness, setOfflineCourseFreshness] = useState<OfflineSnapshotFreshness | null>(null);
   const courseAggregateId = String(slug ?? programType ?? "");
   const courseDetails = remoteCourseDetails ?? offlineCourseDetails;
   const isUsingOfflineCourse = !remoteCourseDetails && Boolean(offlineCourseDetails);
@@ -273,6 +287,8 @@ export default function MicroCoursePlayerDB() {
       version,
       payload: remoteCourseDetails,
       savedAt: Date.now(),
+      staleAfterMs: 7 * 24 * 60 * 60 * 1000,
+      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
       lastServerSyncAt: Date.now(),
     });
   }, [courseAggregateId, remoteCourseDetails]);
@@ -280,8 +296,11 @@ export default function MicroCoursePlayerDB() {
   useEffect(() => {
     if (remoteCourseDetails || !courseAggregateId) return;
     void listOfflineSnapshots("course_package").then((rows) => {
-      const match = rows.find((row) => row.aggregateId === courseAggregateId);
-      if (match) setOfflineCourseDetails(match.payload);
+      const match = rows.find((row) => row.aggregateId === courseAggregateId && getOfflineSnapshotFreshness(row) !== "expired");
+      if (match) {
+        setOfflineCourseDetails(match.payload);
+        setOfflineCourseFreshness(getOfflineSnapshotFreshness(match));
+      }
     });
   }, [courseAggregateId, remoteCourseDetails]);
 
@@ -296,6 +315,7 @@ export default function MicroCoursePlayerDB() {
 
   const firstModuleId = courseDetails?.modules?.[0]?.id;
   const [offlineModuleContent, setOfflineModuleContent] = useState<any>(null);
+  const [offlineModuleFreshness, setOfflineModuleFreshness] = useState<OfflineSnapshotFreshness | null>(null);
   const [offlineFirstModuleContent, setOfflineFirstModuleContent] = useState<any>(null);
   const { data: remoteFirstModuleContent, isLoading: firstModuleContentLoading } = trpc.learning.getModuleContent.useQuery(
     { moduleId: firstModuleId ?? 0 },
@@ -315,6 +335,8 @@ export default function MicroCoursePlayerDB() {
       version,
       payload: remoteModuleContent,
       savedAt: Date.now(),
+      staleAfterMs: 7 * 24 * 60 * 60 * 1000,
+      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
       lastServerSyncAt: Date.now(),
     });
   }, [courseDetails, currentModuleId, remoteModuleContent]);
@@ -322,8 +344,11 @@ export default function MicroCoursePlayerDB() {
   useEffect(() => {
     if (remoteModuleContent || !currentModuleId) return;
     void listOfflineSnapshots("course_module").then((rows) => {
-      const match = rows.find((row) => row.aggregateId === String(currentModuleId));
-      if (match) setOfflineModuleContent(match.payload);
+      const match = rows.find((row) => row.aggregateId === String(currentModuleId) && getOfflineSnapshotFreshness(row) !== "expired");
+      if (match) {
+        setOfflineModuleContent(match.payload);
+        setOfflineModuleFreshness(getOfflineSnapshotFreshness(match));
+      }
     });
   }, [currentModuleId, remoteModuleContent]);
 
@@ -337,6 +362,8 @@ export default function MicroCoursePlayerDB() {
       version,
       payload: remoteFirstModuleContent,
       savedAt: Date.now(),
+      staleAfterMs: 7 * 24 * 60 * 60 * 1000,
+      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
       lastServerSyncAt: Date.now(),
     });
   }, [courseDetails, firstModuleId, remoteFirstModuleContent]);
@@ -344,7 +371,7 @@ export default function MicroCoursePlayerDB() {
   useEffect(() => {
     if (remoteFirstModuleContent || !firstModuleId) return;
     void listOfflineSnapshots("course_module").then((rows) => {
-      const match = rows.find((row) => row.aggregateId === String(firstModuleId));
+      const match = rows.find((row) => row.aggregateId === String(firstModuleId) && getOfflineSnapshotFreshness(row) !== "expired");
       if (match) setOfflineFirstModuleContent(match.payload);
     });
   }, [firstModuleId, remoteFirstModuleContent]);
@@ -699,6 +726,54 @@ export default function MicroCoursePlayerDB() {
   const modules = (courseDetails?.modules ?? []) as CourseModuleRow[];
   const sections = moduleContent?.sections ?? [];
   const quizzes = moduleContent?.quizzes ?? [];
+  const [isDownloadingOffline, setIsDownloadingOffline] = useState(false);
+  const [offlineDownloadProgress, setOfflineDownloadProgress] = useState(0);
+
+  const downloadCourseOffline = async () => {
+    if (!isOnline || !courseDetails || !courseAggregateId || modules.length === 0) return;
+    setIsDownloadingOffline(true);
+    setOfflineDownloadProgress(0);
+    const version = String((courseDetails as any).updatedAt ?? (courseDetails as any).version ?? "live");
+    const now = Date.now();
+    try {
+      await saveOfflineSnapshot({
+        key: offlineStoreKeys.course(courseAggregateId, version),
+        kind: "course_package",
+        aggregateId: courseAggregateId,
+        version,
+        payload: courseDetails,
+        savedAt: now,
+        staleAfterMs: 7 * 24 * 60 * 60 * 1000,
+        expiresAt: now + 30 * 24 * 60 * 60 * 1000,
+        lastServerSyncAt: now,
+      });
+      for (const [index, module] of modules.entries()) {
+        if (!module?.id) continue;
+        const content = await utils.learning.getModuleContent.fetch({ moduleId: Number(module.id) });
+        if (content) {
+          await saveOfflineSnapshot({
+            key: offlineStoreKeys.module(Number(module.id), version),
+            kind: "course_module",
+            aggregateId: String(module.id),
+            version,
+            payload: content,
+            savedAt: now,
+            staleAfterMs: 7 * 24 * 60 * 60 * 1000,
+            expiresAt: now + 30 * 24 * 60 * 60 * 1000,
+            lastServerSyncAt: now,
+          });
+        }
+        setOfflineDownloadProgress(Math.round(((index + 1) / modules.length) * 100));
+      }
+      setOfflineCourseFreshness("fresh");
+      toast.success("Course content saved for offline reading. Server grading and certification remain online-only.");
+    } catch (error) {
+      console.error("Offline course download failed", error);
+      toast.error("The course could not be fully saved. Check your connection and available device storage.");
+    } finally {
+      setIsDownloadingOffline(false);
+    }
+  };
   const isLastModule = currentModuleIndex === modules.length - 1;
   const diagnosticQuiz = useMemo(() => {
     const list = firstModuleContent?.quizzes ?? [];
@@ -1252,16 +1327,25 @@ export default function MicroCoursePlayerDB() {
                   <Badge className="text-[10px] h-4 px-1.5 bg-emerald-500 text-white border-none">Review Mode</Badge>
                 )}
                 {(isUsingOfflineCourse || isUsingOfflineModule) && (
-                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-amber-300 text-amber-700">Offline copy</Badge>
+                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-amber-300 text-amber-700">{offlineCourseFreshness === "stale" || offlineModuleFreshness === "stale" ? "Stale offline copy" : "Offline copy"}</Badge>
                 )}
               </div>
             </div>
           </div>
-          <div className="hidden md:block">
-            <Progress 
-              value={((currentModuleIndex) / modules.length) * 100} 
-              className="w-32 h-2" 
-            />
+          <div className="flex items-center gap-2">
+            {isAuthenticated && modules.length > 0 && (
+              <Button type="button" size="sm" variant="outline" onClick={() => void downloadCourseOffline()} disabled={!isOnline || isDownloadingOffline} className="h-8 whitespace-nowrap bg-white text-xs">
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{isDownloadingOffline ? `Saving ${offlineDownloadProgress}%` : "Save offline"}</span>
+                <span className="sm:hidden">{isDownloadingOffline ? `${offlineDownloadProgress}%` : "Offline"}</span>
+              </Button>
+            )}
+            <div className="hidden md:block">
+              <Progress
+                value={((currentModuleIndex) / modules.length) * 100}
+                className="w-32 h-2"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -1629,7 +1713,7 @@ export default function MicroCoursePlayerDB() {
                 </CardTitle>
                 {isUsingOfflineModule && (
                   <p className="mt-2 text-xs font-medium text-amber-700" role="status">
-                    Offline copy shown · course content is not being marked complete until the server is reachable.
+                    {offlineModuleFreshness === "stale" ? "Stale offline copy shown · refresh this course when online. " : "Offline copy shown · "}Course content is not being marked complete until the server is reachable.
                   </p>
                 )}
 

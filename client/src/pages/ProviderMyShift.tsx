@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getOfflineSnapshot, offlineStoreKeys } from "@/lib/offline/platformOfflineStore";
+import { getOfflineSnapshot, getOfflineSnapshotFreshness, offlineStoreKeys, type OfflineSnapshotFreshness } from "@/lib/offline/platformOfflineStore";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,7 @@ export default function ProviderMyShift() {
   const [activeTab, setActiveTab] = useState<TabValue>(initialTab);
   const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const [offlineSnapshotAt, setOfflineSnapshotAt] = useState<number | null>(null);
+  const [offlineSnapshotFreshness, setOfflineSnapshotFreshness] = useState<OfflineSnapshotFreshness | null>(null);
 
   useEffect(() => {
     const refreshOnline = () => setIsOnline(navigator.onLine);
@@ -56,7 +57,10 @@ export default function ProviderMyShift() {
     let cancelled = false;
     void getOfflineSnapshot<any[]>(offlineStoreKeys.providerTeams(user.id, 0)).then((snapshot) => {
       if (cancelled) return;
-      setOfflineSnapshotAt(snapshot?.savedAt ?? null);
+      if (!snapshot) return;
+      const freshness = getOfflineSnapshotFreshness(snapshot, Date.now(), 15 * 60 * 1000);
+      setOfflineSnapshotFreshness(freshness);
+      setOfflineSnapshotAt(freshness === "expired" ? null : snapshot.savedAt);
     });
     return () => {
       cancelled = true;
@@ -87,8 +91,8 @@ export default function ProviderMyShift() {
             <CardContent className="flex items-start gap-3 p-4 text-sm text-amber-950">
               <WifiOff className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
               <div>
-                <p className="font-semibold">Last saved team snapshot available</p>
-                <p className="mt-1 text-xs text-amber-900/80">Saved {new Date(offlineSnapshotAt).toLocaleString()}. This is read-only. Acceptance, decline, reassignment, activation, arrival, and readiness submission require a live connection.</p>
+                <p className="font-semibold">{offlineSnapshotFreshness === "stale" ? "Stale team snapshot available" : "Last saved team snapshot available"}</p>
+                <p className="mt-1 text-xs text-amber-900/80">Saved {new Date(offlineSnapshotAt).toLocaleString()}. This is read-only and may no longer match the live roster. Acceptance, decline, reassignment, activation, arrival, and readiness submission require a live connection.</p>
               </div>
             </CardContent>
           </Card>
