@@ -7,6 +7,7 @@ import { payments, enrollments } from "../drizzle/schema";
 import { queryStk } from "./mpesa";
 import { issueCertificateForEnrollmentIfEligible } from "./certificates";
 import { trackPaymentCompletion } from "./services/analytics.service";
+import { applyNerpPaymentCompletion } from "./lib/nerp-offer";
 
 export const STALE_PAYMENT_MS = 24 * 60 * 60 * 1000;
 
@@ -231,6 +232,8 @@ export async function reconcilePaymentRowByStkQuery(
       }
     }
   }
+
+  await applyNerpPaymentCompletion(db, payment.id);
 
   await trackPaymentCompletion(
     payment.userId,

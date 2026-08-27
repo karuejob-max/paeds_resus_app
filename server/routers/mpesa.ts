@@ -2,7 +2,7 @@ import { z } from "zod";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { getMpesaAccessToken, initiateStkPush, queryStk } from "../mpesa";
 import { getDb } from "../db";
-import { payments, enrollments, microCourseEnrollments, microCourses } from "../../drizzle/schema";
+import { payments, enrollments, microCourseEnrollments, microCourses, nerpOfferEnrollments, nerpOfferCourses } from "../../drizzle/schema";
 import { eq, and, desc, lt } from "drizzle-orm";
 import { reconcilePaymentRowByStkQuery } from "../mpesa-reconciliation";
 import { getMpesaDeploymentMode, getMpesaEnvironmentSource } from "../lib/mpesa-env";
@@ -97,6 +97,8 @@ export const mpesaRouter = router({
         courseName: z.string(),
         orderId: z.string().optional(),
         enrollmentId: z.number().optional(), // when coming from Enroll page: use existing enrollment, only create payment
+        nerpOfferEnrollmentId: z.number().int().positive().optional(),
+        installmentNumber: z.number().int().min(1).max(6).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -107,7 +109,30 @@ export const mpesaRouter = router({
 
         let enrollmentId: number;
 
-        if (input.enrollmentId) {
+        if (input.nerpOfferEnrollmentId) {
+          if (!input.enrollmentId || !input.installmentNumber) {
+            return { success: false, error: "NERP checkout requires an enrollment and installment number." };
+          }
+          const offerRows = await db
+            .select()
+            .from(nerpOfferEnrollments)
+            .where(and(eq(nerpOfferEnrollments.id, input.nerpOfferEnrollmentId), eq(nerpOfferEnrollments.userId, ctx.user!.id), eq(nerpOfferEnrollments.status, "active")))
+            .limit(1);
+          const offer = offerRows[0];
+          if (!offer) return { success: false, error: "NERP offer not found or no longer active." };
+          const linked = await db
+            .select({ id: nerpOfferCourses.id })
+            .from(nerpOfferCourses)
+            .where(and(eq(nerpOfferCourses.nerpOfferEnrollmentId, offer.id), eq(nerpOfferCourses.enrollmentId, input.enrollmentId)))
+            .limit(1);
+          if (!linked[0]) return { success: false, error: "The selected course is not linked to this NERP offer." };
+          const paid = Number(offer.amountPaidKes ?? 0);
+          const expected = Math.min(Number(offer.monthlyInstallmentKes), Number(offer.totalAmountKes) - paid);
+          if (Math.abs(Number(input.amount) - expected) > 0.01 || input.installmentNumber !== Number(offer.nextInstallmentNumber)) {
+            return { success: false, error: "The NERP installment amount or sequence is no longer current. Refresh and try again." };
+          }
+          enrollmentId = input.enrollmentId;
+        } else if (input.enrollmentId) {
           const existing = await db.select().from(enrollments).where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user!.id))).limit(1);
           if (!existing.length) {
             return { success: false, error: "Enrollment not found or access denied." };
@@ -171,6 +196,8 @@ export const mpesaRouter = router({
           paymentMethod: "mpesa",
           transactionId: mpesaResponse.checkoutRequestID || "",
           status: "pending",
+          nerpOfferEnrollmentId: input.nerpOfferEnrollmentId ?? null,
+          installmentNumber: input.installmentNumber ?? null,
         } as any);
 
         const paymentId = (paymentRecord as any)[0]?.id ?? null;

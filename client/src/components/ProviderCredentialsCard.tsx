@@ -114,9 +114,11 @@ export function ProviderCredentialsCard() {
         </CardTitle>
         <CardDescription>
           Licences and external AHA certificates are private evidence records.
-          They remain pending until an authorised verifier reviews them. Paeds
-          Resus achievements below are filled automatically from verified
-          learning records.
+          They remain pending until an authorised verifier reviews them. For the
+          NERP pathway, use this form to keep external BLS or ACLS evidence
+          current; Global Admin verifies any external Phase 2 or Phase 3 claim
+          separately. Paeds Resus achievements below are filled automatically
+          from verified learning records.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -159,7 +161,9 @@ export function ProviderCredentialsCard() {
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
               Use this form for a regulatory licence or an AHA Life Support
-              certificate completed outside the Paeds Resus framework. Maximum
+              certificate completed outside the Paeds Resus framework. A verified
+              certificate helps the team review your NERP record, but does not by
+              itself create a Phase 2 or Phase 3 completion. Maximum
               file size is 5 MB; PDF, JPG, and PNG are accepted.
             </p>
           </div>

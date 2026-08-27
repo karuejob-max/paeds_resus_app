@@ -122,6 +122,9 @@ const ResusGated = lazy(() => import("./pages/ResusGated"));
 const JoinSession = lazy(() => import("./pages/JoinSession"));
 const Home = lazy(() => import("./pages/Home"));
 const Payment = lazy(() => import("./pages/Payment"));
+const NerpOfferPage = lazy(() => import("./pages/NerpOfferPage"));
+const NerpCheckout = lazy(() => import("./pages/NerpCheckout"));
+const AdminNerpVerification = lazy(() => import("./pages/AdminNerpVerification"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 const AHACourses = lazy(() => import("./pages/AHACourses"));
 
@@ -338,6 +341,11 @@ function Router() {
               <AdminCpdAnalytics />
             </AdminGate>
           )}</Route>
+          <Route path="/admin/nerp-verification">{() => (
+            <AdminGate>
+              <AdminNerpVerification />
+            </AdminGate>
+          )}</Route>
           <Route path="/help" component={Help} />
           <Route path="/privacy" component={PrivacyPolicy} />
           <Route path="/terms" component={TermsOfUse} />
@@ -355,6 +363,12 @@ function Router() {
           <Route path="/training/bls">{() => <TrainingCourseLanding slug="bls" />}</Route>
           <Route path="/training/nrp">{() => <TrainingCourseLanding slug="nrp" />}</Route>
           <Route path="/training" component={TrainingHub} />
+          <Route path="/programs/nerp-acls" component={NerpOfferPage} />
+          <Route path="/programs/nerp-acls/enroll">{() => (
+            <RoleGate allowed={["provider"]}>
+              <NerpCheckout />
+            </RoleGate>
+          )}</Route>
           <Route path="/for-providers" component={ForProviders} />
           <Route path="/for-institutions" component={ForInstitutions} />
           <Route path="/for-parents" component={ForParents} />

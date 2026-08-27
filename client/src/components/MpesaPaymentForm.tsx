@@ -10,6 +10,9 @@ interface MpesaPaymentFormProps {
   courseName: string;
   amount: number;
   enrollmentId?: number;
+  initialPhoneNumber?: string;
+  nerpOfferEnrollmentId?: number;
+  installmentNumber?: number;
   /** Called once when payment is confirmed (webhook/poll), not when STK is only initiated. */
   onPaymentComplete?: () => void;
   onPaymentError?: (error: string) => void;
@@ -20,12 +23,15 @@ export function MpesaPaymentForm({
   courseName,
   amount,
   enrollmentId,
+  initialPhoneNumber,
+  nerpOfferEnrollmentId,
+  installmentNumber,
   onPaymentComplete,
   onPaymentError,
 }: MpesaPaymentFormProps) {
   const utils = trpc.useUtils();
   const completionNotified = useRef(false);
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber ?? "");
   const [isLoading, setIsLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [statusMessage, setStatusMessage] = useState("");
@@ -177,7 +183,10 @@ export function MpesaPaymentForm({
       amount,
       courseId,
       courseName,
-      ...(enrollmentId !== undefined && { enrollmentId }),
+                ...(enrollmentId !== undefined && { enrollmentId }),
+          ...(nerpOfferEnrollmentId !== undefined && { nerpOfferEnrollmentId }),
+          ...(installmentNumber !== undefined && { installmentNumber }),
+
     });
   };
 
@@ -209,7 +218,7 @@ export function MpesaPaymentForm({
               disabled={isLoading || paymentStatus === "success"}
               className="w-full"
             />
-            <p className="text-xs text-muted-foreground mt-1">Enter your M-Pesa registered phone number</p>
+            <p className="text-xs text-muted-foreground mt-1">{initialPhoneNumber ? "Your account phone is prefilled. Edit it if you want the STK prompt sent to another number." : "Enter your M-Pesa registered phone number"}</p>
           </div>
 
           {statusMessage && (
