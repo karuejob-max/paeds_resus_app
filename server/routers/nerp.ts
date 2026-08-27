@@ -952,7 +952,7 @@ export const nerpRouter = router({
     .input(
       z.object({
         institutionId: z.number().int().positive().default(3),
-        campaignKey: z.string().trim().length(1, 128).default(NERP_PROMOTION_CAMPAIGN_KEY),
+        campaignKey: z.string().trim().min(1).max(128).default(NERP_PROMOTION_CAMPAIGN_KEY),
         confirmSend: z.literal(true),
       }),
     )
