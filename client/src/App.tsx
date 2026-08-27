@@ -74,6 +74,7 @@ const ProviderProfile = lazy(() => import("./pages/ProviderProfile"));
 const ProviderToday = lazy(() => import("./pages/ProviderToday"));
 const ProviderMyShift = lazy(() => import("./pages/ProviderMyShift"));
 const ProviderLearn = lazy(() => import("./pages/ProviderLearn"));
+const LearningGuide = lazy(() => import("./pages/LearningGuide"));
 const ProviderRecords = lazy(() => import("./pages/ProviderRecords"));
 const ProviderActivationQrScanner = lazy(() => import("./pages/ProviderActivationQrScanner"));
 const ProviderIersStaffing = lazy(() => import("./pages/ProviderIersStaffing"));
@@ -205,6 +206,11 @@ function Router() {
           <Route path="/learn">{() => (
             <RoleGate allowed={["provider"]}>
               <ProviderLearn />
+            </RoleGate>
+          )}</Route>
+          <Route path="/learning/guide">{() => (
+            <RoleGate allowed={["provider", "institution"]}>
+              <LearningGuide />
             </RoleGate>
           )}</Route>
           <Route path="/records">{() => (
@@ -685,6 +691,12 @@ function getRouteLoadingCopy(pathname: string) {
     return {
       title: "Loading fellowship…",
       description: "Preparing your learning pathway and course access.",
+    };
+  }
+  if (pathname.startsWith("/learning/guide")) {
+    return {
+      title: "Loading Learning guide…",
+      description: "Preparing the current individual and institutional learning paths.",
     };
   }
   if (pathname.startsWith("/iers/staffing")) {
