@@ -24,6 +24,7 @@ import {
 } from "../lib/resolve-aha-course-anchor";
 import { isAhaProgramType } from "../../shared/training-product-taxonomy";
 import { isPaidEnrollmentStatus } from "../../shared/payment-success";
+import { getAhaAccessDecision } from "../lib/aha-access";
 import {
   INTUBATION_SAMPLE_MICRO_COURSE_ID,
   ensureIntubationSampleCourseCatalog,
@@ -111,6 +112,13 @@ export const enrollmentRouter = router({
       const db = await getDb();
       let courseId: number | null = null;
 
+      if (db && isAhaProgramType(input.programType)) {
+        const ahaAccess = await getAhaAccessDecision(db, ctx.user.id, input.programType as AhaAnchorProgramType);
+        if (!ahaAccess.allowed) {
+          throw new TRPCError({ code: "FORBIDDEN", message: ahaAccess.message });
+        }
+      }
+
       if (db && (input.programType === "pals" || isAhaProgramType(input.programType))) {
         courseId = await resolveTrainingCourseIdOnCreate(db, input);
         if (courseId == null) {
@@ -127,7 +135,7 @@ export const enrollmentRouter = router({
           userId: ctx.user.id,
           programType: input.programType,
           trainingDate: input.trainingDate,
-          paymentStatus: "completed",
+          paymentStatus: isAhaProgramType(input.programType) ? "pending" : "completed",
           courseId,
           createdAt: new Date(),
           updatedAt: new Date(),

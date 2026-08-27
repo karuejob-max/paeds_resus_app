@@ -6,12 +6,7 @@ import {
 } from "../../shared/split-module-html-sections";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import {
-  getIerpInternProfile,
-  getIerpPaymentAccessForUser,
-  isIerpCognitiveProgram,
-  isIerpInternProfileReady,
-} from "../lib/ierp-program-state";
+import { isAhaProgramType, assertAhaAccess } from "../lib/aha-access";
 import { eq, and, desc } from "drizzle-orm";
 import { invokeLLM } from "../_core/llm";
 import {
@@ -118,29 +113,13 @@ async function getProgramTypeForQuiz(
   return moduleId > 0 ? getProgramTypeForModule(db, moduleId) : null;
 }
 
-async function assertIerpCognitiveAccess(
+async function assertAhaCognitiveAccess(
   db: any,
   userId: number | undefined,
   programType: string | null | undefined
 ) {
-  if (!userId || !isIerpCognitiveProgram(programType)) return;
-  const payment = await getIerpPaymentAccessForUser(db, userId);
-  if (!payment) return;
-  const internProfile = await getIerpInternProfile(db, userId);
-  if (!isIerpInternProfileReady(internProfile)) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message:
-        "Complete your Intern profile and submit your MoH deployment/posting letter before accessing IERP coursework.",
-    });
-  }
-  if (payment.cognitiveAccessLocked) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message:
-        "IERP cognitive access requires the full KES 15,000 programme payment. Learners who started between August and November may use Phase 1 and Phase 2 before December; from December onward, complete payment before continuing.",
-    });
-  }
+  if (!userId || !isAhaProgramType(programType)) return;
+  await assertAhaAccess(db, userId, programType);
 }
 
 function synchronizeBlsCatalog(db: any): Promise<void> {
@@ -400,7 +379,7 @@ export const learningRouter = router({
       }
 
       const pt = courseRow.programType as string;
-      await assertIerpCognitiveAccess(db, ctx.user?.id, pt);
+      await assertAhaCognitiveAccess(db, ctx.user?.id, pt);
       if (pt === "paeds_resus_ils") {
         if (!ctx.user?.id) {
           throw new TRPCError({
@@ -523,7 +502,7 @@ export const learningRouter = router({
         .from(courses)
         .where(eq(courses.id, module[0].courseId))
         .limit(1);
-      await assertIerpCognitiveAccess(
+      await assertAhaCognitiveAccess(
         db,
         ctx.user?.id,
         moduleCourse[0]?.programType
@@ -680,7 +659,7 @@ export const learningRouter = router({
     .input(z.object({ quizId: z.number() }))
     .query(async ({ ctx, input }) => {
       const db = await getDb();
-      await assertIerpCognitiveAccess(
+      await assertAhaCognitiveAccess(
         db,
         ctx.user?.id,
         await getProgramTypeForQuiz(db, input.quizId)
@@ -812,7 +791,7 @@ export const learningRouter = router({
           message: "Database unavailable",
         });
 
-      await assertIerpCognitiveAccess(
+      await assertAhaCognitiveAccess(
         db,
         ctx.user.id,
         await getProgramTypeForQuiz(db, input.summativeQuizId)
@@ -902,7 +881,7 @@ export const learningRouter = router({
       const moduleId = Number(quizMeta[0]?.moduleId ?? 0);
       const quizPassingScore = Number(quizMeta[0]?.passingScore ?? 70);
       if (moduleId > 0) {
-        await assertIerpCognitiveAccess(
+        await assertAhaCognitiveAccess(
           db,
           ctx.user.id,
           await getProgramTypeForModule(db, moduleId)
@@ -1323,7 +1302,7 @@ export const learningRouter = router({
           message: "Database unavailable",
         });
 
-      await assertIerpCognitiveAccess(
+      await assertAhaCognitiveAccess(
         db,
         ctx.user.id,
         await getProgramTypeForModule(db, input.moduleId)

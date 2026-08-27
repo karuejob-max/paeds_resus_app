@@ -114,11 +114,12 @@ export function ProviderCredentialsCard() {
         </CardTitle>
         <CardDescription>
           Licences and external AHA certificates are private evidence records.
-          They remain pending until an authorised verifier reviews them. For the
-          NERP pathway, use this form to keep external BLS or ACLS evidence
-          current; Global Admin verifies any external Phase 2 or Phase 3 claim
-          separately. Paeds Resus achievements below are filled automatically
-          from verified learning records.
+          They remain pending until an authorised verifier reviews them. To join
+          NERP, submit your Nursing Council of Kenya licence number and licence
+          evidence here; the licence must be verified and current before NERP
+          access is granted. External BLS or ACLS evidence supports review, while
+          Paeds Resus achievements below are filled automatically from verified
+          learning records.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -160,10 +161,11 @@ export function ProviderCredentialsCard() {
               Add or renew a professional credential
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Use this form for a regulatory licence or an AHA Life Support
-              certificate completed outside the Paeds Resus framework. A verified
-              certificate helps the team review your NERP record, but does not by
-              itself create a Phase 2 or Phase 3 completion. Maximum
+              For NERP, choose Regulatory licence, enter issuer “Nursing Council
+              of Kenya” (or NCK), and enter your licence number. Upload the licence
+              evidence for review. A verified licence establishes professional
+              eligibility; it does not by itself create NERP Phase 2 or Phase 3
+              completion. Maximum
               file size is 5 MB; PDF, JPG, and PNG are accepted.
             </p>
           </div>

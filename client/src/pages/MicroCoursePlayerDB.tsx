@@ -1102,8 +1102,11 @@ export default function MicroCoursePlayerDB() {
   const isLoading = isAhaCourse
     ? ahaDetailsLoading
     : (catalogLoading || coursesLoading || detailsLoading);
-  const isIerpPaymentLocked = isAhaCourse && Boolean(
-    ahaDetailsError?.message?.includes("IERP cognitive access requires")
+  const isAhaPathwayLocked = isAhaCourse && Boolean(
+    (ahaDetailsError as any)?.data?.code === "FORBIDDEN" ||
+    ahaDetailsError?.message?.includes("Choose NERP") ||
+    ahaDetailsError?.message?.includes("IERP cognitive access") ||
+    ahaDetailsError?.message?.includes("Complete your Intern profile")
   );
 
   if (isLoading) {
@@ -1135,19 +1138,26 @@ export default function MicroCoursePlayerDB() {
     return (
       <div className="min-h-screen bg-background p-4 flex flex-col items-center justify-center text-center">
         <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-        <h2 className="text-xl font-bold mb-2">{isIerpPaymentLocked ? "IERP payment required" : "Content Not Found"}</h2>
+        <h2 className="text-xl font-bold mb-2">{isAhaPathwayLocked ? "AHA pathway required" : "Content Not Found"}</h2>
         <p className="text-muted-foreground mb-6 max-w-md">
-          {isIerpPaymentLocked
-            ? "Your IERP cognitive access is locked until the full KES 15,000 programme fee is paid. August–November starters may use Phase 1 and Phase 2 before 1 December EAT; from December onward, complete payment before continuing."
+          {isAhaPathwayLocked
+            ? ahaDetailsError?.message ?? "Choose an approved AHA pathway before accessing or continuing this course."
             : isAhaCourse && !ahaDetailsLoading && (ahaDetailsHasError || !ahaCourseDetails)
               ? isIlsCourse
                 ? "This Institutional Life Support programme could not be loaded. Please return to the programme page and try again."
                 : "This AHA course could not be loaded. Please refresh the page or return to AHA Courses and try again."
               : "This course is not yet available in the interactive format."}
         </p>
-        <Button onClick={() => navigate(isIerpPaymentLocked ? "/learner-dashboard" : coursesHubPath)}>
-          {isIerpPaymentLocked ? "Open learner dashboard" : "Go Back"}
-        </Button>
+        {isAhaPathwayLocked ? (
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button asChild variant="outline"><Link href="/programs/nerp-acls">NERP</Link></Button>
+            <Button asChild variant="outline"><Link href="/programs/ierp">IERP</Link></Button>
+            <Button asChild variant="outline"><Link href="/training/institutional-life-support">ILSP</Link></Button>
+            <Button asChild><Link href="/aha-courses">Independent AHA Pathway</Link></Button>
+          </div>
+        ) : (
+          <Button onClick={() => navigate(coursesHubPath)}>Go Back</Button>
+        )}
       </div>
     );
   }

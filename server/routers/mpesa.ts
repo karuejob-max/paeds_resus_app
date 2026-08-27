@@ -8,6 +8,7 @@ import { reconcilePaymentRowByStkQuery } from "../mpesa-reconciliation";
 import { getMpesaDeploymentMode, getMpesaEnvironmentSource } from "../lib/mpesa-env";
 import { defaultStkCallbackUrl } from "../lib/mpesa-callback-path";
 import { buildStkAccountReference } from "../lib/daraja-account-reference";
+import { getIndependentAhaPriceKes, type AhaProgramType } from "../../shared/aha-pathways";
 import { trackEvent, trackPaymentInitiation } from "../services/analytics.service";
 import {
   INTUBATION_SAMPLE_MICRO_COURSE_ID,
@@ -108,6 +109,13 @@ export const mpesaRouter = router({
         if (!db) throw new Error("Database not available");
 
         let enrollmentId: number;
+        const independentPriceKes = getIndependentAhaPriceKes(input.courseId as AhaProgramType);
+        if (independentPriceKes !== null && !input.nerpOfferEnrollmentId && Number(input.amount) !== independentPriceKes) {
+          return {
+            success: false,
+            error: `The ${input.courseName} Independent AHA Pathway requires the full KES ${independentPriceKes.toLocaleString()} payment.`,
+          };
+        }
 
         if (input.nerpOfferEnrollmentId) {
           if (!input.enrollmentId || !input.installmentNumber) {

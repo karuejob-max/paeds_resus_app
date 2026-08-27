@@ -15,16 +15,8 @@ import {
 } from "../drizzle/schema";
 import { ensureInstructorCourseCatalog } from "./lib/ensure-instructor-course-catalog";
 import { ensureInstitutionalLifeSupportCatalog } from "./lib/ensure-institutional-life-support-catalog";
-import {
-  getIerpInternProfile,
-  getIerpPaymentAccessForUser,
-  isIerpCognitiveProgram,
-  isIerpInternProfileReady,
-} from "./lib/ierp-program-state";
-import {
-  syncInstructorQualificationsForUser,
-  isInstructorQualifiedForCourse,
-} from "./lib/instructor-qualifications";
+import { getAhaAccessDecision } from "./lib/aha-access";
+import { syncInstructorQualificationsForUser, isInstructorQualifiedForCourse } from "./lib/instructor-qualifications";
 import { resolveAhaCourseAnchor } from "./lib/resolve-aha-course-anchor";
 import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certificate-pdf";
 import {
@@ -438,14 +430,21 @@ export async function issueCertificateForEnrollmentIfEligible(
     if (enrollmentRows.length === 0)
       return { issued: false, error: "Enrollment not found" };
     const enrollment = enrollmentRows[0];
+    const existing = await getCertificateByEnrollmentId(enrollmentId);
 
-    // Gate 1: Payment gate removed — all enrolled users can receive certificates
-    // (payment tracking is retained in DB for admin reporting but does not block issuance)
+    // Idempotency: historical certificates remain readable and are never
+    // revoked by this access-policy change. New certificate issuance must use
+    // a supported cohort, ILSP, full independent payment, or admin grant.
+    if (["bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(enrollment.programType)) {
+      const ahaAccess = await getAhaAccessDecision(db, enrollment.userId, enrollment.programType);
+      if (!ahaAccess.allowed && !existing) {
+        return { issued: false, pendingStep: "payment", error: ahaAccess.message };
+      }
+    }
 
     // Idempotency: if the legacy AHA certificate already exists, still make
     // sure the additional Paeds Resus provider certificate is projected for
     // eligible BLS/ACLS/PALS/NRP completions.
-    const existing = await getCertificateByEnrollmentId(enrollmentId);
     if (existing) {
       if (["bls", "acls", "pals", "nrp"].includes(enrollment.programType)) {
         try {
@@ -714,17 +713,8 @@ export async function markAhaCognitiveComplete(
   if (!enrollment) return;
   if (!AHA_PROGRAM_TYPES.has(enrollment.programType)) return;
 
-  if (isIerpCognitiveProgram(enrollment.programType)) {
-    const ierpPayment = await getIerpPaymentAccessForUser(
-      db,
-      enrollment.userId
-    );
-    if (ierpPayment) {
-      const internProfile = await getIerpInternProfile(db, enrollment.userId);
-      if (!isIerpInternProfileReady(internProfile)) return;
-      if (ierpPayment.cognitiveAccessLocked) return;
-    }
-  }
+  const ahaAccess = await getAhaAccessDecision(db, enrollment.userId, enrollment.programType);
+  if (!ahaAccess.allowed) return;
 
   let complete = false;
   if (enrollment.programType === "pals") {

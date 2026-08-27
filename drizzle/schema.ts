@@ -333,6 +333,26 @@ export const ierpInternProfiles = mysqlTable(
 export type IerpInternProfile = typeof ierpInternProfiles.$inferSelect;
 export type InsertIerpInternProfile = typeof ierpInternProfiles.$inferInsert;
 
+/** Audited named-user override for reviewers and other authorised free-access learners. */
+export const ahaAccessGrants = mysqlTable("ahaAccessGrants", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "heartsaver", "nrp", "instructor"]),
+  reason: varchar("reason", { length: 500 }).notNull(),
+  grantedByUserId: int("grantedByUserId").notNull(),
+  expiresAt: timestamp("expiresAt"),
+  revokedAt: timestamp("revokedAt"),
+  revokedByUserId: int("revokedByUserId"),
+  revokeReason: varchar("revokeReason", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  userStatusIdx: index("aha_access_grants_user_status_idx").on(table.userId, table.revokedAt, table.expiresAt),
+  userProgramIdx: index("aha_access_grants_user_program_idx").on(table.userId, table.programType),
+}));
+export type AhaAccessGrant = typeof ahaAccessGrants.$inferSelect;
+export type InsertAhaAccessGrant = typeof ahaAccessGrants.$inferInsert;
+
 /** Private object metadata for IERP Phase 1 evidence. Bytes live in storage. */
 export const ierpPhase1Evidence = mysqlTable(
   "ierpPhase1Evidence",
@@ -9089,6 +9109,29 @@ export type NerpCampaignSuppression =
   typeof nerpCampaignSuppressions.$inferSelect;
 export type InsertNerpCampaignSuppression =
   typeof nerpCampaignSuppressions.$inferInsert;
+
+/** Recipient-level audit and idempotency records for NERP promotional sends. */
+export const nerpCampaignDeliveries = mysqlTable("nerp_campaign_deliveries", {
+  id: int("id").autoincrement().primaryKey(),
+  campaignKey: varchar("campaign_key", { length: 128 }).notNull(),
+  institutionalAccountId: int("institutional_account_id").notNull(),
+  staffId: int("staff_id"),
+  userId: int("user_id"),
+  recipientName: varchar("recipient_name", { length: 255 }).notNull(),
+  recipientEmail: varchar("recipient_email", { length: 320 }).notNull(),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  status: mysqlEnum("status", ["sending", "sent", "failed", "suppressed"]).notNull(),
+  messageId: varchar("message_id", { length: 255 }),
+  errorMessage: varchar("error_message", { length: 1000 }),
+  sentByUserId: int("sent_by_user_id").notNull(),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, table => ({
+  campaignRecipientUnique: uniqueIndex("nerp_campaign_deliveries_campaign_recipient_uq").on(table.campaignKey, table.recipientEmail),
+  campaignStatusIndex: index("nerp_campaign_deliveries_campaign_status_idx").on(table.campaignKey, table.status),
+}));
+export type NerpCampaignDelivery = typeof nerpCampaignDeliveries.$inferSelect;
+export type InsertNerpCampaignDelivery = typeof nerpCampaignDeliveries.$inferInsert;
 
 /** Append-only audit trail for NERP campaign suppression changes. */
 export const nerpCampaignSuppressionAuditEvents = mysqlTable(
