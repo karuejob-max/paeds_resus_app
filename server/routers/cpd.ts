@@ -44,6 +44,56 @@ async function loadFacilityDepartmentNames(db: any, institutionId: number) {
   ]));
 }
 
+async function resolveActiveInstitutionPresenter(
+  db: any,
+  institutionId: number,
+  userId: number
+) {
+  const [row] = await db
+    .select({
+      userId: users.id,
+      userName: users.name,
+      userEmail: users.email,
+      userCadre: users.cadre,
+      userCadreOther: users.cadreOther,
+      staffName: institutionalStaffMembers.staffName,
+      staffEmail: institutionalStaffMembers.staffEmail,
+      staffRole: institutionalStaffMembers.staffRole,
+      staffDepartment: institutionalStaffMembers.department,
+      facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+      profileDepartment: providerProfiles.department,
+    })
+    .from(institutionMemberships)
+    .innerJoin(users, eq(users.id, institutionMemberships.userId))
+    .leftJoin(
+      institutionalStaffMembers,
+      and(
+        eq(institutionalStaffMembers.institutionalAccountId, institutionId),
+        eq(institutionalStaffMembers.userId, userId),
+        sql`${institutionalStaffMembers.removedAt} IS NULL`
+      )
+    )
+    .leftJoin(providerProfiles, eq(providerProfiles.userId, userId))
+    .where(
+      and(
+        eq(institutionMemberships.institutionalAccountId, institutionId),
+        eq(institutionMemberships.userId, userId),
+        eq(institutionMemberships.membershipStatus, "active")
+      )
+    )
+    .limit(1);
+  if (!row) return null;
+  return {
+    userId: row.userId,
+    fullName: row.staffName?.trim() || row.userName?.trim() || row.userEmail?.trim() || "Institution member",
+    email: row.staffEmail?.trim() || row.userEmail?.trim() || "",
+    cadre: row.userCadre?.trim() || row.staffRole || null,
+    cadreOther: row.userCadreOther?.trim() || null,
+    department: row.staffDepartment?.trim() || row.profileDepartment?.trim() || null,
+    facilityDepartmentId: row.facilityDepartmentId ?? null,
+  };
+}
+
 export function getCanonicalAttendeeDepartment(
   attendee: { department: string; facilityDepartmentId?: number | null },
   facilityDepartmentNames: Map<number, string>,
@@ -286,50 +336,63 @@ export const cpdRouter = router({
     )
     .query(async ({ input, ctx }) => {
       const db = await requireDb();
+      const institutionId = input.institutionId;
+      if (!institutionId) return [];
       let access: { departmentIds: number[] | null } = { departmentIds: null };
-      if (input.institutionId) {
-        await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.workspace.read");
-        access = await assertCpdInstitutionAccess(db, ctx.user, input.institutionId);
+      if (institutionId) {
+        await assertInstitutionProductCapability(db, institutionId, "cpd_portal", "cpd.workspace.read");
+        access = await assertCpdInstitutionAccess(db, ctx.user, institutionId);
       }
       const q = `%${input.query.toLowerCase()}%`;
 
       const userMatches = await db
         .select({
           id: users.id,
-          fullName: users.name,
-          email: users.email,
-          cadre: users.cadre,
-          cadreOther: users.cadreOther,
+          userName: users.name,
+          userEmail: users.email,
+          userCadre: users.cadre,
+          userCadreOther: users.cadreOther,
+          staffName: institutionalStaffMembers.staffName,
+          staffEmail: institutionalStaffMembers.staffEmail,
+          staffRole: institutionalStaffMembers.staffRole,
           department: institutionalStaffMembers.department,
+          facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
         })
-        .from(users)
+        .from(institutionMemberships)
+        .innerJoin(users, eq(users.id, institutionMemberships.userId))
         .leftJoin(
           institutionalStaffMembers,
-          eq(users.id, institutionalStaffMembers.userId)
+          and(
+            eq(institutionalStaffMembers.institutionalAccountId, institutionId),
+            eq(institutionalStaffMembers.userId, institutionMemberships.userId),
+            sql`${institutionalStaffMembers.removedAt} IS NULL`
+          )
         )
         .where(
-          access.departmentIds
-            ? and(
-                or(
-                  like(sql`LOWER(${users.name})`, q),
-                  like(sql`LOWER(${users.email})`, q)
-                ),
-                inArray(institutionalStaffMembers.facilityDepartmentId, access.departmentIds)
-              )
-            : or(
-                like(sql`LOWER(${users.name})`, q),
-                like(sql`LOWER(${users.email})`, q)
-              )
+          and(
+            eq(institutionMemberships.institutionalAccountId, institutionId),
+            eq(institutionMemberships.membershipStatus, "active"),
+            or(
+              like(sql`LOWER(${users.name})`, q),
+              like(sql`LOWER(${users.email})`, q),
+              like(sql`LOWER(${institutionalStaffMembers.staffName})`, q),
+              like(sql`LOWER(${institutionalStaffMembers.staffEmail})`, q)
+            ),
+            access.departmentIds
+              ? inArray(institutionalStaffMembers.facilityDepartmentId, access.departmentIds)
+              : undefined
+          )
         )
         .limit(10);
 
       return userMatches.map((u) => ({
         id: u.id,
-        fullName: u.fullName || u.email || "Unknown Clinician",
-        email: u.email || "",
-        cadre: u.cadre || null,
-        cadreOther: u.cadreOther || null,
+        fullName: u.staffName || u.userName || u.staffEmail || u.userEmail || "Unknown Clinician",
+        email: u.staffEmail || u.userEmail || "",
+        cadre: u.userCadre || u.staffRole || null,
+        cadreOther: u.userCadreOther || null,
         department: u.department || null,
+        facilityDepartmentId: u.facilityDepartmentId ?? null,
       }));
     }),
 
@@ -343,7 +406,8 @@ export const cpdRouter = router({
         approvingCouncil: z.string().trim().max(128).nullable().optional(),
         cpdPoints: z.union([z.number(), z.string().transform((val) => val ? Number(val) : null)]).nullable().optional(),
         eventType: z.enum(["cne", "cme", "cpd_general", "grand_rounds", "journal_club", "workshop"]).default("cpd_general"),
-        presenterUserId: z.number().int().positive().nullable().optional(),
+        presenterUserId: z.number().int().positive(),
+        /** Legacy display fields are accepted for old clients but not trusted. */
         presenterName: z.string().trim().max(255).nullable().optional(),
         presenterCadre: z.string().trim().max(128).nullable().optional(),
         presenterCadreOther: z.string().trim().max(128).nullable().optional(),
@@ -356,6 +420,17 @@ export const cpdRouter = router({
       const db = await requireDb();
       await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
       await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator"]);
+      const presenter = await resolveActiveInstitutionPresenter(
+        db,
+        input.institutionId,
+        input.presenterUserId
+      );
+      if (!presenter) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Choose the lead presenter from the active institution-member list.",
+        });
+      }
       const now = new Date();
       // Close any open events first (only one open event per institution).
       await db
@@ -376,22 +451,20 @@ export const cpdRouter = router({
         approvingCouncil: input.approvingCouncil ?? null,
         cpdPoints: input.cpdPoints ? String(input.cpdPoints) : null,
         eventType: input.eventType || "cpd_general",
-        presenterUserId: input.presenterUserId ?? null,
-        presenterName: input.presenterName ?? null,
-        presenterCadre: formatEventPresenterCadre(input.presenterCadre ?? null, input.presenterCadreOther ?? null),
-        presenterDepartment: input.presenterDepartment ?? null,
+        presenterUserId: presenter.userId,
+        presenterName: presenter.fullName,
+        presenterCadre: formatEventPresenterCadre(presenter.cadre, presenter.cadreOther),
+        presenterDepartment: presenter.department,
         scheduledStartTime: input.scheduledStartTime ?? null,
         scheduledEndTime: input.scheduledEndTime ?? null,
       });
       const eventId = (result as unknown as { insertId: number }).insertId;
 
-      if (input.presenterUserId) {
-        if (input.presenterDepartment) {
-          await syncUserProfileDepartment(db, input.presenterUserId, input.presenterDepartment);
-        }
-        if (input.presenterCadre) {
-          await syncUserCadre(db, input.presenterUserId, input.presenterCadre, input.presenterCadreOther ?? null);
-        }
+      if (presenter.department) {
+        await syncUserProfileDepartment(db, presenter.userId, presenter.department);
+      }
+      if (presenter.cadre) {
+        await syncUserCadre(db, presenter.userId, presenter.cadre, presenter.cadreOther);
       }
 
       return { success: true as const, eventId };

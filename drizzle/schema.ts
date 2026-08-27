@@ -5942,6 +5942,9 @@ export const nerpExternalVerificationCases = mysqlTable("nerp_external_verificat
   caseKey: varchar("case_key", { length: 64 }).notNull().unique(),
   institutionalAccountId: int("institutional_account_id"),
   userId: int("user_id"),
+  /** Existing cases are NERP nurse cases; new cases may be non-nurse outside-pathway completions. */
+  candidateType: mysqlEnum("candidate_type", ["nerp_nurse", "non_nurse_external"]).default("nerp_nurse").notNull(),
+  candidateCadre: varchar("candidate_cadre", { length: 128 }),
   candidateName: varchar("candidate_name", { length: 255 }).notNull(),
   candidateEmail: varchar("candidate_email", { length: 320 }),
   providerName: varchar("provider_name", { length: 255 }),

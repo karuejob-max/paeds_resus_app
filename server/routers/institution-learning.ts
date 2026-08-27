@@ -13,6 +13,7 @@ import {
   institutionalAccounts,
   institutionalStaffMembers,
   institutionMemberships,
+  providerProfiles,
   users,
 } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
@@ -30,6 +31,7 @@ import {
   LEARNING_PROGRAM_TYPES,
 } from "../lib/institution-learning-analytics";
 import { loadInstitutionLearningDashboard } from "../lib/institution-learning-dashboard";
+import { departmentLabelsMatch } from "../../shared/clinical-departments";
 
 const sessionEventTypes = [
   "cne",
@@ -220,6 +222,151 @@ function assertCoordinatorDepartment(
   }
 }
 
+type LearningMemberDirectoryRow = {
+  id: number;
+  userId: number;
+  staffName: string;
+  staffEmail: string;
+  staffPhone: string | null;
+  staffRole: string;
+  department: string | null;
+  facilityDepartmentId: number | null;
+  cadre: string | null;
+  cadreOther: string | null;
+};
+
+/**
+ * Resolve the active institution-member directory once for People & targets
+ * and CPD participant selection. Membership is the participation boundary;
+ * roster/profile rows only enrich the member and its department. This avoids
+ * leaking arbitrary platform users and tolerates older records whose canonical
+ * facilityDepartmentId was not populated yet.
+ */
+async function loadInstitutionMemberDirectory(
+  db: any,
+  institutionId: number,
+  access: { departmentIds: number[] | null },
+  departmentId?: number
+): Promise<LearningMemberDirectoryRow[]> {
+  if (departmentId != null && access.departmentIds && !access.departmentIds.includes(departmentId)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "You can only view members in your assigned department(s).",
+    });
+  }
+
+  const departmentRows = await db
+    .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
+    .from(facilityDepartments)
+    .where(
+      and(
+        eq(facilityDepartments.institutionId, institutionId),
+        eq(facilityDepartments.isActive, true)
+      )
+    );
+  const departmentNames = new Map<number, string>(
+    departmentRows.map((row: { id: number; departmentName: string }) => [row.id, row.departmentName])
+  );
+
+  const memberRows = await db
+    .select({
+      userId: institutionMemberships.userId,
+      invitedEmail: institutionMemberships.invitedEmail,
+      fullName: users.name,
+      email: users.email,
+      phone: users.phone,
+      providerType: users.providerType,
+      cadre: users.cadre,
+      cadreOther: users.cadreOther,
+      profileDepartment: providerProfiles.department,
+    })
+    .from(institutionMemberships)
+    .leftJoin(users, eq(users.id, institutionMemberships.userId))
+    .leftJoin(providerProfiles, eq(providerProfiles.userId, institutionMemberships.userId))
+    .where(
+      and(
+        eq(institutionMemberships.institutionalAccountId, institutionId),
+        eq(institutionMemberships.membershipStatus, "active"),
+        sql`${institutionMemberships.userId} IS NOT NULL`
+      )
+    );
+
+  const userIds = memberRows
+    .map((row: { userId: number | null }) => row.userId)
+    .filter((userId: number | null): userId is number => userId != null);
+  if (!userIds.length) return [];
+
+  const staffRows = await db
+    .select({
+      id: institutionalStaffMembers.id,
+      userId: institutionalStaffMembers.userId,
+      staffName: institutionalStaffMembers.staffName,
+      staffEmail: institutionalStaffMembers.staffEmail,
+      staffPhone: institutionalStaffMembers.staffPhone,
+      staffRole: institutionalStaffMembers.staffRole,
+      department: institutionalStaffMembers.department,
+      facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+      updatedAt: institutionalStaffMembers.updatedAt,
+    })
+    .from(institutionalStaffMembers)
+    .where(
+      and(
+        eq(institutionalStaffMembers.institutionalAccountId, institutionId),
+        inArray(institutionalStaffMembers.userId, userIds),
+        sql`${institutionalStaffMembers.removedAt} IS NULL`
+      )
+    )
+    .orderBy(desc(institutionalStaffMembers.updatedAt), desc(institutionalStaffMembers.id));
+
+  const staffByUserId = new Map<number, (typeof staffRows)[number]>();
+  for (const row of staffRows) {
+    if (row.userId != null && !staffByUserId.has(row.userId)) {
+      staffByUserId.set(row.userId, row);
+    }
+  }
+
+  const allowedDepartments = access.departmentIds?.map(id => departmentNames.get(id)).filter((name): name is string => Boolean(name)) ?? [];
+  const selectedDepartmentName = departmentId == null ? null : departmentNames.get(departmentId) ?? null;
+
+  return memberRows
+    .map((row: (typeof memberRows)[number]) => {
+      const userId = row.userId;
+      if (userId == null) return null;
+      const staff = staffByUserId.get(userId);
+      const canonicalDepartmentName = staff?.facilityDepartmentId != null
+        ? departmentNames.get(staff.facilityDepartmentId) ?? null
+        : null;
+      const department = canonicalDepartmentName ?? staff?.department?.trim() ?? row.profileDepartment?.trim() ?? null;
+      return {
+        id: staff?.id ?? -userId,
+        userId,
+        staffName: staff?.staffName?.trim() || row.fullName?.trim() || row.email?.trim() || row.invitedEmail,
+        staffEmail: staff?.staffEmail?.trim() || row.email?.trim() || row.invitedEmail,
+        staffPhone: staff?.staffPhone ?? row.phone ?? null,
+        staffRole: staff?.staffRole ?? row.providerType ?? "other",
+        department,
+        facilityDepartmentId: staff?.facilityDepartmentId ?? null,
+        cadre: row.cadre?.trim() || staff?.staffRole || row.providerType || null,
+        cadreOther: row.cadreOther?.trim() || null,
+      } satisfies LearningMemberDirectoryRow;
+    })
+    .filter((row: LearningMemberDirectoryRow | null): row is LearningMemberDirectoryRow => {
+      if (!row) return false;
+      const isInSelectedDepartment = departmentId == null
+        ? true
+        : row.facilityDepartmentId === departmentId || (
+            row.facilityDepartmentId == null &&
+            selectedDepartmentName != null &&
+            departmentLabelsMatch(row.department ?? "", selectedDepartmentName)
+          );
+      if (!isInSelectedDepartment) return false;
+      if (!access.departmentIds) return true;
+      if (row.facilityDepartmentId != null) return access.departmentIds.includes(row.facilityDepartmentId);
+      return allowedDepartments.some(name => departmentLabelsMatch(row.department ?? "", name));
+    })
+    .sort((left: LearningMemberDirectoryRow, right: LearningMemberDirectoryRow) => left.staffName.localeCompare(right.staffName));
+}
+
 const targetInput = z.object({
   institutionId: z.number().int().positive(),
   targetScope: z.enum(["facility", "department", "individual"]),
@@ -292,31 +439,12 @@ export const institutionLearningRouter = router({
         ],
         { allowDepartmentHead: true }
       );
-      if (input.departmentId != null && access.departmentIds && !access.departmentIds.includes(input.departmentId)) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You can only view staff in your assigned department(s).",
-        });
-      }
-      const predicates = [
-        eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
-        sql`${institutionalStaffMembers.removedAt} IS NULL`,
-      ];
-      if (input.departmentId != null) predicates.push(eq(institutionalStaffMembers.facilityDepartmentId, input.departmentId));
-      if (access.departmentIds) predicates.push(inArray(institutionalStaffMembers.facilityDepartmentId, access.departmentIds));
-      return db
-        .select({
-          id: institutionalStaffMembers.id,
-          userId: institutionalStaffMembers.userId,
-          staffName: institutionalStaffMembers.staffName,
-          staffEmail: institutionalStaffMembers.staffEmail,
-          staffRole: institutionalStaffMembers.staffRole,
-          department: institutionalStaffMembers.department,
-          facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
-        })
-        .from(institutionalStaffMembers)
-        .where(and(...predicates))
-        .orderBy(asc(institutionalStaffMembers.staffName));
+      return loadInstitutionMemberDirectory(
+        db,
+        input.institutionId,
+        access,
+        input.departmentId
+      );
     }),
 
   listEducationCoordinators: protectedProcedure
@@ -507,7 +635,9 @@ export const institutionLearningRouter = router({
         audienceScope: z.enum(audienceScopes),
         audienceLabel: z.string().trim().max(128).nullable().optional(),
         facilityDepartmentId: z.number().int().positive().nullable().optional(),
-        presenterUserId: z.number().int().positive().nullable().optional(),
+        /** Required member identity; display fields are resolved from the directory below. */
+        presenterUserId: z.number().int().positive(),
+        /** Legacy display fields are accepted for old clients but never trusted or persisted. */
         presenterName: z.string().trim().max(255).nullable().optional(),
         presenterCadre: z.string().trim().max(128).nullable().optional(),
         presenterDepartment: z.string().trim().max(128).nullable().optional(),
@@ -516,8 +646,9 @@ export const institutionLearningRouter = router({
         coPresenters: z
           .array(
             z.object({
-              userId: z.number().int().positive().nullable().optional(),
-              fullName: z.string().trim().min(1).max(255),
+              userId: z.number().int().positive(),
+              /** Legacy fields remain input-compatible but are ignored. */
+              fullName: z.string().trim().min(1).max(255).optional(),
               email: z.string().email().nullable().optional(),
               cadre: z.string().trim().max(128).nullable().optional(),
               department: z.string().trim().max(128).nullable().optional(),
@@ -570,6 +701,62 @@ export const institutionLearningRouter = router({
             message: "Choose an active department from this institution.",
           });
       }
+
+      const memberDirectory = await loadInstitutionMemberDirectory(
+        db,
+        input.institutionId,
+        access,
+        input.facilityDepartmentId ?? undefined
+      );
+      const leadPresenter = memberDirectory.find(
+        member => member.userId === input.presenterUserId
+      );
+      if (!leadPresenter) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Choose the lead presenter from the active institution-member list.",
+        });
+      }
+      const coPresenterIds = input.coPresenters.map(presenter => presenter.userId);
+      if (new Set(coPresenterIds).size !== coPresenterIds.length || coPresenterIds.includes(input.presenterUserId)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Each co-presenter must be a different active member and cannot be the lead presenter.",
+        });
+      }
+      const coPresenterDirectory = coPresenterIds.map(userId =>
+        memberDirectory.find(member => member.userId === userId)
+      );
+      if (coPresenterDirectory.some(member => !member)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Choose every co-presenter from the active institution-member list.",
+        });
+      }
+      const normalizedAudienceLabel = input.audienceScope === "other_cadre"
+        ? input.audienceLabel?.trim() || null
+        : null;
+      if (input.audienceScope === "other_cadre" && !normalizedAudienceLabel) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Choose the audience cadre for an other-cadre session.",
+        });
+      }
+      if (normalizedAudienceLabel) {
+        const memberCadres = new Set(
+          memberDirectory.flatMap(member =>
+            [member.cadre, member.cadreOther].filter(
+              (value): value is string => Boolean(value?.trim())
+            )
+          )
+        );
+        if (!memberCadres.has(normalizedAudienceLabel)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Choose an audience cadre from the active institution-member list.",
+          });
+        }
+      }
       const now = new Date();
       await db
         .update(cpdEvents)
@@ -591,28 +778,37 @@ export const institutionLearningRouter = router({
         openedAt: now,
         eventType: input.eventType,
         audienceScope: input.audienceScope,
-        audienceLabel: input.audienceLabel ?? null,
+        audienceLabel: normalizedAudienceLabel,
         facilityDepartmentId: input.facilityDepartmentId ?? null,
-        presenterUserId: input.presenterUserId ?? null,
-        presenterName: input.presenterName ?? null,
-        presenterCadre: input.presenterCadre ?? null,
-        presenterDepartment: input.presenterDepartment ?? null,
+        presenterUserId: leadPresenter.userId,
+        presenterName: leadPresenter.staffName,
+        presenterCadre: leadPresenter.cadre ?? leadPresenter.staffRole,
+        presenterDepartment: leadPresenter.department,
         cpdPoints: input.cpdPoints == null ? null : String(input.cpdPoints),
         approvingCouncil: input.approvingCouncil ?? null,
       });
       const eventId = (result as unknown as { insertId: number }).insertId;
       if (input.coPresenters.length) {
         await db.insert(cpdEventCoPresenters).values(
-          input.coPresenters.map(presenter => ({
-            cpdEventId: eventId,
-            institutionalAccountId: input.institutionId,
-            userId: presenter.userId ?? null,
-            fullName: presenter.fullName,
-            email: presenter.email ?? null,
-            cadre: presenter.cadre ?? null,
-            department: presenter.department ?? null,
-            addedByUserId: ctx.user.id,
-          }))
+          input.coPresenters.map((presenter, index) => {
+            const member = coPresenterDirectory[index];
+            if (!member) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "Choose every co-presenter from the active institution-member list.",
+              });
+            }
+            return {
+              cpdEventId: eventId,
+              institutionalAccountId: input.institutionId,
+              userId: member.userId,
+              fullName: member.staffName,
+              email: member.staffEmail || null,
+              cadre: member.cadre ?? member.staffRole,
+              department: member.department,
+              addedByUserId: ctx.user.id,
+            };
+          })
         );
       }
       return { success: true as const, eventId };

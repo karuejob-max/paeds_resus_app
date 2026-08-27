@@ -1285,20 +1285,21 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                   )}
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="cpd-presenter-cadre">Presenter Cadre</Label>
-                  <CadreProgressiveSelector
-                    value={presenterCadre}
-                    onChange={setPresenterCadre}
-                    cadreOtherValue={presenterCustomOther}
-                    onCadreOtherChange={setPresenterCustomOther}
-                    subSpecialtyValue={presenterSubSpecialty}
-                    onSubSpecialtyChange={setPresenterSubSpecialty}
+                  <Label htmlFor="cpd-presenter-cadre">Lead presenter cadre</Label>
+                  <Input
+                    id="cpd-presenter-cadre"
+                    value={presenterCadre || "Select a member to populate"}
+                    readOnly
+                    aria-readonly="true"
                   />
                 </div>
-                <div className="sm:col-span-3">
-                  <DepartmentSelectors
-                    value={presenterDepartment}
-                    onChange={setPresenterDepartment}
+                <div className="sm:col-span-3 space-y-1">
+                  <Label htmlFor="cpd-presenter-department">Lead presenter department</Label>
+                  <Input
+                    id="cpd-presenter-department"
+                    value={presenterDepartment || "Select a member to populate"}
+                    readOnly
+                    aria-readonly="true"
                   />
                 </div>
               </div>
@@ -1348,6 +1349,10 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
               <div className="flex justify-end pt-2">
                 <Button
                   onClick={() => {
+                    if (!presenterUserId) {
+                      toast.error("Choose the lead presenter from the active institution-member list.");
+                      return;
+                    }
                     const finalCouncil = approvingCouncil === "None"
                       ? null
                       : approvingCouncil === "Other"
@@ -1375,6 +1380,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                     openEventMutation.isPending ||
                     newEventName.trim().length === 0 ||
                     newEventDate.trim().length === 0 ||
+                    !presenterUserId ||
                     (approvingCouncil === "Other" && customCouncil.trim().length === 0)
                   }
                 >
