@@ -208,22 +208,59 @@ export const cprSessionRouter = router({
       description: z.string().optional(),
       value: z.string().optional(),
       metadata: z.string().optional(),
+      clientRequestId: z.string().trim().min(8).max(96).optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new Error('Database not available');
 
-      await db.insert(cprEvents).values({
+      const [session] = await db.select({ id: cprSessions.id, createdBy: cprSessions.createdBy })
+        .from(cprSessions)
+        .where(eq(cprSessions.id, input.sessionId))
+        .limit(1);
+      if (!session) throw new Error('Session not found');
+
+      const [actor] = await db.select({ id: cprTeamMembers.id, role: cprTeamMembers.role })
+        .from(cprTeamMembers)
+        .where(and(
+          eq(cprTeamMembers.sessionId, input.sessionId),
+          eq(cprTeamMembers.userId, ctx.user.id),
+          isNull(cprTeamMembers.leftAt),
+        ))
+        .limit(1);
+      const canWrite = session.createdBy === ctx.user.id || Boolean(actor);
+      if (!canWrite) throw new Error('Only the session creator or an active team member can log CPR events');
+      if (input.memberId !== undefined) {
+        const [targetMember] = await db.select({ id: cprTeamMembers.id, userId: cprTeamMembers.userId })
+          .from(cprTeamMembers)
+          .where(and(eq(cprTeamMembers.id, input.memberId), eq(cprTeamMembers.sessionId, input.sessionId), isNull(cprTeamMembers.leftAt)))
+          .limit(1);
+        if (!targetMember) throw new Error('The event member does not belong to this active CPR team');
+        if (session.createdBy !== ctx.user.id && targetMember.userId !== ctx.user.id && actor?.role !== 'team_leader') {
+          throw new Error('Only the session creator or team leader can log an event for another member');
+        }
+      }
+
+      if (input.clientRequestId) {
+        const [existing] = await db.select({ id: cprEvents.id })
+          .from(cprEvents)
+          .where(and(eq(cprEvents.cprSessionId, input.sessionId), eq(cprEvents.idempotencyKey, input.clientRequestId)))
+          .limit(1);
+        if (existing) return { success: true, eventId: existing.id, idempotent: true };
+      }
+
+      const [created] = await db.insert(cprEvents).values({
         cprSessionId: input.sessionId,
-        memberId: input.memberId,
+        memberId: input.memberId ?? actor?.id,
         eventType: input.eventType,
         eventTime: input.eventTime,
         description: input.description,
         value: input.value,
         metadata: input.metadata,
-      });
+        idempotencyKey: input.clientRequestId,
+      }).$returningId();
 
-      return { success: true };
+      return { success: true, eventId: created.id, idempotent: false };
     }),
 
   // End session
