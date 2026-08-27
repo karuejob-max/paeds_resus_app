@@ -25,6 +25,11 @@ export default function ProviderLearn() {
     staleTime: 30_000,
     retry: 1,
   });
+  const nerpEnrollmentQuery = trpc.nerp.getMyEnrollment.useQuery(undefined, {
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+    retry: 1,
+  });
 
   if (loading || !user) {
     return (
@@ -37,6 +42,16 @@ export default function ProviderLearn() {
   const fellowship = fellowshipQuery.data;
   const microEnrollments = microEnrollmentsQuery.data ?? [];
   const ahaEnrollments = ahaEnrollmentsQuery.data ?? [];
+  const nerpEnrollment = nerpEnrollmentQuery.data;
+  const verifiedExternalPhases = new Set(
+    (nerpEnrollment?.verifications ?? [])
+      .filter((verification) => verification.decision === "verified")
+      .map((verification) => verification.phase)
+  );
+  const nerpPathwayComplete =
+    nerpEnrollment?.offer?.status === "completed" ||
+    (verifiedExternalPhases.has("phase_2") && verifiedExternalPhases.has("phase_3"));
+  const showNerpOffer = !nerpEnrollmentQuery.isLoading && !nerpPathwayComplete;
   const inProgressMicro = microEnrollments.find((enrollment) => enrollment.enrollmentStatus === "active" && Number(enrollment.progressPercentage ?? 0) < 100);
   const inProgressAha = ahaEnrollments.find((enrollment) => Number(enrollment.progressPercentage ?? 0) < 100 || !enrollment.practicalSkillsSignedOff);
   const coursesCompleted = fellowship?.coursesPillar?.completed ?? microEnrollments.filter((enrollment) => enrollment.enrollmentStatus === "completed").length;
@@ -126,6 +141,15 @@ export default function ProviderLearn() {
                 )) : <span className="text-sm text-slate-500">No AHA enrollment yet.</span>}
               </div>
               <Button type="button" variant="outline" className="w-full justify-between" onClick={() => setLocation("/aha-courses")}>Open AHA courses <ArrowRight className="h-4 w-4" /></Button>
+              {showNerpOffer ? (
+                <div className="rounded-lg border border-orange-200 bg-orange-50/60 p-3">
+                  <p className="text-xs font-medium text-orange-950">Need a flexible ACLS pathway?</p>
+                  <p className="mt-1 text-xs leading-5 text-orange-900/75">Lipa Mdogo Mdogo: KES 2,500 per month for six payments, with BLS included.</p>
+                  <Button type="button" variant="link" className="mt-1 h-auto px-0 text-xs text-orange-800" onClick={() => setLocation("/programs/nerp-acls")}>
+                    View the NERP pathway <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </div>

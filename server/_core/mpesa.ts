@@ -16,6 +16,7 @@ import axios from 'axios';
 import { Buffer } from 'buffer';
 import { isMpesaProduction } from '../lib/mpesa-env';
 import { resolveStkCallbackUrlFromEnv } from '../lib/mpesa-callback-path';
+import { isValidKenyanPhoneNumber, normalizeKenyanPhoneNumber } from '../../shared/kenyan-phone';
 
 // Environment variables — support both MPESA_* and DARAJA_* naming conventions
 const DARAJA_CONSUMER_KEY =
@@ -80,37 +81,14 @@ async function getAccessToken(): Promise<string> {
  * Validate Kenyan phone number
  */
 export function validatePhoneNumber(phone: string): boolean {
-  // Accept formats: 254712345678, +254712345678, 0712345678
-  const cleaned = phone.replace(/\D/g, '');
-
-  // Must be 12 digits (254 + 9 digits) or 10 digits (07 + 8 digits)
-  if (cleaned.length === 12 && cleaned.startsWith('254')) {
-    return true;
-  }
-  if (cleaned.length === 10 && cleaned.startsWith('07')) {
-    return true;
-  }
-
-  return false;
+  return isValidKenyanPhoneNumber(phone);
 }
 
 /**
  * Format phone number to 254 format
  */
 export function formatPhoneNumber(phone: string): string {
-  let cleaned = phone.replace(/\D/g, '');
-
-  // If starts with 0, replace with 254
-  if (cleaned.startsWith('0')) {
-    cleaned = '254' + cleaned.substring(1);
-  }
-
-  // If doesn't start with 254, prepend it
-  if (!cleaned.startsWith('254')) {
-    cleaned = '254' + cleaned;
-  }
-
-  return cleaned;
+  return normalizeKenyanPhoneNumber(phone) ?? phone.replace(/\D/g, '');
 }
 
 /**
