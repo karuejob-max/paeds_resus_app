@@ -7,6 +7,7 @@ export const LEARNING_PROGRAM_TYPES = [
   "nrp",
   "heartsaver",
   "instructor",
+  "paeds_resus_ils",
 ] as const;
 export type LearningProgramType = (typeof LEARNING_PROGRAM_TYPES)[number];
 

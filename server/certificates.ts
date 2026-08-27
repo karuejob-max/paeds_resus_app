@@ -15,8 +15,16 @@ import {
 } from "../drizzle/schema";
 import { ensureInstructorCourseCatalog } from "./lib/ensure-instructor-course-catalog";
 import { ensureInstitutionalLifeSupportCatalog } from "./lib/ensure-institutional-life-support-catalog";
-import { getIerpInternProfile, getIerpPaymentAccessForUser, isIerpCognitiveProgram, isIerpInternProfileReady } from "./lib/ierp-program-state";
-import { syncInstructorQualificationsForUser, isInstructorQualifiedForCourse } from "./lib/instructor-qualifications";
+import {
+  getIerpInternProfile,
+  getIerpPaymentAccessForUser,
+  isIerpCognitiveProgram,
+  isIerpInternProfileReady,
+} from "./lib/ierp-program-state";
+import {
+  syncInstructorQualificationsForUser,
+  isInstructorQualifiedForCourse,
+} from "./lib/instructor-qualifications";
 import { resolveAhaCourseAnchor } from "./lib/resolve-aha-course-anchor";
 import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certificate-pdf";
 import {
@@ -58,7 +66,10 @@ function generateCertificateNumber(): string {
 /**
  * Generate certificate hash for verification
  */
-function generateCertificateHash(certificateNumber: string, recipientName: string): string {
+function generateCertificateHash(
+  certificateNumber: string,
+  recipientName: string
+): string {
   return createHash("sha256")
     .update(`${certificateNumber}:${recipientName}:${Date.now()}`)
     .digest("hex");
@@ -71,20 +82,30 @@ export async function instructorEnrollmentModulesComplete(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   enrollmentId: number
 ): Promise<boolean> {
-  const enrollmentRows = await db.select().from(enrollments).where(eq(enrollments.id, enrollmentId)).limit(1);
+  const enrollmentRows = await db
+    .select()
+    .from(enrollments)
+    .where(eq(enrollments.id, enrollmentId))
+    .limit(1);
   const enrollment = enrollmentRows[0];
   if (!enrollment || enrollment.programType !== "instructor") return true;
 
   await ensureInstructorCourseCatalog(db);
 
-  const courseRows = await db.select({ id: courses.id }).from(courses).where(eq(courses.programType, "instructor"));
+  const courseRows = await db
+    .select({ id: courses.id })
+    .from(courses)
+    .where(eq(courses.programType, "instructor"));
   if (courseRows.length === 0) return false;
 
-  const courseIds = courseRows.map((c) => c.id);
-  const moduleRows = await db.select({ id: modules.id }).from(modules).where(inArray(modules.courseId, courseIds));
+  const courseIds = courseRows.map(c => c.id);
+  const moduleRows = await db
+    .select({ id: modules.id })
+    .from(modules)
+    .where(inArray(modules.courseId, courseIds));
   if (moduleRows.length === 0) return true;
 
-  const moduleIds = moduleRows.map((m) => m.id);
+  const moduleIds = moduleRows.map(m => m.id);
   const progressRows = await db
     .select({ moduleId: userProgress.moduleId })
     .from(userProgress)
@@ -95,8 +116,8 @@ export async function instructorEnrollmentModulesComplete(
         inArray(userProgress.moduleId, moduleIds)
       )
     );
-  const done = new Set(progressRows.map((p) => p.moduleId));
-  return moduleIds.every((id) => done.has(id));
+  const done = new Set(progressRows.map(p => p.moduleId));
+  return moduleIds.every(id => done.has(id));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -116,11 +137,13 @@ export async function isAhaCognitiveComplete(
 
   if (courseRows.length === 0) {
     // No catalog seeded yet — treat as incomplete (do not issue cert)
-    console.warn(`[Certificates] No ${programType.toUpperCase()} course catalog found. Cannot verify cognitive completion.`);
+    console.warn(
+      `[Certificates] No ${programType.toUpperCase()} course catalog found. Cannot verify cognitive completion.`
+    );
     return false;
   }
 
-  const courseIds = courseRows.map((c) => c.id);
+  const courseIds = courseRows.map(c => c.id);
   const moduleRows = await db
     .select({ id: modules.id })
     .from(modules)
@@ -128,11 +151,13 @@ export async function isAhaCognitiveComplete(
 
   if (moduleRows.length === 0) {
     // No modules seeded yet — treat as incomplete
-    console.warn(`[Certificates] No modules found for ${programType.toUpperCase()} course. Cannot verify cognitive completion.`);
+    console.warn(
+      `[Certificates] No modules found for ${programType.toUpperCase()} course. Cannot verify cognitive completion.`
+    );
     return false;
   }
 
-  const moduleIds = moduleRows.map((m) => m.id);
+  const moduleIds = moduleRows.map(m => m.id);
   const progressRows = await db
     .select({ moduleId: userProgress.moduleId })
     .from(userProgress)
@@ -144,8 +169,8 @@ export async function isAhaCognitiveComplete(
       )
     );
 
-  const done = new Set(progressRows.map((p) => p.moduleId));
-  return moduleIds.every((id) => done.has(id));
+  const done = new Set(progressRows.map(p => p.moduleId));
+  return moduleIds.every(id => done.has(id));
 }
 
 async function assignInstructorNumberIfNeeded(
@@ -164,7 +189,11 @@ async function assignInstructorNumberIfNeeded(
   const num = `INS-${year}-${String(userId).padStart(5, "0")}`;
   await db
     .update(users)
-    .set({ instructorNumber: num, instructorCertifiedAt: new Date(), instructorTier: "provisional" })
+    .set({
+      instructorNumber: num,
+      instructorCertifiedAt: new Date(),
+      instructorTier: "provisional",
+    })
     .where(eq(users.id, userId));
 
   // Now that they're instructor-certified, grant qualification for any
@@ -191,11 +220,17 @@ export async function saveCertificate(
     }
 
     const certificateNumber = generateCertificateNumber();
-    const verificationHash = generateCertificateHash(certificateNumber, recipientName);
+    const verificationHash = generateCertificateHash(
+      certificateNumber,
+      recipientName
+    );
     const issueDate = new Date();
     const expiryDate = computeCertificateExpiryDate(issueDate, programType);
 
-    const courseDisplayName = await getCourseDisplayNameForEnrollment(db, enrollmentId);
+    const courseDisplayName = await getCourseDisplayNameForEnrollment(
+      db,
+      enrollmentId
+    );
 
     const pdfBuffer = await renderBrandedCertificatePdf({
       recipientName,
@@ -244,7 +279,9 @@ export async function saveCertificate(
 /**
  * Verify authenticity using the unique verification hash printed on the PDF / QR code.
  */
-export async function verifyCertificateByVerificationCode(code: string): Promise<{
+export async function verifyCertificateByVerificationCode(
+  code: string
+): Promise<{
   valid: boolean;
   status?: CertificateExpiryStatus;
   error?: string;
@@ -307,7 +344,7 @@ export async function verifyCertificate(
 ): Promise<{
   valid: boolean;
   status?: CertificateExpiryStatus;
-  certificate?: (typeof certificates.$inferSelect) | null;
+  certificate?: typeof certificates.$inferSelect | null;
   error?: string;
 }> {
   try {
@@ -384,13 +421,22 @@ export async function verifyCertificate(
 // ─────────────────────────────────────────────────────────────────────────────
 export async function issueCertificateForEnrollmentIfEligible(
   enrollmentId: number
-): Promise<{ issued: boolean; error?: string; pendingStep?: "cognitive" | "practical" | "payment" }> {
+): Promise<{
+  issued: boolean;
+  error?: string;
+  pendingStep?: "cognitive" | "practical" | "payment";
+}> {
   try {
     const db = await getDb();
     if (!db) return { issued: false, error: "Database not available" };
 
-    const enrollmentRows = await db.select().from(enrollments).where(eq(enrollments.id, enrollmentId)).limit(1);
-    if (enrollmentRows.length === 0) return { issued: false, error: "Enrollment not found" };
+    const enrollmentRows = await db
+      .select()
+      .from(enrollments)
+      .where(eq(enrollments.id, enrollmentId))
+      .limit(1);
+    if (enrollmentRows.length === 0)
+      return { issued: false, error: "Enrollment not found" };
     const enrollment = enrollmentRows[0];
 
     // Gate 1: Payment gate removed — all enrolled users can receive certificates
@@ -403,9 +449,15 @@ export async function issueCertificateForEnrollmentIfEligible(
     if (existing) {
       if (["bls", "acls", "pals", "nrp"].includes(enrollment.programType)) {
         try {
-          await ensurePaedsResusProviderCertificateForEnrollment(db, enrollmentId);
+          await ensurePaedsResusProviderCertificateForEnrollment(
+            db,
+            enrollmentId
+          );
         } catch (error) {
-          console.error("[Certificates] Universal Paeds Resus provider projection failed:", error);
+          console.error(
+            "[Certificates] Universal Paeds Resus provider projection failed:",
+            error
+          );
         }
       }
       return { issued: true };
@@ -413,12 +465,16 @@ export async function issueCertificateForEnrollmentIfEligible(
 
     // ── Instructor path ──────────────────────────────────────────────────────
     if (enrollment.programType === "instructor") {
-      const modulesOk = await instructorEnrollmentModulesComplete(db, enrollmentId);
+      const modulesOk = await instructorEnrollmentModulesComplete(
+        db,
+        enrollmentId
+      );
       if (!modulesOk) {
         return {
           issued: false,
           pendingStep: "cognitive",
-          error: "Complete all Instructor Course modules and assessments first. Open your course from the learner dashboard.",
+          error:
+            "Complete all Instructor Course modules and assessments first. Open your course from the learner dashboard.",
         };
       }
     }
@@ -429,7 +485,8 @@ export async function issueCertificateForEnrollmentIfEligible(
         return {
           issued: false,
           pendingStep: "payment",
-          error: "Complete the Institutional Life Support provider payment before certification can be issued.",
+          error:
+            "Complete the Institutional Life Support provider payment before certification can be issued.",
         };
       }
       const ilsOk = await isIlsCognitiveComplete(db, enrollmentId);
@@ -437,14 +494,16 @@ export async function issueCertificateForEnrollmentIfEligible(
         return {
           issued: false,
           pendingStep: "cognitive",
-          error: "Complete all Institutional Life Support modules and knowledge checks first. Open the course from the learner dashboard.",
+          error:
+            "Complete all Institutional Life Support modules and knowledge checks first. Open the course from the learner dashboard.",
         };
       }
       if (!enrollment.practicalSkillsSignedOff) {
         return {
           issued: false,
           pendingStep: "practical",
-          error: "Your Paeds Resus competency certificate requires a hands-on skills assessment sign-off by an approved Paeds Resus instructor.",
+          error:
+            "Your Paeds Resus competency certificate requires a hands-on skills assessment sign-off by an approved Paeds Resus instructor.",
         };
       }
     }
@@ -452,12 +511,17 @@ export async function issueCertificateForEnrollmentIfEligible(
     // ── PALS path ────────────────────────────────────────────────────────────
     if (enrollment.programType === "pals") {
       // Gate 2a: Cognitive modules
-      const palsOk = await isPalsEnrollmentModulesComplete(db, enrollmentId, enrollment.userId);
+      const palsOk = await isPalsEnrollmentModulesComplete(
+        db,
+        enrollmentId,
+        enrollment.userId
+      );
       if (!palsOk) {
         return {
           issued: false,
           pendingStep: "cognitive",
-          error: "Complete all PALS modules and knowledge checks first. Open your course from the learner dashboard.",
+          error:
+            "Complete all PALS modules and knowledge checks first. Open your course from the learner dashboard.",
         };
       }
       // Gate 2b: Practical skills sign-off by instructor
@@ -474,7 +538,11 @@ export async function issueCertificateForEnrollmentIfEligible(
 
     // ── Remaining AHA paths with standard two-gate model ────────────────────
     if (["bls", "acls", "heartsaver", "nrp"].includes(enrollment.programType)) {
-      const pt = enrollment.programType as "bls" | "acls" | "heartsaver" | "nrp";
+      const pt = enrollment.programType as
+        | "bls"
+        | "acls"
+        | "heartsaver"
+        | "nrp";
       const cognitiveOk = await isAhaCognitiveComplete(db, enrollmentId, pt);
       if (!cognitiveOk) {
         return {
@@ -495,7 +563,11 @@ export async function issueCertificateForEnrollmentIfEligible(
     }
 
     // ── All gates passed — issue the certificate ─────────────────────────────
-    const userRows = await db.select({ name: users.name }).from(users).where(eq(users.id, enrollment.userId)).limit(1);
+    const userRows = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, enrollment.userId))
+      .limit(1);
     const recipientName = userRows[0]?.name || "Participant";
 
     // Use the instructor's name on the certificate if available
@@ -510,21 +582,38 @@ export async function issueCertificateForEnrollmentIfEligible(
       enrollment.userId
     );
 
-    if (result.success && ["bls", "acls", "pals", "nrp"].includes(enrollment.programType)) {
+    if (
+      result.success &&
+      ["bls", "acls", "pals", "nrp"].includes(enrollment.programType)
+    ) {
       try {
-        await ensurePaedsResusProviderCertificateForEnrollment(db, enrollmentId);
+        await ensurePaedsResusProviderCertificateForEnrollment(
+          db,
+          enrollmentId
+        );
       } catch (error) {
         // The AHA certificate is already durable. Keep that result successful,
         // while logging the additive projection for a safe retry from the
         // learner certificate sync action.
-        console.error("[Certificates] Universal Paeds Resus provider projection failed:", error);
+        console.error(
+          "[Certificates] Universal Paeds Resus provider projection failed:",
+          error
+        );
       }
     }
 
-    return result.success ? { issued: true } : { issued: false, error: result.error };
+    return result.success
+      ? { issued: true }
+      : { issued: false, error: result.error };
   } catch (err) {
-    console.error("[Certificates] issueCertificateForEnrollmentIfEligible:", err);
-    return { issued: false, error: err instanceof Error ? err.message : "Unknown error" };
+    console.error(
+      "[Certificates] issueCertificateForEnrollmentIfEligible:",
+      err
+    );
+    return {
+      issued: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
   }
 }
 
@@ -537,39 +626,99 @@ async function isIlsCognitiveComplete(
   enrollmentId: number
 ): Promise<boolean> {
   await ensureInstitutionalLifeSupportCatalog(db);
-  const courseRows = await db.select({ id: courses.id }).from(courses).where(eq(courses.programType, "paeds_resus_ils"));
-  const courseIds = courseRows.map((course) => course.id);
+  const courseRows = await db
+    .select({ id: courses.id })
+    .from(courses)
+    .where(eq(courses.programType, "paeds_resus_ils"));
+  const courseIds = courseRows.map(course => course.id);
   if (!courseIds.length) return false;
-  const moduleRows = await db.select({ id: modules.id }).from(modules).where(inArray(modules.courseId, courseIds));
+  const moduleRows = await db
+    .select({ id: modules.id })
+    .from(modules)
+    .where(inArray(modules.courseId, courseIds));
   if (!moduleRows.length) return false;
-  const progressRows = await db.select({ moduleId: userProgress.moduleId }).from(userProgress).where(and(eq(userProgress.enrollmentId, enrollmentId), eq(userProgress.status, "completed"), inArray(userProgress.moduleId, moduleRows.map((module) => module.id))));
-  const completed = new Set(progressRows.map((row) => row.moduleId));
-  return moduleRows.every((module) => completed.has(module.id));
+  const progressRows = await db
+    .select({ moduleId: userProgress.moduleId })
+    .from(userProgress)
+    .where(
+      and(
+        eq(userProgress.enrollmentId, enrollmentId),
+        eq(userProgress.status, "completed"),
+        inArray(
+          userProgress.moduleId,
+          moduleRows.map(module => module.id)
+        )
+      )
+    );
+  const completed = new Set(progressRows.map(row => row.moduleId));
+  return moduleRows.every(module => completed.has(module.id));
 }
 
-export async function markIlsCognitiveComplete(enrollmentId: number): Promise<{ cognitiveComplete: boolean; certificateIssued: boolean; certificateNumber?: string | null }> {
+export async function markIlsCognitiveComplete(
+  enrollmentId: number
+): Promise<{
+  cognitiveComplete: boolean;
+  certificateIssued: boolean;
+  certificateNumber?: string | null;
+}> {
   const db = await getDb();
   if (!db) return { cognitiveComplete: false, certificateIssued: false };
-  const rows = await db.select().from(enrollments).where(and(eq(enrollments.id, enrollmentId), eq(enrollments.programType, "paeds_resus_ils"))).limit(1);
+  const rows = await db
+    .select()
+    .from(enrollments)
+    .where(
+      and(
+        eq(enrollments.id, enrollmentId),
+        eq(enrollments.programType, "paeds_resus_ils")
+      )
+    )
+    .limit(1);
   if (!rows[0]) return { cognitiveComplete: false, certificateIssued: false };
-  if (rows[0].paymentStatus !== "completed") return { cognitiveComplete: false, certificateIssued: false };
-  if (!(await isIlsCognitiveComplete(db, enrollmentId))) return { cognitiveComplete: false, certificateIssued: false };
-  await db.update(enrollments).set({ cognitiveModulesComplete: true, updatedAt: new Date() }).where(eq(enrollments.id, enrollmentId));
+  if (rows[0].enrollmentStatus !== "active")
+    return { cognitiveComplete: false, certificateIssued: false };
+  if (rows[0].paymentStatus !== "completed")
+    return { cognitiveComplete: false, certificateIssued: false };
+  if (!(await isIlsCognitiveComplete(db, enrollmentId)))
+    return { cognitiveComplete: false, certificateIssued: false };
+  const completedAt = new Date();
+  await db
+    .update(enrollments)
+    .set({
+      cognitiveModulesComplete: true,
+      cognitiveModulesCompletedAt: completedAt,
+      activatedAt: rows[0].activatedAt ?? completedAt,
+      lastActivityAt: completedAt,
+      updatedAt: completedAt,
+    })
+    .where(eq(enrollments.id, enrollmentId));
   const result = await issueCertificateForEnrollmentIfEligible(enrollmentId);
   const certificate = await getCertificateByEnrollmentId(enrollmentId);
-  return { cognitiveComplete: true, certificateIssued: result.issued && !!certificate, certificateNumber: certificate?.certificateNumber ?? null };
+  return {
+    cognitiveComplete: true,
+    certificateIssued: result.issued && !!certificate,
+    certificateNumber: certificate?.certificateNumber ?? null,
+  };
 }
 
-export async function markAhaCognitiveComplete(enrollmentId: number): Promise<void> {
+export async function markAhaCognitiveComplete(
+  enrollmentId: number
+): Promise<void> {
   const db = await getDb();
   if (!db) return;
-  const rows = await db.select().from(enrollments).where(eq(enrollments.id, enrollmentId)).limit(1);
+  const rows = await db
+    .select()
+    .from(enrollments)
+    .where(eq(enrollments.id, enrollmentId))
+    .limit(1);
   const enrollment = rows[0];
   if (!enrollment) return;
   if (!AHA_PROGRAM_TYPES.has(enrollment.programType)) return;
 
   if (isIerpCognitiveProgram(enrollment.programType)) {
-    const ierpPayment = await getIerpPaymentAccessForUser(db, enrollment.userId);
+    const ierpPayment = await getIerpPaymentAccessForUser(
+      db,
+      enrollment.userId
+    );
     if (ierpPayment) {
       const internProfile = await getIerpInternProfile(db, enrollment.userId);
       if (!isIerpInternProfileReady(internProfile)) return;
@@ -579,15 +728,22 @@ export async function markAhaCognitiveComplete(enrollmentId: number): Promise<vo
 
   let complete = false;
   if (enrollment.programType === "pals") {
-    complete = await isPalsEnrollmentModulesComplete(db, enrollmentId, enrollment.userId);
+    complete = await isPalsEnrollmentModulesComplete(
+      db,
+      enrollmentId,
+      enrollment.userId
+    );
   } else {
-    const anchor = await resolveAhaCourseAnchor(db, enrollment.programType as "bls" | "acls" | "heartsaver" | "nrp" | "pals");
+    const anchor = await resolveAhaCourseAnchor(
+      db,
+      enrollment.programType as "bls" | "acls" | "heartsaver" | "nrp" | "pals"
+    );
     if (anchor?.id) {
       const modRows = await db
         .select({ id: modules.id })
         .from(modules)
         .where(eq(modules.courseId, anchor.id));
-      const moduleIds = modRows.map((m) => m.id);
+      const moduleIds = modRows.map(m => m.id);
       if (moduleIds.length > 0) {
         const progressRows = await db
           .select({ moduleId: userProgress.moduleId })
@@ -599,8 +755,8 @@ export async function markAhaCognitiveComplete(enrollmentId: number): Promise<vo
               inArray(userProgress.moduleId, moduleIds)
             )
           );
-        const done = new Set(progressRows.map((p) => p.moduleId));
-        complete = moduleIds.every((id) => done.has(id));
+        const done = new Set(progressRows.map(p => p.moduleId));
+        complete = moduleIds.every(id => done.has(id));
       }
     }
   }
@@ -610,7 +766,9 @@ export async function markAhaCognitiveComplete(enrollmentId: number): Promise<vo
     .update(enrollments)
     .set({ cognitiveModulesComplete: true })
     .where(eq(enrollments.id, enrollmentId));
-  console.log(`[Certificates] AHA cognitive complete marked for enrollment ${enrollmentId}`);
+  console.log(
+    `[Certificates] AHA cognitive complete marked for enrollment ${enrollmentId}`
+  );
   // Attempt to issue certificate — will succeed only if practical is also signed off
   await issueCertificateForEnrollmentIfEligible(enrollmentId);
 }
@@ -626,11 +784,19 @@ export async function signOffPracticalSkills(
   instructorName: string
 ): Promise<{ success: boolean; certificateIssued: boolean; error?: string }> {
   const db = await getDb();
-  if (!db) return { success: false, certificateIssued: false, error: "Database not available" };
+  if (!db)
+    return {
+      success: false,
+      certificateIssued: false,
+      error: "Database not available",
+    };
 
   // Verify the instructor is approved (instructorApprovedAt is set by platform admin)
   const instructorRows = await db
-    .select({ instructorApprovedAt: users.instructorApprovedAt, name: users.name })
+    .select({
+      instructorApprovedAt: users.instructorApprovedAt,
+      name: users.name,
+    })
     .from(users)
     .where(eq(users.id, instructorUserId))
     .limit(1);
@@ -640,22 +806,32 @@ export async function signOffPracticalSkills(
     return {
       success: false,
       certificateIssued: false,
-      error: "Only approved instructors can sign off practical skills assessments.",
+      error:
+        "Only approved instructors can sign off practical skills assessments.",
     };
   }
 
   // Verify the enrollment exists and is for an AHA course
-  const enrollmentRows = await db.select().from(enrollments).where(eq(enrollments.id, enrollmentId)).limit(1);
+  const enrollmentRows = await db
+    .select()
+    .from(enrollments)
+    .where(eq(enrollments.id, enrollmentId))
+    .limit(1);
   const enrollment = enrollmentRows[0];
   if (!enrollment) {
-    return { success: false, certificateIssued: false, error: "Enrollment not found" };
+    return {
+      success: false,
+      certificateIssued: false,
+      error: "Enrollment not found",
+    };
   }
   const isIlsEnrollment = enrollment.programType === "paeds_resus_ils";
   if (!AHA_PROGRAM_TYPES.has(enrollment.programType) && !isIlsEnrollment) {
     return {
       success: false,
       certificateIssued: false,
-      error: "Practical sign-off is only applicable to supported Paeds Resus and AHA training programmes.",
+      error:
+        "Practical sign-off is only applicable to supported Paeds Resus and AHA training programmes.",
     };
   }
 
@@ -664,7 +840,11 @@ export async function signOffPracticalSkills(
   // qualified for THIS course (i.e., have completed it themselves).
   const qualified = isIlsEnrollment
     ? true
-    : await isInstructorQualifiedForCourse(db, instructorUserId, enrollment.programType);
+    : await isInstructorQualifiedForCourse(
+        db,
+        instructorUserId,
+        enrollment.programType
+      );
   if (!qualified) {
     return {
       success: false,
@@ -696,7 +876,8 @@ export async function signOffPracticalSkills(
   }
 
   // Attempt to issue the certificate now that practical is done
-  const certResult = await issueCertificateForEnrollmentIfEligible(enrollmentId);
+  const certResult =
+    await issueCertificateForEnrollmentIfEligible(enrollmentId);
   return {
     success: true,
     certificateIssued: certResult.issued,
@@ -727,12 +908,18 @@ export async function getCertificatesByUserId(userId: number) {
       .from(certificates)
       .leftJoin(enrollments, eq(certificates.enrollmentId, enrollments.id))
       .leftJoin(courses, eq(enrollments.courseId, courses.id))
-      .leftJoin(microCourseEnrollments, eq(certificates.microCourseEnrollmentId, microCourseEnrollments.id))
-      .leftJoin(microCourses, eq(microCourseEnrollments.microCourseId, microCourses.id))
+      .leftJoin(
+        microCourseEnrollments,
+        eq(certificates.microCourseEnrollmentId, microCourseEnrollments.id)
+      )
+      .leftJoin(
+        microCourses,
+        eq(microCourseEnrollments.microCourseId, microCourses.id)
+      )
       .where(eq(certificates.userId, userId))
       .orderBy(desc(certificates.issueDate));
     // Resolve title: micro-course certs use microCourseTitle; AHA/fellowship certs use courseTitle
-    return list.map((row) => ({
+    return list.map(row => ({
       ...row,
       courseTitle: row.microCourseTitle ?? row.courseTitle ?? null,
     }));
@@ -749,7 +936,7 @@ export async function getCertificateForDownload(
   certificateNumber: string,
   userId: number
 ): Promise<{
-  cert: (typeof certificates.$inferSelect);
+  cert: typeof certificates.$inferSelect;
   trainingDate: Date;
   recipientName: string;
   courseDisplayName?: string;
@@ -786,12 +973,18 @@ export async function getCertificateForDownload(
       const mceRows = await db
         .select({ title: microCourses.title })
         .from(microCourseEnrollments)
-        .leftJoin(microCourses, eq(microCourseEnrollments.microCourseId, microCourses.id))
+        .leftJoin(
+          microCourses,
+          eq(microCourseEnrollments.microCourseId, microCourses.id)
+        )
         .where(eq(microCourseEnrollments.id, cert.microCourseEnrollmentId))
         .limit(1);
       courseDisplayName = mceRows[0]?.title?.trim() || undefined;
     } else {
-      courseDisplayName = await getCourseDisplayNameForEnrollment(db, cert.enrollmentId);
+      courseDisplayName = await getCourseDisplayNameForEnrollment(
+        db,
+        cert.enrollmentId
+      );
     }
 
     return { cert, trainingDate, recipientName, courseDisplayName };
@@ -801,7 +994,10 @@ export async function getCertificateForDownload(
   }
 }
 
-export async function hasCertificateDownloadFeedback(userId: number, certificateId: number): Promise<boolean> {
+export async function hasCertificateDownloadFeedback(
+  userId: number,
+  certificateId: number
+): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
   try {
@@ -819,7 +1015,9 @@ export async function hasCertificateDownloadFeedback(userId: number, certificate
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (/certificateDownloadFeedback|doesn't exist/i.test(msg)) {
-      console.warn("[Certificates] certificateDownloadFeedback table missing — skipping feedback gate");
+      console.warn(
+        "[Certificates] certificateDownloadFeedback table missing — skipping feedback gate"
+      );
       return true;
     }
     throw err;
@@ -852,7 +1050,10 @@ export async function ensureMicroCourseCertificateForCompletedCourse(
       return { success: false, error: "Not enrolled in this course" };
     }
     if (enrollment.enrollmentStatus !== "completed") {
-      return { success: false, error: "Complete the course final exam to receive your certificate" };
+      return {
+        success: false,
+        error: "Complete the course final exam to receive your certificate",
+      };
     }
 
     const userRows = await db
@@ -863,7 +1064,9 @@ export async function ensureMicroCourseCertificateForCompletedCourse(
     const recipientName = userRows[0]?.name ?? "Participant";
 
     const track =
-      course.level === "foundational" || course.level === "advanced" ? course.level : undefined;
+      course.level === "foundational" || course.level === "advanced"
+        ? course.level
+        : undefined;
     return await saveMicroCourseCertificate(
       enrollment.id,
       userId,
@@ -872,8 +1075,14 @@ export async function ensureMicroCourseCertificateForCompletedCourse(
       track
     );
   } catch (err) {
-    console.error("[Certificates] ensureMicroCourseCertificateForCompletedCourse:", err);
-    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
+    console.error(
+      "[Certificates] ensureMicroCourseCertificateForCompletedCourse:",
+      err
+    );
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
   }
 }
 
@@ -886,15 +1095,21 @@ export async function submitCertificateDownloadFeedback(params: {
   const db = await getDb();
   if (!db) return { success: false, error: "Database not available" };
   const r = params.rating;
-  if (r < 1 || r > 5) return { success: false, error: "Rating must be between 1 and 5." };
+  if (r < 1 || r > 5)
+    return { success: false, error: "Rating must be between 1 and 5." };
   const imp = params.improvements?.trim() ?? "";
   if (imp.length < 10) {
     return {
       success: false,
-      error: "Please write at least 10 characters on what we can improve for this course.",
+      error:
+        "Please write at least 10 characters on what we can improve for this course.",
     };
   }
-  const certRows = await db.select().from(certificates).where(eq(certificates.id, params.certificateId)).limit(1);
+  const certRows = await db
+    .select()
+    .from(certificates)
+    .where(eq(certificates.id, params.certificateId))
+    .limit(1);
   const cert = certRows[0];
   if (!cert || cert.userId !== params.userId) {
     return { success: false, error: "Certificate not found or access denied." };
@@ -909,14 +1124,25 @@ export async function submitCertificateDownloadFeedback(params: {
     return { success: true };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes("Duplicate") || msg.includes("duplicate") || msg.includes("UNIQUE")) {
-      return { success: false, error: "Feedback was already submitted for this certificate." };
-    }
-    if (/certificateDownloadFeedback|doesn't exist/i.test(msg)) {
-      console.error("[Certificates] certificateDownloadFeedback table missing:", e);
+    if (
+      msg.includes("Duplicate") ||
+      msg.includes("duplicate") ||
+      msg.includes("UNIQUE")
+    ) {
       return {
         success: false,
-        error: "Certificate download is temporarily unavailable (server update required). Please try again shortly.",
+        error: "Feedback was already submitted for this certificate.",
+      };
+    }
+    if (/certificateDownloadFeedback|doesn't exist/i.test(msg)) {
+      console.error(
+        "[Certificates] certificateDownloadFeedback table missing:",
+        e
+      );
+      return {
+        success: false,
+        error:
+          "Certificate download is temporarily unavailable (server update required). Please try again shortly.",
       };
     }
     console.error("[Certificates] submitCertificateDownloadFeedback:", e);
@@ -950,9 +1176,14 @@ export async function getCertificateByEnrollmentId(enrollmentId: number) {
 /**
  * Revoke certificate
  */
-export async function revokeCertificate(certificateNumber: string, reason: string) {
+export async function revokeCertificate(
+  certificateNumber: string,
+  reason: string
+) {
   try {
-    console.log(`[Certificates] Revoking certificate ${certificateNumber}: ${reason}`);
+    console.log(
+      `[Certificates] Revoking certificate ${certificateNumber}: ${reason}`
+    );
     return {
       success: true,
       message: "Certificate revoked successfully",
@@ -978,7 +1209,12 @@ export async function saveMicroCourseCertificate(
   recipientName: string,
   courseTitle: string,
   fellowshipTrack?: "foundational" | "advanced"
-): Promise<{ success: boolean; certificateNumber?: string; pdfBuffer?: Buffer; error?: string }> {
+): Promise<{
+  success: boolean;
+  certificateNumber?: string;
+  pdfBuffer?: Buffer;
+  error?: string;
+}> {
   try {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available" };
@@ -991,18 +1227,27 @@ export async function saveMicroCourseCertificate(
           AND COLUMN_NAME = 'microCourseEnrollmentId'
       `);
       if (Array.isArray(colCheck) && (colCheck as any[]).length === 0) {
-        console.log('[Certificates] Adding microCourseEnrollmentId column (lazy migration)...');
-        await db.execute(sql`ALTER TABLE \`certificates\` ADD COLUMN \`microCourseEnrollmentId\` int`);
-        console.log('[Certificates] microCourseEnrollmentId column added');
+        console.log(
+          "[Certificates] Adding microCourseEnrollmentId column (lazy migration)..."
+        );
+        await db.execute(
+          sql`ALTER TABLE \`certificates\` ADD COLUMN \`microCourseEnrollmentId\` int`
+        );
+        console.log("[Certificates] microCourseEnrollmentId column added");
       }
     } catch (migErr) {
-      console.warn('[Certificates] Lazy migration check failed (non-fatal):', migErr instanceof Error ? migErr.message : migErr);
+      console.warn(
+        "[Certificates] Lazy migration check failed (non-fatal):",
+        migErr instanceof Error ? migErr.message : migErr
+      );
     }
 
     // Dedupe: check microCourseEnrollments.certificateIssuedAt to avoid ID collision
     // with AHA enrollments table (both use auto-increment IDs starting at 1)
     const mceRows = await db
-      .select({ certificateIssuedAt: microCourseEnrollments.certificateIssuedAt })
+      .select({
+        certificateIssuedAt: microCourseEnrollments.certificateIssuedAt,
+      })
       .from(microCourseEnrollments)
       .where(eq(microCourseEnrollments.id, microCourseEnrollmentId))
       .limit(1);
@@ -1018,11 +1263,17 @@ export async function saveMicroCourseCertificate(
           )
         )
         .limit(1);
-      return { success: true, certificateNumber: certRows[0]?.certificateNumber ?? undefined };
+      return {
+        success: true,
+        certificateNumber: certRows[0]?.certificateNumber ?? undefined,
+      };
     }
 
     const certificateNumber = generateCertificateNumber();
-    const verificationHash = generateCertificateHash(certificateNumber, recipientName);
+    const verificationHash = generateCertificateHash(
+      certificateNumber,
+      recipientName
+    );
     const issueDate = new Date();
     const expiryDate = computeCertificateExpiryDate(issueDate, "fellowship");
 
@@ -1048,7 +1299,7 @@ export async function saveMicroCourseCertificate(
       expiryDate,
       certificateUrl: "",
       verificationCode: verificationHash,
-    });;
+    });
 
     // Mark the micro-course enrollment as certificate issued
     await db
@@ -1059,7 +1310,10 @@ export async function saveMicroCourseCertificate(
     return { success: true, certificateNumber, pdfBuffer };
   } catch (err) {
     console.error("[Certificates] saveMicroCourseCertificate:", err);
-    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
   }
 }
 
@@ -1082,8 +1336,9 @@ export async function getCertificateStats() {
       recentlyIssued: allCerts.slice(-10),
     };
 
-    allCerts.forEach((cert) => {
-      stats.byProgram[cert.programType] = (stats.byProgram[cert.programType] || 0) + 1;
+    allCerts.forEach(cert => {
+      stats.byProgram[cert.programType] =
+        (stats.byProgram[cert.programType] || 0) + 1;
     });
 
     return {
@@ -1112,12 +1367,19 @@ export async function saveAhaCognitiveCertificate(
   userId: number,
   recipientName: string,
   programType: "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor"
-): Promise<{ success: boolean; certificateNumber?: string; pdfBuffer?: Buffer; error?: string }> {
+): Promise<{
+  success: boolean;
+  certificateNumber?: string;
+  pdfBuffer?: Buffer;
+  error?: string;
+}> {
   try {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available" };
 
-    const cognitiveProgramType = (programType === "instructor" ? "instructor" : `${programType}_cognitive`) as
+    const cognitiveProgramType = (
+      programType === "instructor" ? "instructor" : `${programType}_cognitive`
+    ) as
       | "bls_cognitive"
       | "acls_cognitive"
       | "pals_cognitive"
@@ -1139,13 +1401,22 @@ export async function saveAhaCognitiveCertificate(
       .limit(1);
 
     if (existing.length > 0 && existing[0].certificateNumber) {
-      return { success: true, certificateNumber: existing[0].certificateNumber };
+      return {
+        success: true,
+        certificateNumber: existing[0].certificateNumber,
+      };
     }
 
     const certificateNumber = generateCertificateNumber();
-    const verificationHash = generateCertificateHash(certificateNumber, recipientName);
+    const verificationHash = generateCertificateHash(
+      certificateNumber,
+      recipientName
+    );
     const issueDate = new Date();
-    const expiryDate = computeCertificateExpiryDate(issueDate, cognitiveProgramType);
+    const expiryDate = computeCertificateExpiryDate(
+      issueDate,
+      cognitiveProgramType
+    );
 
     const pdfBuffer = await renderBrandedCertificatePdf({
       recipientName,
@@ -1172,6 +1443,9 @@ export async function saveAhaCognitiveCertificate(
     return { success: true, certificateNumber, pdfBuffer };
   } catch (err) {
     console.error("[Certificates] saveAhaCognitiveCertificate:", err);
-    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+    };
   }
 }

@@ -26,7 +26,17 @@ const COURSE_TYPES = [
   "nrp",
   "heartsaver",
   "instructor",
+"paeds_resus_ils",
 ] as const;
+const COURSE_LABELS: Record<(typeof COURSE_TYPES)[number], string> = {
+  bls: "Basic Life Support (BLS)",
+  acls: "Advanced Cardiovascular Life Support (ACLS)",
+  pals: "Pediatric Advanced Life Support (PALS)",
+  nrp: "Neonatal Resuscitation Program (NRP)",
+  heartsaver: "Heartsaver",
+  instructor: "Instructor course",
+  paeds_resus_ils: "Institutional Life Support (Paeds Resus)",
+};
 const METRICS = [
   ["cpd_sessions", "CPD sessions"],
   ["cpd_attendance_rate", "CPD attendance rate (%)"],
@@ -270,7 +280,8 @@ export default function InstitutionLearningGovernancePanel({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isInstitutionAdmin ? <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+          {isInstitutionAdmin ? (
+              <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
             <select
               className="h-10 rounded-md border bg-background px-3 text-sm"
               value={selectedDepartmentId}
@@ -317,7 +328,7 @@ export default function InstitutionLearningGovernancePanel({
               <UserPlus className="mr-2 h-4 w-4" />
               Assign
             </Button>
-          </div> : <p className="text-sm text-muted-foreground">Coordinator assignments are managed by institutional administrators. You only see coordinators for your assigned department(s).</p>}
+          </div> ) : ( <p className="text-sm text-muted-foreground">Coordinator assignments are managed by institutional administrators. You only see coordinators for your assigned department(s).</p>)}
           <div className="grid gap-2 md:grid-cols-2">
             {coordinators
               .filter(row => row.assignmentStatus === "active")
@@ -492,7 +503,7 @@ export default function InstitutionLearningGovernancePanel({
                     rows.length < 6
                       ? [
                           ...rows,
-                            { userId: "" },
+                            { userId: "" }
                         ]
                       : rows
                   )
@@ -731,7 +742,7 @@ export default function InstitutionLearningGovernancePanel({
                   <option value="">All life-support courses</option>
                   {COURSE_TYPES.map(course => (
                     <option key={course} value={course}>
-                      {course.toUpperCase()}
+                      {COURSE_LABELS[course]}
                     </option>
                   ))}
                 </select>

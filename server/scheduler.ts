@@ -6,8 +6,14 @@ import { enrollments, payments, smsReminders } from "../drizzle/schema";
 import { rollupAllInstitutionalAccounts } from "./institutional-analytics-rollup";
 import { runScheduledCertificateRenewalReminders } from "./certificate-renewal-cron";
 import { runScheduledFellowshipProgressSync } from "./services/fellowship-progress.service";
-import { runSafeTruthFacilityMatching, runSafeTruthEventCodeLinkage } from "./lib/safe-truth-facility-matcher";
-import { runPatternDetection, runConfidenceDowngrade } from "./lib/fpkb-pattern-detector";
+import {
+  runSafeTruthFacilityMatching,
+  runSafeTruthEventCodeLinkage,
+} from "./lib/safe-truth-facility-matcher";
+import {
+  runPatternDetection,
+  runConfidenceDowngrade,
+} from "./lib/fpkb-pattern-detector";
 import { queueRenewalNotifications } from "./lib/institution-renewal-notifications";
 import { runScheduledProfessionalCredentialReminders } from "./professional-credential-reminders";
 
@@ -28,7 +34,10 @@ function scheduleDarajaTokenWarm() {
       const { getMpesaAccessToken } = await import("./mpesa");
       await getMpesaAccessToken();
     } catch (error) {
-      console.warn("[Scheduler] Daraja token warm failed:", error instanceof Error ? error.message : error);
+      console.warn(
+        "[Scheduler] Daraja token warm failed:",
+        error instanceof Error ? error.message : error
+      );
     }
   });
 }
@@ -84,6 +93,9 @@ export function initializeScheduler() {
   // Platform ops: email alerts for stale payments, critical errors, backlogs
   scheduleAdminOpsAlerts();
 
+  // Institutional Life Support: activation, practical, remediation, and credentialing reminders.
+  scheduleIlsReminders();
+
   // Legal ops: monthly retention dry-run log (execute via `pnpm run retention:cleanup -- --execute`)
   scheduleRetentionCleanupDryRun();
 
@@ -96,8 +108,13 @@ export function initializeScheduler() {
 function scheduleStaleMpesaReconciliation() {
   cron.schedule("10 * * * *", async () => {
     try {
-      const { reconcileStaleMpesaPendingBatch } = await import("./mpesa-reconciliation");
-      const result = await reconcileStaleMpesaPendingBatch({ olderThanHours: 24, limit: 30 });
+      const { reconcileStaleMpesaPendingBatch } = await import(
+        "./mpesa-reconciliation"
+      );
+      const result = await reconcileStaleMpesaPendingBatch({
+        olderThanHours: 24,
+        limit: 30,
+      });
       if (result.processed > 0) {
         console.log(
           `[Scheduler] stale M-Pesa reconcile: processed=${result.processed} completed=${result.completed} failed=${result.failed} unchanged=${result.unchanged}`
@@ -111,31 +128,71 @@ function scheduleStaleMpesaReconciliation() {
 
 /** Daily professional licence and Life Support credential reminders. */
 function scheduleProfessionalCredentialReminders() {
-  cron.schedule("45 5 * * *", async () => {
-    try {
-      const result = await runScheduledProfessionalCredentialReminders();
-      if (result.remindersSent > 0 || result.remindersFailed > 0) {
-        console.log(`[Scheduler] professional credential reminders: evaluated=${result.credentialsEvaluated} sent=${result.remindersSent} failed=${result.remindersFailed} skipped=${result.skipped}`);
+  cron.schedule(
+    "45 5 * * *",
+    async () => {
+      try {
+        const result = await runScheduledProfessionalCredentialReminders();
+        if (result.remindersSent > 0 || result.remindersFailed > 0) {
+          console.log(
+            `[Scheduler] professional credential reminders: evaluated=${result.credentialsEvaluated} sent=${result.remindersSent} failed=${result.remindersFailed} skipped=${result.skipped}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          "[Scheduler] professional credential reminders failed:",
+          error
+        );
       }
-    } catch (error) {
-      console.error("[Scheduler] professional credential reminders failed:", error);
-    }
-  }, { timezone: "Africa/Nairobi" });
+    },
+    { timezone: "Africa/Nairobi" }
+  );
 }
 
 /** Institutional renewal reminders; delivery remains provider- and preference-gated. */
 function scheduleInstitutionalRenewalNotifications() {
-  cron.schedule("30 5 * * *", async () => {
-    try {
-      const db = await requireDb();
-      const result = await queueRenewalNotifications(db);
-      if (result.processed > 0 || result.sent > 0 || result.failed > 0) {
-        console.log(`[Scheduler] institutional renewal notifications: processed=${result.processed} sent=${result.sent} failed=${result.failed} skipped=${result.skipped}`);
+  cron.schedule(
+    "30 5 * * *",
+    async () => {
+      try {
+        const db = await requireDb();
+        const result = await queueRenewalNotifications(db);
+        if (result.processed > 0 || result.sent > 0 || result.failed > 0) {
+          console.log(
+            `[Scheduler] institutional renewal notifications: processed=${result.processed} sent=${result.sent} failed=${result.failed} skipped=${result.skipped}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          "[Scheduler] institutional renewal notifications failed:",
+          error
+        );
       }
-    } catch (error) {
-      console.error("[Scheduler] institutional renewal notifications failed:", error);
-    }
-  }, { timezone: "Africa/Nairobi" });
+    },
+    { timezone: "Africa/Nairobi" }
+  );
+}
+
+function scheduleIlsReminders() {
+  cron.schedule(
+    "0 6 * * *",
+    async () => {
+      try {
+        const { runScheduledIlsReminders } = await import(
+          "./lib/ils-reminders"
+        );
+        const result = await runScheduledIlsReminders();
+        if (result.evaluated > 0 || result.expired > 0) {
+          console.log(
+            `[Scheduler] ILS reminders: evaluated=${result.evaluated} sent=${result.sent} failed=${result.failed} skipped=${result.skipped} expiredAha=${result.expired}`
+          );
+        }
+      } catch (error) {
+        console.error("[Scheduler] ILS reminders failed:", error);
+      }
+    },
+    { timezone: "Africa/Nairobi" }
+  );
 }
 
 function scheduleAdminOpsAlerts() {
@@ -162,7 +219,9 @@ function scheduleRetentionCleanupDryRun() {
     try {
       const db = await getDb();
       if (!db) return;
-      const { buildRetentionCleanupPlan } = await import("./lib/retention-cleanup");
+      const { buildRetentionCleanupPlan } = await import(
+        "./lib/retention-cleanup"
+      );
       const plan = await buildRetentionCleanupPlan(db);
       console.log(
         `[Scheduler] retention dry-run: ${plan.totalEligible} row(s) eligible across ${plan.categories.length} categories`
@@ -204,8 +263,14 @@ function scheduleFellowshipProgressSync() {
 function scheduleSafeTruthFacilityMatching() {
   cron.schedule("50 4 * * *", async () => {
     try {
-      const facilityResult = await runSafeTruthFacilityMatching(await requireDb(), { dryRun: false });
-      const linkageResult = await runSafeTruthEventCodeLinkage(await requireDb(), { dryRun: false });
+      const facilityResult = await runSafeTruthFacilityMatching(
+        await requireDb(),
+        { dryRun: false }
+      );
+      const linkageResult = await runSafeTruthEventCodeLinkage(
+        await requireDb(),
+        { dryRun: false }
+      );
       console.log(
         `[Scheduler] Safe-Truth facility matching: submissions matched=${facilityResult.submissionsMatched}/${facilityResult.submissionsScanned}, visits matched=${facilityResult.visitsMatched}/${facilityResult.visitsScanned}, event codes resolved=${linkageResult.codesResolved}/${linkageResult.codesScanned}`
       );
@@ -304,7 +369,9 @@ function schedulePaymentReminders() {
           )
         );
 
-      console.log(`[Scheduler] Found ${pendingPayments.length} pending payments to remind`);
+      console.log(
+        `[Scheduler] Found ${pendingPayments.length} pending payments to remind`
+      );
 
       for (const payment of pendingPayments) {
         try {
@@ -320,7 +387,9 @@ function schedulePaymentReminders() {
           // Send reminder email (in production, would fetch user email from users table)
           // await sendPaymentReminder(user.email, user.name, payment.amount, payment.enrollmentId);
 
-          console.log(`[Scheduler] Sent payment reminder for enrollment ${payment.enrollmentId}`);
+          console.log(
+            `[Scheduler] Sent payment reminder for enrollment ${payment.enrollmentId}`
+          );
         } catch (error) {
           console.error(`[Scheduler] Error sending payment reminder:`, error);
         }
@@ -352,7 +421,9 @@ function scheduleTrainingConfirmations() {
         .from(payments)
         .where(eq(payments.status, "completed"));
 
-      console.log(`[Scheduler] Found ${completedPayments.length} completed payments`);
+      console.log(
+        `[Scheduler] Found ${completedPayments.length} completed payments`
+      );
 
       for (const payment of completedPayments) {
         try {
@@ -375,9 +446,14 @@ function scheduleTrainingConfirmations() {
           //   "Dr. Jane Kipchoge"
           // );
 
-          console.log(`[Scheduler] Sent training confirmation for enrollment ${payment.enrollmentId}`);
+          console.log(
+            `[Scheduler] Sent training confirmation for enrollment ${payment.enrollmentId}`
+          );
         } catch (error) {
-          console.error(`[Scheduler] Error sending training confirmation:`, error);
+          console.error(
+            `[Scheduler] Error sending training confirmation:`,
+            error
+          );
         }
       }
     } catch (error) {
@@ -407,14 +483,18 @@ function scheduleSmsReminders() {
         .from(smsReminders)
         .where(eq(smsReminders.status, "pending"));
 
-      console.log(`[Scheduler] Found ${pendingReminders.length} pending SMS reminders`);
+      console.log(
+        `[Scheduler] Found ${pendingReminders.length} pending SMS reminders`
+      );
 
       for (const reminder of pendingReminders) {
         try {
           // In production, integrate with SMS provider (Twilio, Africastalking, etc.)
           // await sendSMS(reminder.phoneNumber, generateSMSMessage(reminder.reminderType));
 
-          console.log(`[Scheduler] Would send SMS to ${reminder.phoneNumber}: ${reminder.reminderType}`);
+          console.log(
+            `[Scheduler] Would send SMS to ${reminder.phoneNumber}: ${reminder.reminderType}`
+          );
 
           // Mark as sent
           // await db.update(smsReminders).set({ status: "sent" }).where(eq(smsReminders.id, reminder.id));
@@ -453,7 +533,9 @@ function scheduleCareSignalRedaction() {
   cron.schedule("*/10 * * * *", async () => {
     try {
       const db = await requireDb();
-      const { redactPendingNarratives } = await import("./lib/care-signal-redact");
+      const { redactPendingNarratives } = await import(
+        "./lib/care-signal-redact"
+      );
       const result = await redactPendingNarratives(db);
       if (result.processed > 0 || result.skippedBackoff > 0) {
         console.log(
@@ -461,7 +543,10 @@ function scheduleCareSignalRedaction() {
         );
       }
     } catch (error) {
-      console.error("[Scheduler] Care Signal narrative redaction failed:", error);
+      console.error(
+        "[Scheduler] Care Signal narrative redaction failed:",
+        error
+      );
     }
   });
 }

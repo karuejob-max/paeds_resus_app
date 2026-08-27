@@ -202,4 +202,44 @@ describe("institution learning analytics", () => {
       status: "met",
     });
   });
+
+  it("includes Institutional Life Support in the institutional learning report", () => {
+    const report = computeInstitutionLearningAnalytics({
+      ...base,
+      staff: [
+        ...base.staff,
+        {
+          id: 12,
+          userId: 103,
+          fullName: "Cara Provider",
+          email: "cara@example.com",
+          staffRole: "nurse",
+          department: "Nursing",
+          facilityDepartmentId: 2,
+          assignedCourses: '["paeds_resus_ils"]',
+          phaseStatus: "phase_3",
+        },
+      ],
+      enrollments: [
+        ...base.enrollments,
+        {
+          userId: 103,
+          programType: "paeds_resus_ils" as const,
+          cognitiveModulesComplete: true,
+          practicalSkillsSignedOff: true,
+          createdAt: "2026-01-15",
+        },
+      ],
+    });
+    expect(
+      report.courses.find(
+        row => row.userId === 103 && row.programType === "paeds_resus_ils"
+      )
+    ).toMatchObject({
+      hasEnrollment: true,
+      cognitiveComplete: true,
+      completed: true,
+      stage: "completed",
+    });
+  });
 });
