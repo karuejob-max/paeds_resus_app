@@ -825,10 +825,6 @@ export function CPRClockStreamlined({
   const handleRhythmCheck = (type: RhythmType) => {
     setRhythmType(type);
     setShowRhythmCheck(false);
-    setWindowRhythmType(type);
-    setWindowRhythmClassification(type === 'vf_pvt' ? 'shockable' : 'non_shockable');
-    setWindowShockAction(null);
-    setWindowNoShockReason('');
     
     // Use pure engine logic to determine next phase
     const engineState: CprEngineState = {
