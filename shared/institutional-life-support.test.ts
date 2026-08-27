@@ -4,6 +4,7 @@ import {
   PAEDS_RESUS_ILS_AHA_FULL_TRAINING_PRICES_KES,
   PAEDS_RESUS_ILS_BASE_PRICE_KES,
   PAEDS_RESUS_ILS_CREDENTIALING_WINDOW_DAYS,
+  PAEDS_RESUS_ILS_DELIVERY_MODEL,
   getAhaCredentialingPriceKes,
   getAhaFullTrainingPriceKes,
   getCredentialingDeadline,
@@ -12,6 +13,10 @@ import {
 
 describe("Institutional Life Support business rules", () => {
   const certificateDate = new Date("2026-01-01T00:00:00.000Z");
+
+  it("defines ILS as an institution-paid cohort product", () => {
+    expect(PAEDS_RESUS_ILS_DELIVERY_MODEL).toBe("institution_paid_cohort");
+  });
 
   it("keeps the published provider and AHA prices", () => {
     expect(PAEDS_RESUS_ILS_BASE_PRICE_KES).toBe(10_000);

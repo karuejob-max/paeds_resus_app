@@ -30,6 +30,7 @@ import {
   PAEDS_RESUS_ILS_AHA_FULL_TRAINING_PRICES_KES,
   PAEDS_RESUS_ILS_BASE_PRICE_KES,
   PAEDS_RESUS_ILS_CREDENTIALING_WINDOW_DAYS,
+  PAEDS_RESUS_ILS_DELIVERY_MODEL,
   PAEDS_RESUS_ILS_PROGRAM_TYPE,
   type PaedsResusIlsAhaCredential,
 } from "@shared/institutional-life-support";
@@ -131,6 +132,7 @@ export const institutionalLifeSupportRouter = router({
         duration: course.duration,
         programType: course.programType,
       },
+      deliveryModel: PAEDS_RESUS_ILS_DELIVERY_MODEL,
       pricing: {
         providerPriceKes: PAEDS_RESUS_ILS_BASE_PRICE_KES,
         credentialingWindowDays: PAEDS_RESUS_ILS_CREDENTIALING_WINDOW_DAYS,
@@ -192,162 +194,6 @@ export const institutionalLifeSupportRouter = router({
       windowOpen: Date.now() < row.credentialingDeadline.getTime(),
     }));
   }),
-
-  enroll: protectedProcedure.mutation(async ({ ctx }) => {
-    assertTrainingWorkspaceOrAdmin(ctx.user);
-    const db = await getDb();
-    if (!db)
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Database unavailable",
-      });
-    const account = await assertExistingAccount(db, ctx.user.id);
-    const course = await getIlsCourse(db);
-    const existing = await db
-      .select()
-      .from(enrollments)
-      .where(
-        and(
-          eq(enrollments.userId, ctx.user.id),
-          eq(enrollments.programType, PAEDS_RESUS_ILS_PROGRAM_TYPE)
-        )
-      )
-      .orderBy(desc(enrollments.createdAt))
-      .limit(1);
-    if (existing[0])
-      return {
-        enrollmentId: existing[0].id,
-        created: false,
-        status: existing[0].paymentStatus,
-        account,
-      };
-    await db.insert(enrollments).values({
-      userId: ctx.user.id,
-      courseId: course.id,
-      programType: PAEDS_RESUS_ILS_PROGRAM_TYPE,
-      trainingDate: new Date(),
-      paymentStatus: "pending",
-      amountPaid: 0,
-      cognitiveModulesComplete: false,
-      practicalSkillsSignedOff: false,
-    });
-    const created = await db
-      .select({ id: enrollments.id })
-      .from(enrollments)
-      .where(
-        and(
-          eq(enrollments.userId, ctx.user.id),
-          eq(enrollments.programType, PAEDS_RESUS_ILS_PROGRAM_TYPE)
-        )
-      )
-      .orderBy(desc(enrollments.id))
-      .limit(1);
-    if (!created[0])
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Could not create Institutional Life Support enrollment.",
-      });
-    return {
-      enrollmentId: created[0].id,
-      created: true,
-      status: "pending" as const,
-      account,
-    };
-  }),
-
-  initiateEnrollmentPayment: protectedProcedure
-    .input(
-      z.object({
-        enrollmentId: z.number().int().positive(),
-        phoneNumber: z.string().min(1).max(32),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      assertTrainingWorkspaceOrAdmin(ctx.user);
-      const db = await getDb();
-      if (!db)
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Database unavailable",
-        });
-      const enrollment = await getOwnIlsEnrollment(
-        db,
-        ctx.user.id,
-        input.enrollmentId
-      );
-      if (!enrollment)
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Institutional Life Support enrollment not found.",
-        });
-      if (enrollment.paymentStatus === "completed")
-        return {
-          success: true,
-          alreadyPaid: true,
-          message: "This enrollment is already paid.",
-        };
-      if (!validatePhoneNumber(input.phoneNumber))
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Enter a valid M-Pesa phone number.",
-        });
-      const course = await getIlsCourse(db);
-      await db.insert(payments).values({
-        enrollmentId: enrollment.id,
-        userId: ctx.user.id,
-        amount: centsFromKes(PAEDS_RESUS_ILS_BASE_PRICE_KES),
-        paymentMethod: "mpesa",
-        status: "pending",
-      });
-      const paymentRows = await db
-        .select({ id: payments.id })
-        .from(payments)
-        .where(
-          and(
-            eq(payments.enrollmentId, enrollment.id),
-            eq(payments.userId, ctx.user.id)
-          )
-        )
-        .orderBy(desc(payments.id))
-        .limit(1);
-      const paymentId = paymentRows[0]?.id;
-      if (!paymentId)
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Could not create payment record.",
-        });
-      const response = await initiateStkPush({
-        phoneNumber: input.phoneNumber,
-        amount: PAEDS_RESUS_ILS_BASE_PRICE_KES,
-        accountReference: `PAEDSILS-${enrollment.id}`,
-        transactionDesc: "Paeds Resus Institutional Life Support Training",
-        orderId: `ils-enrollment-${enrollment.id}`,
-      });
-      if (!response.success || !response.checkoutRequestID) {
-        await db
-          .update(payments)
-          .set({ status: "failed", updatedAt: new Date() })
-          .where(eq(payments.id, paymentId));
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: response.error || "M-Pesa payment could not be started.",
-        });
-      }
-      await db
-        .update(payments)
-        .set({
-          transactionId: response.checkoutRequestID,
-          updatedAt: new Date(),
-        })
-        .where(eq(payments.id, paymentId));
-      return {
-        success: true,
-        paymentId,
-        checkoutRequestId: response.checkoutRequestID,
-        amountKes: PAEDS_RESUS_ILS_BASE_PRICE_KES,
-        courseTitle: course.title,
-      };
-    }),
 
   getInstitutionRoster: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive() }))
