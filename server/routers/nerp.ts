@@ -549,12 +549,12 @@ export const nerpRouter = router({
           : [];
         const hasVerifiedBlsAndAcls =
           credentials.some(
-            (row: any) =>
+            (row: (typeof credentials)[number]) =>
               row.credentialType === "external_aha_bls" &&
               row.status === "verified"
           ) &&
           credentials.some(
-            (row: any) =>
+            (row: (typeof credentials)[number]) =>
               row.credentialType === "external_aha_acls" &&
               row.status === "verified"
           );
