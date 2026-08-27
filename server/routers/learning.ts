@@ -252,7 +252,7 @@ export const learningRouter = router({
         programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp", "instructor"]).optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) {
         throw new Error("Course not found");
@@ -351,7 +351,7 @@ export const learningRouter = router({
   // Get module content with sections and quizzes
   getModuleContent: publicProcedure
     .input(z.object({ moduleId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = await getDb();
       let module = await (db as any)
         .select()

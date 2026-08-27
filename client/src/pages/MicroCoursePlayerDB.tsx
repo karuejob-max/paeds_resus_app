@@ -194,7 +194,7 @@ export default function MicroCoursePlayerDB() {
   const ahaProgram = programType ?? ahaProgramFromSlug;
 
   // Path B: AHA — programType resolves stale numeric ids (e.g. /micro-course/1?programType=bls)
-  const { data: ahaCourseDetails, isLoading: ahaDetailsLoading, isError: ahaDetailsError } =
+  const { data: ahaCourseDetails, isLoading: ahaDetailsLoading, isError: ahaDetailsHasError, error: ahaDetailsError } =
     trpc.learning.getCourseDetails.useQuery(
       {
         courseId: numericCourseId ?? 0,
@@ -944,7 +944,7 @@ export default function MicroCoursePlayerDB() {
         <p className="text-muted-foreground mb-6 max-w-md">
           {isIerpPaymentLocked
             ? "Your IERP cognitive access is locked until the full KES 15,000 programme fee is paid. August–November starters may use Phase 1 and Phase 2 before 1 December EAT; from December onward, complete payment before continuing."
-            : isAhaCourse && !ahaDetailsLoading && (ahaDetailsError || !ahaCourseDetails)
+            : isAhaCourse && !ahaDetailsLoading && (ahaDetailsHasError || !ahaCourseDetails)
               ? "This AHA course could not be loaded. Please refresh the page or return to AHA Courses and try again."
               : "This course is not yet available in the interactive format."}
         </p>
