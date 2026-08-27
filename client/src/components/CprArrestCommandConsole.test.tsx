@@ -40,12 +40,13 @@ function renderConsole(overrides: Partial<React.ComponentProps<typeof CprArrestC
       epiState="not_due"
       epiDose={0.18}
       shockEnergyLabel="36 J (PALS weight-based)"
-      formatTime={(seconds) => `00:${seconds.toString().padStart(2, '0')}`}
+      formatTime={(seconds) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`}
       onStartArrest={vi.fn()}
       onPadsAttached={vi.fn()}
       onDeliverShock={vi.fn()}
       onDisarmDefib={vi.fn()}
       onGiveEpinephrine={vi.fn()}
+      onShowAntiarrhythmic={vi.fn()}
       onShowRoscConfirm={vi.fn()}
       documentationLog={<div data-testid="documentation-log">Log</div>}
       {...overrides}
@@ -58,10 +59,37 @@ describe('CprArrestCommandConsole', () => {
     const html = renderConsole();
 
     expect(html).toContain('CONTINUE COMPRESSIONS');
-    expect(html).toContain('Rhythm check in');
-    expect(html).toContain('Keep hands on the chest.');
+    expect(html).toContain('Total code time');
+    expect(html).toContain('Next reassessment');
+    expect(html).toContain('01:20');
+    expect(html).toContain('Keep high-quality compressions going.');
     expect(html).toContain('Confirm sustained pulse / ROSC');
     expect(html).toContain('data-testid="documentation-log"');
+  });
+
+  it('keeps an epinephrine due reminder visible until the dose is explicitly recorded', () => {
+    const html = renderConsole({
+      effectiveArrestDuration: 180,
+      effectiveRhythmType: 'pea',
+      epiState: 'overdue',
+      activeAlerts: [{ type: 'epinephrine_due', severity: 'critical', message: 'Give epinephrine now' }],
+    });
+
+    expect(html).toContain('EPINEPHRINE');
+    expect(html).toContain('Given now');
+    expect(html).toContain('This reminder stays until administration is confirmed');
+  });
+
+  it('keeps an antiarrhythmic reminder visible until a choice is recorded', () => {
+    const html = renderConsole({
+      effectiveRhythmType: 'vf_pvt',
+      antiarrhythmicDue: true,
+      antiarrhythmicMessage: 'Give amiodarone after shock #3',
+    });
+
+    expect(html).toContain('Medication reminder — antiarrhythmic');
+    expect(html).toContain('Give amiodarone after shock #3');
+    expect(html).toContain('Choose');
   });
 
   it('shows only the shock decision controls when a shockable rhythm is ready', () => {

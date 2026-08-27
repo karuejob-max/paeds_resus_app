@@ -19,6 +19,7 @@ import {
   shouldTriggerIntubatedVentilationCue,
   getHyperkalemiaGuidance,
   PRECHARGE_AT_COMPRESSION_ELAPSED,
+  DEFIB_PREPARATION_ALERT_SECONDS,
   type CprEngineState,
 } from '@/lib/resus/cpr-engine';
 
@@ -123,7 +124,23 @@ describe('CPR Engine - CPR-GPS clinical alerts', () => {
     phase: 'compressions',
   };
 
-  it('should surface precharge alert during compression phase', () => {
+  it('should surface an early preparation cue at T-30 without opening the final charge cue', () => {
+    const alerts = evaluateCprGpsAlerts({
+      compressionElapsed: 120 - DEFIB_PREPARATION_ALERT_SECONDS,
+      rhythmWindowElapsed: null,
+      inReassessment: false,
+      arrestDuration: 90,
+      state: baseState,
+      isShockable: true,
+      advancedAirwayPlaced: false,
+      cycleNumber: 1,
+      weightKg: 20,
+    });
+    expect(alerts.some((a) => a.type === 'defibrillator_preparation')).toBe(true);
+    expect(alerts.some((a) => a.type === 'precharge_defibrillator')).toBe(false);
+  });
+
+  it('should surface the final charge-now cue at T-15 during compression phase', () => {
     const alerts = evaluateCprGpsAlerts({
       compressionElapsed: PRECHARGE_AT_COMPRESSION_ELAPSED,
       rhythmWindowElapsed: null,

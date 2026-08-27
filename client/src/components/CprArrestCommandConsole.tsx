@@ -39,6 +39,9 @@ interface Props {
   effectiveRhythmType: RhythmType | null;
   epiState: EpiTimingState;
   epiDose: number;
+  antiarrhythmicDue?: boolean;
+  antiarrhythmicMessage?: string;
+  onShowAntiarrhythmic?: () => void;
   shockEnergyLabel: string;
   formatTime: (seconds: number) => string;
   onStartArrest: () => void;
@@ -134,6 +137,9 @@ export function CprArrestCommandConsole({
   effectiveRhythmType,
   epiState,
   epiDose,
+  antiarrhythmicDue = false,
+  antiarrhythmicMessage,
+  onShowAntiarrhythmic,
   shockEnergyLabel,
   formatTime,
   onStartArrest,
@@ -209,9 +215,31 @@ export function CprArrestCommandConsole({
             <p className="truncate text-sm font-semibold text-white sm:text-base">{rhythmLabel(effectiveRhythmType)}</p>
           </div>
           <div className="shrink-0 text-right">
-            <p className="font-mono text-2xl font-bold leading-none text-white sm:text-3xl">{formatTime(effectiveArrestDuration)}</p>
-            <p className="mt-1 text-[11px] text-slate-400">{patientWeight} kg · {lifeSupportPack?.pack ?? 'PALS'} pathway · {lifeSupportPack?.contentVersion ?? 'reference content'}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Patient context</p>
+            <p className="mt-1 text-[11px] text-slate-300">{patientWeight} kg · {lifeSupportPack?.pack ?? 'PALS'} pathway</p>
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2" aria-label="Cardiac arrest timers">
+          <Card className="border-slate-700 bg-slate-900 text-white">
+            <CardContent className="p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Total code time</p>
+              <p className="mt-1 font-mono text-2xl font-black sm:text-3xl">{formatTime(effectiveArrestDuration)}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-slate-700 bg-slate-900 text-white">
+            <CardContent className="p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Next reassessment</p>
+              <p className="mt-1 font-mono text-2xl font-black text-amber-200 sm:text-3xl">
+                {phase === 'compressions'
+                  ? formatTime(compressionCycle.countdownToRhythmCheck)
+                  : phase === 'reassessment'
+                    ? `${Math.max(0, rhythmWindowRemaining ?? reassessmentTime)}s`
+                    : '—'}
+              </p>
+              <p className="mt-1 text-[10px] text-slate-400">{phase === 'reassessment' ? 'rhythm window remaining' : 'until rhythm check'}</p>
+            </CardContent>
+          </Card>
         </div>
 
         <Card className={`border-2 shadow-lg ${toneClasses[action.tone]}`} role="status" aria-live="assertive">
@@ -228,17 +256,6 @@ export function CprArrestCommandConsole({
               </div>
             </div>
 
-            {phase === 'compressions' && (
-              <div className="flex items-end justify-between gap-3 rounded-lg bg-black/25 px-3 py-2.5">
-                <div>
-                  <p className="text-xs uppercase tracking-wide opacity-75">Rhythm check in</p>
-                  <p className="font-mono text-3xl font-bold">{formatTime(compressionCycle.countdownToRhythmCheck)}</p>
-                </div>
-                <p className="max-w-[12rem] text-right text-xs font-semibold opacity-90">
-                  {compressionCycle.phase === 'precharge_alert' ? 'Charge now; keep compressions going.' : 'Keep hands on the chest.'}
-                </p>
-              </div>
-            )}
 
             {phase === 'reassessment' && rhythmWindowRemaining !== null && (
               <div className="rounded-lg bg-black/25 px-3 py-2.5 text-center">
@@ -290,10 +307,33 @@ export function CprArrestCommandConsole({
         )}
 
         {epiState !== 'not_due' && (
-          <Button onClick={onGiveEpinephrine} className={`min-h-14 w-full justify-center text-base font-bold sm:text-lg ${epiState === 'overdue' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'}`}>
-            <Syringe className="mr-2 h-5 w-5" aria-hidden />
-            {epiState === 'overdue' ? 'GIVE EPINEPHRINE NOW' : `Prepare epinephrine ${epiDose} mg`}
-          </Button>
+          <div className={`rounded-xl border-2 p-3 ${epiState === 'overdue' ? 'border-red-500/80 bg-red-950/60' : 'border-amber-400/80 bg-amber-950/50'}`} role="alert" aria-live={epiState === 'overdue' ? 'assertive' : 'polite'}>
+            <div className="flex items-start gap-3">
+              <Syringe className={`mt-0.5 h-5 w-5 shrink-0 ${epiState === 'overdue' ? 'text-red-300' : 'text-amber-300'}`} aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-white">EPINEPHRINE — {epiState === 'overdue' ? 'GIVE NOW' : 'PREPARE'}</p>
+                <p className="mt-1 text-sm font-semibold text-white">{epiDose} mg IV/IO per {lifeSupportPack?.pack ?? 'governed'} pathway</p>
+                <p className="mt-1 text-xs text-slate-200">This reminder stays until administration is confirmed. Closing a prompt does not clear it.</p>
+              </div>
+              <Button onClick={onGiveEpinephrine} className={`min-h-11 shrink-0 px-3 text-xs font-bold ${epiState === 'overdue' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'}`}>
+                Given now
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {antiarrhythmicDue && (
+          <div className="rounded-xl border-2 border-purple-400/80 bg-purple-950/50 p-3" role="alert" aria-live="assertive">
+            <div className="flex items-start gap-3">
+              <Syringe className="mt-0.5 h-5 w-5 shrink-0 text-purple-300" aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-white">Medication reminder — antiarrhythmic</p>
+                <p className="mt-1 text-sm font-semibold text-white">{antiarrhythmicMessage ?? 'Select amiodarone or lidocaine after the indicated shock.'}</p>
+                <p className="mt-1 text-xs text-slate-200">This reminder stays until amiodarone or lidocaine is recorded.</p>
+              </div>
+              {onShowAntiarrhythmic && <Button onClick={onShowAntiarrhythmic} className="min-h-11 shrink-0 bg-purple-600 px-3 text-xs font-bold hover:bg-purple-700">Choose</Button>}
+            </div>
+          </div>
         )}
 
         <Button onClick={onShowRoscConfirm} variant="outline" className="min-h-12 border-emerald-400/70 bg-emerald-950/20 text-emerald-100 hover:bg-emerald-900/40">

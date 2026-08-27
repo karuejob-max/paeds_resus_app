@@ -64,7 +64,7 @@ function CPRClockUnifiedInner({
   return (
     <div className="relative h-full flex flex-col min-h-[80vh]">
       <div className="absolute top-4 left-4 right-4 z-50 flex items-center justify-between gap-2 flex-wrap">
-        {lifeSupportPack && (
+        {lifeSupportPack && !autoStart && (
           <Badge variant="outline" className="bg-background/80 backdrop-blur text-xs">
             {lifeSupportPack.pack}: {lifeSupportPack.label}
           </Badge>
