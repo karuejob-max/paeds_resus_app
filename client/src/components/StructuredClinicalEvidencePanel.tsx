@@ -2,7 +2,7 @@
  * Zero-ambiguity clinical evidence capture — one field at a time, value or Not available.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -248,12 +248,46 @@ export function StructuredClinicalEvidencePanel({
   onChange,
 }: StructuredClinicalEvidencePanelProps) {
   const progress = clinicalEvidenceProgress(fields, record);
+  const [activeFieldId, setActiveFieldId] = useState<string | null>(
+    fields.find((field) => !isClinicalEvidenceFieldResolved(record[field.id]))?.id ?? fields[0]?.id ?? null,
+  );
+  const [reviewingResolved, setReviewingResolved] = useState(false);
 
-  function setEntry(fieldId: string, entry: ClinicalEvidenceEntry) {
+  const unresolvedFields = fields.filter((field) => !isClinicalEvidenceFieldResolved(record[field.id]));
+  const resolvedFields = fields.filter((field) => isClinicalEvidenceFieldResolved(record[field.id]));
+  const nextUnresolvedFieldId = unresolvedFields[0]?.id;
+  const activeField = fields.find((field) => field.id === activeFieldId) ?? unresolvedFields[0];
+
+  useEffect(() => {
+    if (!activeFieldId || !fields.some((field) => field.id === activeFieldId)) {
+      setActiveFieldId(nextUnresolvedFieldId ?? fields[0]?.id ?? null);
+      setReviewingResolved(false);
+      return;
+    }
+    if (!reviewingResolved && isClinicalEvidenceFieldResolved(record[activeFieldId])) {
+      setActiveFieldId(nextUnresolvedFieldId ?? activeFieldId);
+    }
+  }, [activeFieldId, fields, nextUnresolvedFieldId, record, reviewingResolved]);
+
+  function commitEntry(fieldId: string, entry: ClinicalEvidenceEntry) {
+    setReviewingResolved(false);
     onChange(setClinicalEvidenceEntry(record, fieldId, entry));
   }
 
-  if (fields.length === 0) return null;
+  function clearEntry(fieldId: string) {
+    const next = { ...record };
+    delete next[fieldId];
+    setActiveFieldId(fieldId);
+    setReviewingResolved(false);
+    onChange(next);
+  }
+
+  if (fields.length === 0 || !activeField) return null;
+
+  const activeIndex = fields.findIndex((field) => field.id === activeField.id);
+  const activeEntry = record[activeField.id];
+  const activeResolved = isClinicalEvidenceFieldResolved(activeEntry);
+  const isPresence = activeField.type === 'presence';
 
   return (
     <div className="space-y-3">
@@ -268,87 +302,128 @@ export function StructuredClinicalEvidencePanel({
         </div>
       </div>
 
-      {fields.map((field) => {
-        const entry = record[field.id];
-        const resolved = isClinicalEvidenceFieldResolved(entry);
-        const isPresence = field.type === 'presence';
-
-        return (
-          <div
-            key={field.id}
-            className={`rounded-lg border p-3 ${
-              resolved ? 'border-green-500/30 bg-green-500/5' : 'border-border bg-accent/10'
-            }`}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                {field.phase && (
-                  <Badge variant="outline" className="text-[9px] mb-1">
-                    {field.phase}
-                  </Badge>
-                )}
-                <p className="text-sm font-medium text-foreground">{field.label}</p>
-                {resolved && entry && (
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    {formatResolvedValue(field, entry)}
-                  </p>
-                )}
-              </div>
-              {resolved && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />}
+      {unresolvedFields.length === 0 && !(reviewingResolved && activeResolved) ? (
+        <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-3 text-sm text-foreground">
+          <p className="font-medium text-green-700 dark:text-green-300">All fields documented</p>
+          <p className="text-xs text-muted-foreground mt-1">Review any entry below if it needs correction.</p>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border bg-accent/10 p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <Badge variant="outline" className="text-[9px] mb-1">
+                Field {activeIndex + 1} of {fields.length}
+              </Badge>
+              <p className="text-sm font-medium text-foreground">{activeField.label}</p>
+              {activeField.phase && <p className="text-[10px] text-muted-foreground mt-1">{activeField.phase}</p>}
+              {activeResolved && activeEntry && (
+                <p className="text-[11px] text-muted-foreground mt-1">Recorded: {formatResolvedValue(activeField, activeEntry)}</p>
+              )}
             </div>
-
-            {!resolved && (
-              <div className="mt-2 space-y-2">
-                {isPresence ? (
-                  <div className="flex flex-wrap gap-1">
-                    <Button
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => setEntry(field.id, { status: 'present' })}
-                    >
-                      Present
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-xs"
-                      onClick={() => setEntry(field.id, { status: 'absent' })}
-                    >
-                      Absent
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-7 text-xs"
-                      onClick={() => setEntry(field.id, { status: 'not_available' })}
-                    >
-                      <Ban className="h-3 w-3 mr-1" /> Not assessed
-                    </Button>
-                  </div>
-                ) : field.type === 'ketones' ? (
-                  <KetonesFieldInput
-                    field={field}
-                    onSubmit={(value) => setEntry(field.id, { status: 'value', value })}
-                    onNotAvailable={() => setEntry(field.id, { status: 'not_available' })}
-                  />
-                ) : field.type === 'numeric_with_units' ? (
-                  <NumericWithUnitsFieldInput
-                    field={field}
-                    onSubmit={(value) => setEntry(field.id, { status: 'value', value })}
-                    onNotAvailable={() => setEntry(field.id, { status: 'not_available' })}
-                  />
-                ) : (
-                  <StandardValueFieldInput
-                    field={field}
-                    onSubmit={(value) => setEntry(field.id, { status: 'value', value })}
-                    onNotAvailable={() => setEntry(field.id, { status: 'not_available' })}
-                  />
-                )}
-              </div>
-            )}
+            {activeResolved && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />}
           </div>
-        );
-      })}
+
+          {!activeResolved ? (
+            <div className="mt-3 space-y-2">
+              {isPresence ? (
+                <div className="flex flex-wrap gap-1">
+                  <Button size="sm" className="h-9 text-xs" onClick={() => commitEntry(activeField.id, { status: 'present' })}>
+                    Present
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-9 text-xs" onClick={() => commitEntry(activeField.id, { status: 'absent' })}>
+                    Absent
+                  </Button>
+                  <Button size="sm" variant="secondary" className="h-9 text-xs" onClick={() => commitEntry(activeField.id, { status: 'not_available' })}>
+                    <Ban className="h-3 w-3 mr-1" /> Not assessed
+                  </Button>
+                </div>
+              ) : activeField.type === 'ketones' ? (
+                <KetonesFieldInput
+                  key={activeField.id}
+                  field={activeField}
+                  onSubmit={(value) => commitEntry(activeField.id, { status: 'value', value })}
+                  onNotAvailable={() => commitEntry(activeField.id, { status: 'not_available' })}
+                />
+              ) : activeField.type === 'numeric_with_units' ? (
+                <NumericWithUnitsFieldInput
+                  key={activeField.id}
+                  field={activeField}
+                  onSubmit={(value) => commitEntry(activeField.id, { status: 'value', value })}
+                  onNotAvailable={() => commitEntry(activeField.id, { status: 'not_available' })}
+                />
+              ) : (
+                <StandardValueFieldInput
+                  key={activeField.id}
+                  field={activeField}
+                  onSubmit={(value) => commitEntry(activeField.id, { status: 'value', value })}
+                  onNotAvailable={() => commitEntry(activeField.id, { status: 'not_available' })}
+                />
+              )}
+            </div>
+          ) : (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => clearEntry(activeField.id)}>
+                Change this entry
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-8 text-xs"
+                onClick={() => {
+                  setReviewingResolved(false);
+                  setActiveFieldId(nextUnresolvedFieldId ?? activeField.id);
+                }}
+              >
+                Return to remaining fields
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {resolvedFields.length > 0 && (
+        <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-2">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Documented</p>
+            <span className="text-[10px] text-muted-foreground">Tap to review</span>
+          </div>
+          <div className="max-h-32 overflow-y-auto space-y-1">
+            {resolvedFields.map((field) => {
+              const entry = record[field.id];
+              return (
+                <button
+                  key={field.id}
+                  type="button"
+                  className="w-full rounded-md px-2 py-1.5 text-left text-xs hover:bg-background/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() => {
+                    setActiveFieldId(field.id);
+                    setReviewingResolved(true);
+                  }}
+                >
+                  <span className="font-medium text-foreground">{field.label}</span>
+                  <span className="text-muted-foreground"> — {entry ? formatResolvedValue(field, entry) : 'Recorded'}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {activeIndex > 0 && (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-8 text-xs"
+          onClick={() => {
+            setActiveFieldId(fields[activeIndex - 1]?.id ?? null);
+            setReviewingResolved(true);
+          }}
+        >
+          Review previous field
+        </Button>
+      )}
     </div>
   );
 }
