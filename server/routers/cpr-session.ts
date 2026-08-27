@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { router, publicProcedure, protectedProcedure } from "../_core/trpc";
 import { getDb } from "../db";
-import { cprSessions, cprTeamMembers, cprEvents } from "../../drizzle/schema";
+import { cprSessions, cprTeamMembers, cprEvents, cprEventLinks, iersActivationTimeline, iersActivationResponders } from "../../drizzle/schema";
 import { eq, and, isNull, desc } from "drizzle-orm";
 
 // Generate random 6-character session code
@@ -230,7 +230,7 @@ export const cprSessionRouter = router({
   endSession: protectedProcedure
     .input(z.object({
       sessionId: z.number(),
-      outcome: z.enum(['ROSC', 'pCOSCA', 'mortality', 'ongoing']),
+      outcome: z.enum(['ROSC', 'pCOSCA', 'mortality', 'transferred', 'unknown', 'ongoing']),
       totalDuration: z.number(), // seconds
     }))
     .mutation(async ({ input, ctx }) => {
@@ -249,14 +249,35 @@ export const cprSessionRouter = router({
         throw new Error('Only session creator can end the session');
       }
 
+      const completedAt = new Date();
       await db.update(cprSessions)
         .set({
           status: 'completed',
           outcome: input.outcome,
-          endTime: new Date(),
+          endTime: completedAt,
           totalDuration: input.totalDuration,
         })
         .where(eq(cprSessions.id, input.sessionId));
+
+      const [linkedEvent] = await db.select().from(cprEventLinks).where(eq(cprEventLinks.cprSessionId, input.sessionId)).limit(1);
+      if (linkedEvent) {
+        await db.update(cprEventLinks).set({
+          linkStatus: 'outcome_recorded',
+          terminalOutcome: input.outcome,
+          outcomeRecordedAt: completedAt,
+          updatedAt: completedAt,
+        }).where(eq(cprEventLinks.id, linkedEvent.id));
+        await db.insert(iersActivationTimeline).values({
+          activationEventId: linkedEvent.activationEventId,
+          institutionalAccountId: linkedEvent.institutionalAccountId,
+          actorUserId: ctx.user.id,
+          eventType: 'cpr_outcome_recorded',
+          note: 'CPR session completed with a recorded outcome.',
+          metadata: JSON.stringify({ cprSessionId: input.sessionId, outcome: input.outcome, totalDuration: input.totalDuration }),
+          occurredAt: completedAt,
+          createdAt: completedAt,
+        });
+      }
 
       // Mark all team members as left
       await db.update(cprTeamMembers)
@@ -302,7 +323,7 @@ export const cprSessionRouter = router({
     .input(z.object({
       sessionId: z.number().int().positive(),
       narrative: z.string().trim().min(20).max(12000),
-      outcome: z.enum(['ROSC', 'ongoing', 'discontinued']),
+      outcome: z.enum(['ROSC', 'pCOSCA', 'mortality', 'transferred', 'unknown', 'ongoing', 'discontinued']),
     }))
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
@@ -311,6 +332,13 @@ export const cprSessionRouter = router({
       const [session] = await db.select().from(cprSessions).where(eq(cprSessions.id, input.sessionId)).limit(1);
       if (!session) throw new Error('Session not found');
 
+      const [linkedEventForAuth] = await db.select().from(cprEventLinks).where(eq(cprEventLinks.cprSessionId, input.sessionId)).limit(1);
+      const [activationErtl] = linkedEventForAuth ? await db.select({ id: iersActivationResponders.id }).from(iersActivationResponders).where(and(
+        eq(iersActivationResponders.activationEventId, linkedEventForAuth.activationEventId),
+        eq(iersActivationResponders.userId, ctx.user.id),
+        eq(iersActivationResponders.responsibilityRole, 'ert_leader'),
+      )).limit(1) : [];
+
       const [member] = await db.select().from(cprTeamMembers).where(and(
         eq(cprTeamMembers.sessionId, input.sessionId),
         eq(cprTeamMembers.userId, ctx.user.id),
@@ -318,8 +346,9 @@ export const cprSessionRouter = router({
       )).limit(1);
       const isCreator = session.createdBy === ctx.user.id;
       const isTeamLeader = member?.role === 'team_leader';
-      if (!isCreator && !isTeamLeader) {
-        throw new Error('Only the session creator or current team leader can submit the debrief.');
+      const isActivationErtl = Boolean(activationErtl);
+      if (!isCreator && !isTeamLeader && !isActivationErtl) {
+        throw new Error('Only the session creator, current team leader, or assigned ERTL can submit the debrief.');
       }
 
       const submittedAt = new Date();
@@ -337,6 +366,21 @@ export const cprSessionRouter = router({
         value: input.outcome,
         metadata: JSON.stringify({ submittedAt: submittedAt.toISOString() }),
       });
+
+      const linkedEvent = linkedEventForAuth;
+      if (linkedEvent) {
+        await db.update(cprEventLinks).set({ linkStatus: 'debrief_pending', debriefSubmittedAt: submittedAt, updatedAt: submittedAt }).where(eq(cprEventLinks.id, linkedEvent.id));
+        await db.insert(iersActivationTimeline).values({
+          activationEventId: linkedEvent.activationEventId,
+          institutionalAccountId: linkedEvent.institutionalAccountId,
+          actorUserId: ctx.user.id,
+          eventType: 'cpr_debrief_submitted',
+          note: 'CPR-GPS debrief submitted; IERS review is pending.',
+          metadata: JSON.stringify({ cprSessionId: input.sessionId, submittedAt: submittedAt.toISOString() }),
+          occurredAt: submittedAt,
+          createdAt: submittedAt,
+        });
+      }
 
       return { success: true, submittedAt: submittedAt.toISOString() };
     }),

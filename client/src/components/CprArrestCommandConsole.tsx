@@ -61,6 +61,7 @@ interface Props {
   onOpenAirway?: () => void;
   roscActionLabel?: string;
   onShowRoscConfirm: () => void;
+  onRecordTerminalOutcome?: () => void;
   documentationLog: React.ReactNode;
 }
 
@@ -170,6 +171,7 @@ export function CprArrestCommandConsole({
   onOpenAirway,
   roscActionLabel = 'Pulse present / confirm ROSC',
   onShowRoscConfirm,
+  onRecordTerminalOutcome,
   documentationLog,
 }: Props) {
   const action = currentActionCopy(phase, compressionCycle, reassessmentTime, shockEnergyLabel);
@@ -394,6 +396,11 @@ export function CprArrestCommandConsole({
           <CheckCircle2 className="mr-2 h-5 w-5" aria-hidden />
           {roscActionLabel}
         </Button>
+        {onRecordTerminalOutcome && (
+          <Button onClick={onRecordTerminalOutcome} variant="outline" className="min-h-11 border-slate-500 bg-slate-900 text-slate-200 hover:bg-slate-800">
+            Record code outcome / complete code
+          </Button>
+        )}
 
         {documentationLog}
       </div>

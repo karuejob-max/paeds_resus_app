@@ -129,6 +129,7 @@ import { patientRouter } from "./routers/patients";
 import { interventionRouter } from "./routers/interventions";
 import { providerRouter } from "./routers/provider";
 import { cprSessionRouter } from "./routers/cpr-session";
+import { cprEventLinkRouter } from "./routers/cpr-event-link";
 import { guidelinesRouter } from "./routers/guidelines";
 import { fellowshipPathwaysRouter } from "./routers/fellowship-pathways";
 import { recommendationEngineRouter } from "./routers/recommendation-engine";
@@ -529,6 +530,7 @@ export const appRouter = router({
   vitals: vitalsRouter,
   cprClock: cprClockRouter,
   cprSession: cprSessionRouter,
+  cprEventLink: cprEventLinkRouter,
   cprOverride: cprOverrideRouter,
   guidelines: guidelinesRouter,
   fellowshipPathways: fellowshipPathwaysRouter,

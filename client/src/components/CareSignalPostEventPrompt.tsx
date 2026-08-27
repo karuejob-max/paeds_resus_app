@@ -29,6 +29,8 @@ interface CareSignalPostEventPromptProps {
   diagnosis: string;
   outcome?: string;
   sessionId: string;
+  cprSessionId?: number;
+  activationEventId?: number;
 }
 
 function diagnosisToEventType(diagnosis: string): string {
@@ -69,6 +71,8 @@ export function CareSignalPostEventPrompt({
   diagnosis,
   outcome,
   sessionId,
+  cprSessionId,
+  activationEventId,
 }: CareSignalPostEventPromptProps) {
   const [, navigate] = useLocation();
   const trackEventMutation = trpc.events.trackEvent.useMutation();
@@ -115,6 +119,8 @@ export function CareSignalPostEventPrompt({
       prefill_eventType: eventType,
       prefill_outcome: outcome || "survived",
       source: "resusgps",
+      ...(cprSessionId ? { cprSessionId: String(cprSessionId) } : {}),
+      ...(activationEventId ? { activationEventId: String(activationEventId) } : {}),
     });
     navigate(`/care-signal?${params.toString()}`);
     onClose();

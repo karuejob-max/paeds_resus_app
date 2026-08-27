@@ -231,6 +231,10 @@ function PostSubmissionFeedback({
 interface Props {
   onSuccess?: () => void;
   resusSessionId?: string;
+  prefillEventType?: string;
+  prefillOutcome?: string;
+  cprSessionId?: number;
+  activationEventId?: number;
 }
 
 // ── §5.5 submission mode selector + token creation/recovery (gap-analysis #10) ──
@@ -375,8 +379,13 @@ function SubmissionModeSelector({
   );
 }
 
-export default function CareSignalFormV3({ onSuccess, resusSessionId }: Props) {
-  const [form, setForm] = useState(initialCareSignalV3State());
+export default function CareSignalFormV3({ onSuccess, resusSessionId, prefillEventType, prefillOutcome, cprSessionId, activationEventId }: Props) {
+  const [form, setForm] = useState(() => {
+    const base = initialCareSignalV3State();
+    const conditionCategory = prefillEventType === "cardiac_arrest" ? "CARDIOVASCULAR" : prefillEventType === "respiratory_failure" ? "RESPIRATORY" : prefillEventType === "trauma" ? "TRAUMA" : prefillEventType === "septic_shock" ? "INFECTIOUS_BACTERIAL" : base.conditionCategory;
+    const outcomeCategory = prefillOutcome === "ROSC" || prefillOutcome === "survived" ? "SURVIVED_WELL" : prefillOutcome === "pCOSCA" ? "SURVIVED_MORBIDITY" : prefillOutcome === "mortality" ? "DIED_IN_FACILITY" : prefillOutcome === "transferred" ? "TRANSFERRED_UNKNOWN" : prefillOutcome === "unknown" ? "UNKNOWN" : base.outcomeCategory;
+    return { ...base, conditionCategory, outcomeCategory, chainOfSurvivalSteps: prefillEventType === "cardiac_arrest" ? ["recognition", "activation", "cpr"] : base.chainOfSurvivalSteps };
+  });
   const [facility, setFacility] = useState<FacilitySelection | null>(null);
   const [showTemporal, setShowTemporal] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -388,8 +397,18 @@ export default function CareSignalFormV3({ onSuccess, resusSessionId }: Props) {
   const { data: me } = trpc.auth.me.useQuery(undefined, { retry: false });
   const providerCadre = (me as any)?.cadre;
 
+  const linkCareSignal = trpc.cprEventLink.linkCareSignal.useMutation();
   const submitMutation = trpc.careSignalEvents.logEvent.useMutation({
-    onSuccess: (data) => { setSubmissionId(data.eventId ?? ""); setRecommendations(data.recommendations ?? []); setSubmitted(true); },
+    onSuccess: (data) => {
+      setSubmissionId(data.eventId ?? "");
+      setRecommendations(data.recommendations ?? []);
+      setSubmitted(true);
+      const numericEventId = Number(data.eventId);
+      if (form.submissionMode === "named" && cprSessionId && Number.isInteger(numericEventId) && numericEventId > 0) {
+        linkCareSignal.mutate({ cprSessionId, careSignalEventId: numericEventId, activationEventId, relationship: "post_event_prompt" });
+      }
+      onSuccess?.();
+    },
     onError: (err) => setSubmitError(getTrpcErrorMessage(err)),
   });
 
@@ -427,7 +446,7 @@ export default function CareSignalFormV3({ onSuccess, resusSessionId }: Props) {
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
     setLinkedEventCode(eventCode);
-    submitMutation.mutate(buildCareSignalV3SubmitPayload({ ...form, eventId: eventCode }, facility, providerCadre));
+    submitMutation.mutate(buildCareSignalV3SubmitPayload({ ...form, eventId: eventCode }, facility, providerCadre, { cprSessionId, activationEventId }));
   }
 
   function fileOtherSide() {
