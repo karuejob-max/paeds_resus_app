@@ -271,7 +271,8 @@ export default function AdminNerpVerification() {
                         <div className="grid gap-4 lg:grid-cols-2">
                           {phases.map(phase => {
                             const current = phaseStatus.find(
-                              row => row.phase === phase.key
+                              (row: (typeof phaseStatus)[number]) =>
+                                row.phase === phase.key
                             );
                             const form = getForm(record.offer.id, phase.key);
                             const verified = current?.status === "verified";
@@ -468,12 +469,20 @@ export default function AdminNerpVerification() {
                 </div>
                 <div className="grid gap-3 rounded-lg border bg-muted/20 p-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Draft subject</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Draft subject
+                    </p>
                     <p className="mt-1 font-medium">{DRAFT_SUBJECT}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Draft body</p>
-                    <textarea readOnly value={DRAFT_BODY} className="mt-1 min-h-48 w-full rounded-md border bg-background p-3 text-sm leading-6" />
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Draft body
+                    </p>
+                    <textarea
+                      readOnly
+                      value={DRAFT_BODY}
+                      className="mt-1 min-h-48 w-full rounded-md border bg-background p-3 text-sm leading-6"
+                    />
                   </div>
                 </div>
                 <div className="overflow-x-auto rounded-lg border">
