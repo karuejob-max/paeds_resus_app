@@ -4,7 +4,7 @@
 **Owner:** Manus  
 **Implementation branch:** `feat/ierp-program-e2e` (merged via PR #616; feature branch deleted after protected merge)
 **Closeout branch:** `chore/ierp-closeout-20260827`
-**Migration:** `0131` applied and verified in Render Production after collision review (0128 is owned by NERP; 0129 and 0130 are owned by the concurrent CPR/IERS work)
+**Migrations:** `0131` applied and verified in Render Production; `0137` adds IERP intern-profile eligibility evidence and must be applied before the new registration flow is used in production.
 **Constraint:** No promotional email sends in this initiative.
 
 ## Naming contract
@@ -18,13 +18,14 @@ No new learner-facing copy, route, email subject, event name, analytics key, dat
 
 ## Owned feature boundary
 
-This initiative owns self-service IERP entry, explicit intern programme state, authoritative Phase 1/2/3 progress, private Phase 1 proof, IERP-aware payment state, the public IERP acquisition surface, and paused promotional-email infrastructure. It does not send promotional emails.
+This initiative owns profile-first IERP entry, explicit intern programme state, authoritative Phase 1/2/3 progress, private intern deployment evidence and Phase 1 proof, IERP-aware payment state, the public IERP acquisition surface, and paused promotional-email infrastructure. It does not send promotional emails.
 
 The existing IERS institutional emergency operations, staffing, activation, readiness, QR, and clinical response flows remain unchanged. The NERP agent owns nurse-specific programme rules and nurse-facing copy. Shared course, payment, learner-dashboard, programme-identity, email, and documentation files may be edited only through small interface-preserving changes and must retain separate IERP/NERP behavior.
 
 ## Safety boundaries
 
-- IERP entry must not require an institutional staff row or facility membership.
+- IERP entry requires a submitted individual Intern profile with a canonical intern designation, official internship letter reference number, effective commencement date, and private MoH deployment/posting-letter evidence.
+- IERP entry must not require an institutional staff row or facility membership; profile evidence is a programme eligibility record, not IERS access.
 - Facility context must not be converted into employment or IERS access.
 - Phase 1 evidence must use private authenticated storage; public URLs are legacy-only and must not be the new source of truth.
 - Phase 2 completion counts only confirmed named roles: three Team Leader sessions and six Team Member sessions covering all six named roles.

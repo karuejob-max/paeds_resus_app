@@ -32,9 +32,10 @@ import { enrichAhaEnrollmentsWithProgress } from "../lib/compute-aha-enrollment-
 import {
   getAuthoritativePhase2CompletionStatus,
   getIerpEnrollment,
-  getIerpPaymentAccess,
+  getIerpInternProfile,
   getIerpPaymentAccessForUser,
   isIerpCognitiveProgram,
+  isIerpInternProfileReady,
   IERP_TOTAL_FEE_KES,
   refreshIerpPhase2Status,
 } from "../lib/ierp-program-state";
@@ -916,6 +917,13 @@ export const coursesRouter = router({
       // record and the authoritative named-role completion source.
       const ierpEnrollment = await getIerpEnrollment(db, ctx.user.id);
       if (ierpEnrollment && (session.trainingType === "hands_on" || session.trainingType === "hybrid")) {
+        const internProfile = await getIerpInternProfile(db, ctx.user.id);
+        if (!isIerpInternProfileReady(internProfile)) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Complete your Intern profile and submit your MoH deployment/posting letter before booking an IERP hands-on assessment.",
+          });
+        }
         const phase2 = await getAuthoritativePhase2CompletionStatus(db, ctx.user.id);
         if (ierpEnrollment.phase1Status !== "verified" || !phase2.phase2Complete) {
           throw new TRPCError({
@@ -923,7 +931,8 @@ export const coursesRouter = router({
             message: "Complete and verify Phase 1, then complete the required confirmed Phase 2 roles before booking a hands-on assessment.",
           });
         }
-        const payment = getIerpPaymentAccess(ierpEnrollment);
+        const payment = await getIerpPaymentAccessForUser(db, ctx.user.id);
+        if (!payment) throw new TRPCError({ code: "FORBIDDEN", message: "Complete your Intern profile before booking an IERP hands-on assessment." });
         if (!payment.isPaidInFull) {
           throw new TRPCError({
             code: "FORBIDDEN",
@@ -1013,10 +1022,8 @@ export const coursesRouter = router({
         // programme fee is required before further Phase 2 access.
         const INTERN_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"] as const;
         if (isOnlineSession && designation && (INTERN_DESIGNATIONS as readonly string[]).includes(designation)) {
-          const payment = getIerpPaymentAccess({
-            enrolledAt: enrollmentDate ?? createdAt,
-            totalPaidAmount: totalPaidAmount,
-          });
+          const payment = await getIerpPaymentAccessForUser(db, ctx.user.id);
+          if (!payment) throw new TRPCError({ code: "FORBIDDEN", message: "Complete your Intern profile before booking a Phase 2 simulation." });
           if (payment.phase2BookingLocked) {
             throw new TRPCError({
               code: "FORBIDDEN",
@@ -1327,6 +1334,16 @@ export const coursesRouter = router({
         const ierpPayment = isIerpCognitiveProgram(input.programType)
           ? await getIerpPaymentAccessForUser(database, ctx.user.id)
           : null;
+        if (ierpPayment) {
+          const internProfile = await getIerpInternProfile(database, ctx.user.id);
+          if (!isIerpInternProfileReady(internProfile)) {
+            return {
+              success: false,
+              enrollmentId: 0,
+              error: "Complete your Intern profile and submit your MoH deployment/posting letter before starting IERP cognitive learning.",
+            };
+          }
+        }
         if (ierpPayment?.cognitiveAccessLocked) {
           return {
             success: false,
@@ -1645,13 +1662,21 @@ export const coursesRouter = router({
       // NERP and legacy learners retain the existing staff-row branch.
       const ierpEnrollment = await getIerpEnrollment(db, ctx.user.id);
       if (ierpEnrollment) {
+        const internProfile = await getIerpInternProfile(db, ctx.user.id);
+        if (!isIerpInternProfileReady(internProfile)) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Complete your Intern profile and submit your MoH deployment/posting letter before booking a Phase 2 simulation.",
+          });
+        }
         if (ierpEnrollment.phase1Status !== "verified") {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "Complete and verify both Phase 1 evidence documents before booking a Phase 2 simulation.",
           });
         }
-        const payment = getIerpPaymentAccess(ierpEnrollment);
+        const payment = await getIerpPaymentAccessForUser(db, ctx.user.id);
+        if (!payment) throw new TRPCError({ code: "FORBIDDEN", message: "Complete your Intern profile before booking a Phase 2 simulation." });
         if (payment.phase2BookingLocked) {
           throw new TRPCError({
             code: "FORBIDDEN",
@@ -1686,7 +1711,8 @@ export const coursesRouter = router({
         const paid = Number(totalPaidAmount ?? 0);
 
         if (designation && (INTERN_DESIGNATIONS as readonly string[]).includes(designation)) {
-          const payment = getIerpPaymentAccess({ enrolledAt: joinedAt, totalPaidAmount: paid });
+          const payment = await getIerpPaymentAccessForUser(db, ctx.user.id);
+          if (!payment) throw new TRPCError({ code: "FORBIDDEN", message: "Complete your Intern profile before booking a Phase 2 simulation." });
           if (payment.phase2BookingLocked) {
             throw new TRPCError({
               code: "FORBIDDEN",
@@ -1932,7 +1958,7 @@ export const coursesRouter = router({
     const isIntern = !!s.designation && INTERN_DESIGNATIONS.includes(s.designation);
     const joinedAt = s.enrollmentDate ?? s.createdAt;
     const paymentAccess = isIntern
-      ? getIerpPaymentAccess({ enrolledAt: joinedAt, totalPaidAmount: paid })
+      ? await getIerpPaymentAccessForUser(db, ctx.user.id)
       : null;
     const paymentDeadline = paymentAccess?.paymentDeadline ?? null;
     const paymentLockoutActive = paymentAccess?.phase2BookingLocked ?? false;

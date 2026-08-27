@@ -57,16 +57,21 @@ here in full so it isn't lost.**
 
 ---
 
-## 2. Self-service enrollment (no coordinator gate, any phase)
+## 2. Profile-first enrollment (no coordinator gate)
 
 A learner can enroll and progress through **all three phases** without any
 coordinator/facility-admin action, whether or not their facility exists in
-the platform's facility registry. This applies uniformly to Phase 1, 2, and 3.
+the platform's facility registry. Before the IERP programme record is created,
+the learner must complete the individual Intern profile with a canonical intern
+designation, official internship letter reference number, effective
+commencement date, and a private MoH deployment/posting letter upload. The
+submitted evidence is stored as an IERP eligibility record and may be reviewed
+by a platform administrator; rejected or revoked evidence blocks IERP access
+until it is corrected and resubmitted.
 
-This is a **change** from the current implementation, which auto-creates a
-`pending` staff-facility link on profile save and waits on
-`approveStaffFacilityLink` before certain things unlock — that coordinator
-approval step should not be a hard gate for this program going forward.
+The profile requirement is deliberately separate from institutional access. It
+does not create a staff-facility link, confer employment status, or grant IERS
+permissions. Coordinator approval remains outside the IERP training gate.
 
 ---
 

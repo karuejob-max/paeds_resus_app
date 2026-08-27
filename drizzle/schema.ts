@@ -170,6 +170,29 @@ export const ierpProgramEnrollments = mysqlTable("ierpProgramEnrollments", {
 export type IerpProgramEnrollment = typeof ierpProgramEnrollments.$inferSelect;
 export type InsertIerpProgramEnrollment = typeof ierpProgramEnrollments.$inferInsert;
 
+/** Intern profile evidence required before an IERP learner can begin the programme. */
+export const ierpInternProfiles = mysqlTable("ierpInternProfiles", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  designation: mysqlEnum("designation", ["noi", "coi_bsc", "coi_diploma", "moi"]).notNull(),
+  officialLetterReferenceNumber: varchar("officialLetterReferenceNumber", { length: 255 }).notNull(),
+  effectiveCommencementDate: timestamp("effectiveCommencementDate").notNull(),
+  deploymentLetterKey: varchar("deploymentLetterKey", { length: 512 }).notNull(),
+  deploymentLetterFileName: varchar("deploymentLetterFileName", { length: 255 }).notNull(),
+  deploymentLetterContentType: varchar("deploymentLetterContentType", { length: 128 }).notNull(),
+  deploymentLetterSizeBytes: int("deploymentLetterSizeBytes").notNull(),
+  status: mysqlEnum("status", ["pending", "verified", "rejected", "revoked"]).default("pending").notNull(),
+  verifiedByUserId: int("verifiedByUserId"),
+  verifiedAt: timestamp("verifiedAt"),
+  reviewReason: text("reviewReason"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  statusIndex: index("ierp_intern_profiles_status_idx").on(table.status),
+}));
+export type IerpInternProfile = typeof ierpInternProfiles.$inferSelect;
+export type InsertIerpInternProfile = typeof ierpInternProfiles.$inferInsert;
+
 /** Private object metadata for IERP Phase 1 evidence. Bytes live in storage. */
 export const ierpPhase1Evidence = mysqlTable("ierpPhase1Evidence", {
   id: int("id").autoincrement().primaryKey(),

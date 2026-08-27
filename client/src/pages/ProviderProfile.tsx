@@ -7,6 +7,7 @@ import { Link } from "wouter";
 import { ProviderProfileForm } from "@/components/ProviderProfileForm";
 import { ProfessionalIdentityCard } from "@/components/ProfessionalIdentityCard";
 import { ProviderCredentialsCard } from "@/components/ProviderCredentialsCard";
+import { IerpInternProfileCard } from "@/components/IerpInternProfileCard";
 
 export default function ProviderProfile() {
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
@@ -53,6 +54,7 @@ export default function ProviderProfile() {
         ) : null}
 
         <ProfessionalIdentityCard />
+        <IerpInternProfileCard />
         <ProviderCredentialsCard />
         <ProviderProfileForm />
 

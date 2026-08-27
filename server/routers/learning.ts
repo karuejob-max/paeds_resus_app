@@ -6,7 +6,7 @@ import {
 } from "../../shared/split-module-html-sections";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { getIerpPaymentAccessForUser, isIerpCognitiveProgram } from "../lib/ierp-program-state";
+import { getIerpInternProfile, getIerpPaymentAccessForUser, isIerpCognitiveProgram, isIerpInternProfileReady } from "../lib/ierp-program-state";
 import { eq, and, desc } from "drizzle-orm";
 import { invokeLLM } from "../_core/llm";
 import {
@@ -106,6 +106,13 @@ async function assertIerpCognitiveAccess(db: any, userId: number | undefined, pr
   if (!userId || !isIerpCognitiveProgram(programType)) return;
   const payment = await getIerpPaymentAccessForUser(db, userId);
   if (!payment) return;
+  const internProfile = await getIerpInternProfile(db, userId);
+  if (!isIerpInternProfileReady(internProfile)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Complete your Intern profile and submit your MoH deployment/posting letter before accessing IERP coursework.",
+    });
+  }
   if (payment.cognitiveAccessLocked) {
     throw new TRPCError({
       code: "FORBIDDEN",

@@ -57,6 +57,7 @@ const PublicHome = lazy(() => import("./pages/PublicHome"));
 const TrainingHub = lazy(() => import("./pages/TrainingHub"));
 const TrainingCourseLanding = lazy(() => import("./pages/TrainingCourseLanding"));
 const IerpLanding = lazy(() => import("./pages/IerpLanding"));
+const IerpEnrollment = lazy(() => import("./pages/IerpEnrollment"));
 const IerpCampaignDashboard = lazy(() => import("./pages/IerpCampaignDashboard"));
 const ForProviders = lazy(() => import("./pages/ForProviders"));
 const ForInstitutions = lazy(() => import("./pages/ForInstitutions"));
@@ -388,6 +389,7 @@ function Router() {
             </RoleGate>
           )}</Route>
           <Route path="/programs/ierp" component={IerpLanding} />
+          <Route path="/programs/ierp/enroll" component={IerpEnrollment} />
           <Route path="/for-providers" component={ForProviders} />
           <Route path="/for-institutions" component={ForInstitutions} />
           <Route path="/for-parents" component={ForParents} />

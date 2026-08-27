@@ -197,6 +197,7 @@
     "db:apply-0106": "node scripts/apply-0106-connected-services-safe-truth.mjs",
     "db:apply-0107": "node scripts/apply-0107-iers-pilot-safety.mjs",
     "db:apply-0115": "node scripts/apply-0115-department-reconciliation.mjs",
+    "db:apply-0137": "node scripts/apply-0137-ierp-intern-profile-evidence.mjs",
     "institution:process-renewals": "tsx -r dotenv/config scripts/process-institution-renewal-notifications.ts",
     "db:verify-iers": "node scripts/verify-iers-readiness.mjs",
     "test:iers-verifier": "node --test scripts/verify-iers-readiness.test.mjs",

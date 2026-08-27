@@ -1001,8 +1001,9 @@ type IerpEvidenceDraft = {
   dataBase64: string;
 };
 
-function IerpProgramCard() {
+export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: boolean }) {
   const { user } = useAuth();
+  const [, navigate] = useLocation();
   const { data: enrollment, isLoading } = trpc.ierp.getMyEnrollment.useQuery(undefined, { retry: false });
   const { data: summary } = trpc.ierp.getSummary.useQuery(undefined, {
     enabled: !!enrollment,
@@ -1016,6 +1017,7 @@ function IerpProgramCard() {
   const [paymentPhone, setPaymentPhone] = useState(() => formatKenyanPhoneForDisplay(user?.phone));
   const canonicalPaymentPhone = normalizeKenyanPhoneNumber(paymentPhone);
   const [designation, setDesignation] = useState<"noi" | "coi_bsc" | "coi_diploma" | "moi" | "">("");
+  const { data: internProfile } = trpc.ierp.getMyInternProfile.useQuery(undefined, { retry: false });
   const [phase1Files, setPhase1Files] = useState<Record<IerpEvidenceDocumentType, IerpEvidenceDraft | null>>({ video_prework: null, precourse_assessment: null });
   const startMutation = trpc.ierp.start.useMutation({
     onSuccess: async (result) => {
@@ -1052,6 +1054,10 @@ function IerpProgramCard() {
   useEffect(() => {
     if (!paymentPhone && user?.phone) setPaymentPhone(formatKenyanPhoneForDisplay(user.phone));
   }, [paymentPhone, user?.phone]);
+
+  useEffect(() => {
+    if (internProfile?.designation) setDesignation(internProfile.designation);
+  }, [internProfile?.designation]);
 
   const handlePhase1File = (documentType: IerpEvidenceDocumentType, file: File | undefined) => {
     if (!file) return;
@@ -1091,33 +1097,21 @@ function IerpProgramCard() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-slate-700">
-            IERP is self-service. You do not need a registered facility, institutional staff record, or coordinator approval to begin. This enrolment is for training only and does not grant IERS institutional access.
+            IERP requires a submitted intern profile. Submit your designation and MoH deployment/posting evidence before creating the programme record; this training enrolment does not grant IERS institutional access.
           </p>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="w-full sm:max-w-sm">
-              <label className="mb-1 block text-xs font-medium text-slate-600" htmlFor="ierp-designation">
-                Intern designation
-              </label>
-              <Select value={designation} onValueChange={(value) => setDesignation(value as typeof designation)}>
-                <SelectTrigger id="ierp-designation">
-                  <SelectValue placeholder="Select your intern designation" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="noi">NOI (Nursing Officer Intern)</SelectItem>
-                  <SelectItem value="coi_bsc">Clinical Officer Intern (BSc)</SelectItem>
-                  <SelectItem value="coi_diploma">Clinical Officer Intern (Diploma)</SelectItem>
-                  <SelectItem value="moi">MOI (Medical Officer Intern)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {enrollmentPage ? (
             <Button
               className="bg-indigo-700 text-white hover:bg-indigo-800"
-              disabled={!designation || startMutation.isPending}
+              disabled={!designation || startMutation.isPending || !internProfile || internProfile.status === "rejected" || internProfile.status === "revoked"}
               onClick={() => designation && startMutation.mutate({ designation })}
             >
-              {startMutation.isPending ? "Starting…" : "Start IERP"}
+              {startMutation.isPending ? "Starting…" : "Create IERP programme record"}
             </Button>
-          </div>
+          ) : (
+            <Button className="bg-indigo-700 text-white hover:bg-indigo-800" onClick={() => navigate("/programs/ierp/enroll")}>
+              Open IERP enrollment
+            </Button>
+          )}
         </CardContent>
       </Card>
     );
