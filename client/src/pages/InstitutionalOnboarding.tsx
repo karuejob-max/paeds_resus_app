@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertCircle, CheckCircle2, FileText, Users, CreditCard, CheckCheck, Plus, Trash2 } from "lucide-react";
+import { AlertCircle, Building2, CheckCircle2, ClipboardList, CreditCard, Users, Plus, Trash2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -14,12 +14,14 @@ import { getLoginUrl } from "@/const";
 import { LegalExternalLink } from "@/components/LegalExternalLink";
 import { FacilityAutocomplete } from "@/components/FacilityAutocomplete";
 import { DepartmentSelectors } from "@/components/DepartmentSelectors";
-import { validateSecondAdminContact } from "@/lib/institutionOnboardingValidation";
+import { PlatformAccountAutocomplete, type PlatformAccountOption } from "@/components/PlatformAccountAutocomplete";
+import { validateSecondAdminSelection } from "@/lib/institutionOnboardingValidation";
+import { INSTITUTION_PLATFORM_NEED_OPTIONS, INSTITUTION_TYPE_OPTIONS, type InstitutionPlatformNeed, type InstitutionType } from "@shared/institution-onboarding";
 
 
 export default function InstitutionalOnboarding() {
   const [, navigate] = useLocation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -41,26 +43,27 @@ export default function InstitutionalOnboarding() {
 
   const [isManualFacilityEntry, setIsManualFacilityEntry] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState<any>(null);
+  const [selectedSecondAdmin, setSelectedSecondAdmin] = useState<PlatformAccountOption | null>(null);
 
   const [formData, setFormData] = useState({
     institutionName: "",
-    institutionType: "",
+    institutionType: "" as InstitutionType | "",
     country: "Kenya",
     city: "",
     address: "",
     registrationNumber: "",
     healthcareStaffCount: "",
-    contactName: "",
-    contactEmail: "",
     contactPhone: "",
     contactDesignation: "",
-    secondAdminName: "",
-    secondAdminEmail: "",
-    secondAdminPhone: "",
-    programInterest: [] as string[],
+    platformNeeds: [] as InstitutionPlatformNeed[],
     departmentNames: [""],
     agreeToTerms: false,
   });
+
+  useEffect(() => {
+    if (!user?.phone) return;
+    setFormData((prev) => (prev.contactPhone ? prev : { ...prev, contactPhone: user.phone ?? "" }));
+  }, [user?.phone]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -71,31 +74,41 @@ export default function InstitutionalOnboarding() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  /** Program checkboxes: only update from Checkbox `onCheckedChange` (no parent click) — avoids double-toggle + React max update depth (#185). */
-  const setProgramInterest = (programId: string, on: boolean) => {
+  const setPlatformNeed = (need: InstitutionPlatformNeed, on: boolean) => {
     setFormData((prev) => {
-      const has = prev.programInterest.includes(programId);
+      const has = prev.platformNeeds.includes(need);
       if (on === has) return prev;
-      if (on) return { ...prev, programInterest: [...prev.programInterest, programId] };
-      return { ...prev, programInterest: prev.programInterest.filter((p) => p !== programId) };
+      if (on) return { ...prev, platformNeeds: [...prev.platformNeeds, need] };
+      return { ...prev, platformNeeds: prev.platformNeeds.filter((item) => item !== need) };
     });
   };
 
   const handleNext = () => {
     if (step === 1 && formData.institutionName.trim().length < 3) {
-      setError("Enter a facility name with at least 3 characters, or select a facility from the registry.");
+      setError("Enter an organization name with at least 3 characters, or select a listed facility.");
       return;
     }
-    if (step === 1 && formData.departmentNames.every((name) => name.trim().length < 2)) {
-      setError("Confirm at least one facility department so IERS and CPD use the same department list.");
+    if (step === 1 && !formData.institutionType) {
+      setError("Select the type of organization you are onboarding.");
       return;
     }
     if (step === 2) {
-      const secondAdminError = validateSecondAdminContact(formData);
+      if (!formData.contactPhone.trim() || !formData.contactDesignation.trim()) {
+        setError("Add the primary administrator's role and an institution contact phone number.");
+        return;
+      }
+      const secondAdminError = validateSecondAdminSelection({
+        primaryAdminUserId: user?.id,
+        secondAdminUserId: selectedSecondAdmin?.id,
+      });
       if (secondAdminError) {
         setError(secondAdminError);
         return;
       }
+    }
+    if (step === 3 && formData.platformNeeds.length === 0) {
+      setError("Select at least one platform area you want to use or discuss.");
+      return;
     }
 
     setError("");
@@ -119,7 +132,23 @@ export default function InstitutionalOnboarding() {
       return;
     }
 
-    const secondAdminError = validateSecondAdminContact(formData);
+    if (!formData.institutionType) {
+      setError("Select the type of organization you are onboarding.");
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.contactPhone.trim() || !formData.contactDesignation.trim()) {
+      setError("Add the primary administrator's role and an institution contact phone number.");
+      setStep(2);
+      setLoading(false);
+      return;
+    }
+
+    const secondAdminError = validateSecondAdminSelection({
+      primaryAdminUserId: user?.id,
+      secondAdminUserId: selectedSecondAdmin?.id,
+    });
     if (secondAdminError) {
       setError(secondAdminError);
       setStep(2);
@@ -127,8 +156,9 @@ export default function InstitutionalOnboarding() {
       return;
     }
 
-    if (!formData.institutionType) {
-      setError("Please select an institution type.");
+    if (formData.platformNeeds.length === 0) {
+      setError("Select at least one platform area you want to use or discuss.");
+      setStep(3);
       setLoading(false);
       return;
     }
@@ -147,17 +177,13 @@ export default function InstitutionalOnboarding() {
         institutionType: formData.institutionType,
         registrationNumber: formData.registrationNumber.trim() || undefined,
         healthcareStaffCount: staffCount,
-        country: formData.country,
-        city: formData.city,
-        address: formData.address,
-        contactName: formData.contactName,
-        contactEmail: formData.contactEmail,
-        contactPhone: formData.contactPhone,
-        contactDesignation: formData.contactDesignation,
-        secondAdminName: formData.secondAdminName.trim(),
-        secondAdminEmail: formData.secondAdminEmail.trim(),
-        secondAdminPhone: formData.secondAdminPhone.trim() || undefined,
-        programInterest: formData.programInterest,
+        country: formData.country.trim(),
+        city: formData.city.trim(),
+        address: formData.address.trim(),
+        contactPhone: formData.contactPhone.trim(),
+        contactDesignation: formData.contactDesignation.trim(),
+        platformNeeds: formData.platformNeeds,
+        secondAdminUserId: selectedSecondAdmin!.id,
         departmentNames: formData.departmentNames.filter((name) => name.trim().length >= 2),
       });
     } catch {
@@ -168,10 +194,10 @@ export default function InstitutionalOnboarding() {
   };
 
   const steps = [
-    { number: 1, title: "Institution Details", icon: FileText },
-    { number: 2, title: "Contact Information", icon: Users },
-    { number: 3, title: "Program Selection", icon: CheckCheck },
-    { number: 4, title: "Review & Agreement", icon: CreditCard },
+    { number: 1, title: "Organization details", icon: Building2 },
+    { number: 2, title: "Administrator access", icon: Users },
+    { number: 3, title: "Platform needs", icon: ClipboardList },
+    { number: 4, title: "Review & create", icon: CreditCard },
   ];
 
   return (
@@ -179,14 +205,14 @@ export default function InstitutionalOnboarding() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-10">
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">Partner with Paeds Resus</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">Set up your Paeds Resus institution workspace</h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Paediatric emergency training, institutional dashboards, and scalable programmes for hospitals and teams — start by linking your facility.
+            Tell us about your organization, connect two existing Paeds Resus administrator accounts, and choose the platform areas you want to use or discuss.
           </p>
           {!isAuthenticated && (
             <Card className="mt-6 p-4 text-left max-w-xl mx-auto border-border bg-secondary/50">
               <p className="text-sm text-foreground mb-3">
-                Sign in first so we can link this facility to your account.
+                Sign in with the Paeds Resus account that will be the primary institution administrator. The second administrator must already have a Paeds Resus account too.
               </p>
               <a href={getLoginUrl()}>
                 <Button variant="default">Sign in</Button>
@@ -240,8 +266,8 @@ export default function InstitutionalOnboarding() {
             {/* Step 1: Institution Details */}
             {step === 1 && (
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-foreground mb-2">Institution details</h2>
-                <p className="text-sm text-muted-foreground mb-4">Country defaults to Kenya; change it if your facility is elsewhere.</p>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Organization details</h2>
+                <p className="text-sm text-muted-foreground mb-4">Country defaults to Kenya. Change it if your organization operates elsewhere.</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
@@ -266,40 +292,41 @@ export default function InstitutionalOnboarding() {
                       }
                       isManualEntry={isManualFacilityEntry}
                       onManualEntryChange={setIsManualFacilityEntry}
+                      entityLabel="organization or facility"
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="institutionType">Institution Type *</Label>
+                    <Label htmlFor="institutionType">Organization type *</Label>
                     <Select
-                      value={formData.institutionType ? formData.institutionType : undefined}
+                      value={formData.institutionType || undefined}
                       onValueChange={(v) => handleSelectChange("institutionType", v)}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
+                      <SelectTrigger id="institutionType">
+                        <SelectValue placeholder="Select organization type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="public_hospital">Public Hospital</SelectItem>
-                        <SelectItem value="private_hospital">Private Hospital</SelectItem>
-                        <SelectItem value="clinic">Clinic</SelectItem>
-                        <SelectItem value="medical_college">Medical College</SelectItem>
-                        <SelectItem value="nursing_school">Nursing School</SelectItem>
-                        <SelectItem value="ambulance_service">Ambulance Service</SelectItem>
-                        <SelectItem value="fire_rescue">Fire & Rescue</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
+                        {INSTITUTION_TYPE_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Choose the closest fit. This helps us route your onboarding and does not limit which platform areas you can use.
+                    </p>
                   </div>
 
                   <div>
-                    <Label htmlFor="healthcareStaffCount">Healthcare Staff Count *</Label>
+                    <Label htmlFor="healthcareStaffCount">People to include in the portal *</Label>
                     <Input
                       id="healthcareStaffCount"
                       name="healthcareStaffCount"
                       type="number"
                       value={formData.healthcareStaffCount}
                       onChange={handleInputChange}
-                      placeholder="e.g., 250"
+                      placeholder="e.g., 25 or 250"
                       required
                     />
                   </div>
@@ -333,8 +360,8 @@ export default function InstitutionalOnboarding() {
                 <div className="rounded-xl border border-brand-orange/30 bg-brand-surface/50 p-4 sm:p-5">
                   <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <Label className="text-base">Facility departments *</Label>
-                      <p className="mt-1 text-sm text-muted-foreground">Choose from the same preset department catalog used by profiles and CPD attendance. Select Other only when your facility has a department that is not in the catalog. The IERS Lead will assign each confirmed department to a pole after onboarding.</p>
+                      <Label className="text-base">Departments or operating areas <span className="font-normal text-muted-foreground">(optional when not applicable)</span></Label>
+                      <p className="mt-1 text-sm text-muted-foreground">Add the departments, teams, or operating areas you want to use for CPD reporting and readiness work. Leave this blank if your organization is not structured that way; you can configure it later.</p>
                     </div>
                     <Button type="button" variant="outline" size="sm" className="w-full shrink-0 sm:w-auto" onClick={() => setFormData((prev) => ({ ...prev, departmentNames: [...prev.departmentNames, ""] }))}>
                       <Plus className="mr-1.5 h-4 w-4" />Add department
@@ -359,154 +386,115 @@ export default function InstitutionalOnboarding() {
                 </div>
 
                 <div>
-                  <Label htmlFor="address">Physical Address *</Label>
+                    <Label htmlFor="address">Main office or operating location *</Label>
                   <Textarea
                     id="address"
                     name="address"
                     value={formData.address}
                     onChange={handleInputChange}
-                    placeholder="Full physical address"
+                      placeholder="Office, campus, or operating location"
                     required
                   />
                 </div>
               </div>
             )}
 
-            {/* Step 2: Contact Information */}
+            {/* Step 2: Administrator Access */}
             {step === 2 && (
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-foreground mb-6">Contact information</h2>
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground mb-2">Administrator access</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Administrator access is tied to Paeds Resus accounts, not typed names or email addresses. This prevents the wrong person from being linked to the institution.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                  <p className="text-sm font-semibold text-foreground">Primary administrator</p>
+                  <p className="mt-2 font-medium text-foreground">{user?.name || "Your Paeds Resus account"}</p>
+                  <p className="text-sm text-muted-foreground">{user?.email || "Signed-in account email"}</p>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    This is the Paeds Resus account currently signed in. It will be the first administrator for this institution.
+                  </p>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <Label htmlFor="contactName">Contact Person Name *</Label>
-                    <Input
-                      id="contactName"
-                      name="contactName"
-                      value={formData.contactName}
-                      onChange={handleInputChange}
-                      placeholder="Full name"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="contactDesignation">Designation *</Label>
+                    <Label htmlFor="contactDesignation">Primary administrator role *</Label>
                     <Input
                       id="contactDesignation"
                       name="contactDesignation"
                       value={formData.contactDesignation}
                       onChange={handleInputChange}
-                      placeholder="e.g., Head of Training"
+                      placeholder="e.g., Director, CPD coordinator, or training lead"
                       required
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="contactEmail">Email Address *</Label>
-                    <Input
-                      id="contactEmail"
-                      name="contactEmail"
-                      type="email"
-                      value={formData.contactEmail}
-                      onChange={handleInputChange}
-                      placeholder="email@institution.com"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="contactPhone">Phone Number *</Label>
+                    <Label htmlFor="contactPhone">Institution contact phone *</Label>
                     <Input
                       id="contactPhone"
                       name="contactPhone"
                       value={formData.contactPhone}
                       onChange={handleInputChange}
                       placeholder="+254 700 000 000"
+                      autoComplete="tel"
                       required
                     />
                   </div>
                 </div>
 
                 <div className="border-t pt-6 mt-2">
-                  <h3 className="text-lg font-semibold text-foreground">Second administrator contact <span className="text-destructive">*</span></h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Every institution needs two named administrators. Add a different person who can manage
-                    the account if the primary contact is unavailable. We will invite them by email; they
-                    will be linked automatically if they already have an account, or when they first sign in.
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="secondAdminName">Full Name *</Label>
-                      <Input
-                        id="secondAdminName"
-                        name="secondAdminName"
-                        value={formData.secondAdminName}
-                        onChange={handleInputChange}
-                        placeholder="Full name"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="secondAdminEmail">Email Address *</Label>
-                      <Input
-                        id="secondAdminEmail"
-                        name="secondAdminEmail"
-                        type="email"
-                        value={formData.secondAdminEmail}
-                        onChange={handleInputChange}
-                        placeholder="A different email from yours"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="secondAdminPhone">Phone Number</Label>
-                      <Input
-                        id="secondAdminPhone"
-                        name="secondAdminPhone"
-                        value={formData.secondAdminPhone}
-                        onChange={handleInputChange}
-                        placeholder="+254 700 000 000"
-                      />
-                    </div>
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold text-foreground">Second administrator account <span className="text-destructive">*</span></h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Search by name or email and select the correct existing Paeds Resus account. We do not accept a manually typed administrator here, and the second account must be different from the primary account.
+                    </p>
                   </div>
+                  <PlatformAccountAutocomplete
+                    selectedAccount={selectedSecondAdmin}
+                    onSelect={setSelectedSecondAdmin}
+                    label="Search for the second administrator"
+                    required
+                  />
                 </div>
               </div>
             )}
 
-            {/* Step 3: Program Selection — checkbox only (no row onClick) to avoid double-firing Radix + state loop */}
+            {/* Step 3: Platform needs */}
             {step === 3 && (
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-foreground mb-2">Program selection</h2>
-                <p className="text-muted-foreground mb-4">
-                  Select the training programmes your institution is interested in (you can choose more than one):
-                </p>
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground mb-2">What do you want to use?</h2>
+                  <p className="text-muted-foreground">
+                    Select every platform area that fits your organization. This helps us configure access and route your first conversation; it does not enroll anyone in a course or start a training contract.
+                  </p>
+                </div>
 
                 <div className="space-y-3">
-                  {[
-                    { id: "bls", label: "Basic Life Support (BLS)", desc: "CPR, AED, and basic emergency response" },
-                    { id: "acls", label: "Advanced Cardiac Life Support (ACLS)", desc: "Advanced cardiac care and medications" },
-                    { id: "pals", label: "Pediatric Advanced Life Support (PALS)", desc: "Pediatric emergency care protocols" },
-                    { id: "nrp", label: "Neonatal Resuscitation Program (NRP)", desc: "Newborn resuscitation skills" },
-                    { id: "trauma", label: "Trauma & emergency response", desc: "Trauma assessment and management" },
-                  ].map((program) => (
+                  {INSTITUTION_PLATFORM_NEED_OPTIONS.map((need) => (
                     <label
-                      key={program.id}
-                      htmlFor={`program-${program.id}`}
-                      className="flex items-start gap-3 p-4 rounded-lg border border-border bg-card hover:bg-muted/40 cursor-pointer transition-colors"
+                      key={need.value}
+                      htmlFor={`need-${need.value}`}
+                      className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-muted/40"
                     >
                       <Checkbox
-                        id={`program-${program.id}`}
-                        checked={formData.programInterest.includes(program.id)}
-                        onCheckedChange={(checked) => setProgramInterest(program.id, checked === true)}
+                        id={`need-${need.value}`}
+                        checked={formData.platformNeeds.includes(need.value)}
+                        onCheckedChange={(checked) => setPlatformNeed(need.value, checked === true)}
                         className="mt-0.5"
                       />
                       <span className="flex-1">
-                        <span className="font-semibold text-foreground block">{program.label}</span>
-                        <span className="text-sm text-muted-foreground">{program.desc}</span>
+                        <span className="block font-semibold text-foreground">{need.label}</span>
+                        <span className="text-sm text-muted-foreground">{need.description}</span>
                       </span>
                     </label>
                   ))}
+                </div>
+
+                <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-4 text-sm leading-6 text-amber-950">
+                  <strong>About training:</strong> Institutional Life Support Training is not yet an in-portal enrollment flow. Select Training partnership if you want the Paeds Resus team to discuss delivery separately; no course enrollment is created by this onboarding form.
                 </div>
               </div>
             )}
@@ -514,18 +502,21 @@ export default function InstitutionalOnboarding() {
             {/* Step 4: Review & Agreement */}
             {step === 4 && (
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-foreground mb-6">Review & agreement</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-6">Review & create</h2>
+                <p className="text-sm text-muted-foreground">
+                  Check the organization details, linked administrator accounts, and platform needs. This creates the institution workspace; it does not enroll staff in a Life Support course.
+                </p>
 
                 <Card className="bg-muted/40 p-6 border-border">
                   <h3 className="font-semibold text-foreground mb-4">Summary</h3>
                   <div className="space-y-2 text-sm text-foreground/90">
                     <p><strong>Institution:</strong> {formData.institutionName}</p>
-                    <p><strong>Type:</strong> {formData.institutionType}</p>
+                    <p><strong>Type:</strong> {INSTITUTION_TYPE_OPTIONS.find((option) => option.value === formData.institutionType)?.label}</p>
                     <p><strong>Location:</strong> {formData.city}, {formData.country}</p>
-                    <p><strong>Staff Count:</strong> {formData.healthcareStaffCount}</p>
-                    <p><strong>Contact:</strong> {formData.contactName} ({formData.contactDesignation})</p>
-                    <p><strong>Second administrator:</strong> {formData.secondAdminName.trim()} ({formData.secondAdminEmail.trim()})</p>
-                    <p><strong>Programs:</strong> {formData.programInterest.join(", ") || "None selected"}</p>
+                    <p><strong>People included:</strong> {formData.healthcareStaffCount}</p>
+                    <p><strong>Primary administrator:</strong> {user?.name} ({user?.email})</p>
+                    <p><strong>Second administrator:</strong> {selectedSecondAdmin?.name} ({selectedSecondAdmin?.email})</p>
+                    <p><strong>Platform needs:</strong> {INSTITUTION_PLATFORM_NEED_OPTIONS.filter((option) => formData.platformNeeds.includes(option.value)).map((option) => option.label).join(", ")}</p>
                   </div>
                 </Card>
 
@@ -593,9 +584,9 @@ export default function InstitutionalOnboarding() {
         {/* Benefits Section */}
         <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { title: "Comprehensive training", desc: "BLS, ACLS, PALS, and paediatric-focused programmes" },
-            { title: "Paperless workflows", desc: "Digital enrolment, tracking, and certification" },
-            { title: "Institutional insight", desc: "Cohort progress and training visibility" },
+            { title: "Shared administrator access", desc: "Link two existing Paeds Resus accounts so your organization is not dependent on one person" },
+            { title: "CPD visibility", desc: "Track attendance, points, certificates, staff development, and reports in one workspace" },
+            { title: "Readiness coordination", desc: "Configure institutional readiness and improvement areas when your organization is ready" },
           ].map((benefit, i) => (
             <Card key={i} className="p-5 text-center border-border bg-card/80">
               <h3 className="font-semibold text-foreground mb-2">{benefit.title}</h3>
