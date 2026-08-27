@@ -1,11 +1,13 @@
 import { and, eq } from "drizzle-orm";
 import {
+  ierpInternProfiles,
   ierpProgramEnrollments,
   institutionalStaffMembers,
   retrospectiveRoleClaims,
   trainingAttendance,
 } from "../../drizzle/schema";
 import { getDb } from "../db";
+import { isMissingTableError } from "./is-missing-db-table";
 
 export const IERP_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"] as const;
 export type IerpDesignation = (typeof IERP_DESIGNATIONS)[number];
@@ -42,6 +44,25 @@ export async function getIerpEnrollment(db: IerpDb, userId: number) {
     .where(and(eq(ierpProgramEnrollments.userId, userId), eq(ierpProgramEnrollments.programKey, "ierp")))
     .limit(1);
   return rows[0] ?? null;
+}
+
+export async function getIerpInternProfile(db: IerpDb, userId: number) {
+  try {
+    const rows = await db
+      .select()
+      .from(ierpInternProfiles)
+      .where(eq(ierpInternProfiles.userId, userId))
+      .limit(1);
+    return rows[0] ?? null;
+  } catch (error) {
+    if (isMissingTableError(error, "ierpInternProfiles")) return null;
+    throw error;
+  }
+}
+
+/** A submitted profile is enough to register; rejected/revoked profiles are fail-closed. */
+export function isIerpInternProfileReady(profile: { status?: string | null } | null | undefined) {
+  return profile?.status === "pending" || profile?.status === "verified";
 }
 
 /** The deterministic named-role calculation used by every IERP Phase 2 gate. */
@@ -114,6 +135,7 @@ const IERP_DEFERRED_END_MONTH = 11;
 
 type IerpPaymentEnrollment = {
   enrolledAt: Date | null;
+  effectiveCommencementDate?: Date | null;
   totalPaidAmount: string | number | null;
 };
 
@@ -148,7 +170,8 @@ export function getIerpPaymentAccess(
   const paid = Math.max(0, Number(enrollment.totalPaidAmount ?? 0));
   const balance = Math.max(0, IERP_TOTAL_FEE_KES - paid);
   const isPaidInFull = paid >= IERP_TOTAL_FEE_KES;
-  const enrolledAt = enrollment.enrolledAt ? new Date(enrollment.enrolledAt) : null;
+  const paymentStartAt = enrollment.effectiveCommencementDate ?? enrollment.enrolledAt;
+  const enrolledAt = paymentStartAt ? new Date(paymentStartAt) : null;
   const startCalendar = enrolledAt ? eastAfricaCalendar(enrolledAt) : null;
   const deferredStartWindow = !!startCalendar &&
     startCalendar.month >= IERP_DEFERRED_START_MONTH &&
@@ -176,7 +199,13 @@ export function getIerpPaymentAccess(
 /** Resolve the standalone IERP record, falling back to the legacy linked intern record. */
 export async function getIerpPaymentAccessForUser(db: IerpDb, userId: number) {
   const enrollment = await getIerpEnrollment(db, userId);
-  if (enrollment) return getIerpPaymentAccess(enrollment);
+  const internProfile = await getIerpInternProfile(db, userId);
+  if (enrollment) {
+    return getIerpPaymentAccess({
+      ...enrollment,
+      effectiveCommencementDate: internProfile?.effectiveCommencementDate ?? null,
+    });
+  }
 
   const [staff] = await db
     .select({ designation: institutionalStaffMembers.designation, totalPaidAmount: institutionalStaffMembers.totalPaidAmount, enrollmentDate: institutionalStaffMembers.enrollmentDate, createdAt: institutionalStaffMembers.createdAt })
@@ -186,6 +215,7 @@ export async function getIerpPaymentAccessForUser(db: IerpDb, userId: number) {
   if (!staff || !isIerpDesignation(staff.designation)) return null;
   return getIerpPaymentAccess({
     enrolledAt: staff.enrollmentDate ?? staff.createdAt,
+    effectiveCommencementDate: internProfile?.effectiveCommencementDate ?? null,
     totalPaidAmount: staff.totalPaidAmount,
   });
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, Eye, MailCheck, PauseCircle, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, Eye, FileText, MailCheck, PauseCircle, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,14 @@ export default function IerpCampaignDashboard() {
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [selectedInternProfileId, setSelectedInternProfileId] = useState<number | null>(null);
+  const [internReviewReason, setInternReviewReason] = useState("");
   const { data: safety } = trpc.ierpCampaigns.getSafetyStatus.useQuery(undefined, { retry: false });
+  const { data: internProfiles, refetch: refetchInternProfiles } = trpc.ierp.listInternProfiles.useQuery(undefined, { retry: false });
+  const internEvidence = trpc.ierp.getInternProfileEvidenceUrl.useQuery(
+    { profileId: selectedInternProfileId ?? 0 },
+    { enabled: selectedInternProfileId !== null, retry: false },
+  );
   const { data: campaigns, refetch: refetchCampaigns } = trpc.ierpCampaigns.list.useQuery(undefined, { retry: false });
   const preview = trpc.ierpCampaigns.previewAudience.useQuery(
     { campaignId: selectedCampaignId ?? 0 },
@@ -28,6 +35,14 @@ export default function IerpCampaignDashboard() {
   });
   const pause = trpc.ierpCampaigns.pause.useMutation({
     onSuccess: async () => { toast.success("Campaign paused."); await refetchCampaigns(); },
+    onError: (error) => toast.error(error.message),
+  });
+  const reviewInternProfile = trpc.ierp.reviewInternProfile.useMutation({
+    onSuccess: async () => {
+      toast.success("Intern profile review saved.");
+      setInternReviewReason("");
+      await refetchInternProfiles();
+    },
     onError: (error) => toast.error(error.message),
   });
 
@@ -81,6 +96,33 @@ export default function IerpCampaignDashboard() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Intern profile evidence</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">Review the private MoH deployment/posting letter and the structured internship details. Submitted profiles can start IERP; rejected or revoked profiles are blocked until corrected.</p>
+          {!internProfiles?.length ? <p className="text-sm text-muted-foreground">No intern profiles have been submitted.</p> : internProfiles.map((profile) => (
+            <div key={profile.id} className="rounded-lg border p-3">
+              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div className="text-sm">
+                  <p className="font-medium">{profile.userName ?? "Unnamed learner"} {profile.userEmail ? `· ${profile.userEmail}` : ""}</p>
+                  <p className="text-xs text-muted-foreground">{profile.designation} · Ref {profile.officialLetterReferenceNumber} · Commenced {new Date(profile.effectiveCommencementDate).toLocaleDateString()}</p>
+                  <p className="text-xs text-muted-foreground">{profile.status} · {profile.deploymentLetterFileName}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setSelectedInternProfileId(profile.id)} disabled={!profile.evidenceAvailable}>View letter</Button>
+                  <Button size="sm" variant="outline" onClick={() => reviewInternProfile.mutate({ profileId: profile.id, decision: "verified", reason: internReviewReason.trim() || "MoH deployment/posting evidence reviewed and accepted." })} disabled={reviewInternProfile.isPending}><CheckCircle2 className="mr-1 h-4 w-4" />Verify</Button>
+                  <Button size="sm" variant="outline" onClick={() => reviewInternProfile.mutate({ profileId: profile.id, decision: "rejected", reason: internReviewReason.trim() || "Please correct and resubmit the intern evidence." })} disabled={reviewInternProfile.isPending}>Reject</Button>
+                </div>
+              </div>
+            </div>
+          ))}
+          <Input value={internReviewReason} onChange={(event) => setInternReviewReason(event.target.value)} placeholder="Optional review reason (used for the selected action)" />
+          {internEvidence.data ? <a className="inline-block text-sm font-medium text-indigo-700 underline" href={internEvidence.data} target="_blank" rel="noreferrer">Open selected private letter</a> : null}
+        </CardContent>
+      </Card>
 
       {safety && <p className="text-xs text-muted-foreground">Safety status: {safety.promotionalSendingEnabled ? "enabled" : "disabled"}; allowed states: {safety.allowedScheduleStates.join(" / ")}.</p>}
     </main>

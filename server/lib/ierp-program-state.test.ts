@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateAuthoritativePhase2Completion,
   getIerpPaymentAccess,
+  isIerpInternProfileReady,
   IERP_NAMED_TEAM_MEMBER_ROLES,
   IERP_TOTAL_FEE_KES,
 } from "./ierp-program-state";
@@ -96,5 +97,25 @@ describe("IERP authoritative programme state", () => {
     );
     expect(access.paymentDeadline).toEqual(new Date("2026-12-01T00:00:00+03:00"));
     expect(access.paymentLockoutActive).toBe(true);
+  });
+
+  it("uses the declared effective commencement date for the payment window", () => {
+    const access = getIerpPaymentAccess(
+      {
+        enrolledAt: new Date("2026-07-31T10:00:00+03:00"),
+        effectiveCommencementDate: new Date("2026-08-01T00:00:00+03:00"),
+        totalPaidAmount: 0,
+      },
+      new Date("2026-08-15T00:00:00+03:00")
+    );
+    expect(access.deferredStartWindow).toBe(true);
+    expect(access.cognitiveAccessLocked).toBe(false);
+  });
+
+  it("accepts submitted or verified intern profiles but fails closed for missing or rejected profiles", () => {
+    expect(isIerpInternProfileReady(null)).toBe(false);
+    expect(isIerpInternProfileReady({ status: "rejected" })).toBe(false);
+    expect(isIerpInternProfileReady({ status: "pending" })).toBe(true);
+    expect(isIerpInternProfileReady({ status: "verified" })).toBe(true);
   });
 });

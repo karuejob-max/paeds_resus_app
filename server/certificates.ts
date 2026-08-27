@@ -15,7 +15,7 @@ import {
 } from "../drizzle/schema";
 import { ensureInstructorCourseCatalog } from "./lib/ensure-instructor-course-catalog";
 import { ensureInstitutionalLifeSupportCatalog } from "./lib/ensure-institutional-life-support-catalog";
-import { getIerpPaymentAccessForUser, isIerpCognitiveProgram } from "./lib/ierp-program-state";
+import { getIerpInternProfile, getIerpPaymentAccessForUser, isIerpCognitiveProgram, isIerpInternProfileReady } from "./lib/ierp-program-state";
 import { syncInstructorQualificationsForUser, isInstructorQualifiedForCourse } from "./lib/instructor-qualifications";
 import { resolveAhaCourseAnchor } from "./lib/resolve-aha-course-anchor";
 import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certificate-pdf";
@@ -570,7 +570,11 @@ export async function markAhaCognitiveComplete(enrollmentId: number): Promise<vo
 
   if (isIerpCognitiveProgram(enrollment.programType)) {
     const ierpPayment = await getIerpPaymentAccessForUser(db, enrollment.userId);
-    if (ierpPayment?.cognitiveAccessLocked) return;
+    if (ierpPayment) {
+      const internProfile = await getIerpInternProfile(db, enrollment.userId);
+      if (!isIerpInternProfileReady(internProfile)) return;
+      if (ierpPayment.cognitiveAccessLocked) return;
+    }
   }
 
   let complete = false;

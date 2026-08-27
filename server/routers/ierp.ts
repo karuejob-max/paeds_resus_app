@@ -2,24 +2,179 @@ import { and, desc, eq, inArray, sum } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import { ierpPhase1Evidence, ierpPayments, ierpProgramEnrollments, enrollments } from "../../drizzle/schema";
+import { ierpInternProfiles, ierpPhase1Evidence, ierpPayments, ierpProgramEnrollments, enrollments, users } from "../../drizzle/schema";
 import { storageGet, storagePut } from "../storage";
 import { getMpesaService } from "../services/mpesa";
 import { getDb } from "../db";
-import { protectedProcedure, router } from "../_core/trpc";
+import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import { normalizeKenyanPhoneNumber } from "../../shared/kenyan-phone";
 import {
   getAuthoritativePhase2CompletionStatus,
   getIerpEnrollment,
+  getIerpInternProfile,
   getIerpPaymentAccess,
+  getIerpPaymentAccessForUser,
+  isIerpInternProfileReady,
   IERP_DESIGNATIONS,
   IERP_COGNITIVE_PROGRAMS,
   IERP_TOTAL_FEE_KES,
 } from "../lib/ierp-program-state";
 import { getPaedsResusCertificateStatusForUser } from "../lib/paeds-resus-certificate-issuance";
+import { isMissingTableError } from "../lib/is-missing-db-table";
 
+function parseDateOnly(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value ? null : date;
+}
+
+function cadreForIerpDesignation(designation: (typeof IERP_DESIGNATIONS)[number]) {
+  if (designation === "noi") return { cadre: "NOI", cadreOther: null };
+  if (designation === "moi") return { cadre: "MOI", cadreOther: null };
+  return {
+    cadre: "COI",
+    cadreOther: designation === "coi_bsc" ? "BSc Clinical Officer Intern" : "Diploma Clinical Officer Intern",
+  };
+}
+
+function internProfileProjection(profile: typeof ierpInternProfiles.$inferSelect) {
+  return {
+    id: profile.id,
+    designation: profile.designation,
+    officialLetterReferenceNumber: profile.officialLetterReferenceNumber,
+    effectiveCommencementDate: profile.effectiveCommencementDate,
+    deploymentLetterFileName: profile.deploymentLetterFileName,
+    deploymentLetterContentType: profile.deploymentLetterContentType,
+    deploymentLetterSizeBytes: profile.deploymentLetterSizeBytes,
+    status: profile.status,
+    verifiedAt: profile.verifiedAt,
+    reviewReason: profile.reviewReason,
+    createdAt: profile.createdAt,
+    updatedAt: profile.updatedAt,
+  };
+}
 
 export const ierpRouter = router({
+  /** Return the user's current intern registration without exposing storage keys. */
+  getMyInternProfile: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    const profile = await getIerpInternProfile(db, ctx.user.id);
+    return profile ? internProfileProjection(profile) : null;
+  }),
+
+  /** Submit or replace the private MoH deployment/posting evidence for the profile. */
+  submitInternProfile: protectedProcedure
+    .input(z.object({
+      designation: z.enum(IERP_DESIGNATIONS),
+      officialLetterReferenceNumber: z.string().trim().min(2).max(255),
+      effectiveCommencementDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      deploymentLetterFileName: z.string().trim().min(1).max(255),
+      deploymentLetterContentType: z.enum(["application/pdf", "image/jpeg", "image/png"]),
+      deploymentLetterDataBase64: z.string().min(1).max(20_000_000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const effectiveCommencementDate = parseDateOnly(input.effectiveCommencementDate);
+      if (!effectiveCommencementDate) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Effective commencement date must be a valid YYYY-MM-DD date." });
+      }
+      const encoded = input.deploymentLetterDataBase64.replace(/^data:[^;]+;base64,/, "");
+      const bytes = Buffer.from(encoded, "base64");
+      if (bytes.length === 0 || bytes.length > 10 * 1024 * 1024) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The MoH deployment/posting letter must be between 1 byte and 10 MB." });
+      }
+      const stored = await storagePut(
+        `ierp/${ctx.user.id}/intern-profile/${randomUUID()}-${input.deploymentLetterFileName.replace(/[^a-zA-Z0-9._-]/g, "_")}`,
+        bytes,
+        input.deploymentLetterContentType,
+      );
+      const current = await getIerpInternProfile(db, ctx.user.id);
+      const cadre = cadreForIerpDesignation(input.designation);
+      const values = {
+        userId: ctx.user.id,
+        designation: input.designation,
+        officialLetterReferenceNumber: input.officialLetterReferenceNumber.trim(),
+        effectiveCommencementDate,
+        deploymentLetterKey: stored.key,
+        deploymentLetterFileName: input.deploymentLetterFileName.trim(),
+        deploymentLetterContentType: input.deploymentLetterContentType,
+        deploymentLetterSizeBytes: bytes.length,
+        status: "pending" as const,
+        verifiedByUserId: null,
+        verifiedAt: null,
+        reviewReason: null,
+        updatedAt: new Date(),
+      };
+      if (current) {
+        await db.update(ierpInternProfiles).set(values).where(eq(ierpInternProfiles.id, current.id));
+      } else {
+        await db.insert(ierpInternProfiles).values(values);
+      }
+      await db.update(users).set({ cadre: cadre.cadre, cadreOther: cadre.cadreOther, updatedAt: new Date() }).where(eq(users.id, ctx.user.id));
+      const saved = await getIerpInternProfile(db, ctx.user.id);
+      if (!saved) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Intern profile could not be saved." });
+      return { success: true as const, profile: internProfileProjection(saved) };
+    }),
+
+  /** Provider-owned short-lived URL for the submitted deployment/posting letter. */
+  getMyInternProfileEvidenceUrl: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    const profile = await getIerpInternProfile(db, ctx.user.id);
+    if (!profile?.deploymentLetterKey) throw new TRPCError({ code: "NOT_FOUND", message: "Intern profile evidence not found." });
+    return storageGet(profile.deploymentLetterKey);
+  }),
+
+  /** Platform-admin list for reviewing intern eligibility evidence. */
+  listInternProfiles: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    let rows: Array<{ profile: typeof ierpInternProfiles.$inferSelect; userName: string | null; userEmail: string | null }> = [];
+    try {
+      rows = await db
+        .select({
+          profile: ierpInternProfiles,
+          userName: users.name,
+          userEmail: users.email,
+        })
+        .from(ierpInternProfiles)
+        .innerJoin(users, eq(users.id, ierpInternProfiles.userId))
+        .orderBy(desc(ierpInternProfiles.updatedAt));
+    } catch (error) {
+      if (!isMissingTableError(error, "ierpInternProfiles")) throw error;
+    }
+    return rows.map(({ profile, userName, userEmail }) => ({
+      ...internProfileProjection(profile),
+      userId: profile.userId,
+      userName,
+      userEmail,
+      evidenceAvailable: Boolean(profile.deploymentLetterKey),
+    }));
+  }),
+
+  getInternProfileEvidenceUrl: adminProcedure
+    .input(z.object({ profileId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [profile] = await db.select({ deploymentLetterKey: ierpInternProfiles.deploymentLetterKey }).from(ierpInternProfiles).where(eq(ierpInternProfiles.id, input.profileId)).limit(1);
+      if (!profile?.deploymentLetterKey) throw new TRPCError({ code: "NOT_FOUND", message: "Intern profile evidence not found." });
+      return storageGet(profile.deploymentLetterKey);
+    }),
+
+  reviewInternProfile: adminProcedure
+    .input(z.object({ profileId: z.number().int().positive(), decision: z.enum(["verified", "rejected", "revoked"]), reason: z.string().trim().min(3).max(1000) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [profile] = await db.select({ id: ierpInternProfiles.id }).from(ierpInternProfiles).where(eq(ierpInternProfiles.id, input.profileId)).limit(1);
+      if (!profile) throw new TRPCError({ code: "NOT_FOUND", message: "Intern profile not found." });
+      await db.update(ierpInternProfiles).set({ status: input.decision, verifiedByUserId: ctx.user.id, verifiedAt: new Date(), reviewReason: input.reason, updatedAt: new Date() }).where(eq(ierpInternProfiles.id, input.profileId));
+      return { success: true as const, decision: input.decision };
+    }),
+
   /** Return the user's IERP enrolment, without exposing institutional records. */
   getMyEnrollment: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
@@ -28,8 +183,9 @@ export const ierpRouter = router({
   }),
 
   /**
-   * Start the Intern Emergency Readiness Program without a facility or staff
-   * record. This writes only the user-owned IERP table and is idempotent.
+   * Start the Intern Emergency Readiness Program after the individual intern
+   * profile has been submitted. This writes only the user-owned IERP table and
+   * is idempotent; it does not create an institutional staff record.
    */
   start: protectedProcedure
     .input(z.object({ designation: z.enum(IERP_DESIGNATIONS) }))
@@ -37,12 +193,29 @@ export const ierpRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
+      const internProfile = await getIerpInternProfile(db, ctx.user.id);
+      if (!isIerpInternProfileReady(internProfile)) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Complete your Intern profile and submit your MoH deployment/posting letter before starting IERP.",
+        });
+      }
+      if (internProfile.designation !== input.designation) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Your IERP designation must match the designation on your Intern profile.",
+        });
+      }
+
       const existing = await getIerpEnrollment(db, ctx.user.id);
       if (existing) {
         if (existing.lifecycleStatus === "withdrawn") {
           throw new TRPCError({ code: "CONFLICT", message: "This IERP enrolment was withdrawn. Contact the programme team before restarting." });
         }
-        const payment = getIerpPaymentAccess(existing);
+        const payment = getIerpPaymentAccess({
+          ...existing,
+          effectiveCommencementDate: internProfile.effectiveCommencementDate,
+        });
         return { success: true, created: false, enrollmentId: existing.id, designation: existing.designation, cognitiveAccessLocked: payment.cognitiveAccessLocked, paymentDeadline: payment.paymentDeadline?.toISOString() ?? null };
       }
 
@@ -89,7 +262,14 @@ export const ierpRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       const program = await getIerpEnrollment(db, ctx.user.id);
       if (!program) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Start IERP before submitting Phase 1 evidence." });
-      const payment = getIerpPaymentAccess(program);
+      const internProfile = await getIerpInternProfile(db, ctx.user.id);
+      if (!isIerpInternProfileReady(internProfile)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Complete your Intern profile and submit your MoH deployment/posting letter before accessing IERP coursework." });
+      }
+      const payment = getIerpPaymentAccess({
+        ...program,
+        effectiveCommencementDate: internProfile.effectiveCommencementDate,
+      });
       if (payment.cognitiveAccessLocked) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Complete the full KES 15,000 IERP programme payment before accessing or submitting Phase 1 coursework." });
       }
@@ -283,7 +463,7 @@ export const ierpRouter = router({
       .orderBy(desc(ierpPhase1Evidence.updatedAt));
 
     const phase2 = await getAuthoritativePhase2CompletionStatus(db, ctx.user.id);
-    const payment = getIerpPaymentAccess({ enrolledAt: program.enrolledAt, totalPaidAmount: program.totalPaidAmount });
+    const payment = await getIerpPaymentAccessForUser(db, ctx.user.id);
     const phase1EvidenceVerified =
       evidence.some((row) => row.documentType === "video_prework" && row.status === "verified") &&
       evidence.some((row) => row.documentType === "precourse_assessment" && row.status === "verified");

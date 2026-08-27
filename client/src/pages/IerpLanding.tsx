@@ -31,15 +31,15 @@ const phases = [
 
 export default function IerpLanding() {
   useScrollToTop();
-  usePageMeta({ title: "IERP — Intern Emergency Readiness Program | Paeds Resus", description: "A staged, self-service emergency readiness pathway for healthcare interns: cognitive foundation, online simulations, and hands-on assessment.", path: "/programs/ierp" });
+  usePageMeta({ title: "IERP — Intern Emergency Readiness Program | Paeds Resus", description: "A staged emergency readiness pathway for healthcare interns with required identity and deployment evidence: cognitive foundation, online simulations, and hands-on assessment.", path: "/programs/ierp" });
   const { isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
 
   const startIerp = () => {
     if (isAuthenticated) {
-      navigate("/learner-dashboard");
+      navigate("/programs/ierp/enroll");
     } else {
-      window.location.href = getLoginUrl("/learner-dashboard");
+      window.location.href = getLoginUrl("/programs/ierp/enroll");
     }
   };
 
@@ -59,7 +59,7 @@ export default function IerpLanding() {
                 See how it works
               </Button>
             </div>
-            <p className="mt-4 text-xs text-slate-300">Self-service entry. No registered facility or institutional coordinator is required to begin.</p>
+            <p className="mt-4 text-xs text-slate-300">Start with your individual Intern profile: choose your designation, enter your official letter reference number and commencement date, and upload your MoH deployment/posting letter.</p>
             <p className="mt-3 max-w-xl text-sm leading-6 text-amber-100">The complete programme fee is KES 15,000 for AHA ACLS plus Paeds Resus BLS. August–November starters may begin Phase 1 and Phase 2 before payment; from December onward, full payment is required before cognitive access and further Phase 2 access.</p>
           </div>
           <div className="rounded-3xl border border-white/15 bg-white/10 p-6 shadow-2xl backdrop-blur-sm">
@@ -69,7 +69,7 @@ export default function IerpLanding() {
             </div>
             <div className="space-y-4 pt-5 text-sm text-slate-200">
               {[
-                "One programme record belongs to you, not to an institutional roster.",
+                "Your programme record belongs to your individual Intern profile, not to an institutional roster.",
                 "Phase 2 progress is based on confirmed named roles, not generic attendance counts.",
                 "Phase 3 remains a separate hands-on assessment gate and requires the full KES 15,000 payment.",
                 "August–November starters have a temporary Phase 1–2 payment deferral; December onward requires full payment first.",
