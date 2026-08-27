@@ -343,6 +343,13 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       log.mpesaReceiptNumber = mpesaReceiptNumber || null;
 
       // Idempotent: row-level + MPESA-4 global key (above)
+      // A cancelled pending payment is terminal too: a late callback must not
+      // resurrect access or complete the cancelled enrollment.
+      if (payment.status === "cancelled") {
+        console.log(`[M-Pesa] Cancelled payment ${payment.id} acknowledged; ignoring callback`);
+        log.outcome = "already_finalized";
+        return res.status(200).json({ success: true, message: "Already finalized" });
+      }
       if (payment.status === "completed" || payment.idempotencyKey === idempotencyKey) {
         console.log(`[M-Pesa] Already completed for checkout ${lookupId}; acknowledging`);
         log.outcome = "already_finalized";
@@ -358,6 +365,7 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       const normalizedReceipt = mpesaReceiptNumber ? String(mpesaReceiptNumber).trim() : null;
       const normalizedPhone = phoneNumber ? String(phoneNumber).trim() : null;
 
+      let paymentSettled = false;
       try {
         await runWithRetries(
           async () => {
@@ -371,7 +379,23 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
                 idempotencyKey: idempotencyKey,
                 updatedAt: new Date(),
               })
-              .where(eq(payments.id, payment.id));
+              .where(
+                and(
+                  eq(payments.id, payment.id),
+                  eq(payments.status, "pending")
+                )
+              );
+
+            const currentPaymentRows = await db
+              .select({ status: payments.status })
+              .from(payments)
+              .where(eq(payments.id, payment.id))
+              .limit(1);
+            if (currentPaymentRows[0]?.status !== "completed") {
+              log.outcome = "already_finalized";
+              return;
+            }
+            paymentSettled = true;
 
             if (payment.enrollmentId) {
               const enrollmentRecords = await db
@@ -423,6 +447,14 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
         });
       }
 
+      if (!paymentSettled) {
+        log.outcome = "already_finalized";
+        return res.status(200).json({
+          success: true,
+          message: "Already finalized",
+        });
+      }
+
       log.outcome = "payment_completed";
 
       await trackPaymentCompletion(
@@ -450,7 +482,7 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       if (paymentRecords.length > 0) {
         const payment = paymentRecords[0];
         log.paymentId = payment.id;
-        if (payment.status === "failed" || payment.status === "completed") {
+        if (payment.status === "failed" || payment.status === "completed" || payment.status === "cancelled") {
           log.outcome = "already_finalized";
           return res.status(200).json({ success: true, message: "Already finalized" });
         }

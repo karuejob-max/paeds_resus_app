@@ -106,6 +106,18 @@ export default function InstitutionalLifeSupport() {
       },
       onError: err => setError(err.message),
     });
+  const cancelPendingEnrollment =
+    trpc.institutionalLifeSupport.cancelPendingEnrollment.useMutation({
+      onSuccess: result => {
+        setMessage(
+          result.alreadyCancelled
+            ? "This pending enrollment was already cancelled."
+            : "Pending enrollment cancelled. No payment was taken."
+        );
+        void enrollmentQuery.refetch();
+      },
+      onError: err => setError(err.message),
+    });
 
   const course = catalogQuery.data?.course;
   const pricing = catalogQuery.data?.pricing;
@@ -478,6 +490,27 @@ export default function InstitutionalLifeSupport() {
                           Your institution must complete the bulk provider order before
                           the learning modules can open. No individual payment is due here.
                         </p>
+                        <Button
+                          className="mt-3"
+                          size="sm"
+                          variant="outline"
+                          disabled={cancelPendingEnrollment.isPending}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                "Cancel this unpaid Institutional Life Support enrollment? This preserves the record for audit and lets your institution assign you again later."
+                              )
+                            ) {
+                              cancelPendingEnrollment.mutate({
+                                enrollmentId: enrollment.id,
+                              });
+                            }
+                          }}
+                        >
+                          {cancelPendingEnrollment.isPending
+                            ? "Cancelling…"
+                            : "Cancel pending enrollment"}
+                        </Button>
                       </div>
                     ) : (
                       <div className="flex flex-wrap gap-3">

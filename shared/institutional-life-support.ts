@@ -1,7 +1,9 @@
 export const PAEDS_RESUS_ILS_PROGRAM_TYPE = "paeds_resus_ils" as const;
 export const PAEDS_RESUS_ILS_COURSE_SLUG = "paeds-resus-competency" as const;
-export const PAEDS_RESUS_ILS_DELIVERY_MODEL = "institution_paid_cohort" as const;
-export const PAEDS_RESUS_ILS_DELIVERY_LABEL = "Institution-paid provider cohort" as const;
+export const PAEDS_RESUS_ILS_DELIVERY_MODEL =
+  "institution_paid_cohort" as const;
+export const PAEDS_RESUS_ILS_DELIVERY_LABEL =
+  "Institution-paid provider cohort" as const;
 export const PAEDS_RESUS_ILS_BASE_PRICE_KES = 10_000;
 export const PAEDS_RESUS_ILS_CREDENTIALING_WINDOW_DAYS = 90;
 
@@ -64,4 +66,24 @@ export function formatIlsCredentialLabel(
   credential: PaedsResusIlsAhaCredential
 ): string {
   return credential.toUpperCase();
+}
+
+export interface IlsEnrollmentCancellationState {
+  enrollmentStatus: "active" | "cancelled";
+  paymentStatus: "pending" | "partial" | "completed" | null;
+  amountPaid: number | null;
+  cognitiveModulesComplete: boolean | null;
+  practicalSkillsSignedOff: boolean | null;
+}
+
+export function canCancelPendingIlsEnrollment(
+  enrollment: IlsEnrollmentCancellationState
+): boolean {
+  return (
+    enrollment.enrollmentStatus === "active" &&
+    enrollment.paymentStatus === "pending" &&
+    (enrollment.amountPaid ?? 0) === 0 &&
+    !enrollment.cognitiveModulesComplete &&
+    !enrollment.practicalSkillsSignedOff
+  );
 }

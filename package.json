@@ -79,6 +79,8 @@
     "db:verify-0136": "node scripts/verify-0136-nerp-cpd-controls.mjs",
     "db:apply-0138": "node scripts/apply-0138-nerp-external-nonnurse.mjs",
     "db:verify-0138": "node scripts/verify-0138-nerp-external-nonnurse.mjs",
+    "db:apply-0139": "node scripts/apply-0139-cancellable-ils-enrollments.mjs",
+    "db:verify-0139": "node scripts/verify-0139-cancellable-ils-enrollments.mjs",
     "db:verify-cpr-event-link": "node scripts/verify-cpr-event-link.mjs",
     "db:verify-cpr-event-loop": "node scripts/verify-cpr-event-loop.mjs",
     "db:fresh-migrate": "node scripts/db-snapshot-and-fresh-migrate.mjs",

@@ -12,6 +12,7 @@ describe("Institutional Life Support institutional delivery contract", () => {
         "getInstitutionRoster",
         "getInstitutionOrders",
         "createInstitutionOrder",
+        "cancelPendingEnrollment",
       ])
     );
   });

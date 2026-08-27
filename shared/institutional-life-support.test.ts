@@ -5,6 +5,7 @@ import {
   PAEDS_RESUS_ILS_BASE_PRICE_KES,
   PAEDS_RESUS_ILS_CREDENTIALING_WINDOW_DAYS,
   PAEDS_RESUS_ILS_DELIVERY_MODEL,
+  canCancelPendingIlsEnrollment,
   getAhaCredentialingPriceKes,
   getAhaFullTrainingPriceKes,
   getCredentialingDeadline,
@@ -47,6 +48,32 @@ describe("Institutional Life Support business rules", () => {
       )
     ).toBe(false);
     expect(PAEDS_RESUS_ILS_CREDENTIALING_WINDOW_DAYS).toBe(90);
+  });
+
+  it("allows cancellation only before payment, learning, or practical sign-off", () => {
+    const pending = {
+      enrollmentStatus: "active" as const,
+      paymentStatus: "pending" as const,
+      amountPaid: 0,
+      cognitiveModulesComplete: false,
+      practicalSkillsSignedOff: false,
+    };
+    expect(canCancelPendingIlsEnrollment(pending)).toBe(true);
+    expect(canCancelPendingIlsEnrollment({ ...pending, amountPaid: 1 })).toBe(
+      false
+    );
+    expect(
+      canCancelPendingIlsEnrollment({
+        ...pending,
+        cognitiveModulesComplete: true,
+      })
+    ).toBe(false);
+    expect(
+      canCancelPendingIlsEnrollment({
+        ...pending,
+        enrollmentStatus: "cancelled",
+      })
+    ).toBe(false);
   });
 
   it("uses add-on pricing before the cutoff and full-training pricing after it", () => {

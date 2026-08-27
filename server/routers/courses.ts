@@ -836,7 +836,7 @@ export const coursesRouter = router({
       const rows = await database
         .select({ id: enrollments.id })
         .from(enrollments)
-        .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, "paeds_resus_ils")))
+        .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, "paeds_resus_ils"), eq(enrollments.enrollmentStatus, "active")))
         .limit(1);
       if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Institutional Life Support enrollment not found." });
       const result = await markIlsCognitiveComplete(input.enrollmentId);
