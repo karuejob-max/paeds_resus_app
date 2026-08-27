@@ -84,7 +84,7 @@ async function assertCpdInstitutionAccess(
       ...role,
       departmentIds: assignments
         .map((row: { departmentId: number | null }) => row.departmentId)
-        .filter((departmentId): departmentId is number => departmentId != null),
+        .filter((departmentId: number | null): departmentId is number => departmentId != null),
     };
   }
 }
