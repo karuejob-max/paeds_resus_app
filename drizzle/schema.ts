@@ -2764,7 +2764,7 @@ export const cprSessions = mysqlTable("cprSessions", {
   startTime: timestamp("startTime").defaultNow().notNull(),
   endTime: timestamp("endTime"),
   status: mysqlEnum("status", ["active", "completed", "abandoned"]).default("active").notNull(),
-  outcome: mysqlEnum("outcome", ["ROSC", "pCOSCA", "mortality", "ongoing"]).default("ongoing"),
+  outcome: mysqlEnum("outcome", ["ROSC", "pCOSCA", "mortality", "transferred", "ongoing", "unknown"]).default("ongoing"),
   totalDuration: int("totalDuration"), // seconds
   cprQuality: mysqlEnum("cprQuality", ["excellent", "good", "adequate", "poor"]),
   notes: text("notes"),
