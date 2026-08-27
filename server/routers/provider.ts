@@ -8,6 +8,7 @@ import {
   cpdAttendees,
   institutionMemberships,
   institutionalAccounts,
+  professionalCredentials,
 } from "../../drizzle/schema";
 import { eq, and, desc, or, sql } from "drizzle-orm";
 import { autoLinkCpdFacilitiesForUser, syncProviderProfileFacility } from "../services/facility-registry.service";
@@ -21,6 +22,80 @@ type ProviderFacilityHistoryEntry = {
   lastAttendedAt: Date | null;
   departments: string[];
 };
+
+const LICENSED_PROVIDER_TYPES = new Set([
+  "nurse",
+  "doctor",
+  "pharmacist",
+  "paramedic",
+  "lab_tech",
+  "respiratory_therapist",
+  "midwife",
+]);
+
+const LIFE_SUPPORT_CREDENTIAL_TYPES = [
+  "paeds_resus_bls_cognitive",
+  "paeds_resus_bls_simulation",
+  "paeds_resus_bls_provider",
+  "external_aha_bls",
+  "external_aha_acls",
+  "external_aha_pals",
+  "external_aha_nrp",
+  "external_aha_other",
+] as const;
+
+async function calculateProviderProfileReadiness(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  userId: number,
+  profile: Record<string, any>,
+) {
+  const [user] = await db
+    .select({ providerType: users.providerType })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  const licenseRequired = user?.providerType != null && LICENSED_PROVIDER_TYPES.has(user.providerType);
+  let credentials: Array<typeof professionalCredentials.$inferSelect> = [];
+  try {
+    credentials = await db
+      .select()
+      .from(professionalCredentials)
+      .where(eq(professionalCredentials.userId, userId));
+  } catch {
+    // The additive migration may be rolling out; unverified is safer than complete.
+  }
+  const now = Date.now();
+  const isCurrent = (credential: (typeof credentials)[number]) =>
+    credential.status === "verified" &&
+    (credential.expiresAt == null || credential.expiresAt.getTime() > now);
+  const licenseCredential = credentials.find(credential => credential.credentialType === "regulatory_license");
+  const lifeSupportCredential = credentials.find(credential =>
+    (LIFE_SUPPORT_CREDENTIAL_TYPES as readonly string[]).includes(credential.credentialType) && isCurrent(credential),
+  );
+
+  const identityFields = [
+    profile.specialization,
+    profile.yearsOfExperience,
+    profile.bio,
+    profile.languages,
+  ];
+  const requirements = [
+    ...identityFields,
+    ...(licenseRequired ? [licenseCredential && isCurrent(licenseCredential)] : []),
+    lifeSupportCredential != null,
+  ];
+  const completed = requirements.filter(value => value === true || (value !== undefined && value !== null && value !== "" && value !== "[]")).length;
+  const completionPercentage = requirements.length === 0 ? 0 : Math.round((completed / requirements.length) * 100);
+  return {
+    completionPercentage,
+    identityComplete: identityFields.every(value => value !== undefined && value !== null && value !== "" && value !== "[]"),
+    verificationComplete: !licenseRequired || (licenseCredential != null && isCurrent(licenseCredential)),
+    licenseRequired,
+    licenseStatus: licenseCredential == null ? "missing" : licenseCredential.status === "verified" && !isCurrent(licenseCredential) ? "expired" : licenseCredential.status,
+    lifeSupportStatus: lifeSupportCredential ? "current" : credentials.some(credential => (LIFE_SUPPORT_CREDENTIAL_TYPES as readonly string[]).includes(credential.credentialType) && credential.status === "verified") ? "expired" : "missing",
+    credentials,
+  } as const;
+}
 
 async function getProviderFacilityHistory(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
@@ -133,8 +208,12 @@ export const providerRouter = router({
 
     if (!profile[0]) return null;
     await autoLinkCpdFacilitiesForUser(db, { userId: ctx.user.id, email: ctx.user.email ?? "" });
+    const readiness = await calculateProviderProfileReadiness(db, ctx.user.id, profile[0]);
     return {
       ...profile[0],
+      profileCompletionPercentage: readiness.completionPercentage,
+      profileCompleted: readiness.identityComplete,
+      professionalReadiness: readiness,
       facilityHistory: await getProviderFacilityHistory(db, ctx.user.id, ctx.user.email),
     };
   }),
@@ -180,18 +259,11 @@ export const providerRouter = router({
 
       // Calculate completion from the merged persisted profile. Dedicated workplace
       // edits must not make professional-profile completion fall backward merely
-      // because they do not resubmit unchanged facility context.
+      // because they do not resubmit unchanged facility context. Professional
+      // verification is completed only by structured, current credentials.
       const mergedProfile = { ...existingProfile, ...input };
-      const fields = [
-        mergedProfile.licenseNumber,
-        mergedProfile.specialization,
-        mergedProfile.yearsOfExperience,
-        mergedProfile.facilityId ?? mergedProfile.facilityName,
-        mergedProfile.facilityType,
-        mergedProfile.facilityRegion,
-        mergedProfile.bio,
-      ];
-      const completionPercentage = Math.round((fields.filter(f => f !== undefined && f !== null && f !== "").length / fields.length) * 100);
+      const readinessBeforeSave = await calculateProviderProfileReadiness(db, ctx.user.id, mergedProfile);
+      const completionPercentage = readinessBeforeSave.completionPercentage;
 
       const updateData: any = {
         ...input,
@@ -211,6 +283,15 @@ export const providerRouter = router({
         .set(updateData)
         .where(eq(providerProfiles.userId, ctx.user.id));
 
+      const [savedProfile] = await db
+        .select()
+        .from(providerProfiles)
+        .where(eq(providerProfiles.userId, ctx.user.id))
+        .limit(1);
+      const readinessAfterSave = savedProfile
+        ? await calculateProviderProfileReadiness(db, ctx.user.id, savedProfile)
+        : readinessBeforeSave;
+
       // Keep institutional staffing eligibility aligned when a provider changes
       // only their department. Previously this sync ran only when facilityId was
       // submitted, leaving institutionalStaffMembers.department and
@@ -226,7 +307,11 @@ export const providerRouter = router({
         }
       }
 
-      return { success: true, completionPercentage };
+      return {
+        success: true,
+        completionPercentage: readinessAfterSave.completionPercentage,
+        professionalReadiness: readinessAfterSave,
+      };
     }),
 
   // Get provider performance metrics

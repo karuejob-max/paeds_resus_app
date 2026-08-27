@@ -13,6 +13,7 @@ describe("institution account scopes", () => {
       "qi_reviewer",
       "accreditation_reviewer",
       "report_viewer",
+      "credential_manager",
     ]);
   });
 
@@ -37,6 +38,7 @@ describe("institution account scopes", () => {
 
   it("recognizes only declared scope keys", () => {
     expect(isKnownInstitutionAccountScope("finance_officer")).toBe(true);
+    expect(isKnownInstitutionAccountScope("credential_manager")).toBe(true);
     expect(isKnownInstitutionAccountScope("iers_coordinator")).toBe(false);
   });
 });

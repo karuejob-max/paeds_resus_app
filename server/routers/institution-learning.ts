@@ -8,6 +8,7 @@ import {
   enrollments,
   facilityDepartments,
   institutionEducationCoordinators,
+  institutionDepartmentHeads,
   institutionLearningTargets,
   institutionalAccounts,
   institutionalStaffMembers,
@@ -120,7 +121,8 @@ async function assertLearningAccess(
   db: any,
   user: any,
   institutionId: number,
-  requiredRoles: readonly InstitutionalProductRoleKey[]
+  requiredRoles: readonly InstitutionalProductRoleKey[],
+  options?: { allowDepartmentHead?: boolean }
 ) {
   if (await isInstitutionAdmin(db, user, institutionId))
     return {
@@ -141,6 +143,25 @@ async function assertLearningAccess(
     if (!(error instanceof TRPCError) || error.code !== "FORBIDDEN")
       throw error;
   }
+  if (options?.allowDepartmentHead) {
+    const headRows = await db
+      .select({ departmentId: institutionDepartmentHeads.departmentId })
+      .from(institutionDepartmentHeads)
+      .where(
+        and(
+          eq(institutionDepartmentHeads.institutionalAccountId, institutionId),
+          eq(institutionDepartmentHeads.userId, user.id),
+          eq(institutionDepartmentHeads.assignmentStatus, "active")
+        )
+      );
+    if (headRows.length > 0) {
+      return {
+        roleKey: "cpd_department_head" as const,
+        departmentIds: headRows.map((row: { departmentId: number }) => row.departmentId),
+      };
+    }
+  }
+
   const coordinatorRows = await db
     .select({ departmentId: institutionEducationCoordinators.departmentId })
     .from(institutionEducationCoordinators)
@@ -189,7 +210,7 @@ function assertCoordinatorDepartment(
   access: { roleKey: string; departmentIds: number[] | null },
   departmentId: number | null | undefined
 ) {
-  if (access.roleKey !== "cpd_education_coordinator") return;
+  if (access.roleKey !== "cpd_education_coordinator" && access.roleKey !== "cpd_department_head") return;
   if (departmentId == null || !access.departmentIds?.includes(departmentId)) {
     throw new TRPCError({
       code: "FORBIDDEN",
@@ -228,7 +249,8 @@ export const institutionLearningRouter = router({
           "cpd_reviewer",
           "cpd_reporter",
           "cpd_viewer",
-        ]
+        ],
+        { allowDepartmentHead: true }
       );
       const rows = await db
         .select({
@@ -262,7 +284,8 @@ export const institutionLearningRouter = router({
           "cpd_reviewer",
           "cpd_reporter",
           "cpd_viewer",
-        ]
+        ],
+        { allowDepartmentHead: true }
       );
       const rows = await db
         .select({
@@ -556,7 +579,8 @@ export const institutionLearningRouter = router({
           "cpd_reviewer",
           "cpd_reporter",
           "cpd_viewer",
-        ]
+        ],
+        { allowDepartmentHead: true }
       );
       const eventRows = await db
         .select({
@@ -736,7 +760,8 @@ export const institutionLearningRouter = router({
           "cpd_reviewer",
           "cpd_reporter",
           "cpd_viewer",
-        ]
+        ],
+        { allowDepartmentHead: true }
       );
       const period = input.periodType
         ? periodFor({ periodType: input.periodType })
@@ -902,7 +927,8 @@ export const institutionLearningRouter = router({
           "cpd_reviewer",
           "cpd_reporter",
           "cpd_viewer",
-        ]
+        ],
+        { allowDepartmentHead: true }
       );
       return loadInstitutionLearningDashboard(
         db,
@@ -933,7 +959,8 @@ export const institutionLearningRouter = router({
           "cpd_reviewer",
           "cpd_reporter",
           "cpd_viewer",
-        ]
+        ],
+        { allowDepartmentHead: true }
       );
       const dashboard = await loadInstitutionLearningDashboard(
         db,

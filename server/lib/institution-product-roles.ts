@@ -21,6 +21,7 @@ export type InstitutionalProductRoleKey =
   | "cpd_reviewer"
   | "cpd_reporter"
   | "cpd_viewer"
+  | "cpd_department_head"
   | "connected_services_manager"
   | "connected_services_viewer";
 

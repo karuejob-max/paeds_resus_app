@@ -1,7 +1,7 @@
 /**
  * Verify the production IERS schema and essential operational columns.
  *
- * Run after applying the guarded institutional migrations, including migration 0125:
+ * Run after applying the guarded institutional migrations, including migrations 0125–0127:
  *   pnpm run db:verify-iers
  *
  * The first IERS migrations use the repository's existing camelCase table
@@ -95,6 +95,10 @@ export const REQUIRED_TABLES = [
   { key: "pushSubscriptions", label: "IERS Web Push subscriptions", names: ["iers_push_subscriptions"] },
   { key: "pushDeliveryLog", label: "IERS push delivery log", names: ["iers_push_delivery_log"] },
   { key: "userNotificationPreferences", label: "durable user notification preferences", names: ["userNotificationPreferences", "user_notification_preferences"] },
+  { key: "professionalCredentials", label: "structured professional credentials", names: ["professionalCredentials", "professional_credentials"] },
+  { key: "professionalCredentialReminderEvents", label: "professional credential reminder events", names: ["professionalCredentialReminderEvents", "professional_credential_reminder_events"] },
+  { key: "institutionDepartmentHeads", label: "Departmental Head appointments", names: ["institutionDepartmentHeads", "institution_department_heads"] },
+  { key: "institutionDepartmentHeadEvents", label: "Departmental Head appointment audit history", names: ["institutionDepartmentHeadEvents", "institution_department_head_events"] },
 ];
 
 export const REQUIRED_COLUMNS = [
