@@ -214,16 +214,23 @@ Learners should see:
   now** — no other rails need to be built or supported.
 
 ### 6.3 Payment gating rules — **replaces the old rules entirely**
-**Cognitive-level (Phase 1) access is never payment-gated, for anyone, on
-either track.** Don't lock any cognitive course behind a payment check.
+**IERP and NERP share the same three-phase mechanics but have different payment timing.**
+The IERP rule is calendar-based, using East Africa Time (EAT) and the learner's
+IERP enrolment timestamp.
 
 - **Interns (IERP):**
-  - Phase 3 access requires the full program fee (KES 15,000) — payment is
-    required at the point of "signing up for," i.e. booking, Phase 3.
-  - Separately, if **4 months** pass since the intern's enrollment into the
-    **BLS cognitive course** with **zero payment recorded**, access locks
-    (this is the same 4-month deferred-payment mechanic that already
-    exists — it isn't new, just restated here for completeness).
+  - The full programme fee is **KES 15,000** for the IERP BLS + ACLS pathway.
+  - Learners who start between **1 August and 30 November** may access Phase 1
+    cognitive coursework and Phase 2 online simulations before payment. Their
+    payment deadline is **1 December EAT**; after that point, cognitive access
+    and further Phase 2 access require the full balance to be paid.
+  - Learners who start between **1 December and 31 July** must pay the full
+    KES 15,000 before accessing Phase 1 cognitive coursework or Phase 2.
+  - **Phase 3 access always requires the full programme fee paid**, regardless
+    of start month.
+  - IERP is not a Lipa Mdogo Mdogo plan. The payment action requests the full
+    remaining balance in one payment; an existing partial balance, if any,
+    must be settled before payment-gated access resumes.
 - **Nurses (NERP) — this is a genuine change from the current
   implementation:**
   - **BLS cognitive course is free** — no payment required to access or

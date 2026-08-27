@@ -7,15 +7,17 @@ import { storageGet, storagePut } from "../storage";
 import { getMpesaService } from "../services/mpesa";
 import { getDb } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
+import { normalizeKenyanPhoneNumber } from "../../shared/kenyan-phone";
 import {
   getAuthoritativePhase2CompletionStatus,
   getIerpEnrollment,
-  getIerpPaymentLockout,
+  getIerpPaymentAccess,
   IERP_DESIGNATIONS,
+  IERP_COGNITIVE_PROGRAMS,
+  IERP_TOTAL_FEE_KES,
 } from "../lib/ierp-program-state";
 import { getPaedsResusCertificateStatusForUser } from "../lib/paeds-resus-certificate-issuance";
 
-const IERP_AHA_PROGRAMS = ["bls", "acls", "pals", "nrp"] as const;
 
 export const ierpRouter = router({
   /** Return the user's IERP enrolment, without exposing institutional records. */
@@ -40,9 +42,11 @@ export const ierpRouter = router({
         if (existing.lifecycleStatus === "withdrawn") {
           throw new TRPCError({ code: "CONFLICT", message: "This IERP enrolment was withdrawn. Contact the programme team before restarting." });
         }
-        return { success: true, created: false, enrollmentId: existing.id, designation: existing.designation };
+        const payment = getIerpPaymentAccess(existing);
+        return { success: true, created: false, enrollmentId: existing.id, designation: existing.designation, cognitiveAccessLocked: payment.cognitiveAccessLocked, paymentDeadline: payment.paymentDeadline?.toISOString() ?? null };
       }
 
+      const enrolledAt = new Date();
       const inserted = await db
         .insert(ierpProgramEnrollments)
         .values({
@@ -53,12 +57,13 @@ export const ierpRouter = router({
           phaseStatus: "phase_1",
           phase1Status: "not_started",
           paymentStatus: "pending",
-          enrolledAt: new Date(),
+          enrolledAt,
         })
         .$returningId();
       const enrollmentId = (inserted as { id?: number }[])[0]?.id ?? 0;
       if (!enrollmentId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "IERP enrolment could not be created" });
-      return { success: true, created: true, enrollmentId, designation: input.designation };
+      const payment = getIerpPaymentAccess({ enrolledAt, totalPaidAmount: "0.00" });
+      return { success: true, created: true, enrollmentId, designation: input.designation, cognitiveAccessLocked: payment.cognitiveAccessLocked, paymentDeadline: payment.paymentDeadline?.toISOString() ?? null };
     }),
 
   /**
@@ -84,16 +89,20 @@ export const ierpRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       const program = await getIerpEnrollment(db, ctx.user.id);
       if (!program) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Start IERP before submitting Phase 1 evidence." });
+      const payment = getIerpPaymentAccess(program);
+      if (payment.cognitiveAccessLocked) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Complete the full KES 15,000 IERP programme payment before accessing or submitting Phase 1 coursework." });
+      }
 
       const ahaRows = await db
         .select({ programType: enrollments.programType, cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
         .from(enrollments)
-        .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, ["bls", "acls", "pals", "nrp"])));
+        .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, [...IERP_COGNITIVE_PROGRAMS])));
       const cognitive = new Map(ahaRows.map((row) => [row.programType, !!row.cognitiveModulesComplete]));
       if (!cognitive.get("bls")) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Complete the platform BLS cognitive modules before uploading Phase 1 evidence." });
       }
-      const hasAdvancedCognitive = (["acls", "pals", "nrp"] as const).some((programType) => cognitive.get(programType));
+      const hasAdvancedCognitive = IERP_COGNITIVE_PROGRAMS.filter((programType) => programType !== "bls").some((programType) => cognitive.get(programType));
       if (!hasAdvancedCognitive) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Complete the platform ACLS, PALS, or NRP cognitive modules before uploading Phase 1 evidence." });
       }
@@ -176,12 +185,12 @@ export const ierpRouter = router({
     if (!program) return null;
     const rows = await db.select().from(ierpPayments).where(eq(ierpPayments.programEnrollmentId, program.id)).orderBy(desc(ierpPayments.createdAt));
     const totalPaid = rows.filter((row) => row.status === "completed").reduce((total, row) => total + row.amountKsh, 0);
-    return {
+      return {
       programEnrollmentId: program.id,
-      feeKsh: 15000,
+      feeKsh: IERP_TOTAL_FEE_KES,
       totalPaidKsh: totalPaid,
-      balanceKsh: Math.max(0, 15000 - totalPaid),
-      isPaidInFull: totalPaid >= 15000,
+      balanceKsh: Math.max(0, IERP_TOTAL_FEE_KES - totalPaid),
+      isPaidInFull: totalPaid >= IERP_TOTAL_FEE_KES,
       status: program.paymentStatus,
       entries: rows,
     };
@@ -189,7 +198,7 @@ export const ierpRouter = router({
 
   /** Start an IERP payment intent; the callback later finalises this row. */
   initiatePayment: protectedProcedure
-    .input(z.object({ amountKsh: z.number().int().min(1).max(15000), phase: z.enum(["phase_1", "phase_2", "phase_3", "general"]), phoneNumber: z.string().regex(/^254\\d{9}$/, "Invalid phone number") }))
+    .input(z.object({ amountKsh: z.number().int().min(1).max(IERP_TOTAL_FEE_KES), phase: z.enum(["phase_1", "phase_2", "phase_3", "general"]), phoneNumber: z.string().trim().min(1) }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
@@ -197,11 +206,27 @@ export const ierpRouter = router({
       if (!program) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Start IERP before making a programme payment." });
       const paidRows = await db.select({ total: sum(ierpPayments.amountKsh) }).from(ierpPayments).where(and(eq(ierpPayments.programEnrollmentId, program.id), eq(ierpPayments.status, "completed")));
       const totalPaid = Number(paidRows[0]?.total ?? 0);
-      if (totalPaid + input.amountKsh > 15000) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: `The maximum remaining IERP balance is KES ${Math.max(0, 15000 - totalPaid).toLocaleString()}.` });
+      const remaining = Math.max(0, IERP_TOTAL_FEE_KES - totalPaid);
+      if (remaining <= 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The IERP programme is already fully paid." });
+      }
+      const [pendingPayment] = await db
+        .select({ id: ierpPayments.id })
+        .from(ierpPayments)
+        .where(and(eq(ierpPayments.programEnrollmentId, program.id), eq(ierpPayments.status, "pending")))
+        .limit(1);
+      if (pendingPayment) {
+        throw new TRPCError({ code: "CONFLICT", message: "An IERP payment is already awaiting M-Pesa confirmation. Wait for the result before trying again." });
+      }
+      if (input.amountKsh !== remaining) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `IERP requires one full payment of the remaining KES ${remaining.toLocaleString()} balance. Instalment amounts are not accepted.` });
+      }
+      const phoneNumber = normalizeKenyanPhoneNumber(input.phoneNumber);
+      if (!phoneNumber) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid Kenyan mobile number, for example 254712345678, +254712345678, or 0712345678." });
       }
       const reference = `IERP-${program.id}-${ctx.user.id}-${Date.now()}`;
-      const response = await getMpesaService().initiateSTKPush(input.phoneNumber, input.amountKsh, reference, "IERP programme payment");
+      const response = await getMpesaService().initiateSTKPush(phoneNumber, input.amountKsh, reference, "IERP programme payment");
       const checkoutRequestId = response.CheckoutRequestID;
       if (!checkoutRequestId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "M-Pesa did not return a checkout request ID." });
       await db.insert(ierpPayments).values({
@@ -213,7 +238,7 @@ export const ierpRouter = router({
         checkoutRequestId,
         providerReference: response.MerchantRequestID ?? null,
         idempotencyKey: checkoutRequestId,
-        phoneNumber: input.phoneNumber,
+        phoneNumber,
         status: "pending",
       });
       return { success: true as const, checkoutRequestId, message: response.CustomerMessage ?? "Confirm the M-Pesa prompt on your phone." };
@@ -238,7 +263,7 @@ export const ierpRouter = router({
         paymentStatus: enrollments.paymentStatus,
       })
       .from(enrollments)
-      .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, [...IERP_AHA_PROGRAMS])))
+      .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, [...IERP_COGNITIVE_PROGRAMS])))
       .orderBy(desc(enrollments.createdAt));
 
     const evidence = await db
@@ -258,12 +283,12 @@ export const ierpRouter = router({
       .orderBy(desc(ierpPhase1Evidence.updatedAt));
 
     const phase2 = await getAuthoritativePhase2CompletionStatus(db, ctx.user.id);
-    const payment = getIerpPaymentLockout({ enrolledAt: program.enrolledAt, totalPaidAmount: program.totalPaidAmount });
+    const payment = getIerpPaymentAccess({ enrolledAt: program.enrolledAt, totalPaidAmount: program.totalPaidAmount });
     const phase1EvidenceVerified =
       evidence.some((row) => row.documentType === "video_prework" && row.status === "verified") &&
       evidence.some((row) => row.documentType === "precourse_assessment" && row.status === "verified");
     const phase1Complete = program.phase1Status === "verified" || phase1EvidenceVerified;
-    const phase3GateUnlocked = phase1Complete && phase2.phase2Complete && payment.paid >= 15000;
+    const phase3GateUnlocked = phase1Complete && phase2.phase2Complete && payment.isPaidInFull;
     let universalCertificates: Awaited<ReturnType<typeof getPaedsResusCertificateStatusForUser>> = [];
     try {
       universalCertificates = await getPaedsResusCertificateStatusForUser(db, ctx.user.id);
@@ -293,6 +318,9 @@ export const ierpRouter = router({
         status: program.paymentStatus,
         totalPaid: payment.paid,
         paymentDeadline: payment.paymentDeadline?.toISOString() ?? null,
+        deferredStartWindow: payment.deferredStartWindow,
+        cognitiveAccessLocked: payment.cognitiveAccessLocked,
+        phase2BookingLocked: payment.phase2BookingLocked,
         paymentLockoutActive: payment.paymentLockoutActive,
       },
       aha: ahaRows,

@@ -907,6 +907,9 @@ export default function MicroCoursePlayerDB() {
   const isLoading = isAhaCourse
     ? ahaDetailsLoading
     : (catalogLoading || coursesLoading || detailsLoading);
+  const isIerpPaymentLocked = isAhaCourse && Boolean(
+    ahaDetailsError?.message?.includes("IERP cognitive access requires")
+  );
 
   if (isLoading) {
     return (
@@ -937,13 +940,17 @@ export default function MicroCoursePlayerDB() {
     return (
       <div className="min-h-screen bg-background p-4 flex flex-col items-center justify-center text-center">
         <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-        <h2 className="text-xl font-bold mb-2">Content Not Found</h2>
+        <h2 className="text-xl font-bold mb-2">{isIerpPaymentLocked ? "IERP payment required" : "Content Not Found"}</h2>
         <p className="text-muted-foreground mb-6 max-w-md">
-          {isAhaCourse && !ahaDetailsLoading && (ahaDetailsError || !ahaCourseDetails)
-            ? "This AHA course could not be loaded. Please refresh the page or return to AHA Courses and try again."
-            : "This course is not yet available in the interactive format."}
+          {isIerpPaymentLocked
+            ? "Your IERP cognitive access is locked until the full KES 15,000 programme fee is paid. August–November starters may use Phase 1 and Phase 2 before 1 December EAT; from December onward, complete payment before continuing."
+            : isAhaCourse && !ahaDetailsLoading && (ahaDetailsError || !ahaCourseDetails)
+              ? "This AHA course could not be loaded. Please refresh the page or return to AHA Courses and try again."
+              : "This course is not yet available in the interactive format."}
         </p>
-        <Button onClick={() => navigate(coursesHubPath)}>Go Back</Button>
+        <Button onClick={() => navigate(isIerpPaymentLocked ? "/learner-dashboard" : coursesHubPath)}>
+          {isIerpPaymentLocked ? "Open learner dashboard" : "Go Back"}
+        </Button>
       </div>
     );
   }

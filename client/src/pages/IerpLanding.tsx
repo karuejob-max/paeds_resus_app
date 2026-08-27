@@ -24,7 +24,7 @@ const phases = [
   {
     number: "03",
     title: "Hands-on assessment",
-    description: "Progress to a practical assessment only after the Phase 1 and authoritative Phase 2 gates are satisfied.",
+    description: "Progress to a practical assessment only after the Phase 1 and authoritative Phase 2 gates are satisfied and the full KES 15,000 programme fee is paid.",
     icon: ShieldCheck,
   },
 ];
@@ -60,6 +60,7 @@ export default function IerpLanding() {
               </Button>
             </div>
             <p className="mt-4 text-xs text-slate-300">Self-service entry. No registered facility or institutional coordinator is required to begin.</p>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-amber-100">The complete programme fee is KES 15,000 for AHA ACLS plus Paeds Resus BLS. August–November starters may begin Phase 1 and Phase 2 before payment; from December onward, full payment is required before cognitive access and further Phase 2 access.</p>
           </div>
           <div className="rounded-3xl border border-white/15 bg-white/10 p-6 shadow-2xl backdrop-blur-sm">
             <div className="flex items-center gap-3 border-b border-white/15 pb-5">
@@ -70,7 +71,8 @@ export default function IerpLanding() {
               {[
                 "One programme record belongs to you, not to an institutional roster.",
                 "Phase 2 progress is based on confirmed named roles, not generic attendance counts.",
-                "Phase 3 remains a separate hands-on assessment gate.",
+                "Phase 3 remains a separate hands-on assessment gate and requires the full KES 15,000 payment.",
+                "August–November starters have a temporary Phase 1–2 payment deferral; December onward requires full payment first.",
                 "Your IERP activity does not grant IERS institutional permissions.",
               ].map((item) => <p key={item} className="flex gap-3"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-teal-300" />{item}</p>)}
             </div>
@@ -89,12 +91,12 @@ export default function IerpLanding() {
 
       <section className="bg-white px-6 py-20 text-slate-950">
         <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-2 lg:items-start">
-          <div><p className="text-xs font-semibold uppercase tracking-[0.25em] text-teal-700">Designed for real hospitals</p><h2 className="mt-3 text-3xl font-semibold tracking-tight">Useful when resources, time, and certainty are limited.</h2><p className="mt-4 leading-7 text-slate-600">The programme is built around practical readiness: clear responsibilities, closed-loop communication, deliberate reassessment, and a visible route to the next safe action.</p></div>
+          <div><p className="text-xs font-semibold uppercase tracking-[0.25em] text-teal-700">Designed for real hospitals</p><h2 className="mt-3 text-3xl font-semibold tracking-tight">Useful when resources, time, and certainty are limited.</h2><p className="mt-4 leading-7 text-slate-600">The programme is built around practical readiness: clear responsibilities, closed-loop communication, deliberate reassessment, and a visible route to the next safe action.</p><p className="mt-4 leading-7 text-slate-600"><strong>Payment timing is explicit:</strong> the KES 15,000 fee is paid in full before Phase 3 for every learner. Only August–November starters may use the cognitive and online-simulation stages before payment; December–July starters must complete payment before starting cognitive coursework.</p></div>
           <div className="grid gap-3 sm:grid-cols-2">{["Clear next steps", "Role-specific simulation", "Private evidence review", "Recoverable payment ledger"].map((item) => <div key={item} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-800"><CheckCircle2 className="mb-3 h-5 w-5 text-teal-700" />{item}</div>)}</div>
         </div>
       </section>
 
-      <section className="bg-teal-800 px-6 py-16 text-white"><div className="mx-auto flex max-w-6xl flex-col gap-6 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-2xl font-semibold">Ready to begin?</h2><p className="mt-2 text-teal-100">Create your IERP record and start with the cognitive foundation.</p></div><Button size="lg" className="bg-white text-teal-900 hover:bg-teal-50" onClick={startIerp}>Start IERP <ArrowRight className="ml-2 h-4 w-4" /></Button></div></section>
+      <section className="bg-teal-800 px-6 py-16 text-white"><div className="mx-auto flex max-w-6xl flex-col gap-6 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-2xl font-semibold">Ready to begin?</h2><p className="mt-2 text-teal-100">Create your IERP record. August–November starters can begin the first two phases before payment; later starters pay KES 15,000 first.</p></div><Button size="lg" className="bg-white text-teal-900 hover:bg-teal-50" onClick={startIerp}>Start IERP <ArrowRight className="ml-2 h-4 w-4" /></Button></div></section>
       <Footer />
     </div>
   );

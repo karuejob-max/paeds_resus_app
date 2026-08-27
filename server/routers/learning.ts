@@ -6,6 +6,7 @@ import {
 } from "../../shared/split-module-html-sections";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
+import { getIerpPaymentAccessForUser, isIerpCognitiveProgram } from "../lib/ierp-program-state";
 import { eq, and, desc } from "drizzle-orm";
 import { invokeLLM } from "../_core/llm";
 import {
@@ -73,6 +74,44 @@ const SUMMATIVE_IDEMPOTENT_WINDOW_MS = 30_000;
 
 const SEEDED_COURSES = new Set<string>();
 let blsCatalogSyncPromise: Promise<void> | null = null;
+
+async function getProgramTypeForModule(db: any, moduleId: number): Promise<string | null> {
+  const moduleRows = await db
+    .select({ courseId: modules.courseId })
+    .from(modules)
+    .where(eq(modules.id, moduleId))
+    .limit(1);
+  const courseId = moduleRows[0]?.courseId;
+  if (!courseId) return null;
+  const courseRows = await db
+    .select({ programType: courses.programType })
+    .from(courses)
+    .where(eq(courses.id, courseId))
+    .limit(1);
+  return courseRows[0]?.programType ?? null;
+}
+
+async function getProgramTypeForQuiz(db: any, quizId: number): Promise<string | null> {
+  const quizRows = await db
+    .select({ moduleId: quizzes.moduleId })
+    .from(quizzes)
+    .where(eq(quizzes.id, quizId))
+    .limit(1);
+  const moduleId = Number(quizRows[0]?.moduleId ?? 0);
+  return moduleId > 0 ? getProgramTypeForModule(db, moduleId) : null;
+}
+
+async function assertIerpCognitiveAccess(db: any, userId: number | undefined, programType: string | null | undefined) {
+  if (!userId || !isIerpCognitiveProgram(programType)) return;
+  const payment = await getIerpPaymentAccessForUser(db, userId);
+  if (!payment) return;
+  if (payment.cognitiveAccessLocked) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "IERP cognitive access requires the full KES 15,000 programme payment. Learners who started between August and November may use Phase 1 and Phase 2 before December; from December onward, complete payment before continuing.",
+    });
+  }
+}
 
 function synchronizeBlsCatalog(db: any): Promise<void> {
   if (!blsCatalogSyncPromise) {
@@ -250,6 +289,7 @@ export const learningRouter = router({
       }
 
       const pt = courseRow.programType as string;
+      await assertIerpCognitiveAccess(db, ctx.user?.id, pt);
       let blsCatalogStale = false;
       if (pt === "bls" && SEEDED_COURSES.has(pt)) {
         const blsModuleRows = await (db as any)
@@ -322,6 +362,13 @@ export const learningRouter = router({
       if (!module.length) {
         throw new Error("Module not found");
       }
+
+      const moduleCourse = await (db as any)
+        .select({ programType: courses.programType })
+        .from(courses)
+        .where(eq(courses.id, module[0].courseId))
+        .limit(1);
+      await assertIerpCognitiveAccess(db, ctx.user?.id, moduleCourse[0]?.programType);
 
       // Fetch sections for this module
       let sections = await (db as any)
@@ -438,8 +485,9 @@ export const learningRouter = router({
   // Get quiz questions
   getQuizQuestions: publicProcedure
     .input(z.object({ quizId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = await getDb();
+      await assertIerpCognitiveAccess(db, ctx.user?.id, await getProgramTypeForQuiz(db, input.quizId));
       return (db as any)
         .select()
         .from(quizQuestions)
@@ -536,6 +584,8 @@ export const learningRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
+      await assertIerpCognitiveAccess(db, ctx.user.id, await getProgramTypeForQuiz(db, input.summativeQuizId));
+
       const isMicro = await isMicroCourseEnrollmentId(db as any, input.enrollmentId, ctx.user.id);
       const state = isMicro
         ? await getMicrocourseExamState(db as any, ctx.user.id, input.enrollmentId)
@@ -589,6 +639,9 @@ export const learningRouter = router({
       const examKind = examKindFromQuizTitle(quizTitle);
       const moduleId = Number(quizMeta[0]?.moduleId ?? 0);
       const quizPassingScore = Number(quizMeta[0]?.passingScore ?? 70);
+      if (moduleId > 0) {
+        await assertIerpCognitiveAccess(db, ctx.user.id, await getProgramTypeForModule(db, moduleId));
+      }
       const answersMap = answersArrayToMap(input.answers);
 
       const isMicro = await isMicroCourseEnrollmentId(db as any, input.enrollmentId, ctx.user.id);
@@ -906,6 +959,9 @@ export const learningRouter = router({
     .input(z.object({ moduleId: z.number(), enrollmentId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      await assertIerpCognitiveAccess(db, ctx.user.id, await getProgramTypeForModule(db, input.moduleId));
 
       // Check if any progress row exists for this module + enrollment
       const existing = await (db as any)

@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import {
   ierpProgramEnrollments,
+  institutionalStaffMembers,
   retrospectiveRoleClaims,
   trainingAttendance,
 } from "../../drizzle/schema";
@@ -8,6 +9,17 @@ import { getDb } from "../db";
 
 export const IERP_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"] as const;
 export type IerpDesignation = (typeof IERP_DESIGNATIONS)[number];
+
+/** AHA cognitive programmes currently supported by the IERP evidence path. */
+export const IERP_COGNITIVE_PROGRAMS = ["bls", "acls", "pals", "nrp"] as const;
+
+export function isIerpCognitiveProgram(value: string | null | undefined): value is (typeof IERP_COGNITIVE_PROGRAMS)[number] {
+  return value != null && (IERP_COGNITIVE_PROGRAMS as readonly string[]).includes(value);
+}
+
+export function isIerpDesignation(value: string | null | undefined): value is IerpDesignation {
+  return value != null && (IERP_DESIGNATIONS as readonly string[]).includes(value);
+}
 
 export const IERP_NAMED_TEAM_MEMBER_ROLES = [
   "team_member_airway_ventilation",
@@ -94,18 +106,91 @@ export async function refreshIerpPhase2Status(db: IerpDb, userId: number) {
   return phase2;
 }
 
-export function getIerpPaymentLockout(enrollment: {
+export const IERP_TOTAL_FEE_KES = 15_000;
+
+const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
+const IERP_DEFERRED_START_MONTH = 8;
+const IERP_DEFERRED_END_MONTH = 11;
+
+type IerpPaymentEnrollment = {
   enrolledAt: Date | null;
-  totalPaidAmount: string | null;
-}) {
-  const paid = Number(enrollment.totalPaidAmount ?? 0);
-  const joinedAt = enrollment.enrolledAt ? new Date(enrollment.enrolledAt) : null;
-  const FOUR_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 4;
-  const paymentDeadline = joinedAt ? new Date(joinedAt.getTime() + FOUR_MONTHS_MS) : null;
-  const paymentLockoutActive = !!paymentDeadline && paid <= 0 && Date.now() > paymentDeadline.getTime();
+  totalPaidAmount: string | number | null;
+};
+
+function eastAfricaCalendar(date: Date) {
+  const eatDate = new Date(date.getTime() + EAT_OFFSET_MS);
+  return {
+    year: eatDate.getUTCFullYear(),
+    month: eatDate.getUTCMonth() + 1,
+  };
+}
+
+function eastAfricaMidnight(year: number, month: number, day: number) {
+  return new Date(Date.UTC(year, month - 1, day) - EAT_OFFSET_MS);
+}
+
+/**
+ * IERP payment/access contract:
+ * - Learners who start in August, September, October, or November may access
+ *   Phase 1 and Phase 2 before paying.
+ * - From 1 December EAT, those learners need the full KES 15,000 paid before
+ *   cognitive access or further Phase 2 progress.
+ * - Learners who start in December through July need the full fee before any
+ *   cognitive access.
+ * - Full payment always unlocks the programme, regardless of start month.
+ *
+ * `now` is injectable so the month boundary is deterministic in tests.
+ */
+export function getIerpPaymentAccess(
+  enrollment: IerpPaymentEnrollment,
+  now: Date = new Date()
+) {
+  const paid = Math.max(0, Number(enrollment.totalPaidAmount ?? 0));
+  const balance = Math.max(0, IERP_TOTAL_FEE_KES - paid);
+  const isPaidInFull = paid >= IERP_TOTAL_FEE_KES;
+  const enrolledAt = enrollment.enrolledAt ? new Date(enrollment.enrolledAt) : null;
+  const startCalendar = enrolledAt ? eastAfricaCalendar(enrolledAt) : null;
+  const deferredStartWindow = !!startCalendar &&
+    startCalendar.month >= IERP_DEFERRED_START_MONTH &&
+    startCalendar.month <= IERP_DEFERRED_END_MONTH;
+  const paymentDeadline = deferredStartWindow && startCalendar
+    ? eastAfricaMidnight(startCalendar.year, 12, 1)
+    : null;
+  const paymentLockoutActive = !isPaidInFull && (
+    !deferredStartWindow || !paymentDeadline || now.getTime() >= paymentDeadline.getTime()
+  );
+
   return {
     paid,
+    balance,
+    isPaidInFull,
+    enrolledAt,
+    deferredStartWindow,
     paymentDeadline,
     paymentLockoutActive,
+    cognitiveAccessLocked: paymentLockoutActive,
+    phase2BookingLocked: paymentLockoutActive,
   };
+}
+
+/** Resolve the standalone IERP record, falling back to the legacy linked intern record. */
+export async function getIerpPaymentAccessForUser(db: IerpDb, userId: number) {
+  const enrollment = await getIerpEnrollment(db, userId);
+  if (enrollment) return getIerpPaymentAccess(enrollment);
+
+  const [staff] = await db
+    .select({ designation: institutionalStaffMembers.designation, totalPaidAmount: institutionalStaffMembers.totalPaidAmount, enrollmentDate: institutionalStaffMembers.enrollmentDate, createdAt: institutionalStaffMembers.createdAt })
+    .from(institutionalStaffMembers)
+    .where(and(eq(institutionalStaffMembers.userId, userId), eq(institutionalStaffMembers.facilityLinkStatus, "linked")))
+    .limit(1);
+  if (!staff || !isIerpDesignation(staff.designation)) return null;
+  return getIerpPaymentAccess({
+    enrolledAt: staff.enrollmentDate ?? staff.createdAt,
+    totalPaidAmount: staff.totalPaidAmount,
+  });
+}
+
+/** @deprecated Use getIerpPaymentAccess; retained for callers on the old name. */
+export function getIerpPaymentLockout(enrollment: IerpPaymentEnrollment) {
+  return getIerpPaymentAccess(enrollment);
 }

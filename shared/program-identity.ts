@@ -54,10 +54,11 @@ export function getProgramIdentity(designation: Designation | string | null | un
       programFullName: "Intern Emergency Readiness Program",
       rules: [
         "KES 15,000 total, subsidised — no licence number required",
-        "No payment required to start — begin Phase 1 and Phase 2 for free",
-        "You must make at least one payment within 4 months of joining to keep booking online simulation sessions",
+        "August–November starters may begin Phase 1 and Phase 2 before payment",
+        "From December onward, the full KES 15,000 must be paid before cognitive access or further Phase 2 access",
         "Phase 3 (hands-on assessment) requires the full balance paid",
-        "All payments, including instalments, are non-refundable",
+        "IERP is not a Lipa Mdogo Mdogo plan; the full balance is paid in one payment",
+        "All payments are non-refundable",
       ],
     };
   }

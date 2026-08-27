@@ -1,6 +1,6 @@
 import { and, eq, sum } from "drizzle-orm";
 import { ierpPayments, ierpProgramEnrollments } from "../../drizzle/schema";
-import type { IerpDb } from "./ierp-program-state";
+import { IERP_TOTAL_FEE_KES, type IerpDb } from "./ierp-program-state";
 
 export type IerpMpesaCallback = {
   checkoutRequestId: string;
@@ -69,7 +69,7 @@ export async function reconcileIerpMpesaPayment(db: IerpDb, input: IerpMpesaCall
       .from(ierpPayments)
       .where(and(eq(ierpPayments.programEnrollmentId, payment.programEnrollmentId), eq(ierpPayments.status, "completed")));
     const totalPaid = Number(paidRows[0]?.total ?? 0);
-    const paymentStatus = totalPaid >= 15000 ? "paid_in_full" : totalPaid > 0 ? "partial" : "pending";
+    const paymentStatus = totalPaid >= IERP_TOTAL_FEE_KES ? "paid_in_full" : totalPaid > 0 ? "partial" : "pending";
     await tx
       .update(ierpProgramEnrollments)
       .set({
