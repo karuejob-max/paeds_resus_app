@@ -47,7 +47,18 @@ describe("Certificate Service", () => {
     });
 
     it("should generate for each standard program type", async () => {
-      const types = ["bls", "acls", "pals", "fellowship", "instructor"] as const;
+      const types = [
+        "bls",
+        "acls",
+        "pals",
+        "fellowship",
+        "instructor",
+        "paeds_resus_phase2",
+        "paeds_resus_bls_provider",
+        "paeds_resus_acls_provider",
+        "paeds_resus_pals_provider",
+        "paeds_resus_nrp_provider",
+      ] as const;
       for (const programType of types) {
         const pdfBuffer = await generateCertificatePDF(
           baseCert({
@@ -143,6 +154,15 @@ describe("Certificate Service", () => {
         getCertificateFilenameSlug("fellowship", "Paediatric Septic Shock I")
       ).toBe("Paediatric-Septic-Shock-I");
     });
+
+    it("uses human-readable Paeds Resus certificate labels", () => {
+      expect(getCertificateFilenameSlug("paeds_resus_phase2", null)).toBe(
+        "Paeds-Resus-Phase-2-Online-Simulations"
+      );
+      expect(getCertificateFilenameSlug("paeds_resus_acls_provider", null)).toBe(
+        "Paeds-Resus-Certified-ACLS-Provider"
+      );
+    });
   });
 
   describe("Certificate Validity", () => {
@@ -160,6 +180,19 @@ describe("Certificate Service", () => {
       const issueDate = new Date("2025-05-28T00:00:00.000Z");
       const expiryDate = computeCertificateExpiryDate(issueDate, "fellowship");
       expect(expiryDate.getUTCFullYear()).toBe(2027);
+    });
+
+    it("should set 2-year expiry for Paeds Resus provider certs", async () => {
+      const { computeCertificateExpiryDate } = await import("./lib/certificate-expiry");
+      const issueDate = new Date("2026-01-20T00:00:00.000Z");
+      const expiryDate = computeCertificateExpiryDate(issueDate, "paeds_resus_acls_provider");
+      expect(expiryDate.getUTCFullYear()).toBe(2028);
+    });
+
+    it("should not expire the Phase 2 milestone certificate", async () => {
+      const { computeCertificateExpiryDate } = await import("./lib/certificate-expiry");
+      const issueDate = new Date("2026-01-20T00:00:00.000Z");
+      expect(computeCertificateExpiryDate(issueDate, "paeds_resus_phase2")).toBeNull();
     });
 
     it("should handle leap year expiry dates", async () => {

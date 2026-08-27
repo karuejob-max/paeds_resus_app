@@ -14,6 +14,7 @@ import {
   computeCertificateExpiryDate,
   formatCertificateExpiryDate,
 } from "./lib/certificate-expiry";
+import { getCertificateDisplayLabel } from "../shared/paeds-resus-certificates";
 
 /** ESM has no `__dirname`; bundled `dist/index.js` resolves logo paths relative to project root via `process.cwd()` and this fallback. */
 function certificatePdfDir(): string {
@@ -85,7 +86,7 @@ const BRAND = {
 
 interface CertificateData {
   recipientName: string;
-  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor" | "fellowship_diploma" | "heartsaver" | "nrp" | "bls_cognitive" | "acls_cognitive" | "pals_cognitive" | "heartsaver_cognitive" | "nrp_cognitive";
+  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor" | "fellowship_diploma" | "heartsaver" | "nrp" | "bls_cognitive" | "acls_cognitive" | "pals_cognitive" | "heartsaver_cognitive" | "nrp_cognitive" | "paeds_resus_phase2" | "paeds_resus_bls_provider" | "paeds_resus_acls_provider" | "paeds_resus_pals_provider" | "paeds_resus_nrp_provider";
   trainingDate: Date;
   /** Issue date for expiry calculation; defaults to trainingDate when omitted. */
   issueDate?: Date;
@@ -130,7 +131,7 @@ export function getCertificateFilenameSlug(
 ): string {
   const label = AHA_CERTIFICATION_PROGRAM_TYPES.has(programType)
     ? programType.replace(/_cognitive$/, "")
-    : courseDisplayName?.trim() || programType || "certificate";
+    : getCertificateDisplayLabel(programType, courseDisplayName) || "certificate";
 
   return (
     label
@@ -231,6 +232,41 @@ const CERTIFICATE_TEMPLATES: Record<string, CertificateTemplate> = {
     description:
       "has successfully completed all cognitive modules of the Neonatal Resuscitation Program. This certificate serves as a gatepass for the practical skills session, upon completion of which the full NRP certification will be issued.",
     hours: 4,
+  },
+  paeds_resus_phase2: {
+    title: "Paeds Resus Phase 2 — Online Simulations",
+    subtitle: "Phase 2 Completion Certificate",
+    description:
+      "has successfully completed the required confirmed online simulation roles in Phase 2 of the Paeds Resus readiness pathway and is eligible to proceed to Phase 3 hands-on assessment.",
+    hours: 9,
+  },
+  paeds_resus_bls_provider: {
+    title: "Paeds Resus Certified BLS Provider",
+    subtitle: "Paeds Resus Provider Certificate",
+    description:
+      "has successfully completed the Paeds Resus BLS provider pathway, including the required online learning and practical skills assessment.",
+    hours: 6,
+  },
+  paeds_resus_acls_provider: {
+    title: "Paeds Resus Certified ACLS Provider",
+    subtitle: "Paeds Resus Provider Certificate",
+    description:
+      "has successfully completed the Paeds Resus ACLS provider pathway, including the required online learning and practical skills assessment.",
+    hours: 16,
+  },
+  paeds_resus_pals_provider: {
+    title: "Paeds Resus Certified PALS Provider",
+    subtitle: "Paeds Resus Provider Certificate",
+    description:
+      "has successfully completed the Paeds Resus PALS provider pathway, including the required online learning and practical skills assessment.",
+    hours: 16,
+  },
+  paeds_resus_nrp_provider: {
+    title: "Paeds Resus Certified NRP Provider",
+    subtitle: "Paeds Resus Provider Certificate",
+    description:
+      "has successfully completed the Paeds Resus NRP provider pathway, including the required online learning and practical skills assessment.",
+    hours: 6,
   },
 };
 

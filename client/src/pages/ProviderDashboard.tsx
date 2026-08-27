@@ -41,6 +41,7 @@ import ProviderIersActionCard from "@/components/ProviderIersActionCard";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
+import { getCertificateDisplayLabel } from "@shared/paeds-resus-certificates";
 
 function daysUntilExpiry(expiryDate: string | Date | null | undefined): number | null {
   if (!expiryDate) return null;
@@ -60,6 +61,13 @@ function daysUntilExpiry(expiryDate: string | Date | null | undefined): number |
 const LIFE_SUPPORT_PROGRAM_TYPES = new Set([
   "bls", "acls", "pals", "heartsaver", "nrp",
   "bls_cognitive", "acls_cognitive", "pals_cognitive", "heartsaver_cognitive", "nrp_cognitive",
+]);
+const PAEDS_RESUS_CERTIFICATE_TYPES = new Set([
+  "paeds_resus_phase2",
+  "paeds_resus_bls_provider",
+  "paeds_resus_acls_provider",
+  "paeds_resus_pals_provider",
+  "paeds_resus_nrp_provider",
 ]);
 
 export default function ProviderDashboard({ defaultShowCertificates = false }: { defaultShowCertificates?: boolean }) {
@@ -164,6 +172,7 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
   const cpdCertificates = cpdCertData?.records ?? [];
 
   const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({
+    paedsResus: true,
     lifeSupport: true,
     fellowship: true,
     cpd: true,
@@ -180,6 +189,17 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
 
   const downloadCert = trpc.certificates.download.useMutation();
   const utils = trpc.useUtils();
+  const syncPaedsResusCertificatesMutation = trpc.certificates.syncPaedsResusCertificates.useMutation({
+    onSuccess: () => {
+      void utils.certificates.getMyCertificates.invalidate();
+    },
+  });
+  const paedsResusSyncAttempted = useRef(false);
+  useEffect(() => {
+    if (!isAuthenticated || !afterPaint || paedsResusSyncAttempted.current) return;
+    paedsResusSyncAttempted.current = true;
+    syncPaedsResusCertificatesMutation.mutate();
+  }, [afterPaint, isAuthenticated, syncPaedsResusCertificatesMutation]);
   const prefetchAhaHub = usePrefetchAhaHub();
 
   useEffect(() => {
@@ -209,8 +229,13 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
   // "My Certificates" grouped folders — CEO-requested 2026-08-11. Anything
   // not matched by LIFE_SUPPORT_PROGRAM_TYPES falls into Fellowship by
   // default (see that constant's own comment for why).
-  const lifeSupportCertificates = myCertificates.filter((c) => LIFE_SUPPORT_PROGRAM_TYPES.has(c.programType));
-  const fellowshipCertificates = myCertificates.filter((c) => !LIFE_SUPPORT_PROGRAM_TYPES.has(c.programType));
+  const paedsResusCertificates = myCertificates.filter((c) => PAEDS_RESUS_CERTIFICATE_TYPES.has(c.programType));
+  const lifeSupportCertificates = myCertificates.filter(
+    (c) => LIFE_SUPPORT_PROGRAM_TYPES.has(c.programType) && !PAEDS_RESUS_CERTIFICATE_TYPES.has(c.programType)
+  );
+  const fellowshipCertificates = myCertificates.filter(
+    (c) => !LIFE_SUPPORT_PROGRAM_TYPES.has(c.programType) && !PAEDS_RESUS_CERTIFICATE_TYPES.has(c.programType)
+  );
   const totalCertificateCount = myCertificates.length + cpdCertificates.length;
 
   const fellowshipCoursesRequired = fellowshipProgress?.coursesPillar?.required ?? 27;
@@ -295,7 +320,7 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
       >
         <div>
           <p className="font-medium text-foreground text-sm">
-            {c.courseTitle?.trim() || c.programType.toUpperCase()}
+            {getCertificateDisplayLabel(c.programType, c.courseTitle)}
           </p>
           {c.courseTitle?.trim() ? (
             <p className="text-xs text-muted-foreground uppercase tracking-wide">{c.programType}</p>
@@ -843,6 +868,19 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
               </div>
             ) : (
               <div className="space-y-4">
+                {paedsResusCertificates.length > 0 && (
+                  <CertificateFolder
+                    label="Paeds Resus Certificates"
+                    count={paedsResusCertificates.length}
+                    isOpen={openFolders.paedsResus}
+                    onToggle={() => toggleFolder("paedsResus")}
+                  >
+                    <ul className="space-y-3">
+                      {paedsResusCertificates.map((c) => renderCertificateRow(c))}
+                    </ul>
+                  </CertificateFolder>
+                )}
+
                 {lifeSupportCertificates.length > 0 && (
                   <CertificateFolder
                     label="Life Support Certificates"

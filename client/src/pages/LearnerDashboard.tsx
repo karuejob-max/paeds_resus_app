@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { getProgramIdentity } from "@shared/program-identity";
+import { getCertificateDisplayLabel } from "@shared/paeds-resus-certificates";
 import { inferDesignationFromCadre } from "@shared/cadre-designation-mapping";
 import { AlertCircle, Award, BookOpen, CheckCircle2, Download, FileText, GraduationCap, Loader2, Upload, Users } from "lucide-react";
 import { useLocation } from "wouter";
@@ -41,6 +42,17 @@ export default function LearnerDashboard() {
   });
   const utils = trpc.useUtils();
   const { track } = useProviderConversionAnalytics("/learner-dashboard");
+  const syncPaedsResusCertificatesMutation = trpc.certificates.syncPaedsResusCertificates.useMutation({
+    onSuccess: () => {
+      void utils.certificates.getMyCertificates.invalidate();
+    },
+  });
+  const paedsResusSyncAttempted = useRef(false);
+  useEffect(() => {
+    if (!isAuthenticated || selectedRole !== "provider" || paedsResusSyncAttempted.current) return;
+    paedsResusSyncAttempted.current = true;
+    syncPaedsResusCertificatesMutation.mutate();
+  }, [isAuthenticated, selectedRole, syncPaedsResusCertificatesMutation]);
   const downloadCert = trpc.certificates.download.useMutation();
   const renewalReminderEmail = trpc.certificates.requestRenewalReminderEmail.useMutation({
     onSuccess: (r) => {
@@ -609,11 +621,11 @@ export default function LearnerDashboard() {
                         <li key={c.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border p-3">
                           <div>
                             <p className="font-medium text-foreground">
-                              {c.courseTitle?.trim() || c.programType.toUpperCase()}
+                              {getCertificateDisplayLabel(c.programType, c.courseTitle)}
                             </p>
-                            {c.courseTitle?.trim() ? (
-                              <p className="text-xs text-muted-foreground uppercase tracking-wide">{c.programType}</p>
-                            ) : null}
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                              {c.readinessPathway?.replace(/_/g, " ") ?? c.programType}
+                            </p>
                             <p className="text-sm text-muted-foreground">
                               Issued {c.issueDate ? new Date(c.issueDate).toLocaleDateString() : "—"}
                               {c.expiryDate ? ` · Expires ${new Date(c.expiryDate).toLocaleDateString()}` : ""}
@@ -1101,15 +1113,26 @@ function IerpProgramCard() {
 
   const phase1Done = !!summary?.phase1Complete;
   const phase2Done = !!summary?.phase2.phase2Complete;
+  const phase2CertificateIssued = !!summary?.phase2Certificate;
   const phase3Unlocked = !!summary?.phase3GateUnlocked;
   const phaseStatus = [
     { label: "Phase 1 — Cognitive foundation", done: phase1Done, detail: summary?.phase1Status ?? "Loading" },
     {
       label: "Phase 2 — Online simulations",
       done: phase2Done,
-      detail: summary ? `Team Leader ${summary.phase2.teamLeaderCount}/${summary.phase2.teamLeaderRequired} · Named roles ${summary.phase2.teamMemberRolesCovered}/${summary.phase2.teamMemberRolesRequired}` : "Loading",
+      detail: summary
+        ? `Team Leader ${summary.phase2.teamLeaderCount}/${summary.phase2.teamLeaderRequired} · Named roles ${summary.phase2.teamMemberRolesCovered}/${summary.phase2.teamMemberRolesRequired}${phase2CertificateIssued ? " · Certificate issued" : phase2Done ? " · Certificate pending sync" : ""}`
+        : "Loading",
     },
-    { label: "Phase 3 — Hands-on assessment", done: false, detail: phase3Unlocked ? "Unlocked" : "Locked until Phases 1 and 2 are complete" },
+    {
+      label: "Phase 3 — Hands-on assessment",
+      done: false,
+      detail: phase3Unlocked
+        ? summary?.providerCertificates?.length
+          ? "Unlocked · provider certificate issued"
+          : "Unlocked"
+        : "Locked until Phases 1 and 2 are complete",
+    },
   ];
 
   return (
@@ -1130,6 +1153,21 @@ function IerpProgramCard() {
               <p className="mt-1 capitalize">{phase.detail}</p>
             </div>
           ))}
+        </div>
+        <div className="rounded-lg border border-indigo-100 bg-white p-3 space-y-2">
+          <p className="text-sm font-semibold text-indigo-950">Completion certificates</p>
+          <p className="text-xs text-slate-600">
+            {phase2CertificateIssued
+              ? "Your Paeds Resus Phase 2 — Online Simulations certificate is ready and confirms eligibility for Phase 3."
+              : phase2Done
+                ? "Phase 2 is complete. Your certificate is being prepared; refresh this page if it does not appear in My Certificates."
+                : "The Phase 2 certificate is issued after every required online simulation role is confirmed."}
+          </p>
+          {summary?.providerCertificates?.length ? (
+            <p className="text-xs font-medium text-emerald-700">
+              {summary.providerCertificates.length} Paeds Resus provider certificate{summary.providerCertificates.length === 1 ? "" : "s"} issued.
+            </p>
+          ) : null}
         </div>
         <div className="rounded-lg border border-indigo-100 bg-white p-3 space-y-3">
           <div>

@@ -21,6 +21,10 @@ import {
   getCertificateFilenameSlug,
 } from "../certificate-pdf";
 import { computeCertificateExpiryDate } from "../lib/certificate-expiry";
+import {
+  ensurePaedsResusCertificatesForUser,
+  getPaedsResusCertificateStatusForUser,
+} from "../lib/paeds-resus-certificate-issuance";
 
 const certificateSchema = z.object({
   enrollmentId: z.number(),
@@ -88,6 +92,7 @@ export const certificateRouter = router({
             ? {
                 certificateNumber: result.certificate.certificateNumber,
                 programType: result.certificate.programType,
+                readinessPathway: result.certificate.readinessPathway ?? null,
                 issueDate: result.certificate.issueDate,
                 expiryDate: result.certificate.expiryDate,
               }
@@ -123,8 +128,34 @@ export const certificateRouter = router({
         issueDate: c.issueDate,
         expiryDate: c.expiryDate,
         certificateUrl: c.certificateUrl,
+        readinessPathway: c.readinessPathway ?? null,
       })),
     };
+  }),
+
+  /**
+   * Idempotently projects all eligible universal Paeds Resus certificates for
+   * the signed-in learner. This is a recovery/backfill action as well as the
+   * normal dashboard trigger, so a transient PDF/database failure can be
+   * retried without issuing duplicates.
+   */
+  syncPaedsResusCertificates: protectedProcedure.mutation(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) {
+      return { success: false as const, error: "Database unavailable" };
+    }
+    const result = await ensurePaedsResusCertificatesForUser(db, ctx.user.id);
+    return {
+      success: true as const,
+      phase2: result.phase2,
+      providers: result.providers,
+    };
+  }),
+
+  getPaedsResusCertificateStatus: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return [];
+    return getPaedsResusCertificateStatusForUser(db, ctx.user.id);
   }),
 
   // Get certificate by enrollment ID
