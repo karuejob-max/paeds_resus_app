@@ -3,10 +3,12 @@ import {
   clearOfflineDataForActor,
   enqueueOfflineCommand,
   getOfflineSnapshot,
+  getOfflineCommand,
   getOfflineSnapshotFreshness,
   getOfflineSyncCounts,
   listOfflineReviewCommands,
   listOfflineCommands,
+  pruneOfflineData,
   offlineStoreKeys,
   saveOfflineSnapshot,
   updateOfflineCommand,
@@ -17,6 +19,29 @@ describe("platform offline store", () => {
 
   beforeEach(async () => {
     await clearOfflineDataForActor(990000);
+  });
+
+  it("rejects a snapshot without an authenticated actor", async () => {
+    await expect(saveOfflineSnapshot({
+      key: `scope-test-${testSuffix}`,
+      kind: "course_module",
+      aggregateId: "module-unauthenticated",
+      version: "synthetic-v1",
+      payload: {},
+      savedAt: Date.now(),
+    })).rejects.toThrow("authenticated actor");
+  });
+
+  it("rejects an institution command without tenant scope", async () => {
+    await expect(enqueueOfflineCommand({
+      localEventId: `scope-command-${testSuffix}`,
+      aggregateType: "crash_cart_check",
+      aggregateId: "shift-unauthorized",
+      actorId: 990000,
+      actionType: "save_draft",
+      payload: {},
+      clientCreatedAt: Date.now(),
+    })).rejects.toThrow("institution scope");
   });
 
   it("stores a versioned snapshot for offline read-only access", async () => {
@@ -103,6 +128,35 @@ describe("platform offline store", () => {
     expect(review.some((command) => command.localEventId === localEventId)).toBe(true);
     const pending = await listOfflineCommands(1000);
     expect(pending.some((command) => command.localEventId === localEventId)).toBe(false);
+  });
+
+  it("prunes expired snapshots and old acknowledged commands", async () => {
+    const expiredKey = `expired-${testSuffix}`;
+    await saveOfflineSnapshot({
+      key: expiredKey,
+      kind: "course_module",
+      aggregateId: "expired-module",
+      actorId: 990000,
+      version: "expired",
+      payload: {},
+      savedAt: 1_000,
+      expiresAt: 2_000,
+    });
+    const acknowledgedId = `acknowledged-${testSuffix}`;
+    await enqueueOfflineCommand({
+      localEventId: acknowledgedId,
+      aggregateType: "course_progress",
+      aggregateId: "course-expired",
+      actorId: 990000,
+      actionType: "bookmark",
+      payload: {},
+      clientCreatedAt: 1_000,
+    });
+    await updateOfflineCommand(acknowledgedId, { status: "acknowledged" });
+    const removed = await pruneOfflineData(Date.now() + 31 * 24 * 60 * 60 * 1000);
+    expect(removed).toBeGreaterThanOrEqual(2);
+    expect(await getOfflineSnapshot(expiredKey)).toBeNull();
+    expect(await getOfflineCommand(acknowledgedId)).toBeNull();
   });
 
   it("clears only the selected actor's local records", async () => {

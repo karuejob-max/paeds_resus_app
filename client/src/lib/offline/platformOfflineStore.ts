@@ -80,7 +80,41 @@ const SNAPSHOTS_STORE = "snapshots";
 const COMMANDS_STORE = "commands";
 const META_STORE = "meta";
 
+const TENANT_SCOPED_COMMANDS = new Set<OfflineAggregateType>([
+  "cpd_attendance_intent",
+  "utl_response_intent",
+  "crash_cart_check",
+  "role_report_draft",
+  "targeted_report",
+  "debrief_draft",
+]);
+
+function assertOfflineCommandScope(command: { aggregateType: OfflineAggregateType; actorId?: number; tenantId?: number }) {
+  if (!Number.isInteger(command.actorId) || Number(command.actorId) <= 0) {
+    throw new Error("An authenticated actor is required for offline work.");
+  }
+  if (TENANT_SCOPED_COMMANDS.has(command.aggregateType) && (!Number.isInteger(command.tenantId) || Number(command.tenantId) <= 0)) {
+    throw new Error("An institution scope is required for this offline record.");
+  }
+}
+
+function assertOfflineSnapshotScope(snapshot: Pick<OfflineSnapshot, "actorId" | "kind">) {
+  if (!Number.isInteger(snapshot.actorId) || Number(snapshot.actorId) <= 0) {
+    throw new Error("An authenticated actor is required for offline snapshots.");
+  }
+  if (snapshot.kind === "iers_shift_snapshot" && snapshot.actorId == null) {
+    throw new Error("A provider scope is required for readiness snapshots.");
+  }
+}
+
 let dbPromise: Promise<IDBDatabase> | null = null;
+
+function notifyStorageFailure(error: unknown) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("platform-offline-storage-error", {
+    detail: { message: error instanceof Error ? error.message : "Offline storage is unavailable." },
+  }));
+}
 
 function localId(prefix: string): string {
   const randomUUID = globalThis.crypto?.randomUUID;
@@ -119,6 +153,7 @@ function openPlatformOfflineDb(): Promise<IDBDatabase> {
     };
   }).catch((error) => {
     dbPromise = null;
+    notifyStorageFailure(error);
     throw error;
   });
   return dbPromise!;
@@ -132,6 +167,7 @@ function requestResult<T>(request: IDBRequest<T>): Promise<T> {
 }
 
 export async function saveOfflineSnapshot<TPayload>(snapshot: OfflineSnapshot<TPayload>): Promise<void> {
+  assertOfflineSnapshotScope(snapshot);
   const db = await openPlatformOfflineDb();
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(SNAPSHOTS_STORE, "readwrite");
@@ -139,6 +175,9 @@ export async function saveOfflineSnapshot<TPayload>(snapshot: OfflineSnapshot<TP
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error ?? new Error("Could not save offline snapshot"));
     transaction.onabort = () => reject(transaction.error ?? new Error("Offline snapshot save aborted"));
+  }).catch((error) => {
+    notifyStorageFailure(error);
+    throw error;
   });
 }
 
@@ -181,6 +220,7 @@ export async function enqueueOfflineCommand<TPayload>(
   command: Omit<OfflineCommand<TPayload>, "localEventId" | "status" | "attempts" | "queuedAt" | "updatedAt"> & { localEventId?: string },
 ): Promise<OfflineCommand<TPayload>> {
   const now = Date.now();
+  assertOfflineCommandScope(command);
   const fullCommand: OfflineCommand<TPayload> = {
     ...command,
     localEventId: command.localEventId ?? localId("offline"),
@@ -196,6 +236,9 @@ export async function enqueueOfflineCommand<TPayload>(
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error ?? new Error("Could not queue offline command"));
     transaction.onabort = () => reject(transaction.error ?? new Error("Offline command queue aborted"));
+  }).catch((error) => {
+    notifyStorageFailure(error);
+    throw error;
   });
   return fullCommand;
 }
@@ -245,6 +288,45 @@ export async function updateOfflineCommand<TPayload>(
     transaction.onerror = () => reject(transaction.error ?? new Error("Could not update offline command"));
     transaction.onabort = () => reject(transaction.error ?? new Error("Offline command update aborted"));
   });
+}
+
+export async function pruneOfflineData(now = Date.now()): Promise<number> {
+  try {
+    const db = await openPlatformOfflineDb();
+    let removed = 0;
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction([SNAPSHOTS_STORE, COMMANDS_STORE], "readwrite");
+      const snapshotCursor = transaction.objectStore(SNAPSHOTS_STORE).openCursor();
+      snapshotCursor.onsuccess = () => {
+        const cursor = snapshotCursor.result;
+        if (!cursor) return;
+        const snapshot = cursor.value as OfflineSnapshot;
+        if (snapshot.expiresAt != null && snapshot.expiresAt <= now) {
+          cursor.delete();
+          removed += 1;
+        }
+        cursor.continue();
+      };
+      const commandCursor = transaction.objectStore(COMMANDS_STORE).openCursor();
+      commandCursor.onsuccess = () => {
+        const cursor = commandCursor.result;
+        if (!cursor) return;
+        const command = cursor.value as OfflineCommand;
+        if (command.status === "acknowledged" && command.updatedAt < now - 7 * 24 * 60 * 60 * 1000) {
+          cursor.delete();
+          removed += 1;
+        }
+        cursor.continue();
+      };
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error("Could not prune offline data"));
+      transaction.onabort = () => reject(transaction.error ?? new Error("Offline data prune aborted"));
+    });
+    return removed;
+  } catch (error) {
+    notifyStorageFailure(error);
+    return 0;
+  }
 }
 
 export async function removeOfflineCommand(localEventId: string): Promise<void> {
@@ -354,14 +436,15 @@ export async function clearPlatformOfflineData(): Promise<void> {
     transaction.objectStore(SNAPSHOTS_STORE).clear();
     transaction.objectStore(COMMANDS_STORE).clear();
     await transactionDone(transaction);
-  } catch {
-    // A storage failure should not crash the app; the next status refresh will keep showing the issue.
+  } catch (error) {
+    notifyStorageFailure(error);
+    // A storage failure should not crash the app; the visible status surface keeps showing the issue.
   }
 }
 
 export const offlineStoreKeys = {
-  course: (courseId: string, version: string) => `course:${courseId}:${version}`,
-  module: (moduleId: number, version: string) => `module:${moduleId}:${version}`,
+  course: (courseId: string, version: string, actorId?: number) => `course:${actorId ?? "legacy"}:${courseId}:${version}`,
+  module: (moduleId: number, version: string, actorId?: number) => `module:${actorId ?? "legacy"}:${moduleId}:${version}`,
   shift: (teamId: number, version: string) => `shift:${teamId}:${version}`,
   providerTeams: (actorId: number, horizonDays: number) => `provider-teams:${actorId}:${horizonDays}`,
   providerDuties: (actorId: number) => `provider-duties:${actorId}`,

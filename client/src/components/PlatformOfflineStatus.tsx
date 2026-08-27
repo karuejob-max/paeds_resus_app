@@ -2,12 +2,26 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { AlertTriangle, Download, RefreshCw, Trash2, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { clearOfflineActorData, clearPlatformOfflineData, getOfflineMeta, getOfflineSyncCounts, listOfflineReviewCommands, saveOfflineMeta, updateOfflineCommand, type OfflineCommand, type OfflineSyncCounts } from "@/lib/offline/platformOfflineStore";
+import { clearOfflineActorData, clearPlatformOfflineData, getOfflineMeta, getOfflineSyncCounts, listOfflineReviewCommands, pruneOfflineData, removeOfflineCommand, saveOfflineMeta, updateOfflineCommand, type OfflineCommand, type OfflineSyncCounts } from "@/lib/offline/platformOfflineStore";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
+
+function offlineDomainLabel(command: OfflineCommand) {
+  const labels: Record<OfflineCommand["aggregateType"], string> = {
+    course_progress: "Course progress",
+    formative_practice: "Formative practice",
+    cpd_attendance_intent: "CPD attendance intent",
+    utl_response_intent: "UTL response intent",
+    crash_cart_check: "Crash-cart check",
+    role_report_draft: "Role report draft",
+    targeted_report: "Targeted ERT report",
+    debrief_draft: "Debrief draft",
+  };
+  return labels[command.aggregateType] ?? command.aggregateType;
+}
 
 const EMPTY_COUNTS: OfflineSyncCounts = {
   queued: 0,
@@ -27,6 +41,7 @@ export default function PlatformOfflineStatus() {
   const [isClearing, setIsClearing] = useState(false);
   const [reviewCommands, setReviewCommands] = useState<OfflineCommand[]>([]);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -42,7 +57,7 @@ export default function PlatformOfflineStatus() {
   useEffect(() => {
     const refresh = () => {
       setIsOnline(navigator.onLine);
-      void Promise.all([getOfflineSyncCounts(), listOfflineReviewCommands(20)]).then(([nextCounts, nextReviewCommands]) => {
+      void pruneOfflineData().then(() => Promise.all([getOfflineSyncCounts(), listOfflineReviewCommands(20)])).then(([nextCounts, nextReviewCommands]) => {
         setCounts(nextCounts);
         setReviewCommands(nextReviewCommands);
       });
@@ -54,14 +69,19 @@ export default function PlatformOfflineStatus() {
       setInstallPrompt(event as BeforeInstallPromptEvent);
     };
     const onAppInstalled = () => setInstallPrompt(null);
+    const onStorageError = (event: Event) => {
+      const detail = (event as CustomEvent<{ message?: string }>).detail;
+      setStorageError(detail?.message ?? "Offline storage is unavailable on this device.");
+    };
 
     refresh();
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
     window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
     window.addEventListener("appinstalled", onAppInstalled);
+    window.addEventListener("platform-offline-storage-error", onStorageError);
     const interval = window.setInterval(() => {
-      void Promise.all([getOfflineSyncCounts(), listOfflineReviewCommands(20)]).then(([nextCounts, nextReviewCommands]) => {
+      void pruneOfflineData().then(() => Promise.all([getOfflineSyncCounts(), listOfflineReviewCommands(20)])).then(([nextCounts, nextReviewCommands]) => {
         setCounts(nextCounts);
         setReviewCommands(nextReviewCommands);
       });
@@ -72,13 +92,14 @@ export default function PlatformOfflineStatus() {
       window.removeEventListener("offline", onOffline);
       window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
       window.removeEventListener("appinstalled", onAppInstalled);
+      window.removeEventListener("platform-offline-storage-error", onStorageError);
       window.clearInterval(interval);
     };
   }, []);
 
   const pendingCount = counts.queued + counts.sending + counts.failed;
   const reviewCount = counts.conflict + counts.rejected + counts.requiresReview;
-  const shouldShow = !isOnline || pendingCount > 0 || reviewCount > 0 || Boolean(installPrompt);
+  const shouldShow = !isOnline || pendingCount > 0 || reviewCount > 0 || Boolean(installPrompt) || Boolean(storageError);
   if (!shouldShow) return null;
 
   const handleClearOfflineData = async () => {
@@ -100,6 +121,14 @@ export default function PlatformOfflineStatus() {
     setReviewCommands(nextReviewCommands);
   };
 
+  const handleDiscard = async (command: OfflineCommand) => {
+    if (!window.confirm(`Discard this local ${offlineDomainLabel(command).toLowerCase()}? This removes the device copy and cannot be undone.`)) return;
+    await removeOfflineCommand(command.localEventId);
+    setReviewCommands((current) => current.filter((item) => item.localEventId !== command.localEventId));
+    const nextCounts = await getOfflineSyncCounts();
+    setCounts(nextCounts);
+  };
+
   const handleInstall = async () => {
     if (!installPrompt) return;
     setIsInstalling(true);
@@ -119,6 +148,7 @@ export default function PlatformOfflineStatus() {
           {isOnline ? <Wifi className="h-4 w-4 shrink-0 text-emerald-700" /> : <WifiOff className="h-4 w-4 shrink-0 text-amber-700" />}
           <span className="font-semibold text-slate-900">{isOnline ? "Online" : "Offline mode"}</span>
           {!isOnline && <span className="text-slate-600">Saved local work is not server-confirmed until synchronization completes.</span>}
+          {storageError && <span className="font-semibold text-rose-700">Offline storage problem: {storageError}</span>}
           {isOnline && pendingCount > 0 && <span className="text-slate-600">{pendingCount} local record{pendingCount === 1 ? "" : "s"} awaiting server confirmation.</span>}
           {reviewCount > 0 && <span className="inline-flex items-center gap-1 font-semibold text-rose-700"><AlertTriangle className="h-3.5 w-3.5" />{reviewCount} local record{reviewCount === 1 ? "" : "s"} require review.</span>}
         </div>
@@ -137,11 +167,14 @@ export default function PlatformOfflineStatus() {
             {reviewCommands.map((command) => (
               <div key={command.localEventId} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-rose-200 bg-white p-2">
                 <div className="min-w-0">
-                  <p className="font-medium">{command.aggregateType} · {command.actionType}</p>
+                  <p className="font-medium">{offlineDomainLabel(command)} · {command.actionType}</p>
                   <p className="truncate text-rose-900/70">Updated {new Date(command.updatedAt).toLocaleString()} · {command.status.replace("_", " ")}</p>
                   {command.lastError && <p className="mt-0.5 text-rose-900/80">{command.lastError}</p>}
                 </div>
-                {command.status === "failed" && <Button type="button" size="sm" variant="outline" onClick={() => void handleRetryFailed(command)} className="h-8 bg-white">Retry</Button>}
+                <div className="flex shrink-0 gap-2">
+                  {command.status === "failed" && <Button type="button" size="sm" variant="outline" onClick={() => void handleRetryFailed(command)} className="h-8 bg-white">Retry</Button>}
+                  <Button type="button" size="sm" variant="ghost" onClick={() => void handleDiscard(command)} className="h-8 text-rose-700">Discard</Button>
+                </div>
               </div>
             ))}
           </div>
