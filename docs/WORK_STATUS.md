@@ -1,3 +1,4 @@
+| 2026-08-27 | Manus | **In progress — migration 0140 reservation:** Migration 0140 is reserved for the additive non-arrest ResusGPS case-event timeline only; no production schema action is authorized. Avoid overlapping edits to CPR-GPS or the active IERS activation call-off paths. | PR #654 |
 
 **Purpose:** One file that Manus, Codex, and Cursor read and update. No pasting of responses; sync via git.  
 **Workflow:** See AI_TEAM_WORKFLOW.md in this folder.
