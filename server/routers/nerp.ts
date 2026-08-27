@@ -15,17 +15,20 @@ import {
   nerpCampaignSuppressions,
   nerpCampaignSuppressionAuditEvents,
   nerpCampaignDeliveries,
+  professionalCredentials,
   users,
 } from "../../drizzle/schema";
 import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import {
   calculateNerpPaymentState,
+  deriveNerpPromotionStatus,
   NERP_ACLS_OFFER,
   NERP_ACLS_OFFER_KEY,
 } from "../lib/nerp-offer";
 import { ensurePaedsResusCertificatesForUser } from "../lib/paeds-resus-certificate-issuance";
 import {
+  findCampaignSuppression,
   normalizedEmail,
   normalizedName,
   normalizedSuppressionValue,
