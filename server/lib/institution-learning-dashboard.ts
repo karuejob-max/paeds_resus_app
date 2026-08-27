@@ -61,7 +61,11 @@ export async function loadInstitutionLearningDashboard(
   db: Db,
   institutionId: number,
   input: DashboardInput,
-  allowedDepartmentIds: number[] | null
+  allowedDepartmentIds: number[] | null,
+  options: {
+    includeIndividualDetails?: boolean;
+    includeContactDetails?: boolean;
+  } = {},
 ) {
   const period = resolveLearningPeriod(input);
   const [events, attendees, departments, staff, enrollmentRows, targets] =
@@ -178,7 +182,7 @@ export async function loadInstitutionLearningDashboard(
       )
     : targets;
 
-  return computeInstitutionLearningAnalytics({
+  const report = computeInstitutionLearningAnalytics({
     period,
     events: eventsInScope as any,
     attendees: attendeesInScope as any,
@@ -189,4 +193,23 @@ export async function loadInstitutionLearningDashboard(
     ) as any,
     targets: targetsInScope as any,
   });
+  const includeIndividualDetails = options.includeIndividualDetails !== false;
+  const includeContactDetails = options.includeContactDetails === true;
+  return {
+    ...report,
+    individuals: includeIndividualDetails
+      ? report.individuals.map(row => ({
+          ...row,
+          email: includeContactDetails ? row.email : "",
+        }))
+      : [],
+    courses: includeIndividualDetails
+      ? report.courses.map(row => ({
+          ...row,
+          email: includeContactDetails ? row.email : "",
+        }))
+      : [],
+    individualDetailRestricted: !includeIndividualDetails,
+    contactDetailRestricted: !includeContactDetails,
+  };
 }

@@ -4839,6 +4839,108 @@ export const institutionLearningTargets = mysqlTable("institutionLearningTargets
 export type InstitutionLearningTarget = typeof institutionLearningTargets.$inferSelect;
 export type InsertInstitutionLearningTarget = typeof institutionLearningTargets.$inferInsert;
 
+/** Structured provider credentials: regulatory licences, Paeds Resus-derived competencies, and external AHA certificates. */
+export const professionalCredentials = mysqlTable("professionalCredentials", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  credentialType: mysqlEnum("credentialType", [
+    "regulatory_license",
+    "paeds_resus_bls_cognitive",
+    "paeds_resus_bls_simulation",
+    "paeds_resus_bls_provider",
+    "external_aha_bls",
+    "external_aha_acls",
+    "external_aha_pals",
+    "external_aha_nrp",
+    "external_aha_other",
+  ]).notNull(),
+  sourceType: mysqlEnum("sourceType", ["regulatory", "paeds_resus", "external_aha", "legacy_import"]).notNull(),
+  issuer: varchar("issuer", { length: 255 }).notNull(),
+  jurisdiction: varchar("jurisdiction", { length: 128 }),
+  cadre: varchar("cadre", { length: 128 }),
+  credentialNumber: varchar("credentialNumber", { length: 255 }),
+  issuedAt: timestamp("issuedAt"),
+  expiresAt: timestamp("expiresAt"),
+  status: mysqlEnum("status", ["pending", "verified", "rejected", "revoked", "superseded"]).default("pending").notNull(),
+  evidenceKey: varchar("evidenceKey", { length: 512 }),
+  evidenceFileName: varchar("evidenceFileName", { length: 255 }),
+  evidenceContentType: varchar("evidenceContentType", { length: 128 }),
+  evidenceSizeBytes: int("evidenceSizeBytes"),
+  verifiedByUserId: int("verifiedByUserId"),
+  verifiedAt: timestamp("verifiedAt"),
+  reviewReason: text("reviewReason"),
+  sourceRecordType: varchar("sourceRecordType", { length: 128 }),
+  sourceRecordId: int("sourceRecordId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  userIndex: index("professional_credentials_user_idx").on(table.userId, table.status),
+  expiryIndex: index("professional_credentials_expiry_idx").on(table.status, table.expiresAt),
+  sourceIndex: index("professional_credentials_source_idx").on(table.sourceType, table.sourceRecordType, table.sourceRecordId),
+  sourceRecordUnique: uniqueIndex("professional_credentials_source_record_uq").on(table.userId, table.credentialType, table.sourceRecordType, table.sourceRecordId),
+}));
+export type ProfessionalCredential = typeof professionalCredentials.$inferSelect;
+export type InsertProfessionalCredential = typeof professionalCredentials.$inferInsert;
+
+/** Idempotent reminder delivery ledger for credential expiry notifications. */
+export const professionalCredentialReminderEvents = mysqlTable("professionalCredentialReminderEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  credentialId: int("credentialId").notNull(),
+  userId: int("userId").notNull(),
+  reminderStage: mysqlEnum("reminderStage", ["three_months", "two_months", "one_month", "weekly_overdue"]).notNull(),
+  duePeriod: date("duePeriod").notNull(),
+  channel: mysqlEnum("channel", ["in_app", "email"]).notNull(),
+  deliveryStatus: mysqlEnum("deliveryStatus", ["queued", "sent", "failed"]).default("queued").notNull(),
+  sentAt: timestamp("sentAt"),
+  errorMessage: text("errorMessage"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => ({
+  dedupeUnique: uniqueIndex("professional_credential_reminder_dedupe_uq").on(table.credentialId, table.reminderStage, table.duePeriod, table.channel),
+  userIndex: index("professional_credential_reminder_user_idx").on(table.userId, table.duePeriod),
+}));
+export type ProfessionalCredentialReminderEvent = typeof professionalCredentialReminderEvents.$inferSelect;
+export type InsertProfessionalCredentialReminderEvent = typeof professionalCredentialReminderEvents.$inferInsert;
+
+/** One active Departmental Head appointment per institution and canonical department. */
+export const institutionDepartmentHeads = mysqlTable("institutionDepartmentHeads", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  departmentId: int("departmentId").notNull(),
+  userId: int("userId").notNull(),
+  assignmentStatus: mysqlEnum("assignmentStatus", ["active", "ended"]).default("active").notNull(),
+  activeAssignmentKey: varchar("activeAssignmentKey", { length: 128 }),
+  assignedByUserId: int("assignedByUserId").notNull(),
+  assignedAt: timestamp("assignedAt").defaultNow().notNull(),
+  endedAt: timestamp("endedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  departmentIndex: index("institution_department_heads_department_idx").on(table.institutionalAccountId, table.departmentId, table.assignmentStatus),
+  userIndex: index("institution_department_heads_user_idx").on(table.institutionalAccountId, table.userId, table.assignmentStatus),
+  activeAssignmentUnique: uniqueIndex("institution_department_heads_active_uq").on(table.activeAssignmentKey),
+}));
+export type InstitutionDepartmentHead = typeof institutionDepartmentHeads.$inferSelect;
+export type InsertInstitutionDepartmentHead = typeof institutionDepartmentHeads.$inferInsert;
+
+/** Append-only history for Departmental Head assignment, reassignment, and ending. */
+export const institutionDepartmentHeadEvents = mysqlTable("institutionDepartmentHeadEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  departmentId: int("departmentId").notNull(),
+  assignmentId: int("assignmentId").notNull(),
+  eventType: mysqlEnum("eventType", ["assigned", "reassigned", "ended"]).notNull(),
+  previousUserId: int("previousUserId"),
+  currentUserId: int("currentUserId"),
+  actorUserId: int("actorUserId").notNull(),
+  note: varchar("note", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => ({
+  assignmentIndex: index("institution_department_head_events_assignment_idx").on(table.assignmentId, table.createdAt),
+  institutionIndex: index("institution_department_head_events_institution_idx").on(table.institutionalAccountId, table.createdAt),
+}));
+export type InstitutionDepartmentHeadEvent = typeof institutionDepartmentHeadEvents.$inferSelect;
+export type InsertInstitutionDepartmentHeadEvent = typeof institutionDepartmentHeadEvents.$inferInsert;
+
 /** Current review state for one normalized historic CPD department label per institution. */
 export const institutionDepartmentReconciliations = mysqlTable("institution_department_reconciliations", {
   id: int("id").autoincrement().primaryKey(),

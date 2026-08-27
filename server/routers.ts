@@ -83,6 +83,7 @@ import { iersAdaptiveLearningRouter } from "./routers/iers-adaptive-learning";
 import { iersNotificationsRouter } from "./routers/iers-notifications";
 import { cpdRouter } from "./routers/cpd";
 import { institutionLearningRouter } from "./routers/institution-learning";
+import { institutionAccountabilityRouter } from "./routers/institution-accountability";
 import { institutionProductsRouter } from "./routers/institution-products";
 import { institutionalNotificationsRouter } from "./routers/institutional-notifications";
 import { productionSecurityRouter } from "./routers/production-security";
@@ -513,6 +514,7 @@ export const appRouter = router({
   iersNotifications: iersNotificationsRouter,
   cpd: cpdRouter,
   institutionLearning: institutionLearningRouter,
+  institutionAccountability: institutionAccountabilityRouter,
   institutionalNotifications: institutionalNotificationsRouter,
   productionSecurity: productionSecurityRouter,
   localization: localizationRouter,

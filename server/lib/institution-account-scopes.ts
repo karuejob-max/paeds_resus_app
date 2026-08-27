@@ -11,7 +11,8 @@ export type InstitutionAccountScopeKey =
   | "finance_officer"
   | "qi_reviewer"
   | "accreditation_reviewer"
-  | "report_viewer";
+  | "report_viewer"
+  | "credential_manager";
 
 export type InstitutionAccountScopeStatus = "invited" | "active" | "suspended" | "ended";
 
@@ -25,6 +26,7 @@ export const INSTITUTION_ACCOUNT_SCOPE_DEFINITIONS: ReadonlyArray<{
   { scopeKey: "qi_reviewer", label: "QI reviewer", description: "Reviews facility quality-improvement signals and source-linked action records." },
   { scopeKey: "accreditation_reviewer", label: "Accreditation reviewer", description: "Reviews readiness evidence, audit packs, and governance documentation." },
   { scopeKey: "report_viewer", label: "Report viewer", description: "Views institution-level reports without changing operational records." },
+  { scopeKey: "credential_manager", label: "Credential and compliance manager", description: "Reviews institution-scoped licence and Life Support credential status without granting unrestricted operational access." },
 ];
 
 export function isKnownInstitutionAccountScope(value: string): value is InstitutionAccountScopeKey {

@@ -1,11 +1,12 @@
-import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, TrendingUp } from "lucide-react";
+import { Link } from "wouter";
 import { ProviderProfileForm } from "@/components/ProviderProfileForm";
 import { ProfessionalIdentityCard } from "@/components/ProfessionalIdentityCard";
+import { ProviderCredentialsCard } from "@/components/ProviderCredentialsCard";
 
 export default function ProviderProfile() {
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
@@ -44,7 +45,7 @@ export default function ProviderProfile() {
               <div>
                 <h2 className="font-semibold text-amber-950 dark:text-amber-100">Complete your professional profile</h2>
                 <p className="mt-1 text-sm text-amber-900/80 dark:text-amber-100/80">
-                  Your profile is {profile.profileCompletionPercentage ?? 0}% complete. Completing it improves matching and learning context; it does not grant institutional duties or emergency dispatch authority.
+                  Your professional profile is {profile.profileCompletionPercentage ?? 0}% complete. This score includes current evidence where your cadre requires professional verification; it does not grant institutional duties or emergency dispatch authority.
                 </p>
               </div>
             </CardContent>
@@ -52,6 +53,7 @@ export default function ProviderProfile() {
         ) : null}
 
         <ProfessionalIdentityCard />
+        <ProviderCredentialsCard />
         <ProviderProfileForm />
 
         <Card>

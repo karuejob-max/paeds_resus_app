@@ -23,14 +23,7 @@ function mapUserTypeToWorkspace(userType: string | null | undefined): UserRole {
 export function useWorkspaceAccess() {
   const { user, isAuthenticated } = useAuth();
   const { role, setUserRole } = useUserRole();
-  const membershipsQuery = trpc.institution.getMyMemberships.useQuery(
-    undefined,
-    {
-      enabled: isAuthenticated,
-      staleTime: 30_000,
-    }
-  );
-  const administeredQuery = trpc.institution.getMyInstitution.useQuery(
+  const workspaceQuery = trpc.institutionAccountability.getMyWorkspace.useQuery(
     undefined,
     {
       enabled: isAuthenticated,
@@ -42,11 +35,7 @@ export function useWorkspaceAccess() {
   const hasInstitutionAccess =
     isAuthenticated &&
     (isPlatformAdmin ||
-      (administeredQuery.data?.institutions?.length ?? 0) > 0 ||
-      (membershipsQuery.data?.some(
-        membership => membership.membershipStatus === "active"
-      ) ??
-        false));
+      (workspaceQuery.data?.institutions?.length ?? 0) > 0);
 
   const workspaceOptions = useMemo<WorkspaceOption[]>(() => {
     const options: WorkspaceOption[] = [
@@ -85,14 +74,11 @@ export function useWorkspaceAccess() {
     setUserRole,
     workspaceOptions,
     hasInstitutionAccess,
-    isLoading: membershipsQuery.isLoading || administeredQuery.isLoading,
+    isLoading: workspaceQuery.isLoading,
     isInstitutionAccessKnown:
-      membershipsQuery.isSuccess ||
-      administeredQuery.isSuccess ||
-      membershipsQuery.isError ||
-      administeredQuery.isError,
-    memberships: membershipsQuery.data ?? [],
-    administeredInstitutions: administeredQuery.data?.institutions ?? [],
+      workspaceQuery.isSuccess || workspaceQuery.isError,
+    memberships: [],
+    administeredInstitutions: workspaceQuery.data?.institutions ?? [],
   };
 }
 

@@ -9,6 +9,7 @@ import { runScheduledFellowshipProgressSync } from "./services/fellowship-progre
 import { runSafeTruthFacilityMatching, runSafeTruthEventCodeLinkage } from "./lib/safe-truth-facility-matcher";
 import { runPatternDetection, runConfidenceDowngrade } from "./lib/fpkb-pattern-detector";
 import { queueRenewalNotifications } from "./lib/institution-renewal-notifications";
+import { runScheduledProfessionalCredentialReminders } from "./professional-credential-reminders";
 
 function useMpesaMock(): boolean {
   const v = process.env.MPESA_USE_MOCK?.trim().toLowerCase();
@@ -77,6 +78,9 @@ export function initializeScheduler() {
   // Institutional Portal: deterministic renewal reminders with per-channel dedupe.
   scheduleInstitutionalRenewalNotifications();
 
+  // Professional credentials: 3/2/1-month and weekly-overdue reminders.
+  scheduleProfessionalCredentialReminders();
+
   // Platform ops: email alerts for stale payments, critical errors, backlogs
   scheduleAdminOpsAlerts();
 
@@ -103,6 +107,20 @@ function scheduleStaleMpesaReconciliation() {
       console.error("[Scheduler] stale M-Pesa reconcile failed:", error);
     }
   });
+}
+
+/** Daily professional licence and Life Support credential reminders. */
+function scheduleProfessionalCredentialReminders() {
+  cron.schedule("45 5 * * *", async () => {
+    try {
+      const result = await runScheduledProfessionalCredentialReminders();
+      if (result.remindersSent > 0 || result.remindersFailed > 0) {
+        console.log(`[Scheduler] professional credential reminders: evaluated=${result.credentialsEvaluated} sent=${result.remindersSent} failed=${result.remindersFailed} skipped=${result.skipped}`);
+      }
+    } catch (error) {
+      console.error("[Scheduler] professional credential reminders failed:", error);
+    }
+  }, { timezone: "Africa/Nairobi" });
 }
 
 /** Institutional renewal reminders; delivery remains provider- and preference-gated. */
