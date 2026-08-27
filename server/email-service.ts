@@ -772,7 +772,7 @@ export async function sendEmail(
     if (sesResult.success) {
       return { success: true as const, messageId: sesResult.messageId };
     }
-    return { success: false as const, error: sesResult.error || "SES delivery failed" };
+    return { success: false as const, error: "error" in sesResult ? sesResult.error : "SES delivery failed" };
   };
 
   if (dispatch === "mailgun") {
@@ -810,4 +810,54 @@ export async function sendEmail(
   }
 
   return { success: false, error: "No email provider configured. Set EMAIL_PROVIDER=ses and AWS credentials on the server." };
+}
+
+/**
+ * Send a raw message through the configured transactional provider.
+ * Campaign callers pass one recipient at a time so provider behavior is deterministic.
+ */
+export async function sendRawEmail(options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: string; provider?: string }> {
+  const recipients = Array.isArray(options.to) ? options.to : [options.to];
+  const recipient = recipients[0];
+  if (recipients.length !== 1 || !recipient) {
+    return { success: false, error: "Raw email dispatch requires exactly one recipient." };
+  }
+
+  const envOverride = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
+  const dispatch = envOverride === "ses" || envOverride === "sendgrid" || envOverride === "mailgun"
+    ? envOverride
+    : null;
+  const hasAwsCredentials = Boolean(process.env.AWS_ACCESS_KEY_ID?.trim()) && Boolean(process.env.AWS_SECRET_ACCESS_KEY?.trim());
+  if (dispatch && dispatch !== "ses") {
+    return { success: false, error: "Governed NERP delivery requires the installed AWS SES transport.", provider: dispatch };
+  }
+
+  const sendSes = async () => {
+    const result = await sendViaSES({
+      to: recipient,
+      subject: options.subject,
+      htmlBody: options.html || "",
+      textBody: options.text,
+    });
+    return result.success
+      ? { success: true as const, messageId: result.messageId, provider: "ses" }
+      : { success: false as const, error: "error" in result ? result.error : "SES delivery failed", provider: "ses" };
+  };
+
+  if (dispatch === "ses" || !dispatch) {
+    if (!hasAwsCredentials) return { success: false, error: "AWS SES credentials not configured", provider: "ses" };
+    return sendSes();
+  }
+  return { success: false, error: "No supported email provider configured", provider: "none" };
+}
+
+export function getRawEmailProviderStatus() {
+  const override = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
+  const hasSes = Boolean(process.env.AWS_ACCESS_KEY_ID?.trim() && process.env.AWS_SECRET_ACCESS_KEY?.trim());
+  const provider = override && override !== "ses"
+    ? override
+    : hasSes
+      ? "ses"
+      : "none";
+  return { ready: provider === "ses" && hasSes, provider } as const;
 }

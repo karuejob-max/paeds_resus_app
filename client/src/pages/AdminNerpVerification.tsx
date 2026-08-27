@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -57,7 +57,7 @@ export default function AdminNerpVerification() {
     search: submittedSearch || undefined,
     limit: 100,
   });
-  const preview = trpc.nerp.getPromotionPreview.useQuery({
+  const preview = trpc.nerpCampaigns.previewAudience.useQuery({
     institutionId: 3,
     limit: 200,
   });
@@ -70,6 +70,36 @@ export default function AdminNerpVerification() {
     institutionalAccountId: 3,
     includeInactive: false,
   });
+  const [campaignId, setCampaignId] = useState<number | null>(null);
+  const [approvalConfirmation, setApprovalConfirmation] = useState("");
+  const [sendConfirmation, setSendConfirmation] = useState("");
+  const campaignStatus = trpc.nerpCampaigns.getStatus.useQuery(undefined, { retry: false });
+  const campaigns = trpc.nerpCampaigns.list.useQuery(undefined, { retry: false });
+  const campaign = trpc.nerpCampaigns.getCampaign.useQuery(
+    { campaignId: campaignId ?? 0 },
+    { enabled: campaignId !== null, retry: false }
+  );
+  const createCampaignDraft = trpc.nerpCampaigns.createDraft.useMutation({
+    onSuccess: async result => {
+      if (result.campaign?.id) setCampaignId(result.campaign.id);
+      await campaigns.refetch();
+    },
+  });
+  const approveCampaign = trpc.nerpCampaigns.approveSnapshot.useMutation({
+    onSuccess: async () => {
+      setApprovalConfirmation("");
+      await Promise.all([campaign.refetch(), campaigns.refetch(), preview.refetch()]);
+    },
+  });
+  const sendCampaign = trpc.nerpCampaigns.sendApproved.useMutation({
+    onSuccess: async () => {
+      setSendConfirmation("");
+      await Promise.all([campaign.refetch(), campaigns.refetch(), preview.refetch()]);
+    },
+  });
+  useEffect(() => {
+    if (campaignId === null && campaigns.data?.[0]?.id) setCampaignId(campaigns.data[0].id);
+  }, [campaignId, campaigns.data]);
   const [externalCandidateType, setExternalCandidateType] = useState<"nerp_nurse" | "non_nurse_external">("nerp_nurse");
   const [externalCandidateName, setExternalCandidateName] = useState("");
   const [externalCandidateEmail, setExternalCandidateEmail] = useState("");
@@ -92,7 +122,7 @@ export default function AdminNerpVerification() {
     onSuccess: async () => {
       await Promise.all([
         utils.nerp.getAdminVerificationQueue.invalidate(),
-        utils.nerp.getPromotionPreview.invalidate(),
+        utils.nerpCampaigns.previewAudience.invalidate(),
       ]);
     },
   });
@@ -112,7 +142,7 @@ export default function AdminNerpVerification() {
     onSuccess: async () => {
       await Promise.all([
         utils.nerp.getExternalVerificationQueue.invalidate(),
-        utils.nerp.getPromotionPreview.invalidate(),
+        utils.nerpCampaigns.previewAudience.invalidate(),
         utils.nerp.listCampaignSuppressions.invalidate(),
       ]);
     },
@@ -123,7 +153,7 @@ export default function AdminNerpVerification() {
       setSuppressionNote("");
       await Promise.all([
         utils.nerp.listCampaignSuppressions.invalidate(),
-        utils.nerp.getPromotionPreview.invalidate(),
+        utils.nerpCampaigns.previewAudience.invalidate(),
       ]);
     },
   });
@@ -131,7 +161,7 @@ export default function AdminNerpVerification() {
     onSuccess: async () => {
       await Promise.all([
         utils.nerp.listCampaignSuppressions.invalidate(),
-        utils.nerp.getPromotionPreview.invalidate(),
+        utils.nerpCampaigns.previewAudience.invalidate(),
       ]);
     },
   });
@@ -733,10 +763,9 @@ export default function AdminNerpVerification() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Institution 3 · draft nurse campaign preview</CardTitle>
+            <CardTitle>Institution 3 · governed NERP nurse campaign</CardTitle>
             <CardDescription>
-              Departmental nurses only. Nursing admins are suppressed. This
-              screen never sends email.
+              Departmental nurses only. The list is recomputed from active staff and suppression rules, then frozen for review before any delivery.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -746,12 +775,10 @@ export default function AdminNerpVerification() {
                 Building suppression-aware preview…
               </div>
             ) : null}
-            {preview.isError ? (
-              <p className="text-sm text-red-700">{preview.error.message}</p>
-            ) : null}
+            {preview.isError ? <p className="text-sm text-red-700">{preview.error.message}</p> : null}
             {preview.data ? (
               <>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
                   {[
                     ["Nurse records", preview.data.counts.totalNurses],
                     ["Draft-eligible", preview.data.counts.sendable],
@@ -774,29 +801,84 @@ export default function AdminNerpVerification() {
                     disabled={!downloadableRows.length}
                   >
                     <Download className="mr-2 h-4 w-4" />
-                    Download draft recipient CSV
+                    Download current eligible CSV
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => createCampaignDraft.mutate({ institutionId: 3 })}
+                    disabled={createCampaignDraft.isPending}
+                  >
+                    {campaign.data?.campaign?.status === "draft" ? "Use current draft" : "Create governed draft"}
                   </Button>
                   <span className="text-sm text-muted-foreground">
-                    Sending is deliberately disabled:{" "}
-                    {preview.data.emailSending ? "enabled" : "not enabled"}.
+                    Provider: {campaignStatus.data?.provider.provider ?? "checking"}{" "}
+                    {campaignStatus.data?.provider.ready ? "ready" : "not configured"}. Automatic sending is disabled.
                   </span>
                 </div>
+                {campaign.data?.campaign ? (
+                  <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Campaign lifecycle</p>
+                        <p className="mt-1 font-medium">{campaign.data.campaign.status}</p>
+                      </div>
+                      <Badge variant={campaign.data.campaign.status === "sent" ? "default" : "outline"}>
+                        {campaign.data.campaign.audienceCount} snapshot recipient(s)
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Approved snapshot: {campaign.data.counts.audienceCount} · Sent: {campaign.data.counts.sentCount} · Failed: {campaign.data.counts.failedCount} · Pending: {campaign.data.counts.pendingCount} · Skipped: {campaign.data.counts.skippedCount}
+                    </p>
+                    {campaign.data.recipients.length ? (
+                      <details className="rounded-md border bg-background p-3">
+                        <summary className="cursor-pointer text-sm font-medium">Review immutable approved snapshot</summary>
+                        <div className="mt-3 max-h-72 overflow-auto">
+                          <table className="w-full min-w-[640px] text-sm">
+                            <thead className="bg-muted/40"><tr><th className="p-2 text-left">Name</th><th className="p-2 text-left">Email</th><th className="p-2 text-left">Department</th><th className="p-2 text-left">Delivery</th></tr></thead>
+                            <tbody>{campaign.data.recipients.map((row: { id: number; displayName: string; email: string; department: string | null; status: string; skipReason: string | null }) => <tr key={row.id} className="border-t"><td className="p-2">{row.displayName}</td><td className="p-2">{row.email}</td><td className="p-2">{row.department ?? "—"}</td><td className="p-2">{row.status}{row.skipReason ? ` · ${row.skipReason}` : ""}</td></tr>)}</tbody>
+                          </table>
+                        </div>
+                      </details>
+                    ) : null}
+                    {campaign.data.campaign.status === "draft" ? (
+                      <div className="space-y-2 rounded-md border bg-background p-3">
+                        <p className="text-sm">Review the current counts and type <strong>{campaignStatus.data?.approvalPhrase}</strong> to freeze the suppression-aware recipient snapshot.</p>
+                        <Input value={approvalConfirmation} onChange={event => setApprovalConfirmation(event.target.value)} placeholder={campaignStatus.data?.approvalPhrase} aria-label="NERP campaign approval confirmation" />
+                        <Button
+                          type="button"
+                          onClick={() => approveCampaign.mutate({ campaignId: campaign.data!.campaign.id, confirmation: approvalConfirmation })}
+                          disabled={approveCampaign.isPending || approvalConfirmation !== campaignStatus.data?.approvalPhrase}
+                        >
+                          Approve recipient snapshot
+                        </Button>
+                      </div>
+                    ) : null}
+                    {campaign.data.campaign.status === "approved" || campaign.data.campaign.status === "failed" ? (
+                      <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-950">
+                        <p className="text-sm">Send-time checks will re-read active opt-out suppressions. Type <strong>{campaignStatus.data?.sendPhrase}</strong> only after reviewing the exact snapshot and provider readiness.</p>
+                        <Input value={sendConfirmation} onChange={event => setSendConfirmation(event.target.value)} placeholder={campaignStatus.data?.sendPhrase} aria-label="NERP campaign send confirmation" />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          onClick={() => sendCampaign.mutate({ campaignId: campaign.data!.campaign.id, confirmation: sendConfirmation })}
+                          disabled={sendCampaign.isPending || !campaignStatus.data?.provider.ready || sendConfirmation !== campaignStatus.data?.sendPhrase}
+                        >
+                          Send approved campaign
+                        </Button>
+                      </div>
+                    ) : null}
+                    {approveCampaign.error ? <p className="text-sm text-red-700">{approveCampaign.error.message}</p> : null}
+                    {sendCampaign.error ? <p className="text-sm text-red-700">{sendCampaign.error.message}</p> : null}
+                  </div>
+                ) : null}
                 <div className="grid gap-3 rounded-lg border bg-muted/20 p-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Draft subject
-                    </p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Draft subject</p>
                     <p className="mt-1 font-medium">{DRAFT_SUBJECT}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Draft body
-                    </p>
-                    <textarea
-                      readOnly
-                      value={DRAFT_BODY}
-                      className="mt-1 min-h-48 w-full rounded-md border bg-background p-3 text-sm leading-6"
-                    />
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Draft body</p>
+                    <textarea readOnly value={DRAFT_BODY} className="mt-1 min-h-48 w-full rounded-md border bg-background p-3 text-sm leading-6" />
                   </div>
                 </div>
                 <div className="overflow-x-auto rounded-lg border">
@@ -815,19 +897,9 @@ export default function AdminNerpVerification() {
                         <tr key={row.staffId} className="border-t">
                           <td className="p-3">{row.name}</td>
                           <td className="p-3">{row.department ?? "—"}</td>
-                          <td className="p-3">
-                            <Badge
-                              variant={row.sendable ? "default" : "outline"}
-                            >
-                              {row.promotionStatus}
-                            </Badge>
-                          </td>
-                          <td className="p-3 text-muted-foreground">
-                            {row.suppressionReason ?? "Ready for draft review"}
-                          </td>
-                          <td className="p-3 text-muted-foreground">
-                            {row.suppressionNote ?? "—"}
-                          </td>
+                          <td className="p-3"><Badge variant={row.sendable ? "default" : "outline"}>{row.promotionStatus}</Badge></td>
+                          <td className="p-3 text-muted-foreground">{row.suppressionReason ?? "Ready for review"}</td>
+                          <td className="p-3 text-muted-foreground">{row.suppressionNote ?? "—"}</td>
                         </tr>
                       ))}
                     </tbody>

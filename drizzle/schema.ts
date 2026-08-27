@@ -9065,6 +9065,8 @@ export const nerpCampaignSuppressions = mysqlTable(
       "manual",
       "not_registered",
       "identity_correction",
+      "unsubscribe",
+      "hard_bounce",
     ]).notNull(),
     note: text("note"),
     isActive: boolean("is_active").default(true).notNull(),
@@ -9171,3 +9173,68 @@ export const resusGpsClinicalEvents = mysqlTable(
 export type ResusGpsClinicalEvent = typeof resusGpsClinicalEvents.$inferSelect;
 export type InsertResusGpsClinicalEvent =
   typeof resusGpsClinicalEvents.$inferInsert;
+
+/** Governed NERP nurse promotion campaign definition. */
+export const nerpPromotionCampaigns = mysqlTable("nerp_promotion_campaigns", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutional_account_id").notNull(),
+  campaignKey: varchar("campaign_key", { length: 96 }).notNull().unique(),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  bodyText: text("body_text").notNull(),
+  templateVersion: varchar("template_version", { length: 64 }).notNull(),
+  status: mysqlEnum("status", ["draft", "approved", "sending", "sent", "failed"]).default("draft").notNull(),
+  audienceCount: int("audience_count").default(0).notNull(),
+  sentCount: int("sent_count").default(0).notNull(),
+  failedCount: int("failed_count").default(0).notNull(),
+  approvedByUserId: int("approved_by_user_id"),
+  approvedAt: timestamp("approved_at"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdByUserId: int("created_by_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  institutionStatusIndex: index("nerp_promotion_campaigns_institution_status_idx").on(table.institutionalAccountId, table.status),
+}));
+export type NerpPromotionCampaign = typeof nerpPromotionCampaigns.$inferSelect;
+export type InsertNerpPromotionCampaign = typeof nerpPromotionCampaigns.$inferInsert;
+
+/** Immutable recipient snapshot captured when a NERP campaign is approved. */
+export const nerpPromotionRecipients = mysqlTable("nerp_promotion_recipients", {
+  id: int("id").autoincrement().primaryKey(),
+  campaignId: int("campaign_id").notNull(),
+  staffId: int("staff_id").notNull(),
+  userId: int("user_id"),
+  email: varchar("email", { length: 320 }).notNull(),
+  displayName: varchar("display_name", { length: 255 }).notNull(),
+  department: varchar("department", { length: 255 }),
+  status: mysqlEnum("status", ["pending", "sent", "failed", "skipped"]).default("pending").notNull(),
+  skipReason: varchar("skip_reason", { length: 255 }),
+  providerMessageId: varchar("provider_message_id", { length: 255 }),
+  providerError: text("provider_error"),
+  attemptedAt: timestamp("attempted_at"),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, table => ({
+  campaignEmailUnique: uniqueIndex("nerp_promotion_recipients_campaign_email_uq").on(table.campaignId, table.email),
+  campaignStatusIndex: index("nerp_promotion_recipients_campaign_status_idx").on(table.campaignId, table.status),
+  emailIndex: index("nerp_promotion_recipients_email_idx").on(table.email),
+}));
+export type NerpPromotionRecipientRow = typeof nerpPromotionRecipients.$inferSelect;
+export type InsertNerpPromotionRecipient = typeof nerpPromotionRecipients.$inferInsert;
+
+/** Append-only audit trail for NERP campaign preview, approval, opt-out, and delivery. */
+export const nerpPromotionAuditEvents = mysqlTable("nerp_promotion_audit_events", {
+  id: int("id").autoincrement().primaryKey(),
+  campaignId: int("campaign_id"),
+  recipientId: int("recipient_id"),
+  action: varchar("action", { length: 96 }).notNull(),
+  actorUserId: int("actor_user_id"),
+  details: text("details"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, table => ({
+  campaignCreatedIndex: index("nerp_promotion_audit_campaign_created_idx").on(table.campaignId, table.createdAt),
+  recipientCreatedIndex: index("nerp_promotion_audit_recipient_created_idx").on(table.recipientId, table.createdAt),
+}));
+export type NerpPromotionAuditEvent = typeof nerpPromotionAuditEvents.$inferSelect;
+export type InsertNerpPromotionAuditEvent = typeof nerpPromotionAuditEvents.$inferInsert;

@@ -89,6 +89,8 @@
     "db:verify-0141": "node scripts/verify-0141-ils-operational-controls.mjs",
     "db:apply-0142": "node scripts/apply-0142-cpd-portal-remediation.mjs",
     "db:verify-0142": "node scripts/verify-0142-cpd-portal-remediation.mjs",
+    "db:apply-0146": "node scripts/apply-0146-nerp-governed-campaign.mjs",
+    "db:verify-0146": "node scripts/verify-0146-nerp-governed-campaign.mjs",
     "db:verify-cpr-event-link": "node scripts/verify-cpr-event-link.mjs",
     "db:verify-cpr-event-loop": "node scripts/verify-cpr-event-loop.mjs",
     "db:fresh-migrate": "node scripts/db-snapshot-and-fresh-migrate.mjs",
