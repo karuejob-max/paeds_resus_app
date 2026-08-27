@@ -80,7 +80,12 @@ async function assertCpdInstitutionAccess(
         eq(institutionEducationCoordinators.userId, user.id),
         eq(institutionEducationCoordinators.assignmentStatus, "active")
       ));
-    return { ...role, departmentIds: assignments.map(row => row.departmentId) };
+    return {
+      ...role,
+      departmentIds: assignments
+        .map((row: { departmentId: number | null }) => row.departmentId)
+        .filter((departmentId): departmentId is number => departmentId != null),
+    };
   }
 }
 
