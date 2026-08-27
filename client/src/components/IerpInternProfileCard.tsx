@@ -209,7 +209,7 @@ export function IerpInternProfileCard({
               {evidenceQuery.data ? (
                 <a
                   className="mt-1 inline-block text-xs font-medium text-indigo-700 underline"
-                  href={evidenceQuery.data}
+                  href={evidenceQuery.data.url}
                   target="_blank"
                   rel="noreferrer"
                 >

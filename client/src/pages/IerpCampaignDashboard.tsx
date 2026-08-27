@@ -120,7 +120,7 @@ export default function IerpCampaignDashboard() {
             </div>
           ))}
           <Input value={internReviewReason} onChange={(event) => setInternReviewReason(event.target.value)} placeholder="Optional review reason (used for the selected action)" />
-          {internEvidence.data ? <a className="inline-block text-sm font-medium text-indigo-700 underline" href={internEvidence.data} target="_blank" rel="noreferrer">Open selected private letter</a> : null}
+          {internEvidence.data ? <a className="inline-block text-sm font-medium text-indigo-700 underline" href={internEvidence.data.url} target="_blank" rel="noreferrer">Open selected private letter</a> : null}
         </CardContent>
       </Card>
 

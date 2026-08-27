@@ -61,7 +61,9 @@ export async function getIerpInternProfile(db: IerpDb, userId: number) {
 }
 
 /** A submitted profile is enough to register; rejected/revoked profiles are fail-closed. */
-export function isIerpInternProfileReady(profile: { status?: string | null } | null | undefined) {
+export function isIerpInternProfileReady<T extends { status?: string | null }>(
+  profile: T | null | undefined
+): profile is T & { status: "pending" | "verified" } {
   return profile?.status === "pending" || profile?.status === "verified";
 }
 

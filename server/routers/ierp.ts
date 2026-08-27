@@ -463,7 +463,9 @@ export const ierpRouter = router({
       .orderBy(desc(ierpPhase1Evidence.updatedAt));
 
     const phase2 = await getAuthoritativePhase2CompletionStatus(db, ctx.user.id);
-    const payment = await getIerpPaymentAccessForUser(db, ctx.user.id);
+    const payment =
+      (await getIerpPaymentAccessForUser(db, ctx.user.id)) ??
+      getIerpPaymentAccess({ ...program, effectiveCommencementDate: null });
     const phase1EvidenceVerified =
       evidence.some((row) => row.documentType === "video_prework" && row.status === "verified") &&
       evidence.some((row) => row.documentType === "precourse_assessment" && row.status === "verified");
