@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
+import { formatKenyanPhoneForDisplay, normalizeKenyanPhoneNumber } from "@shared/kenyan-phone";
 import { AlertCircle, CheckCircle2, Loader2, Phone } from "lucide-react";
 
 interface MpesaPaymentFormProps {
@@ -31,7 +32,7 @@ export function MpesaPaymentForm({
 }: MpesaPaymentFormProps) {
   const utils = trpc.useUtils();
   const completionNotified = useRef(false);
-  const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber ?? "");
+  const [phoneNumber, setPhoneNumber] = useState(() => formatKenyanPhoneForDisplay(initialPhoneNumber));
   const [isLoading, setIsLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [statusMessage, setStatusMessage] = useState("");
@@ -39,6 +40,12 @@ export function MpesaPaymentForm({
   const [pollEnrollmentId, setPollEnrollmentId] = useState<number | null>(null);
   /** Delay STK status polling so Daraja can register the checkout before we query (avoids false failures before the phone prompt). */
   const [pollGateReady, setPollGateReady] = useState(false);
+
+  useEffect(() => {
+    if (paymentStatus === "idle") {
+      setPhoneNumber(formatKenyanPhoneForDisplay(initialPhoneNumber));
+    }
+  }, [initialPhoneNumber, paymentStatus]);
 
   useEffect(() => {
     if (paymentStatus !== "processing") {
@@ -165,11 +172,13 @@ export function MpesaPaymentForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!phoneNumber) {
-      setStatusMessage("Please enter your phone number");
+    const normalizedPhone = normalizeKenyanPhoneNumber(phoneNumber);
+    if (!normalizedPhone) {
+      setStatusMessage("Enter a valid Kenyan mobile number, for example 254712345678, +254712345678, or 0712345678.");
       return;
     }
 
+    setPhoneNumber(normalizedPhone);
     setIsLoading(true);
     setPaymentStatus("processing");
     setStatusMessage(
@@ -179,7 +188,7 @@ export function MpesaPaymentForm({
     setPollEnrollmentId(enrollmentId ?? null);
 
     initiatePaymentMutation.mutate({
-      phoneNumber,
+      phoneNumber: normalizedPhone,
       amount,
       courseId,
       courseName,
@@ -212,13 +221,13 @@ export function MpesaPaymentForm({
             <label className="block text-sm font-medium text-foreground mb-2">M-Pesa Phone Number</label>
             <Input
               type="tel"
-              placeholder="0712345678 or 254712345678"
+              placeholder="254712345678, +254712345678, or 0712345678"
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
               disabled={isLoading || paymentStatus === "success"}
               className="w-full"
             />
-            <p className="text-xs text-muted-foreground mt-1">{initialPhoneNumber ? "Your account phone is prefilled. Edit it if you want the STK prompt sent to another number." : "Enter your M-Pesa registered phone number"}</p>
+            <p className="text-xs text-muted-foreground mt-1">{initialPhoneNumber ? "Your account phone is prefilled in 254 format. Edit it if you want the STK prompt sent to another number." : "Use 2547…, +2547…, 07…, or 7…; we will normalize it before sending the prompt."}</p>
           </div>
 
           {statusMessage && (
