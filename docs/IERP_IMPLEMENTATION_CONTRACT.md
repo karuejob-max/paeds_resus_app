@@ -1,9 +1,10 @@
 # IERP Implementation Contract
 
-**Status:** In progress  
+**Status:** Merged, deployed, and production-verified
 **Owner:** Manus  
-**Branch:** `feat/ierp-program-e2e`  
-**Migration reserved:** `0131` (0128 is claimed by open NERP PR #614; 0129 and 0130 are also reserved remotely)  
+**Implementation branch:** `feat/ierp-program-e2e` (merged via PR #616; feature branch deleted after protected merge)
+**Closeout branch:** `chore/ierp-closeout-20260827`
+**Migration:** `0131` applied and verified in Render Production after collision review (0128 is owned by NERP; 0129 and 0130 are owned by the concurrent CPR/IERS work)
 **Constraint:** No promotional email sends in this initiative.
 
 ## Naming contract
