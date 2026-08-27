@@ -197,6 +197,10 @@ async function main() {
   const conn = await createMysqlConnection(databaseUrl, mysql);
   try {
     console.log("[0141] Applying ILS operational controls...");
+    // Create the operational tables before altering their columns. This keeps
+    // the migration safe when 0141 is the first ILS operational schema change
+    // present in a production database.
+    await createOperationalTables(conn);
 
     await addColumnIfMissing(
       conn,
@@ -366,8 +370,6 @@ async function main() {
       "replacementReason",
       "VARCHAR(255) NULL"
     );
-
-    await createOperationalTables(conn);
 
     if (
       (await tableExists(conn, "institutionLearningTargets")) &&
