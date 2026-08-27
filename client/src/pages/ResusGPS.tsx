@@ -56,6 +56,7 @@ import {
   type Threat,
   type Intervention,
   type ReassessmentCheck,
+  type ClinicalEvent,
   type Phase,
   type ABCDELetter,
   type DiagnosisSuggestion,
@@ -106,6 +107,11 @@ import {
   saveSampleHistory,
   loadLastSampleHistory,
   clearSampleHistory,
+  enqueueResusEvent,
+  listPendingResusEvents,
+  markResusEventSending,
+  markResusEventFailed,
+  removeResusEvent,
   type PersistedSampleHistory,
 } from '@/lib/resus/resusSessionStore';
 import { loadCprGpsSnapshot } from '@/lib/resus/cprGpsSessionStore';
@@ -280,6 +286,18 @@ function formatTime(seconds: number): string {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
+function requestResusEventBackgroundSync(): void {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+  void navigator.serviceWorker.ready.then((registration) => {
+    const syncManager = (registration as ServiceWorkerRegistration & {
+      sync?: { register: (tag: string) => Promise<void> };
+    }).sync;
+    return syncManager?.register('resus-gps-events');
+  }).catch(() => {
+    // Foreground retry remains the fallback when Background Sync is unavailable.
+  });
+}
+
 function approximateAgeMonths(age: string | null): number {
   return parseAgeToMonths(age) ?? 0;
 }
@@ -339,8 +357,6 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       persistResusSession(session);
     }
   }, [session]);
-  const [recommendedPathway, setRecommendedPathway] = useState<{ pathway: string; condition: string; message: string } | null>(null);
-  const [showRecommendation, setShowRecommendation] = useState(false);
   const [interventionPanelOpen, setInterventionPanelOpen] = useState(false);
   const [patientInfoOpen, setPatientInfoOpen] = useState(false);
   const [tempWeight, setTempWeight] = useState('');
@@ -365,6 +381,10 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   // Phase 6.3 — track which condition protocols were used + step counts for Fellowship Pillar B
   const [protocolsUsed, setProtocolsUsed] = useState<Record<string, { completed: number; total: number }>>({});
   const [preFillSample, setPreFillSample] = useState<PersistedSampleHistory | null>(null);
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === 'undefined' ? true : navigator.onLine);
+  const [pendingResusEventCount, setPendingResusEventCount] = useState(0);
+  const queuedResusEventIdsRef = useRef<Set<string>>(new Set());
+  const resusEventFlushInFlightRef = useRef(false);
   const [samplePreFillDismissed, setSamplePreFillDismissed] = useState(false);
   const [fellowshipSavedSessionId, setFellowshipSavedSessionId] = useState<string | null>(null);
   const fellowshipAutoSaveInFlightRef = useRef<string | null>(null);
@@ -399,15 +419,6 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       setInterventionPanelOpen(true);
     }
   }, [session.phase]);
-
-  // Load recommendation on mount
-  const { data: autoLaunchData } = trpc.resusAutoLaunch.getRecommendedPathway.useQuery({}, { enabled: true });
-  useEffect(() => {
-    if (autoLaunchData) {
-      setRecommendedPathway(autoLaunchData);
-      setShowRecommendation(true);
-    }
-  }, [autoLaunchData]);
 
   const weight = session.patientWeight;
   const activeThreats = useMemo(() => getActiveThreats(session), [session]);
@@ -499,7 +510,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
 
   // ─── Handlers ───────────────────────────────────────────
 
-  const handleStart = (isTrauma: boolean, entry?: { age: string; weight: string; weightSource: 'measured' | 'last_known'; gestationalAgeWeeks?: string }) => {
+  const handleStart = (isTrauma: boolean, entry?: { age: string; weight: string; weightSource: 'measured' | 'last_known'; gestationalAgeWeeks?: string; resusSetting?: ResusSetting }) => {
     trackButtonClick('Start ResusGPS emergency flow', { isTrauma });
     const entryAge = entry?.age ?? demographics.age;
     const resolution = resolveCurrentWeight(entry);
@@ -516,7 +527,12 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       toast.error(weightValidation.message ?? 'Verify the patient weight before starting.');
       return;
     }
-    const setting = isNeonatalCase(entryAge) ? session.resusSetting ?? 'hospital' : 'hospital';
+    const setting = entry?.resusSetting ?? 'hospital';
+    const ageMonths = parseAgeToMonths(entryAge);
+    if (setting === 'delivery_room' && (ageMonths === null || ageMonths >= 1)) {
+      toast.error('Delivery-room NRP requires a newborn age under 1 month and explicit birth-context confirmation.');
+      return;
+    }
     const s = createSession(
       resolution.weightKg,
       entryAge || null,
@@ -794,6 +810,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       invalidateFellowshipProgress();
     },
   });
+  const resusEventMutation = trpc.resusEvent.append.useMutation();
   const recordCaseMutation = trpc.fellowship.recordResusGPSCase.useMutation({
     onSuccess: (data) => {
       if (data.casesByCondition) {
@@ -802,6 +819,93 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       invalidateFellowshipProgress();
     },
   });
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const flushResusEventOutbox = useCallback(async () => {
+    if (!isOnline || resusEventFlushInFlightRef.current) return;
+    resusEventFlushInFlightRef.current = true;
+    try {
+      const pending = await listPendingResusEvents(100);
+      setPendingResusEventCount(pending.length);
+      for (const event of pending) {
+        await markResusEventSending(event.localEventId);
+        try {
+          await resusEventMutation.mutateAsync({
+            localEventId: event.localEventId,
+            sessionId: event.sessionId,
+            activationEventId: event.activationEventId,
+            eventType: event.eventType,
+            letter: event.letter,
+            detail: event.detail,
+            eventData: event.data,
+            eventTimestamp: event.eventTimestamp,
+          });
+          await removeResusEvent(event.localEventId);
+        } catch (error) {
+          await markResusEventFailed(event.localEventId, error instanceof Error ? error.message : 'Event sync failed');
+          break;
+        }
+      }
+      const remaining = await listPendingResusEvents(100);
+      setPendingResusEventCount(remaining.length);
+    } finally {
+      resusEventFlushInFlightRef.current = false;
+    }
+  }, [isOnline, resusEventMutation]);
+
+  useEffect(() => {
+    if (session.phase === 'IDLE') return;
+    const newEvents = session.events.filter((event): event is ClinicalEvent & { id: string } => {
+      if (typeof event.id !== 'string' || event.id.length === 0) return false;
+      return !queuedResusEventIdsRef.current.has(event.id);
+    });
+    for (const event of newEvents) {
+      queuedResusEventIdsRef.current.add(event.id);
+      void enqueueResusEvent({
+        localEventId: event.id,
+        sessionId: session.id,
+        activationEventId,
+        eventType: event.type,
+        eventTimestamp: event.timestamp,
+        letter: event.letter,
+        detail: event.detail,
+        data: event.data,
+      }).then(() => {
+        setPendingResusEventCount((count) => count + 1);
+        requestResusEventBackgroundSync();
+        void flushResusEventOutbox();
+      }).catch(() => {
+        queuedResusEventIdsRef.current.delete(event.id);
+      });
+    }
+  }, [activationEventId, flushResusEventOutbox, session.events, session.id, session.phase]);
+
+  useEffect(() => {
+    void flushResusEventOutbox();
+    const retryTimer = window.setInterval(() => {
+      void flushResusEventOutbox();
+    }, 15_000);
+    return () => window.clearInterval(retryTimer);
+  }, [flushResusEventOutbox, session.events.length]);
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'resus-gps-events-sync') void flushResusEventOutbox();
+    };
+    navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+  }, [flushResusEventOutbox]);
 
   // Phase 5.2 — Server-side SAMPLE history sync
   const saveSampleHistoryMutation = trpc.sampleHistory.saveSampleHistory.useMutation();
@@ -1335,6 +1439,9 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
           session={session}
           blockingInterventions={blockingInterventions}
           pendingReassessments={pendingReassessments}
+          lifeSupportPackLabel={lifeSupportPack?.label ?? 'age-appropriate life-support'}
+          isOnline={isOnline}
+          pendingResusEventCount={pendingResusEventCount}
         />
       )}
 
@@ -1386,11 +1493,13 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
             weightSource={demographics.weightSource ?? 'measured'}
             age={demographics.age}
             gestationalAgeWeeks={demographics.gestationalAgeWeeks ?? ''}
+            resusSetting={tempSetting}
             onStart={handleStart}
             onAgeChange={(nextAge) => setDemographics({ ...demographics, age: nextAge })}
             onWeightChange={(nextWeight) => setDemographics({ ...demographics, weight: nextWeight })}
             onWeightSourceChange={(nextSource) => setDemographics({ ...demographics, weightSource: nextSource })}
             onGestationalAgeChange={(nextWeeks) => setDemographics({ ...demographics, gestationalAgeWeeks: nextWeeks })}
+            onResusSettingChange={setTempSetting}
           />
         )}
 
@@ -2104,25 +2213,31 @@ function IdleScreen({
   weightSource,
   age,
   gestationalAgeWeeks,
+  resusSetting,
   onStart,
   onAgeChange,
   onWeightChange,
   onWeightSourceChange,
   onGestationalAgeChange,
+  onResusSettingChange,
 }: {
   weightValue: string;
   lastKnownWeight?: string;
   weightSource: 'measured' | 'last_known';
   age: string;
   gestationalAgeWeeks: string;
-  onStart: (isTrauma: boolean, entry?: { age: string; weight: string; weightSource: 'measured' | 'last_known'; gestationalAgeWeeks?: string }) => void;
+  resusSetting: ResusSetting;
+  onStart: (isTrauma: boolean, entry?: { age: string; weight: string; weightSource: 'measured' | 'last_known'; gestationalAgeWeeks?: string; resusSetting?: ResusSetting }) => void;
   onAgeChange: (age: string) => void;
   onWeightChange: (weight: string) => void;
   onWeightSourceChange: (source: 'measured' | 'last_known') => void;
   onGestationalAgeChange: (weeks: string) => void;
+  onResusSettingChange: (setting: ResusSetting) => void;
 }) {
   const displayedWeightValue = weightSource === 'last_known' && !weightValue ? lastKnownWeight ?? '' : weightValue;
   const parsedGestationalAgeWeeks = gestationalAgeWeeks.trim() ? Number(gestationalAgeWeeks) : null;
+  const parsedAgeMonths = parseAgeToMonths(age);
+  const newbornContext = parsedAgeMonths !== null && parsedAgeMonths >= 0 && parsedAgeMonths < 1;
   const resolvedWeight = resolvePatientWeight({
     age,
     measuredWeightKg: weightSource === 'measured' ? parseResusWeight(weightValue) : null,
@@ -2144,6 +2259,22 @@ function IdleScreen({
 
         <Card className="border-border bg-card">
           <CardContent className="space-y-3 p-4">
+            {newbornContext && (
+              <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-3 sm:col-span-2">
+                <label htmlFor="resus-start-setting" className="text-sm font-semibold text-foreground">Care context</label>
+                <select
+                  id="resus-start-setting"
+                  value={resusSetting}
+                  onChange={(event) => onResusSettingChange(event.target.value as ResusSetting)}
+                  className="mt-2 min-h-11 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
+                >
+                  <option value="hospital">Hospital/ward — PALS or ACLS by age</option>
+                  <option value="prehospital">Prehospital — PALS or ACLS by age</option>
+                  <option value="delivery_room">At birth/delivery room — NRP only</option>
+                </select>
+                <p className="mt-2 text-xs text-muted-foreground">NRP is available only after explicitly selecting a delivery-room/newborn-at-birth context. Age alone never selects NRP.</p>
+              </div>
+            )}
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label htmlFor="resus-age" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Age</label>
@@ -2217,7 +2348,7 @@ function IdleScreen({
           size="lg"
           disabled={!hasRequiredContext}
           className="min-h-14 w-full bg-primary text-base font-bold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={() => onStart(false, { age, weight: displayedWeightValue, weightSource, gestationalAgeWeeks })}
+          onClick={() => onStart(false, { age, weight: displayedWeightValue, weightSource, gestationalAgeWeeks, resusSetting })}
         >
           <Siren className="mr-2 h-5 w-5" aria-hidden />
           Continue to assessment
@@ -2233,10 +2364,16 @@ function SurveyStatusStrip({
   session,
   blockingInterventions,
   pendingReassessments,
+  lifeSupportPackLabel,
+  isOnline,
+  pendingResusEventCount,
 }: {
   session: ResusSession;
   blockingInterventions: { threat: Threat; intervention: Intervention }[];
   pendingReassessments: { threat: Threat; intervention: Intervention }[];
+  lifeSupportPackLabel: string;
+  isOnline: boolean;
+  pendingResusEventCount: number;
 }) {
   const letterOrder: ABCDELetter[] = ['X', 'A', 'B', 'C', 'D', 'E'];
   const currentIdx = letterOrder.indexOf(session.currentLetter);
@@ -2252,6 +2389,9 @@ function SurveyStatusStrip({
           <span className="font-semibold uppercase tracking-wide text-foreground">
             {isSecondary ? 'Secondary Survey' : `Primary Survey · ${session.currentLetter}`}
           </span>
+          <span className="max-w-[58%] truncate text-right font-medium text-primary" title={lifeSupportPackLabel}>
+            {lifeSupportPackLabel}
+          </span>
           <span className="text-muted-foreground">
             {blockingInterventions.length > 0
               ? `${blockingInterventions.length} action${blockingInterventions.length === 1 ? '' : 's'} pending`
@@ -2260,6 +2400,15 @@ function SurveyStatusStrip({
                 : resourceGapCount > 0
                   ? `${resourceGapCount} resource gap${resourceGapCount === 1 ? '' : 's'} logged`
                   : 'Proceed in order'}
+          </span>
+        </div>
+        <div className="flex items-center justify-end gap-2 text-[10px]" aria-live="polite">
+          <span className={isOnline ? 'text-muted-foreground' : 'font-semibold text-amber-700 dark:text-amber-300'}>
+            {isOnline
+              ? pendingResusEventCount > 0
+                ? `${pendingResusEventCount} event${pendingResusEventCount === 1 ? '' : 's'} syncing`
+                : 'Case events server-ready'
+              : 'Offline — case events saved locally; sync pending'}
           </span>
         </div>
         {isSecondary ? (
@@ -3003,6 +3152,7 @@ function PostPrimaryScreen({
   const showActivationHandoff = hasActivationContext && (diagnosisUnlocked || session.phase === 'ONGOING');
   const postRoscOccurred = session.events.some((event) => event.type === 'rosc');
   const [showFellowshipCatalog, setShowFellowshipCatalog] = useState(false);
+  const [showReviewTools, setShowReviewTools] = useState(false);
   const secondaryAction = surveyStep === 'sample'
     ? 'Capture the current symptoms and SAMPLE history needed for handover.'
     : surveyStep === 'evidence'
@@ -3095,6 +3245,39 @@ function PostPrimaryScreen({
 
   return (
     <div className="py-6 space-y-6">
+      {session.definitiveDiagnosis && (
+        <Card className="border-border bg-card">
+          <CardContent className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Care workspace</p>
+              <p className="text-xs text-muted-foreground">
+                Keep the bedside plan first. Open review tools only when documenting, exporting, or pursuing fellowship credit.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+              <Button
+                type="button"
+                size="sm"
+                variant={!showReviewTools ? 'default' : 'outline'}
+                aria-pressed={!showReviewTools}
+                onClick={() => setShowReviewTools(false)}
+              >
+                Bedside care
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={showReviewTools ? 'default' : 'outline'}
+                aria-pressed={showReviewTools}
+                onClick={() => setShowReviewTools(true)}
+              >
+                Review & records
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {postRoscOccurred && (
         <PostCardiacArrestCarePanel
           care={session.postCardiacArrestCare}
@@ -3337,7 +3520,7 @@ function PostPrimaryScreen({
       )}
 
       {/* Differential diagnoses — gated until SAMPLE + diagnostic evidence complete */}
-      {diagnosisUnlocked && (
+      {diagnosisUnlocked && (!session.definitiveDiagnosis || showReviewTools) && (
       <Card className="bg-card border-border">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm text-foreground flex items-center gap-2">
@@ -3547,7 +3730,7 @@ function PostPrimaryScreen({
       )}
 
       {/* Threats Summary */}
-      {session.threats.length > 0 && (
+      {showReviewTools && session.threats.length > 0 && (
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-foreground">Threats Identified ({session.threats.length})</CardTitle>
@@ -3567,7 +3750,7 @@ function PostPrimaryScreen({
       )}
 
       {/* Fellowship save — only after definitive therapy complete */}
-      {(definitiveCareComplete || isSavedThisSession) && (
+      {showReviewTools && (definitiveCareComplete || isSavedThisSession) && (
       <Card className="border-2 border-emerald-500/50 bg-emerald-50/80 dark:bg-emerald-950/30 shadow-md">
         <CardHeader className="pb-2">
           <CardTitle className="text-base text-emerald-950 dark:text-emerald-100 flex items-center gap-2">
@@ -3669,6 +3852,7 @@ function PostPrimaryScreen({
       )}
 
       {/* Export / copy (HI-CLIN-1) */}
+      {showReviewTools && (
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Button className="w-full py-4" variant="secondary" onClick={onCopyOnePager}>
           <Copy className="h-4 w-4 mr-2" />
@@ -3683,6 +3867,7 @@ function PostPrimaryScreen({
           Download .txt
         </Button>
       </div>
+      )}
     </div>
   );
 }

@@ -143,6 +143,7 @@ import { coursesRouter } from "./routers/courses";
 import { ierpRouter } from "./routers/ierp";
 import { ierpCampaignsRouter } from "./routers/ierp-campaigns";
 import { fellowshipRouter } from "./routers/fellowship";
+import { resusEventRouter } from "./routers/resus-event";
 import { kaizenMetricsRouter } from "./routers/kaizen-metrics";
 import { legalRouter } from "./routers/legal";
 import { contentSafetyRouter } from "./routers/content-safety";
@@ -589,6 +590,7 @@ export const appRouter = router({
   ierp: ierpRouter,
   ierpCampaigns: ierpCampaignsRouter,
   fellowship: fellowshipRouter,
+  resusEvent: resusEventRouter,
   legal: legalRouter,
   contentSafety: contentSafetyRouter,
   adminFeedback: adminFeedbackRouter,

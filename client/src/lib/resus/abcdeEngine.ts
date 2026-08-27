@@ -146,6 +146,8 @@ export interface SAMPLEHistory {
 }
 
 export interface ClinicalEvent {
+  /** Stable client event ID used for offline replay; legacy sessions may omit it. */
+  id?: string;
   timestamp: number;
   type: 'phase_change' | 'finding' | 'threat_identified' | 'intervention_started'
     | 'intervention_completed' | 'safety_alert' | 'reassessment' | 'vital_sign'
@@ -2365,8 +2367,13 @@ export function acknowledgeSafetyAlert(session: ResusSession, alertId: string): 
   return next;
 }
 
+function createClinicalEventId(): string {
+  if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
+  return `evt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function log(session: ResusSession, type: ClinicalEvent['type'], detail: string, letter?: ABCDELetter, data?: Record<string, unknown>): void {
-  session.events.push({ timestamp: Date.now(), type, letter, detail, data });
+  session.events.push({ id: createClinicalEventId(), timestamp: Date.now(), type, letter, detail, data });
 }
 
 function deepCopy<T>(obj: T): T {

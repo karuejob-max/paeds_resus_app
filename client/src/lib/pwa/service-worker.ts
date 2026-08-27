@@ -100,7 +100,17 @@ self.addEventListener('sync', (event: any) => {
   if (event.tag === 'sync-clinical-data') {
     event.waitUntil(syncClinicalData());
   }
+  if (event.tag === 'resus-gps-events') {
+    event.waitUntil(notifyResusGpsClientsToFlush());
+  }
 });
+
+async function notifyResusGpsClientsToFlush(): Promise<void> {
+  const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  for (const client of clients) {
+    client.postMessage({ type: 'resus-gps-events-sync' });
+  }
+}
 
 async function syncClinicalData(): Promise<void> {
   try {
