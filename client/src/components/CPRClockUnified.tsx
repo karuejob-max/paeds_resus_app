@@ -18,6 +18,8 @@ interface Props {
   onClose: () => void;
   /** Parent ResusGPS case key for local CPR recovery; not a patient identifier. */
   caseKey?: string;
+  /** Canonical IERS activation identifier; opaque operational linkage only. */
+  activationEventId?: number;
   /** Parent ResusGPS timer — avoids duplicate arrest clocks */
   externalElapsed?: number;
   externalRunning?: boolean;
@@ -26,6 +28,10 @@ interface Props {
   lifeSupportPack?: LifeSupportPackResult;
   /** Return ROSC and the server CPR session ID to the parent flow for post-cardiac-arrest care and debrief. */
   onROSC?: (cprSessionId?: number) => void;
+  /** Notify the parent when the server CPR session exists so an IERS link can be created. */
+  onSessionReady?: (cprSessionId: number) => void;
+  /** Open the parent completion/debrief path after a deliberate terminal outcome. */
+  onCodeComplete?: (cprSessionId: number | undefined, outcome: 'mortality' | 'transferred' | 'unknown') => void;
   /** The integrated emergency flow uses one CPR surface; standalone callers may keep mode switching. */
   allowModeSwitch?: boolean;
   /** The integrated flow owns demographics in ResusGPS. */
@@ -36,12 +42,15 @@ function CPRClockUnifiedInner({
   patientWeight,
   patientAgeMonths,
   caseKey,
+  activationEventId,
   onClose,
   externalElapsed,
   externalRunning,
   autoStart,
   lifeSupportPack,
   onROSC,
+  onSessionReady,
+  onCodeComplete,
   allowModeSwitch = true,
   allowPatientInfoEdit = true,
 }: Props) {
@@ -51,12 +60,15 @@ function CPRClockUnifiedInner({
     patientWeight,
     patientAgeMonths,
     caseKey,
+    activationEventId,
     onClose,
     externalElapsed,
     externalRunning,
     autoStart,
     lifeSupportPack,
     onROSC,
+    onSessionReady,
+    onCodeComplete,
     allowPatientInfoEdit,
     useSharedState: true as const,
   };

@@ -14,8 +14,15 @@ import { ResourceGapWidget } from "@/components/ResourceGapWidget";
 import MultiFacilityBenchmarkWidget from "@/components/MultiFacilityBenchmarkWidget";
 import { CARE_SIGNAL_V2_STEP_GUIDE } from "@/lib/care-signal-v2";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
+import { useSearch } from "wouter";
 
 export default function CareSignal() {
+  const search = useSearch();
+  const searchParams = new URLSearchParams(search);
+  const prefillEventType = searchParams.get("prefill_eventType") ?? undefined;
+  const prefillOutcome = searchParams.get("prefill_outcome") ?? undefined;
+  const cprSessionId = Number(searchParams.get("cprSessionId"));
+  const activationEventId = Number(searchParams.get("activationEventId"));
   const loggerRef = useRef<HTMLDivElement>(null);
 
   const scrollToLogger = () => {
@@ -99,7 +106,12 @@ export default function CareSignal() {
         <div className="mb-12" ref={loggerRef}>
           <CareSignalAudienceGate>
             <CareSignalConsentGate>
-              <CareSignalFormV3 />
+              <CareSignalFormV3
+                prefillEventType={prefillEventType}
+                prefillOutcome={prefillOutcome}
+                cprSessionId={Number.isInteger(cprSessionId) && cprSessionId > 0 ? cprSessionId : undefined}
+                activationEventId={Number.isInteger(activationEventId) && activationEventId > 0 ? activationEventId : undefined}
+              />
             </CareSignalConsentGate>
           </CareSignalAudienceGate>
         </div>
