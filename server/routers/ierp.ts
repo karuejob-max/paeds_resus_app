@@ -92,7 +92,7 @@ export const ierpRouter = router({
       if (!cognitive.get("bls")) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Complete the platform BLS cognitive modules before uploading Phase 1 evidence." });
       }
-      const hasAdvancedCognitive = ["acls", "pals", "nrp"].some((programType) => cognitive.get(programType));
+      const hasAdvancedCognitive = (["acls", "pals", "nrp"] as const).some((programType) => cognitive.get(programType));
       if (!hasAdvancedCognitive) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Complete the platform ACLS, PALS, or NRP cognitive modules before uploading Phase 1 evidence." });
       }
