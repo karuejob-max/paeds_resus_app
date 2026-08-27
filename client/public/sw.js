@@ -92,7 +92,15 @@ self.addEventListener('sync', (event) => {
   if (event.tag === 'sample-history-sync') {
     event.waitUntil(drainSampleHistoryQueue());
   }
+  if (event.tag === 'resus-gps-events') {
+    event.waitUntil(notifyResusGpsClientsToFlush());
+  }
 });
+
+async function notifyResusGpsClientsToFlush() {
+  const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  await Promise.all(clients.map((client) => client.postMessage({ type: 'resus-gps-events-sync' })));
+}
 
 // ─── Push Notifications ───────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
