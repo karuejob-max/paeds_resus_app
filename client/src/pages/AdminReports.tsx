@@ -33,6 +33,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import AhaAccessGrantPanel from "@/components/AhaAccessGrantPanel";
 
 type LifecycleBatchResult = {
   dryRun: boolean;
@@ -844,10 +845,11 @@ export default function AdminReports() {
           >
             ← Back to Admin
           </button>
-        </div>
-
+                </div>
+        <AhaAccessGrantPanel />
         {/* Tabs for different report sections */}
         <Tabs value={reportTab} onValueChange={setReportTab} className="w-full">
+
           <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 gap-1 h-auto min-h-10">
             <TabsTrigger value="overview" className="text-xs sm:text-sm">
               Overview

@@ -1005,7 +1005,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const { data: enrollment, isLoading } = trpc.ierp.getMyEnrollment.useQuery(undefined, { retry: false });
-  const { data: summary } = trpc.ierp.getSummary.useQuery(undefined, {
+  const { data: summary, isLoading: summaryLoading, isError: summaryError } = trpc.ierp.getSummary.useQuery(undefined, {
     enabled: !!enrollment,
     retry: false,
   });
@@ -1121,21 +1121,33 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
   const phase2Done = !!summary?.phase2.phase2Complete;
   const phase2CertificateIssued = !!summary?.phase2Certificate;
   const phase3Unlocked = !!summary?.phase3GateUnlocked;
-  const phase3Detail = phase3Unlocked
-    ? summary?.providerCertificates?.length
-      ? "Unlocked · provider certificate issued"
-      : "Unlocked"
-    : !phase1Done || !phase2Done
-      ? "Locked until Phases 1 and 2 are complete"
-      : "Locked until the full KES 15,000 is paid";
+  const phase3Detail = summaryLoading
+    ? "Checking Phases 1 and 2…"
+    : summaryError
+      ? "Progress unavailable — refresh to retry"
+      : phase3Unlocked
+        ? summary?.providerCertificates?.length
+          ? "Unlocked · provider certificate issued"
+          : "Unlocked"
+        : !phase1Done || !phase2Done
+          ? "Locked until Phases 1 and 2 are complete"
+          : "Locked until the full KES 15,000 is paid";
   const phaseStatus = [
-    { label: "Phase 1 — Cognitive foundation", done: phase1Done, detail: summary?.phase1Status ?? "Loading" },
+    {
+      label: "Phase 1 — Cognitive foundation",
+      done: phase1Done,
+      detail: summaryLoading ? "Checking progress…" : summaryError ? "Progress unavailable" : summary?.phase1Status ?? "Not started",
+    },
     {
       label: "Phase 2 — Online simulations",
       done: phase2Done,
-      detail: summary
-        ? `Team Leader ${summary.phase2.teamLeaderCount}/${summary.phase2.teamLeaderRequired} · Named roles ${summary.phase2.teamMemberRolesCovered}/${summary.phase2.teamMemberRolesRequired}${phase2CertificateIssued ? " · Certificate issued" : phase2Done ? " · Certificate pending sync" : ""}`
-        : "Loading",
+      detail: summaryLoading
+        ? "Checking progress…"
+        : summaryError
+          ? "Progress unavailable"
+          : summary
+            ? `Team Leader ${summary.phase2.teamLeaderCount}/${summary.phase2.teamLeaderRequired} · Named roles ${summary.phase2.teamMemberRolesCovered}/${summary.phase2.teamMemberRolesRequired}${phase2CertificateIssued ? " · Certificate issued" : phase2Done ? " · Certificate pending sync" : ""}`
+            : "Not started",
     },
     { label: "Phase 3 — Hands-on assessment", done: false, detail: phase3Detail },
   ];
@@ -1799,7 +1811,7 @@ function ProgressAndLedgerCard() {
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
             </p>
           ) : !ledger?.hasPricedEnrollment ? (
-            <p className="text-xs text-muted-foreground">Enroll in ACLS, PALS, or NRP to see your payment ledger (BLS is free).</p>
+            <p className="text-xs text-muted-foreground">Enroll through NERP, IERP, ILSP, or the Independent AHA Pathway to see your payment ledger.</p>
           ) : (
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-2 text-xs">

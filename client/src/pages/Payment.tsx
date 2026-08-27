@@ -139,12 +139,12 @@ export default function Payment() {
     ? "This payment is locked to your existing enrollment."
     : isPaedsResusPayment
       ? "Complete payment for your Paeds Resus instructor pathway enrollment."
-      : "Select BLS, ACLS, or PALS to create and complete enrollment payment.";
+      : "Select an AHA course and complete its full Independent AHA Pathway payment before access is granted.";
   const courseSelectTitle = lockCourseSelection
     ? "Enrollment details"
     : isPaedsResusPayment
       ? "Select Paeds Resus training"
-      : "Select AHA certification";
+      : "Select Independent AHA course";
 
   useEffect(() => {
     if (!selectedCourseData) return;

@@ -39,6 +39,7 @@ import {
   IERP_TOTAL_FEE_KES,
   refreshIerpPhase2Status,
 } from "../lib/ierp-program-state";
+import { getAhaAccessDecision } from "../lib/aha-access";
 import { ensurePhase2CompletionCertificateForUser } from "../lib/paeds-resus-certificate-issuance";
 
 const AHA_PROGRAM_TYPES = ['bls', 'acls', 'pals', 'heartsaver', 'nrp', 'instructor'] as const;
@@ -207,6 +208,15 @@ export const coursesRouter = router({
       return [];
     }
   }),
+
+  getAhaAccessStatus: protectedProcedure
+    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp", "instructor"]) }))
+    .query(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      const database = await getDb();
+      if (!database) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      return getAhaAccessDecision(database, ctx.user.id, input.programType);
+    }),
 
   /**
    * Get user's micro-course enrollments with course details
@@ -1327,52 +1337,13 @@ export const coursesRouter = router({
           }
         }
 
-        // IERP payment gate: the August-November deferral applies only to
-        // learners who started within that calendar window. From December
-        // onward, and immediately for December-July starters, the full
-        // KES 15,000 programme fee is required before any AHA cognitive work.
-        const ierpPayment = isIerpCognitiveProgram(input.programType)
-          ? await getIerpPaymentAccessForUser(database, ctx.user.id)
-          : null;
-        if (ierpPayment) {
-          const internProfile = await getIerpInternProfile(database, ctx.user.id);
-          if (!isIerpInternProfileReady(internProfile)) {
-            return {
-              success: false,
-              enrollmentId: 0,
-              error: "Complete your Intern profile and submit your MoH deployment/posting letter before starting IERP cognitive learning.",
-            };
-          }
-        }
-        if (ierpPayment?.cognitiveAccessLocked) {
+        const ahaAccess = await getAhaAccessDecision(database, ctx.user.id, input.programType);
+        if (!ahaAccess.allowed) {
           return {
             success: false,
             enrollmentId: 0,
-            error: "IERP cognitive access requires the full KES 15,000 programme payment. Learners who started between August and November may continue before December; from December onward, complete payment before continuing.",
+            error: ahaAccess.message,
           };
-        }
-
-        // NERP payment gate: BLS cognitive is free for nurses -- no payment
-        // gate above this line touches it. Moving past BLS into ACLS/PALS/NRP
-        // cognitive work requires the starting month's KES 2,500 minimum.
-        // This uses the existing institutional staff payment field and does
-        // not change IERP's separate programme ledger.
-        if (input.programType === 'acls' || input.programType === 'pals' || input.programType === 'nrp') {
-          const [staffRow] = await database
-            .select({ designation: institutionalStaffMembers.designation, totalPaidAmount: institutionalStaffMembers.totalPaidAmount })
-            .from(institutionalStaffMembers)
-            .where(and(eq(institutionalStaffMembers.userId, ctx.user.id), eq(institutionalStaffMembers.facilityLinkStatus, 'linked')))
-            .limit(1);
-          if (staffRow?.designation === 'permanent_nurse') {
-            const paid = Number(staffRow.totalPaidAmount ?? 0);
-            if (paid < 2500) {
-              return {
-                success: false,
-                enrollmentId: 0,
-                error: `Accessing ${input.programType.toUpperCase()} requires the starting month's minimum payment of KES 2,500 (BLS itself stays free). Make a payment to unlock this course.`,
-              };
-            }
-          }
         }
 
         // Return existing enrollment id if present

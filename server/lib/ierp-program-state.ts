@@ -13,7 +13,7 @@ export const IERP_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"] as con
 export type IerpDesignation = (typeof IERP_DESIGNATIONS)[number];
 
 /** AHA cognitive programmes currently supported by the IERP evidence path. */
-export const IERP_COGNITIVE_PROGRAMS = ["bls", "acls", "pals", "nrp"] as const;
+export const IERP_COGNITIVE_PROGRAMS = ["bls", "acls"] as const;
 
 export function isIerpCognitiveProgram(value: string | null | undefined): value is (typeof IERP_COGNITIVE_PROGRAMS)[number] {
   return value != null && (IERP_COGNITIVE_PROGRAMS as readonly string[]).includes(value);

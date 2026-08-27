@@ -14,12 +14,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { trpc } from "@/lib/trpc";
 
 export default function NerpOfferPage() {
   const { user, loading } = useAuth();
-  const nextHref = user
-    ? "/programs/nerp-acls/enroll"
-    : "/login?redirect=%2Fprograms%2Fnerp-acls%2Fenroll";
+  const eligibility = trpc.nerp.getEligibility.useQuery(undefined, { enabled: !!user });
+  const canStart = !user || eligibility.data?.eligible === true;
+  const nextHref = !user
+    ? "/login?redirect=%2Fprograms%2Fnerp-acls%2Fenroll"
+    : canStart
+      ? "/programs/nerp-acls/enroll"
+      : "/provider-profile";
 
   return (
     <div className="min-h-screen bg-muted/20 px-4 py-10 md:px-8">
@@ -37,15 +42,24 @@ export default function NerpOfferPage() {
               payments, with BLS included as part of the learning journey.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Button asChild variant="cta" size="lg" disabled={loading}>
+              <Button asChild variant="cta" size="lg" disabled={loading || (!!user && eligibility.isLoading)}>
                 <Link href={nextHref}>
-                  {user ? "Start or resume enrollment" : "Sign in to continue"}
+                  {!user ? "Sign in to continue" : canStart ? "Start or resume enrollment" : "Complete provider profile first"}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg">
                 <Link href="/training/acls">View ACLS course</Link>
               </Button>
+              {user && eligibility.data && !eligibility.data.eligible && (
+                <p className="max-w-xl text-sm text-muted-foreground">
+                  NERP is for verified nurses. Add your Nursing Council of Kenya licence number and evidence in your provider profile before joining this pathway.
+                  {" "}<Link href="/provider-profile" className="font-medium text-primary underline">Open provider profile</Link>
+                </p>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Need clarification? Call <a href="tel:0706781260" className="font-medium text-primary underline">0706781260</a> or email <a href="mailto:paedsresus254@gmail.com" className="font-medium text-primary underline">paedsresus254@gmail.com</a>.
+              </p>
             </div>
           </div>
         </section>

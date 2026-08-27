@@ -141,14 +141,14 @@ export default function Enroll() {
               Choose your provider path
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              AHA certification (BLS, ACLS, PALS, Heartsaver) and Paeds Resus instructor training are separate paths. Fellowship micro-courses are started in Fellowship.
+              The Independent AHA Pathway covers BLS, ACLS, PALS, NRP, Heartsaver, and Instructor training. NERP, IERP, and ILSP remain separate supported cohort pathways. Fellowship micro-courses are started in Fellowship.
             </p>
           </div>
 
           <div className="space-y-10">
             <section>
-              <h2 className="text-2xl font-bold text-foreground mb-2">AHA certification</h2>
-              <p className="text-sm text-muted-foreground mb-5">Choose BLS, ACLS, PALS, or Heartsaver.</p>
+              <h2 className="text-2xl font-bold text-foreground mb-2">Independent AHA Pathway</h2>
+              <p className="text-sm text-muted-foreground mb-5">Choose an AHA course and complete its full individual payment before access is granted.</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {ahaEnrollOptions.map((course) => (
                   <div
@@ -210,8 +210,8 @@ export default function Enroll() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Paeds Resus pathways</h2>
-              <p className="text-sm text-muted-foreground mb-5">Instructor training and Fellowship options.</p>
+              <h2 className="text-2xl font-bold text-foreground mb-2">Additional Independent AHA pathway</h2>
+              <p className="text-sm text-muted-foreground mb-5">Instructor training remains an independent AHA option. Fellowship is started from the Fellowship workspace.</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
                 {paedsResusEnrollOptions.map((course) => (
                   <div
@@ -324,9 +324,10 @@ export default function Enroll() {
             >
               ← Back
             </button>
-            <div className="flex-1 text-right text-sm text-muted-foreground">
-              Step 2 of 2 — Free enrollment
-            </div>
+                          <div className="flex-1 text-right text-sm text-muted-foreground">
+                Step 2 of 2 — Payment and access
+              </div>
+
           </div>
 
           {/* Order Summary */}
@@ -348,27 +349,12 @@ export default function Enroll() {
                     className="text-sm"
                   />
                 )}
-                {selectedCourse === "heartsaver" && course.price > 0 ? (
-                  <>
-                    <div className="flex justify-between gap-4 text-sm">
-                      <span className="text-muted-foreground">Promotional enrollment — no payment today</span>
-                      <span className="font-medium text-emerald-700 dark:text-emerald-400 tabular-nums">
-                        − KES {course.price.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="border-t border-border pt-3 flex justify-between items-baseline">
-                      <span className="font-bold text-foreground">Total due today</span>
-                      <span className="text-2xl font-bold text-brand-orange tabular-nums">KES 0</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="border-t border-border pt-3 flex justify-between items-baseline">
-                    <span className="font-bold text-foreground">Total</span>
-                    <span className="text-2xl font-bold text-brand-orange tabular-nums">
-                      KES {course.price.toLocaleString()}
-                    </span>
-                  </div>
-                )}
+                <div className="border-t border-border pt-3 flex justify-between items-baseline">
+                  <span className="font-bold text-foreground">Total due for access</span>
+                  <span className="text-2xl font-bold text-brand-orange tabular-nums">
+                    KES {course.price.toLocaleString()}
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -393,18 +379,23 @@ export default function Enroll() {
             </CardHeader>
             <CardContent>
               <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!agreeToTerms) {
-                    alert("Please agree to terms and conditions");
-                    return;
-                  }
-                  const programType = selectedCourse as "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor";
-                  createEnrollment.mutate({
-                    programType,
-                    trainingDate: new Date(),
-                  });
-                }}
+                                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!agreeToTerms) {
+                      alert("Please agree to terms and conditions");
+                      return;
+                    }
+                    if (isAhaProgramSlug(selectedCourse)) {
+                      setLocation(`/payment?courseId=${encodeURIComponent(selectedCourse)}`);
+                      return;
+                    }
+                    const programType = selectedCourse as "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor";
+                    createEnrollment.mutate({
+                      programType,
+                      trainingDate: new Date(),
+                    });
+                  }}
+
                 className="space-y-6"
               >
                 {/* Terms */}
@@ -458,12 +449,14 @@ export default function Enroll() {
                   disabled={createEnrollment.isPending || !agreeToTerms}
                   className="w-full h-12 text-base"
                 >
-                  {createEnrollment.isPending ? "Enrolling..." : "Enroll Now — Free"}
+                  {createEnrollment.isPending ? "Enrolling..." : isAhaProgramSlug(selectedCourse) ? "Continue to payment" : "Start free enrollment"}
                 </Button>
 
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                   <CheckCircle2 className="w-4 h-4" />
-                  Free enrollment — no payment required
+                  {isAhaProgramSlug(selectedCourse)
+                    ? "AHA access begins after payment or an approved cohort/admin grant"
+                    : "Fellowship enrollment — no payment required at this step"}
                 </div>
               </form>
             </CardContent>
