@@ -2786,8 +2786,12 @@ export const cprEvents = mysqlTable("cprEvents", {
   description: text("description"),
   value: varchar("value", { length: 255 }), // e.g., compression rate, medication name
   metadata: text("metadata"), // JSON object for additional data
+  /** Client-generated retry key; unique within one CPR session when present. */
+  idempotencyKey: varchar("idempotencyKey", { length: 96 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  sessionIdempotencyUnique: uniqueIndex("cprEvents_session_idempotency_unique").on(table.cprSessionId, table.idempotencyKey),
+}));
 
 export type CprEvent = typeof cprEvents.$inferSelect;
 export type InsertCprEvent = typeof cprEvents.$inferInsert;

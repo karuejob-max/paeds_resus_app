@@ -468,6 +468,7 @@ export function CPRClockStreamlined({
           description: item.description,
           value: item.value,
           metadata: item.metadata,
+          clientRequestId: item.localEventId,
         },
         {
           onSuccess: () => {
@@ -644,6 +645,7 @@ export function CPRClockStreamlined({
           eventTime: ts,
           description: action,
           value: details,
+          clientRequestId: `cpr-${String(event.id)}`,
         },
         { onError: queueForRetry },
       );
