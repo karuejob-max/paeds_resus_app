@@ -293,7 +293,7 @@ function approximateAgeMonths(age: string | null): number {
 
 // ─── Main Component ─────────────────────────────────────────
 
-export default function ResusGPS({ hasActivationContext = false }: { hasActivationContext?: boolean }) {
+export default function ResusGPS({ hasActivationContext = false, activationEventId }: { hasActivationContext?: boolean; activationEventId?: number }) {
   const { demographics, setDemographics, clearDemographics, getWeightInKg } = usePatientDemographics();
   const analytics = useResusAnalytics();
   const analyticsRef = useRef(analytics);
@@ -340,6 +340,8 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
   const [showCPRClock, setShowCPRClock] = useState(false);
   const [cprDebriefSessionId, setCprDebriefSessionId] = useState<number | null>(null);
   const [showCprDebrief, setShowCprDebrief] = useState(false);
+  const cprEventLinkMutation = trpc.cprEventLink.linkSession.useMutation();
+  const cprLinkSessionRef = useRef<number | null>(null);
   const [showDocuments, setShowDocuments] = useState(false);
   const [showProtocols, setShowProtocols] = useState(false);
   const [showMCIBoard, setShowMCIBoard] = useState(false);
@@ -665,6 +667,21 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
       )
     : null;
 
+  const handleCprSessionReady = useCallback((cprSessionId: number) => {
+    if (!activationEventId || cprLinkSessionRef.current === cprSessionId) return;
+    cprLinkSessionRef.current = cprSessionId;
+    cprEventLinkMutation.mutate({
+      activationEventId,
+      cprSessionId,
+      resusGpsSessionKey: String(session.id),
+      pathwayKey: lifeSupportPack?.pack,
+    }, {
+      onError: () => {
+        cprLinkSessionRef.current = null;
+      },
+    });
+  }, [activationEventId, cprEventLinkMutation, lifeSupportPack?.pack, session.id]);
+
   const handlePostCardiacArrestCareChange = useCallback((itemId: string, checked: boolean) => {
     setSession((previous) => updatePostCardiacArrestCare(previous, itemId, checked));
   }, [setSession]);
@@ -679,6 +696,16 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
     setShowCPRClock(false);
     // Track ROSC achieved
     analytics.trackROSCachieved();
+  };
+
+  const handleCodeComplete = (cprSessionId: number | undefined, outcome: 'mortality' | 'transferred' | 'unknown') => {
+    if (cprSessionId !== undefined) {
+      setCprDebriefSessionId(cprSessionId);
+      setShowCprDebrief(true);
+    }
+    setSession(prev => pushToUndoStack(prev, `CPR code completed: ${outcome}`));
+    timer.stop();
+    setShowCPRClock(false);
   };
 
   const handleUpdatePatientInfo = () => {
@@ -1412,12 +1439,15 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
         ) : session.phase === 'CARDIAC_ARREST' && showCPRClock && cprDemographicsReady ? (
             <CPRClockUnified
             patientWeight={weight!}
+            activationEventId={activationEventId}
             patientAgeMonths={patientAgeMonthsForCpr ?? undefined}
             caseKey={session.id}
             lifeSupportPack={lifeSupportPack ?? undefined}
             externalElapsed={timer.elapsed}
             externalRunning={timer.running}
             autoStart
+            onSessionReady={handleCprSessionReady}
+            onCodeComplete={handleCodeComplete}
             onROSC={handleROSC}
             allowModeSwitch={false}
             allowPatientInfoEdit={false}
@@ -1696,6 +1726,8 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
         diagnosis={careSignalPromptDiagnosis}
         outcome={session.outcome || 'survived'}
         sessionId={session.id}
+        cprSessionId={cprDebriefSessionId ?? undefined}
+        activationEventId={activationEventId ?? undefined}
       />
 
       {showCprDebrief && cprDebriefSessionId !== null && (
@@ -1709,7 +1741,7 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
                 const text = `${event.description ?? ''} ${event.value ?? ''}`.toLowerCase();
                 return event.eventType === 'medication' && text.includes('epinephrine');
               }).length}
-              outcome={cprDebriefDetails.session.outcome === 'ROSC' ? 'ROSC' : cprDebriefDetails.session.outcome === 'ongoing' ? 'ongoing' : 'discontinued'}
+              outcome={cprDebriefDetails.session.outcome === 'ROSC' ? 'ROSC' : cprDebriefDetails.session.outcome === 'ongoing' ? 'ongoing' : cprDebriefDetails.session.outcome === 'transferred' ? 'transferred' : cprDebriefDetails.session.outcome === 'unknown' ? 'unknown' : 'discontinued'}
               events={cprDebriefDetails.events.map((event) => ({
                 id: String(event.id),
                 timestamp: event.eventTime ?? 0,

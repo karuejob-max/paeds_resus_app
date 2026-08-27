@@ -50,6 +50,8 @@ interface Props {
   externalRunning?: boolean;
   autoStart?: boolean;
   lifeSupportPack?: LifeSupportPackResult;
+  /** Notify the parent when the server CPR session exists so an IERS link can be created. */
+  onSessionReady?: (cprSessionId: number) => void;
   useSharedState?: boolean;
 }
 
@@ -110,11 +112,13 @@ export function CPRClockTeam({
   externalElapsed,
   externalRunning,
   autoStart,
+  onSessionReady,
   useSharedState,
 }: Props) {
   const shared = useCprClockShared();
   const syncShared = Boolean(useSharedState && shared);
   const autoStartApplied = useRef(false);
+  const sessionCreateAttemptedRef = useRef(false);
   const lastRhythmPromptCycleRef = useRef(0);
   // Session state
   const [sessionId, setSessionId] = useState<number | null>(null);
@@ -203,7 +207,8 @@ export function CPRClockTeam({
 
   // Create session on mount
   useEffect(() => {
-    if (!sessionId) {
+    if (!sessionId && !sessionCreateAttemptedRef.current) {
+      sessionCreateAttemptedRef.current = true;
       createSession.mutate(
         { patientWeight, patientAgeMonths },
         {
@@ -211,6 +216,7 @@ export function CPRClockTeam({
             setSessionId(data.sessionId ?? null);
             setMemberId(data.memberId ?? null);
             setSessionCode(data.sessionCode);
+            if (data.sessionId != null) onSessionReady?.(data.sessionId);
             
             // Generate QR code
             const joinUrl = `${window.location.origin}/join-cpr/${data.sessionCode}`;
@@ -224,7 +230,7 @@ export function CPRClockTeam({
         }
       );
     }
-  }, []);
+  }, [createSession, onSessionReady, patientAgeMonths, patientWeight, sessionId]);
 
   useEffect(() => {
     if (externalElapsed === undefined) return;

@@ -43,7 +43,7 @@ interface DebriefingProps {
   totalDuration: number;
   shockCount: number;
   epiDoses: number;
-  outcome: 'ROSC' | 'ongoing' | 'discontinued';
+  outcome: 'ROSC' | 'pCOSCA' | 'mortality' | 'transferred' | 'unknown' | 'ongoing' | 'discontinued';
   events: ArrestEvent[];
   teamMembers: TeamMember[];
   onClose: () => void;

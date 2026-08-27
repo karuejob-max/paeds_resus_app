@@ -2792,6 +2792,60 @@ export const cprEvents = mysqlTable("cprEvents", {
 export type CprEvent = typeof cprEvents.$inferSelect;
 export type InsertCprEvent = typeof cprEvents.$inferInsert;
 
+/**
+ * Canonical bridge between one authorized IERS activation and one CPR-GPS
+ * session. It stores only operational linkage and provenance; no patient
+ * identifier is permitted here. The activation and CPR records remain the
+ * source of truth for their own timelines.
+ */
+export const cprEventLinks = mysqlTable("cprEventLinks", {
+  id: int("id").autoincrement().primaryKey(),
+  activationEventId: int("activationEventId").notNull(),
+  cprSessionId: int("cprSessionId").notNull(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  linkedByUserId: int("linkedByUserId").notNull(),
+  /** Opaque ResusGPS case/session key; never a patient identifier. */
+  resusGpsSessionKey: varchar("resusGpsSessionKey", { length: 64 }),
+  pathwayKey: varchar("pathwayKey", { length: 32 }),
+  contentVersion: varchar("contentVersion", { length: 32 }),
+  linkStatus: mysqlEnum("linkStatus", ["active", "outcome_recorded", "debrief_pending", "closed"]).default("active").notNull(),
+  terminalOutcome: varchar("terminalOutcome", { length: 32 }),
+  outcomeRecordedAt: timestamp("outcomeRecordedAt"),
+  debriefSubmittedAt: timestamp("debriefSubmittedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  activationUnique: uniqueIndex("cprEventLinks_activation_unique").on(table.activationEventId),
+  cprSessionUnique: uniqueIndex("cprEventLinks_cpr_session_unique").on(table.cprSessionId),
+  institutionStatusIndex: index("cprEventLinks_institution_status_idx").on(table.institutionalAccountId, table.linkStatus),
+}));
+
+export type CprEventLink = typeof cprEventLinks.$inferSelect;
+export type InsertCprEventLink = typeof cprEventLinks.$inferInsert;
+
+/**
+ * Provenance bridge for an optional post-arrest Care Signal report.
+ * One CPR event may receive multiple provider observations, but one Care
+ * Signal row is linked at most once. No patient identifiers are stored here.
+ */
+export const cprCareSignalLinks = mysqlTable("cprCareSignalLinks", {
+  id: int("id").autoincrement().primaryKey(),
+  cprSessionId: int("cprSessionId").notNull(),
+  careSignalEventId: int("careSignalEventId").notNull().unique(),
+  activationEventId: int("activationEventId"),
+  institutionalAccountId: int("institutionalAccountId"),
+  linkedByUserId: int("linkedByUserId").notNull(),
+  relationship: mysqlEnum("relationship", ["post_event_prompt", "manual"]).notNull().default("post_event_prompt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  cprSessionIndex: index("cprCareSignalLinks_cpr_session_idx").on(table.cprSessionId),
+  activationIndex: index("cprCareSignalLinks_activation_idx").on(table.activationEventId),
+}));
+
+export type CprCareSignalLink = typeof cprCareSignalLinks.$inferSelect;
+export type InsertCprCareSignalLink = typeof cprCareSignalLinks.$inferInsert;
+
 // Medications table - Pediatric emergency medications with weight-based dosing
 export const emergencyMedications = mysqlTable("emergencyMedications", {
   id: int("id").autoincrement().primaryKey(),

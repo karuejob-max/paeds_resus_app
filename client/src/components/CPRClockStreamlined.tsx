@@ -93,6 +93,10 @@ interface Props {
   lifeSupportPack?: LifeSupportPackResult;
   /** Return ROSC and the server CPR session ID to the parent flow for post-cardiac-arrest care and debrief. */
   onROSC?: (cprSessionId?: number) => void;
+  /** Open the parent completion/debrief path after a deliberate terminal outcome. */
+  onCodeComplete?: (cprSessionId: number | undefined, outcome: 'mortality' | 'transferred' | 'unknown') => void;
+  /** Notify the parent when the server CPR session exists so an IERS link can be created. */
+  onSessionReady?: (cprSessionId: number) => void;
   /** The integrated flow owns demographics in ResusGPS; standalone mode may edit them locally. */
   allowPatientInfoEdit?: boolean;
   useSharedState?: boolean;
@@ -157,6 +161,8 @@ export function CPRClockStreamlined({
   autoStart,
   lifeSupportPack,
   onROSC,
+  onCodeComplete,
+  onSessionReady,
   allowPatientInfoEdit = true,
   useSharedState,
 }: Props) {
@@ -233,6 +239,7 @@ export function CPRClockStreamlined({
   const [showSummaryCard, setShowSummaryCard] = useState(false);
   const [showTools, setShowTools] = useState(false);
   const [showRoscConfirm, setShowRoscConfirm] = useState(false);
+  const [showTerminalOutcome, setShowTerminalOutcome] = useState(false);
   const [showPostRoscProtocol, setShowPostRoscProtocol] = useState(false);
   const [showDebrief, setShowDebrief] = useState(false);
   const [padsAttached, setPadsAttached] = useState(false);
@@ -656,6 +663,7 @@ export function CPRClockStreamlined({
           setSessionId(data.sessionId ?? null);
           setMemberId(data.memberId ?? null);
           setSessionCode(data.sessionCode);
+          if (data.sessionId != null) onSessionReady?.(data.sessionId);
 
           const joinUrl = `${window.location.origin}/join-cpr/${data.sessionCode}`;
           const qrUrl = await QRCode.toDataURL(joinUrl, {
@@ -671,7 +679,7 @@ export function CPRClockStreamlined({
         },
       },
     );
-  }, [autoStart, createSession, isOnline, isRunning, patientAgeMonths, patientWeight, sessionId]);
+  }, [autoStart, createSession, isOnline, isRunning, onSessionReady, patientAgeMonths, patientWeight, sessionId]);
 
   // Speak one-shot CPR-GPS alerts (audio/visual per platform)
   useEffect(() => {
@@ -1072,6 +1080,22 @@ export function CPRClockStreamlined({
     speak('Advanced airway placed. Continue compressions without pauses.');
   };
 
+  const completeCode = (outcome: 'mortality' | 'transferred' | 'unknown') => {
+    if (effectiveRoscAchieved) return;
+    setShowTerminalOutcome(false);
+    setIsRunning(false);
+    addEvent(`CODE COMPLETE — ${outcome === 'mortality' ? 'death declared per local policy' : outcome}`);
+    speak(outcome === 'mortality' ? 'Code complete. Death declared per local policy.' : `Code complete. Outcome recorded as ${outcome}.`);
+    if (sessionId) {
+      endSession.mutate({ sessionId, outcome, totalDuration: effectiveArrestDuration }, {
+        onSuccess: () => onCodeComplete?.(sessionId, outcome),
+        onError: () => onCodeComplete?.(sessionId, outcome),
+      });
+    } else {
+      onCodeComplete?.(undefined, outcome);
+    }
+  };
+
   // Achieve ROSC
   const achieveROSC = () => {
     setRoscAchieved(true);
@@ -1183,6 +1207,24 @@ export function CPRClockStreamlined({
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
+      {showTerminalOutcome && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/90 p-4" role="dialog" aria-modal="true" aria-labelledby="terminal-outcome-title">
+          <Card className="w-full max-w-md border-slate-500 bg-gray-900 text-white">
+            <CardContent className="space-y-4 p-5 md:p-6">
+              <div>
+                <h2 id="terminal-outcome-title" className="text-lg font-bold">Complete code</h2>
+                <p className="mt-1 text-sm text-gray-300">Stop CPR-GPS only after the team has made and documented the clinical decision under local policy. This cannot be undone from the console.</p>
+              </div>
+              <div className="grid gap-2">
+                <Button onClick={() => completeCode('mortality')} className="min-h-12 bg-red-700 hover:bg-red-800">No ROSC — death declared per local policy</Button>
+                <Button onClick={() => completeCode('transferred')} className="min-h-12 bg-blue-700 hover:bg-blue-800">Transferred with ongoing care</Button>
+                <Button onClick={() => completeCode('unknown')} className="min-h-12 bg-slate-700 hover:bg-slate-600">Outcome unknown / handoff incomplete</Button>
+              </div>
+              <Button variant="outline" onClick={() => setShowTerminalOutcome(false)} className="min-h-11 border-gray-600 text-white">Continue CPR / go back</Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
       {showRoscConfirm && (
         <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/90 p-4" role="dialog" aria-modal="true" aria-labelledby="rosc-confirm-title">
           <Card className="w-full max-w-md border-emerald-500/60 bg-gray-900 text-white">
@@ -1422,6 +1464,7 @@ export function CPRClockStreamlined({
         onOpenAirway={() => setShowAdvancedAirwayPrompt(true)}
         roscActionLabel={patientAgeMonths !== undefined && patientAgeMonths < 144 ? 'Pulse present / HR >60 · confirm ROSC' : 'Pulse present · confirm ROSC'}
         onShowRoscConfirm={() => setShowRoscConfirm(true)}
+        onRecordTerminalOutcome={() => setShowTerminalOutcome(true)}
         documentationLog={
           <CprDocumentationLog
             entries={syncShared && shared ? shared.events : events}

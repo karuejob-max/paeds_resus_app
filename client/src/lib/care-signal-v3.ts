@@ -282,7 +282,8 @@ export function validateCareSignalV3(form: CareSignalV3FormState): string | null
 export function buildCareSignalV3SubmitPayload(
   form: CareSignalV3FormState,
   facility: FacilitySelection,
-  providerCadre?: string
+  providerCadre?: string,
+  provenance?: { cprSessionId?: number; activationEventId?: number }
 ) {
   const temporalIntervals = {
     timeToRecognitionMins: form.timeToRecognitionMins ? Number(form.timeToRecognitionMins) : null,
@@ -342,6 +343,9 @@ export function buildCareSignalV3SubmitPayload(
       successFactorCodes: form.successFactorCodes,
       temporalIntervals,
       proposedSystemFix: form.proposedSystemFix.trim(),
+      ...(provenance?.cprSessionId ? { cprSessionId: provenance.cprSessionId } : {}),
+      ...(provenance?.activationEventId ? { activationEventId: provenance.activationEventId } : {}),
+      ...(provenance?.cprSessionId ? { provenance: "resusgps_cpr" } : {}),
     },
     outcome: form.outcomeCategory,
     neurologicalStatus: "unknown",
