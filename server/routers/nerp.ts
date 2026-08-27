@@ -33,6 +33,11 @@ import {
   normalizedSuppressionValue,
   validEmail,
 } from "../lib/nerp-campaign-controls";
+import {
+  canEnterNerpNurseCampaign,
+  requiresExternalCandidateCadre,
+  type ExternalNerpCandidateType,
+} from "../lib/nerp-external-candidate";
 
 const PHASES = ["phase_2", "phase_3"] as const;
 const DECISIONS = ["verified", "rejected", "revoked"] as const;
@@ -360,6 +365,8 @@ export const nerpRouter = router({
     .input(
       z.object({
         institutionalAccountId: z.number().int().positive().default(3),
+        candidateType: z.enum(["nerp_nurse", "non_nurse_external"]).default("nerp_nurse"),
+        candidateCadre: z.string().trim().max(128).optional(),
         candidateName: z.string().trim().min(2).max(255),
         candidateEmail: z.string().trim().email().max(320).optional(),
         userId: z.number().int().positive().optional(),
@@ -372,6 +379,13 @@ export const nerpRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = await requireDb();
       const candidateEmail = input.candidateEmail ? normalizedEmail(input.candidateEmail) : null;
+      const candidateCadre = input.candidateCadre?.trim() || null;
+      if (requiresExternalCandidateCadre(input.candidateType as ExternalNerpCandidateType) && !candidateCadre) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Enter the non-nurse candidate's cadre for external review.",
+        });
+      }
       let resolvedUserId = input.userId ?? null;
       if (!resolvedUserId && candidateEmail) {
         const [matchingUser] = await db
@@ -386,6 +400,8 @@ export const nerpRouter = router({
         caseKey,
         institutionalAccountId: input.institutionalAccountId,
         userId: resolvedUserId,
+        candidateType: input.candidateType,
+        candidateCadre,
         candidateName: input.candidateName.trim().replace(/\s+/g, " "),
         candidateEmail,
         providerName: input.providerName?.trim() || null,
@@ -400,7 +416,7 @@ export const nerpRouter = router({
         caseId,
         action: "case_created",
         actorUserId: ctx.user.id,
-        details: JSON.stringify({ candidateEmail, sourceType: input.sourceType }),
+        details: JSON.stringify({ candidateEmail, candidateType: input.candidateType, candidateCadre, sourceType: input.sourceType }),
       });
       return { success: true as const, caseId, caseKey, linkedUserId: resolvedUserId };
     }),
@@ -509,7 +525,12 @@ export const nerpRouter = router({
       });
 
       let suppressionId: number | null = null;
-      if (phase2Verified && phase3Verified && externalCase.institutionalAccountId) {
+      if (
+        canEnterNerpNurseCampaign(externalCase.candidateType as ExternalNerpCandidateType) &&
+        phase2Verified &&
+        phase3Verified &&
+        externalCase.institutionalAccountId
+      ) {
         const matchType = externalCase.candidateEmail ? "email" : "exact_name";
         const matchValue = externalCase.candidateEmail ? normalizedEmail(externalCase.candidateEmail) : normalizedName(externalCase.candidateName);
         const [suppression] = await db
@@ -532,7 +553,14 @@ export const nerpRouter = router({
           await db.insert(nerpCampaignSuppressionAuditEvents).values({ suppressionId, action: "external_completion_suppression", actorUserId: ctx.user.id, details: JSON.stringify({ caseId: externalCase.id }) });
         }
       }
-      return { success: true as const, phase2Verified, phase3Verified, status: nextStatus, suppressionId };
+      return {
+        success: true as const,
+        phase2Verified,
+        phase3Verified,
+        status: nextStatus,
+        suppressionId,
+        campaignEligible: canEnterNerpNurseCampaign(externalCase.candidateType as ExternalNerpCandidateType),
+      };
     }),
 
   listCampaignSuppressions: adminProcedure

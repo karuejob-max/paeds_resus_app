@@ -70,8 +70,10 @@ export default function AdminNerpVerification() {
     institutionalAccountId: 3,
     includeInactive: false,
   });
+  const [externalCandidateType, setExternalCandidateType] = useState<"nerp_nurse" | "non_nurse_external">("nerp_nurse");
   const [externalCandidateName, setExternalCandidateName] = useState("");
   const [externalCandidateEmail, setExternalCandidateEmail] = useState("");
+  const [externalCandidateCadre, setExternalCandidateCadre] = useState("");
   const [externalProviderName, setExternalProviderName] = useState("");
   const [externalCertificateReference, setExternalCertificateReference] = useState("");
   const [externalSourceType, setExternalSourceType] = useState<"external_provider_certificate" | "employer_record" | "manual_admin_attestation" | "other">("external_provider_certificate");
@@ -96,8 +98,10 @@ export default function AdminNerpVerification() {
   });
   const createExternalCase = trpc.nerp.createExternalVerificationCase.useMutation({
     onSuccess: async () => {
+      setExternalCandidateType("nerp_nurse");
       setExternalCandidateName("");
       setExternalCandidateEmail("");
+      setExternalCandidateCadre("");
       setExternalProviderName("");
       setExternalCertificateReference("");
       setExternalCaseNote("");
@@ -511,15 +515,15 @@ export default function AdminNerpVerification() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <PlusCircle className="h-5 w-5 text-blue-700" />
-              Verify training completed outside NERP
-            </CardTitle>
-            <CardDescription>
-              Create a review case for a person who completed the NERP learning and
-              skills requirements elsewhere. A case does not create a NERP offer,
-              payment record, institutional membership, or IERS access.
-            </CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <PlusCircle className="h-5 w-5 text-blue-700" />
+                    Verify training completed outside Paeds Resus pathways
+                  </CardTitle>
+                  <CardDescription>
+                    Choose whether the candidate is a nurse being reviewed for NERP or a
+                    non-nurse with outside-pathway completion. A case does not create a
+                    NERP offer, payment record, institutional membership, or IERS access.
+                  </CardDescription>
           </CardHeader>
           <CardContent>
             <form
@@ -529,6 +533,8 @@ export default function AdminNerpVerification() {
                 if (!externalCandidateName.trim()) return;
                 createExternalCase.mutate({
                   institutionalAccountId: 3,
+                  candidateType: externalCandidateType,
+                  candidateCadre: externalCandidateCadre.trim() || undefined,
                   candidateName: externalCandidateName,
                   candidateEmail: externalCandidateEmail.trim() || undefined,
                   providerName: externalProviderName.trim() || undefined,
@@ -538,6 +544,15 @@ export default function AdminNerpVerification() {
                 });
               }}
             >
+              <select
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+                value={externalCandidateType}
+                onChange={event => setExternalCandidateType(event.target.value as typeof externalCandidateType)}
+                aria-label="External candidate type"
+              >
+                <option value="nerp_nurse">Nurse — NERP external completion</option>
+                <option value="non_nurse_external">Non-nurse — outside-pathway completion</option>
+              </select>
               <Input
                 value={externalCandidateName}
                 onChange={event => setExternalCandidateName(event.target.value)}
@@ -551,6 +566,14 @@ export default function AdminNerpVerification() {
                 placeholder="Candidate email (optional for an unregistered person)"
                 aria-label="External candidate email"
               />
+              {externalCandidateType === "non_nurse_external" ? (
+                <Input
+                  value={externalCandidateCadre}
+                  onChange={event => setExternalCandidateCadre(event.target.value)}
+                  placeholder="Candidate cadre, e.g. doctor, paramedic, midwife"
+                  aria-label="External non-nurse candidate cadre"
+                />
+              ) : null}
               <Input
                 value={externalProviderName}
                 onChange={event => setExternalProviderName(event.target.value)}
@@ -593,11 +616,11 @@ export default function AdminNerpVerification() {
 
         <Card>
           <CardHeader>
-            <CardTitle>External NERP review queue</CardTitle>
+            <CardTitle>External completion review queue</CardTitle>
             <CardDescription>
-              Review Phase 2 and Phase 3 separately. Once both are verified, the
-              candidate is suppressed from the NERP promotion preview by exact
-              email or exact full name.
+              Review Phase 2 and Phase 3 separately. Nurse cases are eligible for
+              NERP completion/suppression rules; non-nurse cases are tracked as
+              outside-pathway completions and never enter the NERP nurse audience.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -613,6 +636,8 @@ export default function AdminNerpVerification() {
                       <CardDescription>
                         {record.candidateEmail || "No email / not registered"}
                         {record.userId ? " · Linked account" : " · No platform account linked"}
+                        {record.candidateType === "non_nurse_external" ? " · Non-nurse outside pathway" : " · NERP nurse"}
+                        {record.candidateCadre ? ` · ${record.candidateCadre}` : ""}
                         {record.providerName ? ` · ${record.providerName}` : ""}
                       </CardDescription>
                     </div>
@@ -646,7 +671,7 @@ export default function AdminNerpVerification() {
                             </>
                           ) : (
                             <>
-                              <p className="text-xs text-emerald-800">Verified external evidence contributes to the NERP completion record and campaign suppression only. It does not issue an official AHA credential.</p>
+                              <p className="text-xs text-emerald-800">{record.candidateType === "non_nurse_external" ? "Verified outside-pathway evidence is recorded for this non-nurse candidate and does not enter the NERP nurse campaign audience or issue an official AHA credential." : "Verified external evidence contributes to the NERP completion record and campaign suppression only. It does not issue an official AHA credential."}</p>
                               <Input value={form.reason} onChange={event => updateExternalForm(record.id, phase.key, { reason: event.target.value })} placeholder="Reason for revocation (required)" />
                               <Button type="button" size="sm" variant="outline" onClick={() => submitExternal(record.id, phase.key, "revoked")} disabled={reviewExternalCase.isPending}><XCircle className="mr-1 h-4 w-4" />Revoke verification</Button>
                             </>

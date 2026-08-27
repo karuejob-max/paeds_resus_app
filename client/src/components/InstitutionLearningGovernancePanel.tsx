@@ -57,28 +57,7 @@ export default function InstitutionLearningGovernancePanel({
   isInstitutionAdmin?: boolean;
 }) {
   const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
-  const utils = trpc.useUtils();
-  const { data: departments = [] } =
-    trpc.institutionLearning.listDepartments.useQuery(
-      { institutionId },
-      { staleTime: 60_000 }
-    );
-  const { data: staff = [] } = trpc.institutionLearning.listDepartmentStaff.useQuery(
-    {
-      institutionId,
-      departmentId: selectedDepartmentId ? Number(selectedDepartmentId) : undefined,
-    },
-    { staleTime: 30_000, enabled: mode !== "sessions" }
-  );
-  const { data: coordinators = [] } =
-    trpc.institutionLearning.listEducationCoordinators.useQuery(
-      { institutionId },
-      { staleTime: 30_000, enabled: mode !== "sessions" }
-    );
-  const { data: targets = [] } = trpc.institutionLearning.listTargets.useQuery(
-    { institutionId },
-    { staleTime: 30_000, enabled: mode !== "sessions" }
-  );
+  const [sessionDepartmentId, setSessionDepartmentId] = useState("");
   const [selectedCoordinatorUserId, setSelectedCoordinatorUserId] =
     useState("");
   const [sessionName, setSessionName] = useState("");
@@ -86,13 +65,9 @@ export default function InstitutionLearningGovernancePanel({
   const [eventType, setEventType] = useState("cpd_general");
   const [audienceScope, setAudienceScope] = useState("facility_wide");
   const [audienceLabel, setAudienceLabel] = useState("");
-  const [sessionDepartmentId, setSessionDepartmentId] = useState("");
-  const [presenterName, setPresenterName] = useState("");
-  const [presenterCadre, setPresenterCadre] = useState("");
+  const [presenterUserId, setPresenterUserId] = useState("");
   const [cpdPoints, setCpdPoints] = useState("1");
-  const [coPresenters, setCoPresenters] = useState([
-    { fullName: "", email: "", cadre: "", department: "" },
-  ]);
+  const [coPresenters, setCoPresenters] = useState([{ userId: "" }]);
   const [targetScope, setTargetScope] = useState<
     "facility" | "department" | "individual"
   >("facility");
@@ -108,15 +83,48 @@ export default function InstitutionLearningGovernancePanel({
   const [targetValue, setTargetValue] = useState("1");
   const [courseProgramType, setCourseProgramType] = useState("");
   const [coursePhase, setCoursePhase] = useState("");
-  const linkedStaff = useMemo(
-    () => staff.filter(person => person.userId != null),
+  const utils = trpc.useUtils();
+  const { data: departments = [] } =
+    trpc.institutionLearning.listDepartments.useQuery(
+      { institutionId },
+      { staleTime: 60_000 }
+    );
+  const participantDepartmentId = mode === "sessions"
+    ? sessionDepartmentId ? Number(sessionDepartmentId) : undefined
+    : selectedDepartmentId ? Number(selectedDepartmentId) : undefined;
+  const { data: staff = [] } = trpc.institutionLearning.listDepartmentStaff.useQuery(
+    { institutionId, departmentId: participantDepartmentId },
+    { staleTime: 30_000 }
+  );
+  const { data: coordinators = [] } =
+    trpc.institutionLearning.listEducationCoordinators.useQuery(
+      { institutionId },
+      { staleTime: 30_000, enabled: mode !== "sessions" }
+    );
+  const { data: targets = [] } = trpc.institutionLearning.listTargets.useQuery(
+    { institutionId },
+    { staleTime: 30_000, enabled: mode !== "sessions" }
+  );
+  const selectedDepartmentStaff = staff;
+  const linkedStaff = staff;
+  const audienceCadres = useMemo(
+    () => Array.from(
+      new Set(
+        staff.flatMap(person =>
+          [person.cadre, person.cadreOther].filter(
+            (value): value is string => Boolean(value?.trim())
+          )
+        )
+      )
+    ).sort((left, right) => left.localeCompare(right)),
     [staff]
   );
-  const selectedDepartmentStaff = useMemo(() => {
-    if (!selectedDepartmentId) return [];
-    const departmentId = Number(selectedDepartmentId);
-    return linkedStaff.filter(person => person.facilityDepartmentId === departmentId);
-  }, [linkedStaff, selectedDepartmentId]);
+  const selectedPresenter = staff.find(
+    person => person.userId === Number(presenterUserId)
+  );
+  const coPresenterOptions = staff.filter(
+    person => person.userId !== Number(presenterUserId)
+  );
 
   const invalidateLearning = async () => {
     await Promise.all([
@@ -160,7 +168,9 @@ export default function InstitutionLearningGovernancePanel({
     onSuccess: async () => {
       toast.success("CPD session created");
       setSessionName("");
-      setCoPresenters([{ fullName: "", email: "", cadre: "", department: "" }]);
+      setPresenterUserId("");
+      setAudienceLabel("");
+      setCoPresenters([{ userId: "" }]);
       await invalidateLearning();
     },
     onError: error => toast.error(error.message),
@@ -181,15 +191,14 @@ export default function InstitutionLearningGovernancePanel({
   });
 
   const submitSession = () => {
-    const presenterRows = coPresenters
-      .filter(presenter => presenter.fullName.trim())
-      .map(presenter => ({
-        ...presenter,
-        email: presenter.email.trim() || null,
-        cadre: presenter.cadre.trim() || null,
-        department: presenter.department.trim() || null,
-        userId: null,
-      }));
+    if (!presenterUserId) {
+      toast.error("Choose a lead presenter from the active institution-member list.");
+      return;
+    }
+    const selectedCoPresenters = coPresenters
+      .map(presenter => presenter.userId)
+      .filter(Boolean)
+      .map(userId => ({ userId: Number(userId) }));
     createSession.mutate({
       institutionId,
       name: sessionName,
@@ -201,13 +210,10 @@ export default function InstitutionLearningGovernancePanel({
       facilityDepartmentId: sessionDepartmentId
         ? Number(sessionDepartmentId)
         : null,
-      presenterUserId: null,
-      presenterName: presenterName.trim() || null,
-      presenterCadre: presenterCadre.trim() || null,
-      presenterDepartment: null,
+      presenterUserId: Number(presenterUserId),
       cpdPoints: cpdPoints ? Number(cpdPoints) : null,
       approvingCouncil: null,
-      coPresenters: presenterRows,
+      coPresenters: selectedCoPresenters,
     });
   };
   const submitTarget = () => {
@@ -404,29 +410,41 @@ export default function InstitutionLearningGovernancePanel({
                 ))}
               </select>
             </Field>
-            <Field label="Other-cadre label">
-              <input
+            {audienceScope === "other_cadre" && (
+              <Field label="Audience cadre">
+                <select
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  value={audienceLabel}
+                  onChange={event => setAudienceLabel(event.target.value)}
+                >
+                  <option value="">Choose audience cadre</option>
+                  {audienceCadres.map(cadre => (
+                    <option key={cadre} value={cadre}>
+                      {cadre}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+            <Field label="Lead presenter (institution member)">
+              <select
                 className="h-10 rounded-md border bg-background px-3 text-sm"
-                value={audienceLabel}
-                onChange={event => setAudienceLabel(event.target.value)}
-                placeholder="Finance, Housekeeping, Kitchen…"
-              />
-            </Field>
-            <Field label="Lead presenter">
-              <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-                value={presenterName}
-                onChange={event => setPresenterName(event.target.value)}
-                placeholder="Name"
-              />
-            </Field>
-            <Field label="Lead presenter cadre">
-              <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-                value={presenterCadre}
-                onChange={event => setPresenterCadre(event.target.value)}
-                placeholder="Nurse, doctor, pharmacist…"
-              />
+                value={presenterUserId}
+                onChange={event => setPresenterUserId(event.target.value)}
+              >
+                <option value="">Choose lead presenter</option>
+                {staff.map(person => (
+                  <option key={person.userId} value={person.userId ?? ""}>
+                    {person.staffName}
+                  </option>
+                ))}
+              </select>
+              {selectedPresenter ? (
+                <p className="text-xs text-muted-foreground">
+                  {selectedPresenter.cadre ?? selectedPresenter.staffRole}
+                  {selectedPresenter.department ? ` · ${selectedPresenter.department}` : ""}
+                </p>
+              ) : null}
             </Field>
             <Field label="CPD points">
               <input
@@ -456,12 +474,7 @@ export default function InstitutionLearningGovernancePanel({
                     rows.length < 6
                       ? [
                           ...rows,
-                          {
-                            fullName: "",
-                            email: "",
-                            cadre: "",
-                            department: "",
-                          },
+                            { userId: "" },
                         ]
                       : rows
                   )
@@ -471,88 +484,78 @@ export default function InstitutionLearningGovernancePanel({
                 Add co-presenter
               </Button>
             </div>
-            {coPresenters.map((presenter, index) => (
-              <div
-                key={index}
-                className="grid gap-2 md:grid-cols-[1.2fr_1.2fr_1fr_1fr_auto]"
-              >
-                <input
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
-                  value={presenter.fullName}
-                  onChange={event =>
-                    setCoPresenters(rows =>
-                      rows.map((row, rowIndex) =>
-                        rowIndex === index
-                          ? { ...row, fullName: event.target.value }
-                          : row
-                      )
-                    )
-                  }
-                  placeholder="Full name"
-                />
-                <input
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
-                  value={presenter.email}
-                  onChange={event =>
-                    setCoPresenters(rows =>
-                      rows.map((row, rowIndex) =>
-                        rowIndex === index
-                          ? { ...row, email: event.target.value }
-                          : row
-                      )
-                    )
-                  }
-                  placeholder="Email"
-                />
-                <input
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
-                  value={presenter.cadre}
-                  onChange={event =>
-                    setCoPresenters(rows =>
-                      rows.map((row, rowIndex) =>
-                        rowIndex === index
-                          ? { ...row, cadre: event.target.value }
-                          : row
-                      )
-                    )
-                  }
-                  placeholder="Cadre"
-                />
-                <input
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
-                  value={presenter.department}
-                  onChange={event =>
-                    setCoPresenters(rows =>
-                      rows.map((row, rowIndex) =>
-                        rowIndex === index
-                          ? { ...row, department: event.target.value }
-                          : row
-                      )
-                    )
-                  }
-                  placeholder="Department"
-                />
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() =>
-                    setCoPresenters(rows =>
-                      rows.length === 1
-                        ? rows
-                        : rows.filter((_, rowIndex) => rowIndex !== index)
-                    )
-                  }
+            {coPresenters.map((presenter, index) => {
+              const selectedCoPresenterIds = new Set(
+                coPresenters.map(row => Number(row.userId)).filter(Boolean)
+              );
+              const availableCoPresenters = coPresenterOptions.filter(
+                person =>
+                  person.userId === Number(presenter.userId) ||
+                  !selectedCoPresenterIds.has(person.userId)
+              );
+              const selectedCoPresenter = coPresenterOptions.find(
+                person => person.userId === Number(presenter.userId)
+              );
+              return (
+                <div
+                  key={index}
+                  className="grid gap-2 md:grid-cols-[1fr_auto]"
                 >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+                  <div>
+                    <select
+                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                      value={presenter.userId}
+                      onChange={event =>
+                        setCoPresenters(rows =>
+                          rows.map((row, rowIndex) =>
+                            rowIndex === index
+                              ? { userId: event.target.value }
+                              : row
+                          )
+                        )
+                      }
+                    >
+                      <option value="">Choose co-presenter</option>
+                      {availableCoPresenters.map(person => (
+                        <option key={person.userId} value={person.userId ?? ""}>
+                          {person.staffName}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedCoPresenter ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {selectedCoPresenter.cadre ?? selectedCoPresenter.staffRole}
+                        {selectedCoPresenter.department ? ` · ${selectedCoPresenter.department}` : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() =>
+                      setCoPresenters(rows =>
+                        rows.length === 1
+                          ? [{ userId: "" }]
+                          : rows.filter((_, rowIndex) => rowIndex !== index)
+                      )
+                    }
+                    aria-label="Remove co-presenter"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              );
+            })}
           </div>
           <Button
             onClick={submitSession}
             disabled={
-              !sessionName.trim() || !sessionDate || createSession.isPending
+              !sessionName.trim() ||
+              !sessionDate ||
+              !presenterUserId ||
+              (audienceScope === "other_cadre" && !audienceLabel) ||
+              createSession.isPending
             }
           >
             <CalendarPlus className="mr-2 h-4 w-4" />
