@@ -7295,6 +7295,7 @@ export const institutionRouter = router({
   submitEquipmentAuditLog: protectedProcedure
     .input(z.object({
       institutionId: z.number(),
+      shiftRosterId: z.number().int().positive().optional(),
       department: z.string().trim().min(1),
       auditType: z.enum(["daily_seal_check", "monthly_100_percent"]),
       cartSealIntact: z.boolean(),
@@ -7309,6 +7310,41 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
+      if (input.shiftRosterId != null) {
+        const [roster] = await db
+          .select({
+            id: shiftUtlRosters.id,
+            institutionId: shiftUtlRosters.institutionId,
+            utlUserId: shiftUtlRosters.utlUserId,
+            assignmentStatus: shiftUtlRosters.assignmentStatus,
+            status: shiftUtlRosters.status,
+            acceptedAt: shiftUtlRosters.acceptedAt,
+          })
+          .from(shiftUtlRosters)
+          .where(and(
+            eq(shiftUtlRosters.id, input.shiftRosterId),
+            eq(shiftUtlRosters.institutionId, input.institutionId),
+            eq(shiftUtlRosters.utlUserId, ctx.user.id),
+          ))
+          .limit(1);
+        if (!roster) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only the assigned UTL/ERTL can submit this shift crash-cart check." });
+        }
+        await assertActiveProviderDutyAccess(db, ctx.user, input.institutionId);
+        assertProviderDutyDecision({
+          action: "sign_off_readiness",
+          requestedInstitutionId: input.institutionId,
+          assignmentInstitutionId: roster.institutionId,
+          requestingUserId: ctx.user.id,
+          assignedUserId: roster.utlUserId,
+          membershipStatus: "active",
+          iersRoleStatus: "active",
+          assignmentStatus: roster.assignmentStatus,
+          shiftStatus: roster.status,
+          acceptedAt: roster.acceptedAt,
+        });
+      }
 
       const [result] = await db.insert(equipmentAuditLogs).values({
         institutionId: input.institutionId,

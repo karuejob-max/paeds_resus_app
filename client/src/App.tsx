@@ -8,6 +8,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Header from "./components/Header";
 import { PendingAdminInviteBanner } from "./components/PendingAdminInviteBanner";
 import ProviderActivationAlert from "./components/ProviderActivationAlert";
+import PlatformOfflineStatus from "./components/PlatformOfflineStatus";
 import PaedsAIAssistant from "./components/PaedsAIAssistant";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole, type UserRole } from "@/hooks/useUserRole";
@@ -178,6 +179,7 @@ function Router() {
         Skip to main content
       </a>
       <Header />
+      <PlatformOfflineStatus />
       <PendingAdminInviteBanner />
       <ProviderActivationAlert />
       <main id="main-content" className="flex-1" role="main">

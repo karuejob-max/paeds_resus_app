@@ -40,6 +40,12 @@ import { SummativeRetryBlockedBanner } from "@/components/SummativeRetryBlockedB
 import { examPolicyHref } from "@shared/exam-policy-learner-content";
 import type { SummativeBlockKind } from "@shared/microcourse-exam-policy";
 import QuizGuideCard from "@/components/QuizGuideCard";
+import {
+  getOfflineSnapshot,
+  listOfflineSnapshots,
+  offlineStoreKeys,
+  saveOfflineSnapshot,
+} from "@/lib/offline/platformOfflineStore";
 
 type MicroCourseCatalogRow = inferRouterOutputs<AppRouter>["courses"]["listAll"][number];
 type FellowshipCatalogRow = inferRouterOutputs<AppRouter>["learning"]["getCourses"][number];
@@ -251,22 +257,97 @@ export default function MicroCoursePlayerDB() {
     { courseId: fellowshipDbCourse?.id ?? 0 },
     { enabled: !!fellowshipDbCourse && !isAhaCourse }
   );
-  const courseDetails = isAhaCourse ? ahaCourseDetails : fellowshipCourseDetails;
+  const remoteCourseDetails = isAhaCourse ? ahaCourseDetails : fellowshipCourseDetails;
+  const [offlineCourseDetails, setOfflineCourseDetails] = useState<any>(null);
+  const courseAggregateId = String(slug ?? programType ?? "");
+  const courseDetails = remoteCourseDetails ?? offlineCourseDetails;
+  const isUsingOfflineCourse = !remoteCourseDetails && Boolean(offlineCourseDetails);
+
+  useEffect(() => {
+    if (!remoteCourseDetails || !courseAggregateId) return;
+    const version = String((remoteCourseDetails as any).updatedAt ?? (remoteCourseDetails as any).version ?? "live");
+    void saveOfflineSnapshot({
+      key: offlineStoreKeys.course(courseAggregateId, version),
+      kind: "course_package",
+      aggregateId: courseAggregateId,
+      version,
+      payload: remoteCourseDetails,
+      savedAt: Date.now(),
+      lastServerSyncAt: Date.now(),
+    });
+  }, [courseAggregateId, remoteCourseDetails]);
+
+  useEffect(() => {
+    if (remoteCourseDetails || !courseAggregateId) return;
+    void listOfflineSnapshots("course_package").then((rows) => {
+      const match = rows.find((row) => row.aggregateId === courseAggregateId);
+      if (match) setOfflineCourseDetails(match.payload);
+    });
+  }, [courseAggregateId, remoteCourseDetails]);
 
   const currentModuleId = useMemo(() => {
     return courseDetails?.modules?.[currentModuleIndex]?.id;
   }, [courseDetails, currentModuleIndex]);
 
-  const { data: moduleContent, isLoading: contentLoading } = trpc.learning.getModuleContent.useQuery(
+  const { data: remoteModuleContent, isLoading: contentLoading } = trpc.learning.getModuleContent.useQuery(
     { moduleId: currentModuleId ?? 0 },
     { enabled: !!currentModuleId }
   );
 
   const firstModuleId = courseDetails?.modules?.[0]?.id;
-  const { data: firstModuleContent, isLoading: firstModuleContentLoading } = trpc.learning.getModuleContent.useQuery(
+  const [offlineModuleContent, setOfflineModuleContent] = useState<any>(null);
+  const [offlineFirstModuleContent, setOfflineFirstModuleContent] = useState<any>(null);
+  const { data: remoteFirstModuleContent, isLoading: firstModuleContentLoading } = trpc.learning.getModuleContent.useQuery(
     { moduleId: firstModuleId ?? 0 },
     { enabled: !!firstModuleId }
   );
+  const moduleContent = remoteModuleContent ?? offlineModuleContent;
+  const firstModuleContent = remoteFirstModuleContent ?? offlineFirstModuleContent;
+  const isUsingOfflineModule = !remoteModuleContent && Boolean(offlineModuleContent);
+
+  useEffect(() => {
+    if (!remoteModuleContent || !currentModuleId) return;
+    const version = String((courseDetails as any)?.updatedAt ?? (courseDetails as any)?.version ?? "live");
+    void saveOfflineSnapshot({
+      key: offlineStoreKeys.module(currentModuleId, version),
+      kind: "course_module",
+      aggregateId: String(currentModuleId),
+      version,
+      payload: remoteModuleContent,
+      savedAt: Date.now(),
+      lastServerSyncAt: Date.now(),
+    });
+  }, [courseDetails, currentModuleId, remoteModuleContent]);
+
+  useEffect(() => {
+    if (remoteModuleContent || !currentModuleId) return;
+    void listOfflineSnapshots("course_module").then((rows) => {
+      const match = rows.find((row) => row.aggregateId === String(currentModuleId));
+      if (match) setOfflineModuleContent(match.payload);
+    });
+  }, [currentModuleId, remoteModuleContent]);
+
+  useEffect(() => {
+    if (!remoteFirstModuleContent || !firstModuleId) return;
+    const version = String((courseDetails as any)?.updatedAt ?? (courseDetails as any)?.version ?? "live");
+    void saveOfflineSnapshot({
+      key: offlineStoreKeys.module(firstModuleId, version),
+      kind: "course_module",
+      aggregateId: String(firstModuleId),
+      version,
+      payload: remoteFirstModuleContent,
+      savedAt: Date.now(),
+      lastServerSyncAt: Date.now(),
+    });
+  }, [courseDetails, firstModuleId, remoteFirstModuleContent]);
+
+  useEffect(() => {
+    if (remoteFirstModuleContent || !firstModuleId) return;
+    void listOfflineSnapshots("course_module").then((rows) => {
+      const match = rows.find((row) => row.aggregateId === String(firstModuleId));
+      if (match) setOfflineFirstModuleContent(match.payload);
+    });
+  }, [firstModuleId, remoteFirstModuleContent]);
 
   const { data: myEnrollments } = trpc.courses.getUserEnrollments.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -1170,6 +1251,9 @@ export default function MicroCoursePlayerDB() {
                 {isReviewMode && (
                   <Badge className="text-[10px] h-4 px-1.5 bg-emerald-500 text-white border-none">Review Mode</Badge>
                 )}
+                {(isUsingOfflineCourse || isUsingOfflineModule) && (
+                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-amber-300 text-amber-700">Offline copy</Badge>
+                )}
               </div>
             </div>
           </div>
@@ -1540,12 +1624,18 @@ export default function MicroCoursePlayerDB() {
                     </div>
                   )}
                 </div>
-                <CardTitle className="text-2xl font-bold text-slate-900">
+                                  <CardTitle className="text-2xl font-bold text-slate-900">
                   {currentSection?.title || currentModule?.title}
                 </CardTitle>
+                {isUsingOfflineModule && (
+                  <p className="mt-2 text-xs font-medium text-amber-700" role="status">
+                    Offline copy shown · course content is not being marked complete until the server is reachable.
+                  </p>
+                )}
+
               </CardHeader>
               <CardContent className="pt-8 pb-10 px-6 md:px-10">
-                {contentLoading ? (
+                {contentLoading && !isUsingOfflineModule ? (
                   <div className="py-20 flex flex-col items-center justify-center">
                     <Loader2 className="w-10 h-10 animate-spin text-primary/30 mb-4" />
                     <p className="text-slate-400 text-sm italic">Loading clinical guidance...</p>

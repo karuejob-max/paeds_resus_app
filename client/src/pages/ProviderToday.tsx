@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { getOfflineSnapshot, offlineStoreKeys, saveOfflineSnapshot } from "@/lib/offline/platformOfflineStore";
 import ProviderTodayActivationCard from "@/components/ProviderTodayActivationCard";
 import IersNotificationSetup from "@/components/IersNotificationSetup";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,7 @@ import {
   AlertTriangle,
   ArrowRight,
   BellRing,
+  WifiOff,
   BookOpen,
   Building2,
   CalendarClock,
@@ -147,6 +149,20 @@ export default function ProviderToday() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
+  const [offlineTeams, setOfflineTeams] = useState<any[] | null>(null);
+  const [offlineDuties, setOfflineDuties] = useState<any | null>(null);
+  const [offlineSnapshotAt, setOfflineSnapshotAt] = useState<number | null>(null);
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
+
+  useEffect(() => {
+    const refreshOnline = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", refreshOnline);
+    window.addEventListener("offline", refreshOnline);
+    return () => {
+      window.removeEventListener("online", refreshOnline);
+      window.removeEventListener("offline", refreshOnline);
+    };
+  }, []);
 
   const membershipsQuery = trpc.institution.getMyMemberships.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -189,6 +205,58 @@ export default function ProviderToday() {
     retry: 1,
   });
 
+  useEffect(() => {
+    if (!user?.id || !teamsQuery.data) return;
+    const savedAt = Date.now();
+    void saveOfflineSnapshot({
+      key: offlineStoreKeys.providerTeams(user.id, 0),
+      kind: "iers_shift_snapshot",
+      aggregateId: String(user.id),
+      actorId: user.id,
+      version: savedAt.toString(),
+      payload: teamsQuery.data,
+      savedAt,
+      lastServerSyncAt: savedAt,
+    });
+  }, [teamsQuery.data, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !dutiesQuery.data) return;
+    const savedAt = Date.now();
+    void saveOfflineSnapshot({
+      key: offlineStoreKeys.providerDuties(user.id),
+      kind: "iers_shift_snapshot",
+      aggregateId: String(user.id),
+      actorId: user.id,
+      version: savedAt.toString(),
+      payload: dutiesQuery.data,
+      savedAt,
+      lastServerSyncAt: savedAt,
+    });
+  }, [dutiesQuery.data, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || (teamsQuery.data && dutiesQuery.data)) return;
+    let cancelled = false;
+    void Promise.all([
+      getOfflineSnapshot<any[]>(offlineStoreKeys.providerTeams(user.id, 0)),
+      getOfflineSnapshot<any>(offlineStoreKeys.providerDuties(user.id)),
+    ]).then(([teamsSnapshot, dutiesSnapshot]) => {
+      if (cancelled) return;
+      if (teamsSnapshot?.payload) {
+        setOfflineTeams(teamsSnapshot.payload);
+        setOfflineSnapshotAt(Math.max(teamsSnapshot.savedAt, dutiesSnapshot?.savedAt ?? 0));
+      }
+      if (dutiesSnapshot?.payload) {
+        setOfflineDuties(dutiesSnapshot.payload);
+        setOfflineSnapshotAt((current) => Math.max(current ?? 0, dutiesSnapshot.savedAt));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [dutiesQuery.data, teamsQuery.data, user?.id]);
+
   if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
@@ -201,13 +269,16 @@ export default function ProviderToday() {
     );
   }
 
+  const displayTeams = teamsQuery.data ?? offlineTeams ?? [];
+  const displayDuties = dutiesQuery.data ?? offlineDuties;
+  const hasOfflineSnapshot = !isOnline && (Boolean(offlineTeams) || Boolean(offlineDuties));
   const activeMemberships = (membershipsQuery.data ?? []).filter(
     (membership) => membership.membershipStatus === "active",
   );
   const primaryMembership = activeMemberships[0];
   const pendingMembership = (membershipsQuery.data ?? []).find((membership) => membership.isPendingInvite);
   const activeActivations = activationsQuery.data ?? [];
-  const teams = teamsQuery.data ?? [];
+  const teams = displayTeams;
   const currentTeam = teams.find((team) => team.teamState === "current") ?? null;
   const currentPendingRole = teams
     .flatMap((team) => team.assignments)
@@ -217,10 +288,10 @@ export default function ProviderToday() {
         ["approved", "pending_acceptance"].includes(assignment.assignmentStatus),
     );
   const pendingReadiness = (readinessQuery.data ?? []).some((shift) => !shift.readinessSignOffAt);
-  const nextUtl = dutiesQuery.data?.nextUtl ?? null;
-  const nextErtl = dutiesQuery.data?.nextErtl ?? null;
+  const nextUtl = displayDuties?.nextUtl ?? null;
+  const nextErtl = displayDuties?.nextErtl ?? null;
   const nextDuty = nextUtl ?? nextErtl;
-  const workplaceDataLoading = membershipsQuery.isLoading || (hasActiveMembership && (!secondaryQueriesReady || [activationsQuery, dutiesQuery, teamsQuery, readinessQuery].some((query) => query.isLoading)));
+  const workplaceDataLoading = membershipsQuery.isLoading || (hasActiveMembership && (!secondaryQueriesReady || [activationsQuery, dutiesQuery, teamsQuery, readinessQuery].some((query) => query.isLoading && !hasOfflineSnapshot)));
   const attention = workplaceDataLoading
     ? {
         eyebrow: "Checking your workspace",
@@ -274,7 +345,17 @@ export default function ProviderToday() {
           </div>
         ) : null}
 
-        <IersNotificationSetup enabled={hasActiveMembership} />
+        {hasOfflineSnapshot && (
+          <Alert className="border-amber-200 bg-amber-50 text-amber-950">
+            <WifiOff className="h-4 w-4" />
+            <AlertTitle>Showing the last saved shift snapshot</AlertTitle>
+            <AlertDescription>
+              {offlineSnapshotAt ? `Saved ${new Date(offlineSnapshotAt).toLocaleString()}. ` : ""}This is read-only offline information. Activations, notifications, role acceptance, staffing changes, and readiness sign-off require a live connection.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <IersNotificationSetup enabled={hasActiveMembership && isOnline} />
 
         <ProviderTodayActivationCard
           currentTeam={currentTeam ? { teamId: currentTeam.teamId, institutionId: currentTeam.institutionId, poleName: currentTeam.poleName } : null}
