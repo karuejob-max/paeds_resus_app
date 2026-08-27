@@ -1,5 +1,7 @@
 export const PAEDS_RESUS_ILS_PROGRAM_TYPE = "paeds_resus_ils" as const;
 export const PAEDS_RESUS_ILS_COURSE_SLUG = "paeds-resus-competency" as const;
+export const PAEDS_RESUS_ILS_DELIVERY_MODEL = "institution_paid_cohort" as const;
+export const PAEDS_RESUS_ILS_DELIVERY_LABEL = "Institution-paid provider cohort" as const;
 export const PAEDS_RESUS_ILS_BASE_PRICE_KES = 10_000;
 export const PAEDS_RESUS_ILS_CREDENTIALING_WINDOW_DAYS = 90;
 
