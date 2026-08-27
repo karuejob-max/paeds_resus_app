@@ -29,9 +29,9 @@ const SERVICE_REGION_TOWNS =
 export default function Institutional() {
   useScrollToTop();
   usePageMeta({
-    title: "Hospital Emergency Response System Kenya — Paediatric Readiness | Paeds Resus",
+    title: "Institutional CPD and Emergency Readiness Platform Kenya | Paeds Resus",
     description:
-      "Hospital-wide Emergency Readiness System (ERS) with paediatric priority for Kenya. Nurse-led 24/7 ERT, ResusGPS, Care Signal, training mesh, and readiness audits — Nyeri, Embu, Murang'a, Meru, and central Kenya.",
+      "Institutional CPD, emergency readiness, and improvement tools for hospitals, training organizations, universities, networks, and public-health teams in Kenya.",
     path: "/institutional",
   });
 
@@ -65,16 +65,13 @@ export default function Institutional() {
       <section className="bg-gradient-to-br from-[#1a4d4d] via-[#0d3333] to-[#052020] text-white py-16 px-4">
         <div className="max-w-6xl mx-auto space-y-5">
           <p className="text-sm font-medium text-orange-200 tracking-wide uppercase">
-            Hospital Emergency Readiness System · Paediatric priority
+            Institutional platform · CPD, readiness, and improvement
           </p>
           <h1 className="text-4xl md:text-5xl font-bold max-w-4xl">
             No child should die from a preventable emergency — even when every department is stretched thin
           </h1>
           <p className="text-lg md:text-xl text-orange-100 max-w-3xl leading-relaxed">
-            Paeds Resus helps hospitals build a <strong className="font-semibold text-white">hospital-wide Emergency
-            Response System (ERS)</strong> — nurse-led ERT, 24/7. During a code, one nurse responds while a colleague
-            keeps the department running; hospital-wide coordination brings teams across units together. ResusGPS, Care
-            Signal, AHA-aligned training mesh, and readiness audits — working ERS plus training, not seat bundles.
+            Paeds Resus helps hospitals, faith-based facilities, training organizations, universities, networks, and public-health teams build measurable capability through the <strong className="font-semibold text-white">Institution Workspace</strong> — with CPD tracking, staff development, emergency readiness, improvement visibility, and a route to discuss training partnerships. Hospitals can add a nurse-led Emergency Response System (ERS) when that scope is needed; onboarding does not enroll staff in a course.
           </p>
           <p className="text-sm text-orange-100/90 max-w-3xl">
             Serving central and upper Eastern Kenya — {SERVICE_REGION_TOWNS}.
@@ -90,7 +87,7 @@ export default function Institutional() {
             </Link>
             <Link href="/institutional-onboarding">
               <Button variant="ghost" className="text-orange-100 hover:text-white hover:bg-white/10" onClick={() => trackButtonClick("institutional_onboarding")}>
-                New facility onboarding
+                Start institution onboarding
               </Button>
             </Link>
           </div>
@@ -100,9 +97,9 @@ export default function Institutional() {
       <section className="bg-[#0a2828] border-t border-white/10 text-white" aria-label="How to work with us">
         <div className="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-2 gap-6">
           <div className="rounded-xl border border-white/20 p-6 bg-white/5">
-            <h2 className="text-lg font-semibold mb-2">Evaluating a partnership?</h2>
+            <h2 className="text-lg font-semibold mb-2">Evaluating an institutional partnership?</h2>
             <p className="text-sm text-orange-100/90 mb-4">
-              Start a readiness conversation — ERS scope, ERT design, and training gaps. No login required.
+              Start a conversation about CPD, institutional readiness, improvement, or training support. No login required.
             </p>
             <div className="flex flex-wrap gap-3">
               <Button asChild className="bg-[#ff6633] hover:bg-[#e85a2e]" onClick={() => trackButtonClick("institutional_get_quote")}>
@@ -110,7 +107,7 @@ export default function Institutional() {
               </Button>
               <WhatsAppButton
                 phoneNumber="254706781260"
-                message="Hello Paeds Resus, I would like to discuss Hospital Emergency Readiness (ERS) for our facility."
+                message="Hello Paeds Resus, I would like to discuss the Paeds Resus Institution Workspace for our organization."
                 label="WhatsApp"
                 className="bg-green-600 hover:bg-green-700 text-white"
               />
@@ -135,7 +132,7 @@ export default function Institutional() {
               </Link>
               <Link href="/institutional-onboarding">
                 <Button variant="ghost" className="text-orange-100 hover:text-white hover:bg-white/10">
-                  New onboarding
+                  Start institution onboarding
                 </Button>
               </Link>
             </div>

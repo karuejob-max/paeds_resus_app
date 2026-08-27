@@ -98,17 +98,15 @@ export const institutionAdminsRouter = router({
     }),
 
   /**
-   * Grant admin access to an email — links immediately if that email already
-   * has a platform account, otherwise creates a pending invite claimed on
-   * their next login (see acceptInvite).
+   * Grant admin access to an existing Paeds Resus account. New account
+   * creation belongs in the public registration flow; this mutation only
+   * links an account whose identity is already present in `users`.
    */
   invite: protectedProcedure
     .input(
       z.object({
         institutionId: z.number().int().positive(),
-        email: z.string().email(),
-        name: z.string().min(1).optional(),
-        phone: z.string().optional(),
+        userId: z.number().int().positive(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -119,61 +117,45 @@ export const institutionAdminsRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
       const [existingUser] = await db
-        .select({ id: users.id })
+        .select({ id: users.id, name: users.name, email: users.email })
         .from(users)
-        .where(eq(users.email, input.email))
+        .where(eq(users.id, input.userId))
         .limit(1);
 
-      if (existingUser) {
-        const [alreadyAdmin] = await db
-          .select({ id: institutionalAccountAdmins.id })
-          .from(institutionalAccountAdmins)
-          .where(
-            and(
-              eq(institutionalAccountAdmins.institutionalAccountId, input.institutionId),
-              eq(institutionalAccountAdmins.userId, existingUser.id)
-            )
-          )
-          .limit(1);
-
-        if (alreadyAdmin) {
-          return { status: "already_admin" as const };
-        }
-
-        await db.insert(institutionalAccountAdmins).values({
-          institutionalAccountId: input.institutionId,
-          userId: existingUser.id,
-          addedByUserId: ctx.user.id,
+      if (!existingUser?.name?.trim() || !existingUser.email?.trim()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Select a Paeds Resus account with a saved name and email.",
         });
-        return { status: "linked" as const };
+      }
+      if (existingUser.id === ctx.user.id) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Select another Paeds Resus account; you are already an administrator.",
+        });
       }
 
-      const [existingInvite] = await db
-        .select({ id: institutionalAdminInvites.id })
-        .from(institutionalAdminInvites)
+      const [alreadyAdmin] = await db
+        .select({ id: institutionalAccountAdmins.id })
+        .from(institutionalAccountAdmins)
         .where(
           and(
-            eq(institutionalAdminInvites.institutionalAccountId, input.institutionId),
-            eq(institutionalAdminInvites.invitedEmail, input.email),
-            eq(institutionalAdminInvites.status, "pending")
+            eq(institutionalAccountAdmins.institutionalAccountId, input.institutionId),
+            eq(institutionalAccountAdmins.userId, existingUser.id)
           )
         )
         .limit(1);
 
-      if (existingInvite) {
-        return { status: "already_invited" as const };
+      if (alreadyAdmin) {
+        return { status: "already_admin" as const };
       }
 
-      await db.insert(institutionalAdminInvites).values({
+      await db.insert(institutionalAccountAdmins).values({
         institutionalAccountId: input.institutionId,
-        invitedEmail: input.email,
-        invitedName: input.name,
-        invitedPhone: input.phone,
-        invitedByUserId: ctx.user.id,
-        source: "admin_invite",
-        status: "pending",
+        userId: existingUser.id,
+        addedByUserId: ctx.user.id,
       });
-      return { status: "invited" as const };
+      return { status: "linked" as const };
     }),
 
   /**

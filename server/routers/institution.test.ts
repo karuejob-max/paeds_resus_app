@@ -3,7 +3,11 @@ import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 
 const institutionDbMock = vi.hoisted(() => {
-  const mockState = { limitRows: [] as Array<Record<string, unknown>> };
+  const mockState = {
+    limitRows: [] as Array<Record<string, unknown>>,
+    limitQueue: [] as Array<Array<Record<string, unknown>>>,
+  };
+  const takeRows = () => mockState.limitQueue.shift() ?? mockState.limitRows;
   const rows = [
     { id: 1, userId: 999, name: "Test Hospital", verified: true, status: "active" },
   ];
@@ -14,9 +18,9 @@ const institutionDbMock = vi.hoisted(() => {
     where: vi.fn().mockResolvedValue(undefined),
   };
   const queryable = {
-    limit: vi.fn().mockImplementation(() => Promise.resolve(mockState.limitRows)),
+    limit: vi.fn().mockImplementation(() => Promise.resolve(takeRows())),
     orderBy: vi.fn().mockReturnValue({
-      limit: vi.fn().mockImplementation(() => Promise.resolve(mockState.limitRows)),
+      limit: vi.fn().mockImplementation(() => Promise.resolve(takeRows())),
     }),
     then: (resolve: (v: unknown) => void) => resolve(mockState.limitRows),
   };
@@ -93,6 +97,7 @@ describe("Institution Router", () => {
     institutionDbMock.mockState.limitRows = [
       { id: 1, userId: 999, name: "Test Hospital", verified: true, status: "active" },
     ];
+    institutionDbMock.mockState.limitQueue = [];
   });
 
   describe("register", () => {
@@ -179,9 +184,26 @@ describe("Institution Router", () => {
     });
   });
 
+  describe("searchPlatformAccounts", () => {
+    it("returns only the minimal account identity fields for matching administrators", async () => {
+      institutionDbMock.mockState.limitRows = [
+        { id: 2, name: "Second Admin", email: "second@example.com", phone: "+254700000002" },
+      ];
+      const caller = appRouter.createCaller(createAuthContext());
+
+      const result = await caller.institution.searchPlatformAccounts({ query: "second" });
+
+      expect(result).toEqual([{ id: 2, name: "Second Admin", email: "second@example.com" }]);
+    });
+  });
+
   describe("completeOnboarding", () => {
-    it("accepts a blank optional registration number", async () => {
+    it("accepts a blank optional registration number and links an existing second administrator", async () => {
       institutionDbMock.mockState.limitRows = [];
+      institutionDbMock.mockState.limitQueue = [
+        [],
+        [{ id: 2, name: "Second Admin", email: "second@new-test-hospital.example" }],
+      ];
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
@@ -193,14 +215,10 @@ describe("Institution Router", () => {
         country: "Kenya",
         city: "Nairobi",
         address: "1 Test Street",
-        contactName: "Primary Admin",
-        contactEmail: "primary@new-test-hospital.example",
         contactPhone: "+254700000001",
         contactDesignation: "Hospital Administrator",
-        secondAdminName: "Second Admin",
-        secondAdminEmail: "second@new-test-hospital.example",
-        secondAdminPhone: "",
-        programInterest: ["bls"],
+        platformNeeds: ["cpd_portal", "iers_readiness"],
+        secondAdminUserId: 2,
       });
 
       expect(result).toMatchObject({
@@ -210,8 +228,9 @@ describe("Institution Router", () => {
       });
     });
 
-    it("rejects a blank second administrator with an actionable validation error", async () => {
+    it("rejects an unregistered second administrator account with an actionable validation error", async () => {
       institutionDbMock.mockState.limitRows = [];
+      institutionDbMock.mockState.limitQueue = [[], []];
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
@@ -224,16 +243,12 @@ describe("Institution Router", () => {
           country: "Kenya",
           city: "Nairobi",
           address: "1 Test Street",
-          contactName: "Primary Admin",
-          contactEmail: "primary@new-test-hospital.example",
           contactPhone: "+254700000001",
           contactDesignation: "Hospital Administrator",
-          secondAdminName: "",
-          secondAdminEmail: "",
-          secondAdminPhone: "",
-          programInterest: ["bls"],
+          platformNeeds: ["cpd_portal"],
+          secondAdminUserId: 77,
         }),
-      ).rejects.toThrow("A second named administrator is required");
+      ).rejects.toThrow("Select a Paeds Resus account with a saved name and email");
     });
   });
 

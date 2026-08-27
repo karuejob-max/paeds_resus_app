@@ -113,7 +113,7 @@ export default function Register() {
         <CardHeader>
           <CardTitle>Create account</CardTitle>
           <CardDescription>
-            One minute to get started. You can switch between individual and hospital tools later from the menu.
+            One minute to get started. You can switch between individual and institutional tools later from the menu.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -128,7 +128,7 @@ export default function Register() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="individual">Individual account (courses, ResusGPS, Care Signal)</SelectItem>
-                  <SelectItem value="institutional">Hospital or institution</SelectItem>
+                  <SelectItem value="institutional">Institution or organization</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">

@@ -1,46 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { validateSecondAdminContact } from "./institutionOnboardingValidation";
+import { validateSecondAdminSelection } from "./institutionOnboardingValidation";
 
-describe("validateSecondAdminContact", () => {
-  const primary = "primary@hospital.example";
-
-  it("requires both second-administrator name and email", () => {
+describe("validateSecondAdminSelection", () => {
+  it("requires a selected existing account", () => {
     expect(
-      validateSecondAdminContact({
-        secondAdminName: "",
-        secondAdminEmail: "",
-        contactEmail: primary,
-      })
-    ).toContain("second named administrator before creating");
+      validateSecondAdminSelection({ primaryAdminUserId: 1, secondAdminUserId: null }),
+    ).toBe("Select the second administrator from the existing Paeds Resus accounts.");
   });
 
-  it("rejects an invalid second-administrator email", () => {
+  it("rejects selecting the primary administrator again", () => {
     expect(
-      validateSecondAdminContact({
-        secondAdminName: "Second Admin",
-        secondAdminEmail: "not-an-email",
-        contactEmail: primary,
-      })
-    ).toBe("Enter a valid email address for the second administrator.");
+      validateSecondAdminSelection({ primaryAdminUserId: 1, secondAdminUserId: 1 }),
+    ).toBe("Select a different Paeds Resus account for the second administrator.");
   });
 
-  it("rejects the primary contact email as the second administrator", () => {
+  it("accepts a different existing account", () => {
     expect(
-      validateSecondAdminContact({
-        secondAdminName: "Second Admin",
-        secondAdminEmail: ` ${primary.toUpperCase()} `,
-        contactEmail: primary,
-      })
-    ).toContain("Use a different email address");
-  });
-
-  it("accepts a distinct second administrator", () => {
-    expect(
-      validateSecondAdminContact({
-        secondAdminName: " Second Admin ",
-        secondAdminEmail: " second@hospital.example ",
-        contactEmail: primary,
-      })
+      validateSecondAdminSelection({ primaryAdminUserId: 1, secondAdminUserId: 2 }),
     ).toBeNull();
   });
 });

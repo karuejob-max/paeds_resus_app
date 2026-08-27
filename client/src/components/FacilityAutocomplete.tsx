@@ -21,6 +21,7 @@ interface FacilityAutocompleteProps {
   onRegistrationNumberChange?: (value: string) => void;
   isManualEntry: boolean;
   onManualEntryChange: (isManual: boolean) => void;
+  entityLabel?: string;
 }
 
 export function FacilityAutocomplete({
@@ -31,6 +32,7 @@ export function FacilityAutocomplete({
   onRegistrationNumberChange,
   isManualEntry,
   onManualEntryChange,
+  entityLabel = "facility",
 }: FacilityAutocompleteProps) {
   const [query, setQuery] = useState(value);
   const [isOpen, setIsOpen] = useState(false);
@@ -116,7 +118,7 @@ export function FacilityAutocomplete({
             ref={inputRef}
             id="facilitySearch"
             type="text"
-            placeholder="Search KMHFL registry (e.g., Kenyatta National Hospital)"
+            placeholder={`Search facility registry or enter a ${entityLabel} name`}
             value={query}
             onChange={handleInputChange}
             onFocus={() => query.length > 0 && setIsOpen(true)}
@@ -176,7 +178,7 @@ export function FacilityAutocomplete({
                   className="w-full px-3 py-2 text-left text-sm text-brand-orange hover:bg-secondary rounded transition-colors flex items-center gap-2"
                 >
                   <AlertCircle className="h-4 w-4" />
-                  My facility is not listed
+                  My {entityLabel} is not listed
                 </button>
               </div>
             )}
@@ -188,11 +190,11 @@ export function FacilityAutocomplete({
       {isManualEntry && (
         <div className="p-3 bg-secondary/50 rounded-md border border-border">
           <p className="text-sm text-muted-foreground mb-3">
-            Enter your facility name manually. You can still add a registration number below if available.
+            Enter your {entityLabel} name manually. You can still add a registration number below if available.
           </p>
           <Input
             type="text"
-            placeholder="Enter your facility name"
+            placeholder={`Enter your ${entityLabel} name`}
             value={query}
             onChange={handleInputChange}
             className="mb-3"

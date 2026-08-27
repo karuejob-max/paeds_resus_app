@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { MessageCircle, CheckCircle } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { formatPrice, getInstitutionalPrice, institutionalPricing } from "@/const/pricing";
+import { INSTITUTION_PLATFORM_NEED_OPTIONS, type InstitutionPlatformNeed } from "@shared/institution-onboarding";
 
 interface LeadFormData {
   institutionName: string;
@@ -12,7 +13,7 @@ interface LeadFormData {
   contactEmail: string;
   contactPhone: string;
   staffCount: number;
-  preferredCourse: string;
+  platformNeeds: InstitutionPlatformNeed[];
   message: string;
 }
 
@@ -23,7 +24,7 @@ export function InstitutionalLeadForm() {
     contactEmail: "",
     contactPhone: "",
     staffCount: 0,
-    preferredCourse: "bls",
+    platformNeeds: ["cpd_portal"],
     message: "",
   });
 
@@ -37,14 +38,14 @@ export function InstitutionalLeadForm() {
     },
   });
 
-  const courses = Object.entries(institutionalPricing).map(([id, config]) => ({
-    id,
-    name: config.name,
-    basePricePerSeat: config.basePricePerSeat,
-  }));
-
-  const selectedCourse = courses.find((course) => course.id === formData.preferredCourse);
-  const priceEstimate = getInstitutionalPrice(formData.preferredCourse, formData.staffCount);
+  const setPlatformNeed = (need: InstitutionPlatformNeed, on: boolean) => {
+    setFormData((prev) => {
+      const has = prev.platformNeeds.includes(need);
+      if (on === has) return prev;
+      if (on) return { ...prev, platformNeeds: [...prev.platformNeeds, need] };
+      return { ...prev, platformNeeds: prev.platformNeeds.filter((item) => item !== need) };
+    });
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -66,14 +67,18 @@ export function InstitutionalLeadForm() {
         contactEmail: formData.contactEmail,
         contactPhone: formData.contactPhone,
         staffCount: formData.staffCount,
-        preferredCourse: formData.preferredCourse,
+        platformNeeds: formData.platformNeeds,
         message: formData.message || undefined,
       });
     } catch {
       /* onError sets saveError */
     }
 
-    const whatsappMessage = `Hi Paeds Resus,\n\nI'm interested in ${selectedCourse?.name ?? formData.preferredCourse} training for our institution.\n\nInstitution: ${formData.institutionName}\nStaff Count: ${formData.staffCount}\nEstimated Budget: ${priceEstimate ? formatPrice(priceEstimate.totalPrice) : "To be confirmed"}\n\nPlease contact me at ${formData.contactPhone} or ${formData.contactEmail}.\n\nThank you,\n${formData.contactName}`;
+    const selectedNeeds = INSTITUTION_PLATFORM_NEED_OPTIONS
+      .filter((need) => formData.platformNeeds.includes(need.value))
+      .map((need) => need.label)
+      .join(", ");
+    const whatsappMessage = `Hi Paeds Resus,\n\nWe would like to discuss ${selectedNeeds} for our organization.\n\nInstitution: ${formData.institutionName}\nPeople to include: ${formData.staffCount}\n\nPlease contact me at ${formData.contactPhone} or ${formData.contactEmail}.\n\nNote: this request is for scoping and follow-up; it does not enroll staff in a course.\n\nThank you,\n${formData.contactName}`;
     const whatsappUrl = `https://wa.me/254706781260?text=${encodeURIComponent(whatsappMessage)}`;
     window.open(whatsappUrl, "_blank");
 
@@ -87,7 +92,7 @@ export function InstitutionalLeadForm() {
         contactEmail: "",
         contactPhone: "",
         staffCount: 0,
-        preferredCourse: "bls",
+        platformNeeds: ["cpd_portal"],
         message: "",
       });
     }, 4000);
@@ -125,7 +130,7 @@ export function InstitutionalLeadForm() {
               name="institutionName"
               value={formData.institutionName}
               onChange={handleChange}
-              placeholder="e.g., County referral hospital"
+              placeholder="e.g., County referral hospital, nursing school, or training organization"
               required
               className="w-full"
             />
@@ -184,55 +189,27 @@ export function InstitutionalLeadForm() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Programme *</label>
-            <select
-              name="preferredCourse"
-              value={formData.preferredCourse}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {courses.map((course) => (
-                <option key={course.id} value={course.id}>
-                  {course.name} ({formatPrice(course.basePricePerSeat)} per seat before bulk discounts)
-                </option>
+          <fieldset className="md:col-span-2">
+            <legend className="block text-sm font-medium text-gray-700 mb-2">What would you like to discuss? *</legend>
+            <p className="text-xs text-gray-500 mb-3">Choose platform areas or support needs. This request does not enroll staff in a Life Support course.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {INSTITUTION_PLATFORM_NEED_OPTIONS.map((need) => (
+                <label key={need.value} className="flex items-start gap-3 rounded-md border border-gray-200 p-3 cursor-pointer hover:bg-gray-50">
+                  <Checkbox
+                    checked={formData.platformNeeds.includes(need.value)}
+                    onCheckedChange={(checked) => setPlatformNeed(need.value, checked === true)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-gray-800">{need.label}</span>
+                    <span className="block text-xs text-gray-500 mt-1">{need.description}</span>
+                  </span>
+                </label>
               ))}
-            </select>
-          </div>
+            </div>
+          </fieldset>
         </div>
 
-        {formData.staffCount > 0 && selectedCourse && (
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-            <h3 className="font-semibold text-blue-900 mb-3">Planning Estimate</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span>Programme:</span>
-                <span className="font-medium">{selectedCourse.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Estimated price per seat:</span>
-                <span className="font-medium">
-                  {priceEstimate ? formatPrice(priceEstimate.pricePerSeat) : formatPrice(selectedCourse.basePricePerSeat)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Number of staff:</span>
-                <span className="font-medium">{formData.staffCount}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Bulk discount applied:</span>
-                <span className="font-medium">{priceEstimate?.discountPercentage ?? 0}%</span>
-              </div>
-              <div className="border-t border-blue-200 pt-2 flex justify-between font-bold text-blue-900">
-                <span>Budget estimate:</span>
-                <span>{priceEstimate ? formatPrice(priceEstimate.totalPrice) : "To be confirmed"}</span>
-              </div>
-              <p className="text-muted-foreground">
-                Final pricing depends on confirmed cohort size, delivery format, and scope of work.
-              </p>
-            </div>
-          </div>
-        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Additional Information (Optional)</label>
@@ -240,7 +217,7 @@ export function InstitutionalLeadForm() {
             name="message"
             value={formData.message}
             onChange={handleChange}
-            placeholder="Tell us about your facility, timeline, or questions..."
+              placeholder="Tell us about your organization, timeline, current CPD activity, readiness goals, or questions..."
             rows={3}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -254,7 +231,8 @@ export function InstitutionalLeadForm() {
             !formData.contactName ||
             !formData.contactEmail ||
             !formData.contactPhone ||
-            formData.staffCount === 0
+            formData.staffCount === 0 ||
+            formData.platformNeeds.length === 0
           }
           className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2"
         >

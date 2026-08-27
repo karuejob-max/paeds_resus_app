@@ -578,7 +578,7 @@ export const institutionalAccountAdmins = mysqlTable("institutionalAccountAdmins
   id: int("id").autoincrement().primaryKey(),
   institutionalAccountId: int("institutionalAccountId").notNull(),
   userId: int("userId").notNull(),
-  /** Null for the original owner (backfilled) or a recovery-approval grant; set for a live admin's own invite action. */
+  /** Null for the original owner (backfilled) or a recovery-approval grant; set when a live administrator links an existing account. */
   addedByUserId: int("addedByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -587,12 +587,11 @@ export type InstitutionalAccountAdmin = typeof institutionalAccountAdmins.$infer
 export type InsertInstitutionalAccountAdmin = typeof institutionalAccountAdmins.$inferInsert;
 
 /**
- * Pending admin grants for an email that doesn't have a platform account yet
- * (or hasn't accepted). Used by two flows that both need the same "grant
- * access to an email, whether or not they've signed up" primitive: (1) the
- * second-admin field collected at institutional registration/onboarding,
- * and (2) an approved institutionalRecoveryRequests row. Accepted by
- * acceptInvite matching the logged-in user's own email — see
+ * Pending admin grants retained for historical records and approved
+ * institutional-recovery workflows. New institution onboarding and routine
+ * admin linking require an existing Paeds Resus account and write directly to
+ * institutionalAccountAdmins. Historical rows are accepted by acceptInvite
+ * through the logged-in user's email match — see
  * server/routers/institution-admins.ts for the known limitation this implies
  * (no single-use token; matched by email equality at accept-time).
  */

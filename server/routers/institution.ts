@@ -8,7 +8,6 @@ import {
   institutionalInquiries,
   institutionalStaffMembers,
   institutionalAccountAdmins,
-  institutionalAdminInvites,
   quotations,
   contracts,
   trainingSchedules,
@@ -61,7 +60,7 @@ import {
   type GapRecommendation,
 } from "./care-signal-events";
 import { alias } from "drizzle-orm/mysql-core";
-import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, lte, sql, or, notInArray } from "drizzle-orm";
+import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, lte, sql, or, notInArray, ne } from "drizzle-orm";
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
 import { assertInstitutionAccess, getAdministeredInstitutionIds, countInstitutionAdmins, isInstitutionAdmin } from "../lib/institution-access";
@@ -94,6 +93,7 @@ import { getIsoWeekKey, getIsoWeekRange, getMonthlyShiftRows, monthStartFromShif
 import { insertCanonicalFacilityDepartments } from "../lib/iers-department-setup";
 import { DEFAULT_SHIFT_TEMPLATES, formatShiftInterval, shiftTemplateForType, validateShiftInterval } from "../lib/iers-shift-times";
 import { DEPARTMENT_ALIASES, canonicalizeDepartmentLabel, departmentLabelsMatch, isPresetDepartment } from "../../shared/clinical-departments";
+import { INSTITUTION_PLATFORM_NEED_VALUES, INSTITUTION_TYPE_VALUES } from "@shared/institution-onboarding";
 import {
   evaluateProviderDutyAuthorization,
   type ProviderDutyAuthorizationInput,
@@ -2037,7 +2037,7 @@ export const institutionRouter = router({
         contactEmail: z.string().email(),
         contactPhone: z.string().min(5),
         staffCount: z.number().int().nonnegative(),
-        preferredCourse: z.string().min(1),
+        platformNeeds: z.array(z.enum(INSTITUTION_PLATFORM_NEED_VALUES)).min(1).max(5),
         message: z.string().optional(),
       })
     )
@@ -2053,7 +2053,7 @@ export const institutionRouter = router({
         companyName: input.institutionName,
         staffCount: Math.max(1, input.staffCount),
         specificNeeds: JSON.stringify({
-          preferredCourse: input.preferredCourse,
+          platformNeeds: input.platformNeeds,
           message: input.message ?? "",
         }),
         contactName: input.contactName,
@@ -2147,6 +2147,51 @@ export const institutionRouter = router({
     }),
 
   /**
+   * Return a small, authenticated directory of existing Paeds Resus accounts
+   * for onboarding and institution-admin selection. Only name and email are
+   * returned; the current user is excluded and results are bounded.
+   */
+  searchPlatformAccounts: protectedProcedure
+    .input(
+      z.object({
+        query: z.string().trim().min(2).max(80),
+        limit: z.number().int().min(1).max(8).default(8),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      }
+
+      const normalizedQuery = input.query.trim().toLowerCase();
+      const escapedQuery = normalizedQuery.replace(/[\\%_]/g, "\\\\$&");
+      const pattern = `%${escapedQuery}%`;
+      const rows = await db
+        .select({ id: users.id, name: users.name, email: users.email })
+        .from(users)
+        .where(
+          and(
+            ne(users.id, ctx.user.id),
+            isNotNull(users.name),
+            isNotNull(users.email),
+            or(
+              like(users.name, pattern),
+              like(users.email, pattern)
+            )
+          )
+        )
+        .orderBy(asc(users.name), asc(users.id))
+        .limit(input.limit);
+
+      return rows.flatMap((row) => {
+        const name = row.name?.trim();
+        const email = row.email?.trim().toLowerCase();
+        return name && email ? [{ id: row.id, name, email }] : [];
+      });
+    }),
+
+  /**
    * Persist multi-step institutional onboarding for the signed-in user.
    * Creates institutionalAccounts + institutionalInquiries (detail). Idempotent if user already has an account.
    */
@@ -2154,7 +2199,7 @@ export const institutionRouter = router({
     .input(
       z.object({
         institutionName: z.string().trim().min(3),
-        institutionType: z.string().min(1),
+        institutionType: z.enum(INSTITUTION_TYPE_VALUES),
         registrationNumber: z.preprocess(
           (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
           z.string().trim().min(1).optional()
@@ -2163,11 +2208,9 @@ export const institutionRouter = router({
         country: z.string().min(1),
         city: z.string().min(1),
         address: z.string().min(1),
-        contactName: z.string().trim().min(1),
-        contactEmail: z.string().trim().email(),
         contactPhone: z.string().trim().min(1),
         contactDesignation: z.string().trim().min(1),
-        programInterest: z.array(z.string()),
+        platformNeeds: z.array(z.enum(INSTITUTION_PLATFORM_NEED_VALUES)).min(1).max(5),
         /**
          * North Star §6.1: "A minimum of two named admin contacts must
          * always be registered." Required for every new institutional
@@ -2177,12 +2220,7 @@ export const institutionRouter = router({
          * Keep these messages actionable: the browser validates before submit,
          * but this server contract must remain safe for every client.
          */
-        secondAdminName: z.string().trim().min(1, "A second named administrator is required."),
-        secondAdminEmail: z.string().trim().email("Enter a valid email address for the second administrator."),
-        secondAdminPhone: z.preprocess(
-          (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
-          z.string().trim().optional()
-        ),
+        secondAdminUserId: z.number().int().positive(),
         /** Canonical IERS departments confirmed by the institutional admin during setup. */
         departmentNames: z.array(z.string().trim().min(2).max(128)).max(100).default([]),
       })
@@ -2211,10 +2249,33 @@ export const institutionRouter = router({
         };
       }
 
-      if (input.secondAdminEmail.toLowerCase() === input.contactEmail.toLowerCase()) {
+      const primaryAdminEmail = ctx.user.email?.trim().toLowerCase();
+      const primaryAdminName = ctx.user.name?.trim();
+      if (!primaryAdminEmail || !primaryAdminName) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "The second admin needs to be a different person from the primary contact — this is what protects the account if one of you becomes unreachable.",
+          message: "Your Paeds Resus account needs a name and email before it can administer an institution.",
+        });
+      }
+
+      const [secondAdmin] = await db
+        .select({ id: users.id, name: users.name, email: users.email })
+        .from(users)
+        .where(eq(users.id, input.secondAdminUserId))
+        .limit(1);
+
+      const secondAdminEmail = secondAdmin?.email?.trim().toLowerCase();
+      const secondAdminName = secondAdmin?.name?.trim();
+      if (!secondAdmin || !secondAdminEmail || !secondAdminName) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Select a Paeds Resus account with a saved name and email for the second administrator.",
+        });
+      }
+      if (secondAdmin.id === ctx.user.id || secondAdminEmail === primaryAdminEmail) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The second administrator must be a different Paeds Resus account from the primary administrator.",
         });
       }
 
@@ -2223,8 +2284,8 @@ export const institutionRouter = router({
         companyName: input.institutionName,
         industry: input.institutionType,
         staffCount: input.healthcareStaffCount,
-        contactName: input.contactName,
-        contactEmail: input.contactEmail,
+        contactName: primaryAdminName,
+        contactEmail: primaryAdminEmail,
         contactPhone: input.contactPhone,
         registrationNumber: input.registrationNumber,
         status: "prospect",
@@ -2243,33 +2304,14 @@ export const institutionRouter = router({
         addedByUserId: null,
       });
 
-      // Second admin (North Star §6.1) — link immediately if that email
-      // already has a platform account, otherwise create a pending invite
-      // claimed on their next login. Same lookup-or-invite pattern as
-      // institutionAdmins.invite.
-      const [secondAdminUser] = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.email, input.secondAdminEmail))
-        .limit(1);
-
-      if (secondAdminUser) {
-        await db.insert(institutionalAccountAdmins).values({
-          institutionalAccountId: institutionId,
-          userId: secondAdminUser.id,
-          addedByUserId: ctx.user.id,
-        });
-      } else {
-        await db.insert(institutionalAdminInvites).values({
-          institutionalAccountId: institutionId,
-          invitedEmail: input.secondAdminEmail,
-          invitedName: input.secondAdminName,
-          invitedPhone: input.secondAdminPhone,
-          invitedByUserId: ctx.user.id,
-          source: "registration",
-          status: "pending",
-        });
-      }
+      // Second admin — link only the account selected from the existing
+      // Paeds Resus directory. Initial onboarding never creates a free-text
+      // invite or accepts an unregistered email address.
+      await db.insert(institutionalAccountAdmins).values({
+        institutionalAccountId: institutionId,
+        userId: secondAdmin.id,
+        addedByUserId: ctx.user.id,
+      });
 
       await insertCanonicalFacilityDepartments(db, {
         institutionId,
@@ -2286,10 +2328,10 @@ export const institutionRouter = router({
           city: input.city,
           country: input.country,
           contactDesignation: input.contactDesignation,
-          programInterest: input.programInterest,
+          platformNeeds: input.platformNeeds,
         }),
-        contactName: input.contactName,
-        contactEmail: input.contactEmail,
+        contactName: primaryAdminName,
+        contactEmail: primaryAdminEmail,
         contactPhone: input.contactPhone,
         status: "new",
       });
