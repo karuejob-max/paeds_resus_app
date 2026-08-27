@@ -14,6 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { formatKenyanPhoneForDisplay, normalizeKenyanPhoneNumber } from "@shared/kenyan-phone";
 import { getProgramIdentity } from "@shared/program-identity";
 import { getCertificateDisplayLabel } from "@shared/paeds-resus-certificates";
 import { inferDesignationFromCadre } from "@shared/cadre-designation-mapping";
@@ -1001,6 +1002,7 @@ type IerpEvidenceDraft = {
 };
 
 function IerpProgramCard() {
+  const { user } = useAuth();
   const { data: enrollment, isLoading } = trpc.ierp.getMyEnrollment.useQuery(undefined, { retry: false });
   const { data: summary } = trpc.ierp.getSummary.useQuery(undefined, {
     enabled: !!enrollment,
@@ -1011,12 +1013,15 @@ function IerpProgramCard() {
     retry: false,
   });
   const utils = trpc.useUtils();
-  const [paymentPhone, setPaymentPhone] = useState("");
+  const [paymentPhone, setPaymentPhone] = useState(() => formatKenyanPhoneForDisplay(user?.phone));
+  const canonicalPaymentPhone = normalizeKenyanPhoneNumber(paymentPhone);
   const [designation, setDesignation] = useState<"noi" | "coi_bsc" | "coi_diploma" | "moi" | "">("");
   const [phase1Files, setPhase1Files] = useState<Record<IerpEvidenceDocumentType, IerpEvidenceDraft | null>>({ video_prework: null, precourse_assessment: null });
   const startMutation = trpc.ierp.start.useMutation({
-    onSuccess: async () => {
-      toast.success("Your IERP enrolment is ready. Start with Phase 1 cognitive learning.");
+    onSuccess: async (result) => {
+      toast.success(result.cognitiveAccessLocked
+        ? "Your IERP enrolment is ready. Complete the full KES 15,000 payment before starting cognitive learning."
+        : "Your IERP enrolment is ready. Start with Phase 1 cognitive learning.");
       await Promise.all([
         utils.ierp.getMyEnrollment.invalidate(),
         utils.ierp.getSummary.invalidate(),
@@ -1028,7 +1033,10 @@ function IerpProgramCard() {
   const paymentMutation = trpc.ierp.initiatePayment.useMutation({
     onSuccess: async (result) => {
       toast.success(result.message);
-      await utils.ierp.getPaymentLedger.invalidate();
+      await Promise.all([
+        utils.ierp.getPaymentLedger.invalidate(),
+        utils.ierp.getSummary.invalidate(),
+      ]);
     },
     onError: (error) => toast.error(error.message || "Could not initiate IERP payment"),
   });
@@ -1040,6 +1048,10 @@ function IerpProgramCard() {
     },
     onError: (error) => toast.error(error.message || "Could not submit Phase 1 evidence"),
   });
+
+  useEffect(() => {
+    if (!paymentPhone && user?.phone) setPaymentPhone(formatKenyanPhoneForDisplay(user.phone));
+  }, [paymentPhone, user?.phone]);
 
   const handlePhase1File = (documentType: IerpEvidenceDocumentType, file: File | undefined) => {
     if (!file) return;
@@ -1115,6 +1127,13 @@ function IerpProgramCard() {
   const phase2Done = !!summary?.phase2.phase2Complete;
   const phase2CertificateIssued = !!summary?.phase2Certificate;
   const phase3Unlocked = !!summary?.phase3GateUnlocked;
+  const phase3Detail = phase3Unlocked
+    ? summary?.providerCertificates?.length
+      ? "Unlocked · provider certificate issued"
+      : "Unlocked"
+    : !phase1Done || !phase2Done
+      ? "Locked until Phases 1 and 2 are complete"
+      : "Locked until the full KES 15,000 is paid";
   const phaseStatus = [
     { label: "Phase 1 — Cognitive foundation", done: phase1Done, detail: summary?.phase1Status ?? "Loading" },
     {
@@ -1124,15 +1143,7 @@ function IerpProgramCard() {
         ? `Team Leader ${summary.phase2.teamLeaderCount}/${summary.phase2.teamLeaderRequired} · Named roles ${summary.phase2.teamMemberRolesCovered}/${summary.phase2.teamMemberRolesRequired}${phase2CertificateIssued ? " · Certificate issued" : phase2Done ? " · Certificate pending sync" : ""}`
         : "Loading",
     },
-    {
-      label: "Phase 3 — Hands-on assessment",
-      done: false,
-      detail: phase3Unlocked
-        ? summary?.providerCertificates?.length
-          ? "Unlocked · provider certificate issued"
-          : "Unlocked"
-        : "Locked until Phases 1 and 2 are complete",
-    },
+    { label: "Phase 3 — Hands-on assessment", done: false, detail: phase3Detail },
   ];
 
   return (
@@ -1145,7 +1156,7 @@ function IerpProgramCard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-slate-700">Your IERP training record is independent of IERS facility membership. Confirmed named simulation roles and approved retrospective claims are the source of Phase 2 progress.</p>
+        <p className="text-sm text-slate-700">Your IERP training record is independent of IERS facility membership. Confirmed named simulation roles and approved retrospective claims are the source of Phase 2 progress. The programme fee is KES 15,000 in total; complete the full balance before Phase 3, and from December onward before cognitive coursework and further Phase 2 access.</p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {phaseStatus.map((phase) => (
             <div key={phase.label} className={`rounded-lg border p-3 text-xs ${phase.done ? "border-green-200 bg-green-50 text-green-800" : "border-slate-200 bg-white text-slate-600"}`}>
@@ -1209,29 +1220,33 @@ function IerpProgramCard() {
             Payment status: {ierpLedger?.status ?? summary?.payment.status ?? enrollment.paymentStatus}
           </span>
           {ierpLedger && <span>Paid KES {ierpLedger.totalPaidKsh.toLocaleString()} · Balance KES {ierpLedger.balanceKsh.toLocaleString()}</span>}
-          {summary?.payment.paymentLockoutActive && <span className="font-semibold text-red-700">Phase 2 booking is locked until a payment is recorded.</span>}
+          {summary?.payment.deferredStartWindow && summary.payment.paymentDeadline && !summary.payment.cognitiveAccessLocked && (
+            <span>Payment deadline for deferred access: {new Date(summary.payment.paymentDeadline).toLocaleDateString("en-KE", { timeZone: "Africa/Nairobi" })} EAT.</span>
+          )}
+          {summary?.payment.cognitiveAccessLocked && <span className="font-semibold text-red-700">Cognitive coursework and Phase 2 access are locked until the full KES 15,000 balance is paid.</span>}
         </div>
         {ierpLedger && ierpLedger.balanceKsh > 0 && (
           <div className="rounded-lg border border-indigo-100 bg-white p-3 space-y-2">
-            <p className="text-xs font-semibold text-indigo-950">Make an IERP instalment</p>
+            <p className="text-xs font-semibold text-indigo-950">Complete IERP payment</p>
+            <p className="text-xs text-slate-600">IERP is not a Lipa Mdogo Mdogo plan. Pay the remaining balance of KES {ierpLedger.balanceKsh.toLocaleString()} in one payment to unlock any payment-gated coursework and Phase 3.</p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 aria-label="IERP M-Pesa phone number"
                 placeholder="2547XXXXXXXX"
                 value={paymentPhone}
-                onChange={(event) => setPaymentPhone(event.target.value.replace(/[\s-]/g, ""))}
+                onChange={(event) => setPaymentPhone(event.target.value)}
                 className="h-9 text-sm sm:max-w-xs"
               />
               <Button
                 size="sm"
                 className="bg-indigo-700 text-white hover:bg-indigo-800"
-                disabled={paymentMutation.isPending || !/^254\d{9}$/.test(paymentPhone)}
-                onClick={() => paymentMutation.mutate({ amountKsh: Math.min(ierpLedger.balanceKsh, 2500), phase: "general", phoneNumber: paymentPhone })}
+                disabled={paymentMutation.isPending || !canonicalPaymentPhone}
+                onClick={() => canonicalPaymentPhone && paymentMutation.mutate({ amountKsh: ierpLedger.balanceKsh, phase: "general", phoneNumber: canonicalPaymentPhone })}
               >
-                {paymentMutation.isPending ? "Sending…" : `Pay KES ${Math.min(ierpLedger.balanceKsh, 2500).toLocaleString()}`}
+                {paymentMutation.isPending ? "Sending…" : `Pay KES ${ierpLedger.balanceKsh.toLocaleString()}`}
               </Button>
             </div>
-            <p className="text-[11px] text-muted-foreground">Your payment is recorded as pending until the provider callback confirms it. No IERS access is created by this payment.</p>
+            <p className="text-[11px] text-muted-foreground">Enter 2547…, +2547…, 07…, 7…, or 00 254…; the number is normalized before the M-Pesa request. Your payment stays pending until the provider callback confirms it. No IERS access is created by this payment.</p>
           </div>
         )}
       </CardContent>

@@ -1,9 +1,9 @@
 # Terms of Use
 
 **Document:** TERMS_OF_USE_FULL.md  
-**Version:** 1.0.0  
-**Effective date:** 27 May 2026  
-**Last updated:** 27 May 2026  
+**Version:** 1.3.0  
+**Effective date:** 27 August 2026  
+**Last updated:** 27 August 2026  
 **Status:** Counsel review draft — not legal advice  
 **Contracting entity:** Paeds Resus Limited, Nairobi, Kenya  
 
@@ -173,9 +173,10 @@ This section applies to the subsidised, phased, competency-based ACLS/BLS cohort
 
 Applies if your designation is an intern designation (NOI, Clinical Officer Intern, or Medical Officer Intern).
 
-- No payment is required to begin — you may start Phase 1 (online coursework) and Phase 2 (online team simulations) at no upfront cost.
-- You may pay in full or defer payment to a later point in your internship, in one to three instalments, as arranged with your institutional coordinator.
-- **If four months have passed since you joined the programme and no payment has been recorded on your account**, you will lose the ability to book further Phase 2 online simulation sessions until a payment (in full or as an instalment) is made. Progress already recorded (proof uploads, completed simulations) is not deleted while access is paused, and booking access resumes once a payment is recorded.
+- The full IERP programme fee is KES 15,000 for the BLS + ACLS pathway.
+- If you start IERP between **1 August and 30 November**, you may start Phase 1 (online coursework) and Phase 2 (online team simulations) before payment. From **1 December EAT**, the full remaining balance must be paid before you access cognitive coursework or book further Phase 2 sessions.
+- If you start IERP between **1 December and 31 July**, the full KES 15,000 must be paid before you access cognitive coursework or Phase 2.
+- IERP is not a Lipa Mdogo Mdogo plan. The payment action requests the full remaining balance in one payment; any existing partial balance must be settled before payment-gated access resumes. Phase 3 still requires full payment for every learner. Progress already recorded is not deleted while access is paused.
 
 #### 6.4.2 Nurse Cohort Program
 

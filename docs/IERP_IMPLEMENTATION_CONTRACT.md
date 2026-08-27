@@ -28,7 +28,8 @@ The existing IERS institutional emergency operations, staffing, activation, read
 - Facility context must not be converted into employment or IERS access.
 - Phase 1 evidence must use private authenticated storage; public URLs are legacy-only and must not be the new source of truth.
 - Phase 2 completion counts only confirmed named roles: three Team Leader sessions and six Team Member sessions covering all six named roles.
-- Phase 3 must remain a separate hands-on assessment gate.
+- Phase 3 must remain a separate hands-on assessment gate and requires the full KES 15,000 IERP fee.
+- IERP payment timing is calendar-based in EAT: August–November starters may access Phase 1 and Phase 2 before payment until 1 December; December–July starters require full payment before cognitive access; the payment action requests the full remaining balance in one payment, not a Lipa Mdogo Mdogo instalment.
 - AHA courses remain separate from the Paeds Resus Fellowship.
 - Promotional email sends remain disabled until consent, suppression, audience preview, canary, pause, attribution, and rollback controls are validated.
 - No email send, payment charge, real learner enrolment, clinical activation, or production seed is part of local testing.

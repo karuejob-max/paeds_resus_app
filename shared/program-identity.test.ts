@@ -13,7 +13,8 @@ describe("getProgramIdentity", () => {
     for (const designation of ["noi", "coi_bsc", "coi_diploma", "moi"]) {
       const identity = getProgramIdentity(designation);
       expect(identity.programName).toBe("IERP");
-      expect(identity.rules.some((r) => r.includes("4 months"))).toBe(true);
+      expect(identity.rules.some((r) => r.includes("August–November"))).toBe(true);
+      expect(identity.rules.some((r) => r.includes("full KES 15,000"))).toBe(true);
     }
   });
 

@@ -29,7 +29,15 @@ import { computeMicroCourseEnrollmentProgress } from "../lib/sync-micro-course-e
 import { assertMicrocourseCompletionAllowed } from "../lib/microcourse-exam-gate";
 import { fetchAhaHubPrograms } from "../lib/aha-hub-programs";
 import { enrichAhaEnrollmentsWithProgress } from "../lib/compute-aha-enrollment-progress";
-import { getAuthoritativePhase2CompletionStatus, getIerpEnrollment, getIerpPaymentLockout, refreshIerpPhase2Status } from "../lib/ierp-program-state";
+import {
+  getAuthoritativePhase2CompletionStatus,
+  getIerpEnrollment,
+  getIerpPaymentAccess,
+  getIerpPaymentAccessForUser,
+  isIerpCognitiveProgram,
+  IERP_TOTAL_FEE_KES,
+  refreshIerpPhase2Status,
+} from "../lib/ierp-program-state";
 import { ensurePhase2CompletionCertificateForUser } from "../lib/paeds-resus-certificate-issuance";
 
 const AHA_PROGRAM_TYPES = ['bls', 'acls', 'pals', 'heartsaver', 'nrp', 'instructor'] as const;
@@ -896,11 +904,11 @@ export const coursesRouter = router({
             message: "Complete and verify Phase 1, then complete the required confirmed Phase 2 roles before booking a hands-on assessment.",
           });
         }
-        const paid = Number(ierpEnrollment.totalPaidAmount ?? 0);
-        if (paid < 15000) {
+        const payment = getIerpPaymentAccess(ierpEnrollment);
+        if (!payment.isPaidInFull) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: `Your IERP balance must be fully settled (KES 15,000) before booking a physical Megacode. Current paid: KES ${paid.toLocaleString()}.`,
+            message: `Your IERP balance must be fully settled (KES ${IERP_TOTAL_FEE_KES.toLocaleString()}) before booking a physical Megacode. Current paid: KES ${payment.paid.toLocaleString()}.`,
           });
         }
       }
@@ -981,26 +989,19 @@ export const coursesRouter = router({
           });
         }
 
-        // Deferred-payment lockout (CEO decision, 2026-07-19): interns (designation
-        // noi / coi_bsc / coi_diploma / moi) are allowed to defer payment while
-        // in Phase 1-2, but if FOUR MONTHS have passed since they joined the program
-        // and they still have not made ANY payment, they lose the ability to book
-        // further online simulation sessions until they pay something. This is
-        // deliberately a zero-paid check, not a "not fully paid" check — nurses and
-        // interns who have started an installment plan are not touched by this gate;
-        // Phase 3's existing full-payment gate (>= KES 15,000) already handles the
-        // "not fully paid yet" case for everyone. Money already paid is non-refundable
-        // per Terms of Use §6.5 — this gate is what gives that term teeth for learners
-        // who never start paying at all.
+        // IERP timing rule: August-November starters may use Phase 2 before
+        // payment until 1 December EAT. From December onward, the full
+        // programme fee is required before further Phase 2 access.
         const INTERN_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"] as const;
-        const FOUR_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 4;
         if (isOnlineSession && designation && (INTERN_DESIGNATIONS as readonly string[]).includes(designation)) {
-          const joinedAt = enrollmentDate ?? createdAt;
-          const paid = Number(totalPaidAmount ?? 0);
-          if (joinedAt && paid <= 0 && Date.now() - new Date(joinedAt).getTime() > FOUR_MONTHS_MS) {
+          const payment = getIerpPaymentAccess({
+            enrolledAt: enrollmentDate ?? createdAt,
+            totalPaidAmount: totalPaidAmount,
+          });
+          if (payment.phase2BookingLocked) {
             throw new TRPCError({
               code: "FORBIDDEN",
-              message: "It has been more than 4 months since you joined this program with no payment recorded. Please make a payment (in full or as an installment) to regain access to simulation session booking — contact your institutional coordinator if you need to arrange this.",
+              message: `IERP Phase 2 access requires the full KES ${IERP_TOTAL_FEE_KES.toLocaleString()} programme fee. Complete payment before continuing.`,
             });
           }
         }
@@ -1039,10 +1040,10 @@ export const coursesRouter = router({
             });
           }
           const paid = Number(totalPaidAmount ?? 0);
-          if (paid < 15000) {
+          if (paid < IERP_TOTAL_FEE_KES) {
             throw new TRPCError({
               code: "FORBIDDEN",
-              message: `Your balance must be fully settled (KES 15,000) before booking a physical Megacode. Current paid: KES ${paid.toLocaleString()}.`,
+              message: `Your balance must be fully settled (KES ${IERP_TOTAL_FEE_KES.toLocaleString()}) before booking a physical Megacode. Current paid: KES ${paid.toLocaleString()}.`,
             });
           }
         }
@@ -1300,16 +1301,26 @@ export const coursesRouter = router({
           }
         }
 
-        // NERP payment gate (docs/IERP_NERP_PROGRAM_V2_SPEC.md §6.3, CEO
-        // 2026-07-31 respec): BLS cognitive is free for nurses -- no payment
-        // gate above this line touches it. Moving past BLS into ACLS/PALS/
-        // NRP cognitive work requires the starting month's KES 2,500
-        // minimum. Interns are untouched by this gate (their rules are
-        // unchanged: full payment for Phase 3, 4-month zero-payment lock --
-        // see bookHandsOnSession/bookPhase2Role, not here). Same
-        // institutionalStaffMembers.totalPaidAmount field the existing
-        // booking-time gates already use, for consistency -- not a new
-        // payment ledger.
+        // IERP payment gate: the August-November deferral applies only to
+        // learners who started within that calendar window. From December
+        // onward, and immediately for December-July starters, the full
+        // KES 15,000 programme fee is required before any AHA cognitive work.
+        const ierpPayment = isIerpCognitiveProgram(input.programType)
+          ? await getIerpPaymentAccessForUser(database, ctx.user.id)
+          : null;
+        if (ierpPayment?.cognitiveAccessLocked) {
+          return {
+            success: false,
+            enrollmentId: 0,
+            error: "IERP cognitive access requires the full KES 15,000 programme payment. Learners who started between August and November may continue before December; from December onward, complete payment before continuing.",
+          };
+        }
+
+        // NERP payment gate: BLS cognitive is free for nurses -- no payment
+        // gate above this line touches it. Moving past BLS into ACLS/PALS/NRP
+        // cognitive work requires the starting month's KES 2,500 minimum.
+        // This uses the existing institutional staff payment field and does
+        // not change IERP's separate programme ledger.
         if (input.programType === 'acls' || input.programType === 'pals' || input.programType === 'nrp') {
           const [staffRow] = await database
             .select({ designation: institutionalStaffMembers.designation, totalPaidAmount: institutionalStaffMembers.totalPaidAmount })
@@ -1621,11 +1632,11 @@ export const coursesRouter = router({
             message: "Complete and verify both Phase 1 evidence documents before booking a Phase 2 simulation.",
           });
         }
-        const payment = getIerpPaymentLockout(ierpEnrollment);
-        if (payment.paymentLockoutActive) {
+        const payment = getIerpPaymentAccess(ierpEnrollment);
+        if (payment.phase2BookingLocked) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "It has been more than 4 months since you joined with no payment recorded. Make a payment to regain IERP Phase 2 booking access.",
+            message: "IERP Phase 2 access now requires the full KES 15,000 programme fee. Complete payment before continuing.",
           });
         }
       }
@@ -1652,15 +1663,15 @@ export const coursesRouter = router({
         }
 
         const INTERN_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"] as const;
-        const FOUR_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 4;
         const joinedAt = enrollmentDate ?? createdAt;
         const paid = Number(totalPaidAmount ?? 0);
 
         if (designation && (INTERN_DESIGNATIONS as readonly string[]).includes(designation)) {
-          if (joinedAt && paid <= 0 && Date.now() - new Date(joinedAt).getTime() > FOUR_MONTHS_MS) {
+          const payment = getIerpPaymentAccess({ enrolledAt: joinedAt, totalPaidAmount: paid });
+          if (payment.phase2BookingLocked) {
             throw new TRPCError({
               code: "FORBIDDEN",
-              message: "It has been more than 4 months since you joined with no payment recorded. Make a payment (in full or as an instalment) to regain Phase 2 booking access.",
+              message: `IERP Phase 2 access requires the full KES ${IERP_TOTAL_FEE_KES.toLocaleString()} programme fee. Complete payment before continuing.`,
             });
           }
         } else if (designation === "permanent_nurse") {
@@ -1885,7 +1896,7 @@ export const coursesRouter = router({
 
     const s = staffRows[0];
     const paid = Number(s.totalPaidAmount ?? 0);
-    const subsidisedFee = 15000;
+    const subsidisedFee = IERP_TOTAL_FEE_KES;
 
     // Use the same confirmed named-role source as bookPhase2Role and the
     // dedicated completion procedure. Legacy generic team_member rows do not
@@ -1895,15 +1906,17 @@ export const coursesRouter = router({
     const leaderSessions = phase2.teamLeaderCount;
     const phase2Complete = phase2.phase2Complete;
 
-    // Deferred-payment lockout status (see bookHandsOnSession for the enforced gate).
-    // Surfaced here so the dashboard can warn a learner as the 4-month deadline
-    // approaches, not just block them silently once it's already passed.
+    // Surface the same IERP payment timing used by the booking gate, so the
+    // dashboard explains the actual December boundary instead of warning only
+    // after an obsolete four-month zero-payment lock.
     const INTERN_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"];
-    const FOUR_MONTHS_MS = 1000 * 60 * 60 * 24 * 30 * 4;
     const isIntern = !!s.designation && INTERN_DESIGNATIONS.includes(s.designation);
     const joinedAt = s.enrollmentDate ?? s.createdAt;
-    const paymentDeadline = isIntern && joinedAt ? new Date(new Date(joinedAt).getTime() + FOUR_MONTHS_MS) : null;
-    const paymentLockoutActive = !!paymentDeadline && paid <= 0 && Date.now() > paymentDeadline.getTime();
+    const paymentAccess = isIntern
+      ? getIerpPaymentAccess({ enrolledAt: joinedAt, totalPaidAmount: paid })
+      : null;
+    const paymentDeadline = paymentAccess?.paymentDeadline ?? null;
+    const paymentLockoutActive = paymentAccess?.phase2BookingLocked ?? false;
 
     // Nurse instalment-pace status (see bookHandsOnSession for the enforced gate).
     const ONE_MONTH_MS = 1000 * 60 * 60 * 24 * 30;
@@ -1933,6 +1946,9 @@ export const coursesRouter = router({
       balance: Math.max(0, subsidisedFee - paid),
       isPaidInFull: paid >= subsidisedFee,
       paymentDeadline: paymentDeadline ? paymentDeadline.toISOString() : null,
+      deferredStartWindow: paymentAccess?.deferredStartWindow ?? false,
+      cognitiveAccessLocked: paymentAccess?.cognitiveAccessLocked ?? false,
+      phase2BookingLocked: paymentAccess?.phase2BookingLocked ?? false,
       paymentLockoutActive,
     };
   }),

@@ -14,6 +14,7 @@ import {
   users,
 } from "../drizzle/schema";
 import { ensureInstructorCourseCatalog } from "./lib/ensure-instructor-course-catalog";
+import { getIerpPaymentAccessForUser, isIerpCognitiveProgram } from "./lib/ierp-program-state";
 import { syncInstructorQualificationsForUser, isInstructorQualifiedForCourse } from "./lib/instructor-qualifications";
 import { resolveAhaCourseAnchor } from "./lib/resolve-aha-course-anchor";
 import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certificate-pdf";
@@ -511,6 +512,11 @@ export async function markAhaCognitiveComplete(enrollmentId: number): Promise<vo
   const enrollment = rows[0];
   if (!enrollment) return;
   if (!AHA_PROGRAM_TYPES.has(enrollment.programType)) return;
+
+  if (isIerpCognitiveProgram(enrollment.programType)) {
+    const ierpPayment = await getIerpPaymentAccessForUser(db, enrollment.userId);
+    if (ierpPayment?.cognitiveAccessLocked) return;
+  }
 
   let complete = false;
   if (enrollment.programType === "pals") {
