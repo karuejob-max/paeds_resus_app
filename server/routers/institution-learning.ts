@@ -364,7 +364,7 @@ async function loadInstitutionMemberDirectory(
       if (row.facilityDepartmentId != null) return access.departmentIds.includes(row.facilityDepartmentId);
       return allowedDepartments.some(name => departmentLabelsMatch(row.department ?? "", name));
     })
-    .sort((left, right) => left.staffName.localeCompare(right.staffName));
+    .sort((left: LearningMemberDirectoryRow, right: LearningMemberDirectoryRow) => left.staffName.localeCompare(right.staffName));
 }
 
 const targetInput = z.object({

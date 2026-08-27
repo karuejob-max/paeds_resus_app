@@ -336,10 +336,12 @@ export const cpdRouter = router({
     )
     .query(async ({ input, ctx }) => {
       const db = await requireDb();
+      const institutionId = input.institutionId;
+      if (!institutionId) return [];
       let access: { departmentIds: number[] | null } = { departmentIds: null };
-      if (input.institutionId) {
-        await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.workspace.read");
-        access = await assertCpdInstitutionAccess(db, ctx.user, input.institutionId);
+      if (institutionId) {
+        await assertInstitutionProductCapability(db, institutionId, "cpd_portal", "cpd.workspace.read");
+        access = await assertCpdInstitutionAccess(db, ctx.user, institutionId);
       }
       const q = `%${input.query.toLowerCase()}%`;
 
@@ -358,17 +360,17 @@ export const cpdRouter = router({
         })
         .from(institutionMemberships)
         .innerJoin(users, eq(users.id, institutionMemberships.userId))
-        .innerJoin(
+        .leftJoin(
           institutionalStaffMembers,
           and(
-            eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+            eq(institutionalStaffMembers.institutionalAccountId, institutionId),
             eq(institutionalStaffMembers.userId, institutionMemberships.userId),
             sql`${institutionalStaffMembers.removedAt} IS NULL`
           )
         )
         .where(
           and(
-            eq(institutionMemberships.institutionalAccountId, input.institutionId),
+            eq(institutionMemberships.institutionalAccountId, institutionId),
             eq(institutionMemberships.membershipStatus, "active"),
             or(
               like(sql`LOWER(${users.name})`, q),
