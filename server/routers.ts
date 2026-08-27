@@ -86,6 +86,7 @@ import { institutionLearningRouter } from "./routers/institution-learning";
 import { institutionAccountabilityRouter } from "./routers/institution-accountability";
 import { institutionProductsRouter } from "./routers/institution-products";
 import { institutionalNotificationsRouter } from "./routers/institutional-notifications";
+import { institutionalLifeSupportRouter } from "./routers/institutional-life-support";
 import { productionSecurityRouter } from "./routers/production-security";
 import { predictiveAnalyticsRouter } from "./routers/predictive-analytics";
 import { localizationRouter } from "./routers/localization";
@@ -509,6 +510,7 @@ export const appRouter = router({
   referrals: referralsRouter,
   institution: institutionRouter,
   institutionProducts: institutionProductsRouter,
+  institutionalLifeSupport: institutionalLifeSupportRouter,
   institutionAdmins: institutionAdminsRouter,
   institutionRecovery: institutionRecoveryRouter,
   iers: iersRouter,

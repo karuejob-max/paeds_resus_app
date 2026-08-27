@@ -99,6 +99,7 @@ const CoursePaediatricSepticShock = lazy(() => import("./pages/CoursePaediatricS
 const CourseIntubationEssentials = lazy(() => import("./pages/CourseIntubationEssentials"));
 const InstructorPortal = lazy(() => import("./pages/InstructorPortal"));
 const InstitutionalOnboarding = lazy(() => import("./pages/InstitutionalOnboarding"));
+const InstitutionalLifeSupport = lazy(() => import("./pages/InstitutionalLifeSupport"));
 const InstitutionalRecovery = lazy(() => import("./pages/InstitutionalRecovery"));
 const AdminInstitutionalRecovery = lazy(() => import("./pages/AdminInstitutionalRecovery"));
 const CareSignalAnalytics = lazy(() => import("./pages/CareSignalAnalytics"));
@@ -369,6 +370,16 @@ function Router() {
           <Route path="/training/acls">{() => <TrainingCourseLanding slug="acls" />}</Route>
           <Route path="/training/bls">{() => <TrainingCourseLanding slug="bls" />}</Route>
           <Route path="/training/nrp">{() => <TrainingCourseLanding slug="nrp" />}</Route>
+          <Route path="/training/institutional-life-support">{() => (
+            <RoleGate allowed={["provider", "institution"]}>
+              <InstitutionalLifeSupport />
+            </RoleGate>
+          )}</Route>
+          <Route path="/training/paeds-resus-competency">{() => (
+            <RoleGate allowed={["provider", "institution"]}>
+              <InstitutionalLifeSupport />
+            </RoleGate>
+          )}</Route>
           <Route path="/training" component={TrainingHub} />
           <Route path="/programs/nerp-acls" component={NerpOfferPage} />
           <Route path="/programs/nerp-acls/enroll">{() => (

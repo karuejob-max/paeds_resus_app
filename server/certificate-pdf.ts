@@ -86,7 +86,7 @@ const BRAND = {
 
 interface CertificateData {
   recipientName: string;
-  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor" | "fellowship_diploma" | "heartsaver" | "nrp" | "bls_cognitive" | "acls_cognitive" | "pals_cognitive" | "heartsaver_cognitive" | "nrp_cognitive" | "paeds_resus_phase2" | "paeds_resus_bls_provider" | "paeds_resus_acls_provider" | "paeds_resus_pals_provider" | "paeds_resus_nrp_provider";
+  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor" | "fellowship_diploma" | "heartsaver" | "nrp" | "paeds_resus_ils" | "bls_cognitive" | "acls_cognitive" | "pals_cognitive" | "heartsaver_cognitive" | "nrp_cognitive" | "paeds_resus_phase2" | "paeds_resus_bls_provider" | "paeds_resus_acls_provider" | "paeds_resus_pals_provider" | "paeds_resus_nrp_provider";
   trainingDate: Date;
   /** Issue date for expiry calculation; defaults to trainingDate when omitted. */
   issueDate?: Date;
@@ -218,6 +218,13 @@ const CERTIFICATE_TEMPLATES: Record<string, CertificateTemplate> = {
     description:
       "has successfully completed all cognitive modules of the Heartsaver CPR AED programme. This certificate serves as a gatepass for the practical skills session, upon completion of which the full Heartsaver certification will be issued.",
     hours: 3,
+  },
+  paeds_resus_ils: {
+    title: "Institutional Life Support Training Program",
+    subtitle: "Paeds Resus Competency Certificate",
+    description:
+      "has successfully completed the Institutional Life Support Training Program and demonstrated the required Paeds Resus cognitive and practical competencies. This certificate is issued by Paeds Resus and is not an American Heart Association certificate.",
+    hours: 8,
   },
   nrp: {
     title: "Neonatal Resuscitation Program",

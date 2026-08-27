@@ -93,7 +93,13 @@ import { getIsoWeekKey, getIsoWeekRange, getMonthlyShiftRows, monthStartFromShif
 import { insertCanonicalFacilityDepartments } from "../lib/iers-department-setup";
 import { DEFAULT_SHIFT_TEMPLATES, formatShiftInterval, shiftTemplateForType, validateShiftInterval } from "../lib/iers-shift-times";
 import { DEPARTMENT_ALIASES, canonicalizeDepartmentLabel, departmentLabelsMatch, isPresetDepartment } from "../../shared/clinical-departments";
-import { INSTITUTION_PLATFORM_NEED_VALUES, INSTITUTION_TYPE_VALUES } from "@shared/institution-onboarding";
+import {
+  FACILITY_OWNERSHIP_VALUES,
+  INSTITUTION_CATEGORY_VALUES,
+  INSTITUTION_PLATFORM_NEED_VALUES,
+  INSTITUTION_TYPE_VALUES,
+  requiresCareFacilityClassification,
+} from "@shared/institution-onboarding";
 import {
   evaluateProviderDutyAuthorization,
   type ProviderDutyAuthorizationInput,
@@ -2199,7 +2205,12 @@ export const institutionRouter = router({
     .input(
       z.object({
         institutionName: z.string().trim().min(3),
-        institutionType: z.enum(INSTITUTION_TYPE_VALUES),
+        /** New category field; institutionType remains optional for older clients during rollout. */
+        organizationCategory: z.enum(INSTITUTION_CATEGORY_VALUES).optional(),
+        institutionType: z.enum(INSTITUTION_TYPE_VALUES).optional(),
+        facilityOwnership: z.enum(FACILITY_OWNERSHIP_VALUES).optional(),
+        facilityCareLevel: z.string().trim().min(1).max(64).optional(),
+        facilityLocalLevel: z.string().trim().max(128).optional(),
         registrationNumber: z.preprocess(
           (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
           z.string().trim().min(1).optional()
@@ -2232,6 +2243,20 @@ export const institutionRouter = router({
           code: "INTERNAL_SERVER_ERROR",
           message: "Database connection failed",
         });
+      }
+
+      const organizationCategory = input.organizationCategory ?? input.institutionType;
+      if (!organizationCategory) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Select the organization category that best describes your institution." });
+      }
+      if (requiresCareFacilityClassification(organizationCategory) && !input.facilityCareLevel) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Select the closest care level for this healthcare facility. If your country uses another model, choose the alternative/not-sure option and add its local designation." });
+      }
+      if (requiresCareFacilityClassification(organizationCategory) && !input.facilityOwnership) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Select the ownership model for this healthcare facility." });
+      }
+      if (input.facilityCareLevel === "other_or_not_sure" && !input.facilityLocalLevel) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Add the local facility designation when your country uses another classification model." });
       }
 
       const existing = await db
@@ -2282,7 +2307,11 @@ export const institutionRouter = router({
       const accountResult = await db.insert(institutionalAccounts).values({
         userId: ctx.user.id,
         companyName: input.institutionName,
-        industry: input.institutionType,
+        industry: organizationCategory,
+        organizationCategory,
+        facilityOwnership: input.facilityOwnership,
+        facilityCareLevel: input.facilityCareLevel,
+        facilityLocalLevel: input.facilityLocalLevel || null,
         staffCount: input.healthcareStaffCount,
         contactName: primaryAdminName,
         contactEmail: primaryAdminEmail,
@@ -2328,6 +2357,10 @@ export const institutionRouter = router({
           city: input.city,
           country: input.country,
           contactDesignation: input.contactDesignation,
+          organizationCategory,
+          facilityOwnership: input.facilityOwnership ?? null,
+          facilityCareLevel: input.facilityCareLevel ?? null,
+          facilityLocalLevel: input.facilityLocalLevel ?? null,
           platformNeeds: input.platformNeeds,
         }),
         contactName: primaryAdminName,

@@ -16,7 +16,17 @@ import { FacilityAutocomplete } from "@/components/FacilityAutocomplete";
 import { DepartmentSelectors } from "@/components/DepartmentSelectors";
 import { PlatformAccountAutocomplete, type PlatformAccountOption } from "@/components/PlatformAccountAutocomplete";
 import { validateSecondAdminSelection } from "@/lib/institutionOnboardingValidation";
-import { INSTITUTION_PLATFORM_NEED_OPTIONS, INSTITUTION_TYPE_OPTIONS, type InstitutionPlatformNeed, type InstitutionType } from "@shared/institution-onboarding";
+import {
+  CARE_FACILITY_LEVEL_OPTIONS,
+  FACILITY_OWNERSHIP_OPTIONS,
+  INSTITUTION_CATEGORY_OPTIONS,
+  INSTITUTION_PLATFORM_NEED_OPTIONS,
+  requiresCareFacilityClassification,
+  type CareFacilityLevel,
+  type FacilityOwnership,
+  type InstitutionCategory,
+  type InstitutionPlatformNeed,
+} from "@shared/institution-onboarding";
 
 
 export default function InstitutionalOnboarding() {
@@ -47,7 +57,10 @@ export default function InstitutionalOnboarding() {
 
   const [formData, setFormData] = useState({
     institutionName: "",
-    institutionType: "" as InstitutionType | "",
+    organizationCategory: "" as InstitutionCategory | "",
+    facilityOwnership: "" as FacilityOwnership | "",
+    facilityCareLevel: "" as CareFacilityLevel | "",
+    facilityLocalLevel: "",
     country: "Kenya",
     city: "",
     address: "",
@@ -88,8 +101,20 @@ export default function InstitutionalOnboarding() {
       setError("Enter an organization name with at least 3 characters, or select a listed facility.");
       return;
     }
-    if (step === 1 && !formData.institutionType) {
-      setError("Select the type of organization you are onboarding.");
+    if (step === 1 && !formData.organizationCategory) {
+      setError("Select the organization category that best describes your institution.");
+      return;
+    }
+    if (step === 1 && requiresCareFacilityClassification(formData.organizationCategory) && !formData.facilityOwnership) {
+      setError("Select the ownership model for this healthcare facility.");
+      return;
+    }
+    if (step === 1 && requiresCareFacilityClassification(formData.organizationCategory) && !formData.facilityCareLevel) {
+      setError("Select the closest care level. If your country uses another system, choose the alternative option and add the local designation.");
+      return;
+    }
+    if (step === 1 && formData.facilityCareLevel === "other_or_not_sure" && !formData.facilityLocalLevel.trim()) {
+      setError("Add the local facility designation used in your country.");
       return;
     }
     if (step === 2) {
@@ -132,8 +157,26 @@ export default function InstitutionalOnboarding() {
       return;
     }
 
-    if (!formData.institutionType) {
-      setError("Select the type of organization you are onboarding.");
+    if (!formData.organizationCategory) {
+      setError("Select the organization category that best describes your institution.");
+      setLoading(false);
+      return;
+    }
+
+    if (requiresCareFacilityClassification(formData.organizationCategory) && !formData.facilityOwnership) {
+      setError("Select the ownership model for this healthcare facility.");
+      setLoading(false);
+      return;
+    }
+
+    if (requiresCareFacilityClassification(formData.organizationCategory) && !formData.facilityCareLevel) {
+      setError("Select the closest care level. If your country uses another system, choose the alternative option and add the local designation.");
+      setLoading(false);
+      return;
+    }
+
+    if (formData.facilityCareLevel === "other_or_not_sure" && !formData.facilityLocalLevel.trim()) {
+      setError("Add the local facility designation used in your country.");
       setLoading(false);
       return;
     }
@@ -174,7 +217,10 @@ export default function InstitutionalOnboarding() {
       await acceptB2b.mutateAsync();
       await completeOnboarding.mutateAsync({
         institutionName: formData.institutionName.trim(),
-        institutionType: formData.institutionType,
+        organizationCategory: formData.organizationCategory,
+        facilityOwnership: requiresCareFacilityClassification(formData.organizationCategory) ? (formData.facilityOwnership || undefined) : undefined,
+        facilityCareLevel: requiresCareFacilityClassification(formData.organizationCategory) ? formData.facilityCareLevel : undefined,
+        facilityLocalLevel: formData.facilityLocalLevel.trim() || undefined,
         registrationNumber: formData.registrationNumber.trim() || undefined,
         healthcareStaffCount: staffCount,
         country: formData.country.trim(),
@@ -279,6 +325,7 @@ export default function InstitutionalOnboarding() {
                           setFormData((prev) => ({
                             ...prev,
                             institutionName: facility.name,
+                            organizationCategory: "healthcare_facility",
                             registrationNumber: facility.code || "",
                           }));
                         }
@@ -297,16 +344,22 @@ export default function InstitutionalOnboarding() {
                   </div>
 
                   <div>
-                    <Label htmlFor="institutionType">Organization type *</Label>
+                    <Label htmlFor="organizationCategory">Organization category *</Label>
                     <Select
-                      value={formData.institutionType || undefined}
-                      onValueChange={(v) => handleSelectChange("institutionType", v)}
+                      value={formData.organizationCategory || undefined}
+                      onValueChange={(value) => setFormData((prev) => ({
+                        ...prev,
+                        organizationCategory: value as InstitutionCategory,
+                        ...(requiresCareFacilityClassification(value)
+                          ? {}
+                          : { facilityOwnership: "", facilityCareLevel: "", facilityLocalLevel: "" }),
+                      }))}
                     >
-                      <SelectTrigger id="institutionType">
+                      <SelectTrigger id="organizationCategory">
                         <SelectValue placeholder="Select organization type" />
                       </SelectTrigger>
                       <SelectContent>
-                        {INSTITUTION_TYPE_OPTIONS.map((option) => (
+                        {INSTITUTION_CATEGORY_OPTIONS.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                           </SelectItem>
@@ -317,6 +370,66 @@ export default function InstitutionalOnboarding() {
                       Choose the closest fit. This helps us route your onboarding and does not limit which platform areas you can use.
                     </p>
                   </div>
+
+                  {requiresCareFacilityClassification(formData.organizationCategory) && (
+                    <div className="md:col-span-2 rounded-xl border border-blue-200 bg-blue-50/60 p-4 space-y-4">
+                      <div>
+                        <p className="font-semibold text-foreground">Healthcare facility classification</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Select the closest equivalent in your country. The care tier and level are stored separately so the classification remains useful outside Kenya.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="facilityOwnership">Ownership model *</Label>
+                          <Select
+                            value={formData.facilityOwnership || undefined}
+                            onValueChange={(value) => handleSelectChange("facilityOwnership", value)}
+                          >
+                            <SelectTrigger id="facilityOwnership">
+                              <SelectValue placeholder="Select ownership model" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {FACILITY_OWNERSHIP_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="facilityCareLevel">Care tier and level *</Label>
+                          <Select
+                            value={formData.facilityCareLevel || undefined}
+                            onValueChange={(value) => setFormData((prev) => ({ ...prev, facilityCareLevel: value as CareFacilityLevel, facilityLocalLevel: value === "other_or_not_sure" ? prev.facilityLocalLevel : "" }))}
+                          >
+                            <SelectTrigger id="facilityCareLevel">
+                              <SelectValue placeholder="Select care tier and level" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CARE_FACILITY_LEVEL_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Primary: Levels 1–4 · Secondary: Level 5 · Tertiary: Level 6 · Quaternary: highly specialized referral care.
+                          </p>
+                        </div>
+                      </div>
+                      {formData.facilityCareLevel === "other_or_not_sure" && (
+                        <div>
+                          <Label htmlFor="facilityLocalLevel">Local facility designation *</Label>
+                          <Input
+                            id="facilityLocalLevel"
+                            name="facilityLocalLevel"
+                            value={formData.facilityLocalLevel}
+                            onChange={handleInputChange}
+                            placeholder="e.g., district hospital, regional referral centre, or your country’s local code"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div>
                     <Label htmlFor="healthcareStaffCount">People to include in the portal *</Label>
@@ -493,8 +606,8 @@ export default function InstitutionalOnboarding() {
                   ))}
                 </div>
 
-                <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-4 text-sm leading-6 text-amber-950">
-                  <strong>About training:</strong> Institutional Life Support Training is not yet an in-portal enrollment flow. Select Training partnership if you want the Paeds Resus team to discuss delivery separately; no course enrollment is created by this onboarding form.
+                <div className="rounded-lg border border-blue-200 bg-blue-50/70 p-4 text-sm leading-6 text-blue-950">
+                  <strong>About training:</strong> Selecting Institutional Life Support Training records your organization’s interest. This onboarding form creates the workspace only; provider enrollment and payment happen separately from the Institutional Life Support programme page after setup.
                 </div>
               </div>
             )}
@@ -511,7 +624,13 @@ export default function InstitutionalOnboarding() {
                   <h3 className="font-semibold text-foreground mb-4">Summary</h3>
                   <div className="space-y-2 text-sm text-foreground/90">
                     <p><strong>Institution:</strong> {formData.institutionName}</p>
-                    <p><strong>Type:</strong> {INSTITUTION_TYPE_OPTIONS.find((option) => option.value === formData.institutionType)?.label}</p>
+                    <p><strong>Category:</strong> {INSTITUTION_CATEGORY_OPTIONS.find((option) => option.value === formData.organizationCategory)?.label}</p>
+                    {requiresCareFacilityClassification(formData.organizationCategory) && (
+                      <>
+                        <p><strong>Ownership:</strong> {FACILITY_OWNERSHIP_OPTIONS.find((option) => option.value === formData.facilityOwnership)?.label}</p>
+                        <p><strong>Care classification:</strong> {CARE_FACILITY_LEVEL_OPTIONS.find((option) => option.value === formData.facilityCareLevel)?.label}{formData.facilityLocalLevel ? ` (${formData.facilityLocalLevel})` : ""}</p>
+                      </>
+                    )}
                     <p><strong>Location:</strong> {formData.city}, {formData.country}</p>
                     <p><strong>People included:</strong> {formData.healthcareStaffCount}</p>
                     <p><strong>Primary administrator:</strong> {user?.name} ({user?.email})</p>

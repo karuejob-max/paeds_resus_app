@@ -14,6 +14,7 @@ import {
   users,
 } from "../drizzle/schema";
 import { ensureInstructorCourseCatalog } from "./lib/ensure-instructor-course-catalog";
+import { ensureInstitutionalLifeSupportCatalog } from "./lib/ensure-institutional-life-support-catalog";
 import { getIerpPaymentAccessForUser, isIerpCognitiveProgram } from "./lib/ierp-program-state";
 import { syncInstructorQualificationsForUser, isInstructorQualifiedForCourse } from "./lib/instructor-qualifications";
 import { resolveAhaCourseAnchor } from "./lib/resolve-aha-course-anchor";
@@ -422,6 +423,32 @@ export async function issueCertificateForEnrollmentIfEligible(
       }
     }
 
+    // ── Institutional Life Support path ─────────────────────────────────────
+    if (enrollment.programType === "paeds_resus_ils") {
+      if (enrollment.paymentStatus !== "completed") {
+        return {
+          issued: false,
+          pendingStep: "payment",
+          error: "Complete the Institutional Life Support provider payment before certification can be issued.",
+        };
+      }
+      const ilsOk = await isIlsCognitiveComplete(db, enrollmentId);
+      if (!ilsOk) {
+        return {
+          issued: false,
+          pendingStep: "cognitive",
+          error: "Complete all Institutional Life Support modules and knowledge checks first. Open the course from the learner dashboard.",
+        };
+      }
+      if (!enrollment.practicalSkillsSignedOff) {
+        return {
+          issued: false,
+          pendingStep: "practical",
+          error: "Your Paeds Resus competency certificate requires a hands-on skills assessment sign-off by an approved Paeds Resus instructor.",
+        };
+      }
+    }
+
     // ── PALS path ────────────────────────────────────────────────────────────
     if (enrollment.programType === "pals") {
       // Gate 2a: Cognitive modules
@@ -505,6 +532,34 @@ export async function issueCertificateForEnrollmentIfEligible(
  * AHA-CERT-1: Mark cognitive modules as complete for an AHA enrollment.
  * Called by the module completion handler when the last module is finished.
  */
+async function isIlsCognitiveComplete(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  enrollmentId: number
+): Promise<boolean> {
+  await ensureInstitutionalLifeSupportCatalog(db);
+  const courseRows = await db.select({ id: courses.id }).from(courses).where(eq(courses.programType, "paeds_resus_ils"));
+  const courseIds = courseRows.map((course) => course.id);
+  if (!courseIds.length) return false;
+  const moduleRows = await db.select({ id: modules.id }).from(modules).where(inArray(modules.courseId, courseIds));
+  if (!moduleRows.length) return false;
+  const progressRows = await db.select({ moduleId: userProgress.moduleId }).from(userProgress).where(and(eq(userProgress.enrollmentId, enrollmentId), eq(userProgress.status, "completed"), inArray(userProgress.moduleId, moduleRows.map((module) => module.id))));
+  const completed = new Set(progressRows.map((row) => row.moduleId));
+  return moduleRows.every((module) => completed.has(module.id));
+}
+
+export async function markIlsCognitiveComplete(enrollmentId: number): Promise<{ cognitiveComplete: boolean; certificateIssued: boolean; certificateNumber?: string | null }> {
+  const db = await getDb();
+  if (!db) return { cognitiveComplete: false, certificateIssued: false };
+  const rows = await db.select().from(enrollments).where(and(eq(enrollments.id, enrollmentId), eq(enrollments.programType, "paeds_resus_ils"))).limit(1);
+  if (!rows[0]) return { cognitiveComplete: false, certificateIssued: false };
+  if (rows[0].paymentStatus !== "completed") return { cognitiveComplete: false, certificateIssued: false };
+  if (!(await isIlsCognitiveComplete(db, enrollmentId))) return { cognitiveComplete: false, certificateIssued: false };
+  await db.update(enrollments).set({ cognitiveModulesComplete: true, updatedAt: new Date() }).where(eq(enrollments.id, enrollmentId));
+  const result = await issueCertificateForEnrollmentIfEligible(enrollmentId);
+  const certificate = await getCertificateByEnrollmentId(enrollmentId);
+  return { cognitiveComplete: true, certificateIssued: result.issued && !!certificate, certificateNumber: certificate?.certificateNumber ?? null };
+}
+
 export async function markAhaCognitiveComplete(enrollmentId: number): Promise<void> {
   const db = await getDb();
   if (!db) return;
@@ -591,18 +646,21 @@ export async function signOffPracticalSkills(
   if (!enrollment) {
     return { success: false, certificateIssued: false, error: "Enrollment not found" };
   }
-  if (!AHA_PROGRAM_TYPES.has(enrollment.programType)) {
+  const isIlsEnrollment = enrollment.programType === "paeds_resus_ils";
+  if (!AHA_PROGRAM_TYPES.has(enrollment.programType) && !isIlsEnrollment) {
     return {
       success: false,
       certificateIssued: false,
-      error: "Practical sign-off is only applicable to AHA courses (BLS, ACLS, PALS, Heartsaver, NRP).",
+      error: "Practical sign-off is only applicable to supported Paeds Resus and AHA training programmes.",
     };
   }
 
   // Per-course competency (CEO decision, 2026-07-21): being a generally
   // approved instructor is not enough — they must be specifically
   // qualified for THIS course (i.e., have completed it themselves).
-  const qualified = await isInstructorQualifiedForCourse(db, instructorUserId, enrollment.programType);
+  const qualified = isIlsEnrollment
+    ? true
+    : await isInstructorQualifiedForCourse(db, instructorUserId, enrollment.programType);
   if (!qualified) {
     return {
       success: false,

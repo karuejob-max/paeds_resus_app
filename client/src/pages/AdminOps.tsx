@@ -40,6 +40,17 @@ export default function AdminOps() {
   const { data: alertDispatches, refetch: refetchAlerts } =
     trpc.adminStats.getAdminAlertDispatches.useQuery({ limit: 10 }, { enabled: adminOk });
 
+  const { data: ilsCredentialRequests, refetch: refetchIlsCredentialRequests } =
+    trpc.institutionalLifeSupport.listAhaCredentialRequests.useQuery(undefined, { enabled: adminOk });
+
+  const reviewIlsCredentialRequest = trpc.institutionalLifeSupport.reviewAhaCredentialRequest.useMutation({
+    onSuccess: () => {
+      toast.success("Credentialing request updated");
+      void refetchIlsCredentialRequests();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const runAlerts = trpc.adminStats.runAdminOpsAlertsNow.useMutation({
     onSuccess: (r) => {
       toast.success(`Alerts: ${r.alertsSent} sent (${r.rulesEvaluated} rules matched)`);
@@ -71,7 +82,8 @@ export default function AdminOps() {
     (ops?.errors.criticalCount ?? 0) > 0 ||
     (ops?.payments.staleMpesaPendingCount ?? 0) > 0 ||
     (ops?.enrollments.stuckPendingPayment.length ?? 0) > 0 ||
-    (careSignal?.underReviewCount ?? 0) > 0;
+    (careSignal?.underReviewCount ?? 0) > 0 ||
+    (ilsCredentialRequests?.filter((request) => request.status === "paid_pending_review").length ?? 0) > 0;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
@@ -217,6 +229,44 @@ export default function AdminOps() {
                 </CardContent>
               </Card>
             </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <BookOpen className="h-5 w-5" />
+                  ILS AHA credentialing review
+                </CardTitle>
+                <CardDescription>
+                  Payment-confirmed requests only. Approval records the review decision; it does not issue an AHA certificate automatically.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {ilsCredentialRequests?.length ? (
+                  <ul className="space-y-2 text-sm">
+                    {ilsCredentialRequests.map((request) => (
+                      <li key={request.id} className="rounded-lg border border-border/70 p-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium">#{request.id} · {request.credentialType.toUpperCase()} · {request.userName ?? "Unnamed account"}</p>
+                            <p className="text-xs text-muted-foreground">{request.userEmail ?? "No email"} · KES {request.amountKes.toLocaleString()} · deadline {new Date(request.credentialingDeadline).toLocaleDateString()}</p>
+                          </div>
+                          <Badge variant={request.status === "paid_pending_review" ? "default" : "secondary"}>{request.status}</Badge>
+                        </div>
+                        {request.status === "paid_pending_review" && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Button type="button" size="sm" onClick={() => reviewIlsCredentialRequest.mutate({ requestId: request.id, decision: "approved" })} disabled={reviewIlsCredentialRequest.isPending}>Approve review</Button>
+                            <Button type="button" variant="outline" size="sm" onClick={() => reviewIlsCredentialRequest.mutate({ requestId: request.id, decision: "rejected", notes: "Credentialing review not approved." })} disabled={reviewIlsCredentialRequest.isPending}>Reject</Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => reviewIlsCredentialRequest.mutate({ requestId: request.id, decision: "expired", notes: "Credentialing window expired before review." })} disabled={reviewIlsCredentialRequest.isPending}>Mark expired</Button>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No AHA credentialing requests yet.</p>
+                )}
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>

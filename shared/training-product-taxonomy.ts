@@ -6,7 +6,7 @@
  * - **Catalog row** (`courses.id` + title): internal LMS content; may differ from offering label
  */
 
-export type TrainingProductLine = "aha" | "fellowship" | "instructor" | "paeds_resus_adf" | "other";
+export type TrainingProductLine = "aha" | "fellowship" | "instructor" | "paeds_resus_adf" | "paeds_resus_ils" | "other";
 
 export type AhaOfferingCode = "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor";
 
@@ -34,6 +34,7 @@ export function isAhaProgramType(programType: string): programType is AhaOfferin
 
 export function inferProductLine(programType: string): TrainingProductLine {
   if (programType === "instructor") return "instructor";
+  if (programType === "paeds_resus_ils") return "paeds_resus_ils";
   if (isAhaProgramType(programType)) return "aha";
   if (programType === "fellowship" || programType === "fellowship_diploma") return "fellowship";
   return "other";
@@ -49,6 +50,8 @@ export function productLineLabel(line: TrainingProductLine): string {
       return "Instructor";
     case "paeds_resus_adf":
       return "Paeds Resus ADF";
+    case "paeds_resus_ils":
+      return "Paeds Resus Institutional Life Support";
     default:
       return "Other";
   }
@@ -76,6 +79,7 @@ export function resolveTrainingOfferingLabel(args: {
   if (programType === "fellowship") return "Fellowship (program)";
   if (programType === "fellowship_diploma") return "Fellowship diploma";
   if (programType === "instructor") return "Paeds Resus Instructor";
+  if (programType === "paeds_resus_ils") return "Institutional Life Support Training Program — Paeds Resus Competency";
 
   if (isAhaProgramType(programType)) {
     const adf = programType === "pals" ? inferPalsAdfSku(courseTitle, pricingSku) : null;

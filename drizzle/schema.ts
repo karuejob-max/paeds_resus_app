@@ -80,7 +80,7 @@ export const enrollments = mysqlTable("enrollments", {
   userId: int("userId").notNull(),
   /** When set, PALS learning path is limited to this catalog course (micro-course SKU). */
   courseId: int("courseId"),
-  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp"]).notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp", "paeds_resus_ils"]).notNull(),
   trainingDate: timestamp("trainingDate").notNull(),
   paymentStatus: mysqlEnum("paymentStatus", ["pending", "partial", "completed"]).default("pending"),
   amountPaid: int("amountPaid").default(0), // in cents (KES)
@@ -304,6 +304,10 @@ export const payments = mysqlTable("payments", {
   amount: int("amount").notNull(), // in cents (KES)
   paymentMethod: mysqlEnum("paymentMethod", ["mpesa", "bank_transfer", "card"]).notNull(),
   transactionId: varchar("transactionId", { length: 255 }),
+  /** Optional institutional cohort order that this payment settles. */
+  institutionalTrainingOrderId: int("institutionalTrainingOrderId"),
+  /** Optional individual AHA credentialing request that this payment settles. */
+  ilsCredentialRequestId: int("ilsCredentialRequestId"),
   // MPESA-4: Idempotency key to prevent duplicate webhook processing
   idempotencyKey: varchar("idempotencyKey", { length: 255 }).unique(),
   // Migration 00XX (CEO decision, 2026-08-05): retired the dormant, never-
@@ -335,7 +339,7 @@ export const certificates = mysqlTable("certificates", {
   /** Stored for future name-matching verification; legacy rows may be null. */
   recipientName: varchar("recipientName", { length: 255 }),
   certificateNumber: varchar("certificateNumber", { length: 255 }).unique(),
-  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp", "bls_cognitive", "acls_cognitive", "pals_cognitive", "heartsaver_cognitive", "nrp_cognitive", "paeds_resus_phase2", "paeds_resus_bls_provider", "paeds_resus_acls_provider", "paeds_resus_pals_provider", "paeds_resus_nrp_provider"]).notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp", "paeds_resus_ils", "bls_cognitive", "acls_cognitive", "pals_cognitive", "heartsaver_cognitive", "nrp_cognitive", "paeds_resus_phase2", "paeds_resus_bls_provider", "paeds_resus_acls_provider", "paeds_resus_pals_provider", "paeds_resus_nrp_provider"]).notNull(),
   /** Entry path used for audit and display; null on legacy certificates. */
   readinessPathway: mysqlEnum("readinessPathway", ["ierp", "nerp", "open_enrolment"]),
   /** Stable idempotency key for universal Paeds Resus certificates. */
@@ -552,6 +556,14 @@ export const institutionalAccounts = mysqlTable("institutionalAccounts", {
   contactName: varchar("contactName", { length: 255 }).notNull(),
   contactEmail: varchar("contactEmail", { length: 320 }).notNull(),
   contactPhone: varchar("contactPhone", { length: 20 }),
+  /** Shared organization category; `industry` is retained for backwards-compatible reporting. */
+  organizationCategory: varchar("organizationCategory", { length: 64 }),
+  /** Ownership model for care-delivery facilities; separate from organization category. */
+  facilityOwnership: varchar("facilityOwnership", { length: 64 }),
+  /** Country-neutral care tier / local-equivalent code for healthcare facilities. */
+  facilityCareLevel: varchar("facilityCareLevel", { length: 64 }),
+  /** Optional local designation when the country uses another facility classification. */
+  facilityLocalLevel: varchar("facilityLocalLevel", { length: 128 }),
   /** MoH registration number (or equivalent), promoted to a real column (migration 0071) so
    *  institutional recovery requests (North Star §6.1) can be matched against it directly —
    *  previously only captured inside institutionalInquiries.specificNeeds as opaque JSON. */
@@ -671,6 +683,61 @@ export const institutionalInquiries = mysqlTable("institutionalInquiries", {
 
 export type InstitutionalInquiry = typeof institutionalInquiries.$inferSelect;
 export type InsertInstitutionalInquiry = typeof institutionalInquiries.$inferInsert;
+
+/** One institution-paid cohort order for Paeds Resus competency-based training. */
+export const institutionalTrainingOrders = mysqlTable("institutionalTrainingOrders", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  programType: mysqlEnum("programType", ["paeds_resus_ils"]).notNull(),
+  providerCount: int("providerCount").notNull(),
+  amountPerProviderKes: int("amountPerProviderKes").notNull(),
+  totalAmountKes: int("totalAmountKes").notNull(),
+  trainingDate: timestamp("trainingDate").notNull(),
+  paymentStatus: mysqlEnum("paymentStatus", ["pending", "completed", "failed"]).default("pending").notNull(),
+  paymentId: int("paymentId"),
+  createdByUserId: int("createdByUserId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type InstitutionalTrainingOrder = typeof institutionalTrainingOrders.$inferSelect;
+export type InsertInstitutionalTrainingOrder = typeof institutionalTrainingOrders.$inferInsert;
+
+/** Provider membership in an institution-paid Institutional Life Support order. */
+export const institutionalTrainingOrderProviders = mysqlTable("institutionalTrainingOrderProviders", {
+  id: int("id").autoincrement().primaryKey(),
+  orderId: int("orderId").notNull(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  staffMemberId: int("staffMemberId").notNull(),
+  userId: int("userId").notNull(),
+  enrollmentId: int("enrollmentId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type InstitutionalTrainingOrderProvider = typeof institutionalTrainingOrderProviders.$inferSelect;
+export type InsertInstitutionalTrainingOrderProvider = typeof institutionalTrainingOrderProviders.$inferInsert;
+
+/** Paid request for an individual AHA credentialing add-on after ILS completion. */
+export const ilsCredentialRequests = mysqlTable("ilsCredentialRequests", {
+  id: int("id").autoincrement().primaryKey(),
+  enrollmentId: int("enrollmentId").notNull(),
+  userId: int("userId").notNull(),
+  credentialType: mysqlEnum("credentialType", ["bls", "acls"]).notNull(),
+  amountKes: int("amountKes").notNull(),
+  credentialingDeadline: timestamp("credentialingDeadline").notNull(),
+  status: mysqlEnum("status", ["payment_pending", "paid_pending_review", "approved", "rejected", "expired"]).default("payment_pending").notNull(),
+  paymentId: int("paymentId"),
+  requestedAt: timestamp("requestedAt").defaultNow().notNull(),
+  paidAt: timestamp("paidAt"),
+  reviewedAt: timestamp("reviewedAt"),
+  reviewedByUserId: int("reviewedByUserId"),
+  reviewNotes: text("reviewNotes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type IlsCredentialRequest = typeof ilsCredentialRequests.$inferSelect;
+export type InsertIlsCredentialRequest = typeof ilsCredentialRequests.$inferInsert;
 
 // SMS Reminders table
 export const smsReminders = mysqlTable("smsReminders", {
@@ -1213,7 +1280,7 @@ export const courses = mysqlTable("courses", {
   id: int("id").autoincrement().primaryKey(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
-  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp"]).notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp", "paeds_resus_ils"]).notNull(),
   duration: int("duration"), // in minutes
   level: mysqlEnum("level", ["beginner", "intermediate", "advanced"]).default("beginner"),
   order: int("order").default(0),
