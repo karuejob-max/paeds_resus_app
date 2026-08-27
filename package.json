@@ -19,6 +19,7 @@
     "test:api": "vitest run server/routers/role-boundary-provider-api.test.ts",
     "test:api:enrollment": "vitest run server/routers/enrollment-payment-flows.test.ts",
     "test:resusgps-hardening": "vitest run client/src/lib/resus/resusGpsHardeningSimulation.test.ts server/routers/resus-event.test.ts client/src/lib/resus/abcdeEngine.safety.test.ts client/src/lib/resus/cpr-pack-resolver.test.ts client/src/components/StructuredClinicalEvidencePanel.test.tsx",
+    "test:offline-platform": "vitest run client/src/lib/offline/platformOfflineStore.test.ts client/src/pages/ProviderToday.test.ts",
     "test:iers-provider-auth": "vitest run server/lib/iers-provider-duty-fixture.test.ts server/routers/iers-provider-duty-staging.test.ts",
     "test:iers-provider-auth:staging": "vitest run server/routers/iers-provider-duty-staging.test.ts",
     "test:cpr-event-link:staging": "vitest run server/routers/cpr-event-link-staging.test.ts",

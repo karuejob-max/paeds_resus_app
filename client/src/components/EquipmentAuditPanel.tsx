@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Stethoscope, AlertOctagon, CheckCircle2, ShieldAlert, FileText } from "lucide-react";
 import { toast } from "sonner";
+import {
+  enqueueOfflineCommand,
+  getOfflineCommand,
+  removeOfflineCommand,
+  updateOfflineCommand,
+} from "@/lib/offline/platformOfflineStore";
 
 interface EquipmentAuditPanelProps {
   institutionId: number;
+}
+
+type EquipmentAuditPayload = {
+  institutionId: number;
+  department: string;
+  auditType: "daily_seal_check" | "monthly_100_percent";
+  cartSealIntact: boolean;
+  hasPaedsAirways: boolean;
+  hasPaedsBvm: boolean;
+  hasIoNeedles: boolean;
+  hasPaedsDefibPads: boolean;
+  hasPaedsSuction: boolean;
+  deficitsFound?: string;
+};
+
+function draftId(institutionId: number, department: string, auditType: string) {
+  return `crash-cart-audit-${institutionId}-${auditType}-${department}`;
 }
 
 export function EquipmentAuditPanel({ institutionId }: EquipmentAuditPanelProps) {
@@ -27,6 +50,40 @@ export function EquipmentAuditPanel({ institutionId }: EquipmentAuditPanelProps)
   const [hasPaedsDefibPads, setHasPaedsDefibPads] = useState(true);
   const [hasPaedsSuction, setHasPaedsSuction] = useState(true);
   const [deficitsFound, setDeficitsFound] = useState("");
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
+  const [offlineDraft, setOfflineDraft] = useState<EquipmentAuditPayload | null>(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const currentDraftId = draftId(institutionId, department, auditType);
+
+  useEffect(() => {
+    const refreshOnline = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", refreshOnline);
+    window.addEventListener("offline", refreshOnline);
+    return () => {
+      window.removeEventListener("online", refreshOnline);
+      window.removeEventListener("offline", refreshOnline);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getOfflineCommand<EquipmentAuditPayload>(currentDraftId).then((command) => {
+      if (cancelled || !command || command.status === "acknowledged") return;
+      setOfflineDraft(command.payload);
+      setDepartment(command.payload.department);
+      setAuditType(command.payload.auditType);
+      setCartSealIntact(command.payload.cartSealIntact);
+      setHasPaedsAirways(command.payload.hasPaedsAirways);
+      setHasPaedsBvm(command.payload.hasPaedsBvm);
+      setHasIoNeedles(command.payload.hasIoNeedles);
+      setHasPaedsDefibPads(command.payload.hasPaedsDefibPads);
+      setHasPaedsSuction(command.payload.hasPaedsSuction);
+      setDeficitsFound(command.payload.deficitsFound ?? "");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentDraftId]);
 
   const { data: auditLogs, isLoading } = trpc.institution.getEquipmentAuditLogs.useQuery(
     { institutionId, limit: 30 },
@@ -42,18 +99,92 @@ export function EquipmentAuditPanel({ institutionId }: EquipmentAuditPanelProps)
     onSuccess: () => {
       toast.success("Equipment Audit Logged!");
       setDeficitsFound("");
+      setOfflineDraft(null);
+      void removeOfflineCommand(currentDraftId);
       void utils.institution.getEquipmentAuditLogs.invalidate({ institutionId });
       void utils.institution.getEquipmentDeficitAlerts.invalidate({ institutionId });
     },
     onError: (err) => toast.error(err.message || "Failed to log equipment audit"),
   });
 
-  if (isLoading) {
+  const payload: EquipmentAuditPayload = {
+    institutionId,
+    department,
+    auditType,
+    cartSealIntact,
+    hasPaedsAirways,
+    hasPaedsBvm,
+    hasIoNeedles,
+    hasPaedsDefibPads,
+    hasPaedsSuction,
+    deficitsFound: deficitsFound.trim() || undefined,
+  };
+
+  const saveDraftOffline = async () => {
+    setIsSavingDraft(true);
+    try {
+      await enqueueOfflineCommand({
+        localEventId: currentDraftId,
+        aggregateType: "crash_cart_check",
+        aggregateId: `${institutionId}:${department}:${auditType}`,
+        tenantId: institutionId,
+        actionType: "review_and_submit_equipment_audit",
+        payload,
+        clientCreatedAt: Date.now(),
+      });
+      await updateOfflineCommand(currentDraftId, {
+        status: "requires_review",
+        lastError: "Offline draft requires an online review and explicit submission.",
+      });
+      setOfflineDraft(payload);
+      toast.success("Crash-cart check saved on this device. Review and submit when online.");
+    } catch {
+      toast.error("This device could not save the offline crash-cart check.");
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  const submitAudit = () => {
+    if (!isOnline) {
+      void saveDraftOffline();
+      return;
+    }
+    submitAuditMutation.mutate(payload);
+  };
+
+  if (isLoading && isOnline) {
     return <div className="p-6 text-center text-muted-foreground">Loading Equipment Audits...</div>;
   }
 
   return (
     <div className="space-y-6">
+      {!isOnline && (
+        <Card className="border-amber-300 bg-amber-50">
+          <CardContent className="flex items-start gap-3 p-4 text-sm text-amber-950">
+            <AlertOctagon className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+            <div>
+              <p className="font-semibold">Offline crash-cart checks remain local</p>
+              <p className="mt-1 text-xs text-amber-900/80">You may record what you physically checked. The institution will not be notified and readiness will not be server-confirmed until you are online and submit the reviewed draft.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {offlineDraft && (
+        <Card className="border-blue-300 bg-blue-50">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm text-blue-950">
+            <div>
+              <p className="font-semibold">A local crash-cart check is awaiting review</p>
+              <p className="mt-1 text-xs text-blue-900/80">It is not yet an official audit and has not triggered an ERCo/QI notification.</p>
+            </div>
+            <Button type="button" size="sm" variant="outline" disabled={!isOnline || submitAuditMutation.isPending} onClick={submitAudit} className="bg-white">
+              {isOnline ? "Review and submit draft" : "Reconnect to submit"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header Deficit Alert Banner if deficits exist */}
       {alertSummary && alertSummary.count > 0 && (
         <Card className="border-red-500/50 bg-red-500/10">
@@ -158,30 +289,17 @@ export function EquipmentAuditPanel({ institutionId }: EquipmentAuditPanelProps)
               id="deficitsText"
               value={deficitsFound}
               onChange={(e) => setDeficitsFound(e.target.value)}
-              placeholder="Record any missing, damaged, or expired items requiring immediate restocking..."
+              placeholder="Record missing, damaged, or expired items. Do not enter patient identifiers."
               rows={2}
             />
           </div>
 
           <Button
-            onClick={() =>
-              submitAuditMutation.mutate({
-                institutionId,
-                department,
-                auditType,
-                cartSealIntact,
-                hasPaedsAirways,
-                hasPaedsBvm,
-                hasIoNeedles,
-                hasPaedsDefibPads,
-                hasPaedsSuction,
-                deficitsFound: deficitsFound || undefined,
-              })
-            }
-            disabled={submitAuditMutation.isPending}
+            onClick={submitAudit}
+            disabled={submitAuditMutation.isPending || isSavingDraft}
             className="bg-[#1a4d4d] hover:bg-[#0d3333]"
           >
-            {submitAuditMutation.isPending ? "Logging Audit..." : "Log Equipment Audit Record"}
+            {submitAuditMutation.isPending ? "Logging Audit..." : isOnline ? "Log Equipment Audit Record" : "Save Check Offline"}
           </Button>
         </CardContent>
       </Card>
