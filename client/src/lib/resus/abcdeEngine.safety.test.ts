@@ -80,6 +80,15 @@ describe('canonical ResusGPS engine safety boundaries', () => {
     expect(returnToPrimarySurvey(session).phase).toBe('INTERVENTION');
   });
 
+  it('assigns stable IDs to newly generated clinical events', () => {
+    const initial = createSession(20, '5 years');
+    const first = updatePatientInfo(initial, 21, '5 years');
+    const second = updatePatientInfo(first, 22, '5 years');
+    expect(second.events[0]?.id).toEqual(expect.any(String));
+    expect(second.events[1]?.id).toEqual(expect.any(String));
+    expect(second.events[0]?.id).not.toBe(second.events[1]?.id);
+  });
+
   it('requires an explicit reassessment outcome after a completed intervention', () => {
     const session = createSession(20, '5 years');
     const threat: Threat = {

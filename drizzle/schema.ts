@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, decimal, boolean, date, time, json, uniqueIndex, index } from "drizzle-orm/mysql-core";
+import { bigint, int, mysqlEnum, mysqlTable, text, timestamp, varchar, decimal, boolean, date, time, json, uniqueIndex, index } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -6052,3 +6052,30 @@ export const nerpOfferAuditEvents = mysqlTable("nerp_offer_audit_events", {
 }));
 export type NerpOfferAuditEvent = typeof nerpOfferAuditEvents.$inferSelect;
 export type InsertNerpOfferAuditEvent = typeof nerpOfferAuditEvents.$inferInsert;
+
+/**
+ * Append-only non-arrest ResusGPS clinical event timeline.
+ *
+ * This is deliberately separate from product analytics and fellowship credit.
+ * `localEventId` is the client idempotency key; eventData must never contain
+ * patient identifiers. Activation linkage is a soft reference so the event
+ * stream can be deployed without creating a second IERS case identity.
+ */
+export const resusGpsClinicalEvents = mysqlTable("resus_gps_clinical_events", {
+  localEventId: varchar("local_event_id", { length: 96 }).primaryKey(),
+  sessionId: varchar("session_id", { length: 64 }).notNull(),
+  userId: int("user_id").notNull(),
+  activationEventId: int("activation_event_id"),
+  eventType: varchar("event_type", { length: 64 }).notNull(),
+  letter: varchar("letter", { length: 1 }),
+  detail: text("detail").notNull(),
+  eventData: text("event_data"),
+  eventTimestamp: bigint("event_timestamp", { mode: "number" }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  sessionTimeIndex: index("resus_gps_clinical_events_session_time_idx").on(table.sessionId, table.eventTimestamp),
+  activationTimeIndex: index("resus_gps_clinical_events_activation_time_idx").on(table.activationEventId, table.eventTimestamp),
+  userTimeIndex: index("resus_gps_clinical_events_user_time_idx").on(table.userId, table.eventTimestamp),
+}));
+export type ResusGpsClinicalEvent = typeof resusGpsClinicalEvents.$inferSelect;
+export type InsertResusGpsClinicalEvent = typeof resusGpsClinicalEvents.$inferInsert;

@@ -12,7 +12,7 @@
  * - Session is cleared when the provider explicitly ends the case
  */
 
-import type { ResusSession } from "./abcdeEngine";
+import type { ABCDELetter, ClinicalEvent, ResusSession } from "./abcdeEngine";
 
 /** Ensure sessions persisted before v4 fields exist remain valid at runtime */
 export function normalizeResusSession(session: ResusSession): ResusSession {
@@ -24,11 +24,12 @@ export function normalizeResusSession(session: ResusSession): ResusSession {
 }
 
 const DB_NAME = "PaedsResusDB";
-const DB_VERSION = 3; // v3: add sampleHistory store
+const DB_VERSION = 4; // v4: add the non-arrest clinical event outbox
 const STORE_NAME = "resusSession";
 const ACTIVE_SESSION_KEY = "active";
 const SAMPLE_STORE = "sampleHistory";
 const LAST_SAMPLE_KEY = "last";
+const OUTBOX_STORE = "resusEventOutbox";
 
 // ── DB open (version-aware) ────────────────────────────────────────────────────
 
@@ -65,6 +66,16 @@ function openResusDB(): Promise<IDBDatabase> {
       // New in v3: SAMPLE history across cases
       if (!db.objectStoreNames.contains(SAMPLE_STORE)) {
         db.createObjectStore(SAMPLE_STORE, { keyPath: "key" });
+      }
+
+      // New in v4: durable, idempotent non-arrest event outbox. Events are
+      // retained until the server acknowledges them; local-only state is never
+      // presented as server-confirmed clinical documentation.
+      if (!db.objectStoreNames.contains(OUTBOX_STORE)) {
+        const s = db.createObjectStore(OUTBOX_STORE, { keyPath: "localEventId" });
+        s.createIndex("sessionId", "sessionId", { unique: false });
+        s.createIndex("status", "status", { unique: false });
+        s.createIndex("eventTimestamp", "eventTimestamp", { unique: false });
       }
     };
   });
@@ -128,6 +139,108 @@ export function clearPersistedResusSession(): void {
     .catch(() => {
       // Silent
     });
+}
+
+// ── Non-arrest event outbox ─────────────────────────────────────────────────────
+
+export type ResusEventOutboxStatus = 'pending' | 'sending' | 'failed';
+
+export interface ResusEventOutboxRecord {
+  localEventId: string;
+  sessionId: string;
+  activationEventId?: number;
+  eventType: ClinicalEvent['type'];
+  eventTimestamp: number;
+  letter?: ABCDELetter;
+  detail: string;
+  data?: Record<string, unknown>;
+  status: ResusEventOutboxStatus;
+  attempts: number;
+  lastError?: string;
+  queuedAt: number;
+  updatedAt: number;
+}
+
+export function enqueueResusEvent(record: Omit<ResusEventOutboxRecord, 'status' | 'attempts' | 'queuedAt' | 'updatedAt'>): Promise<void> {
+  return openResusDB().then((db) => new Promise<void>((resolve, reject) => {
+    const now = Date.now();
+    const tx = db.transaction(OUTBOX_STORE, 'readwrite');
+    tx.objectStore(OUTBOX_STORE).put({
+      ...record,
+      status: 'pending',
+      attempts: 0,
+      queuedAt: now,
+      updatedAt: now,
+    } satisfies ResusEventOutboxRecord);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  }));
+}
+
+export async function listPendingResusEvents(limit = 100): Promise<ResusEventOutboxRecord[]> {
+  try {
+    const db = await openResusDB();
+    return await new Promise<ResusEventOutboxRecord[]>((resolve) => {
+      const rows: ResusEventOutboxRecord[] = [];
+      const staleSendingCutoff = Date.now() - 30_000;
+      const tx = db.transaction(OUTBOX_STORE, 'readonly');
+      const request = tx.objectStore(OUTBOX_STORE).index('eventTimestamp').openCursor();
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor || rows.length >= limit) return resolve(rows);
+        const row = cursor.value as ResusEventOutboxRecord;
+        if (row.status !== 'sending' || row.updatedAt < staleSendingCutoff) rows.push(row);
+        cursor.continue();
+      };
+      request.onerror = () => resolve(rows);
+    });
+  } catch {
+    return [];
+  }
+}
+
+export function markResusEventSending(localEventId: string): Promise<void> {
+  return updateResusEventOutbox(localEventId, (row) => ({
+    ...row,
+    status: 'sending',
+    attempts: row.attempts + 1,
+    updatedAt: Date.now(),
+  }));
+}
+
+export function markResusEventFailed(localEventId: string, error: string): Promise<void> {
+  return updateResusEventOutbox(localEventId, (row) => ({
+    ...row,
+    status: 'failed',
+    lastError: error.slice(0, 500),
+    updatedAt: Date.now(),
+  }));
+}
+
+export function removeResusEvent(localEventId: string): Promise<void> {
+  return openResusDB().then((db) => new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(OUTBOX_STORE, 'readwrite');
+    tx.objectStore(OUTBOX_STORE).delete(localEventId);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  }));
+}
+
+function updateResusEventOutbox(localEventId: string, updater: (row: ResusEventOutboxRecord) => ResusEventOutboxRecord): Promise<void> {
+  return openResusDB().then((db) => new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(OUTBOX_STORE, 'readwrite');
+    const store = tx.objectStore(OUTBOX_STORE);
+    const request = store.get(localEventId);
+    request.onsuccess = () => {
+      const row = request.result as ResusEventOutboxRecord | undefined;
+      if (row) store.put(updater(row));
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  }));
 }
 
 // ── SAMPLE History Persistence ────────────────────────────────────────────────
