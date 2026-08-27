@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SearchableDropdown } from "@/components/CadreProgressiveSelector";
 
 const COURSE_TYPES = [
   "bls",
@@ -81,6 +82,7 @@ export default function InstitutionLearningGovernancePanel({
   const [periodStart, setPeriodStart] = useState(today());
   const [periodEnd, setPeriodEnd] = useState(sixMonthsFromToday());
   const [targetValue, setTargetValue] = useState("1");
+  const [targetRevisionReason, setTargetRevisionReason] = useState("");
   const [courseProgramType, setCourseProgramType] = useState("");
   const [coursePhase, setCoursePhase] = useState("");
   const utils = trpc.useUtils();
@@ -96,6 +98,15 @@ export default function InstitutionLearningGovernancePanel({
     { institutionId, departmentId: participantDepartmentId },
     { staleTime: 30_000 }
   );
+  const { data: targetStaff = [] } = trpc.institutionLearning.listDepartmentStaff.useQuery(
+    {
+      institutionId,
+      departmentId: targetScope === "individual" && targetDepartmentId
+        ? Number(targetDepartmentId)
+        : undefined,
+    },
+    { staleTime: 30_000, enabled: mode !== "sessions" && targetScope === "individual" }
+  );
   const { data: coordinators = [] } =
     trpc.institutionLearning.listEducationCoordinators.useQuery(
       { institutionId },
@@ -106,7 +117,6 @@ export default function InstitutionLearningGovernancePanel({
     { staleTime: 30_000, enabled: mode !== "sessions" }
   );
   const selectedDepartmentStaff = staff;
-  const linkedStaff = staff;
   const audienceCadres = useMemo(
     () => Array.from(
       new Set(
@@ -119,6 +129,15 @@ export default function InstitutionLearningGovernancePanel({
     ).sort((left, right) => left.localeCompare(right)),
     [staff]
   );
+  const memberLabel = (person: typeof staff[number]) => {
+    const cadre = person.cadre ?? person.staffRole ?? "Other";
+    const department = person.department ?? "Department not set";
+    const email = person.staffEmail ?? "No email";
+    return `${person.staffName} · ${department} · ${cadre} · ${email}`;
+  };
+  const memberOptions = staff
+    .filter(person => person.userId != null)
+    .map(person => ({ value: String(person.userId), label: memberLabel(person) }));
   const selectedPresenter = staff.find(
     person => person.userId === Number(presenterUserId)
   );
@@ -178,6 +197,7 @@ export default function InstitutionLearningGovernancePanel({
   const saveTarget = trpc.institutionLearning.saveTarget.useMutation({
     onSuccess: async () => {
       toast.success("Learning target saved");
+      setTargetRevisionReason("");
       await invalidateLearning();
     },
     onError: error => toast.error(error.message),
@@ -228,6 +248,7 @@ export default function InstitutionLearningGovernancePanel({
       periodStart,
       periodEnd,
       targetValue: Number(targetValue),
+      revisionReason: targetRevisionReason.trim() || null,
       courseProgramType: courseProgramType ? (courseProgramType as any) : null,
       coursePhase: coursePhase ? (coursePhase as any) : null,
     });
@@ -427,24 +448,21 @@ export default function InstitutionLearningGovernancePanel({
               </Field>
             )}
             <Field label="Lead presenter (institution member)">
-              <select
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+              <SearchableDropdown
                 value={presenterUserId}
-                onChange={event => setPresenterUserId(event.target.value)}
-              >
-                <option value="">Choose lead presenter</option>
-                {staff.map(person => (
-                  <option key={person.userId} value={person.userId ?? ""}>
-                    {person.staffName}
-                  </option>
-                ))}
-              </select>
+                onChange={setPresenterUserId}
+                options={memberOptions}
+                placeholder="Type to search presenter"
+                searchPlaceholder="Search name, department, cadre, or email..."
+                emptyText="No active institution member found."
+              />
               {selectedPresenter ? (
-                <p className="text-xs text-muted-foreground">
-                  {selectedPresenter.cadre ?? selectedPresenter.staffRole}
-                  {selectedPresenter.department ? ` · ${selectedPresenter.department}` : ""}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Selected: {memberLabel(selectedPresenter)}
                 </p>
-              ) : null}
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">Type a name, then choose the correct department/cadre match.</p>
+              )}
             </Field>
             <Field label="CPD points">
               <input
@@ -502,30 +520,23 @@ export default function InstitutionLearningGovernancePanel({
                   className="grid gap-2 md:grid-cols-[1fr_auto]"
                 >
                   <div>
-                    <select
-                      className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                    <SearchableDropdown
                       value={presenter.userId}
-                      onChange={event =>
+                      onChange={value =>
                         setCoPresenters(rows =>
-                          rows.map((row, rowIndex) =>
-                            rowIndex === index
-                              ? { userId: event.target.value }
-                              : row
-                          )
+                          rows.map((row, rowIndex) => rowIndex === index ? { userId: value } : row)
                         )
                       }
-                    >
-                      <option value="">Choose co-presenter</option>
-                      {availableCoPresenters.map(person => (
-                        <option key={person.userId} value={person.userId ?? ""}>
-                          {person.staffName}
-                        </option>
-                      ))}
-                    </select>
+                      options={availableCoPresenters
+                        .filter(person => person.userId != null)
+                        .map(person => ({ value: String(person.userId), label: memberLabel(person) }))}
+                      placeholder="Type to search co-presenter"
+                      searchPlaceholder="Search name, department, cadre, or email..."
+                      emptyText="No available institution member found."
+                    />
                     {selectedCoPresenter ? (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {selectedCoPresenter.cadre ?? selectedCoPresenter.staffRole}
-                        {selectedCoPresenter.department ? ` · ${selectedCoPresenter.department}` : ""}
+                        Selected: {memberLabel(selectedCoPresenter)}
                       </p>
                     ) : null}
                   </div>
@@ -610,23 +621,42 @@ export default function InstitutionLearningGovernancePanel({
               </Field>
             )}
             {targetScope === "individual" && (
-              <Field label="Individual">
-                <select
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
-                  value={targetUserId}
-                  onChange={event => setTargetUserId(event.target.value)}
-                >
-                  <option value="">Choose person</option>
-                  {linkedStaff.map(person => (
-                    <option
-                      key={person.userId ?? person.id}
-                      value={person.userId ?? ""}
-                    >
-                      {person.staffName}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              <>
+                <Field label="Filter staff by department">
+                  <select
+                    className="h-10 rounded-md border bg-background px-3 text-sm"
+                    value={targetDepartmentId}
+                    onChange={event => {
+                      setTargetDepartmentId(event.target.value);
+                      setTargetUserId("");
+                    }}
+                  >
+                    <option value="">All departments</option>
+                    {departments.map(department => (
+                      <option key={department.id} value={department.id}>
+                        {department.departmentName}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Individual">
+                  <select
+                    className="h-10 rounded-md border bg-background px-3 text-sm"
+                    value={targetUserId}
+                    onChange={event => setTargetUserId(event.target.value)}
+                  >
+                    <option value="">Choose staff member</option>
+                    {targetStaff.map(person => (
+                      <option
+                        key={person.userId ?? person.id}
+                        value={person.userId ?? ""}
+                      >
+                        {memberLabel(person)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </>
             )}
             <Field label="Metric">
               <select
@@ -682,6 +712,14 @@ export default function InstitutionLearningGovernancePanel({
                 onChange={event => setTargetValue(event.target.value)}
               />
             </Field>
+            <Field label="Revision reason (optional)">
+              <input
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+                value={targetRevisionReason}
+                onChange={event => setTargetRevisionReason(event.target.value)}
+                placeholder="Why is this target changing?"
+              />
+            </Field>
             {(metricKey === "life_support_completed" ||
               metricKey === "course_phase_completion") && (
               <Field label="Course">
@@ -731,11 +769,12 @@ export default function InstitutionLearningGovernancePanel({
             <div className="overflow-x-auto rounded-lg border">
               <table className="w-full min-w-[720px] text-sm">
                 <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
+                    <tr>
                     <th className="px-3 py-3">Metric</th>
                     <th className="px-3 py-3">Scope</th>
                     <th className="px-3 py-3">Period</th>
                     <th className="px-3 py-3">Target</th>
+                    <th className="px-3 py-3">Revision</th>
                     <th className="px-3 py-3">Action</th>
                   </tr>
                 </thead>
@@ -758,6 +797,7 @@ export default function InstitutionLearningGovernancePanel({
                         {String(target.periodEnd)}
                       </td>
                       <td className="px-3 py-3">{target.targetValue}</td>
+                      <td className="px-3 py-3">v{target.revisionNumber ?? 1}</td>
                       <td className="px-3 py-3">
                         <Button
                           size="sm"

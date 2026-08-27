@@ -6,8 +6,12 @@ import {
   facilityDepartments,
   institutionLearningTargets,
   institutionalStaffMembers,
+  institutionMemberships,
+  providerProfiles,
+  users,
 } from "../../drizzle/schema";
 import type { getDb } from "../db";
+import { departmentLabelsMatch } from "../../shared/clinical-departments";
 import {
   computeInstitutionLearningAnalytics,
   LEARNING_PROGRAM_TYPES,
@@ -68,7 +72,7 @@ export async function loadInstitutionLearningDashboard(
   } = {},
 ) {
   const period = resolveLearningPeriod(input);
-  const [events, attendees, departments, staff, enrollmentRows, targets] =
+  const [events, attendees, departments, staff, activeMembers, enrollmentRows, targets] =
     await Promise.all([
       db
         .select()
@@ -112,6 +116,26 @@ export async function loadInstitutionLearningDashboard(
         ),
       db
         .select({
+          userId: institutionMemberships.userId,
+          fullName: users.name,
+          email: users.email,
+          phone: users.phone,
+          providerType: users.providerType,
+          cadre: users.cadre,
+          cadreOther: users.cadreOther,
+          profileDepartment: providerProfiles.department,
+          membershipStaffMemberId: institutionMemberships.staffMemberId,
+        })
+        .from(institutionMemberships)
+        .leftJoin(users, eq(users.id, institutionMemberships.userId))
+        .leftJoin(providerProfiles, eq(providerProfiles.userId, institutionMemberships.userId))
+        .where(and(
+          eq(institutionMemberships.institutionalAccountId, institutionId),
+          eq(institutionMemberships.membershipStatus, "active"),
+          sql`${institutionMemberships.userId} IS NOT NULL`,
+        )),
+      db
+        .select({
           userId: enrollments.userId,
           programType: enrollments.programType,
           cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
@@ -146,13 +170,49 @@ export async function loadInstitutionLearningDashboard(
         ),
     ]);
 
-  const staffInScope = allowedDepartmentIds
-    ? staff.filter(
-        row =>
-          row.facilityDepartmentId != null &&
-          allowedDepartmentIds.includes(row.facilityDepartmentId)
-      )
-    : staff;
+  const allowedDepartmentNames = allowedDepartmentIds
+    ? departments
+        .filter(department => allowedDepartmentIds.includes(department.id))
+        .map(department => department.departmentName)
+    : [];
+  const activeMemberStaff = activeMembers
+    .filter(member => member.userId != null)
+    .map(member => {
+      const legacy = staff.find(row => row.userId === member.userId || row.id === member.membershipStaffMemberId);
+      return {
+        id: legacy?.id ?? -Number(member.userId),
+        userId: member.userId,
+        fullName: member.fullName?.trim() || member.email?.trim() || `Member ${member.userId}`,
+        email: member.email?.trim() || "",
+        staffRole: legacy?.staffRole ?? member.providerType ?? "other",
+        department: legacy?.department?.trim() || member.profileDepartment?.trim() || null,
+        facilityDepartmentId: legacy?.facilityDepartmentId ?? null,
+        assignedCourses: legacy?.assignedCourses ?? null,
+        phaseStatus: legacy?.phaseStatus ?? null,
+      };
+    });
+  const activeMemberUserIds = new Set(
+    activeMemberStaff.map(row => row.userId).filter((id): id is number => id != null)
+  );
+  const rosterOnlyStaff = staff
+    .filter(row => row.userId == null || !activeMemberUserIds.has(row.userId))
+    .map(row => ({
+      id: row.id,
+      userId: row.userId,
+      fullName: row.fullName?.trim() || row.email?.trim() || `Staff ${row.id}`,
+      email: row.email?.trim() || "",
+      staffRole: row.staffRole || "other",
+      department: row.department?.trim() || null,
+      facilityDepartmentId: row.facilityDepartmentId ?? null,
+      assignedCourses: row.assignedCourses ?? null,
+      phaseStatus: row.phaseStatus ?? null,
+    }));
+  const staffInScope = [...activeMemberStaff, ...rosterOnlyStaff]
+    .filter(row => {
+      if (!allowedDepartmentIds) return true;
+      if (row.facilityDepartmentId != null) return allowedDepartmentIds.includes(row.facilityDepartmentId);
+      return allowedDepartmentNames.some(name => departmentLabelsMatch(row.department ?? "", name));
+    });
   const staffUserIds = new Set(
     staffInScope.map(row => row.userId).filter((id): id is number => id != null)
   );
@@ -165,7 +225,13 @@ export async function loadInstitutionLearningDashboard(
     : events;
   const eventIdsInScope = new Set(eventsInScope.map(event => event.id));
   const attendeesInScope = allowedDepartmentIds
-    ? attendees.filter(attendee => eventIdsInScope.has(attendee.cpdEventId))
+    ? attendees.filter(attendee => {
+        if (!eventIdsInScope.has(attendee.cpdEventId)) return false;
+        if (attendee.facilityDepartmentId != null) {
+          return allowedDepartmentIds.includes(attendee.facilityDepartmentId);
+        }
+        return allowedDepartmentNames.some(name => departmentLabelsMatch(attendee.department ?? "", name));
+      })
     : attendees;
   const departmentsInScope = allowedDepartmentIds
     ? departments.filter(department =>

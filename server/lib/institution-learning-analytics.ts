@@ -1,3 +1,5 @@
+import { isAudienceEligible } from "./cpd-contract";
+
 export const LEARNING_PROGRAM_TYPES = [
   "bls",
   "acls",
@@ -76,11 +78,13 @@ type EventRow = {
 type AttendeeRow = {
   id: number;
   cpdEventId: number;
+  userId?: number | null;
   email: string;
   fullName: string;
   department: string;
   facilityDepartmentId: number | null;
   submittedAt: Date | string;
+  attendanceStatus: string;
 };
 
 type StaffRow = {
@@ -160,28 +164,19 @@ function parseAssignedCourses(value: string | null): string[] {
     .filter(Boolean);
 }
 
-function staffIsClinical(staff: StaffRow): boolean {
-  return !["support_staff"].includes(staff.staffRole);
-}
-
 function eventAppliesToStaff(event: EventRow, staff: StaffRow): boolean {
   if (
     event.facilityDepartmentId != null &&
     event.facilityDepartmentId !== staff.facilityDepartmentId
   )
     return false;
-  if (event.audienceScope === "nursing_wide")
-    return staff.staffRole === "nurse";
-  if (event.audienceScope === "clinical" || event.audienceScope === "m_and_m")
-    return staffIsClinical(staff);
-  if (event.audienceScope === "other_cadre") {
-    const label = (event.audienceLabel ?? "").toLowerCase();
-    if (!label) return true;
-    return `${staff.staffRole} ${staff.department ?? ""}`
-      .toLowerCase()
-      .includes(label);
-  }
-  return true;
+  return isAudienceEligible({
+    audienceScope: event.audienceScope,
+    audienceLabel: event.audienceLabel,
+    attendeeCadre: staff.staffRole,
+    attendeeDepartmentId: staff.facilityDepartmentId,
+    eventDepartmentId: event.facilityDepartmentId,
+  });
 }
 
 function phaseForStaffCourse(
@@ -298,7 +293,7 @@ export function computeInstitutionLearningAnalytics(input: {
   );
   const eventIds = new Set(events.map(event => event.id));
   const attendees = input.attendees.filter(attendee =>
-    eventIds.has(attendee.cpdEventId)
+    eventIds.has(attendee.cpdEventId) && attendee.attendanceStatus === "attendance_verified"
   );
   const departmentById = new Map(
     input.departments.map(department => [
@@ -308,14 +303,13 @@ export function computeInstitutionLearningAnalytics(input: {
   );
   const attendeesByEvent = new Map<number, Set<string>>();
   for (const attendee of attendees) {
-    const emails =
+    const identities =
       attendeesByEvent.get(attendee.cpdEventId) ?? new Set<string>();
-    emails.add(normalizedEmail(attendee.email));
-    attendeesByEvent.set(attendee.cpdEventId, emails);
+    if (attendee.userId != null) identities.add(`u:${attendee.userId}`);
+    const email = normalizedEmail(attendee.email);
+    if (email) identities.add(`e:${email}`);
+    attendeesByEvent.set(attendee.cpdEventId, identities);
   }
-  const staffByEmail = new Map(
-    input.staff.map(staff => [normalizedEmail(staff.email), staff])
-  );
   const staffSessions = new Map<
     number,
     { eligible: number; attended: number; cne: number; clinical: number }
@@ -368,7 +362,9 @@ export function computeInstitutionLearningAnalytics(input: {
       stats.eligible++;
       expectedAttendanceSeats++;
       const email = normalizedEmail(staff.email);
-      if (eventAttendees.has(email)) {
+      const attended = (staff.userId != null && eventAttendees.has(`u:${staff.userId}`)) ||
+        (email !== "" && eventAttendees.has(`e:${email}`));
+      if (attended) {
         stats.attended++;
         attendedSeats++;
         if (event.eventType === "cne") stats.cne++;
@@ -383,7 +379,9 @@ export function computeInstitutionLearningAnalytics(input: {
             dept.sessions.add(event.id);
             dept.expected++;
             dept.attended++;
-            dept.people.add(email);
+            dept.people.add(
+              staff.userId != null ? `user:${staff.userId}` : `email:${email}`
+            );
           }
         }
       } else if (staff.facilityDepartmentId != null) {
@@ -617,7 +615,11 @@ export function computeInstitutionLearningAnalytics(input: {
       ? Math.round((attendedSeats / expectedAttendanceSeats) * 100)
       : 0;
   const peopleAttended = new Set(
-    attendees.map(attendee => normalizedEmail(attendee.email))
+    attendees
+      .filter(attendee => attendee.attendanceStatus === "attendance_verified")
+      .map(attendee => attendee.userId != null
+        ? `user:${attendee.userId}`
+        : `email:${normalizedEmail(attendee.email)}`)
   ).size;
   const narrative =
     events.length === 0

@@ -5,11 +5,13 @@ import {
   cpdAttendees,
   cpdEventCoPresenters,
   cpdEvents,
+  cpdEventAuditEvents,
   enrollments,
   facilityDepartments,
   institutionEducationCoordinators,
   institutionDepartmentHeads,
   institutionLearningTargets,
+  institutionLearningTargetEvents,
   institutionalAccounts,
   institutionalStaffMembers,
   institutionMemberships,
@@ -377,6 +379,7 @@ const targetInput = z.object({
   periodStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   periodEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   targetValue: z.number().min(0),
+  revisionReason: z.string().trim().max(500).nullable().optional(),
   courseProgramType: z.enum(LEARNING_PROGRAM_TYPES).nullable().optional(),
   coursePhase: z.enum(LEARNING_PHASES).nullable().optional(),
 });
@@ -758,15 +761,6 @@ export const institutionLearningRouter = router({
         }
       }
       const now = new Date();
-      await db
-        .update(cpdEvents)
-        .set({ isOpen: false, closedAt: now })
-        .where(
-          and(
-            eq(cpdEvents.institutionalAccountId, input.institutionId),
-            eq(cpdEvents.isOpen, true)
-          )
-        );
       const result = await db.insert(cpdEvents).values({
         institutionalAccountId: input.institutionId,
         name: input.name,
@@ -775,6 +769,7 @@ export const institutionLearningRouter = router({
           ? (parseDateOnly(input.eventDateAt) as any)
           : null,
         isOpen: true,
+        lifecycleStatus: "open",
         openedAt: now,
         eventType: input.eventType,
         audienceScope: input.audienceScope,
@@ -788,6 +783,16 @@ export const institutionLearningRouter = router({
         approvingCouncil: input.approvingCouncil ?? null,
       });
       const eventId = (result as unknown as { insertId: number }).insertId;
+      await db.insert(cpdEventAuditEvents).values({
+        institutionalAccountId: input.institutionId,
+        cpdEventId: eventId,
+        action: "created",
+        previousStatus: null,
+        nextStatus: "open",
+        reason: "CPD session created",
+        changedFields: JSON.stringify(["name", "eventDate", "presenter", "audience", "cpdPoints"]),
+        actorUserId: ctx.user.id,
+      });
       if (input.coPresenters.length) {
         await db.insert(cpdEventCoPresenters).values(
           input.coPresenters.map((presenter, index) => {
@@ -802,6 +807,7 @@ export const institutionLearningRouter = router({
               cpdEventId: eventId,
               institutionalAccountId: input.institutionId,
               userId: member.userId,
+              participantType: "institution_member",
               fullName: member.staffName,
               email: member.staffEmail || null,
               cadre: member.cadre ?? member.staffRole,
@@ -893,11 +899,7 @@ export const institutionLearningRouter = router({
       z.object({
         institutionId: z.number().int().positive(),
         eventId: z.number().int().positive(),
-        userId: z.number().int().positive().nullable().optional(),
-        fullName: z.string().trim().min(1).max(255),
-        email: z.string().email().nullable().optional(),
-        cadre: z.string().trim().max(128).nullable().optional(),
-        department: z.string().trim().max(128).nullable().optional(),
+        userId: z.number().int().positive(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -930,15 +932,39 @@ export const institutionLearningRouter = router({
           message: "CPD session not found.",
         });
       assertCoordinatorDepartment(access, event.facilityDepartmentId);
+      const members = await loadInstitutionMemberDirectory(
+        db,
+        input.institutionId,
+        access,
+        event.facilityDepartmentId ?? undefined
+      );
+      const member = members.find(candidate => candidate.userId === input.userId);
+      if (!member) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Choose the co-presenter from the active institution-member directory.",
+        });
+      }
       await db.insert(cpdEventCoPresenters).values({
         cpdEventId: input.eventId,
         institutionalAccountId: input.institutionId,
-        userId: input.userId ?? null,
-        fullName: input.fullName,
-        email: input.email ?? null,
-        cadre: input.cadre ?? null,
-        department: input.department ?? null,
+        userId: member.userId,
+        participantType: "institution_member",
+        fullName: member.staffName,
+        email: member.staffEmail || null,
+        cadre: member.cadre ?? member.staffRole,
+        department: member.department,
         addedByUserId: ctx.user.id,
+      });
+      await db.insert(cpdEventAuditEvents).values({
+        institutionalAccountId: input.institutionId,
+        cpdEventId: input.eventId,
+        action: "presenter_changed",
+        previousStatus: null,
+        nextStatus: null,
+        reason: `Co-presenter added: ${member.staffName}`,
+        changedFields: JSON.stringify(["coPresenters"]),
+        actorUserId: ctx.user.id,
       });
       return { success: true as const };
     }),
@@ -992,6 +1018,16 @@ export const institutionLearningRouter = router({
             eq(cpdEventCoPresenters.institutionalAccountId, input.institutionId)
           )
         );
+      await db.insert(cpdEventAuditEvents).values({
+        institutionalAccountId: input.institutionId,
+        cpdEventId: row.eventId,
+        action: "presenter_changed",
+        previousStatus: null,
+        nextStatus: null,
+        reason: "Co-presenter removed",
+        changedFields: JSON.stringify(["coPresenters"]),
+        actorUserId: ctx.user.id,
+      });
       return { success: true as const };
     }),
 
@@ -1048,25 +1084,8 @@ export const institutionLearningRouter = router({
         );
       if (!access.departmentIds) return rows;
       const scopedUserIds = new Set(
-        (
-          await db
-            .select({ userId: institutionalStaffMembers.userId })
-            .from(institutionalStaffMembers)
-            .where(
-              and(
-                eq(
-                  institutionalStaffMembers.institutionalAccountId,
-                  input.institutionId
-                ),
-                inArray(
-                  institutionalStaffMembers.facilityDepartmentId,
-                  access.departmentIds
-                )
-              )
-            )
-        )
-          .map(row => row.userId)
-          .filter((id): id is number => id != null)
+        (await loadInstitutionMemberDirectory(db, input.institutionId, access))
+          .map(member => member.userId)
       );
       return rows.filter(
         row =>
@@ -1117,7 +1136,70 @@ export const institutionLearningRouter = router({
           code: "BAD_REQUEST",
           message: "Choose a course phase for course-phase targets.",
         });
-      await db.insert(institutionLearningTargets).values({
+
+      if (input.targetScope === "individual") {
+        const member = (await loadInstitutionMemberDirectory(db, input.institutionId, { departmentIds: null }))
+          .find(candidate => candidate.userId === input.userId);
+        if (!member) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Choose the individual target from the active institution-member directory.",
+          });
+        }
+      }
+
+      const activeTargets = await db
+        .select()
+        .from(institutionLearningTargets)
+        .where(and(
+          eq(institutionLearningTargets.institutionalAccountId, input.institutionId),
+          eq(institutionLearningTargets.status, "active")
+        ));
+      const sameTarget = activeTargets.find(target =>
+        target.targetScope === input.targetScope &&
+        (target.departmentId ?? null) === (input.departmentId ?? null) &&
+        (target.userId ?? null) === (input.userId ?? null) &&
+        target.metricKey === input.metricKey &&
+        target.periodType === input.periodType &&
+        target.periodStart.getTime() === dateOnlyAsDate(input.periodStart).getTime() &&
+        target.periodEnd.getTime() === dateOnlyAsDate(input.periodEnd).getTime() &&
+        (target.courseProgramType ?? null) === (input.courseProgramType ?? null) &&
+        (target.coursePhase ?? null) === (input.coursePhase ?? null)
+      );
+      if (sameTarget && String(sameTarget.targetValue) === String(input.targetValue)) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "An identical active target already exists for this scope and period.",
+        });
+      }
+
+      let revisionNumber = 1;
+      let supersedesTargetId: number | null = null;
+      if (sameTarget) {
+        revisionNumber = sameTarget.revisionNumber + 1;
+        supersedesTargetId = sameTarget.id;
+        await db
+          .update(institutionLearningTargets)
+          .set({
+            status: "superseded",
+            updatedAt: new Date(),
+            archivedAt: new Date(),
+            archivedByUserId: ctx.user.id,
+            revisionReason: input.revisionReason ?? "Target revised",
+          })
+          .where(eq(institutionLearningTargets.id, sameTarget.id));
+        await db.insert(institutionLearningTargetEvents).values({
+          institutionalAccountId: input.institutionId,
+          targetId: sameTarget.id,
+          action: "superseded",
+          previousStatus: "active",
+          nextStatus: "superseded",
+          reason: input.revisionReason ?? "Target revised",
+          actorUserId: ctx.user.id,
+        });
+      }
+
+      const result = await db.insert(institutionLearningTargets).values({
         institutionalAccountId: input.institutionId,
         targetScope: input.targetScope,
         departmentId: input.departmentId ?? null,
@@ -1129,10 +1211,23 @@ export const institutionLearningRouter = router({
         targetValue: String(input.targetValue),
         courseProgramType: input.courseProgramType ?? null,
         coursePhase: input.coursePhase ?? null,
+        revisionNumber,
+        supersedesTargetId,
+        revisionReason: input.revisionReason ?? null,
         createdByUserId: ctx.user.id,
         status: "active",
       });
-      return { success: true as const };
+      const targetId = Number((result as unknown as { insertId: number }).insertId);
+      await db.insert(institutionLearningTargetEvents).values({
+        institutionalAccountId: input.institutionId,
+        targetId,
+        action: sameTarget ? "revised" : "created",
+        previousStatus: sameTarget ? "superseded" : null,
+        nextStatus: "active",
+        reason: input.revisionReason ?? (sameTarget ? "Target revised" : "Target created"),
+        actorUserId: ctx.user.id,
+      });
+      return { success: true as const, targetId, revised: Boolean(sameTarget) };
     }),
 
   archiveTarget: protectedProcedure
@@ -1145,19 +1240,42 @@ export const institutionLearningRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = await requireDb();
       await assertInstitutionOnly(db, ctx.user, input.institutionId);
+      const [target] = await db
+        .select({
+          id: institutionLearningTargets.id,
+          status: institutionLearningTargets.status,
+        })
+        .from(institutionLearningTargets)
+        .where(and(
+          eq(institutionLearningTargets.id, input.targetId),
+          eq(institutionLearningTargets.institutionalAccountId, input.institutionId)
+        ))
+        .limit(1);
+      if (!target) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Learning target not found." });
+      }
+      if (target.status === "archived") {
+        return { success: true as const, alreadyArchived: true as const };
+      }
       await db
         .update(institutionLearningTargets)
-        .set({ status: "archived", updatedAt: new Date() })
-        .where(
-          and(
-            eq(institutionLearningTargets.id, input.targetId),
-            eq(
-              institutionLearningTargets.institutionalAccountId,
-              input.institutionId
-            )
-          )
-        );
-      return { success: true as const };
+        .set({
+          status: "archived",
+          updatedAt: new Date(),
+          archivedAt: new Date(),
+          archivedByUserId: ctx.user.id,
+        })
+        .where(eq(institutionLearningTargets.id, input.targetId));
+      await db.insert(institutionLearningTargetEvents).values({
+        institutionalAccountId: input.institutionId,
+        targetId: input.targetId,
+        action: "archived",
+        previousStatus: target.status,
+        nextStatus: "archived",
+        reason: "Target archived by institution administrator",
+        actorUserId: ctx.user.id,
+      });
+      return { success: true as const, alreadyArchived: false as const };
     }),
 
   getDashboard: protectedProcedure

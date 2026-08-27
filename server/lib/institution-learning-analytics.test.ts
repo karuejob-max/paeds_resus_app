@@ -83,6 +83,7 @@ describe("institution learning analytics", () => {
         department: "Nursing",
         facilityDepartmentId: 2,
         submittedAt: "2026-02-01",
+        attendanceStatus: "attendance_verified",
       },
       {
         id: 2,
@@ -92,6 +93,7 @@ describe("institution learning analytics", () => {
         department: "Nursing",
         facilityDepartmentId: 2,
         submittedAt: "2026-02-08",
+        attendanceStatus: "attendance_verified",
       },
     ],
     enrollments: [
