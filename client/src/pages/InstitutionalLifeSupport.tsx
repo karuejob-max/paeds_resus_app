@@ -27,7 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   PAEDS_RESUS_ILS_BASE_PRICE_KES,
   PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES,
-  PAEDS_RESUS_ILS_AHA_FULL_TRAINING_PRICES_KES,
+  PAEDS_RESUS_ILS_DELIVERY_LABEL,
 } from "@shared/institutional-life-support";
 
 const kes = (amount: number) => `KES ${amount.toLocaleString()}`;
@@ -72,27 +72,6 @@ export default function InstitutionalLifeSupport() {
     number | null
   >(null);
 
-  const enroll = trpc.institutionalLifeSupport.enroll.useMutation({
-    onSuccess: () => {
-      setMessage(
-        "Enrollment created. Pay the KES 10,000 provider fee before opening the learning modules."
-      );
-      void enrollmentQuery.refetch();
-    },
-    onError: err => setError(err.message),
-  });
-  const payEnrollment =
-    trpc.institutionalLifeSupport.initiateEnrollmentPayment.useMutation({
-      onSuccess: result => {
-        setMessage(
-          result.alreadyPaid
-            ? result.message
-            : `M-Pesa prompt sent for ${kes(result.amountKes ?? PAEDS_RESUS_ILS_BASE_PRICE_KES)}. Complete it on your phone, then refresh this page.`
-        );
-        void enrollmentQuery.refetch();
-      },
-      onError: err => setError(err.message),
-    });
   const createOrder =
     trpc.institutionalLifeSupport.createInstitutionOrder.useMutation({
       onSuccess: result => {
@@ -147,8 +126,8 @@ export default function InstitutionalLifeSupport() {
         <CardHeader>
           <CardTitle>Sign in to use Institutional Life Support</CardTitle>
           <CardDescription>
-            Use your Paeds Resus account to enrol personally or manage an
-            institutional cohort.
+            Use your Paeds Resus account to manage an institution-paid provider
+            cohort or access learning assigned by your institution.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -169,7 +148,7 @@ export default function InstitutionalLifeSupport() {
   const openCourse = () => {
     if (!enrollment?.id || enrollment.paymentStatus !== "completed") {
       setError(
-        "Pay the KES 10,000 provider fee before opening the learning modules."
+        "Your institution must complete the bulk provider payment before the learning modules can open."
       );
       return;
     }
@@ -185,8 +164,8 @@ export default function InstitutionalLifeSupport() {
           <CardHeader>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <Badge className="mb-3 bg-blue-700 text-white">
-                  Paeds Resus competency programme
+                  <Badge className="mb-3 bg-blue-700 text-white">
+                  {isInstitutionUser ? PAEDS_RESUS_ILS_DELIVERY_LABEL : "Institution-assigned provider pathway"}
                 </Badge>
                 <CardTitle className="text-3xl">
                   Institutional Life Support Training Program
@@ -446,22 +425,23 @@ export default function InstitutionalLifeSupport() {
           <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
             <Card>
               <CardHeader>
-                <CardTitle>Your provider pathway</CardTitle>
-                <CardDescription>
-                  Complete the Paeds Resus learning and practical steps in
-                  order. Payment is required before the modules open.
+                  <CardTitle>Your assigned provider pathway</CardTitle>
+                  <CardDescription>
+                  Your institution selects and pays for provider places in bulk.
+                  Complete the Paeds Resus learning and practical steps after
+                  your institution confirms your place.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 {!enrollment ? (
-                  <Button
-                    onClick={() => enroll.mutate()}
-                    disabled={enroll.isPending}
-                  >
-                    {enroll.isPending
-                      ? "Preparing enrollment…"
-                      : `Start for ${kes(PAEDS_RESUS_ILS_BASE_PRICE_KES)}`}
-                  </Button>
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
+                    <p className="font-semibold">Waiting for institution assignment</p>
+                    <p className="mt-1">
+                      ILS is not an individual purchase. Ask your institution coordinator
+                      to add your existing Paeds Resus account to a provider cohort and
+                      complete the single bulk payment.
+                    </p>
+                  </div>
                 ) : (
                   <>
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
@@ -491,29 +471,12 @@ export default function InstitutionalLifeSupport() {
                       </Badge>
                     </div>
                     {enrollment.paymentStatus !== "completed" ? (
-                      <div className="space-y-3">
-                        <Label htmlFor="providerPaymentPhone">
-                          M-Pesa number *
-                        </Label>
-                        <Input
-                          id="providerPaymentPhone"
-                          value={phoneNumber}
-                          onChange={event => setPhoneNumber(event.target.value)}
-                          placeholder="0712 345 678"
-                        />
-                        <Button
-                          onClick={() =>
-                            payEnrollment.mutate({
-                              enrollmentId: enrollment.id,
-                              phoneNumber,
-                            })
-                          }
-                          disabled={!phoneNumber || payEnrollment.isPending}
-                        >
-                          {payEnrollment.isPending
-                            ? "Starting payment…"
-                            : `Pay ${kes(PAEDS_RESUS_ILS_BASE_PRICE_KES)}`}
-                        </Button>
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                        <p className="font-semibold">Institution payment pending</p>
+                        <p className="mt-1">
+                          Your institution must complete the bulk provider order before
+                          the learning modules can open. No individual payment is due here.
+                        </p>
                       </div>
                     ) : (
                       <div className="flex flex-wrap gap-3">
