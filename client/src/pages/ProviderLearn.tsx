@@ -43,8 +43,12 @@ export default function ProviderLearn() {
   const microEnrollments = microEnrollmentsQuery.data ?? [];
   const ahaEnrollments = ahaEnrollmentsQuery.data ?? [];
   const nerpEnrollment = nerpEnrollmentQuery.data;
+  const verifications = (nerpEnrollment?.verifications ?? []) as Array<{
+    decision: string | null;
+    phase: string | null;
+  }>;
   const verifiedExternalPhases = new Set(
-    (nerpEnrollment?.verifications ?? [])
+    verifications
       .filter((verification) => verification.decision === "verified")
       .map((verification) => verification.phase)
   );
