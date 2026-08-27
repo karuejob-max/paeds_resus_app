@@ -209,7 +209,9 @@ describe("Institution Router", () => {
 
       const result = await caller.institution.completeOnboarding({
         institutionName: "New Test Hospital",
-        institutionType: "private_hospital",
+        organizationCategory: "healthcare_facility",
+        facilityOwnership: "private_for_profit",
+        facilityCareLevel: "primary_level_4",
         registrationNumber: "",
         healthcareStaffCount: 25,
         country: "Kenya",
@@ -237,7 +239,9 @@ describe("Institution Router", () => {
       await expect(
         caller.institution.completeOnboarding({
           institutionName: "New Test Hospital",
-          institutionType: "private_hospital",
+          organizationCategory: "healthcare_facility",
+          facilityOwnership: "private_for_profit",
+          facilityCareLevel: "primary_level_4",
           registrationNumber: "",
           healthcareStaffCount: 25,
           country: "Kenya",

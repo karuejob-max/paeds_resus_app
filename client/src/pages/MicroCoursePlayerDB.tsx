@@ -19,6 +19,7 @@ import { sanitizeCourseHtml } from "@/lib/sanitizeCourseHtml";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
+import { PAEDS_RESUS_ILS_PROGRAM_TYPE } from "@shared/institutional-life-support";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
 import { UniversalCapstone } from "@/components/UniversalCapstone";
 import { FellowshipSimulation } from "@/components/FellowshipSimulation";
@@ -71,25 +72,31 @@ export default function MicroCoursePlayerDB() {
     return null;
   }, [slug]);
 
-  const isAhaCourse = numericCourseId !== null || ahaProgramFromSlug !== null;
+  const ilsProgramFromSlug = slug === "paeds-resus-competency" ? PAEDS_RESUS_ILS_PROGRAM_TYPE : null;
+  const programFromQuery = useMemo(() => {
+    const fromQuery = new URLSearchParams(search).get("programType");
+    if (fromQuery === PAEDS_RESUS_ILS_PROGRAM_TYPE) return PAEDS_RESUS_ILS_PROGRAM_TYPE;
+    if (fromQuery && isAhaProgramSlug(fromQuery)) return fromQuery;
+    return null;
+  }, [search]);
+  const programType = programFromQuery ?? ahaProgramFromSlug ?? ilsProgramFromSlug;
+  const isIlsCourse = programType === PAEDS_RESUS_ILS_PROGRAM_TYPE;
+  const isAhaCourse = numericCourseId !== null || programType !== null;
   const isInstructor = slug === "instructor";
   const coursesHubPath = isInstructor
     ? "/instructor-portal"
-    : isAhaCourse
-      ? "/aha-courses"
-      : "/fellowship";
+    : isIlsCourse
+      ? "/training/institutional-life-support"
+      : isAhaCourse
+        ? "/aha-courses"
+        : "/fellowship";
   const coursesHubReturnLabel = isInstructor
     ? "Return to Instructor Portal"
-    : isAhaCourse
-      ? "Return to AHA Courses"
-      : "Return to Fellowship Dashboard";
-
-  const programType = useMemo(() => {
-    const params = new URLSearchParams(search);
-    const fromQuery = params.get("programType");
-    if (fromQuery && isAhaProgramSlug(fromQuery)) return fromQuery;
-    return ahaProgramFromSlug;
-  }, [search, ahaProgramFromSlug]);
+    : isIlsCourse
+      ? "Return to Institutional Life Support"
+      : isAhaCourse
+        ? "Return to AHA Courses"
+        : "Return to Fellowship Dashboard";
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
@@ -191,26 +198,26 @@ export default function MicroCoursePlayerDB() {
     });
   }, [fellowshipCourses, microCourseRow]);
 
-  const ahaProgram = programType ?? ahaProgramFromSlug;
+  const ahaProgram = ahaProgramFromSlug;
 
   // Path B: AHA — programType resolves stale numeric ids (e.g. /micro-course/1?programType=bls)
   const { data: ahaCourseDetails, isLoading: ahaDetailsLoading, isError: ahaDetailsHasError, error: ahaDetailsError } =
     trpc.learning.getCourseDetails.useQuery(
       {
         courseId: numericCourseId ?? 0,
-        programType: ahaProgram ?? undefined,
+        programType: programType ?? undefined,
       },
-      { enabled: isAhaCourse && !!ahaProgram }
+      { enabled: isAhaCourse && !!programType }
     );
 
   // Replace legacy hardcoded ids (/micro-course/1) with the real catalog id
   useEffect(() => {
-    if (!ahaCourseDetails?.id || !ahaProgram || numericCourseId === null) return;
+    if (!ahaCourseDetails?.id || !programType || numericCourseId === null) return;
     if (numericCourseId === ahaCourseDetails.id) return;
     const qs = new URLSearchParams(search);
-    qs.set("programType", ahaProgram);
+    qs.set("programType", programType);
     navigate(`/micro-course/${ahaCourseDetails.id}?${qs.toString()}`, { replace: true });
-  }, [ahaCourseDetails?.id, ahaProgram, numericCourseId, search, navigate]);
+  }, [ahaCourseDetails?.id, programType, numericCourseId, search, navigate]);
 
   // Unified dbCourse: either fellowship or AHA
   const dbCourse = useMemo(() => {
@@ -265,7 +272,10 @@ export default function MicroCoursePlayerDB() {
     enabled: isAuthenticated,
   });
   const { data: myAhaEnrollments } = trpc.courses.getMyAhaEnrollments.useQuery(undefined, {
-    enabled: isAuthenticated && isAhaCourse,
+    enabled: isAuthenticated && isAhaCourse && !isIlsCourse,
+  });
+  const ilsEnrollmentQuery = trpc.institutionalLifeSupport.getMyEnrollment.useQuery(undefined, {
+    enabled: isAuthenticated && isIlsCourse,
   });
 
   const prerequisiteBlocked = useMemo(() => {
@@ -277,6 +287,7 @@ export default function MicroCoursePlayerDB() {
 
   const enrollment = useMemo(() => {
     if (isAhaCourse) {
+      if (isIlsCourse) return ilsEnrollmentQuery.data as any;
       const pt =
         ahaProgram ??
         ((ahaCourseDetails as { programType?: string } | undefined)?.programType as AhaProgramType | undefined) ??
@@ -284,7 +295,7 @@ export default function MicroCoursePlayerDB() {
       return myAhaEnrollments?.find((e: any) => e.programType === pt) as any;
     }
     return myEnrollments?.find((e) => e.course?.courseId === slug);
-  }, [isAhaCourse, myAhaEnrollments, myEnrollments, slug, ahaProgram, ahaCourseDetails]);
+  }, [isAhaCourse, isIlsCourse, ilsEnrollmentQuery.data, myAhaEnrollments, myEnrollments, slug, ahaProgram, ahaCourseDetails]);
 
   const microEnrollmentId = (enrollment as { id?: number } | undefined)?.id;
   const { data: examState } = trpc.learning.getMicroCourseExamState.useQuery(
@@ -330,12 +341,12 @@ export default function MicroCoursePlayerDB() {
   );
 
   const ahaProgramForUi = useMemo((): AhaProgramType | null => {
-    if (!isAhaCourse) return null;
+    if (!isAhaCourse || isIlsCourse) return null;
     const pt =
       ahaProgram ??
       ((ahaCourseDetails as { programType?: string } | undefined)?.programType as AhaProgramType | undefined);
     return pt && isAhaProgramSlug(pt) ? pt : null;
-  }, [isAhaCourse, ahaProgram, ahaCourseDetails]);
+  }, [isAhaCourse, isIlsCourse, ahaProgram, ahaCourseDetails]);
 
   const ahaCertState = useMemo(() => {
     const enrol = enrollment as {
@@ -445,6 +456,25 @@ export default function MicroCoursePlayerDB() {
         });
       }
     },
+  });
+
+  const markIlsCognitive = trpc.courses.markIlsCognitiveComplete.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        if (data.certificateNumber) setIssuedCertNumber(data.certificateNumber);
+        toast.success(data.certificateIssued ? "Paeds Resus competency certificate issued." : "Knowledge checks complete. Your practical assessment is the next step.");
+        void utils.courses.getUserEnrollments.invalidate();
+        void utils.certificates.getMyCertificates.invalidate();
+        trackProductActivity.mutate({
+          eventType: "micro_course",
+          eventName: "Paeds Resus Institutional Life Support cognitive pathway completed",
+          pageUrl: typeof window !== "undefined" ? window.location.pathname : "/micro-course",
+          sessionId: getAnalyticsSessionId(),
+          eventData: { courseSlug: slug, programType: PAEDS_RESUS_ILS_PROGRAM_TYPE },
+        });
+      }
+    },
+    onError: (error) => toast.error(error.message || "Could not record the Institutional Life Support completion."),
   });
 
   const completeCourse = trpc.courses.complete.useMutation({
@@ -822,6 +852,8 @@ export default function MicroCoursePlayerDB() {
 
     if (enrollment?.id) {
       doSubmitQuiz(enrollment.id);
+    } else if (isIlsCourse) {
+      toast.error("Start and pay for the Institutional Life Support programme before submitting a knowledge check.");
     } else if (isAhaCourse) {
       const pt = (dbCourse as any)?.programType ?? programType ?? 'bls';
       ensureAhaEnrollmentMutation.mutate(
@@ -888,11 +920,18 @@ export default function MicroCoursePlayerDB() {
 
   const handleFinalSubmit = () => {
     if (!dbCourse) return;
-    if (isAhaCourse) {
+    if (isIlsCourse) {
+      const enrollmentId = (enrollment as any)?.id ?? 0;
+      if (!enrollmentId) {
+        toast.error("Your Institutional Life Support enrollment could not be found. Return to the programme page and try again.");
+        return;
+      }
+      markIlsCognitive.mutate({ enrollmentId });
+    } else if (isAhaCourse) {
       // AHA: issue cognitive gatepass certificate
       const pt = (dbCourse as any).programType ?? programType ?? 'bls';
       const enrollmentId = (enrollment as any)?.id ?? 0;
-      markAhaCognitive.mutate({ enrollmentId, programType: pt });
+      markAhaCognitive.mutate({ enrollmentId, programType: pt as AhaProgramType });
     } else {
       const microCourseSlug = microCourseRow?.courseId ?? slug;
       if (!microCourseSlug) {
@@ -945,7 +984,9 @@ export default function MicroCoursePlayerDB() {
           {isIerpPaymentLocked
             ? "Your IERP cognitive access is locked until the full KES 15,000 programme fee is paid. August–November starters may use Phase 1 and Phase 2 before 1 December EAT; from December onward, complete payment before continuing."
             : isAhaCourse && !ahaDetailsLoading && (ahaDetailsHasError || !ahaCourseDetails)
-              ? "This AHA course could not be loaded. Please refresh the page or return to AHA Courses and try again."
+              ? isIlsCourse
+                ? "This Institutional Life Support programme could not be loaded. Please return to the programme page and try again."
+                : "This AHA course could not be loaded. Please refresh the page or return to AHA Courses and try again."
               : "This course is not yet available in the interactive format."}
         </p>
         <Button onClick={() => navigate(isIerpPaymentLocked ? "/learner-dashboard" : coursesHubPath)}>
@@ -956,7 +997,7 @@ export default function MicroCoursePlayerDB() {
   }
 
   // ── Completion View ────────────────────────────────────────────────────────
-  if (completeCourse.isSuccess || markAhaCognitive.isSuccess) {
+  if (completeCourse.isSuccess || markAhaCognitive.isSuccess || markIlsCognitive.isSuccess) {
     const submitFeedbackAndDownload = () => {
       if (!feedbackGate) return;
       if (feedbackRating === 0) { toast.error('Please select a star rating.'); return; }
@@ -1022,9 +1063,11 @@ export default function MicroCoursePlayerDB() {
               <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Award className="w-10 h-10 text-emerald-600" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">Course Completed!</h2>
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">{isIlsCourse ? "Learning complete" : "Course Completed!"}</h2>
               <p className="text-slate-600 mb-8">
-                Congratulations! You have successfully completed <strong>{dbCourse.title}</strong>.
+                {isIlsCourse
+                  ? <>You passed the cognitive requirements for <strong>{dbCourse.title}</strong>. Complete the approved practical assessment before claiming the Paeds Resus competency certificate.</>
+                  : <>Congratulations! You have successfully completed <strong>{dbCourse.title}</strong>.</>}
               </p>
               {issuedCertNumber && (
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-8">
@@ -1033,6 +1076,11 @@ export default function MicroCoursePlayerDB() {
                 </div>
               )}
               <div className="flex flex-col gap-3">
+                {isIlsCourse && !issuedCertNumber && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-950">
+                    <strong>Practical assessment required.</strong> Your online learning is recorded. Attend an approved Paeds Resus practical session and ask the instructor to sign off your skills; the certificate will then become available in your certificate records.
+                  </div>
+                )}
                 {issuedCertNumber && (
                   <Button 
                     className="w-full py-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center justify-center gap-2"
@@ -1340,7 +1388,7 @@ export default function MicroCoursePlayerDB() {
             course={dbCourse}
             quiz={summativeQuiz}
             onComplete={handleFinalSubmit}
-            isPending={completeCourse.isPending || markAhaCognitive.isPending}
+            isPending={completeCourse.isPending || markAhaCognitive.isPending || markIlsCognitive.isPending}
             isAhaCourse={isAhaCourse}
             ahaProgramType={ahaProgramForUi}
           />

@@ -90,6 +90,26 @@ export default function TrainingHub() {
             </CardContent>
           </Card>
 
+          <Card className="border-blue-200 bg-blue-50/40">
+            <CardHeader>
+              <CardTitle className="text-lg text-blue-950">Institutional Life Support Training Program</CardTitle>
+              <CardDescription>
+                Paeds Resus competency-based training for individual providers and institutional cohorts · KES 10,000 per provider
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-blue-950/80">
+                Complete the structured online modules and knowledge checks, then attend an approved practical assessment. This programme issues a Paeds Resus competency certificate, not an AHA certificate. Optional BLS/ACLS credentialing has a separate 90-day request and payment window after certification.
+              </p>
+              <Link href="/training/institutional-life-support">
+                <Button variant="outline" size="sm" className="border-blue-300 text-blue-900 hover:bg-blue-100">
+                  Open Institutional Life Support
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Heartsaver CPR AED</CardTitle>
@@ -131,6 +151,7 @@ export default function TrainingHub() {
               <li>Choose your course and complete payment where required.</li>
               <li>Finish cognitive modules online and receive a gatepass certificate.</li>
               <li>Attend a hands-on session for practical sign-off and full certification.</li>
+              <li>Institutional Life Support follows the same learning-to-practical pattern, but issues a Paeds Resus competency certificate rather than an AHA certificate.</li>
             </ol>
             <div className="flex flex-wrap gap-2 mt-4">
               <a href={getLoginUrl("/enroll")}>

@@ -18,6 +18,7 @@ import { logStructured } from "../lib/structured-log";
 import { trackPaymentCompletion } from "../services/analytics.service";
 import { reconcileInstitutionMpesaIntent } from "../lib/institution-mpesa-reconciliation";
 import { applyNerpPaymentCompletion } from "../lib/nerp-offer";
+import { applyInstitutionalLifeSupportPaymentCompletion } from "../lib/institutional-life-support-payments";
 import { reconcileIerpMpesaPayment } from "../lib/ierp-payment-reconciliation";
 import { attachMpesaWebhookLogging, type MpesaWebhookLogBuilder } from "../lib/mpesa-webhook-log";
 import crypto from "crypto";
@@ -404,6 +405,7 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
                 }
               }
             }
+            await applyInstitutionalLifeSupportPaymentCompletion(db, payment.id);
             await applyNerpPaymentCompletion(db, payment.id);
           },
           { retries: 3, delayMs: 300, label: "mpesa-webhook-payment-complete" }

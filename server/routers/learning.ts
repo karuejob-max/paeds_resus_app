@@ -30,6 +30,7 @@ import {
   getPaediatricSepticShockCourseId,
 } from "../lib/ensure-paediatric-septic-shock-catalog";
 import { ensureInstructorCourseCatalog } from "../lib/ensure-instructor-course-catalog";
+import { ensureInstitutionalLifeSupportCatalog } from "../lib/ensure-institutional-life-support-catalog";
 import {
   ensureIntubationSampleCourseCatalog,
   getIntubationSampleCourseId,
@@ -183,7 +184,7 @@ export const learningRouter = router({
       const db = await getDb();
       if (!db) return [];
       if (input.programType) {
-        const pt = input.programType as "bls" | "acls" | "pals" | "fellowship" | "instructor";
+        const pt = input.programType as "bls" | "acls" | "pals" | "fellowship" | "instructor" | "paeds_resus_ils";
         let rows = await (db as any)
           .select()
           .from(courses)
@@ -217,6 +218,18 @@ export const learningRouter = router({
         if (input.courseId != null) {
           rows = rows.filter((r: { id: number }) => r.id === input.courseId);
         }
+        if (pt === "paeds_resus_ils") {
+          try {
+            await ensureInstitutionalLifeSupportCatalog(db);
+            rows = await (db as any)
+              .select()
+              .from(courses)
+              .where(eq(courses.programType, pt))
+              .orderBy(courses.order);
+          } catch (e) {
+            console.error("[learning.getCourses] ensure Institutional Life Support catalog failed:", e);
+          }
+        }
         if (pt === "instructor" && rows.length === 0) {
           try {
             await ensureInstructorCourseCatalog(db);
@@ -249,7 +262,7 @@ export const learningRouter = router({
       z.object({
         courseId: z.number(),
         /** When the URL has a stale numeric id (e.g. /micro-course/1), resolve the real row. */
-        programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp", "instructor"]).optional(),
+        programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp", "instructor", "paeds_resus_ils"]).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -261,7 +274,13 @@ export const learningRouter = router({
       let courseRow: (typeof courses.$inferSelect) | null = null;
 
       if (input.programType && (!input.courseId || input.courseId <= 0)) {
-        courseRow = await resolveAhaCourseAnchor(db, input.programType);
+        if (input.programType === "paeds_resus_ils") {
+          await ensureInstitutionalLifeSupportCatalog(db);
+          const ilsRows = await (db as any).select().from(courses).where(eq(courses.programType, "paeds_resus_ils")).orderBy(courses.order).limit(1);
+          courseRow = ilsRows[0] ?? null;
+        } else {
+          courseRow = await resolveAhaCourseAnchor(db, input.programType);
+        }
       }
 
       if (!courseRow && input.courseId > 0) {
@@ -281,7 +300,13 @@ export const learningRouter = router({
       }
 
       if (!courseRow && input.programType) {
-        courseRow = await resolveAhaCourseAnchor(db, input.programType);
+        if (input.programType === "paeds_resus_ils") {
+          await ensureInstitutionalLifeSupportCatalog(db);
+          const ilsRows = await (db as any).select().from(courses).where(eq(courses.programType, "paeds_resus_ils")).orderBy(courses.order).limit(1);
+          courseRow = ilsRows[0] ?? null;
+        } else {
+          courseRow = await resolveAhaCourseAnchor(db, input.programType);
+        }
       }
 
       if (!courseRow) {
@@ -290,6 +315,19 @@ export const learningRouter = router({
 
       const pt = courseRow.programType as string;
       await assertIerpCognitiveAccess(db, ctx.user?.id, pt);
+      if (pt === "paeds_resus_ils") {
+        if (!ctx.user?.id) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Sign in and pay for the Institutional Life Support programme before opening its modules." });
+        }
+        const paidRows = await db
+          .select({ id: enrollments.id })
+          .from(enrollments)
+          .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, "paeds_resus_ils"), eq(enrollments.paymentStatus, "completed")))
+          .limit(1);
+        if (!paidRows.length) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Pay for the Institutional Life Support programme before opening its modules." });
+        }
+      }
       let blsCatalogStale = false;
       if (pt === "bls" && SEEDED_COURSES.has(pt)) {
         const blsModuleRows = await (db as any)
@@ -320,6 +358,8 @@ export const learningRouter = router({
         } else if (pt === "instructor") {
           const { ensureInstructorCourseCatalog } = await import("../lib/ensure-instructor-course-catalog");
           await ensureInstructorCourseCatalog(db);
+        } else if (pt === "paeds_resus_ils") {
+          await ensureInstitutionalLifeSupportCatalog(db);
         }
         SEEDED_COURSES.add(pt);
       }
@@ -353,6 +393,7 @@ export const learningRouter = router({
     .input(z.object({ moduleId: z.number() }))
     .query(async ({ ctx, input }) => {
       const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       let module = await (db as any)
         .select()
         .from(modules)
@@ -369,6 +410,19 @@ export const learningRouter = router({
         .where(eq(courses.id, module[0].courseId))
         .limit(1);
       await assertIerpCognitiveAccess(db, ctx.user?.id, moduleCourse[0]?.programType);
+      if (moduleCourse[0]?.programType === "paeds_resus_ils") {
+        if (!ctx.user?.id) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Sign in and pay for the Institutional Life Support programme before opening its modules." });
+        }
+        const paidRows = await db
+          .select({ id: enrollments.id })
+          .from(enrollments)
+          .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, "paeds_resus_ils"), eq(enrollments.paymentStatus, "completed")))
+          .limit(1);
+        if (!paidRows.length) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Pay for the Institutional Life Support programme before opening its modules." });
+        }
+      }
 
       // Fetch sections for this module
       let sections = await (db as any)

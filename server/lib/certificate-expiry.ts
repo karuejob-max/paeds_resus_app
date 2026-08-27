@@ -21,6 +21,7 @@ export const MICRO_COURSE_CERT_PROGRAM_TYPES = new Set(["fellowship"]);
 
 /** Certificates with a printed 2-year validity period. */
 export const PAEDS_RESUS_PROVIDER_CERTIFICATE_PROGRAM_TYPES = new Set([
+  "paeds_resus_ils",
   "paeds_resus_bls_provider",
   "paeds_resus_acls_provider",
   "paeds_resus_pals_provider",

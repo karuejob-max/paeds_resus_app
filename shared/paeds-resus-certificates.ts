@@ -12,6 +12,7 @@ export type PaedsResusProviderCertificateType =
 
 export const PAEDS_RESUS_COMPLETION_CERTIFICATE_TYPES = [
   PAEDS_RESUS_PHASE2_CERTIFICATE_TYPE,
+  "paeds_resus_ils",
   ...PAEDS_RESUS_PROVIDER_CERTIFICATE_TYPES,
 ] as const;
 
@@ -20,6 +21,7 @@ export type PaedsResusCompletionCertificateType =
 
 export const CERTIFICATE_DISPLAY_LABELS: Record<string, string> = {
   paeds_resus_phase2: "Paeds Resus Phase 2 — Online Simulations",
+  paeds_resus_ils: "Paeds Resus Institutional Life Support Competency Certificate",
   paeds_resus_bls_provider: "Paeds Resus Certified BLS Provider",
   paeds_resus_acls_provider: "Paeds Resus Certified ACLS Provider",
   paeds_resus_pals_provider: "Paeds Resus Certified PALS Provider",

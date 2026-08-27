@@ -16,7 +16,7 @@ import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-
 import { selectFromWaitlist, type WaitlistCandidate } from '../../shared/waitlist';
 import { getProgramIdentity } from '../../shared/program-identity';
 import { notifyBookingWaitlistPromoted, notifyPhase2RoleConfirmed, notifyRetrospectiveClaimReviewed } from '../lib/cohort-program-notifications';
-import { saveMicroCourseCertificate, saveAhaCognitiveCertificate } from '../certificates';
+import { saveMicroCourseCertificate, saveAhaCognitiveCertificate, markIlsCognitiveComplete } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
 import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules, institutionalStaffMembers, phase3CrossFacilityApprovals, retrospectiveRoleClaims } from '../../drizzle/schema';
@@ -824,6 +824,25 @@ export const coursesRouter = router({
         console.error('[courses.markAhaCognitiveComplete]', err);
         return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
       }
+    }),
+
+  markIlsCognitiveComplete: protectedProcedure
+    .input(z.object({ enrollmentId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      const database = await getDb();
+      if (!database) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const rows = await database
+        .select({ id: enrollments.id })
+        .from(enrollments)
+        .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, "paeds_resus_ils")))
+        .limit(1);
+      if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Institutional Life Support enrollment not found." });
+      const result = await markIlsCognitiveComplete(input.enrollmentId);
+      if (!result.cognitiveComplete) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Complete payment and all Institutional Life Support modules before submitting the final knowledge check." });
+      }
+      return { success: true, enrollmentId: input.enrollmentId, ...result };
     }),
 
   // ─────────────────────────────────────────────────────────────────────────

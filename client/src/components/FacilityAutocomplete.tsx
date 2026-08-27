@@ -112,7 +112,7 @@ export function FacilityAutocomplete({
   return (
     <div ref={containerRef} className="space-y-3">
       <div>
-        <Label htmlFor="facilitySearch">Facility Name *</Label>
+        <Label htmlFor="facilitySearch">{entityLabel.charAt(0).toUpperCase() + entityLabel.slice(1)} name *</Label>
         <div className="relative">
           <Input
             ref={inputRef}

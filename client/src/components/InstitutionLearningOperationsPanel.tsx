@@ -116,6 +116,14 @@ export default function InstitutionLearningOperationsPanel({
           </div>
           <div>
             <p className="font-semibold text-blue-950 dark:text-blue-100">
+              Institutional Life Support
+            </p>
+            <p className="text-muted-foreground">
+              Enrol linked providers at KES 10,000 per provider for Paeds Resus competency training.
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-blue-950 dark:text-blue-100">
               CPD Portal
             </p>
             <p className="text-muted-foreground">
@@ -220,6 +228,23 @@ export default function InstitutionLearningOperationsPanel({
                 </CardContent>
               </Card>
             )}
+            <Card>
+              <CardHeader>
+                <GraduationCap className="h-5 w-5 text-blue-700" />
+                <CardTitle className="text-base">Institutional Life Support Training</CardTitle>
+                <CardDescription>
+                  Enrol linked provider accounts at KES 10,000 each. Completion issues a Paeds Resus certificate; AHA credentialing is a separate, time-limited request.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  variant="outline"
+                  onClick={() => window.location.assign("/training/institutional-life-support")}
+                >
+                  Open Institutional Life Support
+                </Button>
+              </CardContent>
+            </Card>
             {cpdEnabled && (
               <Card>
                 <CardHeader>
