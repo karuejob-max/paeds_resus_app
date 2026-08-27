@@ -1,8 +1,10 @@
 # Paeds Resus Universal Certification Model
 
-**Status:** Active engineering contract  
-**Scope:** IERP, NERP, and Paeds Resus Open Enrolment Pathway  
+**Status:** Production schema applied and verified on 2026-08-27
+**Scope:** IERP, NERP, and Paeds Resus Open Enrolment Pathway
 **Owner:** Paeds Resus
+
+**Release:** Protected PR [#629](https://github.com/karuejob-max/paeds_resus_app/pull/629) merged as `42e314c`; Render deployment live; migration `0134` applied only after explicit owner confirmation; read-only certificate and IERS verification passed.
 
 ## Purpose
 
