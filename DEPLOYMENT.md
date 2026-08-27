@@ -63,6 +63,9 @@ AWS_ACCESS_KEY_ID=<aws-key>
 AWS_SECRET_ACCESS_KEY=<aws-secret>
 AWS_REGION=us-east-1
 AWS_S3_BUCKET=paeds-resus-storage
+```
+
+The server storage helper prefers the built-in Forge storage proxy when `BUILT_IN_FORGE_API_URL` and `BUILT_IN_FORGE_API_KEY` are present. On Render, where those WebDev-only variables may not be injected, it falls back to the private `AWS_S3_BUCKET` using the AWS credentials and region above. Keep the bucket private; evidence URLs are short-lived signed URLs.
 
 # Email/SMS
 AWS_SES_REGION=us-east-1

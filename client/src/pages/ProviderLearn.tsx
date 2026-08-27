@@ -120,6 +120,31 @@ export default function ProviderLearn() {
           </CardContent>
         </Card>
 
+        <Card className="border-orange-200 bg-orange-50/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-5 w-5 text-orange-700" />Life Support Training</CardTitle>
+            <CardDescription>Our Financial Strategy 1: AHA certification pathways for providers and interns, separate from the Fellowship.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            {showNerpOffer ? (
+              <div className="rounded-lg border border-orange-200 bg-white p-3">
+                <p className="text-sm font-semibold text-slate-900">Nurse Emergency Readiness Program (NERP)</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">Lipa Mdogo Mdogo ACLS: KES 2,500 per month for six payments, with Paeds Resus BLS included.</p>
+                <Button type="button" variant="link" className="mt-1 h-auto px-0 text-xs text-orange-800" onClick={() => setLocation("/programs/nerp-acls")}>
+                  View NERP <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : null}
+            <div className="rounded-lg border border-teal-200 bg-white p-3">
+              <p className="text-sm font-semibold text-slate-900">Intern Emergency Readiness Program (IERP)</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">KES 15,000 for AHA ACLS plus Paeds Resus BLS. Register your intern profile before starting.</p>
+              <Button type="button" variant="link" className="mt-1 h-auto px-0 text-xs text-teal-800" onClick={() => setLocation("/programs/ierp")}>
+                View IERP <ArrowRight className="ml-1 h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="border-violet-200 bg-white">
             <CardHeader>
@@ -145,24 +170,16 @@ export default function ProviderLearn() {
                 )) : <span className="text-sm text-slate-500">No AHA enrollment yet.</span>}
               </div>
               <Button type="button" variant="outline" className="w-full justify-between" onClick={() => setLocation("/aha-courses")}>Open AHA courses <ArrowRight className="h-4 w-4" /></Button>
-              {showNerpOffer ? (
-                <div className="rounded-lg border border-orange-200 bg-orange-50/60 p-3">
-                  <p className="text-xs font-medium text-orange-950">Need a flexible ACLS pathway?</p>
-                  <p className="mt-1 text-xs leading-5 text-orange-900/75">Lipa Mdogo Mdogo: KES 2,500 per month for six payments, with BLS included.</p>
-                  <Button type="button" variant="link" className="mt-1 h-auto px-0 text-xs text-orange-800" onClick={() => setLocation("/programs/nerp-acls")}>
-                    View the NERP pathway <ArrowRight className="ml-1 h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ) : null}
             </CardContent>
           </Card>
         </div>
 
         <Card className="border-slate-200 bg-white">
-          <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Award className="h-5 w-5 text-emerald-700" />Keep learning connected to practice</CardTitle><CardDescription>Use ResusGPS for bedside guidance and Care Signal for provider quality-improvement reporting. Neither is the same as a certificate.</CardDescription></CardHeader>
+          <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><Award className="h-5 w-5 text-emerald-700" />Keep learning connected to practice</CardTitle><CardDescription>Use ResusGPS for bedside guidance, Care Signal for provider quality-improvement reporting, and Code Signal for adult and whole-hospital events. Neither reporting surface is the same as a certificate.</CardDescription></CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => setLocation("/resus")}>Open ResusGPS</Button>
             <Button type="button" variant="outline" onClick={() => setLocation("/care-signal")}>Report to Care Signal</Button>
+            <Button type="button" variant="outline" onClick={() => setLocation("/code-signal")}>Open Code Signal</Button>
           </CardContent>
         </Card>
       </div>
