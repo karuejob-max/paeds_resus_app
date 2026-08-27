@@ -45,31 +45,40 @@ function sixMonthsFromToday() {
   return date.toISOString().slice(0, 10);
 }
 
+type LearningGovernanceMode = "all" | "sessions" | "people";
+
 export default function InstitutionLearningGovernancePanel({
   institutionId,
+  mode = "all",
+  isInstitutionAdmin = false,
 }: {
   institutionId: number;
+  mode?: LearningGovernanceMode;
+  isInstitutionAdmin?: boolean;
 }) {
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
   const utils = trpc.useUtils();
   const { data: departments = [] } =
     trpc.institutionLearning.listDepartments.useQuery(
       { institutionId },
       { staleTime: 60_000 }
     );
-  const { data: staff = [] } = trpc.institution.getStaffMembers.useQuery(
-    { institutionId, includeRemoved: false },
-    { staleTime: 30_000 }
+  const { data: staff = [] } = trpc.institutionLearning.listDepartmentStaff.useQuery(
+    {
+      institutionId,
+      departmentId: selectedDepartmentId ? Number(selectedDepartmentId) : undefined,
+    },
+    { staleTime: 30_000, enabled: mode !== "sessions" }
   );
   const { data: coordinators = [] } =
     trpc.institutionLearning.listEducationCoordinators.useQuery(
       { institutionId },
-      { staleTime: 30_000 }
+      { staleTime: 30_000, enabled: mode !== "sessions" }
     );
   const { data: targets = [] } = trpc.institutionLearning.listTargets.useQuery(
     { institutionId },
-    { staleTime: 30_000 }
+    { staleTime: 30_000, enabled: mode !== "sessions" }
   );
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
   const [selectedCoordinatorUserId, setSelectedCoordinatorUserId] =
     useState("");
   const [sessionName, setSessionName] = useState("");
@@ -103,6 +112,11 @@ export default function InstitutionLearningGovernancePanel({
     () => staff.filter(person => person.userId != null),
     [staff]
   );
+  const selectedDepartmentStaff = useMemo(() => {
+    if (!selectedDepartmentId) return [];
+    const departmentId = Number(selectedDepartmentId);
+    return linkedStaff.filter(person => person.facilityDepartmentId === departmentId);
+  }, [linkedStaff, selectedDepartmentId]);
 
   const invalidateLearning = async () => {
     await Promise.all([
@@ -215,6 +229,7 @@ export default function InstitutionLearningGovernancePanel({
 
   return (
     <div className="space-y-6">
+      {mode !== "sessions" && (
       <Card className="border-violet-200 bg-violet-50/30 dark:border-violet-900 dark:bg-violet-950/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -228,7 +243,7 @@ export default function InstitutionLearningGovernancePanel({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+          {isInstitutionAdmin ? <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
             <select
               className="h-10 rounded-md border bg-background px-3 text-sm"
               value={selectedDepartmentId}
@@ -248,8 +263,8 @@ export default function InstitutionLearningGovernancePanel({
                 setSelectedCoordinatorUserId(event.target.value)
               }
             >
-              <option value="">Choose linked staff member</option>
-              {linkedStaff.map(person => (
+              <option value="">{selectedDepartmentId ? "Choose staff member in this department" : "Choose a department first"}</option>
+              {selectedDepartmentStaff.map(person => (
                 <option
                   key={person.userId ?? person.id}
                   value={person.userId ?? ""}
@@ -275,7 +290,7 @@ export default function InstitutionLearningGovernancePanel({
               <UserPlus className="mr-2 h-4 w-4" />
               Assign
             </Button>
-          </div>
+          </div> : <p className="text-sm text-muted-foreground">Coordinator assignments are managed by institutional administrators. You only see coordinators for your assigned department(s).</p>}
           <div className="grid gap-2 md:grid-cols-2">
             {coordinators
               .filter(row => row.assignmentStatus === "active")
@@ -284,10 +299,10 @@ export default function InstitutionLearningGovernancePanel({
                   key={row.id}
                   className="flex items-center justify-between gap-3 rounded-lg border bg-background p-3 text-sm"
                 >
-                  <div>
-                    <p className="font-medium">
-                      {row.fullName ?? "Unlinked staff"}
-                    </p>
+                      <div>
+                        <p className="font-medium">
+                          {row.fullName ?? "Unlinked staff"}
+                        </p>
                     <p className="text-xs text-muted-foreground">
                       {row.departmentName ?? "Department"} ·{" "}
                       {row.email ?? "No email"}
@@ -310,8 +325,10 @@ export default function InstitutionLearningGovernancePanel({
               ))}
           </div>
         </CardContent>
-      </Card>
+              </Card>
+      )}
 
+      {mode !== "people" && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -543,7 +560,9 @@ export default function InstitutionLearningGovernancePanel({
           </Button>
         </CardContent>
       </Card>
+      )}
 
+      {mode !== "sessions" && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -758,6 +777,7 @@ export default function InstitutionLearningGovernancePanel({
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

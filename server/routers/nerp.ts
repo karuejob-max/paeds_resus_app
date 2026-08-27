@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, isNull, like, or } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
+import { and, desc, eq, isNull, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   enrollments,
@@ -9,6 +10,12 @@ import {
   nerpOfferEnrollments,
   nerpOfferExternalVerifications,
   professionalCredentials,
+  nerpExternalVerificationCases,
+  nerpExternalVerificationPhases,
+  nerpExternalVerificationAuditEvents,
+  nerpCampaignSuppressions,
+  nerpCampaignSuppressionAuditEvents,
+  users,
 } from "../../drizzle/schema";
 import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -19,16 +26,16 @@ import {
   NERP_ACLS_OFFER_KEY,
 } from "../lib/nerp-offer";
 import { ensurePaedsResusCertificatesForUser } from "../lib/paeds-resus-certificate-issuance";
+import {
+  findCampaignSuppression,
+  normalizedEmail,
+  normalizedName,
+  normalizedSuppressionValue,
+  validEmail,
+} from "../lib/nerp-campaign-controls";
 
 const PHASES = ["phase_2", "phase_3"] as const;
 const DECISIONS = ["verified", "rejected", "revoked"] as const;
-const NURSING_ADMIN_NAMES = new Set([
-  "theresa mwaniki",
-  "esther mwangi",
-  "annet",
-  "emma",
-]);
-
 function requireDb() {
   return getDb().then(db => {
     if (!db) {
@@ -41,12 +48,23 @@ function requireDb() {
   });
 }
 
-function normalizedName(value: string | null | undefined) {
-  return (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-function validEmail(value: string | null | undefined) {
-  return Boolean(value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()));
+async function getActiveCampaignSuppressions(db: any, institutionalAccountId: number) {
+  const rows = await db
+    .select({
+      id: nerpCampaignSuppressions.id,
+      matchType: nerpCampaignSuppressions.matchType,
+      matchValue: nerpCampaignSuppressions.matchValue,
+      reasonCode: nerpCampaignSuppressions.reasonCode,
+      note: nerpCampaignSuppressions.note,
+    })
+    .from(nerpCampaignSuppressions)
+    .where(
+      and(
+        eq(nerpCampaignSuppressions.institutionalAccountId, institutionalAccountId),
+        eq(nerpCampaignSuppressions.isActive, true)
+      )
+    );
+  return rows;
 }
 
 async function getOfferForUser(db: any, userId: number) {
@@ -338,6 +356,237 @@ export const nerpRouter = router({
       return { success: true as const, offerEnrollmentId: offer.id };
     }),
 
+  createExternalVerificationCase: adminProcedure
+    .input(
+      z.object({
+        institutionalAccountId: z.number().int().positive().default(3),
+        candidateName: z.string().trim().min(2).max(255),
+        candidateEmail: z.string().trim().email().max(320).optional(),
+        userId: z.number().int().positive().optional(),
+        providerName: z.string().trim().max(255).optional(),
+        certificateReference: z.string().trim().max(512).optional(),
+        sourceType: z.enum(["external_provider_certificate", "employer_record", "manual_admin_attestation", "other"]).default("external_provider_certificate"),
+        caseNote: z.string().trim().max(4000).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      const candidateEmail = input.candidateEmail ? normalizedEmail(input.candidateEmail) : null;
+      let resolvedUserId = input.userId ?? null;
+      if (!resolvedUserId && candidateEmail) {
+        const [matchingUser] = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(sql`LOWER(TRIM(${users.email})) = ${candidateEmail}`)
+          .limit(1);
+        resolvedUserId = matchingUser?.id ?? null;
+      }
+      const caseKey = `nerp-ext-${randomUUID()}`;
+      const result = await db.insert(nerpExternalVerificationCases).values({
+        caseKey,
+        institutionalAccountId: input.institutionalAccountId,
+        userId: resolvedUserId,
+        candidateName: input.candidateName.trim().replace(/\s+/g, " "),
+        candidateEmail,
+        providerName: input.providerName?.trim() || null,
+        certificateReference: input.certificateReference?.trim() || null,
+        sourceType: input.sourceType,
+        caseNote: input.caseNote?.trim() || null,
+        createdByUserId: ctx.user.id,
+      });
+      const caseId = Number((result as any)[0]?.id ?? (result as any).insertId ?? 0);
+      if (!caseId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not create external verification case." });
+      await db.insert(nerpExternalVerificationAuditEvents).values({
+        caseId,
+        action: "case_created",
+        actorUserId: ctx.user.id,
+        details: JSON.stringify({ candidateEmail, sourceType: input.sourceType }),
+      });
+      return { success: true as const, caseId, caseKey, linkedUserId: resolvedUserId };
+    }),
+
+  getExternalVerificationQueue: adminProcedure
+    .input(
+      z.object({
+        institutionalAccountId: z.number().int().positive().default(3),
+        search: z.string().trim().max(120).optional(),
+        limit: z.number().int().min(1).max(100).default(100),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await requireDb();
+      const conditions = [eq(nerpExternalVerificationCases.institutionalAccountId, input.institutionalAccountId)];
+      if (input.search) {
+        const search = `%${input.search.trim()}%`;
+        conditions.push(
+          or(
+            like(nerpExternalVerificationCases.candidateName, search),
+            like(nerpExternalVerificationCases.candidateEmail, search),
+            like(nerpExternalVerificationCases.caseKey, search)
+          ) as any
+        );
+      }
+      const cases = await db
+        .select()
+        .from(nerpExternalVerificationCases)
+        .where(and(...conditions))
+        .orderBy(desc(nerpExternalVerificationCases.updatedAt))
+        .limit(input.limit);
+      const result = [];
+      for (const externalCase of cases) {
+        const phases = await db
+          .select()
+          .from(nerpExternalVerificationPhases)
+          .where(eq(nerpExternalVerificationPhases.caseId, externalCase.id));
+        result.push({
+          ...externalCase,
+          phases,
+          phase2Verified: phases.some(row => row.phase === "phase_2" && row.status === "verified"),
+          phase3Verified: phases.some(row => row.phase === "phase_3" && row.status === "verified"),
+        });
+      }
+      return result;
+    }),
+
+  reviewExternalCasePhase: adminProcedure
+    .input(
+      z.object({
+        caseId: z.number().int().positive(),
+        phase: z.enum(PHASES),
+        decision: z.enum(DECISIONS),
+        completedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        evidenceNote: z.string().trim().min(3).max(2000).optional(),
+        evidenceReference: z.string().trim().max(512).optional(),
+        reason: z.string().trim().min(3).max(1000),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      const [externalCase] = await db
+        .select()
+        .from(nerpExternalVerificationCases)
+        .where(eq(nerpExternalVerificationCases.id, input.caseId))
+        .limit(1);
+      if (!externalCase) throw new TRPCError({ code: "NOT_FOUND", message: "External NERP verification case not found." });
+      if (input.decision === "verified" && (!input.completedAt || !input.evidenceNote)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Verified external phases require a completion date and evidence note." });
+      }
+      const completedAt = input.completedAt ? new Date(`${input.completedAt}T00:00:00.000Z`) : null;
+      const values = {
+        status: input.decision,
+        completedAt,
+        evidenceNote: input.evidenceNote?.trim() ?? null,
+        evidenceReference: input.evidenceReference?.trim() || null,
+        verifiedByUserId: ctx.user.id,
+        verifiedAt: new Date(),
+        reviewReason: input.reason.trim(),
+        updatedAt: new Date(),
+      };
+      const [existing] = await db
+        .select({ id: nerpExternalVerificationPhases.id })
+        .from(nerpExternalVerificationPhases)
+        .where(and(eq(nerpExternalVerificationPhases.caseId, externalCase.id), eq(nerpExternalVerificationPhases.phase, input.phase)))
+        .limit(1);
+      if (existing) {
+        await db.update(nerpExternalVerificationPhases).set(values).where(eq(nerpExternalVerificationPhases.id, existing.id));
+      } else {
+        await db.insert(nerpExternalVerificationPhases).values({ caseId: externalCase.id, phase: input.phase, ...values });
+      }
+      const phaseRows = await db.select().from(nerpExternalVerificationPhases).where(eq(nerpExternalVerificationPhases.caseId, externalCase.id));
+      const phase2Verified = phaseRows.some(row => row.phase === "phase_2" && row.status === "verified");
+      const phase3Verified = phaseRows.some(row => row.phase === "phase_3" && row.status === "verified");
+      const nextStatus = phase2Verified && phase3Verified
+        ? "complete"
+        : phase2Verified || phase3Verified
+          ? "partially_verified"
+          : input.decision === "rejected" ? "rejected" : input.decision === "revoked" ? "revoked" : "open";
+      await db.update(nerpExternalVerificationCases).set({ status: nextStatus, updatedByUserId: ctx.user.id, updatedAt: new Date() }).where(eq(nerpExternalVerificationCases.id, externalCase.id));
+      await db.insert(nerpExternalVerificationAuditEvents).values({
+        caseId: externalCase.id,
+        action: `phase_${input.phase}_${input.decision}`,
+        actorUserId: ctx.user.id,
+        details: JSON.stringify({ reason: input.reason, evidenceReference: input.evidenceReference ?? null }),
+      });
+
+      let suppressionId: number | null = null;
+      if (phase2Verified && phase3Verified && externalCase.institutionalAccountId) {
+        const matchType = externalCase.candidateEmail ? "email" : "exact_name";
+        const matchValue = externalCase.candidateEmail ? normalizedEmail(externalCase.candidateEmail) : normalizedName(externalCase.candidateName);
+        const [suppression] = await db
+          .select({ id: nerpCampaignSuppressions.id })
+          .from(nerpCampaignSuppressions)
+          .where(and(
+            eq(nerpCampaignSuppressions.institutionalAccountId, externalCase.institutionalAccountId),
+            eq(nerpCampaignSuppressions.matchType, matchType),
+            eq(nerpCampaignSuppressions.matchValue, matchValue)
+          ))
+          .limit(1);
+        if (suppression) {
+          suppressionId = suppression.id;
+          await db.update(nerpCampaignSuppressions).set({ isActive: true, reasonCode: "external_completion", note: "Automatically suppressed after both external NERP phases were verified.", updatedByUserId: ctx.user.id, deactivatedAt: null, updatedAt: new Date() }).where(eq(nerpCampaignSuppressions.id, suppression.id));
+        } else {
+          const inserted = await db.insert(nerpCampaignSuppressions).values({ institutionalAccountId: externalCase.institutionalAccountId, matchType, matchValue, reasonCode: "external_completion", note: "Automatically suppressed after both external NERP phases were verified.", isActive: true, createdByUserId: ctx.user.id });
+          suppressionId = Number((inserted as any)[0]?.id ?? (inserted as any).insertId ?? 0) || null;
+        }
+        if (suppressionId) {
+          await db.insert(nerpCampaignSuppressionAuditEvents).values({ suppressionId, action: "external_completion_suppression", actorUserId: ctx.user.id, details: JSON.stringify({ caseId: externalCase.id }) });
+        }
+      }
+      return { success: true as const, phase2Verified, phase3Verified, status: nextStatus, suppressionId };
+    }),
+
+  listCampaignSuppressions: adminProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive().default(3), includeInactive: z.boolean().default(false) }))
+    .query(async ({ input }) => {
+      const db = await requireDb();
+      return db
+        .select()
+        .from(nerpCampaignSuppressions)
+        .where(and(
+          eq(nerpCampaignSuppressions.institutionalAccountId, input.institutionalAccountId),
+          input.includeInactive ? sql`1=1` : eq(nerpCampaignSuppressions.isActive, true)
+        ))
+        .orderBy(desc(nerpCampaignSuppressions.updatedAt));
+    }),
+
+  upsertCampaignSuppression: adminProcedure
+    .input(z.object({
+      institutionalAccountId: z.number().int().positive().default(3),
+      matchType: z.enum(["email", "exact_name"]),
+      matchValue: z.string().trim().min(2).max(320),
+      reasonCode: z.enum(["admin_nurse", "external_completion", "manual", "not_registered", "identity_correction"]),
+      note: z.string().trim().max(2000).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      const matchValue = normalizedSuppressionValue(input.matchType, input.matchValue);
+      if (input.matchType === "email" && !validEmail(matchValue)) throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid email address for an email suppression." });
+      if (input.matchType === "exact_name" && normalizedName(matchValue).split(" ").length < 2) throw new TRPCError({ code: "BAD_REQUEST", message: "Use the person’s exact full name for a name suppression." });
+      const [existing] = await db.select({ id: nerpCampaignSuppressions.id }).from(nerpCampaignSuppressions).where(and(eq(nerpCampaignSuppressions.institutionalAccountId, input.institutionalAccountId), eq(nerpCampaignSuppressions.matchType, input.matchType), eq(nerpCampaignSuppressions.matchValue, matchValue))).limit(1);
+      let suppressionId: number;
+      if (existing) {
+        suppressionId = existing.id;
+        await db.update(nerpCampaignSuppressions).set({ reasonCode: input.reasonCode, note: input.note?.trim() || null, isActive: true, updatedByUserId: ctx.user.id, deactivatedAt: null, updatedAt: new Date() }).where(eq(nerpCampaignSuppressions.id, existing.id));
+      } else {
+        const inserted = await db.insert(nerpCampaignSuppressions).values({ institutionalAccountId: input.institutionalAccountId, matchType: input.matchType, matchValue, reasonCode: input.reasonCode, note: input.note?.trim() || null, isActive: true, createdByUserId: ctx.user.id });
+        suppressionId = Number((inserted as any)[0]?.id ?? (inserted as any).insertId ?? 0);
+        if (!suppressionId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not save suppression." });
+      }
+      await db.insert(nerpCampaignSuppressionAuditEvents).values({ suppressionId, action: existing ? "suppression_reactivated" : "suppression_created", actorUserId: ctx.user.id, details: JSON.stringify({ matchType: input.matchType, matchValue, reasonCode: input.reasonCode }) });
+      return { success: true as const, suppressionId, matchType: input.matchType, matchValue };
+    }),
+
+  deactivateCampaignSuppression: adminProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive().default(3), suppressionId: z.number().int().positive(), reason: z.string().trim().min(3).max(1000) }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      const [row] = await db.select({ id: nerpCampaignSuppressions.id }).from(nerpCampaignSuppressions).where(and(eq(nerpCampaignSuppressions.id, input.suppressionId), eq(nerpCampaignSuppressions.institutionalAccountId, input.institutionalAccountId))).limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Suppression record not found." });
+      await db.update(nerpCampaignSuppressions).set({ isActive: false, updatedByUserId: ctx.user.id, deactivatedAt: new Date(), updatedAt: new Date() }).where(eq(nerpCampaignSuppressions.id, input.suppressionId));
+      await db.insert(nerpCampaignSuppressionAuditEvents).values({ suppressionId: input.suppressionId, action: "suppression_deactivated", actorUserId: ctx.user.id, details: JSON.stringify({ reason: input.reason }) });
+      return { success: true as const };
+    }),
+
   getAdminVerificationQueue: adminProcedure
     .input(
       z.object({
@@ -527,10 +776,16 @@ export const nerpRouter = router({
         .orderBy(institutionalStaffMembers.staffName)
         .limit(input.limit);
       const recipients = [];
+      const suppressionRows = await getActiveCampaignSuppressions(db, input.institutionId);
+      const matchedSuppressionIds = new Set<number>();
       for (const staff of staffRows) {
-        const excluded = NURSING_ADMIN_NAMES.has(
-          normalizedName(staff.staffName)
+        const suppression = findCampaignSuppression(
+          suppressionRows,
+          staff.staffEmail,
+          staff.staffName
         );
+        const excluded = suppression !== null;
+        if (suppression) matchedSuppressionIds.add(suppression.id);
         const offer = staff.userId
           ? await getOfferForUser(db, staff.userId)
           : null;
@@ -586,13 +841,39 @@ export const nerpRouter = router({
           email: staff.staffEmail,
           department: staff.department,
           excluded,
+          suppressionId: suppression?.id ?? null,
           promotionStatus: status.status,
-          suppressionReason: status.reason,
+          suppressionReason: suppression
+            ? `manual_suppression:${suppression.reasonCode}`
+            : status.reason,
+          suppressionNote: suppression?.note ?? null,
           sendable: status.status === "eligible",
           offerStatus: offer?.status ?? null,
           phase2Verified: verification.phase2?.status === "verified",
           phase3Verified: verification.phase3?.status === "verified",
           hasVerifiedBlsAndAcls,
+          suppressionOnly: false,
+        });
+      }
+      for (const suppression of suppressionRows) {
+        if (matchedSuppressionIds.has(suppression.id)) continue;
+        recipients.push({
+          staffId: -suppression.id,
+          userId: null,
+          name: suppression.matchType === "exact_name" ? suppression.matchValue : "Email-only suppression",
+          email: suppression.matchType === "email" ? suppression.matchValue : null,
+          department: null,
+          excluded: true,
+          suppressionId: suppression.id,
+          promotionStatus: "suppressed" as const,
+          suppressionReason: `manual_suppression:${suppression.reasonCode}`,
+          suppressionNote: suppression.note,
+          sendable: false,
+          offerStatus: null,
+          phase2Verified: false,
+          phase3Verified: false,
+          hasVerifiedBlsAndAcls: false,
+          suppressionOnly: true,
         });
       }
       return {
@@ -608,7 +889,8 @@ export const nerpRouter = router({
           needsReview: recipients.filter(
             row => row.promotionStatus === "needs_review"
           ).length,
-          excludedByName: recipients.filter(row => row.excluded).length,
+          excludedByName: recipients.filter(row => row.excluded && !row.suppressionOnly).length,
+          suppressionOnly: recipients.filter(row => row.suppressionOnly).length,
         },
         recipients,
         emailSending: false as const,

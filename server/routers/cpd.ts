@@ -12,6 +12,7 @@ import {
   cpdAttendees,
   cpdCodeRevealLogs,
   institutionalStaffMembers,
+  institutionEducationCoordinators,
   institutionMemberships,
   users,
   providerProfiles,
@@ -53,7 +54,7 @@ export function getCanonicalAttendeeDepartment(
   return attendee.department;
 }
 
-const CPD_MEMBER_ROLES: InstitutionalProductRoleKey[] = ["cpd_coordinator", "cpd_reviewer", "cpd_reporter", "cpd_viewer"];
+const CPD_MEMBER_ROLES: InstitutionalProductRoleKey[] = ["cpd_coordinator", "cpd_education_coordinator", "cpd_reviewer", "cpd_reporter", "cpd_viewer"];
 
 async function assertCpdInstitutionAccess(
   db: any,
@@ -63,11 +64,23 @@ async function assertCpdInstitutionAccess(
 ) {
   try {
     await assertInstitutionAccess(db, user as any, institutionId);
-    return { roleKey: "institution_admin" as const };
+    return { roleKey: "institution_admin" as const, departmentIds: null as number[] | null };
   } catch (error) {
     const code = error instanceof TRPCError ? error.code : undefined;
     if (code !== "FORBIDDEN") throw error;
-    return assertInstitutionProductRole(db, user as any, institutionId, "cpd_portal", requiredRoles);
+    const role = await assertInstitutionProductRole(db, user as any, institutionId, "cpd_portal", requiredRoles);
+    if (role.roleKey !== "cpd_education_coordinator") {
+      return { ...role, departmentIds: null as number[] | null };
+    }
+    const assignments = await db
+      .select({ departmentId: institutionEducationCoordinators.departmentId })
+      .from(institutionEducationCoordinators)
+      .where(and(
+        eq(institutionEducationCoordinators.institutionalAccountId, institutionId),
+        eq(institutionEducationCoordinators.userId, user.id),
+        eq(institutionEducationCoordinators.assignmentStatus, "active")
+      ));
+    return { ...role, departmentIds: assignments.map(row => row.departmentId) };
   }
 }
 
@@ -268,9 +281,10 @@ export const cpdRouter = router({
     )
     .query(async ({ input, ctx }) => {
       const db = await requireDb();
+      let access: { departmentIds: number[] | null } = { departmentIds: null };
       if (input.institutionId) {
         await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.workspace.read");
-        await assertCpdInstitutionAccess(db, ctx.user, input.institutionId);
+        access = await assertCpdInstitutionAccess(db, ctx.user, input.institutionId);
       }
       const q = `%${input.query.toLowerCase()}%`;
 
@@ -289,10 +303,18 @@ export const cpdRouter = router({
           eq(users.id, institutionalStaffMembers.userId)
         )
         .where(
-          or(
-            like(sql`LOWER(${users.name})`, q),
-            like(sql`LOWER(${users.email})`, q)
-          )
+          access.departmentIds
+            ? and(
+                or(
+                  like(sql`LOWER(${users.name})`, q),
+                  like(sql`LOWER(${users.email})`, q)
+                ),
+                inArray(institutionalStaffMembers.facilityDepartmentId, access.departmentIds)
+              )
+            : or(
+                like(sql`LOWER(${users.name})`, q),
+                like(sql`LOWER(${users.email})`, q)
+              )
         )
         .limit(10);
 
@@ -479,7 +501,7 @@ export const cpdRouter = router({
     .query(async ({ input, ctx }) => {
       const db = await requireDb();
       await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.workspace.read");
-      await assertCpdInstitutionAccess(db, ctx.user, input.institutionId);
+      const access = await assertCpdInstitutionAccess(db, ctx.user, input.institutionId);
       const rows = await db
         .select({
           id: cpdEvents.id,
@@ -489,6 +511,7 @@ export const cpdRouter = router({
           closedAt: cpdEvents.closedAt,
           openedAt: cpdEvents.openedAt,
           eventType: cpdEvents.eventType,
+          facilityDepartmentId: cpdEvents.facilityDepartmentId,
           presenterUserId: cpdEvents.presenterUserId,
           presenterName: cpdEvents.presenterName,
           presenterCadre: cpdEvents.presenterCadre,
@@ -503,7 +526,9 @@ export const cpdRouter = router({
         .where(eq(cpdEvents.institutionalAccountId, input.institutionId))
         .groupBy(cpdEvents.id)
         .orderBy(desc(cpdEvents.id));
-      return rows;
+      return access.departmentIds
+        ? rows.filter(row => row.facilityDepartmentId == null || access.departmentIds?.includes(row.facilityDepartmentId))
+        : rows;
     }),
 
   /** Public: the currently open event for an institution (or null). Used by the registration page. */
@@ -780,7 +805,7 @@ export const cpdRouter = router({
     .query(async ({ input, ctx }) => {
       const db = await requireDb();
       await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.workspace.read");
-      await assertCpdInstitutionAccess(db, ctx.user, input.institutionId);
+      const access = await assertCpdInstitutionAccess(db, ctx.user, input.institutionId);
       const whereClause = input.eventId
         ? and(
             eq(cpdAttendees.institutionalAccountId, input.institutionId),
@@ -792,8 +817,11 @@ export const cpdRouter = router({
         .from(cpdAttendees)
         .where(whereClause)
         .orderBy(desc(cpdAttendees.id));
+      const scopedRows = access.departmentIds
+        ? rows.filter(row => row.facilityDepartmentId != null && access.departmentIds?.includes(row.facilityDepartmentId))
+        : rows;
       const facilityDepartmentNames = await loadFacilityDepartmentNames(db, input.institutionId);
-      return rows.map((row) => ({
+      return scopedRows.map((row) => ({
         ...row,
         canonicalDepartmentName: row.facilityDepartmentId != null
           ? facilityDepartmentNames.get(row.facilityDepartmentId) ?? null
@@ -812,7 +840,7 @@ export const cpdRouter = router({
     .query(async ({ input, ctx }) => {
       const db = await requireDb();
       await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.reports.read");
-      await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator", "cpd_reviewer", "cpd_reporter", "cpd_viewer"]);
+      const access = await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator", "cpd_education_coordinator", "cpd_reviewer", "cpd_reporter", "cpd_viewer"]);
       const whereClause = input.eventId
         ? and(
             eq(cpdAttendees.institutionalAccountId, input.institutionId),
@@ -837,9 +865,12 @@ export const cpdRouter = router({
         .leftJoin(cpdEvents, eq(cpdAttendees.cpdEventId, cpdEvents.id))
         .where(whereClause)
         .orderBy(desc(cpdAttendees.id));
+      const scopedRows = access.departmentIds
+        ? rows.filter(row => row.facilityDepartmentId != null && access.departmentIds?.includes(row.facilityDepartmentId))
+        : rows;
       const facilityDepartmentNames = await loadFacilityDepartmentNames(db, input.institutionId);
       const csv = buildAttendeeCsv(
-        rows.map((r) => ({
+        scopedRows.map((r) => ({
           fullName: r.fullName,
           email: r.email,
           phone: r.phone,
@@ -855,7 +886,7 @@ export const cpdRouter = router({
           submittedAt: r.submittedAt,
         }))
       );
-      return { csv, count: rows.length };
+      return { csv, count: scopedRows.length };
     }),
 
   /** Admin: set/update the CPD secret code for a CPD event. */
@@ -1214,19 +1245,25 @@ export const cpdRouter = router({
     .query(async ({ input, ctx }) => {
       const db = await requireDb();
       await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.reports.read");
-      await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator", "cpd_reviewer", "cpd_reporter", "cpd_viewer"]);
+      const access = await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator", "cpd_education_coordinator", "cpd_reviewer", "cpd_reporter", "cpd_viewer"]);
 
-      const events = await db
+      const allEvents = await db
         .select()
         .from(cpdEvents)
         .where(eq(cpdEvents.institutionalAccountId, input.institutionId))
         .orderBy(desc(cpdEvents.id));
 
-      const attendees = await db
+      const allAttendees = await db
         .select()
         .from(cpdAttendees)
         .where(eq(cpdAttendees.institutionalAccountId, input.institutionId))
         .orderBy(desc(cpdAttendees.id));
+      const events = access.departmentIds
+        ? allEvents.filter(event => event.facilityDepartmentId == null || access.departmentIds?.includes(event.facilityDepartmentId))
+        : allEvents;
+      const attendees = access.departmentIds
+        ? allAttendees.filter(attendee => attendee.facilityDepartmentId != null && access.departmentIds?.includes(attendee.facilityDepartmentId))
+        : allAttendees;
       const facilityDepartmentNames = await loadFacilityDepartmentNames(db, input.institutionId);
       const canonicalDepartmentForAttendance = (attendee: typeof attendees[number]) =>
         getCanonicalAttendeeDepartment(attendee, facilityDepartmentNames);
@@ -1287,10 +1324,13 @@ export const cpdRouter = router({
       }
 
       // Fetch institutional staff roster
-      const staffMembers = await db
+      const allStaffMembers = await db
         .select()
         .from(institutionalStaffMembers)
         .where(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId));
+      const staffMembers = access.departmentIds
+        ? allStaffMembers.filter(member => member.facilityDepartmentId != null && access.departmentIds?.includes(member.facilityDepartmentId))
+        : allStaffMembers;
 
       const staffMap: Record<string, {
         fullName: string;

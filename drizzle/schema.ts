@@ -5913,6 +5913,101 @@ export const nerpOfferExternalVerifications = mysqlTable("nerp_offer_external_ve
 export type NerpOfferExternalVerification = typeof nerpOfferExternalVerifications.$inferSelect;
 export type InsertNerpOfferExternalVerification = typeof nerpOfferExternalVerifications.$inferInsert;
 
+/** Admin-reviewed external NERP completion case that does not require a NERP offer ledger. */
+export const nerpExternalVerificationCases = mysqlTable("nerp_external_verification_cases", {
+  id: int("id").autoincrement().primaryKey(),
+  caseKey: varchar("case_key", { length: 64 }).notNull().unique(),
+  institutionalAccountId: int("institutional_account_id"),
+  userId: int("user_id"),
+  candidateName: varchar("candidate_name", { length: 255 }).notNull(),
+  candidateEmail: varchar("candidate_email", { length: 320 }),
+  providerName: varchar("provider_name", { length: 255 }),
+  certificateReference: varchar("certificate_reference", { length: 512 }),
+  sourceType: mysqlEnum("source_type", ["external_provider_certificate", "employer_record", "manual_admin_attestation", "other"]).default("external_provider_certificate").notNull(),
+  status: mysqlEnum("status", ["open", "partially_verified", "complete", "rejected", "revoked"]).default("open").notNull(),
+  caseNote: text("case_note"),
+  createdByUserId: int("created_by_user_id").notNull(),
+  updatedByUserId: int("updated_by_user_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  institutionStatusIndex: index("nerp_external_cases_institution_status_idx").on(table.institutionalAccountId, table.status),
+  candidateEmailIndex: index("nerp_external_cases_candidate_email_idx").on(table.candidateEmail),
+  userIndex: index("nerp_external_cases_user_idx").on(table.userId),
+}));
+export type NerpExternalVerificationCase = typeof nerpExternalVerificationCases.$inferSelect;
+export type InsertNerpExternalVerificationCase = typeof nerpExternalVerificationCases.$inferInsert;
+
+/** Phase-specific review records for an external NERP completion case. */
+export const nerpExternalVerificationPhases = mysqlTable("nerp_external_verification_phases", {
+  id: int("id").autoincrement().primaryKey(),
+  caseId: int("case_id").notNull(),
+  phase: mysqlEnum("phase", ["phase_2", "phase_3"]).notNull(),
+  status: mysqlEnum("status", ["verified", "rejected", "revoked"]).default("rejected").notNull(),
+  completedAt: timestamp("completed_at"),
+  evidenceNote: text("evidence_note"),
+  evidenceReference: varchar("evidence_reference", { length: 512 }),
+  verifiedByUserId: int("verified_by_user_id"),
+  verifiedAt: timestamp("verified_at"),
+  reviewReason: text("review_reason").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  casePhaseUnique: uniqueIndex("nerp_external_verification_phases_case_phase_uq").on(table.caseId, table.phase),
+  statusIndex: index("nerp_external_verification_phases_status_idx").on(table.status),
+}));
+export type NerpExternalVerificationPhase = typeof nerpExternalVerificationPhases.$inferSelect;
+export type InsertNerpExternalVerificationPhase = typeof nerpExternalVerificationPhases.$inferInsert;
+
+/** Append-only audit trail for external NERP cases. */
+export const nerpExternalVerificationAuditEvents = mysqlTable("nerp_external_verification_audit_events", {
+  id: int("id").autoincrement().primaryKey(),
+  caseId: int("case_id").notNull(),
+  action: varchar("action", { length: 96 }).notNull(),
+  actorUserId: int("actor_user_id"),
+  details: text("details"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, table => ({
+  caseCreatedIndex: index("nerp_external_verification_audit_case_created_idx").on(table.caseId, table.createdAt),
+}));
+export type NerpExternalVerificationAuditEvent = typeof nerpExternalVerificationAuditEvents.$inferSelect;
+export type InsertNerpExternalVerificationAuditEvent = typeof nerpExternalVerificationAuditEvents.$inferInsert;
+
+/** Precise NERP campaign suppression rules; match by normalized email or exact normalized name. */
+export const nerpCampaignSuppressions = mysqlTable("nerp_campaign_suppressions", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutional_account_id").notNull(),
+  matchType: mysqlEnum("match_type", ["email", "exact_name"]).notNull(),
+  matchValue: varchar("match_value", { length: 320 }).notNull(),
+  reasonCode: mysqlEnum("reason_code", ["admin_nurse", "external_completion", "manual", "not_registered", "identity_correction"]).notNull(),
+  note: text("note"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdByUserId: int("created_by_user_id"),
+  updatedByUserId: int("updated_by_user_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  deactivatedAt: timestamp("deactivated_at"),
+}, table => ({
+  preciseMatchUnique: uniqueIndex("nerp_campaign_suppressions_precise_match_uq").on(table.institutionalAccountId, table.matchType, table.matchValue),
+  institutionActiveIndex: index("nerp_campaign_suppressions_institution_active_idx").on(table.institutionalAccountId, table.isActive),
+}));
+export type NerpCampaignSuppression = typeof nerpCampaignSuppressions.$inferSelect;
+export type InsertNerpCampaignSuppression = typeof nerpCampaignSuppressions.$inferInsert;
+
+/** Append-only audit trail for NERP campaign suppression changes. */
+export const nerpCampaignSuppressionAuditEvents = mysqlTable("nerp_campaign_suppression_audit_events", {
+  id: int("id").autoincrement().primaryKey(),
+  suppressionId: int("suppression_id").notNull(),
+  action: varchar("action", { length: 64 }).notNull(),
+  actorUserId: int("actor_user_id"),
+  details: text("details"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, table => ({
+  suppressionCreatedIndex: index("nerp_campaign_suppression_audit_created_idx").on(table.suppressionId, table.createdAt),
+}));
+export type NerpCampaignSuppressionAuditEvent = typeof nerpCampaignSuppressionAuditEvents.$inferSelect;
+export type InsertNerpCampaignSuppressionAuditEvent = typeof nerpCampaignSuppressionAuditEvents.$inferInsert;
+
 /** Append-only audit events for NERP payments and external completion review. */
 export const nerpOfferAuditEvents = mysqlTable("nerp_offer_audit_events", {
   id: int("id").autoincrement().primaryKey(),
