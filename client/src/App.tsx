@@ -405,7 +405,11 @@ function Router() {
               <Enroll />
             </RoleGate>
           )}</Route>
-          <Route path="/learner-dashboard">{() => <Redirect to="/home" />}</Route>
+          <Route path="/learner-dashboard">{() => (
+            <RoleGate allowed={["provider"]}>
+              <LearnerDashboard />
+            </RoleGate>
+          )}</Route>
           <Route path="/patients">{() => (
             <RoleGate allowed={["provider"]}>
               <PatientsList />
