@@ -5,7 +5,7 @@
  * 1. Immediate rhythm assessment (not waiting 2 min)
  * 2. Pre-charge defib 15s before cycle ends
  * 3. Antiarrhythmic after 5th shock (amiodarone OR lidocaine)
- * 4. Compression metronome (100-120 bpm)
+ * 4. Compression metronome (110/min timing aid)
  * 5. Reversible causes prompts
  * 6. Advanced airway prompts
  */
@@ -60,6 +60,7 @@ import {
   evaluateCprGpsAlerts,
   getRhythmClassificationFeedback,
   CPR_CYCLE_SECONDS,
+  CPR_METRONOME_BPM,
   RHYTHM_WINDOW_SECONDS,
   type CprEngineState,
   type RhythmType,
@@ -394,6 +395,7 @@ export function CPRClockStreamlined({
   const rhythmWindowElapsedRef = useRef(rhythmWindowElapsed);
   const arrestDurationRef = useRef(effectiveArrestDuration);
   const advancedAirwayPlacedRef = useRef(advancedAirwayPlaced);
+  const defibChargingRef = useRef(defibCharging);
   const intubationStartTimeRef = useRef(intubationStartTime);
   const externalElapsedRef = useRef<number | undefined>(externalElapsed);
   const addEventRef = useRef<(action: string, details?: string) => void>(() => undefined);
@@ -406,6 +408,7 @@ export function CPRClockStreamlined({
   rhythmWindowElapsedRef.current = rhythmWindowElapsed;
   arrestDurationRef.current = effectiveArrestDuration;
   advancedAirwayPlacedRef.current = advancedAirwayPlaced;
+  defibChargingRef.current = defibCharging;
   intubationStartTimeRef.current = intubationStartTime;
   externalElapsedRef.current = externalElapsed;
 
@@ -564,10 +567,13 @@ export function CPRClockStreamlined({
     return 'bg-green-600 hover:bg-green-700';
   };
 
-  // Metronome (100-120 bpm = 600ms interval for 100 bpm). This is a
-  // timing aid only; it is never compression-quality feedback.
-  const playMetronomeBeep = useCallback(() => {
-    if (!metronomeEnabled || !audioEnabled || !audioUnlocked || typeof window === 'undefined') return;
+  // Metronome is a timing aid only; it is never compression-quality feedback.
+  // Use the governed 110/min cadence and keep haptic feedback available when a
+  // mobile browser has not yet unlocked audio.
+  const playMetronomeBeat = useCallback(() => {
+    if (!metronomeEnabled) return;
+    pulse('light');
+    if (!audioEnabled || !audioUnlocked || typeof window === 'undefined') return;
 
     if (!audioContextRef.current) {
       const AudioContextConstructor = window.AudioContext || (window as any).webkitAudioContext;
@@ -576,34 +582,35 @@ export function CPRClockStreamlined({
     }
 
     const ctx = audioContextRef.current;
+    if (ctx.state === 'suspended') void ctx.resume().catch(() => undefined);
     const oscillator = ctx.createOscillator();
     const gainNode = ctx.createGain();
-    
+
     oscillator.connect(gainNode);
     gainNode.connect(ctx.destination);
-    
-    oscillator.frequency.value = 800; // 800 Hz beep
+
+    oscillator.frequency.value = 800;
     oscillator.type = 'sine';
-    
+
     gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-    
+
     oscillator.start(ctx.currentTime);
     oscillator.stop(ctx.currentTime + 0.1);
-  }, [metronomeEnabled, audioEnabled, audioUnlocked]);
+  }, [audioEnabled, audioUnlocked, metronomeEnabled, pulse]);
 
-  // Start metronome
+  // Start with CPR itself; pads are a separate non-blocking documentation step.
   useEffect(() => {
-    if (isRunning && metronomeEnabled && phase === 'compressions') {
-      metronomeRef.current = setInterval(() => {
-        playMetronomeBeep();
-      }, 600); // 100 bpm
+    if (effectiveIsRunning && metronomeEnabled && phase === 'compressions') {
+      playMetronomeBeat();
+      metronomeRef.current = setInterval(playMetronomeBeat, Math.round(60000 / CPR_METRONOME_BPM));
     }
-    
+
     return () => {
       if (metronomeRef.current) clearInterval(metronomeRef.current);
+      metronomeRef.current = null;
     };
-  }, [isRunning, metronomeEnabled, phase, playMetronomeBeep]);
+  }, [effectiveIsRunning, metronomeEnabled, phase, playMetronomeBeat]);
 
   // Sync parent ResusGPS timer into shared/local arrest clock
   useEffect(() => {
@@ -731,7 +738,7 @@ export function CPRClockStreamlined({
   useEffect(() => {
     const precharge = activeAlerts.some((a) => a.type === 'precharge_defibrillator');
     if (precharge && isShockableRhythm && !defibCharging) {
-      setChargeForShock(false);
+      setChargeForShock(true);
       setShowChargePrompt(true);
     }
     const airway = activeAlerts.some((a) => a.type === 'advanced_airway');
@@ -812,7 +819,10 @@ export function CPRClockStreamlined({
           setRhythmWindowElapsed(0);
           setShowRhythmCheck(true);
           rhythmWindowLoggedRef.current = false;
-          setDefibCharging(false);
+          // Preserve a confirmed pre-charge into the rhythm pause. If the
+          // device was not charged, the state remains false and the charge
+          // action can be requested after a shockable rhythm is documented.
+          if (!defibChargingRef.current) setDefibCharging(false);
           addEventRef.current('2-minute cycle complete', `Cycle ${cycleNumberRef.current} — reassessment due`);
         }
       } else if (currentPhase === 'reassessment') {
@@ -844,21 +854,6 @@ export function CPRClockStreamlined({
       timerRef.current = null;
     };
   }, [effectiveIsRunning, effectiveRoscAchieved, syncShared]);
-
-  // Reassessment countdown timer (10-second CPR interruption window)
-  useEffect(() => {
-    if (phase === 'reassessment' && reassessmentTime > 0) {
-      const timer = setTimeout(() => {
-        setReassessmentTime((prev) => prev - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-    if (phase === 'reassessment' && reassessmentTime === 0 && !rhythmWindowLoggedRef.current) {
-      rhythmWindowLoggedRef.current = true;
-      setShowRhythmCheck(true);
-      addEvent('Rhythm check window', '10-second interruption for rhythm assessment');
-    }
-  }, [phase, reassessmentTime, addEvent]);
 
   // Scroll to top when reversible causes overlay opens
   useEffect(() => {
@@ -951,10 +946,17 @@ export function CPRClockStreamlined({
     // Shockable rhythms use the charge -> clear/shock path; non-shockable rhythms
     // require a documented no-shock reason before compressions resume.
     if (isShockable) {
-      setPhase('charging');
       setChargeForShock(true);
-      setShowChargePrompt(true);
+      if (defibCharging && !defibrillatorDelayed) {
+        setPhase('shock_ready');
+        setShowChargePrompt(false);
+        speak('Defibrillator already charged. Clear the patient and deliver the shock when ready.');
+      } else {
+        setPhase('charging');
+        setShowChargePrompt(true);
+      }
     } else {
+      setDefibCharging(false);
       const wasScheduledReassessment = phase === 'reassessment';
       const noShockReason = `${type === 'pea' ? 'PEA' : type === 'bradycardia' ? 'Bradycardia' : 'Asystole'} documented — non-shockable rhythm`;
       applyRhythmWindowDecision(effectiveShockCount, {
@@ -1370,7 +1372,7 @@ export function CPRClockStreamlined({
                   className="text-white justify-start gap-2"
                 >
                   <Wind className="h-4 w-4" />
-                  {metronomeEnabled ? 'Metronome on' : 'Metronome off'}
+                  {metronomeEnabled ? 'Metronome on · 110/min' : 'Metronome off'}
                 </Button>
                 <Button
                   variant="ghost"

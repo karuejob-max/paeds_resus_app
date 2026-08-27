@@ -20,6 +20,8 @@ export const DEFIB_PREPARATION_ALERT_SECONDS = 30;
 export const RHYTHM_WINDOW_SECONDS = 10;
 export const CYCLE_BLOCK_SECONDS = CPR_CYCLE_SECONDS + RHYTHM_WINDOW_SECONDS;
 export const VENTILATION_CUE_SECONDS = 6;
+/** Timing aid only; not compression-quality feedback or measurement. */
+export const CPR_METRONOME_BPM = 110;
 export const EPI_MIN_INTERVAL_SECONDS = 180;
 /** 1-minute prep warning before next epinephrine dose (CEO CPR-GPS). */
 export const EPI_PREP_WARNING_SECONDS = 60;

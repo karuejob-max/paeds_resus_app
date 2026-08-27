@@ -17,6 +17,8 @@ export interface PatientDemographics {
   weight: string;
   /** Caregiver- or record-reported last known weight. */
   lastKnownWeight?: string;
+  /** Optional preterm gestational age in completed weeks. */
+  gestationalAgeWeeks?: string;
   weightSource?: RecordedWeightSource;
   timestamp?: string;
 }
@@ -41,6 +43,7 @@ export function PatientDemographicsProvider({ children }: { children: ReactNode 
     age: '',
     weight: '',
     lastKnownWeight: '',
+    gestationalAgeWeeks: '',
     weightSource: 'measured',
   });
 
@@ -77,7 +80,7 @@ export function PatientDemographicsProvider({ children }: { children: ReactNode 
   };
 
   const clearDemographics = () => {
-    setDemographicsState({ age: '', weight: '', lastKnownWeight: '', weightSource: 'measured' });
+    setDemographicsState({ age: '', weight: '', lastKnownWeight: '', gestationalAgeWeeks: '', weightSource: 'measured' });
     try {
       sessionStorage.removeItem(SESSION_STORAGE_KEY);
       localStorage.removeItem(LEGACY_LOCALSTORAGE_KEY);
