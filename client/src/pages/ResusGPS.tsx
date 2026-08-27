@@ -396,15 +396,16 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   );
   const { canUndo, canRedo, undo: handleUndo, redo: handleRedo } = useUndo(session, (nextSession) => setSession(nextSession));
 
-  // Sync demographics
+  // Sync demographics only before a case starts. Direct case entry is authoritative once active.
   useEffect(() => {
+    if (session.phase !== 'IDLE') return;
     const resolution = resolveCurrentWeight();
     const weight = resolution?.weightKg ?? null;
     const age = demographics.age || null;
     if (weight !== session.patientWeight || age !== session.patientAge || resolution?.source !== session.patientWeightSource) {
       setSession(prev => updatePatientInfo(prev, weight, age, resolution?.source, resolution?.method));
     }
-  }, [demographics.age, demographics.lastKnownWeight, demographics.weight, demographics.weightSource, resolveCurrentWeight, session.patientAge, session.patientWeight, session.patientWeightSource]);
+  }, [demographics.age, demographics.lastKnownWeight, demographics.weight, demographics.weightSource, resolveCurrentWeight, session.phase, session.patientAge, session.patientWeight, session.patientWeightSource]);
 
   // Start timer when assessment begins
   useEffect(() => {
