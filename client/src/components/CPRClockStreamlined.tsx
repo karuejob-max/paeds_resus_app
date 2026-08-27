@@ -91,8 +91,8 @@ interface Props {
   externalRunning?: boolean;
   autoStart?: boolean;
   lifeSupportPack?: LifeSupportPackResult;
-  /** Return ROSC to the parent ResusGPS flow for post-cardiac-arrest care. */
-  onROSC?: () => void;
+  /** Return ROSC and the server CPR session ID to the parent flow for post-cardiac-arrest care and debrief. */
+  onROSC?: (cprSessionId?: number) => void;
   /** The integrated flow owns demographics in ResusGPS; standalone mode may edit them locally. */
   allowPatientInfoEdit?: boolean;
   useSharedState?: boolean;
@@ -235,6 +235,7 @@ export function CPRClockStreamlined({
   const [showRoscConfirm, setShowRoscConfirm] = useState(false);
   const [showPostRoscProtocol, setShowPostRoscProtocol] = useState(false);
   const [showDebrief, setShowDebrief] = useState(false);
+  const [padsAttached, setPadsAttached] = useState(false);
   const [recoveredFromLocal, setRecoveredFromLocal] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [isOnline, setIsOnline] = useState(() => typeof navigator === 'undefined' ? true : navigator.onLine);
@@ -716,6 +717,15 @@ export function CPRClockStreamlined({
     }
   }, [activeAlerts, antiarrhythmicDue, cprEnginePack, defibCharging, effectiveEpiDoses, effectiveShockCount, epiDue, isShockableRhythm]);
 
+  // If mobile audio was unlocked after an alert fired, replay the current cue once.
+  // Visible text and haptics remain the fallback when the browser blocks speech.
+  useEffect(() => {
+    if (!audioEnabled || !audioUnlocked) return;
+    const alert = activeAlerts.find((item) => item.speakText);
+    if (!alert?.speakText) return;
+    speak(alert.speakText, `audio-unlocked-${alert.type}-${effectiveCompressionElapsed}-${rhythmWindowElapsed ?? 'na'}`);
+  }, [activeAlerts, audioEnabled, audioUnlocked, effectiveCompressionElapsed, rhythmWindowElapsed, speak]);
+
   // Timer logic (skip arrest duration tick when parent timer is authoritative)
   useEffect(() => {
     if (effectiveIsRunning && !effectiveRoscAchieved) {
@@ -813,12 +823,15 @@ export function CPRClockStreamlined({
   useEffect(() => {
     if (!autoStart || autoStartApplied.current) return;
     autoStartApplied.current = true;
+    unlockAudio();
     if (syncShared && shared) {
       shared.setIsRunning(true);
     }
     setIsRunning(true);
-    setPhase('initial_assessment');
-    addEvent('Cardiac arrest recognized — CPR clock synced to ResusGPS');
+    setPhase('compressions');
+    setShowRhythmCheck(false);
+    setPadsAttached(false);
+    addEvent('Cardiac arrest recognized — CPR started; attach pads while compressions continue');
     speak('Cardiac arrest recognized. Start CPR with chest compressions. Attach pads now.');
   }, [autoStart, addEvent, speak, syncShared, shared]);
 
@@ -827,17 +840,19 @@ export function CPRClockStreamlined({
     unlockAudio();
     if (syncShared && shared) shared.setIsRunning(true);
     setIsRunning(true);
-    setPhase('initial_assessment');
-    addEvent('Cardiac arrest recognized');
+    setPhase('compressions');
+    setShowRhythmCheck(false);
+    setPadsAttached(false);
+    addEvent('Cardiac arrest recognized — CPR started; attach pads while compressions continue');
     speak('Cardiac arrest recognized. Start CPR with chest compressions. Attach pads now.');
   };
 
   // Pads attached - assess rhythm immediately
   const handlePadsAttached = () => {
     unlockAudio();
-    setShowRhythmCheck(true);
-    addEvent('Pads attached');
-    speak('Pads attached. Assess rhythm now.');
+    setPadsAttached(true);
+    addEvent('Pads attached — continue compressions until the next reassessment window');
+    speak('Pads attached. Continue compressions until the next rhythm check.');
   };
 
   // Handle rhythm check using cpr-engine
@@ -1073,7 +1088,7 @@ export function CPRClockStreamlined({
     }
 
     if (onROSC) {
-      onROSC();
+      onROSC(sessionId ?? undefined);
       return;
     }
 
@@ -1383,6 +1398,10 @@ export function CPRClockStreamlined({
         effectiveShockCount={effectiveShockCount}
         effectiveEpiDoses={effectiveEpiDoses}
         effectiveRhythmType={effectiveRhythmType}
+        padsAttached={padsAttached}
+        audioEnabled={audioEnabled}
+        audioUnlocked={audioUnlocked}
+        onUnlockAudio={unlockAudio}
         epiState={epiState}
         epiDose={epiDose}
         antiarrhythmicDue={antiarrhythmicDue}

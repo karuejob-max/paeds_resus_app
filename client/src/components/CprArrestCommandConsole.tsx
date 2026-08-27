@@ -37,6 +37,10 @@ interface Props {
   effectiveShockCount: number;
   effectiveEpiDoses: number;
   effectiveRhythmType: RhythmType | null;
+  padsAttached?: boolean;
+  audioEnabled?: boolean;
+  audioUnlocked?: boolean;
+  onUnlockAudio?: () => void;
   epiState: EpiTimingState;
   epiDose: number;
   antiarrhythmicDue?: boolean;
@@ -142,6 +146,10 @@ export function CprArrestCommandConsole({
   effectiveShockCount,
   effectiveEpiDoses,
   effectiveRhythmType,
+  padsAttached = false,
+  audioEnabled = true,
+  audioUnlocked = false,
+  onUnlockAudio,
   epiState,
   epiDose,
   antiarrhythmicDue = false,
@@ -233,6 +241,16 @@ export function CprArrestCommandConsole({
           </div>
         </div>
 
+        {audioEnabled && !audioUnlocked && onUnlockAudio && (
+          <button
+            type="button"
+            onClick={onUnlockAudio}
+            className="flex min-h-11 w-full items-center justify-center rounded-lg border border-sky-400/60 bg-sky-950/40 px-3 py-2 text-xs font-semibold text-sky-100 hover:bg-sky-900/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+          >
+            Enable spoken alerts — text and vibration remain active
+          </button>
+        )}
+
         <div className="grid grid-cols-2 gap-2" aria-label="Cardiac arrest timers">
           <Card className="border-slate-700 bg-slate-900 text-white">
             <CardContent className="p-3">
@@ -290,10 +308,10 @@ export function CprArrestCommandConsole({
               </div>
             )}
 
-            {phase === 'initial_assessment' && (
-              <Button onClick={onPadsAttached} className="min-h-14 w-full bg-sky-600 text-base font-bold hover:bg-sky-500 sm:text-lg">
+            {phase === 'compressions' && !padsAttached && (
+              <Button onClick={onPadsAttached} className="min-h-12 w-full bg-sky-600 text-base font-bold hover:bg-sky-500 sm:text-lg">
                 <CheckCircle2 className="mr-2 h-5 w-5" aria-hidden />
-                Pads attached — assess rhythm
+                Pads attached — keep compressions going
               </Button>
             )}
           </CardContent>

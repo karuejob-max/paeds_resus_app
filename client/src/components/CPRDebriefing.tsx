@@ -127,21 +127,24 @@ export function CPRDebriefing({
     const rhythmChecks = events.filter(e => e.action.toLowerCase().includes('rhythm check') || e.action.toLowerCase().includes('rhythm assessment'));
     
     // Fallback to estimation if no duration data
-    const pauseTime = rhythmChecks.length * 10; // 10s per rhythm check
-    const compressionTime = totalDuration - pauseTime;
-    const compressionFraction = Math.max(0, Math.min(100, (compressionTime / totalDuration) * 100));
+    const pauseTime = rhythmChecks.length * 10; // CPR event timestamps and totalDuration are seconds
+    const compressionTime = Math.max(0, totalDuration - pauseTime);
+    const compressionFraction = totalDuration > 0
+      ? Math.max(0, Math.min(100, (compressionTime / totalDuration) * 100))
+      : 0;
 
-    // Time to first epinephrine (relative to first arrest event)
-    const arrestStart = events.length > 0 ? events[0].timestamp : 0;
-    const firstEpi = events.find(e => e.action.toLowerCase().includes('epinephrine') || e.action.toLowerCase().includes('epi'));
-    const timeToFirstEpi = firstEpi ? (firstEpi.timestamp - arrestStart) / 1000 : null;
+    // CPR event timestamps are seconds from arrest start, not milliseconds.
+    const chronologicalEvents = [...events].sort((a, b) => a.timestamp - b.timestamp);
+    const arrestStart = chronologicalEvents.length > 0 ? chronologicalEvents[0].timestamp : 0;
+    const firstEpi = chronologicalEvents.find(e => e.action.toLowerCase().includes('epinephrine') || e.action.toLowerCase().includes('epi'));
+    const timeToFirstEpi = firstEpi ? Math.max(0, firstEpi.timestamp - arrestStart) : null;
 
     // Time to first shock
-    const firstShock = events.find(e => e.action.toLowerCase().includes('shock') || e.action.toLowerCase().includes('defibrillation'));
-    const timeToFirstShock = firstShock ? (firstShock.timestamp - arrestStart) / 1000 : null;
+    const firstShock = chronologicalEvents.find(e => e.action.toLowerCase().includes('shock') || e.action.toLowerCase().includes('defibrillation'));
+    const timeToFirstShock = firstShock ? Math.max(0, firstShock.timestamp - arrestStart) : null;
 
     // Rhythm check intervals
-    const rhythmCheckEvents = events.filter(e => e.action.includes('Rhythm check'));
+    const rhythmCheckEvents = chronologicalEvents.filter(e => e.action.includes('Rhythm check'));
     const rhythmCheckIntervals: number[] = [];
     for (let i = 1; i < rhythmCheckEvents.length; i++) {
       const interval = rhythmCheckEvents[i].timestamp - rhythmCheckEvents[i - 1].timestamp;
