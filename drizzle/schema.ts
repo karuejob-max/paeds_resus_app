@@ -83,6 +83,11 @@ export const enrollments = mysqlTable("enrollments", {
   programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp", "paeds_resus_ils"]).notNull(),
   trainingDate: timestamp("trainingDate").notNull(),
   paymentStatus: mysqlEnum("paymentStatus", ["pending", "partial", "completed"]).default("pending"),
+  /** Reversible lifecycle state; cancellation preserves the enrollment and payment audit trail. */
+  enrollmentStatus: mysqlEnum("enrollmentStatus", ["active", "cancelled"]).default("active").notNull(),
+  cancelledAt: timestamp("cancelledAt"),
+  cancelledByUserId: int("cancelledByUserId"),
+  cancellationReason: varchar("cancellationReason", { length: 255 }),
   amountPaid: int("amountPaid").default(0), // in cents (KES)
   ahaPrecourseCompleted: boolean("ahaPrecourseCompleted").default(false),
   ahaCertificateUrl: text("ahaCertificateUrl"),
@@ -345,7 +350,7 @@ export const payments = mysqlTable("payments", {
   nerpOfferEnrollmentId: int("nerpOfferEnrollmentId"),
   installmentNumber: int("installmentNumber"),
   nerpLedgerAppliedAt: timestamp("nerpLedgerAppliedAt"),
-  status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending"),
+  status: mysqlEnum("status", ["pending", "completed", "failed", "cancelled"]).default("pending"),
   smsConfirmationSent: boolean("smsConfirmationSent").default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

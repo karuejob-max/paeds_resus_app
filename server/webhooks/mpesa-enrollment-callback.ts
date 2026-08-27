@@ -101,6 +101,18 @@ export async function handleMpesaEnrollmentCallback(body: MpesaCallbackBody): Pr
     const payment = paymentRows[0];
     const metadata = parseCallbackMetadata(CallbackMetadata?.Item);
 
+    // A payment that is already finalized is terminal. In particular, a
+    // cancelled pending payment must not be resurrected by a delayed success
+    // callback from the payment provider.
+    if (payment.status !== "pending") {
+      return {
+        success: true,
+        message: "Payment already finalized",
+        paymentId: payment.id,
+        enrollmentId: payment.enrollmentId,
+      };
+    }
+
     // Check result code
     if (ResultCode === 0) {
       // Payment successful

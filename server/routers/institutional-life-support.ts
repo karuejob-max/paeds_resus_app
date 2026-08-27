@@ -32,6 +32,7 @@ import {
   PAEDS_RESUS_ILS_CREDENTIALING_WINDOW_DAYS,
   PAEDS_RESUS_ILS_DELIVERY_MODEL,
   PAEDS_RESUS_ILS_PROGRAM_TYPE,
+  canCancelPendingIlsEnrollment,
   type PaedsResusIlsAhaCredential,
 } from "@shared/institutional-life-support";
 import {
@@ -84,7 +85,8 @@ async function getOwnIlsEnrollment(
       and(
         eq(enrollments.id, enrollmentId),
         eq(enrollments.userId, userId),
-        eq(enrollments.programType, PAEDS_RESUS_ILS_PROGRAM_TYPE)
+        eq(enrollments.programType, PAEDS_RESUS_ILS_PROGRAM_TYPE),
+        eq(enrollments.enrollmentStatus, "active")
       )
     )
     .limit(1);
@@ -156,7 +158,8 @@ export const institutionalLifeSupportRouter = router({
       .where(
         and(
           eq(enrollments.userId, ctx.user.id),
-          eq(enrollments.programType, PAEDS_RESUS_ILS_PROGRAM_TYPE)
+          eq(enrollments.programType, PAEDS_RESUS_ILS_PROGRAM_TYPE),
+          eq(enrollments.enrollmentStatus, "active")
         )
       )
       .orderBy(desc(enrollments.createdAt))
@@ -194,6 +197,89 @@ export const institutionalLifeSupportRouter = router({
       windowOpen: Date.now() < row.credentialingDeadline.getTime(),
     }));
   }),
+
+  cancelPendingEnrollment: protectedProcedure
+    .input(
+      z.object({
+        enrollmentId: z.number().int().positive(),
+        reason: z.string().trim().max(255).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      const db = await getDb();
+      if (!db)
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database unavailable",
+        });
+
+      const rows = await db
+        .select()
+        .from(enrollments)
+        .where(
+          and(
+            eq(enrollments.id, input.enrollmentId),
+            eq(enrollments.userId, ctx.user.id),
+            eq(enrollments.programType, PAEDS_RESUS_ILS_PROGRAM_TYPE)
+          )
+        )
+        .limit(1);
+      const enrollment = rows[0];
+      if (!enrollment)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Institutional Life Support enrollment not found.",
+        });
+      if (enrollment.enrollmentStatus === "cancelled")
+        return {
+          cancelled: true,
+          alreadyCancelled: true,
+          enrollmentId: enrollment.id,
+        };
+      if (
+        !canCancelPendingIlsEnrollment({
+          enrollmentStatus: enrollment.enrollmentStatus,
+          paymentStatus: enrollment.paymentStatus,
+          amountPaid: enrollment.amountPaid,
+          cognitiveModulesComplete: enrollment.cognitiveModulesComplete,
+          practicalSkillsSignedOff: enrollment.practicalSkillsSignedOff,
+        })
+      )
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Only an unpaid, unstarted Institutional Life Support enrollment can be cancelled here. Contact Paeds Resus support for a paid or started enrollment.",
+        });
+
+      await db.transaction(async tx => {
+        await tx
+          .update(payments)
+          .set({ status: "cancelled", updatedAt: new Date() })
+          .where(
+            and(
+              eq(payments.enrollmentId, enrollment.id),
+              eq(payments.status, "pending")
+            )
+          );
+        await tx
+          .update(enrollments)
+          .set({
+            enrollmentStatus: "cancelled",
+            cancelledAt: new Date(),
+            cancelledByUserId: ctx.user.id,
+            cancellationReason:
+              input.reason || "Cancelled by provider before payment or course access.",
+            updatedAt: new Date(),
+          })
+          .where(eq(enrollments.id, enrollment.id));
+      });
+      return {
+        cancelled: true,
+        alreadyCancelled: false,
+        enrollmentId: enrollment.id,
+      };
+    }),
 
   getInstitutionRoster: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive() }))
