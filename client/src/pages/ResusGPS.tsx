@@ -32,9 +32,9 @@ import { NeonatalResuscitationFlow } from '@/components/NeonatalResuscitationFlo
 import { CPRDebriefing } from '@/components/CPRDebriefing';
 import { ClinicalContentSafetyFooter } from '@/components/ClinicalContentSafetyFooter';
 import { ClinicalUseDisclaimer } from '@/components/ClinicalUseDisclaimer';
-import { AgeInput } from '@/components/AgeInput';
-import { parseAgeString, ageToMonths, type StructuredAge } from '@/lib/resus/age-calculator';
-import { validateResusWeight } from '@/lib/resus/patientDemographics';
+
+import { parseResusWeight, validateResusWeight } from '@/lib/resus/patientDemographics';
+import { resolvePatientWeight, parseAgeToMonths, type ResolvedPatientWeight } from '@/lib/resus/patient-weight';
 import { DiagnosisCard } from '@/components/DiagnosisCard';
 import { getDoseRationale } from '@/lib/resus/dose-rationale';
 import { DoseRationaleCard } from '@/components/DoseRationaleCard';
@@ -279,28 +279,39 @@ function formatTime(seconds: number): string {
 }
 
 function approximateAgeMonths(age: string | null): number {
-  if (!age) return 0;
-  const structured = parseAgeString(age);
-  if (structured) return Math.max(0, ageToMonths(structured));
-  const lower = age.toLowerCase();
-  const n = parseInt(lower.match(/\d+/)?.[0] ?? '0', 10);
-  if (lower.includes('month')) return n;
-  if (lower.includes('week')) return Math.max(0, Math.round(n / 4.33));
-  if (lower.includes('day') || lower.includes('neonat')) return 0;
-  if (lower.includes('year') || lower.includes('y ')) return n * 12;
-  return n * 12;
+  return parseAgeToMonths(age) ?? 0;
 }
 
 // ─── Main Component ─────────────────────────────────────────
 
 export default function ResusGPS({ hasActivationContext = false, activationEventId }: { hasActivationContext?: boolean; activationEventId?: number }) {
   const { demographics, setDemographics, clearDemographics, getWeightInKg } = usePatientDemographics();
+  const resolveCurrentWeight = useCallback((override?: { age?: string; weight?: string; weightSource?: 'measured' | 'last_known' }): ResolvedPatientWeight | null => {
+    const age = override?.age ?? demographics.age;
+    const weightValue = override?.weight ?? demographics.weight;
+    const weightSource = override?.weightSource ?? demographics.weightSource ?? 'measured';
+    const enteredWeight = parseResusWeight(weightValue);
+    const lastKnownWeight = parseResusWeight(demographics.lastKnownWeight);
+    return resolvePatientWeight({
+      age,
+      measuredWeightKg: weightSource === 'measured' ? enteredWeight : null,
+      lastKnownWeightKg: weightSource === 'last_known' ? enteredWeight : lastKnownWeight,
+    });
+  }, [demographics.age, demographics.lastKnownWeight, demographics.weight, demographics.weightSource]);
+  const initialWeightResolution = resolveCurrentWeight();
   const analytics = useResusAnalytics();
   const analyticsRef = useRef(analytics);
   analyticsRef.current = analytics;
   const { trackButtonClick } = useAnalytics('ResusGPS');
   const utils = trpc.useUtils();
-  const [session, setSession] = useState<ResusSession>(() => createSession(getWeightInKg(), demographics.age || null));
+  const [session, setSession] = useState<ResusSession>(() => createSession(
+    initialWeightResolution?.weightKg ?? getWeightInKg(),
+    demographics.age || null,
+    false,
+    'hospital',
+    initialWeightResolution?.source ?? demographics.weightSource ?? 'measured',
+    initialWeightResolution?.method,
+  ));
   const [resumeCandidate, setResumeCandidate] = useState<ResusSession | null>(null);
 
   // ── On mount: check for an unfinished persisted session + last SAMPLE ───────
@@ -329,6 +340,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   const [patientInfoOpen, setPatientInfoOpen] = useState(false);
   const [tempWeight, setTempWeight] = useState('');
   const [tempAge, setTempAge] = useState('');
+  const [tempWeightSource, setTempWeightSource] = useState<'measured' | 'last_known'>('measured');
   const [tempSetting, setTempSetting] = useState<ResusSetting>('hospital');
   const [numberInput, setNumberInput] = useState('');
   const [numberInput2, setNumberInput2] = useState('');
@@ -361,12 +373,13 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
 
   // Sync demographics
   useEffect(() => {
-    const weight = getWeightInKg();
+    const resolution = resolveCurrentWeight();
+    const weight = resolution?.weightKg ?? null;
     const age = demographics.age || null;
-    if (weight !== session.patientWeight || age !== session.patientAge) {
-      setSession(prev => updatePatientInfo(prev, weight, age));
+    if (weight !== session.patientWeight || age !== session.patientAge || resolution?.source !== session.patientWeightSource) {
+      setSession(prev => updatePatientInfo(prev, weight, age, resolution?.source, resolution?.method));
     }
-  }, [demographics]);
+  }, [demographics.age, demographics.lastKnownWeight, demographics.weight, demographics.weightSource, resolveCurrentWeight, session.patientAge, session.patientWeight, session.patientWeightSource]);
 
   // Start timer when assessment begins
   useEffect(() => {
@@ -479,31 +492,32 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
 
   // ─── Handlers ───────────────────────────────────────────
 
-  const handleStart = (isTrauma: boolean) => {
+  const handleStart = (isTrauma: boolean, entry?: { age: string; weight: string; weightSource: 'measured' | 'last_known' }) => {
     trackButtonClick('Start ResusGPS emergency flow', { isTrauma });
-    const weight = getWeightInKg();
-    if (!demographics.age.trim()) {
+    const entryAge = entry?.age ?? demographics.age;
+    const resolution = resolveCurrentWeight(entry);
+    if (!entryAge.trim()) {
       toast.error('Enter the patient age before starting age-specific guidance.');
-      setTempWeight(demographics.weight || '');
-      setTempAge(demographics.age || '');
-      setTempSetting(session.resusSetting ?? 'hospital');
-      setPatientInfoOpen(true);
       return;
     }
-    if (weight === null) {
-      toast.error('Enter and confirm the patient weight before starting BLS guidance.');
-      setTempWeight(demographics.weight || '');
-      setTempAge(demographics.age || '');
-      setTempSetting(session.resusSetting ?? 'hospital');
-      setPatientInfoOpen(true);
+    if (!resolution) {
+      toast.error('Enter a valid measured or last-known weight, or use the age estimate.');
       return;
     }
-    const weightValidation = validateResusWeight(weight);
+    const weightValidation = validateResusWeight(resolution.weightKg);
     if (!weightValidation.valid) {
       toast.error(weightValidation.message ?? 'Verify the patient weight before starting.');
       return;
     }
-    const s = createSession(weight, demographics.age || null, isTrauma);
+    const setting = isNeonatalCase(entryAge) ? session.resusSetting ?? 'hospital' : 'hospital';
+    const s = createSession(
+      resolution.weightKg,
+      entryAge || null,
+      isTrauma,
+      setting,
+      resolution.source,
+      resolution.method,
+    );
     const started = startQuickAssessment(s);
     setSession(started);
     analytics.resetSessionId(started.id);
@@ -512,7 +526,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     timer.reset();
     timer.start();
     // Track assessment start
-    analytics.trackAssessmentStart(demographics.age || undefined, getWeightInKg() ?? undefined);
+    analytics.trackAssessmentStart(entryAge || undefined, resolution.weightKg);
   };
 
   const handleQuickAssessment = (answer: BLSAssessmentAnswer) => {
@@ -709,18 +723,25 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   };
 
   const handleUpdatePatientInfo = () => {
-    const rawWeight = tempWeight.trim();
-    const newWeight = rawWeight ? Number(rawWeight) : null;
-    const validation = newWeight === null ? { valid: true as const } : validateResusWeight(newWeight);
-    if (!validation.valid) {
-      toast.error(validation.message ?? 'Verify the patient weight before saving.');
+    const newAge = tempAge.trim() || null;
+    const enteredWeight = parseResusWeight(tempWeight);
+    const resolution = resolvePatientWeight({
+      age: newAge,
+      measuredWeightKg: tempWeightSource === 'measured' ? enteredWeight : null,
+      lastKnownWeightKg: tempWeightSource === 'last_known' ? enteredWeight : parseResusWeight(demographics.lastKnownWeight),
+    });
+    if (tempWeight.trim() && enteredWeight === null) {
+      toast.error('Enter a valid weight in kilograms, or clear the field to use an emergency estimate.');
       return;
     }
-    const newAge = tempAge || null;
-    if (newWeight !== null || newAge !== null) {
+    if (newAge && !resolution) {
+      toast.error('Enter a valid age before saving patient context.');
+      return;
+    }
+    if (resolution !== null || newAge !== null) {
       try {
         setSession(prev => {
-          const updated = updatePatientInfo(prev, newWeight, newAge);
+          const updated = updatePatientInfo(prev, resolution?.weightKg ?? null, newAge, resolution?.source, resolution?.method);
           const setting = getAgeCategory(newAge) === 'neonate' ? tempSetting : 'hospital';
           return updateResusSetting(updated, setting);
         });
@@ -728,11 +749,13 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
         toast.error(error instanceof Error ? error.message : 'Verify the patient information before saving.');
         return;
       }
-      if (newWeight !== null) {
-        setDemographics({ ...demographics, weight: tempWeight, age: tempAge || demographics.age });
-      } else if (newAge) {
-        setDemographics({ ...demographics, age: tempAge, weight: demographics.weight });
-      }
+      setDemographics({
+        ...demographics,
+        age: tempAge,
+        weight: tempWeightSource === 'last_known' ? '' : tempWeight,
+        lastKnownWeight: tempWeightSource === 'last_known' ? tempWeight : demographics.lastKnownWeight,
+        weightSource: tempWeightSource,
+      });
     }
     setPatientInfoOpen(false);
   };
@@ -1269,8 +1292,9 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
         fellowshipChipLabel={fellowshipChipLabel}
         fellowshipSaved={fellowshipSavedSessionId === session.id}
         onOpenPatientInfo={() => {
-          setTempWeight(session.patientWeight?.toString() || '');
-          setTempAge(session.patientAge || '');
+          setTempWeight(session.patientWeightSource === 'age_estimate' ? '' : demographics.weight || session.patientWeight?.toString() || '');
+          setTempAge(session.patientAge || demographics.age || '');
+          setTempWeightSource(session.patientWeightSource === 'last_known' ? 'last_known' : demographics.weightSource ?? 'measured');
           setTempSetting(session.resusSetting ?? 'hospital');
           setPatientInfoOpen(true);
         }}
@@ -1341,11 +1365,14 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       <main className="container max-w-2xl pb-32 max-md:pb-40">
         {session.phase === 'IDLE' && (
           <IdleScreen
-            weight={weight}
+            weightValue={demographics.weight}
+            lastKnownWeight={demographics.lastKnownWeight}
+            weightSource={demographics.weightSource ?? 'measured'}
             age={demographics.age}
             onStart={handleStart}
             onAgeChange={(nextAge) => setDemographics({ ...demographics, age: nextAge })}
             onWeightChange={(nextWeight) => setDemographics({ ...demographics, weight: nextWeight })}
+            onWeightSourceChange={(nextSource) => setDemographics({ ...demographics, weightSource: nextSource })}
           />
         )}
 
@@ -1417,15 +1444,15 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
         {session.phase === 'CARDIAC_ARREST' && showCPRClock && !cprDemographicsReady ? (
           <Card className="border-amber-500/40 bg-amber-500/10">
             <CardContent className="pt-6 pb-6 space-y-4">
-              <p className="font-semibold text-foreground">Patient weight and age required</p>
+              <p className="font-semibold text-foreground">Patient age and weight context required</p>
               <p className="text-sm text-muted-foreground">
-                CPR dosing and defibrillation energy need an actual weight and age band. Enter patient
-                details before using the CPR clock (no default weight is applied).
+                Enter age and the best available weight. If no measured or last-known weight is available, ResusGPS can use a clearly labelled emergency estimate.
               </p>
               <Button
                 onClick={() => {
-                  setTempWeight(demographics.weight || '');
+                  setTempWeight(session.patientWeightSource === 'age_estimate' ? '' : demographics.weight || session.patientWeight?.toString() || '');
                   setTempAge(demographics.age || session.patientAge || '');
+                  setTempWeightSource(session.patientWeightSource === 'last_known' ? 'last_known' : demographics.weightSource ?? 'measured');
                   setTempSetting(session.resusSetting ?? 'hospital');
                   setPatientInfoOpen(true);
                 }}
@@ -1561,42 +1588,46 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
           <DialogHeader>
             <DialogTitle className="text-foreground">Patient Information</DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Update weight and age at any point. Drug doses recalculate automatically.
+              Update age and the best available weight. Current measured weight is preferred; last-known weight is better than an age-only estimate.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto">
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">Weight (kg)</label>
+              <label htmlFor="patient-weight" className="text-sm font-medium text-foreground mb-1 block">Weight for dosing (kg)</label>
               <Input
+                id="patient-weight"
                 type="number"
-                placeholder="e.g., 18"
+                inputMode="decimal"
+                min="0.3"
+                step="0.1"
+                placeholder="Optional if unavailable"
                 value={tempWeight}
                 onChange={e => setTempWeight(e.target.value)}
                 className="bg-background text-foreground"
               />
-              {tempWeight && (
-                <p className="text-xs text-green-400 mt-1">
-                  ✓ Weight set to {tempWeight} kg
-                </p>
-              )}
-              {!tempWeight && (
-                <p className="text-xs text-amber-400 mt-1">
-                  A verified weight is required before CPR-GPS shows calculated doses or energy.
-                </p>
-              )}
+              <select
+                aria-label="Patient weight source"
+                value={tempWeightSource}
+                onChange={(event) => setTempWeightSource(event.target.value as 'measured' | 'last_known')}
+                className="mt-2 min-h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
+              >
+                <option value="measured">Measured/current weight</option>
+                <option value="last_known">Last known/caregiver-reported weight</option>
+              </select>
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">Age</label>
-              <AgeInput
-                age={parseAgeString(tempAge) ?? { years: 0, months: 0, weeks: 0 }}
-                onAgeChange={(age: StructuredAge) => {
-                  const formattedAge = `${age.years}y ${age.months}m ${age.weeks}w`;
-                  setTempAge(formattedAge);
-                }}
+              <label htmlFor="patient-age" className="text-sm font-medium text-foreground mb-1 block">Age</label>
+              <Input
+                id="patient-age"
+                value={tempAge}
+                onChange={e => setTempAge(e.target.value)}
+                placeholder="e.g. 6 months, 4 years, 32 weeks"
+                autoComplete="off"
+                className="bg-background text-foreground"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Enter a measured or clinically verified weight. CPR-GPS does not substitute an age-based estimate for a dose-bearing weight.
+                If no weight is entered, ResusGPS uses a clearly labelled age/context estimate. Replace it with a measured or last-known weight as soon as practical.
               </p>
               {isNeonatalCase(tempAge || null) && (
                 <div className="mt-3 rounded-lg border border-blue-500/40 bg-blue-500/10 p-3">
@@ -1622,7 +1653,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
             <Button 
               onClick={handleUpdatePatientInfo}
               className="bg-green-600 hover:bg-green-700 text-white font-bold gap-2"
-              disabled={!tempWeight && !tempAge}
+              disabled={!tempAge && !tempWeight}
             >
               <CheckCircle2 className="h-4 w-4" />
               Save Weight & Age
@@ -2044,27 +2075,41 @@ function TopBar({
 // ─── Idle Screen ────────────────────────────────────────────
 
 function IdleScreen({
-  weight,
+  weightValue,
+  lastKnownWeight,
+  weightSource,
   age,
   onStart,
   onAgeChange,
   onWeightChange,
+  onWeightSourceChange,
 }: {
-  weight: number | null;
+  weightValue: string;
+  lastKnownWeight?: string;
+  weightSource: 'measured' | 'last_known';
   age: string;
-  onStart: (isTrauma: boolean) => void;
+  onStart: (isTrauma: boolean, entry?: { age: string; weight: string; weightSource: 'measured' | 'last_known' }) => void;
   onAgeChange: (age: string) => void;
   onWeightChange: (weight: string) => void;
+  onWeightSourceChange: (source: 'measured' | 'last_known') => void;
 }) {
-  const hasRequiredContext = Boolean(weight && age);
+  const displayedWeightValue = weightSource === 'last_known' && !weightValue ? lastKnownWeight ?? '' : weightValue;
+  const resolvedWeight = resolvePatientWeight({
+    age,
+    measuredWeightKg: weightSource === 'measured' ? parseResusWeight(weightValue) : null,
+    lastKnownWeightKg: weightSource === 'last_known'
+      ? parseResusWeight(displayedWeightValue)
+      : parseResusWeight(lastKnownWeight),
+  });
+  const hasRequiredContext = Boolean(age.trim() && resolvedWeight);
 
   return (
     <div className="flex min-h-[72vh] flex-col items-center justify-center px-4 py-8">
       <div className="w-full max-w-sm space-y-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">ResusGPS</p>
-          <h1 className="mt-1 text-2xl font-bold text-foreground">Enter patient context</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Use actual age and measured weight. This selects the safe clinical pathway.</p>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">Start Initial Assessment</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Enter age and the best available weight. You can update the source later.</p>
         </div>
 
         <Card className="border-border bg-card">
@@ -2082,22 +2127,41 @@ function IdleScreen({
                 />
               </div>
               <div>
-                <label htmlFor="resus-weight" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Actual weight (kg)</label>
+                <label htmlFor="resus-weight" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Weight for dosing (kg)</label>
                 <Input
                   id="resus-weight"
                   type="number"
                   inputMode="decimal"
-                  min="0.1"
+                  min="0.3"
                   step="0.1"
-                  value={weight ?? ''}
+                  value={displayedWeightValue}
                   onChange={(event) => onWeightChange(event.target.value)}
-                  placeholder="Measured weight"
+                  placeholder={weightSource === 'measured' ? 'Measured/current' : 'Last known'}
                   autoComplete="off"
                   className="mt-1 min-h-12 bg-background text-base"
                 />
+                <select
+                  aria-label="Weight source"
+                  value={weightSource}
+                  onChange={(event) => onWeightSourceChange(event.target.value as 'measured' | 'last_known')}
+                  className="mt-2 min-h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
+                >
+                  <option value="measured">Measured/current weight</option>
+                  <option value="last_known">Last known/caregiver-reported weight</option>
+                </select>
               </div>
             </div>
-            <p className="px-1 text-xs text-muted-foreground">Use the measured weight. Estimated weight is not used for dosing.</p>
+            {resolvedWeight?.source === 'age_estimate' ? (
+              <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                {resolvedWeight.label}: {resolvedWeight.weightKg.toFixed(1)} kg. This is a low-confidence emergency estimate; replace it with a measured or last-known weight as soon as practical.
+              </p>
+            ) : resolvedWeight ? (
+              <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+                {resolvedWeight.label}: {resolvedWeight.weightKg.toFixed(1)} kg.
+              </p>
+            ) : (
+              <p className="px-1 text-xs text-muted-foreground">If no weight is available, leave this blank and the algorithm will show a clearly labelled age-based emergency estimate.</p>
+            )}
           </CardContent>
         </Card>
 
@@ -2105,7 +2169,7 @@ function IdleScreen({
           size="lg"
           disabled={!hasRequiredContext}
           className="min-h-14 w-full bg-primary text-base font-bold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={() => onStart(false)}
+          onClick={() => onStart(false, { age, weight: displayedWeightValue, weightSource })}
         >
           <Siren className="mr-2 h-5 w-5" aria-hidden />
           Continue to assessment
