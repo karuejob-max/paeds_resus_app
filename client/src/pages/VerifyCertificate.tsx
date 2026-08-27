@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle, AlertCircle, Search, Clock } from "lucide-react";
 
 import { trpc } from "@/lib/trpc";
+import { getCertificateDisplayLabel, READINESS_PATHWAY_LABELS } from "@shared/paeds-resus-certificates";
 
 import { usePageMeta } from "@/hooks/usePageMeta";
 
@@ -110,7 +111,7 @@ export default function VerifyCertificate() {
 
           <p className="text-lg font-semibold text-gray-900">
 
-            {result.certificate.programType?.toUpperCase() ?? "-"}
+            {getCertificateDisplayLabel(result.certificate.programType ?? "", null)}
 
           </p>
 
@@ -157,6 +158,20 @@ export default function VerifyCertificate() {
           <p className="text-sm text-gray-600">Verification Result</p>
 
           <p className="text-lg font-semibold text-gray-900">Authentic</p>
+
+        </div>
+
+        <div className="col-span-2">
+
+          <p className="text-sm text-gray-600">Entry Pathway</p>
+
+          <p className="text-lg font-semibold text-gray-900">
+
+            {result.certificate.readinessPathway
+              ? READINESS_PATHWAY_LABELS[result.certificate.readinessPathway as keyof typeof READINESS_PATHWAY_LABELS]
+              : "Legacy certificate record"}
+
+          </p>
 
         </div>
 

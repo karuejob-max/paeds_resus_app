@@ -30,6 +30,7 @@ import { assertMicrocourseCompletionAllowed } from "../lib/microcourse-exam-gate
 import { fetchAhaHubPrograms } from "../lib/aha-hub-programs";
 import { enrichAhaEnrollmentsWithProgress } from "../lib/compute-aha-enrollment-progress";
 import { getAuthoritativePhase2CompletionStatus, getIerpEnrollment, getIerpPaymentLockout, refreshIerpPhase2Status } from "../lib/ierp-program-state";
+import { ensurePhase2CompletionCertificateForUser } from "../lib/paeds-resus-certificate-issuance";
 
 const AHA_PROGRAM_TYPES = ['bls', 'acls', 'pals', 'heartsaver', 'nrp', 'instructor'] as const;
 
@@ -1751,8 +1752,18 @@ export const coursesRouter = router({
         })
         .where(eq(trainingAttendance.id, input.attendanceId));
 
+      const confirmedUserId = (await db
+        .select({ userId: trainingAttendance.staffMemberId })
+        .from(trainingAttendance)
+        .where(eq(trainingAttendance.id, input.attendanceId))
+        .limit(1))[0]?.userId ?? 0;
       void notifyPhase2RoleConfirmed(db, input.attendanceId, input.passed);
-      void refreshIerpPhase2Status(db, (await db.select({ userId: trainingAttendance.staffMemberId }).from(trainingAttendance).where(eq(trainingAttendance.id, input.attendanceId)).limit(1))[0]?.userId ?? 0);
+      void refreshIerpPhase2Status(db, confirmedUserId);
+      if (input.passed && confirmedUserId) {
+        void ensurePhase2CompletionCertificateForUser(db, confirmedUserId).catch((error) => {
+          console.error("[courses.confirmPhase2Role] Universal Phase 2 certificate projection failed:", error);
+        });
+      }
 
       return { success: true };
     }),
@@ -1820,8 +1831,18 @@ export const coursesRouter = router({
         })
         .where(eq(retrospectiveRoleClaims.id, input.claimId));
 
+      const claimantUserId = (await db
+        .select({ userId: retrospectiveRoleClaims.claimantUserId })
+        .from(retrospectiveRoleClaims)
+        .where(eq(retrospectiveRoleClaims.id, input.claimId))
+        .limit(1))[0]?.userId ?? 0;
       void notifyRetrospectiveClaimReviewed(db, input.claimId, input.approve);
-      void refreshIerpPhase2Status(db, (await db.select({ userId: retrospectiveRoleClaims.claimantUserId }).from(retrospectiveRoleClaims).where(eq(retrospectiveRoleClaims.id, input.claimId)).limit(1))[0]?.userId ?? 0);
+      void refreshIerpPhase2Status(db, claimantUserId);
+      if (input.approve && claimantUserId) {
+        void ensurePhase2CompletionCertificateForUser(db, claimantUserId).catch((error) => {
+          console.error("[courses.reviewRetrospectiveRoleClaim] Universal Phase 2 certificate projection failed:", error);
+        });
+      }
 
       return { success: true };
     }),

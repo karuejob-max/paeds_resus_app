@@ -23,6 +23,10 @@ import {
   getCertificateExpiryStatus,
   type CertificateExpiryStatus,
 } from "./lib/certificate-expiry";
+import {
+  ensurePaedsResusCertificatesForUser,
+  ensurePaedsResusProviderCertificateForEnrollment,
+} from "./lib/paeds-resus-certificate-issuance";
 
 const AHA_PROGRAM_TYPES = AHA_CERTIFICATION_PROGRAM_TYPES;
 
@@ -207,6 +211,7 @@ export async function saveCertificate(
     await db.insert(certificates).values({
       enrollmentId,
       userId,
+      recipientName,
       certificateNumber,
       programType: programType as any,
       issueDate,
@@ -324,6 +329,19 @@ export async function verifyCertificate(
 
     const cert = result[0];
 
+    // New certificates store the printed recipient name. Legacy certificates
+    // may be null, so retain number-only verification for those historical rows.
+    if (
+      cert.recipientName &&
+      cert.recipientName.trim().toLowerCase().replace(/\s+/g, " ") !==
+        recipientName.trim().toLowerCase().replace(/\s+/g, " ")
+    ) {
+      return {
+        valid: false,
+        error: "Recipient name does not match",
+      };
+    }
+
     // Verify certificate number matches
     if (cert.certificateNumber !== certificateNumber) {
       return {
@@ -376,9 +394,20 @@ export async function issueCertificateForEnrollmentIfEligible(
     // Gate 1: Payment gate removed — all enrolled users can receive certificates
     // (payment tracking is retained in DB for admin reporting but does not block issuance)
 
-    // Idempotency: if already issued, return success
+    // Idempotency: if the legacy AHA certificate already exists, still make
+    // sure the additional Paeds Resus provider certificate is projected for
+    // eligible BLS/ACLS/PALS/NRP completions.
     const existing = await getCertificateByEnrollmentId(enrollmentId);
-    if (existing) return { issued: true };
+    if (existing) {
+      if (["bls", "acls", "pals", "nrp"].includes(enrollment.programType)) {
+        try {
+          await ensurePaedsResusProviderCertificateForEnrollment(db, enrollmentId);
+        } catch (error) {
+          console.error("[Certificates] Universal Paeds Resus provider projection failed:", error);
+        }
+      }
+      return { issued: true };
+    }
 
     // ── Instructor path ──────────────────────────────────────────────────────
     if (enrollment.programType === "instructor") {
@@ -452,6 +481,17 @@ export async function issueCertificateForEnrollmentIfEligible(
       instructorName,
       enrollment.userId
     );
+
+    if (result.success && ["bls", "acls", "pals", "nrp"].includes(enrollment.programType)) {
+      try {
+        await ensurePaedsResusProviderCertificateForEnrollment(db, enrollmentId);
+      } catch (error) {
+        // The AHA certificate is already durable. Keep that result successful,
+        // while logging the additive projection for a safe retry from the
+        // learner certificate sync action.
+        console.error("[Certificates] Universal Paeds Resus provider projection failed:", error);
+      }
+    }
 
     return result.success ? { issued: true } : { issued: false, error: result.error };
   } catch (err) {
@@ -612,6 +652,7 @@ export async function getCertificatesByUserId(userId: number) {
         issueDate: certificates.issueDate,
         expiryDate: certificates.expiryDate,
         certificateUrl: certificates.certificateUrl,
+        readinessPathway: certificates.readinessPathway,
         courseTitle: courses.title,
         microCourseTitle: microCourses.title,
       })

@@ -18,6 +18,7 @@ import {
   NERP_ACLS_OFFER,
   NERP_ACLS_OFFER_KEY,
 } from "../lib/nerp-offer";
+import { ensurePaedsResusCertificatesForUser } from "../lib/paeds-resus-certificate-issuance";
 
 const PHASES = ["phase_2", "phase_3"] as const;
 const DECISIONS = ["verified", "rejected", "revoked"] as const;
@@ -481,11 +482,23 @@ export const nerpRouter = router({
           evidenceReference: input.evidenceReference ?? null,
         }),
       });
+
+      let certificateProjection = null;
+      if (input.decision === "verified") {
+        try {
+          certificateProjection = await ensurePaedsResusCertificatesForUser(db, offer.userId);
+        } catch (error) {
+          // NERP verification is authoritative and must remain usable even if
+          // the additive certificate migration is still propagating.
+          console.error("[nerp.reviewExternalPhase] Universal certificate projection failed:", error);
+        }
+      }
       return {
         success: true as const,
         phase2Verified,
         phase3Verified,
         pathwayComplete: phase2Verified && phase3Verified,
+        certificates: certificateProjection,
       };
     }),
 

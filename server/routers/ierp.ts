@@ -13,6 +13,7 @@ import {
   getIerpPaymentLockout,
   IERP_DESIGNATIONS,
 } from "../lib/ierp-program-state";
+import { getPaedsResusCertificateStatusForUser } from "../lib/paeds-resus-certificate-issuance";
 
 const IERP_AHA_PROGRAMS = ["bls", "acls", "pals", "nrp"] as const;
 
@@ -263,6 +264,16 @@ export const ierpRouter = router({
       evidence.some((row) => row.documentType === "precourse_assessment" && row.status === "verified");
     const phase1Complete = program.phase1Status === "verified" || phase1EvidenceVerified;
     const phase3GateUnlocked = phase1Complete && phase2.phase2Complete && payment.paid >= 15000;
+    let universalCertificates: Awaited<ReturnType<typeof getPaedsResusCertificateStatusForUser>> = [];
+    try {
+      universalCertificates = await getPaedsResusCertificateStatusForUser(db, ctx.user.id);
+    } catch (error) {
+      // Certificate schema rollout must not hide the underlying authoritative
+      // IERP progression state while the additive migration is propagating.
+      console.error("[ierp.getSummary] Universal certificate status unavailable:", error);
+    }
+    const phase2Certificate = universalCertificates.find((certificate) => certificate.programType === "paeds_resus_phase2") ?? null;
+    const providerCertificates = universalCertificates.filter((certificate) => certificate.programType !== "paeds_resus_phase2");
 
     return {
       programName: "Intern Emergency Readiness Program",
@@ -275,6 +286,8 @@ export const ierpRouter = router({
       phase1Complete,
       phase1Evidence: evidence,
       phase2,
+      phase2Certificate,
+      providerCertificates,
       phase3GateUnlocked,
       payment: {
         status: program.paymentStatus,

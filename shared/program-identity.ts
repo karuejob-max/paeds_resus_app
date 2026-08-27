@@ -62,12 +62,15 @@ export function getProgramIdentity(designation: Designation | string | null | un
     };
   }
 
-  // permanent_doctor, "other", or undeclared — not on a subsidised cohort program.
+  // Permanent doctors, other cadres, or undeclared learners use the standard
+  // individual route. This is intentionally a pathway name, not a fourth
+  // subsidised programme: it is open enrolment, self-funded, and non-cohort.
   return {
-    programName: null,
-    programFullName: null,
+    programName: "Open Enrolment",
+    programFullName: "Paeds Resus Open Enrolment Pathway",
     rules: [
-      "Standard pricing applies (not part of a subsidised cohort program)",
+      "Standard individual pricing applies (not part of a subsidised cohort)",
+      "You may join independently and complete the same Paeds Resus training and certification requirements",
       "All payments are non-refundable",
     ],
   };

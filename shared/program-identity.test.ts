@@ -17,15 +17,17 @@ describe("getProgramIdentity", () => {
     }
   });
 
-  it("returns no program identity for permanent_doctor", () => {
+  it("maps permanent_doctor to the Paeds Resus Open Enrolment Pathway", () => {
     const identity = getProgramIdentity("permanent_doctor");
-    expect(identity.programName).toBeNull();
+    expect(identity.programName).toBe("Open Enrolment");
+    expect(identity.programFullName).toBe("Paeds Resus Open Enrolment Pathway");
+    expect(identity.rules.some((r) => r.includes("Standard individual pricing"))).toBe(true);
   });
 
-  it("returns no program identity for 'other' or unset designation", () => {
-    expect(getProgramIdentity("other").programName).toBeNull();
-    expect(getProgramIdentity(null).programName).toBeNull();
-    expect(getProgramIdentity(undefined).programName).toBeNull();
+  it("maps other or unset designation to the same open pathway", () => {
+    expect(getProgramIdentity("other").programName).toBe("Open Enrolment");
+    expect(getProgramIdentity(null).programName).toBe("Open Enrolment");
+    expect(getProgramIdentity(undefined).programFullName).toBe("Paeds Resus Open Enrolment Pathway");
   });
 
   it("never returns overlapping rules between the nurse and intern programs", () => {

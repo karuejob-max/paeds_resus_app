@@ -1,4 +1,4 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   certificates,
   enrollments,
@@ -8,14 +8,33 @@ import type { AppDb } from "../lib/institution-access";
 
 const PAEDS_RESUS_ISSUER = "Paeds Resus Competency-based Life Support Program";
 
+type DerivedCredentialType =
+  | "paeds_resus_phase2"
+  | "paeds_resus_bls_cognitive"
+  | "paeds_resus_bls_simulation"
+  | "paeds_resus_bls_provider"
+  | "paeds_resus_acls_provider"
+  | "paeds_resus_pals_provider"
+  | "paeds_resus_nrp_provider";
+
+const PROVIDER_CREDENTIAL_BY_CERTIFICATE_TYPE = {
+  paeds_resus_bls_provider: "paeds_resus_bls_provider",
+  paeds_resus_acls_provider: "paeds_resus_acls_provider",
+  paeds_resus_pals_provider: "paeds_resus_pals_provider",
+  paeds_resus_nrp_provider: "paeds_resus_nrp_provider",
+} as const satisfies Record<
+  | "paeds_resus_bls_provider"
+  | "paeds_resus_acls_provider"
+  | "paeds_resus_pals_provider"
+  | "paeds_resus_nrp_provider",
+  DerivedCredentialType
+>;
+
 async function upsertDerivedCredential(
   db: AppDb,
   values: {
     userId: number;
-    credentialType:
-      | "paeds_resus_bls_cognitive"
-      | "paeds_resus_bls_simulation"
-      | "paeds_resus_bls_provider";
+    credentialType: DerivedCredentialType;
     issuer: string;
     issuedAt: Date | null;
     expiresAt: Date | null;
@@ -64,7 +83,7 @@ async function upsertDerivedCredential(
 }
 
 /**
- * Idempotently projects authoritative Paeds Resus BLS completion into the
+ * Idempotently projects authoritative Paeds Resus completion into the
  * structured credential ledger. These rows are read-only to providers.
  */
 export async function syncDerivedCredentialsForUser(
@@ -79,10 +98,15 @@ export async function syncDerivedCredentialsForUser(
       .where(
         and(
           eq(certificates.userId, userId),
-          or(
-            eq(certificates.programType, "bls"),
-            eq(certificates.programType, "bls_cognitive")
-          )
+          inArray(certificates.programType, [
+            "bls",
+            "bls_cognitive",
+            "paeds_resus_phase2",
+            "paeds_resus_bls_provider",
+            "paeds_resus_acls_provider",
+            "paeds_resus_pals_provider",
+            "paeds_resus_nrp_provider",
+          ])
         )
       ),
   ]);
@@ -117,13 +141,44 @@ export async function syncDerivedCredentialsForUser(
   }
 
   for (const certificate of userCertificates) {
+    // Cognitive gatepass certificates are not provider credentials; they only
+    // unlock the practical step and must not be projected as provider status.
+    if (certificate.programType === "bls_cognitive") continue;
+
+    if (certificate.programType === "paeds_resus_phase2") {
+      await upsertDerivedCredential(db, {
+        userId,
+        credentialType: "paeds_resus_phase2",
+        issuer: PAEDS_RESUS_ISSUER,
+        issuedAt: certificate.issueDate,
+        expiresAt: null,
+        sourceRecordType: "certificate_paeds_resus_phase2",
+        sourceRecordId: certificate.id,
+      });
+      createdOrUpdated += 1;
+      continue;
+    }
+
+    const explicitProviderType =
+      certificate.programType in PROVIDER_CREDENTIAL_BY_CERTIFICATE_TYPE
+        ? PROVIDER_CREDENTIAL_BY_CERTIFICATE_TYPE[
+            certificate.programType as keyof typeof PROVIDER_CREDENTIAL_BY_CERTIFICATE_TYPE
+          ]
+        : null;
+    const credentialType: DerivedCredentialType =
+      explicitProviderType ??
+      "paeds_resus_bls_provider";
+
     await upsertDerivedCredential(db, {
       userId,
-      credentialType: "paeds_resus_bls_provider",
+      credentialType,
       issuer: PAEDS_RESUS_ISSUER,
       issuedAt: certificate.issueDate,
       expiresAt: certificate.expiryDate,
-      sourceRecordType: "certificate_bls_provider",
+      sourceRecordType:
+        explicitProviderType
+          ? `certificate_${certificate.programType}`
+          : "certificate_bls_provider",
       sourceRecordId: certificate.id,
     });
     createdOrUpdated += 1;

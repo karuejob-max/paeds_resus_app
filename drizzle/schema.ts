@@ -332,8 +332,14 @@ export const certificates = mysqlTable("certificates", {
   id: int("id").autoincrement().primaryKey(),
   enrollmentId: int("enrollmentId").notNull(),
   userId: int("userId").notNull(),
+  /** Stored for future name-matching verification; legacy rows may be null. */
+  recipientName: varchar("recipientName", { length: 255 }),
   certificateNumber: varchar("certificateNumber", { length: 255 }).unique(),
-  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp", "bls_cognitive", "acls_cognitive", "pals_cognitive", "heartsaver_cognitive", "nrp_cognitive"]).notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "fellowship", "instructor", "fellowship_diploma", "heartsaver", "nrp", "bls_cognitive", "acls_cognitive", "pals_cognitive", "heartsaver_cognitive", "nrp_cognitive", "paeds_resus_phase2", "paeds_resus_bls_provider", "paeds_resus_acls_provider", "paeds_resus_pals_provider", "paeds_resus_nrp_provider"]).notNull(),
+  /** Entry path used for audit and display; null on legacy certificates. */
+  readinessPathway: mysqlEnum("readinessPathway", ["ierp", "nerp", "open_enrolment"]),
+  /** Stable idempotency key for universal Paeds Resus certificates. */
+  sourceKey: varchar("sourceKey", { length: 255 }).unique(),
   issueDate: timestamp("issueDate").notNull(),
   expiryDate: timestamp("expiryDate"),
   certificateUrl: text("certificateUrl"),
@@ -5066,9 +5072,13 @@ export const professionalCredentials = mysqlTable("professionalCredentials", {
   userId: int("userId").notNull(),
   credentialType: mysqlEnum("credentialType", [
     "regulatory_license",
+    "paeds_resus_phase2",
     "paeds_resus_bls_cognitive",
     "paeds_resus_bls_simulation",
     "paeds_resus_bls_provider",
+    "paeds_resus_acls_provider",
+    "paeds_resus_pals_provider",
+    "paeds_resus_nrp_provider",
     "external_aha_bls",
     "external_aha_acls",
     "external_aha_pals",
