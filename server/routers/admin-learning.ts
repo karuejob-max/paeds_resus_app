@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, isNull, like, or } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, like, or } from "drizzle-orm";
 import { z } from "zod";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -101,7 +101,7 @@ export const adminLearningRouter = router({
       return db
         .select({ id: users.id, name: users.name, email: users.email, phone: users.phone, providerType: users.providerType })
         .from(users)
-        .where(and(eq(users.userType, "provider"), or(like(users.name, term), like(users.email, term))))
+        .where(and(isNotNull(users.providerType), or(like(users.name, term), like(users.email, term))))
         .orderBy(users.name)
         .limit(20);
     }),
