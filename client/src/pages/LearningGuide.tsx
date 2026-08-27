@@ -162,9 +162,9 @@ export default function LearningGuide() {
             </h1>
             <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600 dark:text-slate-300 sm:text-lg">
               Start with the job you need to do today, choose the correct
-              portal, and carry learning into safe practice. This guide reflects
-              the current individual and institutional platform—not the older
-              IERS-only orientation.
+              portal, and carry learning into safe practice. This guide shows
+              where to begin, what each workspace is for, and how learning,
+              practice, readiness, and records fit together.
             </p>
           </div>
         </div>
