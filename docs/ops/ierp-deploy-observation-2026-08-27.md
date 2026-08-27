@@ -33,3 +33,9 @@ Authenticated smoke test of `/home` redirected the signed-in session to `/instit
 The authenticated account successfully switched from the institutional workspace to the Individual workspace and loaded `/home`. The live page identifies the current workspace as Individual, welcomes Job, preserves the emergency-first ResusGPS/ERT entry, and presents Learn as a separate training workspace. No IERP enrolment, payment, facility membership, IERS activation, or clinical action was triggered.
 
 The live Individual Learn menu and `/enroll` route loaded successfully. The account is an existing provider/nurse profile; `/enroll` still displays the established separate AHA certification and Fellowship paths and no IERP enrolment was submitted. This confirms the emergency-first Individual shell and legacy AHA route remain available. The dedicated IERP start flow is exposed from the public `/programs/ierp` route and the IERP learner card, while this existing generic enrolment page was not altered or used to create data.
+
+After protected closeout PR #620 merged, Render Events shows `Deploy started` for final commit `e2e576395d0999a27d5e9453b0c4556e416a3925` at 10:00 EAT. The event is still marked `Cancel deploy`, so the final closeout deployment has not yet been declared live. The preceding commit `6bdd186` is live. No deployment control was used.
+
+At 10:01 EAT the final closeout deployment for `e2e5763` was still active in Render Events and still showed `Cancel deploy`; the previous `6bdd186` deployment remained live. No failure message was shown. The final release is not declared fully live until this event changes to `live`.
+
+At 10:02 EAT Render Events marked the final closeout commit `e2e576395d0999a27d5e9453b0c4556e416a3925` as `Deploy live`. The final production code now includes the provider-gated `/learner-dashboard` route fix, while the previously applied 0131 schema and all read-only verification results remain valid.
