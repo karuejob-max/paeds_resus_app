@@ -29,6 +29,7 @@ import { computeMicroCourseEnrollmentProgress } from "../lib/sync-micro-course-e
 import { assertMicrocourseCompletionAllowed } from "../lib/microcourse-exam-gate";
 import { fetchAhaHubPrograms } from "../lib/aha-hub-programs";
 import { enrichAhaEnrollmentsWithProgress } from "../lib/compute-aha-enrollment-progress";
+import { getAuthoritativePhase2CompletionStatus, getIerpEnrollment, getIerpPaymentLockout, refreshIerpPhase2Status } from "../lib/ierp-program-state";
 
 const AHA_PROGRAM_TYPES = ['bls', 'acls', 'pals', 'heartsaver', 'nrp', 'instructor'] as const;
 
@@ -882,6 +883,27 @@ export const coursesRouter = router({
       }
 
       // ── Phase Gate: enforce cohort program rules ──────────────────────────
+      // IERP training participation is independent of an institutional roster
+      // row. Its Phase 3 gate is therefore evaluated from the user-owned IERP
+      // record and the authoritative named-role completion source.
+      const ierpEnrollment = await getIerpEnrollment(db, ctx.user.id);
+      if (ierpEnrollment && (session.trainingType === "hands_on" || session.trainingType === "hybrid")) {
+        const phase2 = await getAuthoritativePhase2CompletionStatus(db, ctx.user.id);
+        if (ierpEnrollment.phase1Status !== "verified" || !phase2.phase2Complete) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Complete and verify Phase 1, then complete the required confirmed Phase 2 roles before booking a hands-on assessment.",
+          });
+        }
+        const paid = Number(ierpEnrollment.totalPaidAmount ?? 0);
+        if (paid < 15000) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: `Your IERP balance must be fully settled (KES 15,000) before booking a physical Megacode. Current paid: KES ${paid.toLocaleString()}.`,
+          });
+        }
+      }
+
       const staffRow = await db
         .select({
           id: institutionalStaffMembers.id,
@@ -900,7 +922,7 @@ export const coursesRouter = router({
         ))
         .limit(1);
 
-      if (staffRow.length > 0) {
+      if (!ierpEnrollment && staffRow.length > 0) {
         const { phaseStatus, totalPaidAmount, designation, enrollmentDate, createdAt, institutionalAccountId } = staffRow[0];
         const isOnlineSession = session.trainingType === "online";
         const isHandsOnSession = session.trainingType === "hands_on" || session.trainingType === "hybrid";
@@ -1587,16 +1609,26 @@ export const coursesRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Session not found or no longer available." });
       }
 
-      // Phase/payment gate (docs/IERP_NERP_PROGRAM_V2_SPEC.md §6.3). No
-      // facility-matching check here, deliberately -- §4.1 makes Phase 2
-      // booking cross-program by design (IERP/NERP/standard learners share
-      // sessions), reversing the old same-facility-only rule that still
-      // applies to bookHandsOnSession's Phase 3 path. Note: this still
-      // reads phaseStatus/totalPaidAmount off institutionalStaffMembers,
-      // same field the pre-respec gates used -- the new self-service
-      // elearning-proof flow (slice 1) doesn't yet advance phaseStatus on
-      // verification, so that wiring is still an open gap, not silently
-      // assumed fixed here.
+      // Phase/payment gate (docs/IERP_NERP_PROGRAM_V2_SPEC.md §6.3). Phase 2
+      // is cross-program by design. IERP uses its user-owned programme row;
+      // NERP and legacy learners retain the existing staff-row branch.
+      const ierpEnrollment = await getIerpEnrollment(db, ctx.user.id);
+      if (ierpEnrollment) {
+        if (ierpEnrollment.phase1Status !== "verified") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Complete and verify both Phase 1 evidence documents before booking a Phase 2 simulation.",
+          });
+        }
+        const payment = getIerpPaymentLockout(ierpEnrollment);
+        if (payment.paymentLockoutActive) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "It has been more than 4 months since you joined with no payment recorded. Make a payment to regain IERP Phase 2 booking access.",
+          });
+        }
+      }
+
       const [staffRow] = await db
         .select({
           phaseStatus: institutionalStaffMembers.phaseStatus,
@@ -1609,7 +1641,7 @@ export const coursesRouter = router({
         .where(and(eq(institutionalStaffMembers.userId, ctx.user.id), eq(institutionalStaffMembers.facilityLinkStatus, "linked")))
         .limit(1);
 
-      if (staffRow) {
+      if (!ierpEnrollment && staffRow) {
         const { phaseStatus, totalPaidAmount, designation, enrollmentDate, createdAt } = staffRow;
         if (phaseStatus === "phase_1") {
           throw new TRPCError({
@@ -1720,6 +1752,7 @@ export const coursesRouter = router({
         .where(eq(trainingAttendance.id, input.attendanceId));
 
       void notifyPhase2RoleConfirmed(db, input.attendanceId, input.passed);
+      void refreshIerpPhase2Status(db, (await db.select({ userId: trainingAttendance.staffMemberId }).from(trainingAttendance).where(eq(trainingAttendance.id, input.attendanceId)).limit(1))[0]?.userId ?? 0);
 
       return { success: true };
     }),
@@ -1788,6 +1821,7 @@ export const coursesRouter = router({
         .where(eq(retrospectiveRoleClaims.id, input.claimId));
 
       void notifyRetrospectiveClaimReviewed(db, input.claimId, input.approve);
+      void refreshIerpPhase2Status(db, (await db.select({ userId: retrospectiveRoleClaims.claimantUserId }).from(retrospectiveRoleClaims).where(eq(retrospectiveRoleClaims.id, input.claimId)).limit(1))[0]?.userId ?? 0);
 
       return { success: true };
     }),
@@ -1798,43 +1832,7 @@ export const coursesRouter = router({
   getPhase2CompletionStatus: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-
-    const confirmedBookings = await db
-      .select({ simulationRole: trainingAttendance.simulationRole })
-      .from(trainingAttendance)
-      .where(and(eq(trainingAttendance.staffMemberId, ctx.user.id), eq(trainingAttendance.simulationCompetencyPassed, true)));
-
-    const approvedClaims = await db
-      .select({ role: retrospectiveRoleClaims.role })
-      .from(retrospectiveRoleClaims)
-      .where(and(eq(retrospectiveRoleClaims.claimantUserId, ctx.user.id), eq(retrospectiveRoleClaims.status, "approved")));
-
-    const confirmedRoles = [...confirmedBookings.map((b) => b.simulationRole), ...approvedClaims.map((c) => c.role)];
-
-    const teamLeaderCount = confirmedRoles.filter((r) => r === "team_leader").length;
-    const teamMemberRoleCounts = Object.fromEntries(
-      PHASE2_NAMED_TEAM_MEMBER_ROLES.map((role) => [role, confirmedRoles.filter((r) => r === role).length])
-    );
-    const teamMemberRolesCovered = PHASE2_NAMED_TEAM_MEMBER_ROLES.filter((role) => teamMemberRoleCounts[role] > 0).length;
-    const teamMemberSessionsTotal = PHASE2_NAMED_TEAM_MEMBER_ROLES.reduce((sum, role) => sum + teamMemberRoleCounts[role], 0);
-
-    const teamLeaderMet = teamLeaderCount >= 3;
-    // Both the total-session count AND full role coverage are required --
-    // 6 sessions all in the same role doesn't satisfy "1 per named role."
-    const teamMemberMet = teamMemberSessionsTotal >= 6 && teamMemberRolesCovered >= PHASE2_NAMED_TEAM_MEMBER_ROLES.length;
-
-    return {
-      teamLeaderCount,
-      teamLeaderRequired: 3,
-      teamLeaderMet,
-      teamMemberRoleCounts,
-      teamMemberRolesCovered,
-      teamMemberRolesRequired: PHASE2_NAMED_TEAM_MEMBER_ROLES.length,
-      teamMemberSessionsTotal,
-      teamMemberSessionsRequired: 6,
-      teamMemberMet,
-      phase2Complete: teamLeaderMet && teamMemberMet,
-    };
+    return getAuthoritativePhase2CompletionStatus(db, ctx.user.id);
   }),
 
   // frontend can display gates accurately and explain what is blocking them.
@@ -1868,21 +1866,13 @@ export const coursesRouter = router({
     const paid = Number(s.totalPaidAmount ?? 0);
     const subsidisedFee = 15000;
 
-    // Count simulation sessions attended as team_member / team_leader
-    const simRows = await db
-      .select({
-        role: trainingAttendance.simulationRole,
-        passed: trainingAttendance.simulationCompetencyPassed,
-      })
-      .from(trainingAttendance)
-      .where(and(
-        eq(trainingAttendance.staffMemberId, ctx.user.id),
-        eq(trainingAttendance.attendanceStatus, "attended")
-      ));
-
-    const memberSessions = simRows.filter((r) => r.role === "team_member").length;
-    const leaderSessions = simRows.filter((r) => r.role === "team_leader").length;
-    const phase2Complete = memberSessions >= 3 && leaderSessions >= 3;
+    // Use the same confirmed named-role source as bookPhase2Role and the
+    // dedicated completion procedure. Legacy generic team_member rows do not
+    // satisfy the current Phase 2 requirement.
+    const phase2 = await getAuthoritativePhase2CompletionStatus(db, ctx.user.id);
+    const memberSessions = phase2.teamMemberSessionsTotal;
+    const leaderSessions = phase2.teamLeaderCount;
+    const phase2Complete = phase2.phase2Complete;
 
     // Deferred-payment lockout status (see bookHandsOnSession for the enforced gate).
     // Surfaced here so the dashboard can warn a learner as the 4-month deadline

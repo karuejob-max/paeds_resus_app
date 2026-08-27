@@ -56,6 +56,8 @@ const About = lazy(() => import("./pages/About"));
 const PublicHome = lazy(() => import("./pages/PublicHome"));
 const TrainingHub = lazy(() => import("./pages/TrainingHub"));
 const TrainingCourseLanding = lazy(() => import("./pages/TrainingCourseLanding"));
+const IerpLanding = lazy(() => import("./pages/IerpLanding"));
+const IerpCampaignDashboard = lazy(() => import("./pages/IerpCampaignDashboard"));
 const ForProviders = lazy(() => import("./pages/ForProviders"));
 const ForInstitutions = lazy(() => import("./pages/ForInstitutions"));
 const ForParents = lazy(() => import("./pages/ForParents"));
@@ -346,6 +348,11 @@ function Router() {
               <AdminNerpVerification />
             </AdminGate>
           )}</Route>
+          <Route path="/admin/ierp-campaigns">{() => (
+            <AdminGate>
+              <IerpCampaignDashboard />
+            </AdminGate>
+          )}</Route>
           <Route path="/help" component={Help} />
           <Route path="/privacy" component={PrivacyPolicy} />
           <Route path="/terms" component={TermsOfUse} />
@@ -369,6 +376,7 @@ function Router() {
               <NerpCheckout />
             </RoleGate>
           )}</Route>
+          <Route path="/programs/ierp" component={IerpLanding} />
           <Route path="/for-providers" component={ForProviders} />
           <Route path="/for-institutions" component={ForInstitutions} />
           <Route path="/for-parents" component={ForParents} />

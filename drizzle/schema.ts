@@ -136,6 +136,166 @@ export const enrollments = mysqlTable("enrollments", {
 export type Enrollment = typeof enrollments.$inferSelect;
 export type InsertEnrollment = typeof enrollments.$inferInsert;
 
+/**
+ * User-owned Intern Emergency Readiness Program state.
+ *
+ * This is deliberately separate from institutionalStaffMembers: IERP training
+ * participation does not grant IERS access and must remain possible when a
+ * learner has no facility roster row or recognised institutional account.
+ */
+export const ierpProgramEnrollments = mysqlTable("ierpProgramEnrollments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  programKey: mysqlEnum("programKey", ["ierp"]).default("ierp").notNull(),
+  designation: mysqlEnum("designation", ["noi", "coi_bsc", "coi_diploma", "moi"]).notNull(),
+  cohortCode: varchar("cohortCode", { length: 128 }),
+  cohortName: varchar("cohortName", { length: 255 }),
+  lifecycleStatus: mysqlEnum("lifecycleStatus", ["active", "completed", "withdrawn"]).default("active").notNull(),
+  phaseStatus: mysqlEnum("phaseStatus", ["phase_1", "phase_2", "phase_3", "completed"]).default("phase_1").notNull(),
+  phase1Status: mysqlEnum("phase1Status", ["not_started", "in_progress", "submitted", "verified", "rejected"]).default("not_started").notNull(),
+  phase1VerifiedAt: timestamp("phase1VerifiedAt"),
+  phase2CompletedAt: timestamp("phase2CompletedAt"),
+  phase3CompletedAt: timestamp("phase3CompletedAt"),
+  totalPaidAmount: decimal("totalPaidAmount", { precision: 10, scale: 2 }).default("0.00").notNull(),
+  paymentStatus: mysqlEnum("paymentStatus", ["not_required", "pending", "partial", "paid_in_full", "locked"]).default("pending").notNull(),
+  paymentLockoutAt: timestamp("paymentLockoutAt"),
+  enrolledAt: timestamp("enrolledAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  userProgramUnique: uniqueIndex("ierp_program_enrollments_user_program_uq").on(table.userId, table.programKey),
+  userStatusIdx: index("ierp_program_enrollments_user_status_idx").on(table.userId, table.lifecycleStatus),
+}));
+
+export type IerpProgramEnrollment = typeof ierpProgramEnrollments.$inferSelect;
+export type InsertIerpProgramEnrollment = typeof ierpProgramEnrollments.$inferInsert;
+
+/** Private object metadata for IERP Phase 1 evidence. Bytes live in storage. */
+export const ierpPhase1Evidence = mysqlTable("ierpPhase1Evidence", {
+  id: int("id").autoincrement().primaryKey(),
+  programEnrollmentId: int("programEnrollmentId").notNull(),
+  userId: int("userId").notNull(),
+  documentType: mysqlEnum("documentType", ["video_prework", "precourse_assessment"]).notNull(),
+  storageKey: varchar("storageKey", { length: 512 }).notNull(),
+  fileName: varchar("fileName", { length: 255 }).notNull(),
+  contentType: varchar("contentType", { length: 128 }).notNull(),
+  fileSizeBytes: int("fileSizeBytes").notNull(),
+  status: mysqlEnum("status", ["submitted", "verified", "rejected"]).default("submitted").notNull(),
+  submittedAt: timestamp("submittedAt").defaultNow().notNull(),
+  reviewedByUserId: int("reviewedByUserId"),
+  reviewedAt: timestamp("reviewedAt"),
+  reviewReason: text("reviewReason"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  enrollmentDocumentUnique: uniqueIndex("ierp_phase1_evidence_enrollment_document_uq").on(table.programEnrollmentId, table.documentType),
+  userStatusIdx: index("ierp_phase1_evidence_user_status_idx").on(table.userId, table.status),
+}));
+
+export type IerpPhase1Evidence = typeof ierpPhase1Evidence.$inferSelect;
+export type InsertIerpPhase1Evidence = typeof ierpPhase1Evidence.$inferInsert;
+
+/** DB-backed IERP payment ledger; amounts are whole KES and callbacks are idempotent. */
+export const ierpPayments = mysqlTable("ierpPayments", {
+  id: int("id").autoincrement().primaryKey(),
+  programEnrollmentId: int("programEnrollmentId").notNull(),
+  userId: int("userId").notNull(),
+  amountKsh: int("amountKsh").notNull(),
+  phase: mysqlEnum("phase", ["phase_1", "phase_2", "phase_3", "general"]).default("general").notNull(),
+  paymentMethod: mysqlEnum("paymentMethod", ["mpesa", "bank_transfer", "card"]).notNull(),
+  checkoutRequestId: varchar("checkoutRequestId", { length: 255 }).unique(),
+  providerReference: varchar("providerReference", { length: 255 }),
+  idempotencyKey: varchar("idempotencyKey", { length: 255 }).unique(),
+  mpesaReceiptNumber: varchar("mpesaReceiptNumber", { length: 50 }).unique(),
+  phoneNumber: varchar("phoneNumber", { length: 20 }),
+  status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending").notNull(),
+  failureReason: text("failureReason"),
+  reconciledAt: timestamp("reconciledAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  userStatusIdx: index("ierp_payments_user_status_idx").on(table.userId, table.status),
+  programStatusIdx: index("ierp_payments_program_status_idx").on(table.programEnrollmentId, table.status),
+}));
+
+export type IerpPayment = typeof ierpPayments.$inferSelect;
+export type InsertIerpPayment = typeof ierpPayments.$inferInsert;
+
+/** Paused/draft-only IERP outreach definition. sendingEnabled is permanently false in this initiative. */
+export const ierpEmailCampaigns = mysqlTable("ierpEmailCampaigns", {
+  id: int("id").autoincrement().primaryKey(),
+  programKey: mysqlEnum("programKey", ["ierp"]).default("ierp").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  body: text("body").notNull(),
+  templateVersion: varchar("templateVersion", { length: 64 }).notNull(),
+  audienceFilterJson: text("audienceFilterJson").notNull(),
+  scheduleState: mysqlEnum("scheduleState", ["draft", "paused"]).default("draft").notNull(),
+  sendingEnabled: boolean("sendingEnabled").default(false).notNull(),
+  createdByUserId: int("createdByUserId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type IerpEmailCampaign = typeof ierpEmailCampaigns.$inferSelect;
+export type InsertIerpEmailCampaign = typeof ierpEmailCampaigns.$inferInsert;
+
+export const ierpEmailPreferences = mysqlTable("ierpEmailPreferences", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  programKey: mysqlEnum("programKey", ["ierp"]).default("ierp").notNull(),
+  consentStatus: mysqlEnum("consentStatus", ["unknown", "opted_in", "opted_out"]).default("unknown").notNull(),
+  consentSource: varchar("consentSource", { length: 128 }),
+  consentedAt: timestamp("consentedAt"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  userProgramUnique: uniqueIndex("ierp_email_preferences_user_program_uq").on(table.userId, table.programKey),
+}));
+
+export type IerpEmailPreference = typeof ierpEmailPreferences.$inferSelect;
+export type InsertIerpEmailPreference = typeof ierpEmailPreferences.$inferInsert;
+
+export const ierpEmailSuppressions = mysqlTable("ierpEmailSuppressions", {
+  id: int("id").autoincrement().primaryKey(),
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  reason: mysqlEnum("reason", ["unsubscribe", "hard_bounce", "manual"]).notNull(),
+  suppressedAt: timestamp("suppressedAt").defaultNow().notNull(),
+  createdByUserId: int("createdByUserId"),
+});
+
+export type IerpEmailSuppression = typeof ierpEmailSuppressions.$inferSelect;
+export type InsertIerpEmailSuppression = typeof ierpEmailSuppressions.$inferInsert;
+
+export const ierpEmailAttributions = mysqlTable("ierpEmailAttributions", {
+  id: int("id").autoincrement().primaryKey(),
+  campaignId: int("campaignId").notNull(),
+  userId: int("userId"),
+  eventType: mysqlEnum("eventType", ["previewed", "clicked", "registered", "paid", "completed"]).notNull(),
+  attributionKey: varchar("attributionKey", { length: 255 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  campaignEventIdx: index("ierp_email_attributions_campaign_event_idx").on(table.campaignId, table.eventType),
+  attributionUnique: uniqueIndex("ierp_email_attributions_key_uq").on(table.attributionKey),
+}));
+
+export type IerpEmailAttribution = typeof ierpEmailAttributions.$inferSelect;
+export type InsertIerpEmailAttribution = typeof ierpEmailAttributions.$inferInsert;
+
+export const ierpEmailAuditLog = mysqlTable("ierpEmailAuditLog", {
+  id: int("id").autoincrement().primaryKey(),
+  campaignId: int("campaignId"),
+  actorUserId: int("actorUserId").notNull(),
+  action: mysqlEnum("action", ["created", "updated", "paused", "previewed", "send_blocked", "consent_updated", "suppressed"]).notNull(),
+  detailJson: text("detailJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  campaignAuditIdx: index("ierp_email_audit_campaign_idx").on(table.campaignId, table.createdAt),
+}));
+
+export type IerpEmailAuditLogRow = typeof ierpEmailAuditLog.$inferSelect;
+export type InsertIerpEmailAuditLogRow = typeof ierpEmailAuditLog.$inferInsert;
+
 // Payments table
 export const payments = mysqlTable("payments", {
   id: int("id").autoincrement().primaryKey(),

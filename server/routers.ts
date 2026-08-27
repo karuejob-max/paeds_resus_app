@@ -138,6 +138,8 @@ import { adminNotifications } from "./routers/admin-notifications";
 import { institutionDepartmentReconciliation } from "./routers/institution-department-reconciliation";
 import { facilityBenchmarking } from "./routers/facility-benchmarking";
 import { coursesRouter } from "./routers/courses";
+import { ierpRouter } from "./routers/ierp";
+import { ierpCampaignsRouter } from "./routers/ierp-campaigns";
 import { fellowshipRouter } from "./routers/fellowship";
 import { kaizenMetricsRouter } from "./routers/kaizen-metrics";
 import { legalRouter } from "./routers/legal";
@@ -580,6 +582,8 @@ export const appRouter = router({
   securityIntegration: securityIntegrationRouter,
   microCourses: microCoursesRouter,
   courses: coursesRouter,
+  ierp: ierpRouter,
+  ierpCampaigns: ierpCampaignsRouter,
   fellowship: fellowshipRouter,
   legal: legalRouter,
   contentSafety: contentSafetyRouter,

@@ -575,6 +575,7 @@ export default function LearnerDashboard() {
               </CardContent>
             </Card>
 
+            <IerpProgramCard />
             <ProgressAndLedgerCard />
 
             <ProgramIdentityBadge />
@@ -980,9 +981,230 @@ function LearnerInstallmentPaymentsCard({ enrollmentId }: { enrollmentId: number
   );
 }
 
+type IerpEvidenceDocumentType = "video_prework" | "precourse_assessment";
+type IerpEvidenceDraft = {
+  fileName: string;
+  contentType: "application/pdf" | "image/jpeg" | "image/png";
+  dataBase64: string;
+};
+
+function IerpProgramCard() {
+  const { data: enrollment, isLoading } = trpc.ierp.getMyEnrollment.useQuery(undefined, { retry: false });
+  const { data: summary } = trpc.ierp.getSummary.useQuery(undefined, {
+    enabled: !!enrollment,
+    retry: false,
+  });
+  const { data: ierpLedger } = trpc.ierp.getPaymentLedger.useQuery(undefined, {
+    enabled: !!enrollment,
+    retry: false,
+  });
+  const utils = trpc.useUtils();
+  const [paymentPhone, setPaymentPhone] = useState("");
+  const [designation, setDesignation] = useState<"noi" | "coi_bsc" | "coi_diploma" | "moi" | "">("");
+  const [phase1Files, setPhase1Files] = useState<Record<IerpEvidenceDocumentType, IerpEvidenceDraft | null>>({ video_prework: null, precourse_assessment: null });
+  const startMutation = trpc.ierp.start.useMutation({
+    onSuccess: async () => {
+      toast.success("Your IERP enrolment is ready. Start with Phase 1 cognitive learning.");
+      await Promise.all([
+        utils.ierp.getMyEnrollment.invalidate(),
+        utils.ierp.getSummary.invalidate(),
+      ]);
+    },
+    onError: (error) => toast.error(error.message || "Could not start IERP"),
+  });
+
+  const paymentMutation = trpc.ierp.initiatePayment.useMutation({
+    onSuccess: async (result) => {
+      toast.success(result.message);
+      await utils.ierp.getPaymentLedger.invalidate();
+    },
+    onError: (error) => toast.error(error.message || "Could not initiate IERP payment"),
+  });
+  const evidenceMutation = trpc.ierp.submitPhase1Evidence.useMutation({
+    onSuccess: async () => {
+      toast.success("Both Phase 1 documents were submitted privately for review.");
+      setPhase1Files({ video_prework: null, precourse_assessment: null });
+      await utils.ierp.getSummary.invalidate();
+    },
+    onError: (error) => toast.error(error.message || "Could not submit Phase 1 evidence"),
+  });
+
+  const handlePhase1File = (documentType: IerpEvidenceDocumentType, file: File | undefined) => {
+    if (!file) return;
+    if (file.size === 0 || file.size > 10 * 1024 * 1024) {
+      toast.error("Each Phase 1 document must be between 1 byte and 10 MB.");
+      return;
+    }
+    const allowed = ["application/pdf", "image/jpeg", "image/png"] as const;
+    if (!(allowed as readonly string[]).includes(file.type)) {
+      toast.error("Upload a PDF, JPG, or PNG document.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        toast.error("Could not read that document.");
+        return;
+      }
+      setPhase1Files((current) => ({
+        ...current,
+        [documentType]: { fileName: file.name, contentType: file.type as IerpEvidenceDraft["contentType"], dataBase64: reader.result as string },
+      }));
+    };
+    reader.onerror = () => toast.error("Could not read that document.");
+    reader.readAsDataURL(file);
+  };
+
+  if (isLoading) return null;
+  if (!enrollment) {
+    return (
+      <Card id="ierp-entry" className="mt-6 md:col-span-3 border-indigo-200 bg-indigo-50/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-indigo-950">
+            <GraduationCap className="h-5 w-5 text-indigo-700" />
+            Start IERP — Intern Emergency Readiness Program
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-slate-700">
+            IERP is self-service. You do not need a registered facility, institutional staff record, or coordinator approval to begin. This enrolment is for training only and does not grant IERS institutional access.
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="w-full sm:max-w-sm">
+              <label className="mb-1 block text-xs font-medium text-slate-600" htmlFor="ierp-designation">
+                Intern designation
+              </label>
+              <Select value={designation} onValueChange={(value) => setDesignation(value as typeof designation)}>
+                <SelectTrigger id="ierp-designation">
+                  <SelectValue placeholder="Select your intern designation" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="noi">NOI (Nursing Officer Intern)</SelectItem>
+                  <SelectItem value="coi_bsc">Clinical Officer Intern (BSc)</SelectItem>
+                  <SelectItem value="coi_diploma">Clinical Officer Intern (Diploma)</SelectItem>
+                  <SelectItem value="moi">MOI (Medical Officer Intern)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              className="bg-indigo-700 text-white hover:bg-indigo-800"
+              disabled={!designation || startMutation.isPending}
+              onClick={() => designation && startMutation.mutate({ designation })}
+            >
+              {startMutation.isPending ? "Starting…" : "Start IERP"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const phase1Done = !!summary?.phase1Complete;
+  const phase2Done = !!summary?.phase2.phase2Complete;
+  const phase3Unlocked = !!summary?.phase3GateUnlocked;
+  const phaseStatus = [
+    { label: "Phase 1 — Cognitive foundation", done: phase1Done, detail: summary?.phase1Status ?? "Loading" },
+    {
+      label: "Phase 2 — Online simulations",
+      done: phase2Done,
+      detail: summary ? `Team Leader ${summary.phase2.teamLeaderCount}/${summary.phase2.teamLeaderRequired} · Named roles ${summary.phase2.teamMemberRolesCovered}/${summary.phase2.teamMemberRolesRequired}` : "Loading",
+    },
+    { label: "Phase 3 — Hands-on assessment", done: false, detail: phase3Unlocked ? "Unlocked" : "Locked until Phases 1 and 2 are complete" },
+  ];
+
+  return (
+    <Card id="ierp-program" className="mt-6 md:col-span-3 border-indigo-200 bg-indigo-50/20">
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-2 text-indigo-950">
+          <GraduationCap className="h-5 w-5 text-indigo-700" />
+          IERP — Intern Emergency Readiness Program
+          <Badge variant="secondary">{enrollment.designation}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-slate-700">Your IERP training record is independent of IERS facility membership. Confirmed named simulation roles and approved retrospective claims are the source of Phase 2 progress.</p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {phaseStatus.map((phase) => (
+            <div key={phase.label} className={`rounded-lg border p-3 text-xs ${phase.done ? "border-green-200 bg-green-50 text-green-800" : "border-slate-200 bg-white text-slate-600"}`}>
+              <p className="font-semibold">{phase.label}</p>
+              <p className="mt-1 capitalize">{phase.detail}</p>
+            </div>
+          ))}
+        </div>
+        <div className="rounded-lg border border-indigo-100 bg-white p-3 space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-indigo-950">Phase 1 evidence</p>
+            <p className="text-xs text-slate-600">After the platform BLS and ACLS, PALS, or NRP cognitive modules are complete, upload the two certificates here. Files are private and reviewer-controlled; do not paste a public Drive link.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {([
+              ["video_prework", "Video Prework Completion Certificate"],
+              ["precourse_assessment", "Passed Precourse Self-Assessment Certificate"],
+            ] as const).map(([documentType, label]) => {
+              const existing = summary?.phase1Evidence.find((row) => row.documentType === documentType);
+              const selected = phase1Files[documentType];
+              return (
+                <label key={documentType} className="cursor-pointer rounded border border-dashed border-indigo-200 p-3 text-xs text-slate-700 hover:bg-indigo-50">
+                  <span className="block font-medium">{label}</span>
+                  <span className="mt-1 block text-slate-500">{selected?.fileName ?? existing?.fileName ?? "Choose PDF, JPG, or PNG"}</span>
+                  <span className="mt-1 block font-semibold capitalize text-indigo-700">{existing?.status ?? "not submitted"}</span>
+                  <input className="sr-only" type="file" accept="application/pdf,image/jpeg,image/png" onChange={(event) => handlePhase1File(documentType, event.target.files?.[0])} />
+                </label>
+              );
+            })}
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!phase1Files.video_prework || !phase1Files.precourse_assessment || evidenceMutation.isPending}
+            onClick={() => {
+              const video = phase1Files.video_prework;
+              const assessment = phase1Files.precourse_assessment;
+              if (video && assessment) evidenceMutation.mutate({ documents: [{ documentType: "video_prework", ...video }, { documentType: "precourse_assessment", ...assessment }] });
+            }}
+          >
+            {evidenceMutation.isPending ? "Submitting privately…" : "Submit Phase 1 evidence"}
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+          <span className={summary?.payment.paymentLockoutActive ? "font-semibold text-red-700" : ""}>
+            Payment status: {ierpLedger?.status ?? summary?.payment.status ?? enrollment.paymentStatus}
+          </span>
+          {ierpLedger && <span>Paid KES {ierpLedger.totalPaidKsh.toLocaleString()} · Balance KES {ierpLedger.balanceKsh.toLocaleString()}</span>}
+          {summary?.payment.paymentLockoutActive && <span className="font-semibold text-red-700">Phase 2 booking is locked until a payment is recorded.</span>}
+        </div>
+        {ierpLedger && ierpLedger.balanceKsh > 0 && (
+          <div className="rounded-lg border border-indigo-100 bg-white p-3 space-y-2">
+            <p className="text-xs font-semibold text-indigo-950">Make an IERP instalment</p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                aria-label="IERP M-Pesa phone number"
+                placeholder="2547XXXXXXXX"
+                value={paymentPhone}
+                onChange={(event) => setPaymentPhone(event.target.value.replace(/[\s-]/g, ""))}
+                className="h-9 text-sm sm:max-w-xs"
+              />
+              <Button
+                size="sm"
+                className="bg-indigo-700 text-white hover:bg-indigo-800"
+                disabled={paymentMutation.isPending || !/^254\d{9}$/.test(paymentPhone)}
+                onClick={() => paymentMutation.mutate({ amountKsh: Math.min(ierpLedger.balanceKsh, 2500), phase: "general", phoneNumber: paymentPhone })}
+              >
+                {paymentMutation.isPending ? "Sending…" : `Pay KES ${Math.min(ierpLedger.balanceKsh, 2500).toLocaleString()}`}
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Your payment is recorded as pending until the provider callback confirms it. No IERS access is created by this payment.</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function ProgramIdentityBadge() {
+  const { data: ierpSummary } = trpc.ierp.getSummary.useQuery(undefined, { retry: false });
   const { data: phase, isLoading } = trpc.courses.getPhaseSummary.useQuery();
-  if (isLoading || !phase?.programIdentity?.programName) return null;
+  if (ierpSummary || isLoading || !phase?.programIdentity?.programName) return null;
 
   return (
     <div className="mt-6 md:col-span-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 flex items-center gap-2">
@@ -994,6 +1216,7 @@ function ProgramIdentityBadge() {
 }
 
 function DesignationDeclarationCard() {
+  const { data: ierpSummary } = trpc.ierp.getSummary.useQuery(undefined, { retry: false });
   const { data: phase, isLoading, refetch } = trpc.courses.getPhaseSummary.useQuery();
   const { user } = useAuth();
   const [designation, setDesignation] = useState<
@@ -1024,7 +1247,7 @@ function DesignationDeclarationCard() {
     onError: (err) => toast.error(err.message || "Could not save your designation"),
   });
 
-  if (isLoading) return null;
+  if (ierpSummary || isLoading) return null;
   // Only relevant for learners already linked to a cohort-program institution
   if (!phase) return null;
   // Already declared — nothing to do here. "other" is the un-declared default,
@@ -1462,6 +1685,7 @@ function Phase2BookingCard() {
 }
 
 function ProgressAndLedgerCard() {
+  const { data: ierpSummary } = trpc.ierp.getSummary.useQuery(undefined, { retry: false });
   const { data: phase } = trpc.courses.getPhaseSummary.useQuery();
   const { data: phase2 } = trpc.courses.getPhase2CompletionStatus.useQuery();
   const { data: ledger, isLoading: ledgerLoading, refetch: refetchLedger } = trpc.payments.getMyPaymentLedger.useQuery();
@@ -1474,6 +1698,8 @@ function ProgressAndLedgerCard() {
     },
     onError: (err: any) => toast.error(err.message || "Could not initiate payment"),
   });
+
+  if (ierpSummary) return null;
 
   // Phase 1: done once past phase_1. Phase 2: from getPhase2CompletionStatus.
   // Phase 3: done once phaseStatus reaches phase_3/completed. Falls back to
@@ -1589,6 +1815,7 @@ function ProgressAndLedgerCard() {
 }
 
 function Phase1ProofUploadCard() {
+  const { data: ierpSummary } = trpc.ierp.getSummary.useQuery(undefined, { retry: false });
   const { data: phase, isLoading, refetch } = trpc.courses.getPhaseSummary.useQuery();
   const [proofUrl, setProofUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -1602,7 +1829,7 @@ function Phase1ProofUploadCard() {
     onError: (err) => toast.error(err.message || "Upload failed"),
   });
 
-  if (isLoading) return null;
+  if (ierpSummary || isLoading) return null;
   // Only show this card if the learner is in a linked cohort program
   if (!phase) return null;
   // Hide once approved
