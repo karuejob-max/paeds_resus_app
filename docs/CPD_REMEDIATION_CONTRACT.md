@@ -1,10 +1,12 @@
 # CPD Portal Remediation Contract
 
-**Status:** Implementation in progress  
-**Owner:** Manus  
-**Branch:** `feat/cpd-portal-remediation`  
-**Migration reservation:** `0142` (`migration-reserved-0142`); 0140 was already claimed by concurrent ResusGPS work.  
-**Date:** 27 August 2026
+**Status:** Production complete — migration 0142 and read-only verification passed
+**Owner:** Manus
+**Implementation branch:** `feat/cpd-portal-remediation`
+**Closeout branch:** `docs/cpd-portal-production-closeout-2026-08-28`
+**Migration reservation:** `0142` (`migration-reserved-0142`) applied successfully; 0140 remains reserved by concurrent ResusGPS work.
+**Release date:** 27 August 2026
+**Production closeout date:** 28 August 2026
 
 ## Product boundary
 
@@ -61,5 +63,5 @@ This remediation does not send promotional email. Existing campaign governance r
 - Searchable presenter selection shows department/cadre/email disambiguation and does not require free-text identity.
 - Existing NERP, IERP, IERS, AHA, Fellowship, and historical CPD behavior remains compatible unless explicitly covered by this contract.
 - Focused tests, unit tests, build, migration syntax/idempotence checks, and protected CI pass.
-- Production migration is applied only after explicit user confirmation and is followed by read-only verification.
-- `docs/WORK_STATUS.md` records the merge commit, production verification output, and CEO sign-off status.
+- Production migration was applied only after explicit user confirmation and was followed by successful read-only CPD and IERS verification.
+- `docs/WORK_STATUS.md` records merge commit `b8610cd`, the production verification output, the no-email result, and CEO sign-off status (pending).
