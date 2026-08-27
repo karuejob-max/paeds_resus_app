@@ -20,10 +20,23 @@ function getStorageConfig(): StorageConfig {
     return { kind: "forge", baseUrl: baseUrl.replace(/\/+$/, ""), apiKey };
   }
 
-  const bucket = (process.env.AWS_S3_BUCKET ?? "").trim();
-  const region = (process.env.AWS_REGION ?? process.env.AWS_SES_REGION ?? "").trim();
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID?.trim();
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY?.trim();
+  const r2Endpoint = process.env.R2_ENDPOINT?.trim();
+  const r2Bucket = process.env.R2_BUCKET?.trim();
+  const r2AccessKeyId = process.env.R2_ACCESS_KEY_ID?.trim();
+  const r2SecretAccessKey = process.env.R2_SECRET_ACCESS_KEY?.trim();
+  const bucket = (r2Bucket ?? process.env.AWS_S3_BUCKET ?? "").trim();
+  const region = (
+    process.env.R2_REGION ??
+    (r2Endpoint
+      ? "auto"
+      : process.env.AWS_REGION ?? process.env.AWS_SES_REGION ?? "")
+  ).trim();
+
+  if (r2Endpoint && (!r2Bucket || !r2AccessKeyId || !r2SecretAccessKey)) {
+    throw new Error(
+      "R2 storage is incomplete: provide R2_ENDPOINT, R2_BUCKET, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY"
+    );
+  }
 
   if (bucket && region) {
     return {
@@ -31,15 +44,23 @@ function getStorageConfig(): StorageConfig {
       bucket,
       client: new S3Client({
         region,
-        ...(accessKeyId && secretAccessKey
-          ? { credentials: { accessKeyId, secretAccessKey } }
+        ...(r2Endpoint
+          ? { endpoint: r2Endpoint, forcePathStyle: true }
+          : {}),
+        ...(r2Endpoint
+          ? {
+              credentials: {
+                accessKeyId: r2AccessKeyId,
+                secretAccessKey: r2SecretAccessKey,
+              },
+            }
           : {}),
       }),
     };
   }
 
   throw new Error(
-    "Storage is not configured: provide BUILT_IN_FORGE_API_URL and BUILT_IN_FORGE_API_KEY, or AWS_REGION with AWS_S3_BUCKET and AWS credentials"
+    "Storage is not configured: provide BUILT_IN_FORGE_API_URL and BUILT_IN_FORGE_API_KEY, or R2_ENDPOINT, R2_BUCKET, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY"
   );
 }
 
