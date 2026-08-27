@@ -9,7 +9,6 @@ import {
   nerpOfferCourses,
   nerpOfferEnrollments,
   nerpOfferExternalVerifications,
-  professionalCredentials,
   nerpExternalVerificationCases,
   nerpExternalVerificationPhases,
   nerpExternalVerificationAuditEvents,
@@ -21,18 +20,17 @@ import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import {
   calculateNerpPaymentState,
-  deriveNerpPromotionStatus,
   NERP_ACLS_OFFER,
   NERP_ACLS_OFFER_KEY,
 } from "../lib/nerp-offer";
 import { ensurePaedsResusCertificatesForUser } from "../lib/paeds-resus-certificate-issuance";
 import {
-  findCampaignSuppression,
   normalizedEmail,
   normalizedName,
   normalizedSuppressionValue,
   validEmail,
 } from "../lib/nerp-campaign-controls";
+import { loadNerpPromotionAudience } from "../lib/nerp-campaign-audience";
 import {
   canEnterNerpNurseCampaign,
   requiresExternalCandidateCadre,
@@ -582,7 +580,7 @@ export const nerpRouter = router({
       institutionalAccountId: z.number().int().positive().default(3),
       matchType: z.enum(["email", "exact_name"]),
       matchValue: z.string().trim().min(2).max(320),
-      reasonCode: z.enum(["admin_nurse", "external_completion", "manual", "not_registered", "identity_correction"]),
+      reasonCode: z.enum(["admin_nurse", "external_completion", "manual", "not_registered", "identity_correction", "unsubscribe", "hard_bounce"]),
       note: z.string().trim().max(2000).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
@@ -788,139 +786,11 @@ export const nerpRouter = router({
     )
     .query(async ({ input }) => {
       const db = await requireDb();
-      const staffRows = await db
-        .select()
-        .from(institutionalStaffMembers)
-        .where(
-          and(
-            eq(
-              institutionalStaffMembers.institutionalAccountId,
-              input.institutionId
-            ),
-            eq(institutionalStaffMembers.staffRole, "nurse"),
-            isNull(institutionalStaffMembers.removedAt)
-          )
-        )
-        .orderBy(institutionalStaffMembers.staffName)
-        .limit(input.limit);
-      const recipients = [];
-      const suppressionRows = await getActiveCampaignSuppressions(db, input.institutionId);
-      const matchedSuppressionIds = new Set<number>();
-      for (const staff of staffRows) {
-        const suppression = findCampaignSuppression(
-          suppressionRows,
-          staff.staffEmail,
-          staff.staffName
-        );
-        const excluded = suppression !== null;
-        if (suppression) matchedSuppressionIds.add(suppression.id);
-        const offer = staff.userId
-          ? await getOfferForUser(db, staff.userId)
-          : null;
-        const verification = offer
-          ? await getVerificationState(db, offer.id)
-          : { phase2: null, phase3: null, rows: [] };
-        const credentials = staff.userId
-          ? await db
-              .select({
-                credentialType: professionalCredentials.credentialType,
-                status: professionalCredentials.status,
-              })
-              .from(professionalCredentials)
-              .where(
-                and(
-                  eq(professionalCredentials.userId, staff.userId),
-                  or(
-                    eq(
-                      professionalCredentials.credentialType,
-                      "external_aha_bls"
-                    ),
-                    eq(
-                      professionalCredentials.credentialType,
-                      "external_aha_acls"
-                    )
-                  )
-                )
-              )
-          : [];
-        const hasVerifiedBlsAndAcls =
-          credentials.some(
-            (row: (typeof credentials)[number]) =>
-              row.credentialType === "external_aha_bls" &&
-              row.status === "verified"
-          ) &&
-          credentials.some(
-            (row: (typeof credentials)[number]) =>
-              row.credentialType === "external_aha_acls" &&
-              row.status === "verified"
-          );
-        const status = deriveNerpPromotionStatus({
-          hasValidEmail: validEmail(staff.staffEmail),
-          hasCompletedOffer: offer?.status === "completed",
-          phase2Verified: verification.phase2?.status === "verified",
-          phase3Verified: verification.phase3?.status === "verified",
-          hasVerifiedBlsAndAcls,
-          explicitlyExcluded: excluded,
-        });
-        recipients.push({
-          staffId: staff.id,
-          userId: staff.userId,
-          name: staff.staffName,
-          email: staff.staffEmail,
-          department: staff.department,
-          excluded,
-          suppressionId: suppression?.id ?? null,
-          promotionStatus: status.status,
-          suppressionReason: suppression
-            ? `manual_suppression:${suppression.reasonCode}`
-            : status.reason,
-          suppressionNote: suppression?.note ?? null,
-          sendable: status.status === "eligible",
-          offerStatus: offer?.status ?? null,
-          phase2Verified: verification.phase2?.status === "verified",
-          phase3Verified: verification.phase3?.status === "verified",
-          hasVerifiedBlsAndAcls,
-          suppressionOnly: false,
-        });
-      }
-      for (const suppression of suppressionRows) {
-        if (matchedSuppressionIds.has(suppression.id)) continue;
-        recipients.push({
-          staffId: -suppression.id,
-          userId: null,
-          name: suppression.matchType === "exact_name" ? suppression.matchValue : "Email-only suppression",
-          email: suppression.matchType === "email" ? suppression.matchValue : null,
-          department: null,
-          excluded: true,
-          suppressionId: suppression.id,
-          promotionStatus: "suppressed" as const,
-          suppressionReason: `manual_suppression:${suppression.reasonCode}`,
-          suppressionNote: suppression.note,
-          sendable: false,
-          offerStatus: null,
-          phase2Verified: false,
-          phase3Verified: false,
-          hasVerifiedBlsAndAcls: false,
-          suppressionOnly: true,
-        });
-      }
+      const audience = await loadNerpPromotionAudience(db, input.institutionId, input.limit);
       return {
-        institutionId: input.institutionId,
         offerKey: NERP_ACLS_OFFER_KEY,
         generatedAt: new Date().toISOString(),
-        counts: {
-          totalNurses: recipients.length,
-          sendable: recipients.filter(row => row.sendable).length,
-          suppressed: recipients.filter(
-            row => row.promotionStatus === "suppressed"
-          ).length,
-          needsReview: recipients.filter(
-            row => row.promotionStatus === "needs_review"
-          ).length,
-          excludedByName: recipients.filter(row => row.excluded && !row.suppressionOnly).length,
-          suppressionOnly: recipients.filter(row => row.suppressionOnly).length,
-        },
-        recipients,
+        ...audience,
         emailSending: false as const,
       };
     }),
