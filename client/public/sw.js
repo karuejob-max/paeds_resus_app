@@ -106,6 +106,10 @@ async function notifyResusGpsClientsToFlush() {
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   const data = event.data.json();
+  if (data.type === 'iers_activation_closed') {
+    event.waitUntil(closeIersActivationNotifications(data.tag || `iers-activation-${data.activationEventId}`));
+    return;
+  }
   event.waitUntil(
     self.registration.showNotification(data.title || 'Paeds Resus', {
       body: data.body || '',
@@ -139,6 +143,11 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
+
+async function closeIersActivationNotifications(tag) {
+  const notifications = await self.registration.getNotifications({ tag });
+  notifications.forEach((notification) => notification.close());
+}
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
 self.addEventListener('message', (event) => {

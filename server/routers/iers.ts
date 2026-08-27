@@ -47,7 +47,10 @@ import { assertInstitutionProcedureAccess } from "../lib/institution-capabilitie
 import { classifyShiftInterval } from "../lib/iers-shift-current";
 import { createActivationQrNonce, createActivationQrToken, parseActivationQrToken } from "../lib/iers-activation-qr";
 import { ensurePublishedTeamForLegacyUtlRoster } from "../services/iers-utl-sync.service";
-import { dispatchIersActivationPush } from "./iers-notifications";
+import {
+  dispatchIersActivationClosurePush,
+  dispatchIersActivationPush,
+} from "./iers-notifications";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 type ActivationStatus =
@@ -1279,29 +1282,40 @@ export const iersRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
-      const [row] = await db.select({ responder: iersActivationResponders, event: iersActivationEvents }).from(iersActivationResponders)
-        .innerJoin(iersActivationEvents, eq(iersActivationEvents.id, iersActivationResponders.activationEventId))
-        .where(and(eq(iersActivationResponders.activationEventId, input.activationEventId), eq(iersActivationResponders.userId, ctx.user.id))).limit(1);
-      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "You are not assigned to this activation." });
-      const [membership] = await db.select({ id: institutionMemberships.id }).from(institutionMemberships).where(and(
+      const [row] = await db.select({ responder: iersActivationResponders, event: iersActivationEvents }).from(iersActivationEvents)
+        .leftJoin(iersActivationResponders, and(
+          eq(iersActivationResponders.activationEventId, iersActivationEvents.id),
+          eq(iersActivationResponders.userId, ctx.user.id),
+        ))
+        .where(eq(iersActivationEvents.id, input.activationEventId)).limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Activation not found." });
+      const isInstitutionAdmin = await assertInstitutionAccess(db, ctx.user as any, row.event.institutionalAccountId)
+        .then(() => true)
+        .catch(() => false);
+      const [membership] = await db.select({ responsibilityRole: institutionMemberships.responsibilityRole }).from(institutionMemberships).where(and(
         eq(institutionMemberships.institutionalAccountId, row.event.institutionalAccountId),
         eq(institutionMemberships.userId, ctx.user.id),
         eq(institutionMemberships.membershipStatus, "active"),
       )).limit(1);
-      if (!membership) throw new TRPCError({ code: "FORBIDDEN", message: "An active institutional membership is required to view this activation case." });
+      if (!membership && !isInstitutionAdmin) throw new TRPCError({ code: "FORBIDDEN", message: "An active institutional membership is required to view this activation case." });
+      if (!row.responder && !isInstitutionAdmin && row.event.activatedByUserId !== ctx.user.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "You are not assigned to this activation." });
+      }
+      const responder = row.responder;
       const [generatedSnapshot] = await db.select().from(iersActivationTeamSnapshots).where(and(
         eq(iersActivationTeamSnapshots.activationEventId, input.activationEventId),
         eq(iersActivationTeamSnapshots.providerUserId, ctx.user.id),
       )).orderBy(desc(iersActivationTeamSnapshots.id)).limit(1);
       const assignments = row.event.teamId ? await db.select().from(iersShiftRoleAssignments).where(and(eq(iersShiftRoleAssignments.teamId, row.event.teamId), eq(iersShiftRoleAssignments.providerUserId, ctx.user.id), eq(iersShiftRoleAssignments.assignmentStatus, "accepted"))) : [];
       const myAssignment = assignments.find((assignment) => assignment.roleScope === "ertl") ?? assignments.find((assignment) => assignment.roleScope === "utl") ?? assignments.find((assignment) => assignment.roleScope === "ert_member");
-      const linked = Boolean(row.responder.caseJoinedAt) || row.event.caseQrGeneratedByUserId === ctx.user.id;
+      const linked = Boolean(responder?.caseJoinedAt) || row.event.caseQrGeneratedByUserId === ctx.user.id || row.event.activatedByUserId === ctx.user.id;
       const resources = await db.select().from(iersActivationResources).where(eq(iersActivationResources.activationEventId, input.activationEventId)).orderBy(iersActivationResources.status, iersActivationResources.id);
       const arrivals = await db.select().from(iersActivationArrivals).where(eq(iersActivationArrivals.activationEventId, input.activationEventId)).orderBy(iersActivationArrivals.occurredAt);
       const snapshotMembers = await db.select({ providerUserId: iersActivationTeamSnapshots.providerUserId, providerName: users.name, roleScope: iersActivationTeamSnapshots.roleScope, roleKey: iersActivationTeamSnapshots.roleKey }).from(iersActivationTeamSnapshots).innerJoin(users, eq(users.id, iersActivationTeamSnapshots.providerUserId)).where(eq(iersActivationTeamSnapshots.activationEventId, input.activationEventId));
       const teamMembers = [...new Map(snapshotMembers.map((member) => [member.providerUserId, { ...member, providerName: member.providerName ?? `Provider #${member.providerUserId}` }])).values()];
       return {
         activationEventId: row.event.id,
+        institutionId: row.event.institutionalAccountId,
         location: row.event.location,
         bedNumber: row.event.bedNumber,
         department: row.event.department,
@@ -1309,14 +1323,16 @@ export const iersRouter = router({
         status: row.event.status,
         teamId: row.event.teamId,
         teamVersion: row.event.teamVersion,
-        responderStatus: row.responder.notificationStatus,
-        myAtSceneAt: row.responder.atSceneAt,
+        responderStatus: responder?.notificationStatus ?? "received",
+        myAtSceneAt: responder?.atSceneAt ?? (row.event.activatedByUserId === ctx.user.id ? row.event.atSceneAt : null),
         caseLinked: linked,
         caseQrAvailable: Boolean(row.event.caseQrNonce),
         caseToken: linked && row.event.caseQrNonce ? createActivationQrToken(row.event.id, row.event.caseQrNonce) : null,
         myRoleScope: generatedSnapshot?.roleScope ?? myAssignment?.roleScope ?? null,
         myRoleKey: generatedSnapshot?.roleKey ?? myAssignment?.roleKey ?? null,
         assignmentId: myAssignment?.id ?? null,
+        canAdvance: isInstitutionAdmin || LEAD_ROLES.includes(membership?.responsibilityRole as ResponsibilityRole) || Boolean(myAssignment && ["ertl", "utl"].includes(myAssignment.roleScope)),
+        canGenerateCaseQr: Boolean(responder && (responder.responseAt || responder.atSceneAt)),
         resources: resources.map((resource) => ({ ...resource, claimedByMe: resource.claimedByUserId === ctx.user.id })),
         arrivals,
         teamMembers,
@@ -1606,9 +1622,6 @@ export const iersRouter = router({
       const continuityDecision = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.activation.operate");
       assertIersActivationContinuity(continuityDecision);
       const access = await assertInstitutionOrMember(db, ctx.user, input.institutionId);
-      if (access.kind === "provider" && !LEAD_ROLES.includes(access.membership?.responsibilityRole as ResponsibilityRole)) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Only an ERTL, UTL, coordinator, or institution admin can advance this activation." });
-      }
 
       const [event] = await db
         .select()
@@ -1616,11 +1629,29 @@ export const iersRouter = router({
         .where(and(eq(iersActivationEvents.id, input.activationEventId), eq(iersActivationEvents.institutionalAccountId, input.institutionId)))
         .limit(1);
       if (!event) throw new TRPCError({ code: "NOT_FOUND", message: "Activation not found." });
+      if (access.kind === "provider" && !LEAD_ROLES.includes(access.membership?.responsibilityRole as ResponsibilityRole)) {
+        const [datedLeadAssignment] = event.teamId
+          ? await db.select({ id: iersShiftRoleAssignments.id }).from(iersShiftRoleAssignments).where(and(
+            eq(iersShiftRoleAssignments.teamId, event.teamId),
+            eq(iersShiftRoleAssignments.providerUserId, ctx.user.id),
+            eq(iersShiftRoleAssignments.assignmentStatus, "accepted"),
+            inArray(iersShiftRoleAssignments.roleScope, ["ertl", "utl"]),
+          )).limit(1)
+          : [];
+        if (!datedLeadAssignment) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only an accepted ERTL, UTL, coordinator, or institution admin can advance this activation." });
+        }
+      }
       if (!canAdvanceIersActivation(event.status, input.state)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: `Cannot move activation from ${event.status} to ${input.state}.` });
       }
-      if (input.state === "closed" && !input.note?.trim()) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Document the debrief finding before closing the activation." });
+      if (["closed", "cancelled", "false_alarm"].includes(input.state) && !input.note?.trim()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: input.state === "closed"
+            ? "Document the debrief finding before closing the activation."
+            : "Document why the activation is being called off.",
+        });
       }
 
       const now = new Date();
@@ -1633,6 +1664,9 @@ export const iersRouter = router({
           status: input.state as ActivationStatus,
           ...timestamps,
           closedByUserId: input.state === "closed" ? ctx.user.id : event.closedByUserId,
+          cancellationReason: ["cancelled", "false_alarm"].includes(input.state)
+            ? input.note?.trim() ?? null
+            : event.cancellationReason,
           updatedAt: now,
         })
         .where(eq(iersActivationEvents.id, event.id));
@@ -1645,6 +1679,23 @@ export const iersRouter = router({
         toStatus: input.state,
         note: input.note || null,
       });
+      if (["closed", "cancelled", "false_alarm"].includes(input.state)) {
+        const responders = await db
+          .select({ userId: iersActivationResponders.userId })
+          .from(iersActivationResponders)
+          .where(eq(iersActivationResponders.activationEventId, event.id));
+        void dispatchIersActivationClosurePush(
+          db,
+          {
+            activationEventId: event.id,
+            status: input.state as "closed" | "cancelled" | "false_alarm",
+            tag: `iers-activation-${event.id}`,
+          },
+          responders.map((responder) => responder.userId),
+        ).catch((error) => {
+          console.warn("[IERS] Closure push dispatch failed without affecting activation:", error);
+        });
+      }
       if (input.state === "closed") {
         await db.insert(iersEvidenceRecords).values({
           institutionId: event.institutionalAccountId,

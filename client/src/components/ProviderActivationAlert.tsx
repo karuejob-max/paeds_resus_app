@@ -7,7 +7,11 @@ import { trpc } from "@/lib/trpc";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { fireIersForegroundAlert, showIersUrgentNotification } from "@/lib/iers-notification-client";
+import {
+  closeIersUrgentNotification,
+  fireIersForegroundAlert,
+  showIersUrgentNotification,
+} from "@/lib/iers-notification-client";
 
 function label(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -21,7 +25,8 @@ export default function ProviderActivationAlert() {
   const enabled = Boolean(user && role === "provider");
   const activationsQuery = trpc.iers.getMyActivations.useQuery(undefined, { enabled, refetchInterval: enabled ? 5_000 : false, staleTime: 2_000, retry: 1 });
   const receiveActivation = trpc.iers.receiveActivation.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
+      await closeIersUrgentNotification(`iers-activation-${variables.activationEventId}`);
       toast.success("Activation receipt recorded.");
       await utils.iers.getMyActivations.invalidate();
     },
@@ -29,7 +34,8 @@ export default function ProviderActivationAlert() {
   });
   const alertKeyRef = useRef<string | null>(null);
   const acknowledge = trpc.iers.acknowledge.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
+      await closeIersUrgentNotification(`iers-activation-${variables.activationEventId}`);
       toast.success("Response commitment recorded.");
       await utils.iers.getMyActivations.invalidate();
     },
@@ -42,6 +48,13 @@ export default function ProviderActivationAlert() {
 
   useEffect(() => {
     if (!activation) {
+      const previousKey = alertKeyRef.current;
+      if (previousKey) {
+        const [activationEventId] = previousKey.split(":");
+        if (activationEventId) {
+          void closeIersUrgentNotification(`iers-activation-${activationEventId}`);
+        }
+      }
       alertKeyRef.current = null;
       return;
     }

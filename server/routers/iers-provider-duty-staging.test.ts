@@ -522,6 +522,9 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       departmentId,
       shiftDate: new Date(today),
       shiftType: "morning",
+      shiftStartTime: "00:00:00",
+      shiftEndTime: "23:59:59",
+      shiftEndDayOffset: 0,
       utlUserId: assignedProviderId,
       isShiftErtl: false,
       assignmentStatus: "pending_acceptance",
@@ -535,8 +538,10 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       poleId,
       shiftDate: new Date(today),
       shiftType: "morning",
-      shiftStartTime: "07:30:00",
-      shiftEndTime: "17:30:00",
+      // Keep this disposable activation team current regardless of the hour
+      // when the local matrix is executed; production teams retain exact shift times.
+      shiftStartTime: "00:00:00",
+      shiftEndTime: "23:59:59",
       shiftEndDayOffset: 0,
       teamVersion: 1,
       status: "published",
@@ -1213,12 +1218,17 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       expect.objectContaining({ id: activationEventId, location: "STAGING WARD", bedNumber: "B-404", responderStatus: "sent", caseQrAvailable: false }),
     ]));
     const assignedCaseBeforeQr = await assignedCaller.iers.getMyActivationCase({ activationEventId });
-    expect(assignedCaseBeforeQr).toEqual(expect.objectContaining({ caseLinked: false, caseQrAvailable: false, caseToken: null, location: "STAGING WARD", bedNumber: "B-404" }));
+    expect(assignedCaseBeforeQr).toEqual(expect.objectContaining({ caseLinked: true, caseQrAvailable: false, caseToken: null, location: "STAGING WARD", bedNumber: "B-404" }));
     expect(assignedCaseBeforeQr.resources).toEqual(expect.arrayContaining([
       expect.objectContaining({ label: "Portable defibrillator", status: "needed", claimedByMe: false }),
     ]));
     expect(assignedCaseBeforeQr.teamMembers.filter((member) => member.providerUserId === ids.assignedProviderId)).toHaveLength(1);
-
+    const memberCaseBeforeDecline = await registeredCaller.iers.getMyActivationCase({ activationEventId });
+    expect(memberCaseBeforeDecline.canAdvance).toBe(false);
+    await expectTrpcError(
+      () => registeredCaller.iers.advance({ institutionId: ids.institutionId, activationEventId, state: "cancelled", note: "Member cannot call off this activation." }),
+      "FORBIDDEN",
+    );
     await registeredCaller.iers.receiveActivation({ activationEventId });
     const declineResult = await registeredCaller.iers.acknowledge({ activationEventId, accept: false, reason: "Staging provider unavailable for this response." });
     expect(declineResult).toEqual({ success: true, status: "declined" });
@@ -1289,8 +1299,28 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       "responder_arrival_witnessed",
     ]));
     expect(activationTimeline.every((entry) => entry.institutionalAccountId === ids.institutionId)).toBe(true);
-    expect(activationTimeline.map((entry) => entry.note ?? "").join(" ")).not.toMatch(/patient|name|identifier/i);
-
+        expect(activationTimeline.map((entry) => entry.note ?? "").join(" ")).not.toMatch(/patient|name|identifier/i);
+    await expectTrpcError(
+      () => unrelatedCaller.iers.advance({ institutionId: ids.institutionId, activationEventId, state: "cancelled", note: "Unauthorized call-off" }),
+      "FORBIDDEN",
+    );
+    await expectTrpcError(
+      () => assignedCaller.iers.advance({ institutionId: ids.institutionId, activationEventId, state: "cancelled" }),
+      "BAD_REQUEST",
+    );
+    const calledOff = await assignedCaller.iers.advance({
+      institutionId: ids.institutionId,
+      activationEventId,
+      state: "cancelled",
+      note: "Staging response no longer required after team arrival.",
+    });
+    expect(calledOff).toEqual({ success: true, status: "cancelled" });
+    const [cancelledEvent] = await db.select({ status: iersActivationEvents.status, cancellationReason: iersActivationEvents.cancellationReason }).from(iersActivationEvents).where(eq(iersActivationEvents.id, activationEventId)).limit(1);
+    expect(cancelledEvent).toEqual(expect.objectContaining({ status: "cancelled", cancellationReason: "Staging response no longer required after team arrival." }));
+    const cancelledCase = await assignedCaller.iers.getMyActivationCase({ activationEventId });
+    expect(cancelledCase.status).toBe("cancelled");
+    const cancelledTimeline = await assignedCaller.iers.getTimeline({ institutionId: ids.institutionId, activationEventId });
+    expect(cancelledTimeline.map((entry) => entry.eventType)).toContain("activation_cancelled");
     const reassignedUtl = await assignedCaller.institution.submitShiftUtlRoster({
       institutionId: ids.institutionId,
       poleId: ids.poleId,
