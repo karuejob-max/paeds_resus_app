@@ -38,6 +38,11 @@ function getStorageConfig(): StorageConfig {
     );
   }
 
+  const r2Credentials =
+    r2Endpoint && r2AccessKeyId && r2SecretAccessKey
+      ? { accessKeyId: r2AccessKeyId, secretAccessKey: r2SecretAccessKey }
+      : undefined;
+
   if (bucket && region) {
     return {
       kind: "s3",
@@ -47,14 +52,7 @@ function getStorageConfig(): StorageConfig {
         ...(r2Endpoint
           ? { endpoint: r2Endpoint, forcePathStyle: true }
           : {}),
-        ...(r2Endpoint
-          ? {
-              credentials: {
-                accessKeyId: r2AccessKeyId,
-                secretAccessKey: r2SecretAccessKey,
-              },
-            }
-          : {}),
+        ...(r2Credentials ? { credentials: r2Credentials } : {}),
       }),
     };
   }
