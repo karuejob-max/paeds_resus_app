@@ -18,10 +18,39 @@ import {
   getEpinephrineTimingState,
   shouldTriggerIntubatedVentilationCue,
   getHyperkalemiaGuidance,
+  getHypoxiaGuidance,
+  getFluidBolusGuidance,
+  CPR_CYCLE_SECONDS,
   PRECHARGE_AT_COMPRESSION_ELAPSED,
   DEFIB_PREPARATION_ALERT_SECONDS,
   type CprEngineState,
 } from '@/lib/resus/cpr-engine';
+
+describe('CPR Engine - Structured reversible-cause guidance', () => {
+  it('gives a fail-safe hypoxia recommendation when SpO₂ is critically low', () => {
+    const guidance = getHypoxiaGuidance(88);
+    expect(guidance.severity).toBe('critical');
+    expect(guidance.recommendation).toContain('check airway position');
+  });
+
+  it('does not treat a normal SpO₂ as permission to stop CPR', () => {
+    const guidance = getHypoxiaGuidance(97);
+    expect(guidance.severity).toBe('not_demonstrated');
+    expect(guidance.recommendation).toContain('do not use SpO₂ alone to stop CPR');
+  });
+
+  it('stops fluid guidance when overload findings are present', () => {
+    const guidance = getFluidBolusGuidance(20, false, { hepatomegaly: false, crepitations: true, jvd: false });
+    expect(guidance.overloadPresent).toBe(true);
+    expect(guidance.recommendation).toContain('Stop fluid boluses');
+  });
+
+  it('routes an age-context fluid range when no overload sign is recorded', () => {
+    const guidance = getFluidBolusGuidance(20, false, { hepatomegaly: false, crepitations: false, jvd: false });
+    expect(guidance.doseRange).toContain('100–200 mL');
+    expect(guidance.recommendation).toContain('reassess');
+  });
+});
 
 describe('CPR Engine - Rhythm Assessment', () => {
   it('should identify VF/pVT as shockable and recommend shock_ready phase', () => {
@@ -68,6 +97,20 @@ describe('CPR Engine - Medication Eligibility', () => {
 
     const result = evaluateMedicationEligibility(120, state, true);
     expect(result.epiEligible).toBe(true);
+  });
+
+  it('should not announce first epinephrine before rhythm is documented', () => {
+    const baseState: CprEngineState = {
+      shockCount: 0,
+      epiDoses: 0,
+      lastEpiTime: null,
+      antiarrhythmicDoses: 0,
+      rhythmType: 'unknown',
+      phase: 'compressions',
+    };
+    const result = evaluateMedicationEligibility(0, baseState, false);
+    expect(result.epiEligible).toBe(false);
+    expect(result.recommendation).toBeNull();
   });
 
   it('should recommend amiodarone messaging after 3rd shock', () => {
@@ -153,6 +196,40 @@ describe('CPR Engine - CPR-GPS clinical alerts', () => {
       weightKg: 20,
     });
     expect(alerts.some((a) => a.type === 'precharge_defibrillator')).toBe(true);
+  });
+
+  it('should not repeat a defibrillator cue after charging is confirmed', () => {
+    const alerts = evaluateCprGpsAlerts({
+      compressionElapsed: PRECHARGE_AT_COMPRESSION_ELAPSED,
+      rhythmWindowElapsed: null,
+      inReassessment: false,
+      arrestDuration: PRECHARGE_AT_COMPRESSION_ELAPSED,
+      state: { ...baseState, rhythmType: 'vf_pvt' },
+      isShockable: true,
+      advancedAirwayPlaced: false,
+      cycleNumber: 1,
+      weightKg: 20,
+      defibCharging: true,
+    });
+    expect(alerts.some((a) => a.type === 'precharge_defibrillator' || a.type === 'defibrillator_preparation')).toBe(false);
+  });
+
+  it('should announce the start of the ten-second pulse and rhythm pause', () => {
+    const alerts = evaluateCprGpsAlerts({
+      compressionElapsed: CPR_CYCLE_SECONDS,
+      rhythmWindowElapsed: 0,
+      inReassessment: true,
+      arrestDuration: CPR_CYCLE_SECONDS,
+      state: baseState,
+      isShockable: false,
+      advancedAirwayPlaced: false,
+      cycleNumber: 1,
+      weightKg: 20,
+    });
+    const due = alerts.find((a) => a.type === 'reassessment_due');
+    expect(due?.severity).toBe('critical');
+    expect(due?.speakText).toMatch(/two minutes complete/i);
+    expect(alerts.find((a) => a.type === 'rhythm_window')?.message).toContain('10s');
   });
 
   it('should prompt advanced airway after first shock', () => {

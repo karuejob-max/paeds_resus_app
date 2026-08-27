@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -71,6 +72,8 @@ export function CPRDebriefing({
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
   const [aiInsights, setAiInsights] = useState<string | null>(null);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  const [debriefNarrative, setDebriefNarrative] = useState('');
+  const [submitMessage, setSubmitMessage] = useState<string | null>(null);
 
   // Calculate performance metrics
   useEffect(() => {
@@ -80,6 +83,10 @@ export function CPRDebriefing({
 
   // Generate AI insights
   const generateInsights = trpc.cprSession.generateInsights.useMutation();
+  const submitDebrief = trpc.cprSession.submitDebrief.useMutation({
+    onSuccess: () => setSubmitMessage('Debrief submitted for institutional QI review.'),
+    onError: (error) => setSubmitMessage(error.message),
+  });
 
   const handleGenerateInsights = async () => {
     if (!metrics) return;
@@ -194,6 +201,14 @@ export function CPRDebriefing({
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  const timelineNarration = events.length > 0
+    ? events
+        .slice()
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .map((event) => `${formatTime(Math.round(event.timestamp / 1000))} — ${event.action}${event.performedBy ? ` (${event.performedBy})` : ''}${event.details ? `: ${event.details}` : ''}`)
+        .join('\\n')
+    : 'No CPR event timeline was recorded.';
 
   const exportDebriefing = () => {
     const report = {
@@ -428,6 +443,36 @@ export function CPRDebriefing({
                   </div>
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-800 border-gray-700 text-white">
+          <CardHeader>
+            <CardTitle>ERTL debrief submission</CardTitle>
+            <p className="text-sm text-gray-400">Review the generated narration, add the team’s interpretation, and submit it for institutional QI review. Do not enter patient identifiers.</p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">Timeline narration guide</p>
+              <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-gray-200">{timelineNarration}</pre>
+            </div>
+            <Textarea
+              value={debriefNarrative}
+              onChange={(event) => setDebriefNarrative(event.target.value)}
+              placeholder="What happened, what helped, what was missing, what caused delay, and what should change next time?"
+              className="min-h-28 border-gray-700 bg-gray-900 text-white placeholder:text-gray-500"
+              aria-label="ERTL debrief narrative"
+            />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              {submitMessage && <p className="text-sm text-gray-300" role="status">{submitMessage}</p>}
+              <Button
+                onClick={() => submitDebrief.mutate({ sessionId, narrative: debriefNarrative, outcome })}
+                disabled={debriefNarrative.trim().length < 20 || submitDebrief.isPending}
+                className="bg-emerald-600 text-white hover:bg-emerald-700 sm:ml-auto"
+              >
+                {submitDebrief.isPending ? 'Submitting…' : 'Submit debrief for QI review'}
+              </Button>
             </div>
           </CardContent>
         </Card>

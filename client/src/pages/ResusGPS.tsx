@@ -1980,78 +1980,52 @@ function IdleScreen({
   onStart: (isTrauma: boolean) => void;
   onOpenPatientInfo: () => void;
 }) {
-  const [isTrauma, setIsTrauma] = useState(false);
+  const hasRequiredContext = Boolean(weight && age);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] px-4">
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
-          <Siren className="h-10 w-10 text-primary" />
+    <div className="flex min-h-[72vh] flex-col items-center justify-center px-4 py-8">
+      <div className="w-full max-w-sm space-y-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">ResusGPS</p>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">Enter patient context</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Use actual age and measured weight. This selects the safe clinical pathway.</p>
         </div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Paeds Resus</h1>
-        <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-          Systematic XABCDE assessment with real-time threat detection, weight-based dosing, and intervention tracking
-        </p>
-      </div>
 
-      {/* Patient Info Card */}
-      <Card className="w-full max-w-sm mb-6 bg-card border-border">
-        <CardContent className="pt-4 pb-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-foreground">Patient Information</span>
-            <Button size="sm" variant="ghost" onClick={onOpenPatientInfo} className="text-xs gap-1 h-7">
-              <Pencil className="h-3 w-3" /> Edit
-            </Button>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-accent/30 rounded-lg p-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Weight</p>
-              {weight ? (
-                <p className="text-lg font-bold text-foreground">{weight} kg</p>
-              ) : (
-                <p className="text-sm text-amber-400">Not set</p>
-              )}
-            </div>
-            <div className="bg-accent/30 rounded-lg p-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Age</p>
-              {age ? (
-                <p className="text-lg font-bold text-foreground">{age}</p>
-              ) : (
-                <p className="text-sm text-amber-400">Not set</p>
-              )}
-            </div>
-          </div>
-          {(!weight || !age) && (
-            <p className="text-xs text-amber-400/80 mt-2 text-center">
-              Enter and confirm age and actual weight before the BLS gate so guidance is age-appropriate.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+        <Card className="border-border bg-card">
+          <CardContent className="space-y-3 p-3">
+            <button
+              type="button"
+              onClick={onOpenPatientInfo}
+              className="w-full rounded-xl border border-border bg-accent/20 p-3 text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label="Enter or edit patient age and actual weight"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Age</p>
+                    <p className={`mt-1 truncate text-lg font-bold ${age ? 'text-foreground' : 'text-amber-500'}`}>{age || 'Add age'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Actual weight</p>
+                    <p className={`mt-1 text-lg font-bold ${weight ? 'text-foreground' : 'text-amber-500'}`}>{weight ? `${weight} kg` : 'Add weight'}</p>
+                  </div>
+                </div>
+                <Pencil className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+              </div>
+            </button>
+            {!hasRequiredContext && <p className="px-1 text-xs text-amber-600">Enter both fields before continuing. Estimated weight is not used for dosing.</p>}
+          </CardContent>
+        </Card>
 
-      {/* One emergency entry; trauma is context, not a separate pathway. */}
-      <div className="w-full max-w-sm space-y-3">
         <Button
           size="lg"
-          className="w-full min-h-[60px] text-lg py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold gap-2"
-          onClick={() => onStart(isTrauma)}
+          disabled={!hasRequiredContext}
+          className="min-h-14 w-full bg-primary text-base font-bold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => onStart(false)}
         >
-          <Siren className="h-5 w-5" />
-          START RESUSGPS
+          <Siren className="mr-2 h-5 w-5" aria-hidden />
+          Continue to assessment
         </Button>
-        <Button
-          type="button"
-          variant={isTrauma ? 'default' : 'outline'}
-          className="w-full min-h-[44px] gap-2"
-          onClick={() => setIsTrauma((current) => !current)}
-          aria-pressed={isTrauma}
-        >
-          <AlertTriangle className="h-4 w-4" />
-          {isTrauma ? 'Trauma context: on' : 'Add trauma context (optional)'}
-        </Button>
-        <p className="text-xs text-muted-foreground text-center">
-          Every case follows the same sequence: BLS → CPR-GPS or XABCDE → secondary survey → report/debrief.
-        </p>
       </div>
     </div>
   );

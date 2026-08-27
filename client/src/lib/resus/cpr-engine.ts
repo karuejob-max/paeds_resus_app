@@ -6,7 +6,7 @@
 import type { LifeSupportPack } from './cpr-pack-resolver';
 
 export type ArrestPhase = 'initial_assessment' | 'compressions' | 'reassessment' | 'rhythm_check' | 'charging' | 'shock_ready' | 'post_shock';
-export type RhythmType = 'vf_pvt' | 'pea' | 'asystole' | 'rosc' | 'unknown';
+export type RhythmType = 'vf_pvt' | 'pea' | 'asystole' | 'bradycardia' | 'rosc' | 'unknown';
 export type EpiTimingState = 'not_due' | 'almost_due' | 'overdue';
 export type RhythmWindowPhase = 'compressions' | 'precharge_alert' | 'rhythm_window';
 export type RhythmClassification = 'shockable' | 'non_shockable';
@@ -80,6 +80,7 @@ export interface CprGpsAlertInput {
   cycleNumber: number;
   weightKg: number;
   defibDelayed?: boolean;
+  defibCharging?: boolean;
   lifeSupportPack?: LifeSupportPack;
 }
 
@@ -103,6 +104,17 @@ export interface HyperkalemiaGuidance {
   insulinDextrose: string;
   bicarbonate: string;
   prompts: string[];
+}
+
+export interface HypoxiaGuidance {
+  severity: 'unknown' | 'critical' | 'concerning' | 'not_demonstrated';
+  recommendation: string;
+}
+
+export interface FluidBolusGuidance {
+  overloadPresent: boolean;
+  recommendation: string;
+  doseRange: string;
 }
 
 export function getCycleWorkflowStatus(totalElapsedSeconds: number): CycleWorkflowStatus {
@@ -169,7 +181,7 @@ export function getRhythmClassificationFeedback(
   }
   return {
     title: 'NON-SHOCKABLE RHYTHM',
-    message: `${rhythmType === 'pea' ? 'PEA' : rhythmType === 'asystole' ? 'Asystole' : 'Non-shockable rhythm'} — do not shock. Resume compressions and give epinephrine if due.`,
+      message: `${rhythmType === 'pea' ? 'PEA' : rhythmType === 'asystole' ? 'Asystole' : rhythmType === 'bradycardia' ? 'Bradycardia' : 'Non-shockable rhythm'} — do not shock. Resume compressions and give epinephrine if due.`,
     severity: 'destructive',
   };
 }
@@ -223,6 +235,7 @@ export function evaluateCprGpsAlerts(input: CprGpsAlertInput): CprGpsAlert[] {
     cycleNumber,
     weightKg,
     defibDelayed = false,
+    defibCharging = false,
     lifeSupportPack = 'PALS',
   } = input;
 
@@ -237,11 +250,21 @@ export function evaluateCprGpsAlerts(input: CprGpsAlertInput): CprGpsAlert[] {
 
   if (inReassessment && rhythmWindowElapsed !== null) {
     const remaining = Math.max(0, RHYTHM_WINDOW_SECONDS - rhythmWindowElapsed);
+    if (rhythmWindowElapsed === 0) {
+      alerts.push({
+        type: 'reassessment_due',
+        severity: 'critical',
+        message: '2-minute cycle complete — stop compressions and check pulse and rhythm within 10 seconds',
+        speakText: 'Two minutes complete. Stop compressions. Check pulse and rhythm now.',
+      });
+    }
     alerts.push({
       type: 'rhythm_window',
       severity: 'warning',
-      message: `${remaining}s rhythm/shock window — document rhythm and shock decision`,
-      speakText: remaining <= 3 ? 'Resume compressions soon' : undefined,
+      message: `${remaining}s rhythm/shock window — document pulse and rhythm now`,
+      speakText: remaining > 0
+        ? `${remaining} seconds remaining. Document pulse and rhythm.`
+        : 'Time. Document pulse and rhythm now.',
     });
     if (shouldPromptReversibleCausesReview(cycleNumber)) {
       alerts.push({
@@ -261,7 +284,7 @@ export function evaluateCprGpsAlerts(input: CprGpsAlertInput): CprGpsAlert[] {
       message: '2-minute cycle complete — reassess patient and check rhythm',
       speakText: 'Stop compressions. Reassess patient and check rhythm.',
     });
-  } else if (isShockable && !defibDelayed && compression.countdownToRhythmCheck <= DEFIB_PREPARATION_ALERT_SECONDS) {
+  } else if (isShockable && !defibDelayed && !defibCharging && compression.countdownToRhythmCheck <= DEFIB_PREPARATION_ALERT_SECONDS) {
     alerts.push({
       type: compression.phase === 'precharge_alert' ? 'precharge_defibrillator' : 'defibrillator_preparation',
       severity: 'warning',
@@ -381,6 +404,49 @@ export function shouldTriggerIntubatedVentilationCue(
   return elapsedSinceIntubation % VENTILATION_CUE_SECONDS === 0;
 }
 
+export function getHypoxiaGuidance(spo2Percent: number | null): HypoxiaGuidance {
+  if (spo2Percent === null || !Number.isFinite(spo2Percent)) {
+    return {
+      severity: 'unknown',
+      recommendation: 'Obtain a reliable SpO₂ if possible. During arrest, treat the patient and ventilation—not the monitor alone; check airway position, BVM seal, oxygen source, chest rise, and obstruction, then reassess.',
+    };
+  }
+  if (spo2Percent < 90) {
+    return {
+      severity: 'critical',
+      recommendation: 'SpO₂ <90%: check airway position and patency, BVM seal, oxygen source, chest rise, and obstruction. Use the arrest ventilation pathway and reassess immediately; do not use SpO₂ alone to stop CPR.',
+    };
+  }
+  if (spo2Percent < 94) {
+    return {
+      severity: 'concerning',
+      recommendation: 'SpO₂ 90–93%: optimize oxygen delivery and ventilation, check airway position and chest rise, and reassess. Low perfusion can make SpO₂ unreliable during arrest.',
+    };
+  }
+  return {
+    severity: 'not_demonstrated',
+    recommendation: 'SpO₂ ≥94%: hypoxia is not demonstrated by this reading. Continue the age-specific ventilation plan and trend the measurement; do not use SpO₂ alone to stop CPR.',
+  };
+}
+
+export function getFluidBolusGuidance(
+  weightKg: number,
+  isAdult: boolean,
+  overloadFindings: { hepatomegaly: boolean; crepitations: boolean; jvd: boolean },
+): FluidBolusGuidance {
+  const overloadPresent = overloadFindings.hepatomegaly || overloadFindings.crepitations || overloadFindings.jvd;
+  const doseRange = isAdult
+    ? '250–500 mL isotonic crystalloid IV/IO per aliquot; tool ceiling 2,000 mL cumulative'
+    : `${Math.round(weightKg * 5)}–${Math.round(weightKg * 10)} mL isotonic crystalloid IV/IO per aliquot; reassess after every aliquot (40–60 mL/kg cumulative only with ongoing reassessment)`;
+  return {
+    overloadPresent,
+    doseRange,
+    recommendation: overloadPresent
+      ? 'A possible overload sign is present. Stop fluid boluses, reassess airway/breathing/circulation, and treat the suspected cause with senior/local protocol input.'
+      : `No overload sign recorded. If hypovolemia is suspected, give ${doseRange}, then reassess perfusion and overload before any further aliquot.`,
+  };
+}
+
 export function getHyperkalemiaGuidance(input: HyperkalemiaGuidanceInput): HyperkalemiaGuidance {
   const { weightKg, potassiumMmolL, hasEcgChanges, prolongedArrest = false } = input;
   const severity: HyperkalemiaGuidance['severity'] =
@@ -440,7 +506,7 @@ export function evaluateRhythmTransition(
   return {
     nextPhase: 'compressions',
     shockRequired: false,
-    message: 'Non-shockable rhythm. Resume compressions immediately.',
+      message: 'Non-shockable rhythm. Resume compressions immediately.',
   };
 }
 
@@ -501,7 +567,8 @@ export function evaluateMedicationEligibility(
     // First dose: immediate if non-shockable; shockable after 2nd shock OR if defib delayed
     const shockableFirstEpiOk =
       state.shockCount >= 2 || (defibDelayed && state.shockCount >= 0);
-    if (!isShockable || shockableFirstEpiOk) {
+    const rhythmDocumented = state.rhythmType !== 'unknown';
+    if ((rhythmDocumented && !isShockable) || shockableFirstEpiOk) {
       epiEligible = true;
       recommendation = !isShockable
         ? isAdultAclS
