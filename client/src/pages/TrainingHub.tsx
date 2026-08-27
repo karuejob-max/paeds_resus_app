@@ -75,6 +75,21 @@ export default function TrainingHub() {
             })}
           </div>
 
+          <Card className="border-teal-200 bg-teal-50/40">
+            <CardHeader>
+              <CardTitle className="text-lg text-teal-950">IERP — Intern Emergency Readiness Program</CardTitle>
+              <CardDescription>Self-service, staged emergency readiness for interns. No registered facility or institutional coordinator is required to begin.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/programs/ierp">
+                <Button variant="outline" className="w-full gap-2 border-teal-300 text-teal-900 hover:bg-teal-100">
+                  Explore IERP
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Heartsaver CPR AED</CardTitle>

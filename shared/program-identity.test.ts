@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 import { getProgramIdentity } from "./program-identity";
 
 describe("getProgramIdentity", () => {
-  it("maps permanent_nurse to the Nurse Cohort Program with nurse-specific rules", () => {
+  it("maps permanent_nurse to NERP with nurse-specific rules", () => {
     const identity = getProgramIdentity("permanent_nurse");
-    expect(identity.programName).toBe("Nurse Cohort Program");
+    expect(identity.programName).toBe("NERP");
     expect(identity.rules.some((r) => r.includes("2,500/month"))).toBe(true);
     expect(identity.rules.some((r) => r.includes("licence"))).toBe(true);
   });

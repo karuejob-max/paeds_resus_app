@@ -36,8 +36,8 @@ const INTERN_DESIGNATIONS: readonly Designation[] = ["noi", "coi_bsc", "coi_dipl
 export function getProgramIdentity(designation: Designation | string | null | undefined): ProgramIdentity {
   if (designation === "permanent_nurse") {
     return {
-      programName: "Nurse Cohort Program",
-      programFullName: "Subsidised ACLS/BLS Cohort Program — Nurse Track",
+      programName: "NERP",
+      programFullName: "Nurses Emergency Readiness Program",
       rules: [
         "KES 15,000 total, subsidised — requires a licence number on file",
         "KES 2,500/month required from the start, no deferral period",

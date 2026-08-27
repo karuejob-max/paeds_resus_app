@@ -507,7 +507,7 @@ Paeds Resus is not a bundle of separate tools that happen to share a login. It i
 | Level | What it addresses | Primary product |
 |-------|------------------|-----------------|
 | **Bedside cognition** | Wrong sequence, missed steps, dosing errors under stress | ResusGPS |
-| **Professional competence** | Knowledge gaps, certification, behaviour change | Fellowship + AHA Courses + Micro-courses |
+| **Professional competence** | Knowledge gaps, certification, behaviour change | Fellowship + AHA Courses + Micro-courses + IERP + NERP |
 | **Continuous learning from real cases** | Gap between classroom mastery and ward behaviour | Care Signal → linked learning |
 | **Institutional systems** | Workflow, triage, procurement, accountability | Institutional OS (Hospital ERS) |
 | **Community and guardian voice** | Late presentation, family experience, upstream failures | Safe-Truth |
@@ -529,6 +529,10 @@ Provider identity (users + providerProfiles)
     │
     ├── Course completions (enrollments + certificates)
     │       └── feeds Fellowship Pillar A + institutional reporting
+    │
+    ├── IERP programme state (ierpProgramEnrollments + ierpPhase1Evidence + ierpPayments)
+    │       └── feeds intern readiness progression and programme payment reconciliation
+    │          (does not grant IERS access and does not replace NERP state)
     │
     ├── Professional credential ledger (professionalCredentials)
     │       └── feeds provider verification + institution compliance reporting
@@ -581,6 +585,12 @@ A provider who completes all three pillars over 24 months has demonstrated that 
 - **Receives from:** None (standalone track — not part of Fellowship pathway)
 - **Integration note:** AHA courses share the same platform identity and enrollment infrastructure but do **not** contribute to Fellowship pillars. This separation is **non-negotiable**.
 - **Canonical doc:** [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md)
+#### IERP and NERP programme pathways
+- **IERP** means only the **Intern Emergency Readiness Program**. It is a user-owned training participation record for intern designations, with independent Phase 1 evidence, named-role Phase 2 completion, hands-on Phase 3 gating, and programme-aware payment reconciliation.
+- **NERP** means only the **Nurses Emergency Readiness Program**. Nurse-specific rules and records remain separate from IERP, even when cross-program online simulations are shared.
+- Neither IERP nor NERP enrolment grants IERS institutional membership, product roles, dated duties, responder permissions, or readiness sign-off. IERS remains the institutional emergency operations system.
+- IERP promotional email infrastructure is consent-aware and previewable but remains draft/paused with sending disabled until a separately governed release.
+
 #### AHA Practice Lab (supplemental simulation)
 - **Product:** Enrollment-gated skills practice for **Paeds Resus Limited** AHA course learners (BLS, ACLS, PALS, Heartsaver, NRP). Supplemental simulation and debrief � **not** Fellowship credit and **not** ResusGPS clinical bedside mode (/resus).
 - **Route:** /aha-courses/practice (linked from AHA hub for enrolled providers)
@@ -726,6 +736,7 @@ Every strategic and operational document in this repository is listed here with 
 | [MPESA_CREDENTIALS_REFERENCE.md](./MPESA_CREDENTIALS_REFERENCE.md) | Active | M-Pesa credentials (do not commit secrets) |
 | [PR-DC_V1.0_Drug_Compendium.md](./PR-DC_V1.0_Drug_Compendium.md) | Active | Paediatric drug compendium — clinical reference |
 | [INSTITUTION_ACCOUNTABILITY_CREDENTIALS_SPEC.md](./INSTITUTION_ACCOUNTABILITY_CREDENTIALS_SPEC.md) | Active | Institution credential compliance, Life Support projections, CPD target accountability, and Departmental Head scope — expands §24 |
+| [IERP_IMPLEMENTATION_CONTRACT.md](./IERP_IMPLEMENTATION_CONTRACT.md) | Active — Engineering contract | IERP/IERS/NERP terminology, self-service intern programme state, private evidence, payment reconciliation, collision boundary, and no-send email release gate |
 
 ### 21.3 Audit and Status Documents
 
@@ -1027,7 +1038,7 @@ Cross-reference: [§22.3](#223-what-you-must-never-do).
 
 ---
 
-**Last structural update:** 2026-08-23 — Added governed institutional department creation/reactivation, Other-user CPD traceability, compact URL-addressable CPD/IERS navigation, accepted-ERCo pole-rota read/write access, explicit monthly UTL source planning, department nurse candidate lists, and per-shift nurse selection without implicit auto-assignment; prior update added migration 0115’s non-destructive CPD department reconciliation state, append-only decision audit, fail-closed explicit IERS pole eligibility, account-admin reconciliation controls, IERS Lead missing-pole alerts, and the mobile-safe Administration workflow; prior update: 2026-08-22 — Added onboarding-confirmed canonical IERS departments shared with CPD registration, pole allocation, linked-provider autofill, monthly UTL rota provenance, automatic ERTL shift flags, migration 0114 setup schema, provider-duty staging/cleanup controls, the mobile IERS roster/card layout, and the new-user orientation guide; prior update added the independent IERS/CPD Portal institutional architecture, shared Administration control plane, Connected Services transition portfolio, product entitlement schema, server-side IERS/CPD capability gates, and Institution Workspace. Prior: 2026-08-21 — Added provider-driven IERS activation, evidence, drill, action-closure, implementation-plan, executive-reporting, and QI integration surfaces; registered the IERS build blueprint and operating guide. Prior: 2026-06-30 — Integrated the five constitutional/engineering documents from the North Star v2.0 cycle: [NORTH_STAR_V2.md](./NORTH_STAR_V2.md), [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md), [FPKB_SCHEMA_V1.md](./FPKB_SCHEMA_V1.md), [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md), [FINANCIAL_STRATEGY_V1.md](./FINANCIAL_STRATEGY_V1.md). Added new §25 (FPKB and Learning Governance), §8.1 (global shared classifiers), updated §7 (actor model migration), §12 (Care Signal v3 as top priority, FPKB migration sequencing, deliberate postponements), §3 (Safe-Truth accountless requirement), §21 (document registry), §22.3 (new anti-patterns). Prior: 2026-05-30 — Added [AGENT_OPERATIONS_PLAYBOOK.md](./AGENT_OPERATIONS_PLAYBOOK.md) to §21 (shipping + prod DB runbooks). Prior: 2026-05-29 — [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md). Prior: §24 (Institutional ERS). Prior: 2026-05-28 — Institutional ERS narrative. Prior: 2026-05-27 — §23. Prior: 2026-05-01 — §19–§22.
+**Last structural update:** 2026-08-27 — Registered the IERP/NERP programme separation, user-owned IERP state spine, migration 0131 contract, and no-send campaign governance; prior: 2026-08-23 — Added governed institutional department creation/reactivation, Other-user CPD traceability, compact URL-addressable CPD/IERS navigation, accepted-ERCo pole-rota read/write access, explicit monthly UTL source planning, department nurse candidate lists, and per-shift nurse selection without implicit auto-assignment; prior update added migration 0115’s non-destructive CPD department reconciliation state, append-only decision audit, fail-closed explicit IERS pole eligibility, account-admin reconciliation controls, IERS Lead missing-pole alerts, and the mobile-safe Administration workflow; prior update: 2026-08-22 — Added onboarding-confirmed canonical IERS departments shared with CPD registration, pole allocation, linked-provider autofill, monthly UTL rota provenance, automatic ERTL shift flags, migration 0114 setup schema, provider-duty staging/cleanup controls, the mobile IERS roster/card layout, and the new-user orientation guide; prior update added the independent IERS/CPD Portal institutional architecture, shared Administration control plane, Connected Services transition portfolio, product entitlement schema, server-side IERS/CPD capability gates, and Institution Workspace. Prior: 2026-08-21 — Added provider-driven IERS activation, evidence, drill, action-closure, implementation-plan, executive-reporting, and QI integration surfaces; registered the IERS build blueprint and operating guide. Prior: 2026-06-30 — Integrated the five constitutional/engineering documents from the North Star v2.0 cycle: [NORTH_STAR_V2.md](./NORTH_STAR_V2.md), [OBSERVATION_ARCHITECTURE_V1_1.md](./OBSERVATION_ARCHITECTURE_V1_1.md), [FPKB_SCHEMA_V1.md](./FPKB_SCHEMA_V1.md), [EVENT_MODELS_V1.md](./EVENT_MODELS_V1.md), [FINANCIAL_STRATEGY_V1.md](./FINANCIAL_STRATEGY_V1.md). Added new §25 (FPKB and Learning Governance), §8.1 (global shared classifiers), updated §7 (actor model migration), §12 (Care Signal v3 as top priority, FPKB migration sequencing, deliberate postponements), §3 (Safe-Truth accountless requirement), §21 (document registry), §22.3 (new anti-patterns). Prior: 2026-05-30 — Added [AGENT_OPERATIONS_PLAYBOOK.md](./AGENT_OPERATIONS_PLAYBOOK.md) to §21 (shipping + prod DB runbooks). Prior: 2026-05-29 — [CLINICAL_CONTENT_GOVERNANCE.md](./CLINICAL_CONTENT_GOVERNANCE.md). Prior: §24 (Institutional ERS). Prior: 2026-05-28 — Institutional ERS narrative. Prior: 2026-05-27 — §23. Prior: 2026-05-01 — §19–§22.
 
 
 ### 24.8a Exact-time UTL staffing and provider duty summaries (migration 0118)

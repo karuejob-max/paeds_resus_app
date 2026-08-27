@@ -64,6 +64,8 @@
     "db:apply-0126": "node scripts/apply-0126-institution-learning-operations.mjs",
     "db:apply-0127": "node scripts/apply-0127-institution-accountability.mjs",
     "db:apply-0128": "node scripts/apply-0128-nerp-offer-verification.mjs",
+    "db:apply-0131": "node scripts/apply-0131-ierp-program.mjs",
+    "db:verify-0131": "node scripts/verify-0131-ierp.mjs",
     "db:fresh-migrate": "node scripts/db-snapshot-and-fresh-migrate.mjs",
     "db:test-connection": "node scripts/test-db-connection.mjs",
     "verify:fpkb-app-layer": "tsx -r dotenv/config scripts/verify-fpkb-app-layer.mjs",

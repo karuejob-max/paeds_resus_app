@@ -18,6 +18,7 @@ import { logStructured } from "../lib/structured-log";
 import { trackPaymentCompletion } from "../services/analytics.service";
 import { reconcileInstitutionMpesaIntent } from "../lib/institution-mpesa-reconciliation";
 import { applyNerpPaymentCompletion } from "../lib/nerp-offer";
+import { reconcileIerpMpesaPayment } from "../lib/ierp-payment-reconciliation";
 import { attachMpesaWebhookLogging, type MpesaWebhookLogBuilder } from "../lib/mpesa-webhook-log";
 import crypto from "crypto";
 
@@ -306,6 +307,20 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       });
     }
 
+    const ierpResult = await reconcileIerpMpesaPayment(db, {
+      checkoutRequestId: lookupId,
+      resultCode: typeof ResultCode === "number" ? ResultCode : Number(ResultCode),
+      resultDesc: typeof ResultDesc === "string" ? ResultDesc : String(ResultDesc ?? ""),
+      amount: Number.isFinite(Number(amount)) ? Number(amount) : null,
+      phoneNumber: phoneNumber ? String(phoneNumber).trim() : null,
+      mpesaReceiptNumber: mpesaReceiptNumber ? String(mpesaReceiptNumber).trim() : null,
+    });
+    if (ierpResult) {
+      log.paymentId = ierpResult.paymentId;
+      log.outcome = ierpResult.status === "completed" ? "payment_completed" : ierpResult.status === "failed" ? "payment_failed" : "acknowledged";
+      return res.status(200).json({ success: true, message: ierpResult.status === "amount_mismatch" ? "IERP payment received for manual reconciliation" : ierpResult.duplicate ? "IERP payment already processed" : ierpResult.status === "completed" ? "IERP payment verified" : "IERP payment failure recorded" });
+    }
+
     // Success: ResultCode 0
     if (ResultCode === 0) {
       // Find payment by CheckoutRequestID (stored in transactionId at initiation)
@@ -536,6 +551,19 @@ export async function handleMpesaTimeoutWebhook(
     // Update payment status to timeout
     const db = await getDb();
     if (db) {
+      const ierpResult = await reconcileIerpMpesaPayment(db, {
+        checkoutRequestId: typeof CheckoutRequestID === "string" ? CheckoutRequestID : String(CheckoutRequestID ?? ""),
+        resultCode: typeof ResultCode === "number" ? ResultCode : Number(ResultCode),
+        resultDesc: typeof ResultDesc === "string" ? ResultDesc : String(ResultDesc ?? ""),
+        amount: null,
+        phoneNumber: null,
+        mpesaReceiptNumber: null,
+      });
+      if (ierpResult) {
+        log.outcome = ierpResult.status === "failed" ? "payment_failed" : "already_finalized";
+        return res.status(200).json({ success: true, message: ierpResult.duplicate ? "IERP payment already finalized" : "IERP payment failure recorded" });
+      }
+
       const paymentRecords = await db
         .select()
         .from(payments)
