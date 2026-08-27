@@ -64,6 +64,14 @@ export function sanitizeEventData(eventData: Record<string, unknown> | undefined
   return serialized.length > 8000 ? `${serialized.slice(0, 7990)}...[truncated]` : serialized;
 }
 
+export function sanitizeEventDetail(detail: string): string {
+  const withoutFreeTextAlternative = detail.split(" → Alternative:")[0];
+  return withoutFreeTextAlternative
+    .replace(/\b(patient\s*(name|id|number)|mrn|medical\s*record\s*(number|no)?|national\s*id|phone|email)\s*[:=#-]?\s*[^,;|]+/gi, "[redacted]")
+    .trim()
+    .slice(0, 500);
+}
+
 async function assertActivationAccess(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, userId: number, activationEventId: number) {
   const [activation] = await db
     .select({ id: iersActivationEvents.id, institutionalAccountId: iersActivationEvents.institutionalAccountId, activatedByUserId: iersActivationEvents.activatedByUserId })
@@ -126,7 +134,7 @@ export const resusEventRouter = router({
           activationEventId: input.activationEventId ?? null,
           eventType: input.eventType,
           letter: input.letter ?? null,
-          detail: input.detail,
+          detail: sanitizeEventDetail(input.detail),
           eventData: sanitizeEventData(input.eventData),
           eventTimestamp: input.eventTimestamp,
           createdAt: new Date(),

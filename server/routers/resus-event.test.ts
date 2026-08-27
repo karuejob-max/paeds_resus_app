@@ -12,7 +12,7 @@ const { getDbMock, selectRows, insertValues } = vi.hoisted(() => ({
 vi.mock("../db", () => ({ getDb: getDbMock }));
 
 import { appRouter } from "../routers";
-import { sanitizeEventData } from "./resus-event";
+import { sanitizeEventData, sanitizeEventDetail } from "./resus-event";
 
 function createDbMock() {
   return {
@@ -67,6 +67,11 @@ describe("resusEvent.append", () => {
       nested: { nationalId: "never-store", value: 94 },
     });
     expect(serialized).toBe(JSON.stringify({ patientAge: "5 years", finding: "wheeze", nested: { value: 94 } }));
+  });
+
+  it("removes free-text alternatives and common identifiers from timeline detail", () => {
+    expect(sanitizeEventDetail("RESOURCE UNAVAILABLE: IV access → Alternative: use patient name Job Karue, MRN: SIM-001")).toBe("RESOURCE UNAVAILABLE: IV access");
+    expect(sanitizeEventDetail("Patient name: Synthetic Patient, MRN: SIM-001, finding recorded")).toBe("[redacted], [redacted], finding recorded");
   });
 
   it("inserts a synthetic event and returns an idempotent acknowledgement", async () => {
