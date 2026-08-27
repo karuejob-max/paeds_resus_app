@@ -807,7 +807,7 @@ export const institutionLearningRouter = router({
               cpdEventId: eventId,
               institutionalAccountId: input.institutionId,
               userId: member.userId,
-              participantType: "institution_member",
+              participantType: "institution_member" as const,
               fullName: member.staffName,
               email: member.staffEmail || null,
               cadre: member.cadre ?? member.staffRole,
