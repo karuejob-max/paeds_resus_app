@@ -15,6 +15,8 @@ export type ShockActionType = 'shock_delivered' | 'no_shock';
 export const CPR_CYCLE_SECONDS = 120;
 /** T-15s before rhythm check — charge defibrillator to reduce the pause. */
 export const PRECHARGE_ALERT_SECONDS = 15;
+/** Early preparation cue; the final charge-now cue remains at T-15. */
+export const DEFIB_PREPARATION_ALERT_SECONDS = 30;
 export const RHYTHM_WINDOW_SECONDS = 10;
 export const CYCLE_BLOCK_SECONDS = CPR_CYCLE_SECONDS + RHYTHM_WINDOW_SECONDS;
 export const VENTILATION_CUE_SECONDS = 6;
@@ -51,6 +53,7 @@ export interface CompressionCycleStatus {
 export type CprGpsAlertType =
   | 'reassessment_due'
   | 'precharge_defibrillator'
+  | 'defibrillator_preparation'
   | 'rhythm_window'
   | 'epinephrine_due'
   | 'epinephrine_prep'
@@ -258,12 +261,16 @@ export function evaluateCprGpsAlerts(input: CprGpsAlertInput): CprGpsAlert[] {
       message: '2-minute cycle complete — reassess patient and check rhythm',
       speakText: 'Stop compressions. Reassess patient and check rhythm.',
     });
-  } else if (compression.phase === 'precharge_alert' && isShockable) {
+  } else if (isShockable && !defibDelayed && compression.countdownToRhythmCheck <= DEFIB_PREPARATION_ALERT_SECONDS) {
     alerts.push({
-      type: 'precharge_defibrillator',
+      type: compression.phase === 'precharge_alert' ? 'precharge_defibrillator' : 'defibrillator_preparation',
       severity: 'warning',
-      message: `Charge defibrillator — rhythm check in ${compression.countdownToRhythmCheck}s`,
-      speakText: 'Charge the defibrillator now.',
+      message: compression.phase === 'precharge_alert'
+        ? `Charge defibrillator — rhythm check in ${compression.countdownToRhythmCheck}s`
+        : `Prepare defibrillator — charge prompt at ${PRECHARGE_ALERT_SECONDS}s before rhythm check`,
+      speakText: compression.phase === 'precharge_alert'
+        ? 'Charge the defibrillator now.'
+        : 'Prepare the defibrillator. Charge at fifteen seconds.',
     });
   }
 

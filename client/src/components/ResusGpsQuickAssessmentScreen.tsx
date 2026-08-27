@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ArrowRight, CheckCircle2, CircleHelp, Heart, Siren, UserRound, Wind } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -64,6 +64,13 @@ export function ResusGpsQuickAssessmentScreen({ patientAge, onAnswer }: ResusGps
   }, [responsiveness, breathing, pulse]);
 
   const canContinue = decision !== null;
+  const autoAdvancedArrestRef = useRef(false);
+
+  useEffect(() => {
+    if (decision !== 'cardiac_arrest' || autoAdvancedArrestRef.current) return;
+    autoAdvancedArrestRef.current = true;
+    onAnswer('cardiac_arrest');
+  }, [decision, onAnswer]);
 
   return (
     <div className="flex flex-col min-h-[70vh] px-3 sm:px-4 py-4 sm:py-6 max-w-xl mx-auto w-full">
@@ -153,7 +160,7 @@ export function ResusGpsQuickAssessmentScreen({ patientAge, onAnswer }: ResusGps
       {decision === 'cardiac_arrest' && (
         <div className="mt-4 rounded-xl border-2 border-red-500 bg-red-500/10 p-3" role="alert">
           <p className="font-bold text-red-800 dark:text-red-200">Cardiac arrest suspected</p>
-          <p className="text-sm text-red-900/80 dark:text-red-100/80 mt-1">Call for help, start chest compressions, and open CPR-GPS now.</p>
+            <p className="text-sm text-red-900/80 dark:text-red-100/80 mt-1">Call for help and start chest compressions. CPR-GPS is opening automatically.</p>
         </div>
       )}
       {decision === 'no_cardiac_arrest' && (
@@ -170,7 +177,7 @@ export function ResusGpsQuickAssessmentScreen({ patientAge, onAnswer }: ResusGps
           disabled={!canContinue}
           onClick={() => onAnswer(decision!)}
         >
-          {decision === 'cardiac_arrest' ? 'Start CPR-GPS' : 'Continue to XABCDE primary survey'}
+          {decision === 'cardiac_arrest' ? 'Open CPR-GPS now' : 'Continue to XABCDE primary survey'}
           <ArrowRight className="h-5 w-5 ml-2" aria-hidden />
         </Button>
       </div>

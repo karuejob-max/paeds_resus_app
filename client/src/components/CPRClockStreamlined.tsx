@@ -216,6 +216,7 @@ export function CPRClockStreamlined({
   const [showRhythmCheck, setShowRhythmCheck] = useState(false);
   const [showReversibleCauses, setShowReversibleCauses] = useState(false);
   const [showAntiarrhythmicChoice, setShowAntiarrhythmicChoice] = useState(false);
+  const [showEpinephrinePrompt, setShowEpinephrinePrompt] = useState(false);
   const [showAdvancedAirwayPrompt, setShowAdvancedAirwayPrompt] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
@@ -224,11 +225,6 @@ export function CPRClockStreamlined({
   const [defibrillatorDelayed, setDefibrillatorDelayed] = useState(false);
   const [chargeForShock, setChargeForShock] = useState(false);
   const [showChargePrompt, setShowChargePrompt] = useState(false);
-  const [showRhythmActionCapture, setShowRhythmActionCapture] = useState(false);
-  const [windowRhythmClassification, setWindowRhythmClassification] = useState<RhythmClassification | null>(null);
-  const [windowRhythmType, setWindowRhythmType] = useState<RhythmType | null>(null);
-  const [windowShockAction, setWindowShockAction] = useState<'shock_delivered' | 'no_shock' | null>(null);
-  const [windowNoShockReason, setWindowNoShockReason] = useState('');
   const [showSummaryCard, setShowSummaryCard] = useState(false);
   const [showTools, setShowTools] = useState(false);
   const [showRoscConfirm, setShowRoscConfirm] = useState(false);
@@ -260,6 +256,8 @@ export function CPRClockStreamlined({
   const metronomeRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const firedAlertsRef = useRef<Set<string>>(new Set());
+  const epiPromptKeyRef = useRef<string | null>(null);
+  const antiarrhythmicPromptKeyRef = useRef<string | null>(null);
   const rhythmWindowLoggedRef = useRef(false);
   const outboxFlushRef = useRef<Set<string>>(new Set());
   const recoveryCheckedRef = useRef(!caseKey);
@@ -488,6 +486,15 @@ export function CPRClockStreamlined({
     defibDelayed: defibrillatorDelayed,
     lifeSupportPack: lifeSupportPack?.pack,
   });
+  const epiState = getEpinephrineTimingState(
+    effectiveArrestDuration,
+    engineSnapshot,
+    isShockableRhythm,
+    { defibDelayed: defibrillatorDelayed, lifeSupportPack: cprEnginePack },
+  );
+  const epiDue = activeAlerts.some((alert) => alert.type === 'epinephrine_due');
+  const antiarrhythmicDue = activeAlerts.some((alert) => alert.type === 'amiodarone_due');
+  const antiarrhythmicAlert = activeAlerts.find((alert) => alert.type === 'amiodarone_due');
 
   // Format time
   const formatTime = (seconds: number): string => {
@@ -667,9 +674,28 @@ export function CPRClockStreamlined({
     }
     const airway = activeAlerts.some((a) => a.type === 'advanced_airway');
     if (airway) setShowAdvancedAirwayPrompt(true);
-    const amio = activeAlerts.some((a) => a.type === 'amiodarone_due');
-    if (amio) setShowAntiarrhythmicChoice(true);
-  }, [activeAlerts, isShockableRhythm, defibCharging]);
+    if (antiarrhythmicDue) {
+      const promptKey = `${effectiveShockCount}-${cprEnginePack}`;
+      if (antiarrhythmicPromptKeyRef.current !== promptKey) {
+        antiarrhythmicPromptKeyRef.current = promptKey;
+        setShowAntiarrhythmicChoice(true);
+      }
+    } else {
+      antiarrhythmicPromptKeyRef.current = null;
+      setShowAntiarrhythmicChoice(false);
+    }
+
+    if (epiDue) {
+      const promptKey = `${effectiveEpiDoses}-${cprEnginePack}`;
+      if (epiPromptKeyRef.current !== promptKey) {
+        epiPromptKeyRef.current = promptKey;
+        setShowEpinephrinePrompt(true);
+      }
+    } else {
+      epiPromptKeyRef.current = null;
+      setShowEpinephrinePrompt(false);
+    }
+  }, [activeAlerts, antiarrhythmicDue, cprEnginePack, defibCharging, effectiveEpiDoses, effectiveShockCount, epiDue, isShockableRhythm]);
 
   // Timer logic (skip arrest duration tick when parent timer is authoritative)
   useEffect(() => {
@@ -837,34 +863,25 @@ export function CPRClockStreamlined({
       setChargeForShock(true);
       setShowChargePrompt(true);
     } else {
-      setPhase('reassessment');
-      setShowRhythmActionCapture(true);
+      const wasScheduledReassessment = phase === 'reassessment';
+      const noShockReason = `${type === 'pea' ? 'PEA' : 'Asystole'} documented — non-shockable rhythm`;
+      applyRhythmWindowDecision(effectiveShockCount, {
+        rhythmClassification: 'non_shockable',
+        rhythmType: type,
+        shockAction: 'no_shock',
+        noShockReason,
+      });
+      if (wasScheduledReassessment) {
+        setRhythmWindowElapsed(null);
+        resetCompressionCycle();
+      }
+      setPhase('compressions');
     }
-    addEvent(`${type.toUpperCase()} detected`, rhythmResult.message);
+    addEvent(`${type.toUpperCase()} detected`, isShockable ? rhythmResult.message : `${rhythmResult.message} No shock documented; compressions resumed.`);
     speak(rhythmResult.message);
     if (medResult.epiEligible && medResult.recommendation) {
       speak(medResult.recommendation);
     }
-  };
-
-  const submitRhythmWindowAction = () => {
-    if (!windowRhythmClassification || !windowShockAction) return;
-    if (windowRhythmClassification === 'shockable' || windowShockAction !== 'no_shock') return;
-    const decision = applyRhythmWindowDecision(effectiveShockCount, {
-      rhythmClassification: windowRhythmClassification,
-      rhythmType: windowRhythmType || undefined,
-      shockAction: windowShockAction,
-      noShockReason: windowNoShockReason,
-    });
-    setShowRhythmActionCapture(false);
-    addEvent('Rhythm window action', decision.actionSummary);
-
-    speak('No shock delivered. Resume compressions now.');
-    setRhythmFeedback(null);
-    setRhythmWindowElapsed(null);
-    resetCompressionCycle();
-    addEvent('Reassessment completed', `Cycle ${effectiveCycleNumber} — compressions resumed`);
-    setPhase('compressions');
   };
 
   // Deliver shock using cpr-engine. The UI must be in the explicit shock-ready
@@ -934,6 +951,7 @@ export function CPRClockStreamlined({
 
   // Give epinephrine using cpr-engine
   const giveEpinephrine = () => {
+    setShowEpinephrinePrompt(false);
     pulse('critical'); // Haptic feedback for epinephrine
     const newEpiDoses = effectiveEpiDoses + 1;
     setEpiDoses(newEpiDoses);
@@ -1302,13 +1320,11 @@ export function CPRClockStreamlined({
         effectiveShockCount={effectiveShockCount}
         effectiveEpiDoses={effectiveEpiDoses}
         effectiveRhythmType={effectiveRhythmType}
-        epiState={getEpinephrineTimingState(
-          effectiveArrestDuration,
-          engineSnapshot,
-          effectiveRhythmType === 'vf_pvt',
-          { defibDelayed: defibrillatorDelayed, lifeSupportPack: cprEnginePack },
-        )}
+        epiState={epiState}
         epiDose={epiDose}
+        antiarrhythmicDue={antiarrhythmicDue}
+        antiarrhythmicMessage={antiarrhythmicAlert?.message}
+        onShowAntiarrhythmic={() => setShowAntiarrhythmicChoice(true)}
         shockEnergyLabel={shockEnergyLabel}
         formatTime={formatTime}
         onStartArrest={startArrest}
@@ -1416,8 +1432,33 @@ export function CPRClockStreamlined({
         </div>
       )}
 
+      {/* Epinephrine due overlay — closing it does not clear the persistent reminder. */}
+      {showEpinephrinePrompt && epiDue && (
+        <div className="absolute inset-0 bg-black/85 flex items-center justify-center z-30 p-4" role="dialog" aria-modal="true" aria-labelledby="epi-due-title">
+          <Card className="bg-gray-900 border-red-500/80 w-full max-w-lg text-white">
+            <CardContent className="p-5 md:p-7 space-y-4">
+              <div className="flex items-start gap-3">
+                <Syringe className="mt-1 h-8 w-8 shrink-0 text-red-300" aria-hidden />
+                <div>
+                  <h2 id="epi-due-title" className="text-2xl font-black">EPINEPHRINE DUE NOW</h2>
+                  <p className="mt-1 text-sm text-red-100">Confirm administration to clear this reminder. Keep compressions and the arrest sequence moving.</p>
+                </div>
+              </div>
+              <div className="rounded-lg border border-red-400/50 bg-red-950/50 p-4">
+                <p className="text-lg font-bold">Epinephrine {epiDose} mg IV/IO</p>
+                <p className="mt-1 text-sm text-red-100">{lifeSupportPack?.pack ?? 'Governed'} pathway · dose calculated from {patientWeight} kg</p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button onClick={giveEpinephrine} className="min-h-12 bg-red-600 text-base font-bold hover:bg-red-700">Given now</Button>
+                <Button onClick={() => setShowEpinephrinePrompt(false)} variant="outline" className="min-h-12 border-gray-600 text-white hover:bg-white/10">Keep reminder visible</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Antiarrhythmic choice overlay */}
-      {showAntiarrhythmicChoice && (
+      {showAntiarrhythmicChoice && antiarrhythmicDue && (
         <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-10">
           <Card className="bg-gray-800 border-gray-700 w-full max-w-2xl">
             <CardContent className="p-8">
@@ -1809,52 +1850,6 @@ export function CPRClockStreamlined({
                   Continue with BVM
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {showRhythmActionCapture && (
-        <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-20">
-          <Card className="bg-gray-800 border-gray-700 w-full max-w-2xl">
-            <CardContent className="p-8 space-y-4">
-              <h2 className="text-2xl font-bold text-white">Document Rhythm Window Action</h2>
-              <p className="text-gray-300">Capture the rhythm interpretation and the action taken before compressions resume.</p>
-              {windowRhythmClassification === 'shockable' ? (
-                <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4 text-yellow-100">
-                  <p className="font-semibold">Shockable rhythm selected</p>
-                  <p className="mt-1 text-sm">Use the charge, clear, and shock controls. Do not record a shock here unless it was delivered through that sequence.</p>
-                </div>
-              ) : (
-                <>
-                  <div className="rounded-lg border border-slate-600 bg-slate-900 p-4 text-slate-100">
-                    <p className="font-semibold">No shock is expected for this documented rhythm.</p>
-                    <p className="mt-1 text-sm text-slate-300">Record why no shock was delivered before resuming compressions.</p>
-                  </div>
-                  <Button
-                    className={windowShockAction === 'no_shock' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'}
-                    onClick={() => setWindowShockAction('no_shock')}
-                  >
-                    No shock delivered
-                  </Button>
-                  {windowShockAction === 'no_shock' && (
-                    <Input
-                      aria-label="Reason no shock was delivered"
-                      placeholder="Reason no shock was delivered (required)"
-                      value={windowNoShockReason}
-                      onChange={(e) => setWindowNoShockReason(e.target.value)}
-                      className="bg-gray-900 border-gray-700 text-white"
-                    />
-                  )}
-                </>
-              )}
-              <Button
-                onClick={submitRhythmWindowAction}
-                disabled={windowRhythmClassification === 'shockable' || !windowShockAction || (windowShockAction === 'no_shock' && !windowNoShockReason.trim())}
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
-              >
-                Save and Resume Compressions
-              </Button>
             </CardContent>
           </Card>
         </div>
