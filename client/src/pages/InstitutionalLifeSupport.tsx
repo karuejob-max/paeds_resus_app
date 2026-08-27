@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   PAEDS_RESUS_ILS_BASE_PRICE_KES,
   PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES,
+  PAEDS_RESUS_ILS_AHA_FULL_TRAINING_PRICES_KES,
   PAEDS_RESUS_ILS_DELIVERY_LABEL,
 } from "@shared/institutional-life-support";
 
