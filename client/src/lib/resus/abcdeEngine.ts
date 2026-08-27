@@ -41,6 +41,7 @@ import type { ResusSetting } from './cpr-pack-resolver';
 import {
   validateResusWeight,
  } from './patientDemographics';
+import type { PatientWeightSource } from './patient-weight';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -210,6 +211,9 @@ export interface ResusSession {
   /** Working differential / documented co-existing diagnoses (primary remains `definitiveDiagnosis`) */
   concurrentDiagnoses: string[];
   patientWeight: number | null;
+  /** Provenance for the emergency dosing weight; missing on legacy sessions. */
+  patientWeightSource?: PatientWeightSource;
+  patientWeightMethod?: string;
   patientAge: string | null;
   /** Clinical context needed to select NRP safely; age alone does not imply delivery-room NRP. */
   resusSetting?: ResusSetting;
@@ -1736,6 +1740,8 @@ export function createSession(
   age?: string | null,
   isTrauma?: boolean,
   resusSetting: ResusSetting = 'hospital',
+  weightSource: PatientWeightSource = 'measured',
+  weightMethod?: string,
 ): ResusSession {
   if (weight !== null && weight !== undefined) {
     const validation = validateResusWeight(weight);
@@ -1755,6 +1761,8 @@ export function createSession(
     definitiveDiagnosis: null,
     concurrentDiagnoses: [],
     patientWeight: weight ?? null,
+    patientWeightSource: weight == null ? undefined : weightSource,
+    patientWeightMethod: weight == null ? undefined : weightMethod,
     patientAge: age ?? null,
     resusSetting,
     isTrauma: isTrauma ?? false,
@@ -1791,7 +1799,13 @@ export function updateResusSetting(session: ResusSession, resusSetting: ResusSet
   return next;
 }
 
-export function updatePatientInfo(session: ResusSession, weight: number | null, age: string | null): ResusSession {
+export function updatePatientInfo(
+  session: ResusSession,
+  weight: number | null,
+  age: string | null,
+  weightSource?: PatientWeightSource,
+  weightMethod?: string,
+): ResusSession {
   if (weight !== null) {
     const validation = validateResusWeight(weight);
     if (!validation.valid) throw new RangeError(validation.message);
@@ -1802,6 +1816,8 @@ export function updatePatientInfo(session: ResusSession, weight: number | null, 
   if (weight !== null && weight !== next.patientWeight) {
     changes.push(`Weight: ${weight}kg`);
     next.patientWeight = weight;
+    if (weightSource) next.patientWeightSource = weightSource;
+    if (weightMethod) next.patientWeightMethod = weightMethod;
     // Recalculate fluid tracker per-kg
     if (weight > 0) {
       next.fluidTracker.totalVolumePerKg = next.fluidTracker.totalVolumeMl / weight;

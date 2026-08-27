@@ -7,10 +7,17 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { parseResusWeight } from '@/lib/resus/patientDemographics';
+import type { PatientWeightSource } from '@/lib/resus/patient-weight';
 
-interface PatientDemographics {
+export type RecordedWeightSource = Extract<PatientWeightSource, 'measured' | 'last_known'>;
+
+export interface PatientDemographics {
   age: string;
+  /** Current/measured weight when available. */
   weight: string;
+  /** Caregiver- or record-reported last known weight. */
+  lastKnownWeight?: string;
+  weightSource?: RecordedWeightSource;
   timestamp?: string;
 }
 
@@ -32,7 +39,9 @@ const LEGACY_LOCALSTORAGE_KEY = 'patientDemographics';
 export function PatientDemographicsProvider({ children }: { children: ReactNode }) {
   const [demographics, setDemographicsState] = useState<PatientDemographics>({
     age: '',
-    weight: ''
+    weight: '',
+    lastKnownWeight: '',
+    weightSource: 'measured',
   });
 
   useEffect(() => {
@@ -68,7 +77,7 @@ export function PatientDemographicsProvider({ children }: { children: ReactNode 
   };
 
   const clearDemographics = () => {
-    setDemographicsState({ age: '', weight: '' });
+    setDemographicsState({ age: '', weight: '', lastKnownWeight: '', weightSource: 'measured' });
     try {
       sessionStorage.removeItem(SESSION_STORAGE_KEY);
       localStorage.removeItem(LEGACY_LOCALSTORAGE_KEY);
@@ -78,7 +87,8 @@ export function PatientDemographicsProvider({ children }: { children: ReactNode 
   };
 
   // Parse weight to number (handles kg input)
-  const getWeightInKg = (): number | null => parseResusWeight(demographics.weight);
+  const getWeightInKg = (): number | null =>
+    parseResusWeight(demographics.weight) ?? parseResusWeight(demographics.lastKnownWeight);
 
   // Parse age to years (handles various formats)
   const getAgeInYears = (): number | null => {
