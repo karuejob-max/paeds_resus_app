@@ -3424,6 +3424,26 @@ function PostPrimaryScreen({
             )}
           </CardContent>
         </Card>
+        {!hasActivationContext && (
+          <Card className="border-amber-300 bg-amber-50/40 dark:bg-amber-950/20">
+            <CardContent className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Stabilization / handover minimum</p>
+                <p className="text-xs text-muted-foreground">
+                  Do not delay escalation while completing the full diagnostic catalogue. Copy the current one-page handover or save the case, then continue diagnosis when stable.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+                <Button type="button" size="sm" variant="outline" onClick={onCopyOnePager}>
+                  Copy handover
+                </Button>
+                <Button type="button" size="sm" onClick={onSaveSession} disabled={isSaving}>
+                  {isSaving ? 'Saving…' : 'Save case'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         {hasActivationContext && (
           <Card className="border-indigo-300 bg-indigo-50/30 dark:bg-indigo-950/20">
             <CardContent className="py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
