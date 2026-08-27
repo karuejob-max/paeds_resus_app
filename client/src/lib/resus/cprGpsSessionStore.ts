@@ -33,6 +33,8 @@ export interface CprGpsSnapshot {
   rhythmType: RhythmType | null;
   roscAchieved: boolean;
   advancedAirwayPlaced: boolean;
+  airwayFallbackRecorded: boolean;
+  ivIoSecured: boolean;
   defibrillatorDelayed: boolean;
   defibCharging: boolean;
   chargeForShock: boolean;

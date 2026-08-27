@@ -54,6 +54,8 @@ import {
   getEpinephrineTimingState,
   shouldTriggerIntubatedVentilationCue,
   getHyperkalemiaGuidance,
+  getHypoxiaGuidance,
+  getFluidBolusGuidance,
   applyRhythmWindowDecision,
   evaluateCprGpsAlerts,
   getRhythmClassificationFeedback,
@@ -66,6 +68,7 @@ import {
 } from '@/lib/resus/cpr-engine';
 import { useCprClockShared } from '@/components/cpr/CprClockSharedContext';
 import { CprDocumentationLog } from '@/components/cpr/CprDocumentationLog';
+import { CPRDebriefing } from '@/components/CPRDebriefing';
 import type { LifeSupportPackResult } from '@/lib/resus/cpr-pack-resolver';
 import { CprArrestCommandConsole } from '@/components/CprArrestCommandConsole';
 import {
@@ -191,6 +194,8 @@ export function CPRClockStreamlined({
   const [lastEpiTime, setLastEpiTime] = useState<number | null>(null);
   const [antiarrhythmic, setAntiarrhythmic] = useState<AntiarrhythmicChoice>(null);
   const [advancedAirwayPlaced, setAdvancedAirwayPlaced] = useState(false);
+  const [airwayFallbackRecorded, setAirwayFallbackRecorded] = useState(false);
+  const [ivIoSecured, setIvIoSecured] = useState(false);
   const [roscAchieved, setRoscAchieved] = useState(false);
   
   // Reversible causes tracking (H's & T's)
@@ -229,6 +234,7 @@ export function CPRClockStreamlined({
   const [showTools, setShowTools] = useState(false);
   const [showRoscConfirm, setShowRoscConfirm] = useState(false);
   const [showPostRoscProtocol, setShowPostRoscProtocol] = useState(false);
+  const [showDebrief, setShowDebrief] = useState(false);
   const [recoveredFromLocal, setRecoveredFromLocal] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [isOnline, setIsOnline] = useState(() => typeof navigator === 'undefined' ? true : navigator.onLine);
@@ -250,6 +256,12 @@ export function CPRClockStreamlined({
   const [editableAge, setEditableAge] = useState(patientAgeMonths || 0);
   const [intubationStartTime, setIntubationStartTime] = useState<number | null>(null);
   const [hyperKalemiaInput, setHyperKalemiaInput] = useState('');
+  const [spo2Input, setSpo2Input] = useState('');
+  const [fluidOverloadFindings, setFluidOverloadFindings] = useState({
+    hepatomegaly: false,
+    crepitations: false,
+    jvd: false,
+  });
   
   // Refs
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -296,6 +308,8 @@ export function CPRClockStreamlined({
       const restoredIsRunning = externalRunning ?? snapshot.isRunning;
       setPhase(snapshot.phase);
       setAdvancedAirwayPlaced(snapshot.advancedAirwayPlaced);
+      setAirwayFallbackRecorded(snapshot.airwayFallbackRecorded);
+      setIvIoSecured(snapshot.ivIoSecured);
       setDefibrillatorDelayed(snapshot.defibrillatorDelayed);
       setDefibCharging(snapshot.defibCharging);
       setChargeForShock(snapshot.chargeForShock);
@@ -398,6 +412,8 @@ export function CPRClockStreamlined({
       rhythmType: effectiveRhythmType,
       roscAchieved: effectiveRoscAchieved,
       advancedAirwayPlaced,
+      airwayFallbackRecorded,
+      ivIoSecured,
       defibrillatorDelayed,
       defibCharging,
       chargeForShock,
@@ -415,6 +431,8 @@ export function CPRClockStreamlined({
     effectiveRhythmType,
     effectiveRoscAchieved,
     advancedAirwayPlaced,
+    airwayFallbackRecorded,
+    ivIoSecured,
     defibCharging,
     chargeForShock,
     rhythmWindowElapsed,
@@ -484,6 +502,7 @@ export function CPRClockStreamlined({
     cycleNumber: effectiveCycleNumber,
     weightKg: patientWeight,
     defibDelayed: defibrillatorDelayed,
+    defibCharging,
     lifeSupportPack: lifeSupportPack?.pack,
   });
   const epiState = getEpinephrineTimingState(
@@ -837,6 +856,13 @@ export function CPRClockStreamlined({
     };
     
     const rhythmResult = evaluateRhythmTransition(type, engineState);
+    if (type === 'rosc') {
+      setShowRoscConfirm(true);
+      setRhythmWindowElapsed(null);
+      addEvent('Pulse present — ROSC confirmation requested');
+      speak('Pulse present. Confirm sustained ROSC.');
+      return;
+    }
     const classification: RhythmClassification = type === 'vf_pvt' ? 'shockable' : 'non_shockable';
     setRhythmFeedback(getRhythmClassificationFeedback(classification, type));
     const isShockable = type === 'vf_pvt';
@@ -860,7 +886,7 @@ export function CPRClockStreamlined({
       setShowChargePrompt(true);
     } else {
       const wasScheduledReassessment = phase === 'reassessment';
-      const noShockReason = `${type === 'pea' ? 'PEA' : 'Asystole'} documented — non-shockable rhythm`;
+      const noShockReason = `${type === 'pea' ? 'PEA' : type === 'bradycardia' ? 'Bradycardia' : 'Asystole'} documented — non-shockable rhythm`;
       applyRhythmWindowDecision(effectiveShockCount, {
         rhythmClassification: 'non_shockable',
         rhythmType: type,
@@ -987,9 +1013,44 @@ export function CPRClockStreamlined({
     }
   };
 
+  const hypoxiaGuidance = getHypoxiaGuidance(spo2Input.trim() ? Number(spo2Input) : null);
+  const fluidBolusGuidance = getFluidBolusGuidance(
+    patientWeight,
+    lifeSupportPack?.pack === 'ACLS',
+    fluidOverloadFindings,
+  );
+
+  const recordHypoxiaAssessment = () => {
+    if (!spo2Input.trim() || !Number.isFinite(Number(spo2Input))) return;
+    setReversibleCausesChecked((prev) => ({ ...prev, hypoxia: true }));
+    addEvent('Hypoxia assessed', `SpO₂ ${Number(spo2Input)}% — ${hypoxiaGuidance.severity}`);
+    speak(hypoxiaGuidance.recommendation);
+  };
+
+  const recordFluidAssessment = () => {
+    setReversibleCausesChecked((prev) => ({ ...prev, hypovolemia: true }));
+    addEvent('Hypovolemia/overload screen documented', fluidBolusGuidance.recommendation);
+    speak(fluidBolusGuidance.overloadPresent ? 'Possible fluid overload sign. Stop boluses and reassess.' : `If hypovolemia is suspected, use ${fluidBolusGuidance.doseRange} and reassess.`);
+  };
+
+  const markIvIoSecured = () => {
+    if (ivIoSecured) return;
+    setIvIoSecured(true);
+    addEvent('IV/IO access secured');
+    speak('IV or IO access secured.');
+  };
+
+  const recordAirwayAdjunct = () => {
+    setAirwayFallbackRecorded(true);
+    setShowAdvancedAirwayPrompt(false);
+    addEvent('Advanced airway unavailable — OPA/NPA adjunct or BVM pathway recorded');
+    speak('Advanced airway unavailable. Use an appropriate airway adjunct and continue ventilation.');
+  };
+
   // Advanced airway
   const placeAdvancedAirway = () => {
     setAdvancedAirwayPlaced(true);
+    setAirwayFallbackRecorded(false);
     setIntubationStartTime(effectiveArrestDuration);
     setShowAdvancedAirwayPrompt(false);
     addEvent('Advanced airway placed');
@@ -1076,6 +1137,12 @@ export function CPRClockStreamlined({
   const teamMembers: TeamMember[] = sessionData?.teamMembers || [];
   const invalidWeight = !Number.isFinite(patientWeight) || patientWeight <= 0;
   const adultPathwayMissing = patientAgeMonths !== undefined && patientAgeMonths >= 144 && lifeSupportPack?.pack !== 'ACLS';
+  const airwayStatus = advancedAirwayPlaced ? 'advanced' : airwayFallbackRecorded ? 'adjunct' : 'not_started';
+  const ventilationRatioLabel = lifeSupportPack?.pack === 'ACLS'
+    ? '30:2 BVM · advanced airway 1 breath/6 sec'
+    : patientAgeMonths !== undefined && patientAgeMonths < 12
+      ? '15:2 BVM · advanced airway 1 breath/2 sec'
+      : '15:2 BVM · advanced airway 1 breath/3 sec';
 
   if (invalidWeight || adultPathwayMissing || lifeSupportPack?.pack === 'NRP') {
     const message = invalidWeight
@@ -1329,6 +1396,12 @@ export function CPRClockStreamlined({
         onDisarmDefib={disarmDefib}
         defibReady={defibCharging && !defibrillatorDelayed}
         onGiveEpinephrine={giveEpinephrine}
+        ivIoSecured={ivIoSecured}
+        airwayStatus={airwayStatus}
+        ventilationRatioLabel={ventilationRatioLabel}
+        onMarkIvIoSecured={markIvIoSecured}
+        onOpenAirway={() => setShowAdvancedAirwayPrompt(true)}
+        roscActionLabel={patientAgeMonths !== undefined && patientAgeMonths < 144 ? 'Pulse present / HR >60 · confirm ROSC' : 'Pulse present · confirm ROSC'}
         onShowRoscConfirm={() => setShowRoscConfirm(true)}
         documentationLog={
           <CprDocumentationLog
@@ -1351,6 +1424,15 @@ export function CPRClockStreamlined({
               </div>
               
               <div className="space-y-4">
+                <Button
+                  onClick={() => handleRhythmCheck('rosc')}
+                  size="lg"
+                  className="w-full bg-green-700 hover:bg-green-600 text-white text-xl py-6 h-auto"
+                >
+                  <CheckCircle2 className="h-6 w-6 mr-3" />
+                  {patientAgeMonths !== undefined && patientAgeMonths < 144 ? 'Pulse present / HR >60 — confirm ROSC' : 'Pulse present — confirm ROSC'}
+                </Button>
+
                 <Button
                   onClick={() => handleRhythmCheck('vf_pvt')}
                   size="lg"
@@ -1375,6 +1457,16 @@ export function CPRClockStreamlined({
                 >
                   Asystole (Non-Shockable)
                 </Button>
+
+                {lifeSupportPack?.pack === 'PALS' && (
+                  <Button
+                    onClick={() => handleRhythmCheck('bradycardia')}
+                    size="lg"
+                    className="w-full bg-gray-700 hover:bg-gray-600 text-white text-xl py-6 h-auto"
+                  >
+                    Bradycardia (&lt;60/min · PALS child)
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1525,6 +1617,33 @@ export function CPRClockStreamlined({
                 </Button>
               </div>
               
+              <div className="mb-4 space-y-3 rounded-xl border border-blue-500/40 bg-blue-950/30 p-3 text-white">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-200">Structured checks</p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-3">
+                    <Label htmlFor="cpr-spo2" className="text-sm font-bold text-white">Hypoxia · SpO₂ (%)</Label>
+                    <div className="mt-2 flex gap-2">
+                      <Input id="cpr-spo2" inputMode="numeric" type="number" min="0" max="100" value={spo2Input} onChange={(event) => setSpo2Input(event.target.value)} placeholder="e.g. 88" className="border-gray-600 bg-gray-800 text-white" />
+                      <Button onClick={recordHypoxiaAssessment} disabled={!spo2Input.trim()} className="shrink-0 bg-blue-600 text-xs hover:bg-blue-500">Record</Button>
+                    </div>
+                    {spo2Input.trim() && <p className={`mt-2 text-xs ${hypoxiaGuidance.severity === 'critical' ? 'text-red-300' : 'text-blue-200'}`}>{hypoxiaGuidance.recommendation}</p>}
+                  </div>
+                  <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-3">
+                    <p className="text-sm font-bold text-white">Hypovolemia · check overload first</p>
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-gray-200">
+                      {(['hepatomegaly', 'crepitations', 'jvd'] as const).map((finding) => (
+                        <label key={finding} className="flex items-start gap-1.5">
+                          <input type="checkbox" checked={fluidOverloadFindings[finding]} onChange={(event) => setFluidOverloadFindings((prev) => ({ ...prev, [finding]: event.target.checked }))} className="mt-0.5 h-4 w-4" />
+                          <span>{finding === 'jvd' ? 'JVD' : finding === 'hepatomegaly' ? 'Hepatomegaly' : 'Crepitations'}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className={`mt-2 text-xs ${fluidBolusGuidance.overloadPresent ? 'text-red-300' : 'text-blue-200'}`}>{fluidBolusGuidance.overloadPresent ? 'Possible overload sign: stop boluses and reassess.' : fluidBolusGuidance.doseRange}</p>
+                    <Button onClick={recordFluidAssessment} className="mt-2 w-full bg-blue-600 text-xs hover:bg-blue-500">Record screen and plan</Button>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <h3 className="text-base md:text-lg font-bold text-yellow-500 mb-3">Hs</h3>
@@ -1838,12 +1957,20 @@ export function CPRClockStreamlined({
                 </Button>
                 
                 <Button
-                  onClick={() => setShowAdvancedAirwayPrompt(false)}
+                  onClick={recordAirwayAdjunct}
                   size="lg"
                   variant="outline"
-                  className="w-full text-white border-gray-600"
+                  className="w-full border-amber-400/70 text-white hover:bg-amber-950/50"
                 >
-                  Continue with BVM
+                  No advanced airway available — use OPA/NPA
+                </Button>
+                <Button
+                  onClick={() => setShowAdvancedAirwayPrompt(false)}
+                  size="lg"
+                  variant="ghost"
+                  className="w-full text-white hover:bg-white/10"
+                >
+                  Continue with BVM for now
                 </Button>
               </div>
             </CardContent>
@@ -1990,6 +2117,7 @@ export function CPRClockStreamlined({
                 {rhythmType === 'vf_pvt' && 'VF/pVT'}
                 {rhythmType === 'pea' && 'PEA'}
                 {rhythmType === 'asystole' && 'Asystole'}
+                {rhythmType === 'bradycardia' && 'Bradycardia'}
                 {!rhythmType && 'Not assessed'}
               </span>
             </div>
@@ -2059,6 +2187,17 @@ export function CPRClockStreamlined({
                 >
                   <X className="h-5 w-5" />
                 </Button>
+              </div>
+
+              <div className="mb-5 rounded-xl border border-emerald-500/40 bg-emerald-950/25 p-3 text-white">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-200">PCAC targets · work through A → E</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-3"><p className="font-bold">A · Airway</p><p className="mt-1 text-xs text-gray-300">Confirm airway position and patency. If advanced airway is present, ventilate without pausing compressions; otherwise use the documented BVM/OPA/NPA plan.</p></div>
+                  <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-3"><p className="font-bold">B · Breathing</p><p className="mt-1 text-xs text-gray-300">{lifeSupportPack?.pack === 'ACLS' ? 'Titrate oxygen to SpO₂ 90–98% once reliable; target PaCO₂ 35–45 mmHg.' : 'Avoid hypoxemia and hyperoxemia; use the approved paediatric SpO₂ target and target normal PaCO₂ per local PALS protocol.'}</p></div>
+                  <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-3"><p className="font-bold">C · Circulation</p><p className="mt-1 text-xs text-gray-300">{lifeSupportPack?.pack === 'ACLS' ? 'Avoid hypotension: target MAP ≥65 mmHg.' : 'Target systolic and mean arterial pressure above the 10th percentile for age and sex; use age-specific local targets.'}</p></div>
+                  <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-3"><p className="font-bold">D · Disability</p><p className="mt-1 text-xs text-gray-300">Check glucose, pupils, mental status, seizures, and temperature trend. Avoid hypoglycaemia; use serial multimodal neurologic assessment.</p></div>
+                  <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-3 sm:col-span-2"><p className="font-bold">E · Exposure / ongoing care</p><p className="mt-1 text-xs text-gray-300">Prevent fever; in children avoid central temperature &gt;37.5°C. In adults who remain unresponsive, maintain temperature control for at least 36 hours. Complete ECG, labs, imaging, transfer, and handoff according to local capability.</p></div>
+                </div>
               </div>
 
               <div className="space-y-3 text-white">
@@ -2279,17 +2418,39 @@ export function CPRClockStreamlined({
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-end">
+              <div className="mt-6 grid gap-2 sm:grid-cols-2">
+                {sessionId && <Button
+                  onClick={() => {
+                    setShowPostRoscProtocol(false);
+                    setShowDebrief(true);
+                  }}
+                  className="bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  Open team debrief
+                </Button>}
                 <Button
                   onClick={() => setShowPostRoscProtocol(false)}
-                  className="bg-green-600 hover:bg-green-700 text-white"
+                  className="bg-green-600 text-white hover:bg-green-700"
                 >
-                  Close Protocol
+                  Close protocol
                 </Button>
               </div>
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {showDebrief && sessionId && (
+        <CPRDebriefing
+          sessionId={sessionId}
+          totalDuration={effectiveArrestDuration}
+          shockCount={effectiveShockCount}
+          epiDoses={effectiveEpiDoses}
+          outcome={effectiveRoscAchieved ? 'ROSC' : 'ongoing'}
+          events={effectiveEvents}
+          teamMembers={teamMembers}
+          onClose={() => setShowDebrief(false)}
+        />
       )}
 
       {/* Patient Info Edit Dialog */}

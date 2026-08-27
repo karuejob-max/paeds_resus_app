@@ -297,6 +297,50 @@ export const cprSessionRouter = router({
       return { success: true };
     }),
 
+  // Submit an ERTL/team-leader debrief without adding a schema migration.
+  submitDebrief: protectedProcedure
+    .input(z.object({
+      sessionId: z.number().int().positive(),
+      narrative: z.string().trim().min(20).max(12000),
+      outcome: z.enum(['ROSC', 'ongoing', 'discontinued']),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error('Database not available');
+
+      const [session] = await db.select().from(cprSessions).where(eq(cprSessions.id, input.sessionId)).limit(1);
+      if (!session) throw new Error('Session not found');
+
+      const [member] = await db.select().from(cprTeamMembers).where(and(
+        eq(cprTeamMembers.sessionId, input.sessionId),
+        eq(cprTeamMembers.userId, ctx.user.id),
+        isNull(cprTeamMembers.leftAt),
+      )).limit(1);
+      const isCreator = session.createdBy === ctx.user.id;
+      const isTeamLeader = member?.role === 'team_leader';
+      if (!isCreator && !isTeamLeader) {
+        throw new Error('Only the session creator or current team leader can submit the debrief.');
+      }
+
+      const submittedAt = new Date();
+      await db.update(cprSessions).set({
+        notes: `ERTL debrief submitted ${submittedAt.toISOString()}\\nOutcome: ${input.outcome}\\n${input.narrative}`,
+        outcome: input.outcome === 'discontinued' ? 'mortality' : input.outcome,
+        updatedAt: submittedAt,
+      }).where(eq(cprSessions.id, input.sessionId));
+      await db.insert(cprEvents).values({
+        cprSessionId: input.sessionId,
+        memberId: member?.id,
+        eventType: 'note',
+        eventTime: session.totalDuration ?? 0,
+        description: 'ERTL/team-leader debrief submitted for QI review',
+        value: input.outcome,
+        metadata: JSON.stringify({ submittedAt: submittedAt.toISOString() }),
+      });
+
+      return { success: true, submittedAt: submittedAt.toISOString() };
+    }),
+
   // Generate AI insights for debriefing
   generateInsights: protectedProcedure
     .input(z.object({

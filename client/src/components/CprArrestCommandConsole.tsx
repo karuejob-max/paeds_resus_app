@@ -1,4 +1,4 @@
-import { Activity, CheckCircle2, Play, Syringe, Zap } from 'lucide-react';
+import { Activity, CheckCircle2, Play, Syringe, Wind, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import type {
@@ -50,6 +50,12 @@ interface Props {
   onDisarmDefib: () => void;
   defibReady?: boolean;
   onGiveEpinephrine: () => void;
+  ivIoSecured?: boolean;
+  airwayStatus?: 'not_started' | 'advanced' | 'adjunct' | 'bvm';
+  ventilationRatioLabel?: string;
+  onMarkIvIoSecured?: () => void;
+  onOpenAirway?: () => void;
+  roscActionLabel?: string;
   onShowRoscConfirm: () => void;
   documentationLog: React.ReactNode;
 }
@@ -58,6 +64,7 @@ function rhythmLabel(rhythm: RhythmType | null): string {
   if (rhythm === 'vf_pvt') return 'VF/pVT · shockable';
   if (rhythm === 'pea') return 'PEA · non-shockable';
   if (rhythm === 'asystole') return 'Asystole · non-shockable';
+  if (rhythm === 'bradycardia') return 'Bradycardia · non-shockable';
   return 'Rhythm not yet documented';
 }
 
@@ -148,6 +155,12 @@ export function CprArrestCommandConsole({
   onDisarmDefib,
   defibReady = false,
   onGiveEpinephrine,
+  ivIoSecured = false,
+  airwayStatus = 'not_started',
+  ventilationRatioLabel = 'BVM ventilation per pathway',
+  onMarkIvIoSecured,
+  onOpenAirway,
+  roscActionLabel = 'Pulse present / confirm ROSC',
   onShowRoscConfirm,
   documentationLog,
 }: Props) {
@@ -306,6 +319,29 @@ export function CprArrestCommandConsole({
           </div>
         )}
 
+        <div className="grid gap-2 sm:grid-cols-2" aria-label="Essential arrest actions">
+          <div className={`rounded-xl border p-3 ${ivIoSecured ? 'border-emerald-500/60 bg-emerald-950/30' : 'border-sky-400/70 bg-sky-950/30'}`}>
+            <div className="flex items-start gap-3">
+              <Syringe className={`mt-0.5 h-5 w-5 shrink-0 ${ivIoSecured ? 'text-emerald-300' : 'text-sky-300'}`} aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-white">IV / IO access</p>
+                <p className="mt-1 text-xs text-slate-200">{ivIoSecured ? 'Access recorded' : 'Secure early for medication and fluids'}</p>
+              </div>
+              {!ivIoSecured && onMarkIvIoSecured && <Button onClick={onMarkIvIoSecured} className="min-h-10 shrink-0 bg-sky-600 px-3 text-xs font-bold hover:bg-sky-500">Secured</Button>}
+            </div>
+          </div>
+          <div className={`rounded-xl border p-3 ${airwayStatus === 'advanced' || airwayStatus === 'adjunct' ? 'border-emerald-500/60 bg-emerald-950/30' : 'border-amber-400/70 bg-amber-950/30'}`}>
+            <div className="flex items-start gap-3">
+              <Wind className={`mt-0.5 h-5 w-5 shrink-0 ${airwayStatus === 'advanced' || airwayStatus === 'adjunct' ? 'text-emerald-300' : 'text-amber-300'}`} aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-white">Airway / ventilation</p>
+                <p className="mt-1 text-xs text-slate-200">{airwayStatus === 'advanced' ? `Advanced airway · ${ventilationRatioLabel}` : airwayStatus === 'adjunct' ? `OPA/NPA adjunct · ${ventilationRatioLabel}` : `Secure airway · ${ventilationRatioLabel}`}</p>
+              </div>
+              {airwayStatus !== 'advanced' && airwayStatus !== 'adjunct' && onOpenAirway && <Button onClick={onOpenAirway} className="min-h-10 shrink-0 bg-amber-600 px-3 text-xs font-bold hover:bg-amber-500">Open</Button>}
+            </div>
+          </div>
+        </div>
+
         {epiState !== 'not_due' && (
           <div className={`rounded-xl border-2 p-3 ${epiState === 'overdue' ? 'border-red-500/80 bg-red-950/60' : 'border-amber-400/80 bg-amber-950/50'}`} role="alert" aria-live={epiState === 'overdue' ? 'assertive' : 'polite'}>
             <div className="flex items-start gap-3">
@@ -338,7 +374,7 @@ export function CprArrestCommandConsole({
 
         <Button onClick={onShowRoscConfirm} variant="outline" className="min-h-12 border-emerald-400/70 bg-emerald-950/20 text-emerald-100 hover:bg-emerald-900/40">
           <CheckCircle2 className="mr-2 h-5 w-5" aria-hidden />
-          Confirm sustained pulse / ROSC
+          {roscActionLabel}
         </Button>
 
         {documentationLog}

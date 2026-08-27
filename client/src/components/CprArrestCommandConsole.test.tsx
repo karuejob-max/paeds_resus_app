@@ -63,7 +63,7 @@ describe('CprArrestCommandConsole', () => {
     expect(html).toContain('Next reassessment');
     expect(html).toContain('01:20');
     expect(html).toContain('Keep high-quality compressions going.');
-    expect(html).toContain('Confirm sustained pulse / ROSC');
+    expect(html).toContain('Pulse present / confirm ROSC');
     expect(html).toContain('data-testid="documentation-log"');
   });
 
