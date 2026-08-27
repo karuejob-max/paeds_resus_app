@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react';
 import { WifiOff, Wifi, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getSyncQueueStatus, syncPendingMutations } from '@/lib/syncQueue';
+import { getOfflineSyncCounts, listOfflineSnapshots } from '@/lib/offline/platformOfflineStore';
 
 interface OfflineIndicatorProps {
   onInstallClick?: () => void;
@@ -19,13 +19,13 @@ export function OfflineIndicator({ onInstallClick, showInstallButton = false }: 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [cachedProtocolsCount, setCachedProtocolsCount] = useState(0);
   const [pendingMutations, setPendingMutations] = useState(0);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      console.log('[Offline Indicator] Back online - syncing data');
-      syncData();
+      console.log('[Offline Indicator] Back online - refreshing platform sync state');
+      void refreshStatus();
     };
     const handleOffline = () => {
       setIsOnline(false);
@@ -35,14 +35,9 @@ export function OfflineIndicator({ onInstallClick, showInstallButton = false }: 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Check cached protocols count
-    if ('caches' in window) {
-      caches.open('clinical-data-v1').then((cache) => {
-        cache.keys().then((keys) => {
-          setCachedProtocolsCount(keys.length);
-        });
-      });
-    }
+    void listOfflineSnapshots('course_module').then((snapshots) => {
+      setCachedProtocolsCount(snapshots.length);
+    });
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -50,39 +45,29 @@ export function OfflineIndicator({ onInstallClick, showInstallButton = false }: 
     };
   }, []);
 
-  // Check sync queue status
-  useEffect(() => {
-    const checkSyncQueue = async () => {
-      const status = await getSyncQueueStatus();
-      setPendingMutations(status.pending);
-    };
-
-    checkSyncQueue();
-    const interval = setInterval(checkSyncQueue, 10000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Sync data manually
-  const syncData = async () => {
-    setIsSyncing(true);
+  const refreshStatus = async () => {
+    setIsRefreshing(true);
     try {
-      const result = await syncPendingMutations();
-      if (result.synced > 0) {
-        console.log(`[Offline Indicator] Sync complete: ${result.synced} changes synced`);
-      }
-      if (result.failed > 0) {
-        console.warn(`[Offline Indicator] Sync incomplete: ${result.failed} changes failed`);
-      }
-      const status = await getSyncQueueStatus();
-      setPendingMutations(status.pending);
+      const [counts, snapshots] = await Promise.all([
+        getOfflineSyncCounts(),
+        listOfflineSnapshots('course_module'),
+      ]);
+      setPendingMutations(counts.queued + counts.sending + counts.failed + counts.conflict + counts.rejected + counts.requiresReview);
+      setCachedProtocolsCount(snapshots.length);
     } catch (error) {
-      console.error('[Offline Indicator] Sync failed:', error);
-      console.error('[Offline Indicator] Sync failed - check connection');
+      console.error('[Offline Indicator] Could not refresh platform offline state:', error);
     } finally {
-      setIsSyncing(false);
+      setIsRefreshing(false);
     }
   };
+
+  // The typed domain adapters own replay. This legacy surface only refreshes
+  // status and must not trigger the old generic mutation endpoint.
+  useEffect(() => {
+    void refreshStatus();
+    const interval = setInterval(() => void refreshStatus(), 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
@@ -120,14 +105,14 @@ export function OfflineIndicator({ onInstallClick, showInstallButton = false }: 
       {/* Sync Button */}
       {isOnline && pendingMutations > 0 && (
         <Button
-          onClick={syncData}
-          disabled={isSyncing}
+          onClick={() => void refreshStatus()}
+          disabled={isRefreshing}
           size="sm"
           className="bg-yellow-600 hover:bg-yellow-700 text-white"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
-          <span className="sm:hidden">Sync</span>
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">{isRefreshing ? 'Refreshing...' : 'Review status'}</span>
+          <span className="sm:hidden">Review</span>
         </Button>
       )}
 

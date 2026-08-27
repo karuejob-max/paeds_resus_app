@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { getOfflineSnapshot, offlineStoreKeys, saveOfflineSnapshot } from "@/lib/offline/platformOfflineStore";
+import { getOfflineSnapshot, getOfflineSnapshotFreshness, offlineStoreKeys, saveOfflineSnapshot, type OfflineSnapshotFreshness } from "@/lib/offline/platformOfflineStore";
 import ProviderTodayActivationCard from "@/components/ProviderTodayActivationCard";
 import IersNotificationSetup from "@/components/IersNotificationSetup";
 import { Badge } from "@/components/ui/badge";
@@ -152,6 +152,7 @@ export default function ProviderToday() {
   const [offlineTeams, setOfflineTeams] = useState<any[] | null>(null);
   const [offlineDuties, setOfflineDuties] = useState<any | null>(null);
   const [offlineSnapshotAt, setOfflineSnapshotAt] = useState<number | null>(null);
+  const [offlineSnapshotFreshness, setOfflineSnapshotFreshness] = useState<OfflineSnapshotFreshness | null>(null);
   const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
 
   useEffect(() => {
@@ -216,6 +217,8 @@ export default function ProviderToday() {
       version: savedAt.toString(),
       payload: teamsQuery.data,
       savedAt,
+      staleAfterMs: 15 * 60 * 1000,
+      expiresAt: savedAt + 8 * 60 * 60 * 1000,
       lastServerSyncAt: savedAt,
     });
   }, [teamsQuery.data, user?.id]);
@@ -231,6 +234,8 @@ export default function ProviderToday() {
       version: savedAt.toString(),
       payload: dutiesQuery.data,
       savedAt,
+      staleAfterMs: 15 * 60 * 1000,
+      expiresAt: savedAt + 8 * 60 * 60 * 1000,
       lastServerSyncAt: savedAt,
     });
   }, [dutiesQuery.data, user?.id]);
@@ -243,13 +248,19 @@ export default function ProviderToday() {
       getOfflineSnapshot<any>(offlineStoreKeys.providerDuties(user.id)),
     ]).then(([teamsSnapshot, dutiesSnapshot]) => {
       if (cancelled) return;
-      if (teamsSnapshot?.payload) {
-        setOfflineTeams(teamsSnapshot.payload);
-        setOfflineSnapshotAt(Math.max(teamsSnapshot.savedAt, dutiesSnapshot?.savedAt ?? 0));
+      const teamFreshness = teamsSnapshot ? getOfflineSnapshotFreshness(teamsSnapshot, Date.now(), 15 * 60 * 1000) : null;
+      const dutyFreshness = dutiesSnapshot ? getOfflineSnapshotFreshness(dutiesSnapshot, Date.now(), 15 * 60 * 1000) : null;
+      const usableTeamSnapshot = teamsSnapshot && teamFreshness !== "expired" ? teamsSnapshot : null;
+      const usableDutySnapshot = dutiesSnapshot && dutyFreshness !== "expired" ? dutiesSnapshot : null;
+      const freshness = [teamFreshness, dutyFreshness].includes("stale") ? "stale" : (usableTeamSnapshot || usableDutySnapshot ? "fresh" : null);
+      setOfflineSnapshotFreshness(freshness as OfflineSnapshotFreshness | null);
+      if (usableTeamSnapshot?.payload) {
+        setOfflineTeams(usableTeamSnapshot.payload);
+        setOfflineSnapshotAt(Math.max(usableTeamSnapshot.savedAt, usableDutySnapshot?.savedAt ?? 0));
       }
-      if (dutiesSnapshot?.payload) {
-        setOfflineDuties(dutiesSnapshot.payload);
-        setOfflineSnapshotAt((current) => Math.max(current ?? 0, dutiesSnapshot.savedAt));
+      if (usableDutySnapshot?.payload) {
+        setOfflineDuties(usableDutySnapshot.payload);
+        setOfflineSnapshotAt((current) => Math.max(current ?? 0, usableDutySnapshot.savedAt));
       }
     });
     return () => {
@@ -348,9 +359,9 @@ export default function ProviderToday() {
         {hasOfflineSnapshot && (
           <Alert className="border-amber-200 bg-amber-50 text-amber-950">
             <WifiOff className="h-4 w-4" />
-            <AlertTitle>Showing the last saved shift snapshot</AlertTitle>
+            <AlertTitle>{offlineSnapshotFreshness === "stale" ? "Showing a stale shift snapshot" : "Showing the last saved shift snapshot"}</AlertTitle>
             <AlertDescription>
-              {offlineSnapshotAt ? `Saved ${new Date(offlineSnapshotAt).toLocaleString()}. ` : ""}This is read-only offline information. Activations, notifications, role acceptance, staffing changes, and readiness sign-off require a live connection.
+              {offlineSnapshotAt ? `Saved ${new Date(offlineSnapshotAt).toLocaleString()}. ` : ""}This is read-only offline information and may no longer match the live roster. Activations, notifications, role acceptance, staffing changes, and readiness sign-off require a live connection.
             </AlertDescription>
           </Alert>
         )}

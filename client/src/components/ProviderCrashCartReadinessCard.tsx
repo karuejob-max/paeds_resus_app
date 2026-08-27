@@ -15,7 +15,9 @@ import {
   removeOfflineCommand,
   updateOfflineCommand,
   getOfflineSnapshot,
+  getOfflineSnapshotFreshness,
   offlineStoreKeys,
+  type OfflineSnapshotFreshness,
   saveOfflineSnapshot,
 } from "@/lib/offline/platformOfflineStore";
 
@@ -56,6 +58,7 @@ export default function ProviderCrashCartReadinessCard() {
   const { user } = useAuth();
   const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const [offlineShifts, setOfflineShifts] = useState<ReadinessShift[] | null>(null);
+  const [offlineReadinessFreshness, setOfflineReadinessFreshness] = useState<OfflineSnapshotFreshness | null>(null);
   const [offlineDraft, setOfflineDraft] = useState<CrashCartPayload | null>(null);
   const [selectedShiftId, setSelectedShiftId] = useState<number | null>(null);
   const [cartSealIntact, setCartSealIntact] = useState(true);
@@ -104,6 +107,8 @@ export default function ProviderCrashCartReadinessCard() {
       version: savedAt.toString(),
       payload: readinessQuery.data,
       savedAt,
+      staleAfterMs: 15 * 60 * 1000,
+      expiresAt: savedAt + 8 * 60 * 60 * 1000,
       lastServerSyncAt: savedAt,
     });
   }, [readinessQuery.data, user?.id]);
@@ -113,6 +118,9 @@ export default function ProviderCrashCartReadinessCard() {
     let cancelled = false;
     void getOfflineSnapshot<ReadinessShift[]>(offlineStoreKeys.providerReadiness(user.id)).then((snapshot) => {
       if (cancelled || !snapshot?.payload) return;
+      const freshness = getOfflineSnapshotFreshness(snapshot, Date.now(), 15 * 60 * 1000);
+      if (freshness === "expired") return;
+      setOfflineReadinessFreshness(freshness);
       setOfflineShifts(snapshot.payload);
     });
     return () => {
@@ -203,7 +211,7 @@ export default function ProviderCrashCartReadinessCard() {
           <div><p className="font-semibold text-slate-900">{selectedShift.departmentName} · {selectedShift.poleName}</p><p className="text-xs text-slate-600">{formatDate(selectedShift.shiftDate)} · {selectedShift.shiftType}{selectedShift.isShiftErtl ? " · ERTL" : " · UTL"}</p></div>
           <Badge variant="outline" className="border-amber-300 text-amber-800">Daily seal check</Badge>
         </div>
-        {!isOnline && <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><WifiOff className="mt-0.5 h-4 w-4 shrink-0" /><span>Offline draft only. No ERCo/QI notification or official readiness status is created until an online submission is accepted.</span></div>}
+        {!isOnline && <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><WifiOff className="mt-0.5 h-4 w-4 shrink-0" /><span>{offlineReadinessFreshness === "stale" ? "Stale readiness snapshot. " : "Offline draft only. "}No ERCo/QI notification or official readiness status is created until an online submission is accepted.</span></div>}
         {offlineDraft && <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900"><AlertOctagon className="mt-0.5 h-4 w-4 shrink-0" /><span>There is a local draft for this shift. Review the checklist before submitting it when connected.</span></div>}
         <div className="grid gap-3 sm:grid-cols-2">
           <Check label="Crash cart seal numbered and intact" checked={cartSealIntact} onChange={setCartSealIntact} />

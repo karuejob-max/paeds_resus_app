@@ -6,6 +6,8 @@
  * cached or queued; this module only provides durable, typed primitives.
  */
 
+export type OfflineSnapshotFreshness = "fresh" | "stale" | "expired";
+
 export type OfflineSnapshotKind =
   | "course_package"
   | "course_module"
@@ -42,6 +44,7 @@ export interface OfflineSnapshot<TPayload = unknown> {
   payload: TPayload;
   savedAt: number;
   expiresAt?: number;
+  staleAfterMs?: number;
   lastServerSyncAt?: number;
 }
 
@@ -67,6 +70,7 @@ export interface OfflineSyncCounts {
   sending: number;
   failed: number;
   conflict: number;
+  rejected: number;
   requiresReview: number;
 }
 
@@ -136,6 +140,16 @@ export async function saveOfflineSnapshot<TPayload>(snapshot: OfflineSnapshot<TP
     transaction.onerror = () => reject(transaction.error ?? new Error("Could not save offline snapshot"));
     transaction.onabort = () => reject(transaction.error ?? new Error("Offline snapshot save aborted"));
   });
+}
+
+export function getOfflineSnapshotFreshness<TPayload>(
+  snapshot: OfflineSnapshot<TPayload>,
+  now = Date.now(),
+  defaultStaleAfterMs = 4 * 60 * 60 * 1000,
+): OfflineSnapshotFreshness {
+  if (snapshot.expiresAt != null && now >= snapshot.expiresAt) return "expired";
+  if (now - snapshot.savedAt >= (snapshot.staleAfterMs ?? defaultStaleAfterMs)) return "stale";
+  return "fresh";
 }
 
 export async function getOfflineSnapshot<TPayload>(key: string): Promise<OfflineSnapshot<TPayload> | null> {
@@ -244,6 +258,20 @@ export async function removeOfflineCommand(localEventId: string): Promise<void> 
   });
 }
 
+export async function listOfflineReviewCommands(limit = 100): Promise<OfflineCommand[]> {
+  try {
+    const db = await openPlatformOfflineDb();
+    const transaction = db.transaction(COMMANDS_STORE, "readonly");
+    const rows = await requestResult<OfflineCommand[]>(transaction.objectStore(COMMANDS_STORE).getAll());
+    return rows
+      .filter((row) => ["failed", "conflict", "rejected", "requires_review"].includes(row.status))
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
 export async function getOfflineSyncCounts(): Promise<OfflineSyncCounts> {
   try {
     const db = await openPlatformOfflineDb();
@@ -254,11 +282,23 @@ export async function getOfflineSyncCounts(): Promise<OfflineSyncCounts> {
       if (row.status === "sending") counts.sending += 1;
       if (row.status === "failed") counts.failed += 1;
       if (row.status === "conflict") counts.conflict += 1;
+      if (row.status === "rejected") counts.rejected += 1;
       if (row.status === "requires_review") counts.requiresReview += 1;
       return counts;
-    }, { queued: 0, sending: 0, failed: 0, conflict: 0, requiresReview: 0 });
+    }, { queued: 0, sending: 0, failed: 0, conflict: 0, rejected: 0, requiresReview: 0 });
   } catch {
-    return { queued: 0, sending: 0, failed: 0, conflict: 0, requiresReview: 0 };
+    return { queued: 0, sending: 0, failed: 0, conflict: 0, rejected: 0, requiresReview: 0 };
+  }
+}
+
+export async function getOfflineMeta<TValue>(key: string): Promise<TValue | null> {
+  try {
+    const db = await openPlatformOfflineDb();
+    const transaction = db.transaction(META_STORE, "readonly");
+    const row = await requestResult<{ key: string; value: TValue } | undefined>(transaction.objectStore(META_STORE).get(key));
+    return row?.value ?? null;
+  } catch {
+    return null;
   }
 }
 

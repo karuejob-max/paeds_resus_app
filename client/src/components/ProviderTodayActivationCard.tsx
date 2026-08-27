@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Siren, X } from "lucide-react";
+import { PhoneCall, Siren, WifiOff, X } from "lucide-react";
 import { toast } from "sonner";
 
 type CurrentTeam = {
@@ -31,6 +31,17 @@ export default function ProviderTodayActivationCard({
   const [location, setActivationLocation] = useState("");
   const [bedNumber, setBedNumber] = useState("");
   const [notes, setNotes] = useState("");
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
+
+  useEffect(() => {
+    const updateOnline = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", updateOnline);
+    window.addEventListener("offline", updateOnline);
+    return () => {
+      window.removeEventListener("online", updateOnline);
+      window.removeEventListener("offline", updateOnline);
+    };
+  }, []);
 
   const activateMutation = trpc.iers.triggerActivation.useMutation({
     onSuccess: (result) => {
@@ -48,7 +59,7 @@ export default function ProviderTodayActivationCard({
   };
 
   const submit = () => {
-    if (!currentTeam || location.trim().length < 2) return;
+    if (!isOnline || !currentTeam || location.trim().length < 2) return;
     activateMutation.mutate({
       institutionId: currentTeam.institutionId,
       teamId: currentTeam.teamId,
@@ -70,7 +81,7 @@ export default function ProviderTodayActivationCard({
               <Siren className="h-5 w-5 shrink-0 text-red-700" /> Activate the ERT
             </CardTitle>
             <CardDescription className="mt-1 text-red-900/75">
-              Send the alert to the current dated ERT for your pole. Confirm the location before sending.
+              {isOnline ? "Send the alert to the current dated ERT for your pole. Confirm the location before sending." : "No server alert can be sent while offline. Use the manual fallback and open ResusGPS locally."}
             </CardDescription>
           </div>
           {isOpen && (
@@ -92,6 +103,20 @@ export default function ProviderTodayActivationCard({
               Open My Shift to resolve
             </Button>
           </div>
+        ) : !isOnline ? (
+          <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            <div className="flex items-start gap-2">
+              <WifiOff className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+              <div>
+                <p className="font-semibold">Offline: ERT notification is not confirmed</p>
+                <p className="mt-1 text-xs text-amber-900/80">Call the facility emergency number or use radio/runner now. This device cannot notify the dated ERT, record arrival, or claim that a team has received the call.</p>
+              </div>
+            </div>
+            <Button type="button" className="w-full bg-red-700 text-white hover:bg-red-800" onClick={() => setLocation("/resus?offline=1")}>
+              <Siren className="mr-2 h-4 w-4" /> Open ResusGPS locally
+            </Button>
+            <p className="flex items-center gap-1 text-[11px] text-amber-900/75"><PhoneCall className="h-3.5 w-3.5" /> Confirm the emergency call through your facility’s manual process.</p>
+          </div>
         ) : !isOpen ? (
           <Button type="button" className="w-full bg-red-700 text-white hover:bg-red-800" onClick={openConfirmation}>
             <Siren className="mr-2 h-4 w-4" /> Immediate ERT activation
@@ -99,7 +124,8 @@ export default function ProviderTodayActivationCard({
         ) : (
           <div className="space-y-3 rounded-lg border border-red-200 bg-white p-3">
             <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-900">
-              <strong>Current ERT:</strong> {currentTeam.poleName}. This will notify the dated team now.
+                              <strong>Current ERT:</strong> {currentTeam.poleName}. This will notify the dated team now. Confirm the location before sending.
+
             </div>
             <select aria-label="Activation type" className="h-9 w-full rounded-md border bg-background px-3 text-sm" value={activationType} onChange={(event) => setActivationType(event.target.value as ActivationType)}>
               <option value="code_blue">Code Blue</option>
