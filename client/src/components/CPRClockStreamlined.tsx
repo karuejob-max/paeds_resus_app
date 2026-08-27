@@ -365,7 +365,9 @@ export function CPRClockStreamlined({
         : arrestDuration;
 
   const effectiveIsRunning = syncShared
-    ? shared!.isRunning
+    ? externalRunning !== undefined
+      ? externalRunning
+      : shared!.isRunning
     : externalRunning !== undefined
       ? externalRunning
       : isRunning;
@@ -381,6 +383,32 @@ export function CPRClockStreamlined({
   const effectiveCompressionElapsed = syncShared ? shared!.compressionElapsed : compressionElapsed;
   const effectiveCycleNumber = syncShared ? shared!.cycleNumber : cycleNumber;
   const effectiveEvents = syncShared ? shared!.events : events;
+
+  // These refs let one stable wall-clock interval observe changing CPR state.
+  // Recreating the interval whenever elapsed props change can cancel it before
+  // its first tick, leaving the visible cycle at 02:00 indefinitely.
+  const sharedClockRef = useRef(shared);
+  const phaseRef = useRef(phase);
+  const compressionElapsedRef = useRef(effectiveCompressionElapsed);
+  const cycleNumberRef = useRef(effectiveCycleNumber);
+  const rhythmWindowElapsedRef = useRef(rhythmWindowElapsed);
+  const arrestDurationRef = useRef(effectiveArrestDuration);
+  const advancedAirwayPlacedRef = useRef(advancedAirwayPlaced);
+  const intubationStartTimeRef = useRef(intubationStartTime);
+  const externalElapsedRef = useRef<number | undefined>(externalElapsed);
+  const addEventRef = useRef<(action: string, details?: string) => void>(() => undefined);
+  const speakRef = useRef<(text: string, key?: string) => void>(() => undefined);
+  const pulseRef = useRef<(pattern?: 'light' | 'medium' | 'critical') => void>(() => undefined);
+  sharedClockRef.current = shared;
+  phaseRef.current = phase;
+  compressionElapsedRef.current = effectiveCompressionElapsed;
+  cycleNumberRef.current = effectiveCycleNumber;
+  rhythmWindowElapsedRef.current = rhythmWindowElapsed;
+  arrestDurationRef.current = effectiveArrestDuration;
+  advancedAirwayPlacedRef.current = advancedAirwayPlaced;
+  intubationStartTimeRef.current = intubationStartTime;
+  externalElapsedRef.current = externalElapsed;
+
   const {
     audioSupported,
     audioUnlocked,
@@ -652,6 +680,10 @@ export function CPRClockStreamlined({
     }
   }, [arrestDuration, sessionId, memberId, syncShared, shared, externalElapsed, logEvent, caseKey, isOnline]);
 
+  addEventRef.current = addEvent;
+  speakRef.current = speak;
+  pulseRef.current = pulse;
+
   // Create a server session only when the device reports connectivity. The
   // local CPR snapshot/outbox remains usable while offline.
   useEffect(() => {
@@ -736,69 +768,82 @@ export function CPRClockStreamlined({
     speak(alert.speakText, `audio-unlocked-${alert.type}-${effectiveCompressionElapsed}-${rhythmWindowElapsed ?? 'na'}`);
   }, [activeAlerts, audioEnabled, audioUnlocked, effectiveCompressionElapsed, rhythmWindowElapsed, speak]);
 
-  // Timer logic (skip arrest duration tick when parent timer is authoritative)
+  // One stable CPR interval observes changing state through refs. Recreating
+  // an interval whenever elapsed props change can cancel it before its first
+  // useful tick and leave the visible cycle at 02:00 indefinitely.
   useEffect(() => {
-    if (effectiveIsRunning && !effectiveRoscAchieved) {
-      timerRef.current = setInterval(() => {
-        if (externalElapsed === undefined) {
-          if (syncShared && shared) {
-            shared.setArrestDuration((prev) => prev + 1);
-          } else {
-            setArrestDuration((prev) => prev + 1);
-          }
-        }
+    if (!effectiveIsRunning || effectiveRoscAchieved) return;
 
-        if (phase === 'compressions') {
-          const advance = (prev: number) => {
-            if (prev >= CPR_CYCLE_SECONDS) return prev;
-            const next = prev + 1;
-            if (next >= CPR_CYCLE_SECONDS) {
-              setPhase('reassessment');
-              setReassessmentTime(RHYTHM_WINDOW_SECONDS);
-              setRhythmWindowElapsed(0);
-              setShowRhythmCheck(true);
-              rhythmWindowLoggedRef.current = false;
-              setDefibCharging(false);
-              addEvent('2-minute cycle complete', `Cycle ${effectiveCycleNumber} — reassessment due`);
-            }
-            return Math.min(next, CPR_CYCLE_SECONDS);
-          };
-          if (syncShared && shared) shared.setCompressionElapsed(advance);
-          else setCompressionElapsed(advance);
-        } else if (phase === 'reassessment') {
-          setRhythmWindowElapsed((prev) => (prev === null ? 1 : prev + 1));
-        }
+    timerRef.current = setInterval(() => {
+      const activeShared = sharedClockRef.current;
+      const currentPhase = phaseRef.current;
+      const currentExternalElapsed = externalElapsedRef.current;
 
-        if (
-          intubationStartTime !== null &&
-          shouldTriggerIntubatedVentilationCue(effectiveArrestDuration - intubationStartTime, advancedAirwayPlaced)
-        ) {
-          pulse('medium');
-          speak('Ventilate now.');
-          addEvent('Ventilation cue', 'Intubated ventilation at 6-second cadence');
+      if (currentExternalElapsed === undefined) {
+        if (syncShared && activeShared) {
+          activeShared.setArrestDuration((previous) => {
+            const next = previous + 1;
+            arrestDurationRef.current = next;
+            return next;
+          });
+        } else {
+          setArrestDuration((previous) => {
+            const next = previous + 1;
+            arrestDurationRef.current = next;
+            return next;
+          });
         }
-      }, 1000);
-    }
+      }
+
+      if (currentPhase === 'compressions') {
+        const nextCompressionElapsed = Math.min(
+          CPR_CYCLE_SECONDS,
+          compressionElapsedRef.current + 1,
+        );
+        compressionElapsedRef.current = nextCompressionElapsed;
+        if (syncShared && activeShared) activeShared.setCompressionElapsed(nextCompressionElapsed);
+        else setCompressionElapsed(nextCompressionElapsed);
+
+        if (nextCompressionElapsed >= CPR_CYCLE_SECONDS) {
+          phaseRef.current = 'reassessment';
+          setPhase('reassessment');
+          setReassessmentTime(RHYTHM_WINDOW_SECONDS);
+          rhythmWindowElapsedRef.current = 0;
+          setRhythmWindowElapsed(0);
+          setShowRhythmCheck(true);
+          rhythmWindowLoggedRef.current = false;
+          setDefibCharging(false);
+          addEventRef.current('2-minute cycle complete', `Cycle ${cycleNumberRef.current} — reassessment due`);
+        }
+      } else if (currentPhase === 'reassessment') {
+        const nextRhythmWindowElapsed = Math.min(
+          RHYTHM_WINDOW_SECONDS,
+          (rhythmWindowElapsedRef.current ?? 0) + 1,
+        );
+        rhythmWindowElapsedRef.current = nextRhythmWindowElapsed;
+        setRhythmWindowElapsed(nextRhythmWindowElapsed);
+        setReassessmentTime(Math.max(0, RHYTHM_WINDOW_SECONDS - nextRhythmWindowElapsed));
+      }
+
+      const currentIntubationStartTime = intubationStartTimeRef.current;
+      if (
+        currentIntubationStartTime !== null &&
+        shouldTriggerIntubatedVentilationCue(
+          arrestDurationRef.current - currentIntubationStartTime,
+          advancedAirwayPlacedRef.current,
+        )
+      ) {
+        pulseRef.current('medium');
+        speakRef.current('Ventilate now.');
+        addEventRef.current('Ventilation cue', 'Intubated ventilation at 6-second cadence');
+      }
+    }, 1000);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = null;
     };
-  }, [
-    effectiveIsRunning,
-    effectiveRoscAchieved,
-    effectiveArrestDuration,
-    effectiveCompressionElapsed,
-    effectiveCycleNumber,
-    phase,
-    rhythmWindowElapsed,
-    advancedAirwayPlaced,
-    intubationStartTime,
-    externalElapsed,
-    syncShared,
-    shared,
-    addEvent,
-    speak,
-  ]);
+  }, [effectiveIsRunning, effectiveRoscAchieved, syncShared]);
 
   // Reassessment countdown timer (10-second CPR interruption window)
   useEffect(() => {
