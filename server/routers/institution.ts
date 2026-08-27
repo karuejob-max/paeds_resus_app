@@ -81,7 +81,7 @@ import {
 import { trackEvent } from "../services/analytics.service";
 import { getFacilityCareSignalDashboard } from "../services/facility-care-signal.service";
 import { getFacilityCodeSignalDashboard } from "../services/facility-code-signal.service";
-import { getProviderScorecard, getFacilityMedianQiCount, getDepartmentMedianQiCount, type ProviderScorecard } from "../services/provider-performance.service";
+import { getProviderScorecard, type ProviderScorecard } from "../services/provider-performance.service";
 import { notifyInstructorSessionAssigned } from "../lib/instructor-session-notification";
 import { ENV } from "../_core/env";
 import { isMissingTableError } from "../lib/is-missing-db-table";
@@ -1942,11 +1942,9 @@ export const institutionRouter = router({
     }),
 
   /**
-   * Phase 1 performance scorecard — CEO-requested 2026-08-09. A provider's
-   * own view: CPD, Life Support cert status, QI reporting, crash cart
-   * audits, plus a PRIVATE facility-median self-comparison (never shown to
-   * peers — see provider-performance.service.ts for the full reasoning and
-   * stated limitations).
+   * Private provider scorecard: CPD, Life Support certificate status, QI
+   * reporting, and crash-cart audits. Individuals are not benchmarked against
+   * peers; period-over-period comparison is provided by performance router.
    */
   getMyPerformanceScorecard: protectedProcedure
     .input(z.object({ lastDays: z.number().int().min(7).max(365).default(90) }).optional())
@@ -1957,32 +1955,13 @@ export const institutionRouter = router({
       }
       const lastDays = input?.lastDays ?? 90;
 
-      const [profile] = await db
-        .select({ facilityId: providerProfiles.facilityId, department: providerProfiles.department })
-        .from(providerProfiles)
-        .where(eq(providerProfiles.userId, ctx.user.id))
-        .limit(1);
-
       const scorecard = await getProviderScorecard({
         userId: ctx.user.id,
         institutionalAccountId: null,
         lastDays,
       });
 
-      const facilityMedianQiCount = profile?.facilityId
-        ? await getFacilityMedianQiCount(profile.facilityId, lastDays)
-        : null;
-
-      // Department median takes precedence when the provider has one set —
-      // added 2026-08-10, see provider-performance.service.ts for why this
-      // wasn't in the original version (it was assumed unavailable; it
-      // wasn't).
-      const departmentMedianQiCount =
-        profile?.facilityId && profile?.department
-          ? await getDepartmentMedianQiCount(profile.facilityId, profile.department, lastDays)
-          : null;
-
-      return { lastDays, scorecard, facilityMedianQiCount, departmentMedianQiCount };
+      return { lastDays, scorecard };
     }),
 
   /**

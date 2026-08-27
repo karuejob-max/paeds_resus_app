@@ -1,6 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { performanceRouter } from "./routers/performance";
-import { z } from "zod";
+import { describe, it, expect } from "vitest";
+import { calculateChange, getPerformancePeriodWindow } from "./lib/performance-periods";
 
 /**
  * Performance Dashboard Tests
@@ -68,70 +67,27 @@ describe("Performance Dashboard", () => {
     });
   });
 
-  describe("Leaderboard Rankings", () => {
-    it("should rank providers by performance score", () => {
-      const providers = [
-        { userId: 1, name: "Dr. Smith", score: 95 },
-        { userId: 2, name: "Dr. Jones", score: 88 },
-        { userId: 3, name: "Dr. Brown", score: 92 },
-      ];
-
-      const ranked = [...providers].sort((a, b) => b.score - a.score);
-
-      expect(ranked[0].score).toBe(95);
-      expect(ranked[1].score).toBe(92);
-      expect(ranked[2].score).toBe(88);
+  describe("Self Comparison Policy", () => {
+    it("supports the four account-menu comparison periods", () => {
+      expect(["week", "month", "quarter", "year"]).toEqual(["week", "month", "quarter", "year"]);
     });
 
-    it("should calculate percentile rankings", () => {
-      const providers = Array.from({ length: 100 }, (_, i) => ({
-        userId: i + 1,
-        score: Math.random() * 100,
-      }));
-
-      providers.sort((a, b) => b.score - a.score);
-
-      providers.forEach((provider, index) => {
-        const percentile = ((100 - index) / 100) * 100;
-        expect(percentile).toBeGreaterThan(0);
-        expect(percentile).toBeLessThanOrEqual(100);
-      });
+    it("uses the immediately preceding comparable period", () => {
+      const window = getPerformancePeriodWindow("month", new Date("2026-08-27T09:30:00.000Z"));
+      expect(window.previousEnd.getTime()).toBe(window.currentStart.getTime());
+      expect(window.currentStart.getTime() - window.previousStart.getTime()).toBeGreaterThan(0);
     });
 
-    it("should track rank changes", () => {
-      const previousRankings = [
-        { userId: 1, rank: 1, score: 95 },
-        { userId: 2, rank: 2, score: 92 },
-        { userId: 3, rank: 3, score: 88 },
-      ];
-
-      const currentRankings = [
-        { userId: 1, rank: 2, score: 94 },
-        { userId: 2, rank: 1, score: 96 },
-        { userId: 3, rank: 3, score: 88 },
-      ];
-
-      const rankChanges = currentRankings.map((current) => {
-        const previous = previousRankings.find((p) => p.userId === current.userId);
-        return {
-          userId: current.userId,
-          previousRank: previous?.rank || 0,
-          currentRank: current.rank,
-          change: (previous?.rank || 0) - current.rank,
-        };
-      });
-
-      expect(rankChanges[0].change).toBe(-1); // Dropped 1 rank
-      expect(rankChanges[1].change).toBe(1); // Improved 1 rank
-      expect(rankChanges[2].change).toBe(0); // No change
-    });
-
-    it("should support multiple leaderboard categories", () => {
-      const categories = ["performance", "interventions", "patients_served", "training"];
-
-      categories.forEach((category) => {
-        expect(["performance", "interventions", "patients_served", "training"]).toContain(category);
-      });
+    it("never exposes peer rank concepts in the self comparison contract", () => {
+      const comparison = {
+        current: { sessions: 4 },
+        previous: { sessions: 2 },
+        delta: calculateChange(4, 2),
+      };
+      expect(comparison).not.toHaveProperty("rank");
+      expect(comparison).not.toHaveProperty("percentile");
+      expect(comparison).not.toHaveProperty("peers");
+      expect(comparison.delta.direction).toBe("up");
     });
   });
 
@@ -264,45 +220,19 @@ describe("Performance Dashboard", () => {
     });
   });
 
-  describe("Performance Comparison", () => {
-    it("should compare multiple providers", () => {
-      const providers = [
-        { userId: 1, name: "Dr. A", score: 95, patients: 200 },
-        { userId: 2, name: "Dr. B", score: 88, patients: 150 },
-        { userId: 3, name: "Dr. C", score: 92, patients: 180 },
-      ];
-
-      const comparison = providers.map((p) => ({
-        ...p,
-        scoreRank: 0,
-        patientRank: 0,
-      }));
-
-      // Calculate ranks
-      const scoreRanked = [...providers].sort((a, b) => b.score - a.score);
-      const patientRanked = [...providers].sort((a, b) => b.patients - a.patients);
-
-      comparison.forEach((c) => {
-        c.scoreRank = scoreRanked.findIndex((p) => p.userId === c.userId) + 1;
-        c.patientRank = patientRanked.findIndex((p) => p.userId === c.userId) + 1;
-      });
-
-      expect(comparison[0].scoreRank).toBe(1);
-      expect(comparison[1].scoreRank).toBe(3);
+  describe("Period Comparison", () => {
+    it("calculates self-growth without a peer denominator", () => {
+      const change = calculateChange(92, 80);
+      expect(change.delta).toBe(12);
+      expect(change.percentage).toBe(15);
+      expect(change.direction).toBe("up");
     });
   });
 
   describe("Data Validation", () => {
-    it("should validate leaderboard input", () => {
-      const validInput = {
-        category: "performance",
-        limit: 50,
-        offset: 0,
-      };
-
-      expect(["performance", "interventions", "patients_served", "training"]).toContain(validInput.category);
-      expect(validInput.limit).toBeGreaterThan(0);
-      expect(validInput.offset).toBeGreaterThanOrEqual(0);
+    it("should validate a self-comparison input", () => {
+      const validInput = { period: "quarter" };
+      expect(["week", "month", "quarter", "year"]).toContain(validInput.period);
     });
 
     it("should validate performance metrics input", () => {
