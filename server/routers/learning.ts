@@ -6,7 +6,12 @@ import {
 } from "../../shared/split-module-html-sections";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { getIerpInternProfile, getIerpPaymentAccessForUser, isIerpCognitiveProgram, isIerpInternProfileReady } from "../lib/ierp-program-state";
+import {
+  getIerpInternProfile,
+  getIerpPaymentAccessForUser,
+  isIerpCognitiveProgram,
+  isIerpInternProfileReady,
+} from "../lib/ierp-program-state";
 import { eq, and, desc } from "drizzle-orm";
 import { invokeLLM } from "../_core/llm";
 import {
@@ -22,9 +27,7 @@ import { ensurePalsAhaCatalog } from "../lib/ensure-pals-aha-catalog";
 import { ensureAhaDiagnosticQuiz } from "../lib/ensure-aha-diagnostic-quiz";
 import { AHA_DIAGNOSTIC_PROGRAMS } from "../data/aha-diagnostic-banks";
 import { ensurePals2025Content } from "../lib/ensure-pals-2025-content";
-import {
-  ensureSeriouslyIllChildFellowshipCatalog,
-} from "../lib/ensure-seriously-ill-child-fellowship-catalog";
+import { ensureSeriouslyIllChildFellowshipCatalog } from "../lib/ensure-seriously-ill-child-fellowship-catalog";
 import {
   ensurePaediatricSepticShockCatalog,
   getPaediatricSepticShockCourseId,
@@ -35,7 +38,11 @@ import {
   ensureIntubationSampleCourseCatalog,
   getIntubationSampleCourseId,
 } from "../lib/ensure-intubation-sample-course-catalog";
-import { issueCertificateForEnrollmentIfEligible, markAhaCognitiveComplete } from "../certificates";
+import {
+  issueCertificateForEnrollmentIfEligible,
+  markAhaCognitiveComplete,
+  markIlsCognitiveComplete,
+} from "../certificates";
 import {
   ensureBlsCatalog,
   ensureAclsCatalog,
@@ -44,7 +51,10 @@ import {
 } from "../lib/ensure-bls-acls-catalog";
 import { fellowshipSimulations } from "../../drizzle/schema";
 import { ensureHeartsaverCatalog } from "../lib/ensure-heartsaver-catalog";
-import { resolveAhaCourseAnchor, type AhaAnchorProgramType } from "../lib/resolve-aha-course-anchor";
+import {
+  resolveAhaCourseAnchor,
+  type AhaAnchorProgramType,
+} from "../lib/resolve-aha-course-anchor";
 import {
   isMicroCourseEnrollmentId,
   syncMicroCourseEnrollmentProgress,
@@ -76,7 +86,10 @@ const SUMMATIVE_IDEMPOTENT_WINDOW_MS = 30_000;
 const SEEDED_COURSES = new Set<string>();
 let blsCatalogSyncPromise: Promise<void> | null = null;
 
-async function getProgramTypeForModule(db: any, moduleId: number): Promise<string | null> {
+async function getProgramTypeForModule(
+  db: any,
+  moduleId: number
+): Promise<string | null> {
   const moduleRows = await db
     .select({ courseId: modules.courseId })
     .from(modules)
@@ -92,7 +105,10 @@ async function getProgramTypeForModule(db: any, moduleId: number): Promise<strin
   return courseRows[0]?.programType ?? null;
 }
 
-async function getProgramTypeForQuiz(db: any, quizId: number): Promise<string | null> {
+async function getProgramTypeForQuiz(
+  db: any,
+  quizId: number
+): Promise<string | null> {
   const quizRows = await db
     .select({ moduleId: quizzes.moduleId })
     .from(quizzes)
@@ -102,7 +118,11 @@ async function getProgramTypeForQuiz(db: any, quizId: number): Promise<string | 
   return moduleId > 0 ? getProgramTypeForModule(db, moduleId) : null;
 }
 
-async function assertIerpCognitiveAccess(db: any, userId: number | undefined, programType: string | null | undefined) {
+async function assertIerpCognitiveAccess(
+  db: any,
+  userId: number | undefined,
+  programType: string | null | undefined
+) {
   if (!userId || !isIerpCognitiveProgram(programType)) return;
   const payment = await getIerpPaymentAccessForUser(db, userId);
   if (!payment) return;
@@ -110,13 +130,15 @@ async function assertIerpCognitiveAccess(db: any, userId: number | undefined, pr
   if (!isIerpInternProfileReady(internProfile)) {
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "Complete your Intern profile and submit your MoH deployment/posting letter before accessing IERP coursework.",
+      message:
+        "Complete your Intern profile and submit your MoH deployment/posting letter before accessing IERP coursework.",
     });
   }
   if (payment.cognitiveAccessLocked) {
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "IERP cognitive access requires the full KES 15,000 programme payment. Learners who started between August and November may use Phase 1 and Phase 2 before December; from December onward, complete payment before continuing.",
+      message:
+        "IERP cognitive access requires the full KES 15,000 programme payment. Learners who started between August and November may use Phase 1 and Phase 2 before December; from December onward, complete payment before continuing.",
     });
   }
 }
@@ -145,9 +167,14 @@ function scheduleMicroEnrollmentProgressSync(
   userId: number,
   enrollmentId: number
 ) {
-  void syncMicroCourseEnrollmentProgress(db as any, userId, enrollmentId).catch((err) => {
-    console.error("[learning.recordQuizAttempt] syncMicroCourseEnrollmentProgress", err);
-  });
+  void syncMicroCourseEnrollmentProgress(db as any, userId, enrollmentId).catch(
+    err => {
+      console.error(
+        "[learning.recordQuizAttempt] syncMicroCourseEnrollmentProgress",
+        err
+      );
+    }
+  );
 }
 
 export const learningRouter = router({
@@ -191,7 +218,13 @@ export const learningRouter = router({
       const db = await getDb();
       if (!db) return [];
       if (input.programType) {
-        const pt = input.programType as "bls" | "acls" | "pals" | "fellowship" | "instructor" | "paeds_resus_ils";
+        const pt = input.programType as
+          | "bls"
+          | "acls"
+          | "pals"
+          | "fellowship"
+          | "instructor"
+          | "paeds_resus_ils";
         let rows = await (db as any)
           .select()
           .from(courses)
@@ -207,7 +240,10 @@ export const learningRouter = router({
               .where(eq(courses.programType, pt))
               .orderBy(courses.order);
           } catch (e) {
-            console.error("[learning.getCourses] ensure PALS catalog failed:", e);
+            console.error(
+              "[learning.getCourses] ensure PALS catalog failed:",
+              e
+            );
           }
         }
         if (pt === "fellowship") {
@@ -219,7 +255,10 @@ export const learningRouter = router({
               .where(eq(courses.programType, pt))
               .orderBy(courses.order);
           } catch (e) {
-            console.error("[learning.getCourses] ensure fellowship catalog failed:", e);
+            console.error(
+              "[learning.getCourses] ensure fellowship catalog failed:",
+              e
+            );
           }
         }
         if (input.courseId != null) {
@@ -234,7 +273,10 @@ export const learningRouter = router({
               .where(eq(courses.programType, pt))
               .orderBy(courses.order);
           } catch (e) {
-            console.error("[learning.getCourses] ensure Institutional Life Support catalog failed:", e);
+            console.error(
+              "[learning.getCourses] ensure Institutional Life Support catalog failed:",
+              e
+            );
           }
         }
         if (pt === "instructor" && rows.length === 0) {
@@ -246,7 +288,10 @@ export const learningRouter = router({
               .where(eq(courses.programType, pt))
               .orderBy(courses.order);
           } catch (e) {
-            console.error("[learning.getCourses] ensure Instructor catalog failed:", e);
+            console.error(
+              "[learning.getCourses] ensure Instructor catalog failed:",
+              e
+            );
           }
         }
         return rows;
@@ -256,11 +301,25 @@ export const learningRouter = router({
 
   /** Canonical AHA catalog row (most modules) for BLS / ACLS / PALS / Heartsaver. */
   getAhaCourseAnchor: publicProcedure
-    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp", "instructor"]) }))
+    .input(
+      z.object({
+        programType: z.enum([
+          "bls",
+          "acls",
+          "pals",
+          "heartsaver",
+          "nrp",
+          "instructor",
+        ]),
+      })
+    )
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return null;
-      return resolveAhaCourseAnchor(db, input.programType as AhaAnchorProgramType);
+      return resolveAhaCourseAnchor(
+        db,
+        input.programType as AhaAnchorProgramType
+      );
     }),
 
   // Get course details with modules
@@ -269,7 +328,17 @@ export const learningRouter = router({
       z.object({
         courseId: z.number(),
         /** When the URL has a stale numeric id (e.g. /micro-course/1), resolve the real row. */
-        programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp", "instructor", "paeds_resus_ils"]).optional(),
+        programType: z
+          .enum([
+            "bls",
+            "acls",
+            "pals",
+            "heartsaver",
+            "nrp",
+            "instructor",
+            "paeds_resus_ils",
+          ])
+          .optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -278,12 +347,17 @@ export const learningRouter = router({
         throw new Error("Course not found");
       }
 
-      let courseRow: (typeof courses.$inferSelect) | null = null;
+      let courseRow: typeof courses.$inferSelect | null = null;
 
       if (input.programType && (!input.courseId || input.courseId <= 0)) {
         if (input.programType === "paeds_resus_ils") {
           await ensureInstitutionalLifeSupportCatalog(db);
-          const ilsRows = await (db as any).select().from(courses).where(eq(courses.programType, "paeds_resus_ils")).orderBy(courses.order).limit(1);
+          const ilsRows = await (db as any)
+            .select()
+            .from(courses)
+            .where(eq(courses.programType, "paeds_resus_ils"))
+            .orderBy(courses.order)
+            .limit(1);
           courseRow = ilsRows[0] ?? null;
         } else {
           courseRow = await resolveAhaCourseAnchor(db, input.programType);
@@ -309,7 +383,12 @@ export const learningRouter = router({
       if (!courseRow && input.programType) {
         if (input.programType === "paeds_resus_ils") {
           await ensureInstitutionalLifeSupportCatalog(db);
-          const ilsRows = await (db as any).select().from(courses).where(eq(courses.programType, "paeds_resus_ils")).orderBy(courses.order).limit(1);
+          const ilsRows = await (db as any)
+            .select()
+            .from(courses)
+            .where(eq(courses.programType, "paeds_resus_ils"))
+            .orderBy(courses.order)
+            .limit(1);
           courseRow = ilsRows[0] ?? null;
         } else {
           courseRow = await resolveAhaCourseAnchor(db, input.programType);
@@ -324,15 +403,29 @@ export const learningRouter = router({
       await assertIerpCognitiveAccess(db, ctx.user?.id, pt);
       if (pt === "paeds_resus_ils") {
         if (!ctx.user?.id) {
-          throw new TRPCError({ code: "UNAUTHORIZED", message: "Sign in and pay for the Institutional Life Support programme before opening its modules." });
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message:
+              "Sign in and pay for the Institutional Life Support programme before opening its modules.",
+          });
         }
         const paidRows = await db
           .select({ id: enrollments.id })
           .from(enrollments)
-          .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, "paeds_resus_ils"), eq(enrollments.paymentStatus, "completed")))
+          .where(
+            and(
+              eq(enrollments.userId, ctx.user.id),
+              eq(enrollments.programType, "paeds_resus_ils"),
+              eq(enrollments.paymentStatus, "completed")
+            )
+          )
           .limit(1);
         if (!paidRows.length) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Pay for the Institutional Life Support programme before opening its modules." });
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Pay for the Institutional Life Support programme before opening its modules.",
+          });
         }
       }
       let blsCatalogStale = false;
@@ -357,13 +450,20 @@ export const learningRouter = router({
           try {
             await ensurePals2025Content(db);
           } catch (e) {
-            console.error("[learning.getCourseDetails] ensure PALS 2025 content:", e);
+            console.error(
+              "[learning.getCourseDetails] ensure PALS 2025 content:",
+              e
+            );
           }
         } else if (pt === "nrp") {
-          const { ensureNrpCatalog } = await import("../lib/ensure-nrp-catalog");
+          const { ensureNrpCatalog } = await import(
+            "../lib/ensure-nrp-catalog"
+          );
           await ensureNrpCatalog(db);
         } else if (pt === "instructor") {
-          const { ensureInstructorCourseCatalog } = await import("../lib/ensure-instructor-course-catalog");
+          const { ensureInstructorCourseCatalog } = await import(
+            "../lib/ensure-instructor-course-catalog"
+          );
           await ensureInstructorCourseCatalog(db);
         } else if (pt === "paeds_resus_ils") {
           await ensureInstitutionalLifeSupportCatalog(db);
@@ -372,10 +472,13 @@ export const learningRouter = router({
       }
 
       const diagnosticProgram = AHA_DIAGNOSTIC_PROGRAMS.find(
-        (candidate) => candidate === pt
+        candidate => candidate === pt
       );
       if (diagnosticProgram) {
-        const diagnosticAnchor = await resolveAhaCourseAnchor(db, diagnosticProgram);
+        const diagnosticAnchor = await resolveAhaCourseAnchor(
+          db,
+          diagnosticProgram
+        );
         await ensureAhaDiagnosticQuiz(
           db,
           diagnosticAnchor?.id ?? courseRow.id,
@@ -400,7 +503,11 @@ export const learningRouter = router({
     .input(z.object({ moduleId: z.number() }))
     .query(async ({ ctx, input }) => {
       const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      if (!db)
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database unavailable",
+        });
       let module = await (db as any)
         .select()
         .from(modules)
@@ -416,18 +523,36 @@ export const learningRouter = router({
         .from(courses)
         .where(eq(courses.id, module[0].courseId))
         .limit(1);
-      await assertIerpCognitiveAccess(db, ctx.user?.id, moduleCourse[0]?.programType);
+      await assertIerpCognitiveAccess(
+        db,
+        ctx.user?.id,
+        moduleCourse[0]?.programType
+      );
       if (moduleCourse[0]?.programType === "paeds_resus_ils") {
         if (!ctx.user?.id) {
-          throw new TRPCError({ code: "UNAUTHORIZED", message: "Sign in and pay for the Institutional Life Support programme before opening its modules." });
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message:
+              "Sign in and pay for the Institutional Life Support programme before opening its modules.",
+          });
         }
         const paidRows = await db
           .select({ id: enrollments.id })
           .from(enrollments)
-          .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, "paeds_resus_ils"), eq(enrollments.paymentStatus, "completed")))
+          .where(
+            and(
+              eq(enrollments.userId, ctx.user.id),
+              eq(enrollments.programType, "paeds_resus_ils"),
+              eq(enrollments.paymentStatus, "completed")
+            )
+          )
           .limit(1);
         if (!paidRows.length) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Pay for the Institutional Life Support programme before opening its modules." });
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Pay for the Institutional Life Support programme before opening its modules.",
+          });
         }
       }
 
@@ -458,8 +583,11 @@ export const learningRouter = router({
               content: section.content,
               order: section.order,
             }));
-            void synchronizeBlsCatalog(db).catch((error) => {
-              console.error("[learning.getModuleContent] BLS background sync:", error);
+            void synchronizeBlsCatalog(db).catch(error => {
+              console.error(
+                "[learning.getModuleContent] BLS background sync:",
+                error
+              );
             });
           } else {
             await synchronizeBlsCatalog(db);
@@ -469,7 +597,9 @@ export const learningRouter = router({
               .where(eq(modules.id, input.moduleId))
               .limit(1);
             if (!module.length) {
-              throw new Error("Module no longer exists after BLS catalog repair");
+              throw new Error(
+                "Module no longer exists after BLS catalog repair"
+              );
             }
             sections = await (db as any)
               .select()
@@ -482,13 +612,15 @@ export const learningRouter = router({
 
       const moduleHtml = String(module[0].content ?? "");
       if (moduleSectionsStale(moduleHtml, sections)) {
-        sections = splitModuleHtmlIntoSections(moduleHtml).map((section, index) => ({
-          id: index + 1,
-          moduleId: input.moduleId,
-          title: section.title,
-          content: section.content,
-          order: section.order,
-        }));
+        sections = splitModuleHtmlIntoSections(moduleHtml).map(
+          (section, index) => ({
+            id: index + 1,
+            moduleId: input.moduleId,
+            title: section.title,
+            content: section.content,
+            order: section.order,
+          })
+        );
       }
 
       const moduleQuizzes = await (db as any)
@@ -524,17 +656,17 @@ export const learningRouter = router({
               } = base as Record<string, unknown>;
               return withoutAnswer;
             }
-            const { explanation: _omitExplanation, ...withoutRationale } = base as Record<
-              string,
-              unknown
-            >;
+            const { explanation: _omitExplanation, ...withoutRationale } =
+              base as Record<string, unknown>;
             return withoutRationale;
           }) as { id?: number; question: string }[]
         );
         return { ...quiz, questions };
       };
 
-      const quizzesWithQuestions = await Promise.all(moduleQuizzes.map(mapQuizQuestions));
+      const quizzesWithQuestions = await Promise.all(
+        moduleQuizzes.map(mapQuizQuestions)
+      );
 
       return {
         ...module[0],
@@ -548,7 +680,11 @@ export const learningRouter = router({
     .input(z.object({ quizId: z.number() }))
     .query(async ({ ctx, input }) => {
       const db = await getDb();
-      await assertIerpCognitiveAccess(db, ctx.user?.id, await getProgramTypeForQuiz(db, input.quizId));
+      await assertIerpCognitiveAccess(
+        db,
+        ctx.user?.id,
+        await getProgramTypeForQuiz(db, input.quizId)
+      );
       return (db as any)
         .select()
         .from(quizQuestions)
@@ -597,26 +733,53 @@ export const learningRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) return null;
-      if (await isMicroCourseEnrollmentId(db as any, input.enrollmentId, ctx.user.id)) {
-        return getMicrocourseExamState(db as any, ctx.user.id, input.enrollmentId);
+      if (
+        await isMicroCourseEnrollmentId(
+          db as any,
+          input.enrollmentId,
+          ctx.user.id
+        )
+      ) {
+        return getMicrocourseExamState(
+          db as any,
+          ctx.user.id,
+          input.enrollmentId
+        );
       }
       return getAhaCourseExamState(db as any, ctx.user.id, input.enrollmentId);
     }),
 
   getFellowshipSimulation: protectedProcedure
-    .input(z.object({ courseId: z.string(), level: z.enum(["foundational", "advanced"]) }))
+    .input(
+      z.object({
+        courseId: z.string(),
+        level: z.enum(["foundational", "advanced"]),
+      })
+    )
     .query(async ({ input }) => {
       const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      if (!db)
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database unavailable",
+        });
 
       const [simulation] = await db
         .select()
         .from(fellowshipSimulations)
-        .where(and(eq(fellowshipSimulations.courseId, input.courseId), eq(fellowshipSimulations.level, input.level)))
+        .where(
+          and(
+            eq(fellowshipSimulations.courseId, input.courseId),
+            eq(fellowshipSimulations.level, input.level)
+          )
+        )
         .limit(1);
 
       if (!simulation) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Fellowship simulation not found" });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Fellowship simulation not found",
+        });
       }
 
       const scenarioData = parseFellowshipScenarioData(simulation.scenarioData);
@@ -643,26 +806,60 @@ export const learningRouter = router({
     )
     .query(async ({ ctx, input }) => {
       const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      if (!db)
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database unavailable",
+        });
 
-      await assertIerpCognitiveAccess(db, ctx.user.id, await getProgramTypeForQuiz(db, input.summativeQuizId));
+      await assertIerpCognitiveAccess(
+        db,
+        ctx.user.id,
+        await getProgramTypeForQuiz(db, input.summativeQuizId)
+      );
 
-      const isMicro = await isMicroCourseEnrollmentId(db as any, input.enrollmentId, ctx.user.id);
+      const isMicro = await isMicroCourseEnrollmentId(
+        db as any,
+        input.enrollmentId,
+        ctx.user.id
+      );
       const state = isMicro
-        ? await getMicrocourseExamState(db as any, ctx.user.id, input.enrollmentId)
-        : await getAhaCourseExamState(db as any, ctx.user.id, input.enrollmentId);
+        ? await getMicrocourseExamState(
+            db as any,
+            ctx.user.id,
+            input.enrollmentId
+          )
+        : await getAhaCourseExamState(
+            db as any,
+            ctx.user.id,
+            input.enrollmentId
+          );
 
       if (!state) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Enrollment not found for summative exam" });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Enrollment not found for summative exam",
+        });
       }
-      if (state.summativeQuizId && state.summativeQuizId !== input.summativeQuizId) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid summative quiz for this course" });
+      if (
+        state.summativeQuizId &&
+        state.summativeQuizId !== input.summativeQuizId
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid summative quiz for this course",
+        });
       }
-      const bank = dedupeQuizRowsByStem(await loadSummativeQuestionBank(db as any, input.summativeQuizId));
+      const bank = dedupeQuizRowsByStem(
+        await loadSummativeQuestionBank(db as any, input.summativeQuizId)
+      );
       const sessionSeed = input.shuffleSeed ?? Date.now();
       const order = shuffleQuestionIndices(bank.length, sessionSeed);
-      const ordered = order.map((i) => bank[i]!);
-      const withShuffledOptions = shuffleQuestionsDisplayOptions(ordered, sessionSeed);
+      const ordered = order.map(i => bank[i]!);
+      const withShuffledOptions = shuffleQuestionsDisplayOptions(
+        ordered,
+        sessionSeed
+      );
       return {
         questions: withShuffledOptions,
         passPercent: MICROCOURSE_SUMMATIVE_PASS_PERCENT,
@@ -685,7 +882,11 @@ export const learningRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      if (!db)
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database unavailable",
+        });
 
       const quizMeta = await (db as any)
         .select({
@@ -701,26 +902,51 @@ export const learningRouter = router({
       const moduleId = Number(quizMeta[0]?.moduleId ?? 0);
       const quizPassingScore = Number(quizMeta[0]?.passingScore ?? 70);
       if (moduleId > 0) {
-        await assertIerpCognitiveAccess(db, ctx.user.id, await getProgramTypeForModule(db, moduleId));
+        await assertIerpCognitiveAccess(
+          db,
+          ctx.user.id,
+          await getProgramTypeForModule(db, moduleId)
+        );
       }
       const answersMap = answersArrayToMap(input.answers);
 
-      const isMicro = await isMicroCourseEnrollmentId(db as any, input.enrollmentId, ctx.user.id);
+      const isMicro = await isMicroCourseEnrollmentId(
+        db as any,
+        input.enrollmentId,
+        ctx.user.id
+      );
       const state = isMicro
-        ? await getMicrocourseExamState(db as any, ctx.user.id, input.enrollmentId)
-        : await getAhaCourseExamState(db as any, ctx.user.id, input.enrollmentId);
+        ? await getMicrocourseExamState(
+            db as any,
+            ctx.user.id,
+            input.enrollmentId
+          )
+        : await getAhaCourseExamState(
+            db as any,
+            ctx.user.id,
+            input.enrollmentId
+          );
 
       if (!state) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Enrollment not found for quiz attempt" });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Enrollment not found for quiz attempt",
+        });
       }
 
       if (examKind === "summative") {
         if (state.summativeQuizId && state.summativeQuizId !== input.quizId) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid quiz for this course" });
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid quiz for this course",
+          });
         }
       } else if (examKind === "diagnostic") {
         if (state.diagnosticQuizId && state.diagnosticQuizId !== input.quizId) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid diagnostic quiz for this course" });
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid diagnostic quiz for this course",
+          });
         }
       }
 
@@ -736,18 +962,28 @@ export const learningRouter = router({
           )
         );
 
-      const existingRow = existing?.[0] as {
-        id: number;
-        score?: number | null;
-        attempts?: number;
-        completedAt?: Date | null;
-        updatedAt?: Date | null;
-      } | undefined;
+      const existingRow = existing?.[0] as
+        | {
+            id: number;
+            score?: number | null;
+            attempts?: number;
+            completedAt?: Date | null;
+            updatedAt?: Date | null;
+          }
+        | undefined;
 
       if (examKind === "diagnostic") {
-        const graded = await computeQuizScoreFromDb(db as any, input.quizId, answersMap);
+        const graded = await computeQuizScoreFromDb(
+          db as any,
+          input.quizId,
+          answersMap
+        );
         if (existingRow?.completedAt) {
-          scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
+          scheduleMicroEnrollmentProgressSync(
+            db as any,
+            ctx.user.id,
+            input.enrollmentId
+          );
           return {
             success: true,
             score: existingRow.score ?? graded.score,
@@ -785,7 +1021,11 @@ export const learningRouter = router({
             updatedAt: now,
           });
         }
-        scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
+        scheduleMicroEnrollmentProgressSync(
+          db as any,
+          ctx.user.id,
+          input.enrollmentId
+        );
         return {
           success: true,
           score: graded.score,
@@ -799,16 +1039,26 @@ export const learningRouter = router({
 
       let passingScore = Math.min(100, Math.max(0, quizPassingScore));
       let score = 0;
-      let questionResults: Awaited<ReturnType<typeof computeQuizScoreFromDb>>["questionResults"] | undefined;
+      let questionResults:
+        | Awaited<ReturnType<typeof computeQuizScoreFromDb>>["questionResults"]
+        | undefined;
       let progressRow = existingRow;
 
       if (examKind === "summative") {
         passingScore = MICROCOURSE_SUMMATIVE_PASS_PERCENT;
 
         if (progressRow && summativePassed(progressRow.score)) {
-          const graded = await computeQuizScoreFromDb(db as any, input.quizId, answersMap);
+          const graded = await computeQuizScoreFromDb(
+            db as any,
+            input.quizId,
+            answersMap
+          );
           if (isMicro) {
-            scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
+            scheduleMicroEnrollmentProgressSync(
+              db as any,
+              ctx.user.id,
+              input.enrollmentId
+            );
           }
           return {
             success: true,
@@ -822,9 +1072,14 @@ export const learningRouter = router({
         }
 
         if (progressRow?.updatedAt && (progressRow.attempts ?? 0) > 0) {
-          const elapsed = Date.now() - new Date(progressRow.updatedAt).getTime();
+          const elapsed =
+            Date.now() - new Date(progressRow.updatedAt).getTime();
           if (elapsed < SUMMATIVE_IDEMPOTENT_WINDOW_MS) {
-            const graded = await computeQuizScoreFromDb(db as any, input.quizId, answersMap);
+            const graded = await computeQuizScoreFromDb(
+              db as any,
+              input.quizId,
+              answersMap
+            );
             const replayScore = progressRow.score ?? graded.score;
             return {
               success: true,
@@ -840,7 +1095,8 @@ export const learningRouter = router({
 
         const retry = canAttemptSummative({
           attempts: progressRow?.attempts ?? 0,
-          lastAttemptAt: progressRow?.updatedAt ?? progressRow?.completedAt ?? null,
+          lastAttemptAt:
+            progressRow?.updatedAt ?? progressRow?.completedAt ?? null,
         });
         if (!retry.allowed) {
           throw new TRPCError({
@@ -854,16 +1110,27 @@ export const learningRouter = router({
           });
         }
 
-        const graded = await computeQuizScoreFromDb(db as any, input.quizId, answersMap);
+        const graded = await computeQuizScoreFromDb(
+          db as any,
+          input.quizId,
+          answersMap
+        );
         score = graded.score;
         questionResults = graded.questionResults;
       } else {
-        const graded = await computeQuizScoreFromDb(db as any, input.quizId, answersMap);
+        const graded = await computeQuizScoreFromDb(
+          db as any,
+          input.quizId,
+          answersMap
+        );
         score = graded.score;
         questionResults = graded.questionResults;
       }
 
-      const passed = examKind === "summative" ? summativePassed(score) : score >= passingScore;
+      const passed =
+        examKind === "summative"
+          ? summativePassed(score)
+          : score >= passingScore;
 
       if (!progressRow) {
         const reread = await (db as any)
@@ -886,7 +1153,11 @@ export const learningRouter = router({
           .set({
             score,
             attempts: (progressRow.attempts || 0) + 1,
-            status: passed ? "completed" : examKind === "summative" ? "failed" : "in_progress",
+            status: passed
+              ? "completed"
+              : examKind === "summative"
+                ? "failed"
+                : "in_progress",
             completedAt: passed ? new Date() : progressRow.completedAt,
             updatedAt: new Date(),
           })
@@ -899,7 +1170,11 @@ export const learningRouter = router({
           quizId: input.quizId,
           score,
           attempts: 1,
-          status: passed ? "completed" : examKind === "summative" ? "failed" : "in_progress",
+          status: passed
+            ? "completed"
+            : examKind === "summative"
+              ? "failed"
+              : "in_progress",
           completedAt: passed ? new Date() : null,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -907,7 +1182,11 @@ export const learningRouter = router({
       }
 
       if (isMicro) {
-        scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
+        scheduleMicroEnrollmentProgressSync(
+          db as any,
+          ctx.user.id,
+          input.enrollmentId
+        );
       }
 
       if (examKind === "summative" && passed) {
@@ -918,7 +1197,9 @@ export const learningRouter = router({
         void trackEvent({
           userId: ctx.user.id,
           eventType: isMicro ? "micro_course" : "aha_course",
-          eventName: passed ? "Summative exam passed" : "Summative exam attempt",
+          eventName: passed
+            ? "Summative exam passed"
+            : "Summative exam attempt",
           pageUrl: isMicro ? "/micro-course" : "/course/pals",
           eventData: {
             quizId: input.quizId,
@@ -937,7 +1218,7 @@ export const learningRouter = router({
         passingScore,
         examKind,
         questionResults,
-        correctAnswers: questionResults?.filter((r) => r.correct).length,
+        correctAnswers: questionResults?.filter(r => r.correct).length,
         totalQuestions: questionResults?.length,
       };
     }),
@@ -952,17 +1233,29 @@ export const learningRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      if (!db)
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database unavailable",
+        });
 
       // Check if the simulation exists and is associated with the course/level
       const [simulation] = await db
         .select()
         .from(fellowshipSimulations)
-        .where(and(eq(fellowshipSimulations.courseId, input.courseId), eq(fellowshipSimulations.level, input.level)))
+        .where(
+          and(
+            eq(fellowshipSimulations.courseId, input.courseId),
+            eq(fellowshipSimulations.level, input.level)
+          )
+        )
         .limit(1);
 
       if (!simulation) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Fellowship simulation not found" });
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Fellowship simulation not found",
+        });
       }
 
       const existing = await (db as any)
@@ -1000,7 +1293,11 @@ export const learningRouter = router({
         });
       }
 
-      scheduleMicroEnrollmentProgressSync(db as any, ctx.user.id, input.enrollmentId);
+      scheduleMicroEnrollmentProgressSync(
+        db as any,
+        ctx.user.id,
+        input.enrollmentId
+      );
 
       return { success: true };
     }),
@@ -1020,9 +1317,17 @@ export const learningRouter = router({
     .input(z.object({ moduleId: z.number(), enrollmentId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      if (!db)
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database unavailable",
+        });
 
-      await assertIerpCognitiveAccess(db, ctx.user.id, await getProgramTypeForModule(db, input.moduleId));
+      await assertIerpCognitiveAccess(
+        db,
+        ctx.user.id,
+        await getProgramTypeForModule(db, input.moduleId)
+      );
 
       // Check if any progress row exists for this module + enrollment
       const existing = await (db as any)
@@ -1066,13 +1371,60 @@ export const learningRouter = router({
         });
       }
 
-      // After marking a module complete, check if ALL modules for this enrollment are now done.
-      // If so, set the cognitiveModulesComplete gate and attempt certificate issuance.
-      // markAhaCognitiveComplete internally checks all modules before setting the flag.
-      await markAhaCognitiveComplete(input.enrollmentId);
+      const [enrollmentForActivity] = await (db as any)
+        .select({
+          programType: enrollments.programType,
+          paymentStatus: enrollments.paymentStatus,
+          activatedAt: enrollments.activatedAt,
+        })
+        .from(enrollments)
+        .where(
+          and(
+            eq(enrollments.id, input.enrollmentId),
+            eq(enrollments.userId, ctx.user.id)
+          )
+        )
+        .limit(1);
+      if (enrollmentForActivity?.programType === "paeds_resus_ils") {
+        const activityAt = new Date();
+        await (db as any)
+          .update(enrollments)
+          .set({
+            activatedAt: enrollmentForActivity.activatedAt ?? activityAt,
+            lastActivityAt: activityAt,
+            updatedAt: activityAt,
+          })
+          .where(
+            and(
+              eq(enrollments.id, input.enrollmentId),
+              eq(enrollments.userId, ctx.user.id),
+              eq(enrollments.enrollmentStatus, "active"),
+              eq(enrollments.paymentStatus, "completed")
+            )
+          );
+        const ilsResult = await markIlsCognitiveComplete(input.enrollmentId);
+        if (ilsResult.cognitiveComplete && ilsResult.certificateIssued) {
+          console.log(
+            `[Learning] ILS certificate gate completed for enrollment ${input.enrollmentId}`
+          );
+        }
+      } else {
+        // Preserve the existing AHA certificate gate for all non-ILS programmes.
+        await markAhaCognitiveComplete(input.enrollmentId);
+      }
 
-      if (await isMicroCourseEnrollmentId(db as any, input.enrollmentId, ctx.user.id)) {
-        await syncMicroCourseEnrollmentProgress(db as any, ctx.user.id, input.enrollmentId);
+      if (
+        await isMicroCourseEnrollmentId(
+          db as any,
+          input.enrollmentId,
+          ctx.user.id
+        )
+      ) {
+        await syncMicroCourseEnrollmentProgress(
+          db as any,
+          ctx.user.id,
+          input.enrollmentId
+        );
       }
 
       return { success: true };
@@ -1104,11 +1456,16 @@ export const learningRouter = router({
         .from(userProgress)
         .where(
           input.enrollmentId !== undefined
-            ? and(eq(userProgress.userId, ctx.user.id), eq(userProgress.enrollmentId, input.enrollmentId))
+            ? and(
+                eq(userProgress.userId, ctx.user.id),
+                eq(userProgress.enrollmentId, input.enrollmentId)
+              )
             : eq(userProgress.userId, ctx.user.id)
         );
 
-      const progress = progressRows.filter((p: { moduleId: number }) => moduleIds.has(p.moduleId));
+      const progress = progressRows.filter((p: { moduleId: number }) =>
+        moduleIds.has(p.moduleId)
+      );
 
       const completedModules = progress.filter(
         (p: any) => p.status === "completed"
@@ -1125,7 +1482,9 @@ export const learningRouter = router({
         completedModules,
         averageScore: Math.round(averageScore),
         percentComplete:
-          totalModules === 0 ? 0 : Math.round((completedModules / totalModules) * 100),
+          totalModules === 0
+            ? 0
+            : Math.round((completedModules / totalModules) * 100),
       };
     }),
 
@@ -1144,7 +1503,9 @@ export const learningRouter = router({
 
     // Get progress for each enrollment
     const courseProgress = enrolledCourses.map((enrollment: any) => {
-      const course = allCourses.find((c: any) => c.id === enrollment.programType);
+      const course = allCourses.find(
+        (c: any) => c.id === enrollment.programType
+      );
       return {
         ...enrollment,
         course,
@@ -1168,7 +1529,13 @@ export const learningRouter = router({
     .input(
       z.object({
         enrollmentId: z.number(),
-        programType: z.enum(["bls", "acls", "pals", "fellowship", "instructor"]),
+        programType: z.enum([
+          "bls",
+          "acls",
+          "pals",
+          "fellowship",
+          "instructor",
+        ]),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -1195,15 +1562,22 @@ export const learningRouter = router({
           await ensurePaediatricSepticShockCatalog(db);
           await ensurePalsAhaCatalog(db);
         } catch (e) {
-          console.error("[learning.getPersonalizedPath] ensure PALS catalog:", e);
+          console.error(
+            "[learning.getPersonalizedPath] ensure PALS catalog:",
+            e
+          );
         }
         const ec = (enrollment[0] as { courseId?: number | null }).courseId;
         if (ec != null) {
-          programCourses = programCourses.filter((c: { id: number }) => c.id === ec);
+          programCourses = programCourses.filter(
+            (c: { id: number }) => c.id === ec
+          );
         } else {
           const anchor = await resolveAhaCourseAnchor(db, "pals");
           if (anchor) {
-            programCourses = programCourses.filter((c: { id: number }) => c.id === anchor.id);
+            programCourses = programCourses.filter(
+              (c: { id: number }) => c.id === anchor.id
+            );
           }
         }
       }
@@ -1222,7 +1596,9 @@ export const learningRouter = router({
             .select()
             .from(modules)
             .where(eq(modules.courseId, course.id));
-          const moduleIds = new Set(totalModules.map((m: { id: number }) => m.id));
+          const moduleIds = new Set(
+            totalModules.map((m: { id: number }) => m.id)
+          );
           const completedModules = progress.filter(
             (p: any) => p.status === "completed" && moduleIds.has(p.moduleId)
           ).length;
@@ -1258,12 +1634,17 @@ export const learningRouter = router({
       const completedModules = progress.filter(
         (p: any) => p.status === "completed"
       ).length;
-      const totalAttempts = progress.reduce((sum: number, p: any) => sum + p.attempts, 0);
+      const totalAttempts = progress.reduce(
+        (sum: number, p: any) => sum + p.attempts,
+        0
+      );
       const averageScore =
         progress.length > 0
           ? Math.round(
-              progress.reduce((sum: number, p: any) => sum + (p.score || 0), 0) /
-                progress.length
+              progress.reduce(
+                (sum: number, p: any) => sum + (p.score || 0),
+                0
+              ) / progress.length
             )
           : 0;
       const firstProgressDate =
@@ -1313,11 +1694,12 @@ export const learningRouter = router({
       let correctCount = 0;
       questions.forEach((question: any) => {
         const userAnswer = input.answers.find(
-          (a) => a.questionId === question.id
+          a => a.questionId === question.id
         );
         if (
           userAnswer &&
-          userAnswer.answer === parseStoredQuizCorrectAnswer(question.correctAnswer)
+          userAnswer.answer ===
+            parseStoredQuizCorrectAnswer(question.correctAnswer)
         ) {
           correctCount++;
         }
@@ -1351,18 +1733,16 @@ export const learningRouter = router({
           })
           .where(eq(userProgress.id, existingProgress[0].id));
       } else {
-        await (db as any)
-          .insert(userProgress)
-          .values({
-            userId: ctx.user.id,
-            enrollmentId: input.enrollmentId,
-            moduleId: input.moduleId,
-            quizId: input.quizId,
-            score,
-            attempts: 1,
-            status: passed ? "completed" : "in_progress",
-            completedAt: passed ? new Date() : null,
-          });
+        await (db as any).insert(userProgress).values({
+          userId: ctx.user.id,
+          enrollmentId: input.enrollmentId,
+          moduleId: input.moduleId,
+          quizId: input.quizId,
+          score,
+          attempts: 1,
+          status: passed ? "completed" : "in_progress",
+          completedAt: passed ? new Date() : null,
+        });
       }
       return {
         score,
@@ -1404,15 +1784,13 @@ export const learningRouter = router({
           })
           .where(eq(userProgress.id, existingProgress[0].id));
       } else {
-        await (db as any)
-          .insert(userProgress)
-          .values({
-            userId: ctx.user.id,
-            enrollmentId: input.enrollmentId,
-            moduleId: input.moduleId,
-            status: "completed",
-            completedAt: new Date(),
-          });
+        await (db as any).insert(userProgress).values({
+          userId: ctx.user.id,
+          enrollmentId: input.enrollmentId,
+          moduleId: input.moduleId,
+          status: "completed",
+          completedAt: new Date(),
+        });
       }
       return { success: true };
     }),
@@ -1429,8 +1807,8 @@ export const learningRouter = router({
   getResumeModule: protectedProcedure
     .input(
       z.object({
-        courseId: z.number(),       // DB course id (modules.courseId)
-        enrollmentId: z.number(),   // enrollment id scoping the progress rows
+        courseId: z.number(), // DB course id (modules.courseId)
+        enrollmentId: z.number(), // enrollment id scoping the progress rows
       })
     )
     .query(async ({ ctx, input }) => {

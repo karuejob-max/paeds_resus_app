@@ -2,12 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle ,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue ,
+} from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow ,
+} from "@/components/ui/table";
 import { toast } from "sonner";
-import { AlertTriangle, CalendarClock, KeyRound, Loader2, RefreshCw, Search, ShieldCheck, UserCheck, UserMinus, Users } from "lucide-react";
+import { AlertTriangle, CalendarClock, KeyRound, Loader2, RefreshCw, Search, ShieldCheck, UserCheck, UserMinus, Users ,
+} from "lucide-react";
 
 const GOVERNANCE_ROLES = [
   ["general_staff", "General staff"],
@@ -38,7 +42,8 @@ type StaffRow = {
 };
 
 function roleLabel(role: string | null | undefined): string {
-  return GOVERNANCE_ROLES.find(([value]) => value === role)?.[1] ?? "General staff";
+  return (
+    GOVERNANCE_ROLES.find(([value]) => value === role)?.[1] ?? "General staff");
 }
 
 function dutyStatusVariant(status: string): "default" | "secondary" | "outline" | "destructive" {
@@ -55,7 +60,9 @@ function formatDutyDate(value: string | Date | null | undefined): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
 }
 
-export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: number }) {
+export function InstitutionPeopleRolesPanel({ institutionId ,
+}: { institutionId: number ;
+}) {
   const utils = trpc.useUtils();
   const [search, setSearch] = useState("");
   const [roleProduct, setRoleProduct] = useState<"iers" | "cpd_portal">("iers");
@@ -96,7 +103,8 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
     enabled: !!institutionId,
     staleTime: 60_000,
   });
-  const { data: productRoles, isLoading: productRolesLoading, refetch: refetchProductRoles } = trpc.institutionProducts.listProductRoles.useQuery({ institutionId }, {
+  const { data: productRoles, isLoading: productRolesLoading, refetch: refetchProductRoles ,
+  } = trpc.institutionProducts.listProductRoles.useQuery({ institutionId }, {
     enabled: !!institutionId && activeSection === "product_roles",
     staleTime: 30_000,
   });
@@ -104,7 +112,8 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
     enabled: activeSection === "product_roles",
     staleTime: 300_000,
   });
-  const { data: accountScopes, isLoading: accountScopesLoading, refetch: refetchAccountScopes } = trpc.institutionProducts.listAccountScopes.useQuery({ institutionId }, {
+  const { data: accountScopes, isLoading: accountScopesLoading, refetch: refetchAccountScopes ,
+  } = trpc.institutionProducts.listAccountScopes.useQuery({ institutionId }, {
     enabled: !!institutionId && activeSection === "scopes",
     staleTime: 30_000,
   });
@@ -112,7 +121,8 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
     enabled: activeSection === "scopes",
     staleTime: 300_000,
   });
-  const { data: iersDuties, isLoading: iersDutiesLoading, isFetching: iersDutiesFetching, refetch: refetchIersDuties } = trpc.institution.getInstitutionIersDutyAssignments.useQuery({ institutionId }, {
+  const { data: iersDuties, isLoading: iersDutiesLoading, isFetching: iersDutiesFetching, refetch: refetchIersDuties ,
+  } = trpc.institution.getInstitutionIersDutyAssignments.useQuery({ institutionId }, {
     enabled: !!institutionId && activeSection === "duties",
     staleTime: 30_000,
   });
@@ -121,41 +131,45 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
       toast.success("Responsibility role updated");
       await utils.institution.getStaffMembers.invalidate({ institutionId });
     },
-    onError: (error) => toast.error(error.message || "Could not update responsibility role"),
+    onError: error => toast.error(error.message || "Could not update responsibility role"),
   });
   const grantProductRole = trpc.institutionProducts.grantProductRole.useMutation({
     onSuccess: async () => {
       toast.success("Product role assigned");
       setRoleKey("");
-      await utils.institutionProducts.listProductRoles.invalidate({ institutionId });
+      await utils.institutionProducts.listProductRoles.invalidate({ institutionId ,
+        });
       await refetchProductRoles();
     },
-    onError: (error) => toast.error(error.message || "Could not assign product role"),
+    onError: error => toast.error(error.message || "Could not assign product role"),
   });
   const setProductRoleStatus = trpc.institutionProducts.setProductRoleStatus.useMutation({
     onSuccess: async () => {
       toast.success("Product role status updated");
-      await utils.institutionProducts.listProductRoles.invalidate({ institutionId });
+      await utils.institutionProducts.listProductRoles.invalidate({ institutionId ,
+        });
       await refetchProductRoles();
     },
-    onError: (error) => toast.error(error.message || "Could not update product role status"),
+    onError: error => toast.error(error.message || "Could not update product role status"),
   });
   const grantAccountScope = trpc.institutionProducts.grantAccountScope.useMutation({
     onSuccess: async () => {
       toast.success("Institution scope assigned");
       setAccountScopeKey("");
-      await utils.institutionProducts.listAccountScopes.invalidate({ institutionId });
+      await utils.institutionProducts.listAccountScopes.invalidate({ institutionId ,
+        });
       await refetchAccountScopes();
     },
-    onError: (error) => toast.error(error.message || "Could not assign institution scope"),
+    onError: error => toast.error(error.message || "Could not assign institution scope"),
   });
   const setAccountScopeStatus = trpc.institutionProducts.setAccountScopeStatus.useMutation({
     onSuccess: async () => {
       toast.success("Institution scope status updated");
-      await utils.institutionProducts.listAccountScopes.invalidate({ institutionId });
+      await utils.institutionProducts.listAccountScopes.invalidate({ institutionId ,
+        });
       await refetchAccountScopes();
     },
-    onError: (error) => toast.error(error.message || "Could not update institution scope status"),
+    onError: error => toast.error(error.message || "Could not update institution scope status"),
   });
   const retireStaffRecord = trpc.institution.retireInstitutionStaffRecord.useMutation({
     onSuccess: async () => {
@@ -165,11 +179,13 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
       setRemovalReportId(null);
       await Promise.all([
         utils.institution.getStaffMembers.invalidate({ institutionId }),
-        utils.institution.getInstitutionIersDutyAssignments.invalidate({ institutionId }),
-        utils.institution.getDepartmentMismatchReports.invalidate({ institutionId }),
+        utils.institution.getInstitutionIersDutyAssignments.invalidate({ institutionId ,
+          }),
+        utils.institution.getDepartmentMismatchReports.invalidate({ institutionId ,
+          }),
       ]);
     },
-    onError: (error) => toast.error(error.message || "Could not retire this roster record"),
+    onError: error => toast.error(error.message || "Could not retire this roster record"),
   });
   const restoreRetiredLink = trpc.institution.restoreRetiredStaffLink.useMutation({
     onSuccess: async () => {
@@ -177,12 +193,15 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
       setRestoreTarget(null);
       setRestoreReason("");
       await Promise.all([
-        utils.institution.getStaffMembers.invalidate({ institutionId, includeRemoved: true }),
-        utils.institution.getStaffMembers.invalidate({ institutionId, includeRemoved: false }),
-        utils.institution.getPendingLinkRequests.invalidate({ institutionId }),
+        utils.institution.getStaffMembers.invalidate({ institutionId, includeRemoved: true ,
+          }),
+        utils.institution.getStaffMembers.invalidate({ institutionId, includeRemoved: false ,
+          }),
+        utils.institution.getPendingLinkRequests.invalidate({ institutionId ,
+          }),
       ]);
     },
-    onError: (error) => toast.error(error.message || "Could not restore this institution link"),
+    onError: error => toast.error(error.message || "Could not restore this institution link"),
   });
   const removeMember = trpc.institution.removeInstitutionMember.useMutation({
     onSuccess: async () => {
@@ -192,11 +211,13 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
       setRemovalReportId(null);
       await Promise.all([
         utils.institution.getStaffMembers.invalidate({ institutionId }),
-        utils.institution.getInstitutionIersDutyAssignments.invalidate({ institutionId }),
-        utils.institution.getDepartmentMismatchReports.invalidate({ institutionId }),
+        utils.institution.getInstitutionIersDutyAssignments.invalidate({ institutionId ,
+        }),
+        utils.institution.getDepartmentMismatchReports.invalidate({ institutionId ,
+        }),
       ]);
     },
-    onError: (error) => toast.error(error.message || "Could not remove this person"),
+    onError: error => toast.error(error.message || "Could not remove this person"),
   });
   const unlinkMember = trpc.institution.unlinkInstitutionMember.useMutation({
     onSuccess: async () => {
@@ -205,39 +226,47 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
       setUnlinkReason("");
       await Promise.all([
         utils.institution.getStaffMembers.invalidate({ institutionId }),
-        utils.institution.getDepartmentMismatchReports.invalidate({ institutionId }),
-        utils.institution.getInstitutionIersDutyAssignments.invalidate({ institutionId }),
+        utils.institution.getDepartmentMismatchReports.invalidate({ institutionId ,
+        }),
+        utils.institution.getInstitutionIersDutyAssignments.invalidate({ institutionId ,
+        }),
       ]);
     },
-    onError: (error) => toast.error(error.message || "Could not unlink this person"),
+    onError: error => toast.error(error.message || "Could not unlink this person"),
   });
   const reallocationMutation = trpc.institution.reallocateInstitutionStaffDepartment.useMutation({
     onSuccess: async () => {
-      toast.success("Staff department reallocated; any old IERS duties were ended for review.");
+      toast.success("Staff department reallocated; previous readiness duties were ended for review.");
       setReallocationReportId(null);
       setReallocationDepartmentId("");
       setReallocationReason("");
       await Promise.all([
         utils.institution.getStaffMembers.invalidate({ institutionId }),
-        utils.institution.getDepartmentMismatchReports.invalidate({ institutionId }),
-        utils.institution.getInstitutionIersDutyAssignments.invalidate({ institutionId }),
+        utils.institution.getDepartmentMismatchReports.invalidate({ institutionId ,
+          }),
+        utils.institution.getInstitutionIersDutyAssignments.invalidate({ institutionId ,
+          }),
       ]);
     },
-    onError: (error) => toast.error(error.message || "Could not reallocate this department"),
+    onError: error => toast.error(error.message || "Could not reallocate this department"),
   });
 
   const staff = (data ?? []) as StaffRow[];
-  const selectedRoleStaff = staff.find((member) => member.staffEmail.toLowerCase() === roleStaffEmail.toLowerCase());
-  const selectedAccountScopeStaff = staff.find((member) => member.staffEmail.toLowerCase() === accountScopeStaffEmail.toLowerCase());
+  const selectedRoleStaff = staff.find(member => member.staffEmail.toLowerCase() === roleStaffEmail.toLowerCase());
+  const selectedAccountScopeStaff = staff.find(member => member.staffEmail.toLowerCase() === accountScopeStaffEmail.toLowerCase());
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return staff;
-    return staff.filter((member) => [member.staffName, member.staffEmail, member.staffRole, member.department ?? "", roleLabel(member.governanceRole)].some((value) => value.toLowerCase().includes(query)));
+    return staff.filter(member => [member.staffName, member.staffEmail, member.staffRole, member.department ?? "", roleLabel(member.governanceRole),
+      ].some(value => value.toLowerCase().includes(query)));
   }, [search, staff]);
-  const mismatchReviews = useMemo(() => (mismatchReports ?? []).map((report) => {
-    let details: { staffMemberId?: number | null; providerUserId?: number | null; departmentId?: number | null; reason?: string } = {};
-    try { details = report.notes ? JSON.parse(report.notes) as typeof details : {}; } catch { details = {}; }
-    return { report, details, staff: staff.find((member) => member.id === details.staffMemberId || member.userId === details.providerUserId) ?? null };
+  const mismatchReviews = useMemo(() => (mismatchReports ?? []).map(report => {
+    let details: { staffMemberId?: number | null; providerUserId?: number | null; departmentId?: number | null; reason?: string ;
+        } = {};
+    try { details = report.notes ? (JSON.parse(report.notes) as typeof details )
+            : {}; } catch { details = {}; }
+    return { report, details, staff: staff.find(member => member.id === details.staffMemberId || member.userId === details.providerUserId) ?? null ,
+        };
   }), [mismatchReports, staff]);
 
   return (
@@ -269,34 +298,41 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
             <Button key={value} type="button" size="sm" variant={activeSection === value ? "default" : "ghost"} className="min-w-0 whitespace-normal text-xs sm:text-sm" onClick={() => setActiveSection(value)}>{label}</Button>
           ))}
         </div>
-        {mismatchReviews.length > 0 && <Card className="border-amber-300 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20">
+        {mismatchReviews.length > 0 && (
+            <Card className="border-amber-300 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20">
           <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-4 w-4 text-amber-700" />Department mismatch alerts</CardTitle><CardDescription>ERCos have flagged providers whose CPD/profile evidence points to a department but whose current institutional roster does not. Resolve each alert by reallocating the department or retiring the person; no new IERS duty is assigned automatically.</CardDescription></CardHeader>
           <CardContent className="space-y-3">
-            {mismatchReviews.map(({ report, details, staff: mismatchStaff }) => <div key={report.id} className="rounded-lg border bg-background p-3">
+            {mismatchReviews.map(({ report, details, staff: mismatchStaff }) => (
+                    <div key={report.id} className="rounded-lg border bg-background p-3">
               <p className="text-sm font-medium">{report.gapIdentified}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Reason: {details.reason ?? "Not provided"} · Reported {formatDutyDate(report.createdAt)}</p>
-              {mismatchStaff ? <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto] md:items-end">
-                <label className="space-y-1 text-xs"><span className="font-medium">Reallocate to current department</span><Select value={reallocationReportId === report.id ? reallocationDepartmentId : ""} onValueChange={(value) => { setReallocationReportId(report.id); setReallocationDepartmentId(value); }}><SelectTrigger><SelectValue placeholder="Choose department" /></SelectTrigger><SelectContent>{(facilityDepartments ?? []).map((department) => <SelectItem key={department.id} value={String(department.id)}>{department.departmentName}</SelectItem>)}</SelectContent></Select></label>
-                <label className="space-y-1 text-xs"><span className="font-medium">Reason</span><Input value={reallocationReportId === report.id ? reallocationReason : ""} onChange={(event) => { setReallocationReportId(report.id); setReallocationReason(event.target.value); }} placeholder="At least 10 characters" /></label>
-                <div className="flex flex-col gap-2 sm:flex-row md:flex-col"><Button type="button" size="sm" disabled={reallocationReportId !== report.id || !reallocationDepartmentId || reallocationReason.trim().length < 10 || reallocationMutation.isPending} onClick={() => reallocationMutation.mutate({ institutionId, staffMemberId: mismatchStaff.id, departmentId: Number(reallocationDepartmentId), reason: reallocationReason.trim(), mismatchReportId: report.id })}>{reallocationMutation.isPending ? "Saving…" : "Reallocate"}</Button><Button type="button" size="sm" variant="destructive" disabled={removeMember.isPending || retireStaffRecord.isPending} onClick={() => { setRemovalTarget(mismatchStaff); setRemovalReason("Department mismatch reported; retiring from institution after administrator review."); setRemovalReportId(report.id); }}>Retire</Button></div>
-              </div> : <p className="mt-2 text-xs text-amber-800">The linked staff row is no longer available. Refresh the roster and review the account’s membership history.</p>}
-            </div>)}
+              <p className="mt-1 text-xs text-muted-foreground">Reason: {details.reason ?? "Not provided"} · Reported {" "}
+                        {formatDutyDate(report.createdAt)}</p>
+              {mismatchStaff ? (
+                        <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto] md:items-end">
+                <label className="space-y-1 text-xs"><span className="font-medium">Reallocate to current department</span><Select value={reallocationReportId === report.id ? reallocationDepartmentId : ""} onValueChange={value => { setReallocationReportId(report.id); setReallocationDepartmentId(value); }}><SelectTrigger><SelectValue placeholder="Choose department" /></SelectTrigger><SelectContent>{(facilityDepartments ?? []).map(department => (
+                                  <SelectItem key={department.id} value={String(department.id)}>{department.departmentName}</SelectItem>))}</SelectContent></Select></label>
+                <label className="space-y-1 text-xs"><span className="font-medium">Reason</span><Input value={reallocationReportId === report.id ? reallocationReason : ""} onChange={event => { setReallocationReportId(report.id); setReallocationReason(event.target.value); }} placeholder="At least 10 characters" /></label>
+                <div className="flex flex-col gap-2 sm:flex-row md:flex-col"><Button type="button" size="sm" disabled={reallocationReportId !== report.id || !reallocationDepartmentId || reallocationReason.trim().length < 10 || reallocationMutation.isPending} onClick={() => reallocationMutation.mutate({ institutionId, staffMemberId: mismatchStaff.id, departmentId: Number(reallocationDepartmentId), reason: reallocationReason.trim(), mismatchReportId: report.id ,
+                                })}>{reallocationMutation.isPending ? "Saving…" : "Reallocate"}</Button><Button type="button" size="sm" variant="destructive" disabled={removeMember.isPending || retireStaffRecord.isPending} onClick={() => { setRemovalTarget(mismatchStaff); setRemovalReason("Department mismatch reported; retiring from institution after administrator review."); setRemovalReportId(report.id); }}>Retire</Button></div>
+              </div> ) : ( <p className="mt-2 text-xs text-amber-800">The linked staff row is no longer available. Refresh the roster and review the account’s membership history.</p>)}
+            </div>))}
           </CardContent>
-        </Card>}
+        </Card>)}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Search name, email, department, or role" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <Input className="pl-9" placeholder="Search name, email, department, or role" value={search} onChange={event => setSearch(event.target.value)} />
           </div>
-          <Button type="button" size="sm" variant={showRetired ? "secondary" : "outline"} className="w-full sm:w-auto" onClick={() => setShowRetired((current) => !current)}>
+          <Button type="button" size="sm" variant={showRetired ? "secondary" : "outline"} className="w-full sm:w-auto" onClick={() => setShowRetired(current => !current)}>
             {showRetired ? "Hide retired history" : "Show retired history"}
           </Button>
         </div>
         {unlinkTarget && (
           <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
             <div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /><div className="min-w-0"><p className="font-medium text-amber-900 dark:text-amber-100">Unlink {unlinkTarget.staffName} from this institution?</p><p className="text-xs text-amber-800 dark:text-amber-200">This ends institutional access and future IERS duties but keeps the platform account, CPD history, and staff audit record. A later CPD attendance will not silently reactivate the membership.</p></div></div>
-            <Input placeholder="Required reason (at least 10 characters)" value={unlinkReason} onChange={(event) => setUnlinkReason(event.target.value)} />
-            <div className="flex flex-col gap-2 sm:flex-row"><Button type="button" className="w-full sm:w-auto" disabled={!unlinkTarget.membershipId || unlinkReason.trim().length < 10 || unlinkMember.isPending} onClick={() => unlinkTarget.membershipId && unlinkMember.mutate({ institutionId, membershipId: unlinkTarget.membershipId, reason: unlinkReason.trim() })}>{unlinkMember.isPending ? "Unlinking…" : "Confirm unlink"}</Button><Button type="button" variant="outline" className="w-full sm:w-auto" disabled={unlinkMember.isPending} onClick={() => { setUnlinkTarget(null); setUnlinkReason(""); }}>Cancel</Button></div>
+            <Input placeholder="Required reason (at least 10 characters)" value={unlinkReason} onChange={event => setUnlinkReason(event.target.value)} />
+            <div className="flex flex-col gap-2 sm:flex-row"><Button type="button" className="w-full sm:w-auto" disabled={!unlinkTarget.membershipId || unlinkReason.trim().length < 10 || unlinkMember.isPending} onClick={() => unlinkTarget.membershipId && unlinkMember.mutate({ institutionId, membershipId: unlinkTarget.membershipId, reason: unlinkReason.trim() ,
+                    })}>{unlinkMember.isPending ? "Unlinking…" : "Confirm unlink"}</Button><Button type="button" variant="outline" className="w-full sm:w-auto" disabled={unlinkMember.isPending} onClick={() => { setUnlinkTarget(null); setUnlinkReason(""); }}>Cancel</Button></div>
           </div>
         )}
         {restoreTarget && (
@@ -308,9 +344,10 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
                 <p className="text-xs text-emerald-800 dark:text-emerald-200">This restores a general institution link only. Previous IERS duties, product roles, and administrative scopes are not restored automatically; any new operational responsibility must be assigned and accepted again.</p>
               </div>
             </div>
-            <Input placeholder="Required reason (at least 10 characters)" value={restoreReason} onChange={(event) => setRestoreReason(event.target.value)} />
+            <Input placeholder="Required reason (at least 10 characters)" value={restoreReason} onChange={event => setRestoreReason(event.target.value)} />
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="button" className="w-full bg-emerald-700 hover:bg-emerald-800 sm:w-auto" disabled={restoreReason.trim().length < 10 || restoreRetiredLink.isPending} onClick={() => restoreRetiredLink.mutate({ institutionId, staffMemberId: restoreTarget.id, reason: restoreReason.trim() })}>{restoreRetiredLink.isPending ? "Restoring…" : "Confirm re-link"}</Button>
+              <Button type="button" className="w-full bg-emerald-700 hover:bg-emerald-800 sm:w-auto" disabled={restoreReason.trim().length < 10 || restoreRetiredLink.isPending} onClick={() => restoreRetiredLink.mutate({ institutionId, staffMemberId: restoreTarget.id, reason: restoreReason.trim() ,
+                    })}>{restoreRetiredLink.isPending ? "Restoring…" : "Confirm re-link"}</Button>
               <Button type="button" variant="outline" className="w-full sm:w-auto" disabled={restoreRetiredLink.isPending} onClick={() => { setRestoreTarget(null); setRestoreReason(""); }}>Cancel</Button>
             </div>
           </div>
@@ -324,9 +361,11 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
                 <p className="text-xs text-red-800 dark:text-red-200">This ends institutional access and future duties. It does not delete the person’s platform account, CPD history, or accepted historical IERS evidence.</p>
               </div>
             </div>
-            <Input placeholder="Required reason (at least 10 characters)" value={removalReason} onChange={(event) => setRemovalReason(event.target.value)} />
+            <Input placeholder="Required reason (at least 10 characters)" value={removalReason} onChange={event => setRemovalReason(event.target.value)} />
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="button" variant="destructive" className="w-full sm:w-auto" disabled={removalReason.trim().length < 10 || removeMember.isPending || retireStaffRecord.isPending} onClick={() => { if (removalTarget.membershipId) { removeMember.mutate({ institutionId, membershipId: removalTarget.membershipId, reason: removalReason.trim(), mismatchReportId: removalReportId ?? undefined }); } else { retireStaffRecord.mutate({ institutionId, staffMemberId: removalTarget.id, reason: removalReason.trim(), mismatchReportId: removalReportId ?? undefined }); } }}>{removeMember.isPending || retireStaffRecord.isPending ? "Removing…" : removalTarget.membershipId ? "Confirm removal" : "Retire roster record"}</Button>
+              <Button type="button" variant="destructive" className="w-full sm:w-auto" disabled={removalReason.trim().length < 10 || removeMember.isPending || retireStaffRecord.isPending} onClick={() => { if (removalTarget.membershipId) { removeMember.mutate({ institutionId, membershipId: removalTarget.membershipId, reason: removalReason.trim(), mismatchReportId: removalReportId ?? undefined ,
+                      }); } else { retireStaffRecord.mutate({ institutionId, staffMemberId: removalTarget.id, reason: removalReason.trim(), mismatchReportId: removalReportId ?? undefined ,
+                      }); } }}>{removeMember.isPending || retireStaffRecord.isPending ? "Removing…" : removalTarget.membershipId ? "Confirm removal" : "Retire roster record"}</Button>
               <Button type="button" variant="outline" className="w-full sm:w-auto" disabled={removeMember.isPending} onClick={() => { setRemovalTarget(null); setRemovalReason(""); }}>Cancel</Button>
             </div>
           </div>
@@ -349,7 +388,7 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((member) => {
+                {filtered.map(member => {
                   const currentRole = (member.governanceRole ?? "general_staff") as GovernanceRole;
                   const isRemoved = member.removedAt != null || member.membershipStatus === "ended";
                   return (
@@ -361,14 +400,18 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
                       <TableCell><Badge variant="outline" className="capitalize">{member.staffRole.replaceAll("_", " ")}</Badge></TableCell>
                       <TableCell className="text-sm text-muted-foreground">{member.department || "Not assigned"}</TableCell>
                       <TableCell>
-                        <Select value={currentRole} onValueChange={(value) => updateRole.mutate({ institutionId, staffMemberId: member.id, governanceRole: value as GovernanceRole })} disabled={isRemoved || updateRole.isPending}>
+                        <Select value={currentRole} onValueChange={value => updateRole.mutate({ institutionId, staffMemberId: member.id, governanceRole: value as GovernanceRole ,
+                              })} disabled={isRemoved || updateRole.isPending}>
                           <SelectTrigger className="w-[190px]"><SelectValue /></SelectTrigger>
-                          <SelectContent>{GOVERNANCE_ROLES.map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
+                          <SelectContent>{GOVERNANCE_ROLES.map(([value, label]) => (
+                                <SelectItem key={value} value={value}>{label}</SelectItem>))}</SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell><Badge variant={isRemoved ? "destructive" : member.facilityLinkStatus === "linked" ? "default" : "secondary"}>{isRemoved ? "Retired · access ended" : member.facilityLinkStatus === "linked" ? "Linked" : member.facilityLinkStatus ?? "Roster only"}</Badge></TableCell>
+                      <TableCell><Badge variant={isRemoved ? "destructive" : member.facilityLinkStatus === "linked" ? "default" : "secondary"}>{isRemoved ? "Retired · access ended" : member.facilityLinkStatus === "linked" ? "Linked" : (member.facilityLinkStatus ?? "Roster only")}</Badge></TableCell>
                       <TableCell>
-                        {isRemoved ? (member.userId ? <Button type="button" size="sm" variant="outline" className="text-emerald-700" onClick={() => { setRestoreTarget(member); setRestoreReason(""); }} disabled={restoreRetiredLink.isPending}><UserCheck className="mr-2 h-4 w-4" />Restore institution link</Button> : <span className="text-xs text-muted-foreground">Account link required before restoration</span>) : member.membershipId ? <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" className="text-amber-700" onClick={() => { setUnlinkTarget(member); setUnlinkReason(""); }} disabled={unlinkMember.isPending || removeMember.isPending || retireStaffRecord.isPending}><AlertTriangle className="mr-2 h-4 w-4" />Unlink</Button><Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); setRemovalReportId(null); }} disabled={removeMember.isPending || retireStaffRecord.isPending || unlinkMember.isPending}><UserMinus className="mr-2 h-4 w-4" />Retire</Button></div> : <Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); setRemovalReportId(null); }} disabled={removeMember.isPending || retireStaffRecord.isPending}><UserMinus className="mr-2 h-4 w-4" />Retire from roster</Button>}
+                        {isRemoved ? (member.userId ? (
+                              <Button type="button" size="sm" variant="outline" className="text-emerald-700" onClick={() => { setRestoreTarget(member); setRestoreReason(""); }} disabled={restoreRetiredLink.isPending}><UserCheck className="mr-2 h-4 w-4" />Restore institution link</Button> ) : ( <span className="text-xs text-muted-foreground">Account link required before restoration</span>) ) : member.membershipId ? (
+                            <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" className="text-amber-700" onClick={() => { setUnlinkTarget(member); setUnlinkReason(""); }} disabled={unlinkMember.isPending || removeMember.isPending || retireStaffRecord.isPending}><AlertTriangle className="mr-2 h-4 w-4" />Unlink</Button><Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); setRemovalReportId(null); }} disabled={removeMember.isPending || retireStaffRecord.isPending || unlinkMember.isPending}><UserMinus className="mr-2 h-4 w-4" />Retire</Button></div> ) : ( <Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); setRemovalReportId(null); }} disabled={removeMember.isPending || retireStaffRecord.isPending}><UserMinus className="mr-2 h-4 w-4" />Retire from roster</Button>)}
                       </TableCell>
                     </TableRow>
                   );
@@ -381,7 +424,8 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
       </CardContent>
     </Card>
 
-    {activeSection === "duties" && <Card>
+    {activeSection === "duties" && (
+        <Card>
       <CardHeader>
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
           <div>
@@ -404,7 +448,7 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
               ...(iersDuties?.erco ?? []),
               ...(iersDuties?.ertl ?? []),
               ...(iersDuties?.utl ?? []),
-            ].map((duty) => {
+            ].map(duty => {
               const shiftType = "shiftType" in duty ? duty.shiftType : null;
               const readinessSignOffAt = "readinessSignOffAt" in duty ? duty.readinessSignOffAt : null;
               const weekLabel = "weekNumber" in duty && duty.weekNumber && duty.year ? `Week ${duty.weekNumber}, ${duty.year}` : null;
@@ -421,16 +465,28 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
                     </div>
                   </div>
                   <div className="mt-3 grid min-w-0 gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-                    <span className="break-words"><strong className="text-foreground">Department:</strong> {duty.departmentName ?? "Not assigned"}</span>
-                    <span className="break-words"><strong className="text-foreground">Pole:</strong> {duty.poleName ?? "Not assigned"}</span>
-                      <span><strong className="text-foreground">Appointment/duty starts:</strong> {formatDutyDate(duty.effectiveFrom)}</span>
-                    <span><strong className="text-foreground">Appointment/duty ends:</strong> {formatDutyDate(duty.effectiveUntil)}</span>
-                    {weekLabel && <span><strong className="text-foreground">Rotation:</strong> {weekLabel}</span>}
-                    {shiftType && <span><strong className="text-foreground">Shift:</strong> {shiftType}</span>}
-                    <span><strong className="text-foreground">Accepted:</strong> {formatDutyDate(duty.acceptedAt)}</span>
-                    {readinessSignOffAt && <span><strong className="text-foreground">Readiness:</strong> {formatDutyDate(readinessSignOffAt)}</span>}
+                    <span className="break-words"><strong className="text-foreground">Department:</strong> {" "}
+                          {duty.departmentName ?? "Not assigned"}</span>
+                    <span className="break-words"><strong className="text-foreground">Pole:</strong> {" "}
+                          {duty.poleName ?? "Not assigned"}</span>
+                      <span><strong className="text-foreground">Appointment/duty starts:</strong> {" "}
+                          {formatDutyDate(duty.effectiveFrom)}</span>
+                    <span><strong className="text-foreground">Appointment/duty ends:</strong> {" "}
+                          {formatDutyDate(duty.effectiveUntil)}</span>
+                    {weekLabel && (
+                          <span><strong className="text-foreground">Rotation:</strong> {" "}
+                            {weekLabel}</span>)}
+                    {shiftType && (
+                          <span><strong className="text-foreground">Shift:</strong> {" "}
+                            {shiftType}</span>)}
+                    <span><strong className="text-foreground">Accepted:</strong> {" "}
+                          {formatDutyDate(duty.acceptedAt)}</span>
+                    {readinessSignOffAt && (
+                          <span><strong className="text-foreground">Readiness:</strong> {" "}
+                            {formatDutyDate(readinessSignOffAt)}</span>)}
                   </div>
-                  {duty.declineReason && <p className="mt-3 break-words rounded border border-red-200 bg-red-50 p-2 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"><strong>Decline reason:</strong> {duty.declineReason}</p>}
+                  {duty.declineReason && (
+                        <p className="mt-3 break-words rounded border border-red-200 bg-red-50 p-2 text-xs text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"><strong>Decline reason:</strong> {duty.declineReason}</p>)}
                   <p className="mt-3 text-xs text-muted-foreground">This view is oversight only. An ERCo role is governance; a UTL or ERTL row is a separate dated duty. A role, roster row, or assignment does not prove provider acceptance, competency, or emergency dispatch.</p>
                 </div>
               );
@@ -438,9 +494,10 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
           </div>
         )}
       </CardContent>
-    </Card>}
+    </Card>)}
 
-    {activeSection === "product_roles" && <Card>
+    {activeSection === "product_roles" && (
+        <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5" />Product permissions</CardTitle>
                   <CardDescription>Assign a separate IERS or CPD product role to a linked provider. For IERS, the Lead, reviewer, response operator, and viewer roles govern portal access; dated ERCo, ERTL, and UTL duties remain separate and require provider acceptance.</CardDescription>
@@ -448,38 +505,66 @@ export function InstitutionPeopleRolesPanel({ institutionId }: { institutionId: 
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="space-y-2"><label className="text-sm font-medium">Product</label><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={roleProduct} onChange={(event) => { setRoleProduct(event.target.value as "iers" | "cpd_portal"); setRoleKey(""); }}><option value="iers">IERS</option><option value="cpd_portal">CPD Portal</option></select></div>
-          <div className="space-y-2"><label className="text-sm font-medium">Staff member</label><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={roleStaffEmail} onChange={(event) => setRoleStaffEmail(event.target.value)}><option value="">Select staff member</option>{staff.map((member) => <option key={member.id} value={member.staffEmail}>{member.staffName} — {member.staffEmail}</option>)}</select></div>
-          <div className="space-y-2"><label className="text-sm font-medium">Product role</label><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={roleKey} onChange={(event) => setRoleKey(event.target.value)}><option value="">Select role</option>{(roleDefinitions ?? []).map((definition) => <option key={definition.roleKey} value={definition.roleKey}>{definition.label}</option>)}</select></div>
+          <div className="space-y-2"><label className="text-sm font-medium">Product</label><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={roleProduct} onChange={event => { setRoleProduct(event.target.value as "iers" | "cpd_portal"); setRoleKey(""); }}><option value="iers">IERS</option><option value="cpd_portal">CPD Portal</option></select></div>
+          <div className="space-y-2"><label className="text-sm font-medium">Staff member</label><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={roleStaffEmail} onChange={event => setRoleStaffEmail(event.target.value)}><option value="">Select staff member</option>{staff.map(member => (
+                    <option key={member.id} value={member.staffEmail}>{member.staffName} — {member.staffEmail}</option>))}</select></div>
+          <div className="space-y-2"><label className="text-sm font-medium">Product role</label><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={roleKey} onChange={event => setRoleKey(event.target.value)}><option value="">Select role</option>{(roleDefinitions ?? []).map(definition => (
+                    <option key={definition.roleKey} value={definition.roleKey}>{definition.label}</option>))}</select></div>
         </div>
-        {roleKey && <p className="text-xs text-muted-foreground">{roleDefinitions?.find((definition) => definition.roleKey === roleKey)?.description}</p>}
-        <Button type="button" onClick={() => selectedRoleStaff && grantProductRole.mutate({ institutionId, productKey: roleProduct, invitedEmail: selectedRoleStaff.staffEmail, userId: selectedRoleStaff.userId ?? undefined, roleKey })} disabled={!selectedRoleStaff || !roleKey || grantProductRole.isPending}><KeyRound className="mr-2 h-4 w-4" />{grantProductRole.isPending ? "Assigning…" : "Assign product role"}</Button>
+        {roleKey && (
+              <p className="text-xs text-muted-foreground">{roleDefinitions?.find(definition => definition.roleKey === roleKey)?.description}</p>)}
+        <Button type="button" onClick={() => selectedRoleStaff && grantProductRole.mutate({ institutionId, productKey: roleProduct, invitedEmail: selectedRoleStaff.staffEmail, userId: selectedRoleStaff.userId ?? undefined, roleKey ,
+                })} disabled={!selectedRoleStaff || !roleKey || grantProductRole.isPending}><KeyRound className="mr-2 h-4 w-4" />{grantProductRole.isPending ? "Assigning…" : "Assign product role"}</Button>
 
         <div className="rounded-lg border">
           <div className="border-b bg-muted/30 px-4 py-3 text-sm font-medium">Assigned and historical product roles</div>
-          {productRolesLoading ? <p className="p-4 text-sm text-muted-foreground">Loading product roles…</p> : !productRoles?.length ? <p className="p-4 text-sm text-muted-foreground">No explicit product roles have been assigned yet. Existing institution administrators retain shared admin access.</p> : <div className="divide-y">{productRoles.map((assignment) => <div key={assignment.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{assignment.invitedEmail}</p><p className="text-xs text-muted-foreground">{assignment.productName} · {assignment.roleKey.replaceAll("_", " ")}</p><p className="mt-1 text-xs"><Badge variant={assignment.roleStatus === "active" ? "default" : assignment.roleStatus === "ended" ? "outline" : "secondary"}>{assignment.roleStatus}</Badge></p></div><div className="flex flex-wrap gap-2">{assignment.roleStatus === "active" && <Button type="button" size="sm" variant="outline" disabled={setProductRoleStatus.isPending} onClick={() => setProductRoleStatus.mutate({ institutionId, roleId: assignment.id, roleStatus: "suspended", reason: "Suspended by institution administrator pending role review." })}>Suspend</Button>}{assignment.roleStatus === "suspended" && <Button type="button" size="sm" variant="outline" disabled={setProductRoleStatus.isPending} onClick={() => setProductRoleStatus.mutate({ institutionId, roleId: assignment.id, roleStatus: "active", reason: "Reactivated by institution administrator after role review." })}>Reactivate</Button>}{assignment.roleStatus !== "ended" && <Button type="button" size="sm" variant="ghost" className="text-red-700" disabled={setProductRoleStatus.isPending} onClick={() => setProductRoleStatus.mutate({ institutionId, roleId: assignment.id, roleStatus: "ended", reason: "Ended by institution administrator." })}>End</Button>}</div></div>)}</div>}
+          {productRolesLoading ? (
+                <p className="p-4 text-sm text-muted-foreground">Loading product roles…</p> ) : !productRoles?.length ? (
+                <p className="p-4 text-sm text-muted-foreground">No explicit product roles have been assigned yet. Existing institution administrators retain shared admin access.</p> ) : ( <div className="divide-y">{productRoles.map(assignment => (
+                    <div key={assignment.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{assignment.invitedEmail}</p><p className="text-xs text-muted-foreground">{assignment.productName} · {" "}
+                          {assignment.roleKey.replaceAll("_", " ")}</p><p className="mt-1 text-xs"><Badge variant={assignment.roleStatus === "active" ? "default" : assignment.roleStatus === "ended" ? "outline" : "secondary"}>{assignment.roleStatus}</Badge></p></div><div className="flex flex-wrap gap-2">{assignment.roleStatus === "active" && (
+                          <Button type="button" size="sm" variant="outline" disabled={setProductRoleStatus.isPending} onClick={() => setProductRoleStatus.mutate({ institutionId, roleId: assignment.id, roleStatus: "suspended", reason: "Suspended by institution administrator pending role review." ,
+                              })}>Suspend</Button>)}{assignment.roleStatus === "suspended" && (
+                          <Button type="button" size="sm" variant="outline" disabled={setProductRoleStatus.isPending} onClick={() => setProductRoleStatus.mutate({ institutionId, roleId: assignment.id, roleStatus: "active", reason: "Reactivated by institution administrator after role review." ,
+                              })}>Reactivate</Button>)}{assignment.roleStatus !== "ended" && (
+                          <Button type="button" size="sm" variant="ghost" className="text-red-700" disabled={setProductRoleStatus.isPending} onClick={() => setProductRoleStatus.mutate({ institutionId, roleId: assignment.id, roleStatus: "ended", reason: "Ended by institution administrator." ,
+                              })}>End</Button>)}</div></div>))}</div>)}
         </div>
       </CardContent>
-    </Card>}
+    </Card>)}
 
-    {activeSection === "scopes" && <Card>
+    {activeSection === "scopes" && (
+        <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" />Shared institution scopes</CardTitle>
         <CardDescription>Assign non-product administrative responsibilities without granting IERS or CPD operational access.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="space-y-2"><label className="text-sm font-medium">Staff member</label><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={accountScopeStaffEmail} onChange={(event) => setAccountScopeStaffEmail(event.target.value)}><option value="">Select staff member</option>{staff.map((member) => <option key={member.id} value={member.staffEmail}>{member.staffName} — {member.staffEmail}</option>)}</select></div>
-          <div className="space-y-2"><label className="text-sm font-medium">Institution scope</label><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={accountScopeKey} onChange={(event) => setAccountScopeKey(event.target.value)}><option value="">Select scope</option>{(accountScopeDefinitions ?? []).map((definition) => <option key={definition.scopeKey} value={definition.scopeKey}>{definition.label}</option>)}</select></div>
-          <div className="flex items-end"><Button type="button" onClick={() => selectedAccountScopeStaff && grantAccountScope.mutate({ institutionId, invitedEmail: selectedAccountScopeStaff.staffEmail, userId: selectedAccountScopeStaff.userId ?? undefined, scopeKey: accountScopeKey })} disabled={!selectedAccountScopeStaff || !accountScopeKey || grantAccountScope.isPending}><ShieldCheck className="mr-2 h-4 w-4" />{grantAccountScope.isPending ? "Assigning…" : "Assign shared scope"}</Button></div>
+          <div className="space-y-2"><label className="text-sm font-medium">Staff member</label><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={accountScopeStaffEmail} onChange={event => setAccountScopeStaffEmail(event.target.value)}><option value="">Select staff member</option>{staff.map(member => (
+                    <option key={member.id} value={member.staffEmail}>{member.staffName} — {member.staffEmail}</option>))}</select></div>
+          <div className="space-y-2"><label className="text-sm font-medium">Institution scope</label><select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={accountScopeKey} onChange={event => setAccountScopeKey(event.target.value)}><option value="">Select scope</option>{(accountScopeDefinitions ?? []).map(definition => (
+                    <option key={definition.scopeKey} value={definition.scopeKey}>{definition.label}</option>))}</select></div>
+          <div className="flex items-end"><Button type="button" onClick={() => selectedAccountScopeStaff && grantAccountScope.mutate({ institutionId, invitedEmail: selectedAccountScopeStaff.staffEmail, userId: selectedAccountScopeStaff.userId ?? undefined, scopeKey: accountScopeKey ,
+                    })} disabled={!selectedAccountScopeStaff || !accountScopeKey || grantAccountScope.isPending}><ShieldCheck className="mr-2 h-4 w-4" />{grantAccountScope.isPending ? "Assigning…" : "Assign shared scope"}</Button></div>
         </div>
-        {accountScopeKey && <p className="text-xs text-muted-foreground">{accountScopeDefinitions?.find((definition) => definition.scopeKey === accountScopeKey)?.description}</p>}
+        {accountScopeKey && (
+              <p className="text-xs text-muted-foreground">{accountScopeDefinitions?.find(definition => definition.scopeKey === accountScopeKey)?.description}</p>)}
         <div className="rounded-lg border">
           <div className="border-b bg-muted/30 px-4 py-3 text-sm font-medium">Assigned and historical shared scopes</div>
-          {accountScopesLoading ? <p className="p-4 text-sm text-muted-foreground">Loading shared scopes…</p> : !accountScopes?.length ? <p className="p-4 text-sm text-muted-foreground">No explicit shared scopes have been assigned.</p> : <div className="divide-y">{accountScopes.map((scope) => <div key={scope.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{scope.invitedEmail}</p><p className="text-xs text-muted-foreground">{scope.scopeKey.replaceAll("_", " ")}</p><p className="mt-1 text-xs"><Badge variant={scope.scopeStatus === "active" ? "default" : scope.scopeStatus === "ended" ? "outline" : "secondary"}>{scope.scopeStatus}</Badge></p></div><div className="flex flex-wrap gap-2">{scope.scopeStatus === "active" && <Button type="button" size="sm" variant="outline" disabled={setAccountScopeStatus.isPending} onClick={() => setAccountScopeStatus.mutate({ institutionId, scopeId: scope.id, scopeStatus: "suspended", reason: "Suspended by institution administrator pending scope review." })}>Suspend</Button>}{scope.scopeStatus === "suspended" && <Button type="button" size="sm" variant="outline" disabled={setAccountScopeStatus.isPending} onClick={() => setAccountScopeStatus.mutate({ institutionId, scopeId: scope.id, scopeStatus: "active", reason: "Reactivated by institution administrator after scope review." })}>Reactivate</Button>}{scope.scopeStatus !== "ended" && <Button type="button" size="sm" variant="ghost" className="text-red-700" disabled={setAccountScopeStatus.isPending} onClick={() => setAccountScopeStatus.mutate({ institutionId, scopeId: scope.id, scopeStatus: "ended", reason: "Ended by institution administrator." })}>End</Button>}</div></div>)}</div>}
+          {accountScopesLoading ? (
+                <p className="p-4 text-sm text-muted-foreground">Loading shared scopes…</p> ) : !accountScopes?.length ? (
+                <p className="p-4 text-sm text-muted-foreground">No explicit shared scopes have been assigned.</p> ) : ( <div className="divide-y">{accountScopes.map(scope => (
+                    <div key={scope.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{scope.invitedEmail}</p><p className="text-xs text-muted-foreground">{scope.scopeKey.replaceAll("_", " ")}</p><p className="mt-1 text-xs"><Badge variant={scope.scopeStatus === "active" ? "default" : scope.scopeStatus === "ended" ? "outline" : "secondary"}>{scope.scopeStatus}</Badge></p></div><div className="flex flex-wrap gap-2">{scope.scopeStatus === "active" && (
+                          <Button type="button" size="sm" variant="outline" disabled={setAccountScopeStatus.isPending} onClick={() => setAccountScopeStatus.mutate({ institutionId, scopeId: scope.id, scopeStatus: "suspended", reason: "Suspended by institution administrator pending scope review." ,
+                              })}>Suspend</Button>)}{scope.scopeStatus === "suspended" && (
+                          <Button type="button" size="sm" variant="outline" disabled={setAccountScopeStatus.isPending} onClick={() => setAccountScopeStatus.mutate({ institutionId, scopeId: scope.id, scopeStatus: "active", reason: "Reactivated by institution administrator after scope review." ,
+                              })}>Reactivate</Button>)}{scope.scopeStatus !== "ended" && (
+                          <Button type="button" size="sm" variant="ghost" className="text-red-700" disabled={setAccountScopeStatus.isPending} onClick={() => setAccountScopeStatus.mutate({ institutionId, scopeId: scope.id, scopeStatus: "ended", reason: "Ended by institution administrator." ,
+                              })}>End</Button>)}</div></div>))}</div>)}
         </div>
       </CardContent>
-    </Card>}
+    </Card>)}
     </div>
   );
 }

@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle ,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -27,9 +28,11 @@ export default function AdminOps() {
   const [, setLocation] = useLocation();
   const adminOk = Boolean(isAuthenticated && (user as { role?: string })?.role === "admin");
 
-  const { data: ops, isLoading, refetch, isFetching } = trpc.adminStats.getOpsHealthSnapshot.useQuery(
+  const { data: ops, isLoading, refetch, isFetching ,
+  } = trpc.adminStats.getOpsHealthSnapshot.useQuery(
     undefined,
-    { enabled: adminOk }
+    { enabled: adminOk ,
+  }
   );
 
   const { data: careSignal } = trpc.careSignalEvents.getAdminMetrics.useQuery(
@@ -48,15 +51,41 @@ export default function AdminOps() {
       toast.success("Credentialing request updated");
       void refetchIlsCredentialRequests();
     },
-    onError: (e) => toast.error(e.message),
+    onError: e => toast.error(e.message),
+    });
+
+  const { data: ilsCases, refetch: refetchIlsCases } =
+    trpc.institutionalLifeSupport.listAllOperationalCases.useQuery(undefined, {
+      enabled: adminOk,
+    });
+  const { data: dueIlsReminders, refetch: refetchDueIlsReminders } =
+    trpc.institutionalLifeSupport.listDueReminders.useQuery(undefined, {
+      enabled: adminOk,
+    });
+  const updateIlsCase =
+    trpc.institutionalLifeSupport.updateOperationalCase.useMutation({
+      onSuccess: () => {
+        toast.success("ILS operational case updated");
+        void refetchIlsCases();
+      },
+      onError:e => toast.error(e.message),
+  });
+
+  const dispatchIlsReminders = trpc.institutionalLifeSupport.dispatchDueReminders.useMutation({
+    onSuccess: result => {
+      toast.success(`ILS reminders: ${result.sent} sent, ${result.failed} failed`
+        );
+        void refetchDueIlsReminders();
+      },
+      onError:e => toast.error(e.message),
   });
 
   const runAlerts = trpc.adminStats.runAdminOpsAlertsNow.useMutation({
-    onSuccess: (r) => {
+    onSuccess: r => {
       toast.success(`Alerts: ${r.alertsSent} sent (${r.rulesEvaluated} rules matched)`);
       void refetchAlerts();
     },
-    onError: (e) => toast.error(e.message),
+    onError: e => toast.error(e.message),
   });
 
   useEffect(() => {
@@ -83,7 +112,7 @@ export default function AdminOps() {
     (ops?.payments.staleMpesaPendingCount ?? 0) > 0 ||
     (ops?.enrollments.stuckPendingPayment.length ?? 0) > 0 ||
     (careSignal?.underReviewCount ?? 0) > 0 ||
-    (ilsCredentialRequests?.filter((request) => request.status === "paid_pending_review").length ?? 0) > 0;
+    (ilsCredentialRequests?.filter(request => request.status === "paid_pending_review").length ?? 0) > 0;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
@@ -109,7 +138,8 @@ export default function AdminOps() {
               onClick={() => void refetch()}
               disabled={isFetching}
             >
-              {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {isFetching ? (
+                <Loader2 className="h-4 w-4 animate-spin" /> ) : ( <RefreshCw className="h-4 w-4" />)}
               <span className="ml-1">Refresh</span>
             </Button>
           </div>
@@ -209,7 +239,7 @@ export default function AdminOps() {
                     <p className="text-sm text-muted-foreground">None in the last query window.</p>
                   ) : (
                     <ul className="text-xs space-y-1 max-h-40 overflow-y-auto">
-                      {ops.enrollments.stuckPendingPayment.map((e) => (
+                      {ops.enrollments.stuckPendingPayment.map(e => (
                         <li key={e.id}>
                           #{e.id} user {e.userId} · {e.programType} ·{" "}
                           {e.createdAt ? new Date(e.createdAt).toLocaleDateString() : "—"}
@@ -243,20 +273,27 @@ export default function AdminOps() {
               <CardContent className="space-y-3">
                 {ilsCredentialRequests?.length ? (
                   <ul className="space-y-2 text-sm">
-                    {ilsCredentialRequests.map((request) => (
+                    {ilsCredentialRequests.map(request => (
                       <li key={request.id} className="rounded-lg border border-border/70 p-3">
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
-                            <p className="font-medium">#{request.id} · {request.credentialType.toUpperCase()} · {request.userName ?? "Unnamed account"}</p>
-                            <p className="text-xs text-muted-foreground">{request.userEmail ?? "No email"} · KES {request.amountKes.toLocaleString()} · deadline {new Date(request.credentialingDeadline).toLocaleDateString()}</p>
+                            <p className="font-medium">#{request.id} · {" "}
+                              {request.credentialType.toUpperCase()} · {" "}
+                              {request.userName ?? "Unnamed account"}</p>
+                            <p className="text-xs text-muted-foreground">{request.userEmail ?? "No email"} · KES {" "}
+                              {request.amountKes.toLocaleString()} · deadline {" "}
+                              {new Date(request.credentialingDeadline).toLocaleDateString()}</p>
                           </div>
                           <Badge variant={request.status === "paid_pending_review" ? "default" : "secondary"}>{request.status}</Badge>
                         </div>
                         {request.status === "paid_pending_review" && (
                           <div className="mt-3 flex flex-wrap gap-2">
-                            <Button type="button" size="sm" onClick={() => reviewIlsCredentialRequest.mutate({ requestId: request.id, decision: "approved" })} disabled={reviewIlsCredentialRequest.isPending}>Approve review</Button>
-                            <Button type="button" variant="outline" size="sm" onClick={() => reviewIlsCredentialRequest.mutate({ requestId: request.id, decision: "rejected", notes: "Credentialing review not approved." })} disabled={reviewIlsCredentialRequest.isPending}>Reject</Button>
-                            <Button type="button" variant="ghost" size="sm" onClick={() => reviewIlsCredentialRequest.mutate({ requestId: request.id, decision: "expired", notes: "Credentialing window expired before review." })} disabled={reviewIlsCredentialRequest.isPending}>Mark expired</Button>
+                            <Button type="button" size="sm" onClick={() => reviewIlsCredentialRequest.mutate({ requestId: request.id, decision: "approved" ,
+                                })} disabled={reviewIlsCredentialRequest.isPending}>Approve review</Button>
+                            <Button type="button" variant="outline" size="sm" onClick={() => reviewIlsCredentialRequest.mutate({ requestId: request.id, decision: "rejected", notes: "Credentialing review not approved." ,
+                                })} disabled={reviewIlsCredentialRequest.isPending}>Reject</Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => reviewIlsCredentialRequest.mutate({ requestId: request.id, decision: "expired", notes: "Credentialing window expired before review." ,
+                                })} disabled={reviewIlsCredentialRequest.isPending}>Mark expired</Button>
                           </div>
                         )}
                       </li>
@@ -268,6 +305,139 @@ export default function AdminOps() {
               </CardContent>
             </Card>
 
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <LifeBuoy className="h-5 w-5" />
+                    ILS operational cases
+                  </CardTitle>
+                  <CardDescription>
+                    Payment, roster, access, delivery, assessment, certificate,
+                    and AHA handoff exceptions.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {ilsCases?.length ? (
+                    ilsCases.slice(0, 8).map(item => (
+                      <div
+                        key={item.id}
+                        className="rounded-lg border p-3 text-sm"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium">
+                              #{item.id} · {item.summary}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.category} · {item.priority} ·{" "}
+                              {new Date(item.createdAt).toLocaleDateString()} ·
+                              SLA{" "}
+                              {item.slaDueAt
+                                ? new Date(item.slaDueAt).toLocaleString()
+                                : "not set"}
+                            </p>
+                          </div>
+                          <Badge
+                            variant={
+                              item.priority === "critical" ||
+                              (item.slaDueAt
+                                ? new Date(item.slaDueAt).getTime() < Date.now()
+                                : false)
+                                ? "destructive"
+                                : "secondary"
+                            }
+                          >
+                            {item.slaDueAt &&
+                            new Date(item.slaDueAt).getTime() < Date.now()
+                              ? "SLA overdue"
+                              : item.status}
+                          </Badge>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={updateIlsCase.isPending}
+                            onClick={() =>
+                              updateIlsCase.mutate({
+                                caseId: item.id,
+                                status: "in_progress",
+                              })
+                            }
+                          >
+                            Start work
+                          </Button>
+                          <Button
+                            size="sm"
+                            disabled={updateIlsCase.isPending}
+                            onClick={() =>
+                              updateIlsCase.mutate({
+                                caseId: item.id,
+                                status: "resolved",
+                                resolutionNotes: "Resolved in Platform Ops.",
+                              })
+                            }
+                          >
+                            Resolve
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No open ILS operational cases.
+                    </p>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void refetchIlsCases()}
+                  >
+                    Refresh ILS cases
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Bell className="h-5 w-5" /> ILS reminders
+                  </CardTitle>
+                  <CardDescription>
+                    Queued provider follow-ups due for activation, practical
+                    assessment, remediation, or credentialing.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm">
+                    Due now: <strong>{dueIlsReminders?.length ?? 0}</strong>
+                  </p>
+                  {dueIlsReminders?.slice(0, 5).map(reminder => (
+                    <p
+                      key={reminder.id}
+                      className="text-xs text-muted-foreground"
+                    >
+                      #{reminder.id} · {reminder.reminderType} ·{" "}
+                      {reminder.userEmail ?? "no email"}
+                    </p>
+                  ))}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={
+                      dispatchIlsReminders.isPending || !dueIlsReminders?.length
+                    }
+                    onClick={() => dispatchIlsReminders.mutate()}
+                  >
+                    {dispatchIlsReminders.isPending
+                      ? "Sending reminders…"
+                      : "Dispatch due reminders"}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -275,7 +445,8 @@ export default function AdminOps() {
                   Server errors
                 </CardTitle>
                 <CardDescription>
-                  From <code className="text-xs">errorTracking</code> (status=new)
+                  From <code className="text-xs">errorTracking</code> {" "}
+                  (status=new)
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -283,7 +454,7 @@ export default function AdminOps() {
                   <p className="text-sm text-muted-foreground">No new errors in recent window.</p>
                 ) : (
                   <ul className="text-xs space-y-2 max-h-48 overflow-y-auto">
-                    {ops.errors.recent.map((err) => (
+                    {ops.errors.recent.map(err => (
                       <li key={err.id} className="border-b border-border/60 pb-2">
                         <Badge variant="outline" className="mr-1">
                           {err.severity}
@@ -313,13 +484,14 @@ export default function AdminOps() {
                 {careSignal ? (
                   <>
                     <p>
-                      Submissions ({careSignal.timeframe}): <strong>{careSignal.totalSubmissions}</strong> ·
+                      Submissions ({careSignal.timeframe}): {" "}
+                      <strong>{careSignal.totalSubmissions}</strong> ·
                       This month: {careSignal.submissionsThisMonth} · Under review:{" "}
                       {careSignal.underReviewCount}
                     </p>
                     {careSignal.topFacilities.length > 0 ? (
                       <ol className="list-decimal list-inside text-xs">
-                        {careSignal.topFacilities.map((f) => (
+                        {careSignal.topFacilities.map(f => (
                           <li key={f.facilityName}>
                             {f.facilityName} — {f.count}
                           </li>
@@ -409,7 +581,7 @@ export default function AdminOps() {
                   </Button>
                   {alertDispatches?.rows?.length ? (
                     <ul className="text-xs space-y-1 max-h-32 overflow-y-auto">
-                      {alertDispatches.rows.map((a) => (
+                      {alertDispatches.rows.map(a => (
                         <li key={a.id}>
                           <Badge variant="outline" className="mr-1">
                             {a.ruleKey}

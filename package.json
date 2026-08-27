@@ -85,6 +85,8 @@
     "db:verify-0139": "node scripts/verify-0139-cancellable-ils-enrollments.mjs",
     "db:apply-0140": "node scripts/apply-0140-resusgps-clinical-events.mjs",
     "db:verify-0140": "node scripts/verify-0140-resusgps-clinical-events.mjs",
+    "db:apply-0141": "node scripts/apply-0141-ils-operational-controls.mjs",
+    "db:verify-0141": "node scripts/verify-0141-ils-operational-controls.mjs",
     "db:apply-0142": "node scripts/apply-0142-cpd-portal-remediation.mjs",
     "db:verify-0142": "node scripts/verify-0142-cpd-portal-remediation.mjs",
     "db:verify-cpr-event-link": "node scripts/verify-cpr-event-link.mjs",
