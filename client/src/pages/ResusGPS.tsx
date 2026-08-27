@@ -1317,8 +1317,8 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
             weight={weight}
             age={demographics.age}
             onStart={handleStart}
-            onAgeChange={(nextAge) => setDemographics((current) => ({ ...current, age: nextAge }))}
-            onWeightChange={(nextWeight) => setDemographics((current) => ({ ...current, weight: nextWeight }))}
+            onAgeChange={(nextAge) => setDemographics({ ...demographics, age: nextAge })}
+            onWeightChange={(nextWeight) => setDemographics({ ...demographics, weight: nextWeight })}
           />
         )}
 
