@@ -7,6 +7,7 @@ import {
   evaluateMedicationEligibility,
   getCprShockEnergyLabel,
   evaluateCprGpsAlerts,
+  CPR_METRONOME_BPM,
 } from './cpr-engine';
 
 describe('CPR-GPS life-support pack behavior', () => {
@@ -26,11 +27,33 @@ describe('CPR-GPS life-support pack behavior', () => {
     expect(getCprShockEnergyLabel(20, 2, 'PALS')).toMatch(/At least 80 J/);
   });
 
+  it('uses the 110/min timing-aid cadence', () => {
+    expect(CPR_METRONOME_BPM).toBe(110);
+    expect(Math.round(60000 / CPR_METRONOME_BPM)).toBe(545);
+  });
+
   it('keeps the 120-second countdown monotonic until the reassessment boundary', () => {
     expect(getCompressionCycleStatus(0).countdownToRhythmCheck).toBe(120);
     expect(getCompressionCycleStatus(1).countdownToRhythmCheck).toBe(119);
     expect(getCompressionCycleStatus(105).countdownToRhythmCheck).toBe(15);
     expect(getCompressionCycleStatus(120).countdownToRhythmCheck).toBe(0);
+  });
+
+  it('emits an actionable pre-charge alert until charging is confirmed', () => {
+    const input = {
+      compressionElapsed: 105,
+      rhythmWindowElapsed: null,
+      inReassessment: false,
+      arrestDuration: 105,
+      state: { shockCount: 0, epiDoses: 0, lastEpiTime: null, antiarrhythmicDoses: 0, rhythmType: 'vf_pvt' as const, phase: 'compressions' as const },
+      isShockable: true,
+      advancedAirwayPlaced: true,
+      cycleNumber: 1,
+      weightKg: 20,
+      lifeSupportPack: 'PALS' as const,
+    };
+    expect(evaluateCprGpsAlerts(input).find((alert) => alert.type === 'precharge_defibrillator')).toMatchObject({ severity: 'warning', speakText: 'Charge the defibrillator now.' });
+    expect(evaluateCprGpsAlerts({ ...input, defibCharging: true }).some((alert) => alert.type === 'precharge_defibrillator')).toBe(false);
   });
 
   it('warns explicitly when a shockable rhythm has a delayed defibrillator', () => {

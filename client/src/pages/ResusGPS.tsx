@@ -286,18 +286,21 @@ function approximateAgeMonths(age: string | null): number {
 
 export default function ResusGPS({ hasActivationContext = false, activationEventId }: { hasActivationContext?: boolean; activationEventId?: number }) {
   const { demographics, setDemographics, clearDemographics, getWeightInKg } = usePatientDemographics();
-  const resolveCurrentWeight = useCallback((override?: { age?: string; weight?: string; weightSource?: 'measured' | 'last_known' }): ResolvedPatientWeight | null => {
+  const resolveCurrentWeight = useCallback((override?: { age?: string; weight?: string; weightSource?: 'measured' | 'last_known'; gestationalAgeWeeks?: string }): ResolvedPatientWeight | null => {
     const age = override?.age ?? demographics.age;
     const weightValue = override?.weight ?? demographics.weight;
     const weightSource = override?.weightSource ?? demographics.weightSource ?? 'measured';
+    const gestationalAgeWeeks = override?.gestationalAgeWeeks ?? demographics.gestationalAgeWeeks;
     const enteredWeight = parseResusWeight(weightValue);
     const lastKnownWeight = parseResusWeight(demographics.lastKnownWeight);
+    const gestationalWeeksNumber = gestationalAgeWeeks?.trim() ? Number(gestationalAgeWeeks) : null;
     return resolvePatientWeight({
       age,
       measuredWeightKg: weightSource === 'measured' ? enteredWeight : null,
       lastKnownWeightKg: weightSource === 'last_known' ? enteredWeight : lastKnownWeight,
+      gestationalAgeWeeks: gestationalWeeksNumber != null && Number.isFinite(gestationalWeeksNumber) ? gestationalWeeksNumber : null,
     });
-  }, [demographics.age, demographics.lastKnownWeight, demographics.weight, demographics.weightSource]);
+  }, [demographics.age, demographics.gestationalAgeWeeks, demographics.lastKnownWeight, demographics.weight, demographics.weightSource]);
   const initialWeightResolution = resolveCurrentWeight();
   const analytics = useResusAnalytics();
   const analyticsRef = useRef(analytics);
@@ -492,7 +495,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
 
   // ─── Handlers ───────────────────────────────────────────
 
-  const handleStart = (isTrauma: boolean, entry?: { age: string; weight: string; weightSource: 'measured' | 'last_known' }) => {
+  const handleStart = (isTrauma: boolean, entry?: { age: string; weight: string; weightSource: 'measured' | 'last_known'; gestationalAgeWeeks?: string }) => {
     trackButtonClick('Start ResusGPS emergency flow', { isTrauma });
     const entryAge = entry?.age ?? demographics.age;
     const resolution = resolveCurrentWeight(entry);
@@ -1369,10 +1372,12 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
             lastKnownWeight={demographics.lastKnownWeight}
             weightSource={demographics.weightSource ?? 'measured'}
             age={demographics.age}
+            gestationalAgeWeeks={demographics.gestationalAgeWeeks ?? ''}
             onStart={handleStart}
             onAgeChange={(nextAge) => setDemographics({ ...demographics, age: nextAge })}
             onWeightChange={(nextWeight) => setDemographics({ ...demographics, weight: nextWeight })}
             onWeightSourceChange={(nextSource) => setDemographics({ ...demographics, weightSource: nextSource })}
+            onGestationalAgeChange={(nextWeeks) => setDemographics({ ...demographics, gestationalAgeWeeks: nextWeeks })}
           />
         )}
 
@@ -2079,27 +2084,33 @@ function IdleScreen({
   lastKnownWeight,
   weightSource,
   age,
+  gestationalAgeWeeks,
   onStart,
   onAgeChange,
   onWeightChange,
   onWeightSourceChange,
+  onGestationalAgeChange,
 }: {
   weightValue: string;
   lastKnownWeight?: string;
   weightSource: 'measured' | 'last_known';
   age: string;
-  onStart: (isTrauma: boolean, entry?: { age: string; weight: string; weightSource: 'measured' | 'last_known' }) => void;
+  gestationalAgeWeeks: string;
+  onStart: (isTrauma: boolean, entry?: { age: string; weight: string; weightSource: 'measured' | 'last_known'; gestationalAgeWeeks?: string }) => void;
   onAgeChange: (age: string) => void;
   onWeightChange: (weight: string) => void;
   onWeightSourceChange: (source: 'measured' | 'last_known') => void;
+  onGestationalAgeChange: (weeks: string) => void;
 }) {
   const displayedWeightValue = weightSource === 'last_known' && !weightValue ? lastKnownWeight ?? '' : weightValue;
+  const parsedGestationalAgeWeeks = gestationalAgeWeeks.trim() ? Number(gestationalAgeWeeks) : null;
   const resolvedWeight = resolvePatientWeight({
     age,
     measuredWeightKg: weightSource === 'measured' ? parseResusWeight(weightValue) : null,
     lastKnownWeightKg: weightSource === 'last_known'
       ? parseResusWeight(displayedWeightValue)
       : parseResusWeight(lastKnownWeight),
+    gestationalAgeWeeks: parsedGestationalAgeWeeks != null && Number.isFinite(parsedGestationalAgeWeeks) ? parsedGestationalAgeWeeks : null,
   });
   const hasRequiredContext = Boolean(age.trim() && resolvedWeight);
 
@@ -2121,10 +2132,28 @@ function IdleScreen({
                   id="resus-age"
                   value={age}
                   onChange={(event) => onAgeChange(event.target.value)}
-                  placeholder="e.g. 6 months or 4 years"
+                  placeholder="e.g. 2 days, 6 months, 4 years"
                   autoComplete="off"
                   className="mt-1 min-h-12 bg-background text-base"
                 />
+                <p className="mt-1 text-[11px] text-muted-foreground">For a preterm newborn, enter postnatal age here and gestation below.</p>
+              </div>
+              <div>
+                <label htmlFor="resus-gestation" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Preterm gestation (weeks, optional)</label>
+                <Input
+                  id="resus-gestation"
+                  type="number"
+                  inputMode="decimal"
+                  min="20"
+                  max="45"
+                  step="1"
+                  value={gestationalAgeWeeks}
+                  onChange={(event) => onGestationalAgeChange(event.target.value)}
+                  placeholder="e.g. 32"
+                  autoComplete="off"
+                  className="mt-1 min-h-12 bg-background text-base"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">Use with age in days/weeks for preterm emergency weight estimation.</p>
               </div>
               <div>
                 <label htmlFor="resus-weight" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Weight for dosing (kg)</label>
@@ -2169,7 +2198,7 @@ function IdleScreen({
           size="lg"
           disabled={!hasRequiredContext}
           className="min-h-14 w-full bg-primary text-base font-bold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={() => onStart(false, { age, weight: displayedWeightValue, weightSource })}
+          onClick={() => onStart(false, { age, weight: displayedWeightValue, weightSource, gestationalAgeWeeks })}
         >
           <Siren className="mr-2 h-5 w-5" aria-hidden />
           Continue to assessment
