@@ -37,9 +37,9 @@ export default function IerpLanding() {
 
   const startIerp = () => {
     if (isAuthenticated) {
-      navigate("/home");
+      navigate("/learner-dashboard");
     } else {
-      window.location.href = getLoginUrl();
+      window.location.href = getLoginUrl("/learner-dashboard");
     }
   };
 
