@@ -24,8 +24,8 @@ interface Props {
   /** Skip READY / START CPR when arrest already running in ResusGPS */
   autoStart?: boolean;
   lifeSupportPack?: LifeSupportPackResult;
-  /** Return ROSC to the parent ResusGPS flow for post-cardiac-arrest care. */
-  onROSC?: () => void;
+  /** Return ROSC and the server CPR session ID to the parent flow for post-cardiac-arrest care and debrief. */
+  onROSC?: (cprSessionId?: number) => void;
   /** The integrated emergency flow uses one CPR surface; standalone callers may keep mode switching. */
   allowModeSwitch?: boolean;
   /** The integrated flow owns demographics in ResusGPS. */

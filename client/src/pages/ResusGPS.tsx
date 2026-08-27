@@ -29,6 +29,7 @@ import { ResusGpsNextStepBanner } from '@/components/ResusGpsNextStepBanner';
 import { ResusGpsQuickAssessmentScreen } from '@/components/ResusGpsQuickAssessmentScreen';
 import { PostCardiacArrestCarePanel } from '@/components/PostCardiacArrestCarePanel';
 import { NeonatalResuscitationFlow } from '@/components/NeonatalResuscitationFlow';
+import { CPRDebriefing } from '@/components/CPRDebriefing';
 import { ClinicalContentSafetyFooter } from '@/components/ClinicalContentSafetyFooter';
 import { ClinicalUseDisclaimer } from '@/components/ClinicalUseDisclaimer';
 import { AgeInput } from '@/components/AgeInput';
@@ -337,6 +338,8 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
   const [dismissedReassessmentIds, setDismissedReassessmentIds] = useState<Set<string>>(() => new Set());
   const [showEventLog, setShowEventLog] = useState(false);
   const [showCPRClock, setShowCPRClock] = useState(false);
+  const [cprDebriefSessionId, setCprDebriefSessionId] = useState<number | null>(null);
+  const [showCprDebrief, setShowCprDebrief] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
   const [showProtocols, setShowProtocols] = useState(false);
   const [showMCIBoard, setShowMCIBoard] = useState(false);
@@ -348,6 +351,10 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
   const fellowshipAutoSaveInFlightRef = useRef<string | null>(null);
   const [savedCasesByCondition, setSavedCasesByCondition] = useState<Record<string, number>>({});
   const timer = useTimer();
+  const { data: cprDebriefDetails } = trpc.cprSession.getSessionDetails.useQuery(
+    { sessionId: cprDebriefSessionId ?? 0 },
+    { enabled: cprDebriefSessionId !== null, staleTime: 5_000 },
+  );
   const { canUndo, canRedo, undo: handleUndo, redo: handleRedo } = useUndo(session, (nextSession) => setSession(nextSession));
 
   // Sync demographics
@@ -662,7 +669,8 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
     setSession((previous) => updatePostCardiacArrestCare(previous, itemId, checked));
   }, [setSession]);
 
-  const handleROSC = () => {
+  const handleROSC = (cprSessionId?: number) => {
+    if (cprSessionId !== undefined) setCprDebriefSessionId(cprSessionId);
     setSession(prev => {
       const withUndo = pushToUndoStack(prev, 'ROSC achieved');
       return achieveROSC(withUndo);
@@ -1309,11 +1317,8 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
             weight={weight}
             age={demographics.age}
             onStart={handleStart}
-            onOpenPatientInfo={() => {
-              setTempWeight(demographics.weight || '');
-              setTempAge(demographics.age || '');
-              setPatientInfoOpen(true);
-            }}
+            onAgeChange={(nextAge) => setDemographics({ ...demographics, age: nextAge })}
+            onWeightChange={(nextWeight) => setDemographics({ ...demographics, weight: nextWeight })}
           />
         )}
 
@@ -1451,6 +1456,7 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
             hasActivationContext={hasActivationContext}
             lifeSupportPackLabel={lifeSupportPack?.label ?? 'age-appropriate life-support'}
             onPostCardiacArrestCareChange={handlePostCardiacArrestCareChange}
+            onOpenCprDebrief={() => setShowCprDebrief(true)}
           />
         )}
       </main>
@@ -1691,6 +1697,42 @@ export default function ResusGPS({ hasActivationContext = false }: { hasActivati
         outcome={session.outcome || 'survived'}
         sessionId={session.id}
       />
+
+      {showCprDebrief && cprDebriefSessionId !== null && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-black/80 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="CPR debrief">
+          {cprDebriefDetails ? (
+            <CPRDebriefing
+              sessionId={cprDebriefSessionId}
+              totalDuration={cprDebriefDetails.session.totalDuration ?? 0}
+              shockCount={cprDebriefDetails.events.filter((event) => event.eventType === 'defibrillation').length}
+              epiDoses={cprDebriefDetails.events.filter((event) => {
+                const text = `${event.description ?? ''} ${event.value ?? ''}`.toLowerCase();
+                return event.eventType === 'medication' && text.includes('epinephrine');
+              }).length}
+              outcome={cprDebriefDetails.session.outcome === 'ROSC' ? 'ROSC' : cprDebriefDetails.session.outcome === 'ongoing' ? 'ongoing' : 'discontinued'}
+              events={cprDebriefDetails.events.map((event) => ({
+                id: String(event.id),
+                timestamp: event.eventTime ?? 0,
+                action: event.description ?? event.eventType,
+                details: event.value ?? undefined,
+              }))}
+              teamMembers={cprDebriefDetails.teamMembers.map((member) => ({
+                id: member.id,
+                providerName: member.providerName,
+                role: member.role,
+              }))}
+              onClose={() => setShowCprDebrief(false)}
+            />
+          ) : (
+            <Card className="w-full max-w-md bg-background p-6 text-center">
+              <CardContent className="space-y-3 p-0">
+                <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" aria-hidden />
+                <p className="font-semibold text-foreground">Loading CPR event timeline…</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {session.phase !== 'IDLE' && (
         <div className="fixed bottom-16 left-0 right-0 z-40 px-2 pointer-events-none">
@@ -1973,12 +2015,14 @@ function IdleScreen({
   weight,
   age,
   onStart,
-  onOpenPatientInfo,
+  onAgeChange,
+  onWeightChange,
 }: {
   weight: number | null;
   age: string;
   onStart: (isTrauma: boolean) => void;
-  onOpenPatientInfo: () => void;
+  onAgeChange: (age: string) => void;
+  onWeightChange: (weight: string) => void;
 }) {
   const hasRequiredContext = Boolean(weight && age);
 
@@ -1992,28 +2036,36 @@ function IdleScreen({
         </div>
 
         <Card className="border-border bg-card">
-          <CardContent className="space-y-3 p-3">
-            <button
-              type="button"
-              onClick={onOpenPatientInfo}
-              className="w-full rounded-xl border border-border bg-accent/20 p-3 text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              aria-label="Enter or edit patient age and actual weight"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Age</p>
-                    <p className={`mt-1 truncate text-lg font-bold ${age ? 'text-foreground' : 'text-amber-500'}`}>{age || 'Add age'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Actual weight</p>
-                    <p className={`mt-1 text-lg font-bold ${weight ? 'text-foreground' : 'text-amber-500'}`}>{weight ? `${weight} kg` : 'Add weight'}</p>
-                  </div>
-                </div>
-                <Pencil className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+          <CardContent className="space-y-3 p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="resus-age" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Age</label>
+                <Input
+                  id="resus-age"
+                  value={age}
+                  onChange={(event) => onAgeChange(event.target.value)}
+                  placeholder="e.g. 6 months or 4 years"
+                  autoComplete="off"
+                  className="mt-1 min-h-12 bg-background text-base"
+                />
               </div>
-            </button>
-            {!hasRequiredContext && <p className="px-1 text-xs text-amber-600">Enter both fields before continuing. Estimated weight is not used for dosing.</p>}
+              <div>
+                <label htmlFor="resus-weight" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Actual weight (kg)</label>
+                <Input
+                  id="resus-weight"
+                  type="number"
+                  inputMode="decimal"
+                  min="0.1"
+                  step="0.1"
+                  value={weight ?? ''}
+                  onChange={(event) => onWeightChange(event.target.value)}
+                  placeholder="Measured weight"
+                  autoComplete="off"
+                  className="mt-1 min-h-12 bg-background text-base"
+                />
+              </div>
+            </div>
+            <p className="px-1 text-xs text-muted-foreground">Use the measured weight. Estimated weight is not used for dosing.</p>
           </CardContent>
         </Card>
 
@@ -2642,6 +2694,7 @@ function PostPrimaryScreen({
   hasActivationContext,
   lifeSupportPackLabel,
   onPostCardiacArrestCareChange,
+  onOpenCprDebrief,
 }: {
   session: ResusSession;
   setSession: (s: ResusSession) => void;
@@ -2664,6 +2717,7 @@ function PostPrimaryScreen({
   hasActivationContext: boolean;
   lifeSupportPackLabel: string;
   onPostCardiacArrestCareChange: (itemId: string, checked: boolean) => void;
+  onOpenCprDebrief?: () => void;
 }) {
   const { trackButtonClick } = useAnalytics('ResusGPS');
   const resusAnalytics = useResusAnalytics();
@@ -2789,6 +2843,7 @@ function PostPrimaryScreen({
           care={session.postCardiacArrestCare}
           lifeSupportPackLabel={lifeSupportPackLabel}
           onChange={onPostCardiacArrestCareChange}
+          onOpenDebrief={onOpenCprDebrief}
         />
       )}
 

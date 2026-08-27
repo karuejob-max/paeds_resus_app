@@ -1,4 +1,4 @@
-import { CheckCircle2, ClipboardCheck, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, ClipboardCheck, ShieldAlert, FileText } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,9 +11,10 @@ interface Props {
   care?: PostCardiacArrestCare;
   lifeSupportPackLabel: string;
   onChange: (itemId: string, checked: boolean) => void;
+  onOpenDebrief?: () => void;
 }
 
-export function PostCardiacArrestCarePanel({ care, lifeSupportPackLabel, onChange }: Props) {
+export function PostCardiacArrestCarePanel({ care, lifeSupportPackLabel, onChange, onOpenDebrief }: Props) {
   const completed = new Set(care?.completedItemIds ?? []);
   const complete = Boolean(care?.completedAt);
 
@@ -69,6 +70,16 @@ export function PostCardiacArrestCarePanel({ care, lifeSupportPackLabel, onChang
         <p className="text-xs text-muted-foreground">
           This checklist records that the recovery domains were addressed; it does not replace the governed NRP, PALS, or ACLS algorithm or local clinical orders.
         </p>
+        {complete && onOpenDebrief && (
+          <button
+            type="button"
+            onClick={onOpenDebrief}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            <FileText className="h-4 w-4" aria-hidden />
+            Complete code and open debrief
+          </button>
+        )}
       </CardContent>
     </Card>
   );
