@@ -169,6 +169,23 @@ export default function AdminHub() {
           </Card>
 
           <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors border-emerald-200 hover:border-emerald-400"
+            onClick={() => setLocation("/admin/nerp-verification")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  NERP verification & campaign preview
+                </CardTitle>
+                <CardDescription>
+                  Verify external NERP phases and preview suppression-aware Institution 3 nurse recipients; sending is disabled
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card
             className="cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => setLocation("/institution")}
           >

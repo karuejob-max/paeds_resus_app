@@ -154,6 +154,10 @@ export const payments = mysqlTable("payments", {
   // the CheckoutRequestID for webhook lookup -- see server/webhooks/).
   mpesaReceiptNumber: varchar("mpesaReceiptNumber", { length: 50 }).unique(),
   phoneNumber: varchar("phoneNumber", { length: 20 }),
+  /** Nullable NERP installment ownership; standalone payments remain unchanged. */
+  nerpOfferEnrollmentId: int("nerpOfferEnrollmentId"),
+  installmentNumber: int("installmentNumber"),
+  nerpLedgerAppliedAt: timestamp("nerpLedgerAppliedAt"),
   status: mysqlEnum("status", ["pending", "completed", "failed"]).default("pending"),
   smsConfirmationSent: boolean("smsConfirmationSent").default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -5556,3 +5560,75 @@ export const iermsImplementationTrackers = mysqlTable("ierms_implementation_trac
 });
 export type IermsImplementationTracker = typeof iermsImplementationTrackers.$inferSelect;
 export type InsertIermsImplementationTracker = typeof iermsImplementationTrackers.$inferInsert;
+
+
+/** NERP ACLS pathway enrollment and six-installment ledger. */
+export const nerpOfferEnrollments = mysqlTable("nerp_offer_enrollments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull(),
+  offerKey: varchar("offer_key", { length: 64 }).notNull(),
+  status: mysqlEnum("status", ["active", "completed", "cancelled"]).default("active").notNull(),
+  totalAmountKes: decimal("total_amount_kes", { precision: 10, scale: 2 }).notNull(),
+  monthlyInstallmentKes: decimal("monthly_installment_kes", { precision: 10, scale: 2 }).notNull(),
+  installmentCount: int("installment_count").notNull(),
+  amountPaidKes: decimal("amount_paid_kes", { precision: 10, scale: 2 }).default("0.00").notNull(),
+  nextInstallmentNumber: int("next_installment_number").default(1).notNull(),
+  completedAt: timestamp("completed_at"),
+  cancelledAt: timestamp("cancelled_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  userOfferUnique: uniqueIndex("nerp_offer_enrollments_user_offer_uq").on(table.userId, table.offerKey),
+  userStatusIndex: index("nerp_offer_enrollments_user_status_idx").on(table.userId, table.status),
+}));
+export type NerpOfferEnrollment = typeof nerpOfferEnrollments.$inferSelect;
+export type InsertNerpOfferEnrollment = typeof nerpOfferEnrollments.$inferInsert;
+
+/** Links one NERP offer to the existing BLS and ACLS enrollment records. */
+export const nerpOfferCourses = mysqlTable("nerp_offer_courses", {
+  id: int("id").autoincrement().primaryKey(),
+  nerpOfferEnrollmentId: int("nerp_offer_enrollment_id").notNull(),
+  enrollmentId: int("enrollment_id").notNull(),
+  programType: mysqlEnum("program_type", ["bls", "acls"]).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, table => ({
+  offerProgramUnique: uniqueIndex("nerp_offer_courses_offer_program_uq").on(table.nerpOfferEnrollmentId, table.programType),
+  enrollmentIndex: index("nerp_offer_courses_enrollment_idx").on(table.enrollmentId),
+}));
+export type NerpOfferCourse = typeof nerpOfferCourses.$inferSelect;
+export type InsertNerpOfferCourse = typeof nerpOfferCourses.$inferInsert;
+
+/** Global Admin-reviewed external NERP phase evidence. */
+export const nerpOfferExternalVerifications = mysqlTable("nerp_offer_external_verifications", {
+  id: int("id").autoincrement().primaryKey(),
+  nerpOfferEnrollmentId: int("nerp_offer_enrollment_id").notNull(),
+  phase: mysqlEnum("phase", ["phase_2", "phase_3"]).notNull(),
+  status: mysqlEnum("status", ["verified", "rejected", "revoked"]).default("rejected").notNull(),
+  completedAt: timestamp("completed_at"),
+  evidenceNote: text("evidence_note"),
+  evidenceReference: varchar("evidence_reference", { length: 512 }),
+  verifiedByUserId: int("verified_by_user_id"),
+  verifiedAt: timestamp("verified_at"),
+  reviewReason: text("review_reason").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  offerPhaseUnique: uniqueIndex("nerp_offer_external_verifications_offer_phase_uq").on(table.nerpOfferEnrollmentId, table.phase),
+  statusIndex: index("nerp_offer_external_verifications_status_idx").on(table.status),
+}));
+export type NerpOfferExternalVerification = typeof nerpOfferExternalVerifications.$inferSelect;
+export type InsertNerpOfferExternalVerification = typeof nerpOfferExternalVerifications.$inferInsert;
+
+/** Append-only audit events for NERP payments and external completion review. */
+export const nerpOfferAuditEvents = mysqlTable("nerp_offer_audit_events", {
+  id: int("id").autoincrement().primaryKey(),
+  nerpOfferEnrollmentId: int("nerp_offer_enrollment_id").notNull(),
+  action: varchar("action", { length: 96 }).notNull(),
+  actorUserId: int("actor_user_id"),
+  details: text("details"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, table => ({
+  offerCreatedIndex: index("nerp_offer_audit_events_offer_created_idx").on(table.nerpOfferEnrollmentId, table.createdAt),
+}));
+export type NerpOfferAuditEvent = typeof nerpOfferAuditEvents.$inferSelect;
+export type InsertNerpOfferAuditEvent = typeof nerpOfferAuditEvents.$inferInsert;

@@ -144,6 +144,7 @@ import { legalRouter } from "./routers/legal";
 import { contentSafetyRouter } from "./routers/content-safety";
 import { adminFeedbackRouter } from "./routers/platform-feedback";
 import { adminLearningRouter } from "./routers/admin-learning";
+import { nerpRouter } from "./routers/nerp";
 import { practiceLabRouter } from "./routers/practice-lab";
 import { fpkbRouter } from "./routers/fpkb";
 
@@ -498,6 +499,7 @@ export const appRouter = router({
   safeTruthV1: safeTruthV1Router,
   adminStats: adminStatsRouter,
   adminLearning: adminLearningRouter,
+  nerp: nerpRouter,
   facilities: facilitiesRouter,
   facilityLinking: facilityLinkingRouter,
   fpkb: fpkbRouter,
