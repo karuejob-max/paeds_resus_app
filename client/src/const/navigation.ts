@@ -42,7 +42,8 @@ export const learningNavItems: NavItem[] = [
 
 // Institutional Features - ONLY WORKING PAGES
 export const institutionalNavItems: NavItem[] = [
-  { label: "Institution Workspace", href: "/institution", description: "IERS, CPD Portal, and administration" },
+  { label: "Institution Workspace", href: "/institution", description: "IERS Readiness, ILS Program, CPD Portal, and administration" },
+  { label: "Institutional Life Support", href: "/training/institutional-life-support", description: "Paeds Resus competency training for provider cohorts" },
   { label: "Institutional Onboarding", href: "/institutional-onboarding", description: "Get started" },
 ];
 
@@ -74,6 +75,7 @@ export const footerSections = {
   ],
   institutional: [
     { label: "Institution Workspace", href: "/institution" },
+    { label: "Institutional Life Support", href: "/training/institutional-life-support" },
     { label: "Institutional Onboarding", href: "/institutional-onboarding" },
   ],
   // Simulated ML previews — not linked in production nav (see AspirationalSurfaceGate).
@@ -105,6 +107,7 @@ export const breadcrumbMap: Record<string, string[]> = {
   "/predictive-intervention": ["Home", "ML", "Predictive Alerts"],
   "/personalized-learning": ["Home", "ML", "Learning Path"],
   "/learning/guide": ["Home", "Learning", "Guide"],
+  "/training/institutional-life-support": ["Home", "Institutions", "ILS Program"],
   "/enroll": ["Home", "Enroll"],
   "/protocols": ["Home", "Protocols"],
   "/care-signal-analytics": ["Home", "Admin", "Care Signal analytics"],

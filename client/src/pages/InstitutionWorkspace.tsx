@@ -15,6 +15,7 @@ import {
   BookOpen,
   ClipboardCheck,
   CreditCard,
+  GraduationCap,
   FileText,
   HeartPulse,
   LayoutDashboard,
@@ -55,13 +56,20 @@ const PRODUCT_LABELS = {
     icon: ClipboardCheck,
     tone: "border-blue-200 bg-blue-50/70 dark:border-blue-900 dark:bg-blue-950/20",
   },
+  ils_program: {
+    label: "ILS Program",
+    fullName: "Institutional Life Support Training",
+    description: "Paeds Resus competency training, practical assessment, certificates, and institution-paid provider cohorts.",
+    icon: GraduationCap,
+    tone: "border-violet-200 bg-violet-50/70 dark:border-violet-900 dark:bg-violet-950/20",
+  },
 } as const;
 
 type ProductKey = keyof typeof PRODUCT_LABELS;
 type WorkspaceSection = "overview" | "iers" | "learning" | "accountability" | "administration" | "connected";
 type IersWorkforceTab = "departments" | "erco" | "roster" | "equipment";
 
-type ProductStatus = "trial" | "active" | "grace" | "past_due" | "expired" | "suspended" | "cancelled" | "legacy_unclassified" | "not_subscribed";
+type ProductStatus = "trial" | "active" | "grace" | "past_due" | "expired" | "suspended" | "cancelled" | "legacy_unclassified" | "not_subscribed" | "available";
 
 function getInitialWorkspaceState(): { section: WorkspaceSection; iersTab: string; workforceTab: IersWorkforceTab } {
   if (typeof window === "undefined") return { section: "overview", iersTab: "command", workforceTab: "departments" };
@@ -88,12 +96,13 @@ function statusLabel(status: ProductStatus | undefined): string {
     case "cancelled": return "Cancelled";
     case "legacy_unclassified": return "Legacy access — review pending";
     case "not_subscribed": return "Not subscribed";
+    case "available": return "Available";
     default: return "Checking access";
   }
 }
 
 function accessBadgeVariant(status: ProductStatus | undefined): "default" | "secondary" | "outline" | "destructive" {
-  if (status === "active" || status === "trial") return "default";
+  if (status === "active" || status === "trial" || status === "available") return "default";
   if (status === "grace" || status === "past_due" || status === "legacy_unclassified") return "secondary";
   if (status === "expired" || status === "suspended" || status === "cancelled") return "destructive";
   return "outline";
@@ -152,7 +161,7 @@ export default function InstitutionWorkspace() {
       const row = catalog?.find((item) => item.productKey === key);
       return row?.subscriptionStatus as ProductStatus | undefined;
     };
-    return { iers: getStatus("iers"), cpd_portal: getStatus("cpd_portal") };
+    return { iers: getStatus("iers"), cpd_portal: getStatus("cpd_portal"), ils_program: "available" as ProductStatus };
   }, [catalog]);
 
   if (institutionLoading || (isInstitutionAdmin && adminDetailsLoading)) {
@@ -194,6 +203,10 @@ export default function InstitutionWorkspace() {
       setIersTab("command");
       return;
     }
+    if (product === "ils_program") {
+      navigate("/training/institutional-life-support");
+      return;
+    }
     setSection("learning");
   };
 
@@ -224,6 +237,9 @@ export default function InstitutionWorkspace() {
             <Button className="w-full md:w-auto" variant="outline" onClick={() => navigate("/learning/guide")}>
               <BookOpen className="mr-2 h-4 w-4" /> Learning guide
             </Button>
+            <Button className="w-full md:w-auto" variant="outline" onClick={() => goToProduct("ils_program")}>
+              <GraduationCap className="mr-2 h-4 w-4" /> ILS Program
+            </Button>
             {isInstitutionAdmin ? <Button className="w-full md:w-auto" variant="outline" onClick={() => setSection("administration")}>
               <Settings2 className="mr-2 h-4 w-4" /> Administration
             </Button> : null}
@@ -234,7 +250,7 @@ export default function InstitutionWorkspace() {
           {(Object.keys(PRODUCT_LABELS) as ProductKey[]).map((product) => {
             const details = PRODUCT_LABELS[product];
             const Icon = details.icon;
-            const enabled = product === "iers" ? iersEnabled : cpdEnabled;
+            const enabled = product === "iers" ? iersEnabled : product === "cpd_portal" ? cpdEnabled : true;
             return (
               <Card key={product} className={`border ${details.tone}`}>
                 <CardHeader className="pb-3">
@@ -252,7 +268,7 @@ export default function InstitutionWorkspace() {
                 <CardContent>
                   <p className="min-h-12 text-sm text-muted-foreground">{details.description}</p>
                   <Button className="mt-4 w-full" variant={enabled ? "default" : "outline"} onClick={() => goToProduct(product)}>
-                    {enabled ? "Open product" : "View access status"}
+                    {product === "ils_program" ? "Open offering" : enabled ? "Open product" : "View access status"}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </CardContent>
@@ -271,11 +287,12 @@ export default function InstitutionWorkspace() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <InstitutionHomePanel
+              <InstitutionHomePanel
               institutionId={institutionId}
               iersEnabled={iersEnabled}
               onOpenLearning={() => setSection("learning")}
               onOpenReadiness={() => goToProduct("iers")}
+              onOpenIls={() => goToProduct("ils_program")}
               onOpenAdministration={() => setSection("administration")}
             />
             {(!iersEnabled || !cpdEnabled) && (

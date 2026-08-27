@@ -22,12 +22,14 @@ export default function InstitutionHomePanel({
   institutionId,
   onOpenLearning,
   onOpenReadiness,
+  onOpenIls,
   onOpenAdministration,
   iersEnabled,
 }: {
   institutionId: number;
   onOpenLearning: () => void;
   onOpenReadiness: () => void;
+  onOpenIls: () => void;
   onOpenAdministration: () => void;
   iersEnabled: boolean;
 }) {
@@ -105,9 +107,9 @@ export default function InstitutionHomePanel({
         <CardHeader>
           <CardTitle>Institutional attention</CardTitle>
           <CardDescription>
-            Start with the next decision that keeps people, learning, and
-            readiness moving. This is an institutional view; bedside response
-            remains in the individual portal.
+            Start with the next decision that keeps people, training, learning,
+            and readiness moving. This is an institutional view; bedside
+            response remains in the individual portal.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -245,12 +247,12 @@ export default function InstitutionHomePanel({
         <CardHeader>
           <CardTitle>Choose the operating lane</CardTitle>
           <CardDescription>
-            Use Readiness for IERS operations, Learning for institutional
-            training and CPD, and Administration for people, access, commercial
-            records, and recovery.
+            Use Readiness for IERS operations, ILS Program for Paeds Resus
+            competency training and provider cohorts, Learning for CPD and staff
+            development, and Administration for access and governance.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3">
+        <CardContent className="grid gap-3 md:grid-cols-4">
           <Button
             variant="outline"
             className="h-auto justify-start p-4 text-left"
@@ -260,6 +262,19 @@ export default function InstitutionHomePanel({
               <div className="font-semibold">Open Readiness</div>
               <div className="mt-1 text-xs text-muted-foreground">
                 Teams, equipment, drills, evidence, and improvement.
+              </div>
+            </div>
+            <ArrowRight className="ml-auto h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            className="h-auto justify-start p-4 text-left"
+            onClick={onOpenIls}
+          >
+            <div>
+              <div className="font-semibold">Open ILS Program</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Paeds Resus competency training, practical assessment, and provider cohorts.
               </div>
             </div>
             <ArrowRight className="ml-auto h-4 w-4" />
