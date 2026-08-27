@@ -28,13 +28,6 @@
  *    at a CPD event with a different email than their account, or with a
  *    typo. "Sessions presented" is reliable (cpdEvents.presenterUserId is
  *    a real FK) — only "attended" carries this risk.
- * 2. Department-level median comparison (getDepartmentMedianQiCount below)
- *    groups by `providerProfiles.department`, which is free text, not a
- *    canonical FK — inconsistent naming ("ICU" vs "Icu") will fragment a
- *    cohort that's really one department. Real signal, imperfect data
- *    hygiene, not a missing feature (see that function's own comment;
- *    this was originally flagged as entirely unavailable, which was
- *    wrong — corrected 2026-08-10).
  */
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { getDb } from "../db";
@@ -46,7 +39,6 @@ import {
   careSignalEvents,
   codeSignalEvents,
   equipmentAuditLogs,
-  providerProfiles,
 } from "../../drizzle/schema";
 import { computeCertificateExpiryDate, getCertificateExpiryStatus } from "../lib/certificate-expiry";
 
@@ -189,66 +181,4 @@ export async function getProviderScorecard(input: {
     crashCartAudits: core.crashCartAudits,
     priorityFlags,
   };
-}
-
-/** Facility-level median for a provider's own private self-comparison — never shown to peers, only to the provider themselves and to institution admins. */
-export async function getFacilityMedianQiCount(facilityId: number, lastDays: number): Promise<number> {
-  return computeMedianQiCount({ facilityId }, lastDays);
-}
-
-/**
- * Department-level median — added 2026-08-10 on a follow-up review. The
- * original version of this file stated department-level comparison wasn't
- * possible because `providerProfiles` had no structured department field —
- * that was wrong. `providerProfiles.department` (migration 0086) already
- * exists and is confirmed live in production (see WORK_STATUS 2026-08-03/05).
- * It's free text, not a canonical FK to `facilityDepartments`, so cohorts
- * are grouped by exact string match — typos or inconsistent naming
- * ("ICU" vs "Icu" vs "I.C.U.") will fragment a cohort that's really one
- * department. Real signal, just not perfectly clean; falls back to
- * facility-level (still available above) when a provider has no
- * `department` value set.
- */
-export async function getDepartmentMedianQiCount(facilityId: number, department: string, lastDays: number): Promise<number> {
-  return computeMedianQiCount({ facilityId, department }, lastDays);
-}
-
-async function computeMedianQiCount(scope: { facilityId: number; department?: string }, lastDays: number): Promise<number> {
-  const db = await getDb();
-  if (!db) return 0;
-
-  const since = new Date(Date.now() - lastDays * 24 * 60 * 60 * 1000);
-
-  const providerIds = await db
-    .select({ userId: providerProfiles.userId })
-    .from(providerProfiles)
-    .where(
-      scope.department
-        ? and(eq(providerProfiles.facilityId, scope.facilityId), eq(providerProfiles.department, scope.department))
-        : eq(providerProfiles.facilityId, scope.facilityId)
-    );
-  const ids = providerIds.map((p) => p.userId).filter((id): id is number => id != null);
-  if (ids.length === 0) return 0;
-
-  const [careRows, codeRows] = await Promise.all([
-    db
-      .select({ userId: careSignalEvents.userId })
-      .from(careSignalEvents)
-      .where(and(inArray(careSignalEvents.userId, ids), eq(careSignalEvents.submissionMode, "named"), gte(careSignalEvents.createdAt, since))),
-    db
-      .select({ userId: codeSignalEvents.userId })
-      .from(codeSignalEvents)
-      .where(and(inArray(codeSignalEvents.userId, ids), eq(codeSignalEvents.submissionMode, "named"), gte(codeSignalEvents.createdAt, since))),
-  ]);
-
-  const counts = new Map<number, number>(ids.map((id) => [id, 0]));
-  for (const r of [...careRows, ...codeRows]) {
-    if (r.userId == null) continue;
-    counts.set(r.userId, (counts.get(r.userId) ?? 0) + 1);
-  }
-
-  const sorted = [...counts.values()].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  if (sorted.length === 0) return 0;
-  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }

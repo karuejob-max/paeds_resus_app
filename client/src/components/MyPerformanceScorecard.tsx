@@ -6,14 +6,27 @@
  * here, especially CPD attendance matching and Life Support expiry being
  * an assumed 2-year window, not a stored fact).
  *
- * The facility-median comparison is private — shown only to this
- * provider, about themselves, never as a named leaderboard. Matches the
- * CEO-approved "no ranking" decision.
+ * The scorecard is private and self-only. Period-over-period comparison is
+ * handled by the Account-menu My progress page; no peer comparison is shown
+ * to the individual provider.
  */
 import { trpc } from "@/lib/trpc";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, GraduationCap, HeartPulse, ClipboardCheck, ShieldCheck, AlertTriangle } from "lucide-react";
+import {
+  Loader2,
+  GraduationCap,
+  HeartPulse,
+  ClipboardCheck,
+  ShieldCheck,
+  AlertTriangle,
+} from "lucide-react";
 
 const FLAG_LABELS: Record<string, string> = {
   no_cpd_this_period: "No CPD sessions this period",
@@ -28,10 +41,15 @@ const LIFE_SUPPORT_STATUS_STYLE: Record<string, string> = {
   expired: "bg-red-200 text-red-900",
 };
 
-const PROGRAM_LABELS: Record<string, string> = { bls: "BLS", acls: "ACLS", pals: "PALS" };
+const PROGRAM_LABELS: Record<string, string> = {
+  bls: "BLS",
+  acls: "ACLS",
+  pals: "PALS",
+};
 
 export function MyPerformanceScorecard() {
-  const { data, isLoading } = trpc.institution.getMyPerformanceScorecard.useQuery({ lastDays: 90 });
+  const { data, isLoading } =
+    trpc.institution.getMyPerformanceScorecard.useQuery({ lastDays: 90 });
 
   if (isLoading) {
     return (
@@ -54,8 +72,8 @@ export function MyPerformanceScorecard() {
       <CardHeader>
         <CardTitle>My Performance ({data?.lastDays ?? 90}d)</CardTitle>
         <CardDescription>
-          A private summary for your own professional growth — never shared with peers, only visible to you and,
-          for counts only, your institution.
+          A private summary for your own professional growth. Activity counts
+          may also be visible to authorized institution administrators.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -66,7 +84,7 @@ export function MyPerformanceScorecard() {
               Priority areas
             </p>
             <ul className="text-sm text-amber-800 dark:text-amber-200 list-disc list-inside">
-              {sc.priorityFlags.map((f) => (
+              {sc.priorityFlags.map(f => (
                 <li key={f}>{FLAG_LABELS[f] ?? f}</li>
               ))}
             </ul>
@@ -86,22 +104,20 @@ export function MyPerformanceScorecard() {
                 {sc.cpd.sessionsPresented + sc.cpd.sessionsAttended}
               </p>
               <p className="text-xs text-muted-foreground">
-                CPD sessions ({sc.cpd.sessionsPresented} presented, {sc.cpd.sessionsAttended} attended) ·{" "}
-                {sc.cpd.pointsEarned} pts
+                CPD sessions ({sc.cpd.sessionsPresented} presented,{" "}
+                {sc.cpd.sessionsAttended} attended) · {sc.cpd.pointsEarned} pts
               </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
             <ClipboardCheck className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
             <div>
-              <p className="text-lg font-bold">{sc.qi.careSignalCount + sc.qi.codeSignalCount}</p>
+              <p className="text-lg font-bold">
+                {sc.qi.careSignalCount + sc.qi.codeSignalCount}
+              </p>
               <p className="text-xs text-muted-foreground">
-                QI reports ({sc.qi.careSignalCount} Care Signal, {sc.qi.codeSignalCount} Code Signal)
-                {data?.departmentMedianQiCount != null ? (
-                  <> · department median: {data.departmentMedianQiCount}</>
-                ) : data?.facilityMedianQiCount != null ? (
-                  <> · facility median: {data.facilityMedianQiCount}</>
-                ) : null}
+                QI reports ({sc.qi.careSignalCount} Care Signal,{" "}
+                {sc.qi.codeSignalCount} Code Signal)
               </p>
             </div>
           </div>
@@ -116,12 +132,21 @@ export function MyPerformanceScorecard() {
 
         {sc.lifeSupport.length > 0 ? (
           <div>
-            <p className="text-sm font-medium mb-2">Life Support certifications</p>
+            <p className="text-sm font-medium mb-2">
+              Life Support certifications
+            </p>
             <div className="flex flex-wrap gap-2">
-              {sc.lifeSupport.map((l) => (
-                <Badge key={l.programType} className={LIFE_SUPPORT_STATUS_STYLE[l.status] ?? ""}>
+              {sc.lifeSupport.map(l => (
+                <Badge
+                  key={l.programType}
+                  className={LIFE_SUPPORT_STATUS_STYLE[l.status] ?? ""}
+                >
                   {PROGRAM_LABELS[l.programType] ?? l.programType} —{" "}
-                  {l.status === "valid" ? "valid" : l.status === "expiring_soon" ? "expiring soon" : "expired"}
+                  {l.status === "valid"
+                    ? "valid"
+                    : l.status === "expiring_soon"
+                      ? "expiring soon"
+                      : "expired"}
                 </Badge>
               ))}
             </div>

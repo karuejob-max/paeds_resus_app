@@ -1,17 +1,18 @@
 import { z } from "zod";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { TRPCError } from "@trpc/server";
+import { getProviderSelfComparison } from "../lib/provider-performance-comparison";
 import { recordApiResponseTime, recordPageLoadTime, recordError, generatePerformanceReport, getRecentMetrics, getRecentErrorsReport } from "../services/performance.service";
 import { getDb } from "../db";
 import {
   providerStats,
-  leaderboardRankings,
   achievements,
   performanceHistory,
   teamPerformance,
   performanceEvents,
   users,
 } from "../../drizzle/schema";
-import { eq, desc, and, gte, asc, or, inArray } from "drizzle-orm";
+import { eq, desc, and, gte, or } from "drizzle-orm";
 
 export const performanceRouter = router({
   /**
@@ -113,7 +114,7 @@ export const performanceRouter = router({
   getProviderStats: protectedProcedure
     .input(z.object({ userId: z.number().optional() }))
     .query(async ({ ctx, input }) => {
-      const targetUserId = input.userId || ctx.user.id;
+      const targetUserId = ctx.user.role === "admin" ? input.userId || ctx.user.id : ctx.user.id;
       const db = getDb() as any;
 
       const stats = await db
@@ -126,9 +127,24 @@ export const performanceRouter = router({
     }),
 
   /**
-   * Get leaderboard rankings
+   * Compare the authenticated provider with their own previous period.
+   * This is the only comparison contract used by the individual portal.
    */
-  getLeaderboard: publicProcedure
+  getMySelfComparison: protectedProcedure
+    .input(
+      z.object({
+        period: z.enum(["week", "month", "quarter", "year"]).default("month"),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      return getProviderSelfComparison({ userId: ctx.user.id, period: input.period });
+    }),
+
+  /**
+   * Retired peer leaderboard. Kept as a protected compatibility procedure so
+   * stale clients fail safely without exposing named provider data.
+   */
+  getLeaderboard: protectedProcedure
     .input(
       z.object({
         category: z.enum(["performance", "interventions", "patients_served", "training"]),
@@ -136,28 +152,11 @@ export const performanceRouter = router({
         offset: z.number().default(0),
       })
     )
-    .query(async ({ input }) => {
-      const db = getDb() as any;
-      const rankings = await db
-        .select({
-          id: leaderboardRankings.id,
-          userId: leaderboardRankings.userId,
-          rank: leaderboardRankings.rank,
-          score: leaderboardRankings.score,
-          percentile: leaderboardRankings.percentile,
-          rankChange: leaderboardRankings.rankChange,
-          userName: users.name,
-          userEmail: users.email,
-          providerType: users.providerType,
-        })
-        .from(leaderboardRankings)
-        .leftJoin(users, eq(leaderboardRankings.userId, users.id))
-        .where(eq(leaderboardRankings.category, input.category))
-        .orderBy(asc(leaderboardRankings.rank))
-        .limit(input.limit)
-        .offset(input.offset);
-
-      return rankings;
+    .query(() => {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Peer rankings are retired. Use your private period comparison instead.",
+      });
     }),
 
   /**
@@ -166,7 +165,7 @@ export const performanceRouter = router({
   getAchievements: protectedProcedure
     .input(z.object({ userId: z.number().optional() }))
     .query(async ({ ctx, input }) => {
-      const targetUserId = input.userId || ctx.user.id;
+      const targetUserId = ctx.user.role === "admin" ? input.userId || ctx.user.id : ctx.user.id;
       const db = getDb() as any;
 
       const userAchievements = await db
@@ -190,7 +189,7 @@ export const performanceRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const targetUserId = input.userId || ctx.user.id;
+      const targetUserId = ctx.user.role === "admin" ? input.userId || ctx.user.id : ctx.user.id;
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - input.days);
       const db = getDb() as any;
@@ -237,7 +236,7 @@ export const performanceRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const targetUserId = input.userId || ctx.user.id;
+      const targetUserId = ctx.user.role === "admin" ? input.userId || ctx.user.id : ctx.user.id;
       const db = getDb() as any;
 
       const events = await db
@@ -373,57 +372,28 @@ export const performanceRouter = router({
     }),
 
   /**
-   * Get top performers
+   * Retired named-provider ranking. Kept as a protected compatibility
+   * procedure so stale clients fail safely without exposing provider data.
    */
-  getTopPerformers: publicProcedure
+  getTopPerformers: protectedProcedure
     .input(z.object({ limit: z.number().default(10) }))
-    .query(async ({ input }) => {
-      const db = getDb() as any;
-      const topPerformers = await db
-        .select({
-          userId: providerStats.userId,
-          performanceScore: providerStats.performanceScore,
-          totalPatientsServed: providerStats.totalPatientsServed,
-          totalInterventions: providerStats.totalInterventions,
-          successRate: providerStats.successRate,
-          userName: users.name,
-          userEmail: users.email,
-          providerType: users.providerType,
-        })
-        .from(providerStats)
-        .leftJoin(users, eq(providerStats.userId, users.id))
-        .orderBy(desc(providerStats.performanceScore))
-        .limit(input.limit);
-
-      return topPerformers;
+    .query(() => {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Peer rankings are retired. Use your private period comparison instead.",
+      });
     }),
 
   /**
-   * Get performance comparison
+   * Retired arbitrary multi-provider comparison. Individual performance is
+   * now compared only with the provider's own previous period.
    */
   getComparison: protectedProcedure
     .input(z.object({ userIds: z.array(z.number()) }))
-    .query(async ({ input }) => {
-      const db = getDb() as any;
-      
-      if (input.userIds.length === 0) {
-        return [];
-      }
-
-      const comparison: any = await db
-        .select({
-          userId: providerStats.userId,
-          performanceScore: providerStats.performanceScore,
-          totalPatientsServed: providerStats.totalPatientsServed,
-          totalInterventions: providerStats.totalInterventions,
-          successRate: providerStats.successRate,
-          userName: users.name,
-          providerType: users.providerType,
-        })
-        .from(providerStats)
-        .leftJoin(users, eq(providerStats.userId, users.id))
-        .where(inArray(providerStats.userId, input.userIds))
-
-      return comparison;
+    .query(() => {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Peer comparison is retired. Use your private period comparison instead.",
+      });
     }),
 });

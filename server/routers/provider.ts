@@ -371,12 +371,12 @@ export const providerRouter = router({
       return { success: true };
     }),
 
-  // Get provider statistics for comparison with peers
+  // Get the authenticated provider's latest self metrics only. Peer averages
+  // and percentiles are deliberately not returned from the provider portal.
   getProviderStats: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) throw new Error("Database connection failed");
 
-    // Get current provider's metrics
     const myMetrics = await db
       .select()
       .from(providerPerformanceMetrics)
@@ -387,65 +387,7 @@ export const providerRouter = router({
       .orderBy(desc(providerPerformanceMetrics.createdAt))
       .limit(1);
 
-    // Get all providers' metrics for comparison (peer average)
-    const allMetrics = await db
-      .select()
-      .from(providerPerformanceMetrics)
-      .where(eq(providerPerformanceMetrics.period, "monthly"))
-      .orderBy(desc(providerPerformanceMetrics.createdAt));
-
-    const myStats = myMetrics[0];
-
-    // Calculate peer averages
-    const peerAverages = {
-      diagnosticAccuracy: allMetrics.length > 0
-        ? Math.round(
-            allMetrics.reduce((sum, m) => sum + Number(m.diagnosticAccuracy || 0), 0) / allMetrics.length
-          )
-        : 0,
-      avgDecisionTime: allMetrics.length > 0
-        ? Math.round(
-            allMetrics.reduce((sum, m) => sum + (m.avgDecisionTime || 0), 0) / allMetrics.length
-          )
-        : 0,
-      protocolAdherence: allMetrics.length > 0
-        ? Math.round(
-            allMetrics.reduce((sum, m) => sum + Number(m.protocolAdherence || 0), 0) / allMetrics.length
-          )
-        : 0,
-      patientSurvivalRate: allMetrics.length > 0
-        ? Math.round(
-            allMetrics.reduce((sum, m) => sum + Number(m.patientSurvivalRate || 0), 0) / allMetrics.length
-          )
-        : 0,
-    };
-
-    return {
-      myStats,
-      peerAverages,
-      comparison: {
-        diagnosticAccuracy: {
-          mine: Number(myStats?.diagnosticAccuracy || 0),
-          peers: peerAverages.diagnosticAccuracy,
-          percentile: myStats ? Math.round(((Number(myStats.diagnosticAccuracy || 0) - peerAverages.diagnosticAccuracy) / peerAverages.diagnosticAccuracy) * 100) : 0,
-        },
-        decisionSpeed: {
-          mine: myStats?.avgDecisionTime || 0,
-          peers: peerAverages.avgDecisionTime,
-          percentile: myStats && peerAverages.avgDecisionTime > 0 ? Math.round(((peerAverages.avgDecisionTime - (myStats.avgDecisionTime || 0)) / peerAverages.avgDecisionTime) * 100) : 0,
-        },
-        protocolAdherence: {
-          mine: Number(myStats?.protocolAdherence || 0),
-          peers: peerAverages.protocolAdherence,
-          percentile: myStats ? Math.round(((Number(myStats.protocolAdherence || 0) - peerAverages.protocolAdherence) / peerAverages.protocolAdherence) * 100) : 0,
-        },
-        patientSurvivalRate: {
-          mine: Number(myStats?.patientSurvivalRate || 0),
-          peers: peerAverages.patientSurvivalRate,
-          percentile: myStats ? Math.round(((Number(myStats.patientSurvivalRate || 0) - peerAverages.patientSurvivalRate) / peerAverages.patientSurvivalRate) * 100) : 0,
-        },
-      },
-    };
+    return { myStats: myMetrics[0] ?? null };
   }),
 
   // Note: a `updateMyCohortDesignation` mutation used to live here (from the

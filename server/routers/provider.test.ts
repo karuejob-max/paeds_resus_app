@@ -70,7 +70,9 @@ describe("Provider Router", () => {
         updateData.bio,
       ];
       const completionPercentage = Math.round(
-        (fields.filter(f => f !== undefined && f !== null).length / fields.length) * 100
+        (fields.filter(f => f !== undefined && f !== null).length /
+          fields.length) *
+          100
       );
 
       expect(completionPercentage).toBe(100);
@@ -97,7 +99,9 @@ describe("Provider Router", () => {
         updateData.bio,
       ];
       const completionPercentage = Math.round(
-        (fields.filter(f => f !== undefined && f !== null).length / fields.length) * 100
+        (fields.filter(f => f !== undefined && f !== null).length /
+          fields.length) *
+          100
       );
 
       expect(completionPercentage).toBe(57); // 4 out of 7 fields
@@ -107,9 +111,27 @@ describe("Provider Router", () => {
   describe("getPerformanceMetrics", () => {
     it("should filter metrics by period", () => {
       const metrics = [
-        { id: 1, userId: 1, period: "daily", decisionsLogged: 5, createdAt: new Date() },
-        { id: 2, userId: 1, period: "weekly", decisionsLogged: 35, createdAt: new Date() },
-        { id: 3, userId: 1, period: "monthly", decisionsLogged: 150, createdAt: new Date() },
+        {
+          id: 1,
+          userId: 1,
+          period: "daily",
+          decisionsLogged: 5,
+          createdAt: new Date(),
+        },
+        {
+          id: 2,
+          userId: 1,
+          period: "weekly",
+          decisionsLogged: 35,
+          createdAt: new Date(),
+        },
+        {
+          id: 3,
+          userId: 1,
+          period: "monthly",
+          decisionsLogged: 150,
+          createdAt: new Date(),
+        },
       ];
 
       const filteredDaily = metrics.filter(m => m.period === "daily");
@@ -123,58 +145,20 @@ describe("Provider Router", () => {
   });
 
   describe("getProviderStats", () => {
-    it("should calculate peer averages correctly", () => {
-      const allMetrics = [
-        { diagnosticAccuracy: "85.5", protocolAdherence: "90.0", avgDecisionTime: 120, patientSurvivalRate: "92.5" },
-        { diagnosticAccuracy: "82.0", protocolAdherence: "88.5", avgDecisionTime: 135, patientSurvivalRate: "90.0" },
-        { diagnosticAccuracy: "87.5", protocolAdherence: "92.0", avgDecisionTime: 110, patientSurvivalRate: "94.0" },
-      ];
-
-      const peerAverages = {
-        diagnosticAccuracy: Math.round(
-          allMetrics.reduce((sum, m) => sum + Number(m.diagnosticAccuracy), 0) / allMetrics.length
-        ),
-        avgDecisionTime: Math.round(
-          allMetrics.reduce((sum, m) => sum + m.avgDecisionTime, 0) / allMetrics.length
-        ),
-        protocolAdherence: Math.round(
-          allMetrics.reduce((sum, m) => sum + Number(m.protocolAdherence), 0) / allMetrics.length
-        ),
-        patientSurvivalRate: Math.round(
-          allMetrics.reduce((sum, m) => sum + Number(m.patientSurvivalRate), 0) / allMetrics.length
-        ),
+    it("keeps the provider response self-only", () => {
+      const response = {
+        myStats: {
+          userId: 123,
+          diagnosticAccuracy: "87.5",
+          protocolAdherence: "92.0",
+          avgDecisionTime: 110,
+        },
       };
 
-      expect(peerAverages.diagnosticAccuracy).toBe(85);
-      expect(peerAverages.avgDecisionTime).toBe(122);
-      expect(peerAverages.protocolAdherence).toBe(90);
-      expect(peerAverages.patientSurvivalRate).toBe(92);
-    });
-
-    it("should calculate percentile differences correctly", () => {
-      const myStats = {
-        diagnosticAccuracy: "87.5",
-        avgDecisionTime: 110,
-        protocolAdherence: "92.0",
-        patientSurvivalRate: "94.0",
-      };
-
-      const peerAverages = {
-        diagnosticAccuracy: 85,
-        avgDecisionTime: 122,
-        protocolAdherence: 90,
-        patientSurvivalRate: 92,
-      };
-
-      const diagnosticPercentile = Math.round(
-        ((Number(myStats.diagnosticAccuracy) - peerAverages.diagnosticAccuracy) / peerAverages.diagnosticAccuracy) * 100
-      );
-      expect(diagnosticPercentile).toBe(3); // 2.94% rounded
-
-      const speedPercentile = Math.round(
-        ((peerAverages.avgDecisionTime - myStats.avgDecisionTime) / peerAverages.avgDecisionTime) * 100
-      );
-      expect(speedPercentile).toBe(10); // 9.84% rounded
+      expect(response).toHaveProperty("myStats");
+      expect(response).not.toHaveProperty("peerAverages");
+      expect(response).not.toHaveProperty("comparison");
+      expect(response.myStats.userId).toBe(123);
     });
   });
 
