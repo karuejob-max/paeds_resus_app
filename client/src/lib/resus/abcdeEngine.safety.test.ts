@@ -6,6 +6,10 @@ import {
   POST_CARDIAC_ARREST_CARE_ITEMS,
   updatePostCardiacArrestCare,
   resolveBlsAssessment,
+  returnToPrimarySurvey,
+  getBlockingPrimarySurveyInterventions,
+  getInterventionsAwaitingReassessment,
+  type Threat,
 } from './abcdeEngine';
 
 describe('canonical ResusGPS engine safety boundaries', () => {
@@ -55,5 +59,63 @@ describe('canonical ResusGPS engine safety boundaries', () => {
     const reopened = updatePostCardiacArrestCare(session, POST_CARDIAC_ARREST_CARE_ITEMS[0].id, false);
     expect(reopened.postCardiacArrestCare?.completedItemIds).not.toContain(POST_CARDIAC_ARREST_CARE_ITEMS[0].id);
     expect(reopened.postCardiacArrestCare?.completedAt).toBeUndefined();
+  });
+
+  it('blocks Primary Survey continuation while an urgent action is unresolved', () => {
+    const session = createSession(20, '5 years');
+    const threat: Threat = {
+      id: 'test-airway-threat',
+      letter: 'A',
+      name: 'Test airway threat',
+      severity: 'urgent',
+      resolved: false,
+      findings: [],
+      interventions: [{ id: 'test-intervention', action: 'Position airway', critical: true, status: 'pending' }],
+    };
+    session.phase = 'INTERVENTION';
+    session.currentLetter = 'A';
+    session.threats = [threat];
+
+    expect(getBlockingPrimarySurveyInterventions(session)).toHaveLength(1);
+    expect(returnToPrimarySurvey(session).phase).toBe('INTERVENTION');
+  });
+
+  it('requires an explicit reassessment outcome after a completed intervention', () => {
+    const session = createSession(20, '5 years');
+    const threat: Threat = {
+      id: 'test-shock-threat',
+      letter: 'C',
+      name: 'Test shock threat',
+      severity: 'critical',
+      resolved: false,
+      findings: [],
+      interventions: [{
+        id: 'test-fluid',
+        action: 'FLUID BOLUS — test crystalloid',
+        status: 'completed',
+        completedAt: Date.now(),
+        reassessmentChecks: [{
+          id: 'test-check',
+          question: 'Still in shock?',
+          type: 'therapeutic_endpoint',
+          options: [{ label: 'Improving', value: 'improving', action: 'resolved' }],
+        }],
+      }],
+    };
+    session.phase = 'INTERVENTION';
+    session.currentLetter = 'C';
+    session.threats = [threat];
+
+    expect(getInterventionsAwaitingReassessment(session)).toHaveLength(1);
+    expect(returnToPrimarySurvey(session).phase).toBe('INTERVENTION');
+
+    session.events.push({
+      timestamp: Date.now(),
+      type: 'reassessment',
+      detail: 'Still in shock? → Improving',
+      data: { interventionId: 'test-fluid' },
+    });
+    expect(getInterventionsAwaitingReassessment(session)).toHaveLength(0);
+    expect(returnToPrimarySurvey(session).phase).toBe('PRIMARY_SURVEY');
   });
 });

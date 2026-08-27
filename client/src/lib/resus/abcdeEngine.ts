@@ -250,6 +250,7 @@ export interface ResusSession {
   rigorConditionCandidates?: string[];
   /** After fluid bolus — structured reassessment required before continuing */
   pendingFluidReassessment?: boolean;
+  pendingFluidReassessmentInterventionId?: string;
   fluidReassessmentEvidence?: Record<string, { status: 'value'; value: string } | { status: 'not_available' } | { status: 'present' } | { status: 'absent' }>;
   /** Parent-owned post-ROSC checklist; optional for backward-compatible persisted sessions. */
   postCardiacArrestCare?: PostCardiacArrestCare;
@@ -1892,6 +1893,10 @@ export function answerPrimarySurvey(
   numericValue?: number,
   numericValue2?: number,
 ): ResusSession {
+  // A fluid bolus reassessment is a hard clinical gate. Ignore stale answer
+  // events while it is open; the UI also hides the underlying survey question.
+  if (session.pendingFluidReassessment) return session;
+
   const next = deepCopy(session);
 
   let severity: Severity = 'monitor';
@@ -2042,6 +2047,7 @@ export function completeIntervention(session: ResusSession, interventionId: stri
           });
           log(next, 'note', `Fluid tracker: ${Math.round(next.fluidTracker.totalVolumePerKg)} mL/kg total (${next.fluidTracker.bolusCount} boluses)`);
           next.pendingFluidReassessment = true;
+          next.pendingFluidReassessmentInterventionId = intervention.id;
           next.fluidReassessmentEvidence = {};
         }
       }
@@ -2143,6 +2149,26 @@ export function markInterventionUnavailable(
 export function returnToPrimarySurvey(session: ResusSession): ResusSession {
   const next = deepCopy(session);
 
+  // Never advance from an intervention state while a required action or
+  // reassessment is unresolved. This guard is intentionally in the engine,
+  // not only in the React button, so persisted/stale UI cannot skip it.
+  const pendingActions = getBlockingPrimarySurveyInterventions(next);
+  const pendingReassessments = getInterventionsAwaitingReassessment(next);
+  if (next.pendingFluidReassessment || pendingActions.length > 0 || pendingReassessments.length > 0) {
+    next.phase = 'INTERVENTION';
+    log(
+      next,
+      'note',
+      next.pendingFluidReassessment
+        ? 'Primary Survey held — fluid reassessment required'
+        : pendingActions.length > 0
+          ? `Primary Survey held — ${pendingActions.length} required intervention(s) unresolved`
+          : `Primary Survey held — ${pendingReassessments.length} reassessment(s) required`,
+      next.currentLetter,
+    );
+    return next;
+  }
+
   const letterQuestions = primarySurveyQuestions[next.currentLetter];
   const answeredIds = next.findings.map(f => f.id);
   const allAnswered = letterQuestions.every(q => answeredIds.includes(q.id));
@@ -2196,8 +2222,10 @@ export function setStructuredClinicalEvidence(
 
 export function completeFluidReassessment(session: ResusSession): ResusSession {
   const next = deepCopy(session);
+  const interventionId = next.pendingFluidReassessmentInterventionId;
   next.pendingFluidReassessment = false;
-  log(next, 'reassessment', 'Fluid bolus reassessment evidence complete');
+  next.pendingFluidReassessmentInterventionId = undefined;
+  log(next, 'reassessment', 'Fluid bolus reassessment evidence complete', undefined, interventionId ? { interventionId } : undefined);
   return next;
 }
 
@@ -2371,6 +2399,46 @@ export function getAllPendingCritical(session: ResusSession): { threat: Threat; 
       if ((intervention.status === 'pending' || intervention.status === 'in_progress') && intervention.critical) {
         result.push({ threat, intervention });
       }
+    }
+  }
+  return result;
+}
+
+/**
+ * Required actions that must be disposed before the survey can advance.
+ * Critical/urgent active threats are deliberately fail-closed; monitoring-only
+ * interventions remain visible but do not block progression.
+ */
+export function getBlockingPrimarySurveyInterventions(session: ResusSession): { threat: Threat; intervention: Intervention }[] {
+  const result: { threat: Threat; intervention: Intervention }[] = [];
+  for (const threat of getActiveThreats(session)) {
+    if (threat.severity !== 'critical' && threat.severity !== 'urgent') continue;
+    for (const intervention of threat.interventions) {
+      if (intervention.status === 'pending' || intervention.status === 'in_progress') {
+        result.push({ threat, intervention });
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Completed interventions with governed reassessment checks remain blocking
+ * until at least one explicit reassessment outcome is recorded for that
+ * intervention. The fluid tracker has a separate hard gate on the session.
+ */
+export function getInterventionsAwaitingReassessment(session: ResusSession): { threat: Threat; intervention: Intervention }[] {
+  const result: { threat: Threat; intervention: Intervention }[] = [];
+  for (const threat of session.threats) {
+    for (const intervention of threat.interventions) {
+      if (intervention.status !== 'completed' || !intervention.reassessmentChecks?.length) continue;
+      const hasLoggedOutcome = session.events.some(
+        (event) =>
+          event.type === 'reassessment' &&
+          (event.data?.interventionId === intervention.id ||
+            (intervention.action.includes('FLUID BOLUS') && event.detail === 'Fluid bolus reassessment evidence complete')),
+      );
+      if (!hasLoggedOutcome) result.push({ threat, intervention });
     }
   }
   return result;

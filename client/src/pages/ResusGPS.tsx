@@ -72,6 +72,8 @@ import {
   getActiveThreats,
   getPendingInterventions,
   getAllPendingCritical,
+  getBlockingPrimarySurveyInterventions,
+  getInterventionsAwaitingReassessment,
   getSuggestedDiagnoses,
   triggerCardiacArrest,
   achieveROSC,
@@ -410,6 +412,8 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   const weight = session.patientWeight;
   const activeThreats = useMemo(() => getActiveThreats(session), [session]);
   const criticalPending = useMemo(() => getAllPendingCritical(session), [session]);
+  const blockingInterventions = useMemo(() => getBlockingPrimarySurveyInterventions(session), [session]);
+  const pendingReassessments = useMemo(() => getInterventionsAwaitingReassessment(session), [session]);
   const diagnoses = useMemo(() => getSuggestedDiagnoses(session), [session]);
   const unackedAlerts = session.safetyAlerts.filter(a => !a.acknowledged);
 
@@ -641,10 +645,23 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   };
 
   const handleReturnToPrimarySurvey = () => {
-    setSession(prev => returnToPrimarySurvey(prev));
+    if (session.pendingFluidReassessment || blockingInterventions.length > 0 || pendingReassessments.length > 0) {
+      toast.error(
+        session.pendingFluidReassessment
+          ? 'Complete the fluid reassessment before continuing the survey.'
+          : blockingInterventions.length > 0
+            ? 'Complete or document the required intervention before continuing the survey.'
+            : 'Log an explicit reassessment outcome before continuing the survey.',
+        { duration: 4500 },
+      );
+      return;
+    }
+    const next = returnToPrimarySurvey(session);
+    setSession(next);
     setReassessmentMode(null);
-    // Track reassessment performed
-    analytics.trackReassessmentPerformed();
+    if (next.phase !== session.phase || next.currentLetter !== session.currentLetter) {
+      analytics.trackReassessmentPerformed();
+    }
   };
 
   const handleNumberInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'numberInput' | 'numberInput2') => {
@@ -1313,6 +1330,14 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
         onOpenMCIBoard={() => setShowMCIBoard(true)}
       />
 
+      {(session.phase === 'PRIMARY_SURVEY' || session.phase === 'INTERVENTION' || session.phase === 'SECONDARY_SURVEY') && (
+        <SurveyStatusStrip
+          session={session}
+          blockingInterventions={blockingInterventions}
+          pendingReassessments={pendingReassessments}
+        />
+      )}
+
       {nextStepBanner && session.phase !== 'IDLE' && (
         <ResusGpsNextStepBanner
           banner={nextStepBanner}
@@ -1322,18 +1347,6 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
             const threat = session.threats.find((t) => t.interventions.some((i) => i.id === interventionId));
             if (threat) setExpandedThreat(threat.id);
           }}
-          onDismissReassessment={
-            nextStepBanner.kind === 'reassessment' && nextStepBanner.interventionId
-              ? () => {
-                  setDismissedReassessmentIds((prev) => {
-                    const next = new Set(prev);
-                    next.add(nextStepBanner.interventionId!);
-                    return next;
-                  });
-                  setPendingReassessmentId(null);
-                }
-              : undefined
-          }
         />
       )}
 
@@ -1443,6 +1456,12 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
             onStart={handleStartIntervention}
             onReturnToPrimary={handleReturnToPrimarySurvey}
             onOpenPanel={() => setInterventionPanelOpen(true)}
+            onOpenReassessment={(interventionId) => {
+              setReassessmentMode({ interventionId, checkIndex: 0 });
+              setInterventionPanelOpen(true);
+              const threat = session.threats.find((t) => t.interventions.some((i) => i.id === interventionId));
+              if (threat) setExpandedThreat(threat.id);
+            }}
           />
         )}
 
@@ -2208,6 +2227,83 @@ function IdleScreen({
   );
 }
 
+// ─── Survey Status Strip ────────────────────────────────────
+
+function SurveyStatusStrip({
+  session,
+  blockingInterventions,
+  pendingReassessments,
+}: {
+  session: ResusSession;
+  blockingInterventions: { threat: Threat; intervention: Intervention }[];
+  pendingReassessments: { threat: Threat; intervention: Intervention }[];
+}) {
+  const letterOrder: ABCDELetter[] = ['X', 'A', 'B', 'C', 'D', 'E'];
+  const currentIdx = letterOrder.indexOf(session.currentLetter);
+  const resourceGapCount = session.events.filter((event) => event.type === 'resource_unavailable').length;
+  const isSecondary = session.phase === 'SECONDARY_SURVEY';
+  const secondarySteps = ['SAMPLE', 'Evidence', 'Diagnosis'];
+  const secondaryStepIndex = session.secondarySurveyStep === 'evidence' ? 1 : session.secondarySurveyStep === 'diagnosis' ? 2 : 0;
+
+  return (
+    <div className="sticky top-[var(--resus-topbar-offset,3rem)] z-30 border-b border-border bg-background/95 px-3 py-2 backdrop-blur-sm">
+      <div className="container max-w-2xl space-y-2">
+        <div className="flex items-center justify-between gap-2 text-[11px]">
+          <span className="font-semibold uppercase tracking-wide text-foreground">
+            {isSecondary ? 'Secondary Survey' : `Primary Survey · ${session.currentLetter}`}
+          </span>
+          <span className="text-muted-foreground">
+            {blockingInterventions.length > 0
+              ? `${blockingInterventions.length} action${blockingInterventions.length === 1 ? '' : 's'} pending`
+              : pendingReassessments.length > 0
+                ? `${pendingReassessments.length} reassessment${pendingReassessments.length === 1 ? '' : 's'} due`
+                : resourceGapCount > 0
+                  ? `${resourceGapCount} resource gap${resourceGapCount === 1 ? '' : 's'} logged`
+                  : 'Proceed in order'}
+          </span>
+        </div>
+        {isSecondary ? (
+          <div className="grid grid-cols-3 gap-1" aria-label="Secondary Survey progress">
+            {secondarySteps.map((step, index) => (
+              <div
+                key={step}
+                className={cn(
+                  'rounded px-2 py-1 text-center text-[10px] font-semibold',
+                  index === secondaryStepIndex
+                    ? 'bg-primary/15 text-primary ring-1 ring-primary/40'
+                    : index < secondaryStepIndex
+                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                      : 'bg-muted text-muted-foreground',
+                )}
+              >
+                {index < secondaryStepIndex ? '✓ ' : ''}{step}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-6 gap-1" aria-label="Primary Survey progress">
+            {letterOrder.map((letter, index) => (
+              <div
+                key={letter}
+                className={cn(
+                  'rounded px-1 py-1 text-center text-[10px] font-bold',
+                  index === currentIdx
+                    ? `${LETTER_CONFIG[letter].bgColor} ${LETTER_CONFIG[letter].color} ring-1 ring-current`
+                    : index < currentIdx
+                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                      : 'bg-muted text-muted-foreground',
+                )}
+              >
+                {index < currentIdx ? '✓ ' : ''}{letter}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Primary Survey Screen ──────────────────────────────────
 
 function PrimarySurveyScreen({
@@ -2581,6 +2677,7 @@ function InterventionScreen({
   onStart,
   onReturnToPrimary,
   onOpenPanel,
+  onOpenReassessment,
 }: {
   session: ResusSession;
   weight: number | null;
@@ -2589,10 +2686,13 @@ function InterventionScreen({
   onStart: (id: string) => void;
   onReturnToPrimary: () => void;
   onOpenPanel: () => void;
+  onOpenReassessment: (interventionId: string) => void;
 }) {
-  const criticalPending = getAllPendingCritical(session);
+  const blockingActions = getBlockingPrimarySurveyInterventions(session);
+  const awaitingReassessment = getInterventionsAwaitingReassessment(session);
   const activeThreats = getActiveThreats(session);
   const phaseHint = getResusPhaseGuidance(session);
+  const canContinue = blockingActions.length === 0 && awaitingReassessment.length === 0 && !session.pendingFluidReassessment;
 
   return (
     <div className="py-6">
@@ -2609,14 +2709,14 @@ function InterventionScreen({
         <div>
           <h2 className="text-xl font-bold text-foreground">Interventions Required</h2>
           <p className="text-sm text-muted-foreground">
-            {criticalPending.length} critical action{criticalPending.length !== 1 ? 's' : ''} pending
+            {blockingActions.length} required action{blockingActions.length !== 1 ? 's' : ''} pending
           </p>
         </div>
       </div>
 
       {/* Critical interventions first */}
       <div className="space-y-3 mb-6">
-        {criticalPending.map(({ threat, intervention }) => (
+        {blockingActions.map(({ threat, intervention }) => (
           <Card key={intervention.id} className="bg-card border-red-500/20">
             <CardContent className="pt-4 pb-4">
               <div className="flex items-start gap-3">
@@ -2669,6 +2769,31 @@ function InterventionScreen({
         ))}
       </div>
 
+      {awaitingReassessment.length > 0 && (
+        <Card className="mb-4 border-cyan-500/40 bg-cyan-500/10">
+          <CardContent className="pt-4 pb-4 space-y-3">
+            <div>
+              <p className="font-semibold text-foreground text-sm">Reassessment required before continuing</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Treatment completion is not treatment success. Record the next clinical outcome explicitly.
+              </p>
+            </div>
+            {awaitingReassessment.map(({ threat, intervention }) => (
+              <Button
+                key={intervention.id}
+                type="button"
+                variant="secondary"
+                className="w-full justify-between text-left h-auto py-3"
+                onClick={() => onOpenReassessment(intervention.id)}
+              >
+                <span className="min-w-0 truncate">{threat.letter} · {intervention.action}</span>
+                <Stethoscope className="h-4 w-4 shrink-0 ml-2" aria-hidden />
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Actions */}
       <div className="space-y-3">
         <Button
@@ -2682,8 +2807,9 @@ function InterventionScreen({
         <Button
           className="w-full py-4"
           onClick={onReturnToPrimary}
+          disabled={!canContinue}
         >
-          Continue Primary Survey
+          {canContinue ? 'Continue Primary Survey' : 'Resolve required actions first'}
           <ChevronRight className="h-4 w-4 ml-2" />
         </Button>
       </div>
@@ -2876,6 +3002,12 @@ function PostPrimaryScreen({
   const diagnosisUnlocked = canShowDiagnosisSelection(session) || Boolean(session.definitiveDiagnosis);
   const showActivationHandoff = hasActivationContext && (diagnosisUnlocked || session.phase === 'ONGOING');
   const postRoscOccurred = session.events.some((event) => event.type === 'rosc');
+  const [showFellowshipCatalog, setShowFellowshipCatalog] = useState(false);
+  const secondaryAction = surveyStep === 'sample'
+    ? 'Capture the current symptoms and SAMPLE history needed for handover.'
+    : surveyStep === 'evidence'
+      ? 'Document available diagnostic evidence; do not guess missing results.'
+      : 'Select a working diagnosis only after the structured history and evidence gate is complete.';
 
   const handleOpenActivationPanel = () => {
     document.getElementById('iers-activation-context')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3057,6 +3189,14 @@ function PostPrimaryScreen({
 
       {/* Secondary survey — SAMPLE → evidence → diagnosis (before any diagnosis selection) */}
       {session.phase === 'SECONDARY_SURVEY' && !session.definitiveDiagnosis && (
+        <>
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">What to do now</p>
+            <p className="text-sm font-medium text-foreground mt-1">{secondaryAction}</p>
+            <p className="text-xs text-muted-foreground mt-1">Use the IERS handoff after the survey; do not enter patient identifiers in reports.</p>
+          </CardContent>
+        </Card>
         <Card className="bg-card border-primary/30 border-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-foreground">Secondary survey — step {surveyStep === 'sample' ? '1' : surveyStep === 'evidence' ? '2' : '3'} of 3</CardTitle>
@@ -3100,6 +3240,20 @@ function PostPrimaryScreen({
             )}
           </CardContent>
         </Card>
+        {hasActivationContext && (
+          <Card className="border-indigo-300 bg-indigo-50/30 dark:bg-indigo-950/20">
+            <CardContent className="py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Handover minimum available</p>
+                <p className="text-xs text-muted-foreground">Open the linked IERS role report now; diagnosis and fellowship care can follow.</p>
+              </div>
+              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={handleOpenActivationPanel}>
+                Open IERS role report
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+        </>
       )}
 
       {/* Documented diagnoses (primary + co-diagnoses) */}
@@ -3283,14 +3437,27 @@ function PostPrimaryScreen({
           )}
 
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Fellowship micro-course conditions
-            </p>
-            <p className="text-[11px] text-muted-foreground">
-              Choose the condition that best matches this case. Each requires at least 3 saved ResusGPS cases for
-              fellowship credit.
-            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-between text-left h-auto py-3"
+              onClick={() => setShowFellowshipCatalog((open) => !open)}
+              aria-expanded={showFellowshipCatalog}
+            >
+              <span>
+                <span className="block text-xs font-medium uppercase tracking-wide">Optional fellowship catalog</span>
+                <span className="block text-[11px] text-muted-foreground mt-1">
+                  {showFellowshipCatalog ? 'Hide condition catalog' : 'Open only when selecting a fellowship condition'}
+                </span>
+              </span>
+              {showFellowshipCatalog ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
+            </Button>
+            {showFellowshipCatalog && (
             <div className="space-y-2 max-h-[min(24rem,50vh)] overflow-y-auto pr-1">
+              <p className="text-[11px] text-muted-foreground">
+                Choose the condition that best matches this case. Each requires at least 3 saved ResusGPS cases for
+                fellowship credit.
+              </p>
               {FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS.map((cond) => {
                 const isPrimary = primaryFellowshipId === cond.id;
                 const isCoDiagnosis = (session.concurrentDiagnoses ?? []).some(
@@ -3349,6 +3516,7 @@ function PostPrimaryScreen({
                 );
               })}
             </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -3757,13 +3925,12 @@ function ReassessmentFlow({
   };
 
   return (
-    <div className="mt-2 bg-accent/30 rounded-lg p-3 border border-border">
-      <div className="flex items-center justify-between mb-2">
+          <div className="mt-2 bg-accent/30 rounded-lg p-3 border border-border">
+      <div className="mb-2">
         <p className="text-xs font-semibold text-foreground">{check.question}</p>
-        <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={onClose}>
-          <X className="h-3 w-3" />
-        </Button>
+        <p className="text-[11px] text-muted-foreground mt-1">Choose an explicit outcome. This check cannot be dismissed without recording what happened.</p>
       </div>
+
       <div className="space-y-2">
         {check.options.map(option => (
           <button
