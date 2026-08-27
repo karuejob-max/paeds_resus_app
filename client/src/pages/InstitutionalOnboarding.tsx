@@ -14,6 +14,8 @@ import { getLoginUrl } from "@/const";
 import { LegalExternalLink } from "@/components/LegalExternalLink";
 import { FacilityAutocomplete } from "@/components/FacilityAutocomplete";
 import { DepartmentSelectors } from "@/components/DepartmentSelectors";
+import { validateSecondAdminContact } from "@/lib/institutionOnboardingValidation";
+
 
 export default function InstitutionalOnboarding() {
   const [, navigate] = useLocation();
@@ -88,6 +90,13 @@ export default function InstitutionalOnboarding() {
       setError("Confirm at least one facility department so IERS and CPD use the same department list.");
       return;
     }
+    if (step === 2) {
+      const secondAdminError = validateSecondAdminContact(formData);
+      if (secondAdminError) {
+        setError(secondAdminError);
+        return;
+      }
+    }
 
     setError("");
     setStep((currentStep) => currentStep + 1);
@@ -106,6 +115,14 @@ export default function InstitutionalOnboarding() {
 
     if (!formData.agreeToTerms) {
       setError("You must agree to the terms and conditions");
+      setLoading(false);
+      return;
+    }
+
+    const secondAdminError = validateSecondAdminContact(formData);
+    if (secondAdminError) {
+      setError(secondAdminError);
+      setStep(2);
       setLoading(false);
       return;
     }
@@ -137,9 +154,9 @@ export default function InstitutionalOnboarding() {
         contactEmail: formData.contactEmail,
         contactPhone: formData.contactPhone,
         contactDesignation: formData.contactDesignation,
-        secondAdminName: formData.secondAdminName,
-        secondAdminEmail: formData.secondAdminEmail,
-        secondAdminPhone: formData.secondAdminPhone || undefined,
+        secondAdminName: formData.secondAdminName.trim(),
+        secondAdminEmail: formData.secondAdminEmail.trim(),
+        secondAdminPhone: formData.secondAdminPhone.trim() || undefined,
         programInterest: formData.programInterest,
         departmentNames: formData.departmentNames.filter((name) => name.trim().length >= 2),
       });
@@ -214,18 +231,17 @@ export default function InstitutionalOnboarding() {
         {/* Form */}
         <Card className="p-6 md:p-8 shadow-md border-border">
           <form onSubmit={handleSubmit}>
+            {error && (
+              <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4" role="alert" aria-live="polite">
+                <AlertCircle className="mt-0.5 text-red-600" size={20} />
+                <p className="text-red-800">{error}</p>
+              </div>
+            )}
             {/* Step 1: Institution Details */}
             {step === 1 && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-foreground mb-2">Institution details</h2>
                 <p className="text-sm text-muted-foreground mb-4">Country defaults to Kenya; change it if your facility is elsewhere.</p>
-
-                {error && (
-                  <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <AlertCircle className="text-red-600 mt-0.5" size={20} />
-                    <p className="text-red-800">{error}</p>
-                  </div>
-                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
@@ -413,12 +429,11 @@ export default function InstitutionalOnboarding() {
                 </div>
 
                 <div className="border-t pt-6 mt-2">
-                  <h3 className="text-lg font-semibold text-foreground">Second admin contact</h3>
+                  <h3 className="text-lg font-semibold text-foreground">Second administrator contact <span className="text-destructive">*</span></h3>
                   <p className="text-sm text-muted-foreground mb-4">
-                    This account belongs to your institution, not to one person. A second named admin
-                    protects your access — if you become unreachable, they can still manage the account.
-                    We'll invite them by email; they'll be added automatically if they already have an
-                    account, or on their next sign-in if they don't yet.
+                    Every institution needs two named administrators. Add a different person who can manage
+                    the account if the primary contact is unavailable. We will invite them by email; they
+                    will be linked automatically if they already have an account, or when they first sign in.
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
@@ -509,17 +524,10 @@ export default function InstitutionalOnboarding() {
                     <p><strong>Location:</strong> {formData.city}, {formData.country}</p>
                     <p><strong>Staff Count:</strong> {formData.healthcareStaffCount}</p>
                     <p><strong>Contact:</strong> {formData.contactName} ({formData.contactDesignation})</p>
-                    <p><strong>Second admin:</strong> {formData.secondAdminName} ({formData.secondAdminEmail})</p>
+                    <p><strong>Second administrator:</strong> {formData.secondAdminName.trim()} ({formData.secondAdminEmail.trim()})</p>
                     <p><strong>Programs:</strong> {formData.programInterest.join(", ") || "None selected"}</p>
                   </div>
                 </Card>
-
-                {error && (
-                  <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <AlertCircle className="text-red-600 mt-0.5" size={20} />
-                    <p className="text-red-800">{error}</p>
-                  </div>
-                )}
 
                 <div className="space-y-4">
                   <div className="flex items-start gap-3 p-4 bg-brand-surface/80 border border-border rounded-lg">

@@ -209,6 +209,32 @@ describe("Institution Router", () => {
         alreadyRegistered: false,
       });
     });
+
+    it("rejects a blank second administrator with an actionable validation error", async () => {
+      institutionDbMock.mockState.limitRows = [];
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      await expect(
+        caller.institution.completeOnboarding({
+          institutionName: "New Test Hospital",
+          institutionType: "private_hospital",
+          registrationNumber: "",
+          healthcareStaffCount: 25,
+          country: "Kenya",
+          city: "Nairobi",
+          address: "1 Test Street",
+          contactName: "Primary Admin",
+          contactEmail: "primary@new-test-hospital.example",
+          contactPhone: "+254700000001",
+          contactDesignation: "Hospital Administrator",
+          secondAdminName: "",
+          secondAdminEmail: "",
+          secondAdminPhone: "",
+          programInterest: ["bls"],
+        }),
+      ).rejects.toThrow("A second named administrator is required");
+    });
   });
 
   describe("bulkImportStaff", () => {

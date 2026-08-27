@@ -2163,10 +2163,10 @@ export const institutionRouter = router({
         country: z.string().min(1),
         city: z.string().min(1),
         address: z.string().min(1),
-        contactName: z.string().min(1),
-        contactEmail: z.string().email(),
-        contactPhone: z.string().min(1),
-        contactDesignation: z.string().min(1),
+        contactName: z.string().trim().min(1),
+        contactEmail: z.string().trim().email(),
+        contactPhone: z.string().trim().min(1),
+        contactDesignation: z.string().trim().min(1),
         programInterest: z.array(z.string()),
         /**
          * North Star §6.1: "A minimum of two named admin contacts must
@@ -2174,10 +2174,15 @@ export const institutionRouter = router({
          * account going forward — existing accounts registered before this
          * field existed are grandfathered (see the multi-admin dashboard
          * prompt to add one, not a hard block on existing active accounts).
+         * Keep these messages actionable: the browser validates before submit,
+         * but this server contract must remain safe for every client.
          */
-        secondAdminName: z.string().min(1),
-        secondAdminEmail: z.string().email(),
-        secondAdminPhone: z.string().optional(),
+        secondAdminName: z.string().trim().min(1, "A second named administrator is required."),
+        secondAdminEmail: z.string().trim().email("Enter a valid email address for the second administrator."),
+        secondAdminPhone: z.preprocess(
+          (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+          z.string().trim().optional()
+        ),
         /** Canonical IERS departments confirmed by the institutional admin during setup. */
         departmentNames: z.array(z.string().trim().min(2).max(128)).max(100).default([]),
       })
