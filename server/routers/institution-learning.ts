@@ -270,6 +270,55 @@ export const institutionLearningRouter = router({
         : rows;
     }),
 
+  listDepartmentStaff: protectedProcedure
+    .input(
+      z.object({
+        institutionId: z.number().int().positive(),
+        departmentId: z.number().int().positive().optional(),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await requireDb();
+      const access = await assertLearningAccess(
+        db,
+        ctx.user,
+        input.institutionId,
+        [
+          "cpd_coordinator",
+          "cpd_education_coordinator",
+          "cpd_reviewer",
+          "cpd_reporter",
+          "cpd_viewer",
+        ],
+        { allowDepartmentHead: true }
+      );
+      if (input.departmentId != null && access.departmentIds && !access.departmentIds.includes(input.departmentId)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can only view staff in your assigned department(s).",
+        });
+      }
+      const predicates = [
+        eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+        sql`${institutionalStaffMembers.removedAt} IS NULL`,
+      ];
+      if (input.departmentId != null) predicates.push(eq(institutionalStaffMembers.facilityDepartmentId, input.departmentId));
+      if (access.departmentIds) predicates.push(inArray(institutionalStaffMembers.facilityDepartmentId, access.departmentIds));
+      return db
+        .select({
+          id: institutionalStaffMembers.id,
+          userId: institutionalStaffMembers.userId,
+          staffName: institutionalStaffMembers.staffName,
+          staffEmail: institutionalStaffMembers.staffEmail,
+          staffRole: institutionalStaffMembers.staffRole,
+          department: institutionalStaffMembers.department,
+          facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+        })
+        .from(institutionalStaffMembers)
+        .where(and(...predicates))
+        .orderBy(asc(institutionalStaffMembers.staffName));
+    }),
+
   listEducationCoordinators: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive() }))
     .query(async ({ input, ctx }) => {
@@ -347,7 +396,10 @@ export const institutionLearningRouter = router({
           message: "Active department not found in this institution.",
         });
       const [staff] = await db
-        .select({ userId: institutionalStaffMembers.userId })
+        .select({
+          userId: institutionalStaffMembers.userId,
+          facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+        })
         .from(institutionalStaffMembers)
         .where(
           and(
@@ -365,6 +417,12 @@ export const institutionLearningRouter = router({
           code: "BAD_REQUEST",
           message:
             "Education Coordinators must be active institution staff with a linked account.",
+        });
+      if (staff.facilityDepartmentId !== input.departmentId)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Select a linked staff member whose active department matches the assignment.",
         });
       const [existing] = await db
         .select({ id: institutionEducationCoordinators.id })

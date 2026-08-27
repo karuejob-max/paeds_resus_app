@@ -8,6 +8,9 @@ import {
   Search,
   ShieldCheck,
   XCircle,
+  PlusCircle,
+  UserPlus,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +61,26 @@ export default function AdminNerpVerification() {
     institutionId: 3,
     limit: 200,
   });
+  const externalQueue = trpc.nerp.getExternalVerificationQueue.useQuery({
+    institutionalAccountId: 3,
+    search: submittedSearch || undefined,
+    limit: 100,
+  });
+  const suppressions = trpc.nerp.listCampaignSuppressions.useQuery({
+    institutionalAccountId: 3,
+    includeInactive: false,
+  });
+  const [externalCandidateName, setExternalCandidateName] = useState("");
+  const [externalCandidateEmail, setExternalCandidateEmail] = useState("");
+  const [externalProviderName, setExternalProviderName] = useState("");
+  const [externalCertificateReference, setExternalCertificateReference] = useState("");
+  const [externalSourceType, setExternalSourceType] = useState<"external_provider_certificate" | "employer_record" | "manual_admin_attestation" | "other">("external_provider_certificate");
+  const [externalCaseNote, setExternalCaseNote] = useState("");
+  const [externalForms, setExternalForms] = useState<Record<string, FormState>>({});
+  const [suppressionMatchType, setSuppressionMatchType] = useState<"email" | "exact_name">("email");
+  const [suppressionMatchValue, setSuppressionMatchValue] = useState("");
+  const [suppressionReasonCode, setSuppressionReasonCode] = useState<"admin_nurse" | "external_completion" | "manual" | "not_registered" | "identity_correction">("manual");
+  const [suppressionNote, setSuppressionNote] = useState("");
   const createLedger = trpc.nerp.createVerificationLedger.useMutation({
     onSuccess: async () => {
       await utils.nerp.getAdminVerificationQueue.invalidate();
@@ -67,6 +90,43 @@ export default function AdminNerpVerification() {
     onSuccess: async () => {
       await Promise.all([
         utils.nerp.getAdminVerificationQueue.invalidate(),
+        utils.nerp.getPromotionPreview.invalidate(),
+      ]);
+    },
+  });
+  const createExternalCase = trpc.nerp.createExternalVerificationCase.useMutation({
+    onSuccess: async () => {
+      setExternalCandidateName("");
+      setExternalCandidateEmail("");
+      setExternalProviderName("");
+      setExternalCertificateReference("");
+      setExternalCaseNote("");
+      await utils.nerp.getExternalVerificationQueue.invalidate();
+    },
+  });
+  const reviewExternalCase = trpc.nerp.reviewExternalCasePhase.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.nerp.getExternalVerificationQueue.invalidate(),
+        utils.nerp.getPromotionPreview.invalidate(),
+        utils.nerp.listCampaignSuppressions.invalidate(),
+      ]);
+    },
+  });
+  const upsertSuppression = trpc.nerp.upsertCampaignSuppression.useMutation({
+    onSuccess: async () => {
+      setSuppressionMatchValue("");
+      setSuppressionNote("");
+      await Promise.all([
+        utils.nerp.listCampaignSuppressions.invalidate(),
+        utils.nerp.getPromotionPreview.invalidate(),
+      ]);
+    },
+  });
+  const deactivateSuppression = trpc.nerp.deactivateCampaignSuppression.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.nerp.listCampaignSuppressions.invalidate(),
         utils.nerp.getPromotionPreview.invalidate(),
       ]);
     },
@@ -85,6 +145,37 @@ export default function AdminNerpVerification() {
       [key]: { ...getForm(offerId, phase), ...patch },
     }));
   };
+  const getExternalForm = (caseId: number, phase: string) =>
+    externalForms[`${caseId}:${phase}`] ?? emptyForm();
+  const updateExternalForm = (
+    caseId: number,
+    phase: string,
+    patch: Partial<FormState>
+  ) => {
+    const key = `${caseId}:${phase}`;
+    setExternalForms(current => ({
+      ...current,
+      [key]: { ...getExternalForm(caseId, phase), ...patch },
+    }));
+  };
+  const submitExternal = (
+    caseId: number,
+    phase: "phase_2" | "phase_3",
+    decision: "verified" | "rejected" | "revoked"
+  ) => {
+    const form = getExternalForm(caseId, phase);
+    if (!form.reason.trim() || (decision === "verified" && (!form.completedAt || !form.evidenceNote.trim()))) return;
+    reviewExternalCase.mutate({
+      caseId,
+      phase,
+      decision,
+      completedAt: decision === "verified" ? form.completedAt : undefined,
+      evidenceNote: decision === "verified" ? form.evidenceNote : undefined,
+      evidenceReference: form.evidenceReference || undefined,
+      reason: form.reason,
+    });
+  };
+
   const submit = (
     offerId: number,
     phase: "phase_2" | "phase_3",
@@ -420,6 +511,203 @@ export default function AdminNerpVerification() {
 
         <Card>
           <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PlusCircle className="h-5 w-5 text-blue-700" />
+              Verify training completed outside NERP
+            </CardTitle>
+            <CardDescription>
+              Create a review case for a person who completed the NERP learning and
+              skills requirements elsewhere. A case does not create a NERP offer,
+              payment record, institutional membership, or IERS access.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              className="grid gap-3 md:grid-cols-2"
+              onSubmit={event => {
+                event.preventDefault();
+                if (!externalCandidateName.trim()) return;
+                createExternalCase.mutate({
+                  institutionalAccountId: 3,
+                  candidateName: externalCandidateName,
+                  candidateEmail: externalCandidateEmail.trim() || undefined,
+                  providerName: externalProviderName.trim() || undefined,
+                  certificateReference: externalCertificateReference.trim() || undefined,
+                  sourceType: externalSourceType,
+                  caseNote: externalCaseNote.trim() || undefined,
+                });
+              }}
+            >
+              <Input
+                value={externalCandidateName}
+                onChange={event => setExternalCandidateName(event.target.value)}
+                placeholder="Candidate full name"
+                aria-label="External candidate full name"
+              />
+              <Input
+                type="email"
+                value={externalCandidateEmail}
+                onChange={event => setExternalCandidateEmail(event.target.value)}
+                placeholder="Candidate email (optional for an unregistered person)"
+                aria-label="External candidate email"
+              />
+              <Input
+                value={externalProviderName}
+                onChange={event => setExternalProviderName(event.target.value)}
+                placeholder="Training provider or institution"
+                aria-label="External training provider"
+              />
+              <Input
+                value={externalCertificateReference}
+                onChange={event => setExternalCertificateReference(event.target.value)}
+                placeholder="Certificate or record reference (optional)"
+                aria-label="External certificate reference"
+              />
+              <select
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+                value={externalSourceType}
+                onChange={event => setExternalSourceType(event.target.value as typeof externalSourceType)}
+                aria-label="External evidence source"
+              >
+                <option value="external_provider_certificate">External provider certificate</option>
+                <option value="employer_record">Employer training record</option>
+                <option value="manual_admin_attestation">Manual admin attestation</option>
+                <option value="other">Other evidence</option>
+              </select>
+              <textarea
+                className="min-h-10 rounded-md border bg-background px-3 py-2 text-sm"
+                value={externalCaseNote}
+                onChange={event => setExternalCaseNote(event.target.value)}
+                placeholder="Case note (optional)"
+                aria-label="External verification case note"
+              />
+              <div className="md:col-span-2">
+                <Button type="submit" disabled={!externalCandidateName.trim() || createExternalCase.isPending}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  {createExternalCase.isPending ? "Creating review case…" : "Create external review case"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>External NERP review queue</CardTitle>
+            <CardDescription>
+              Review Phase 2 and Phase 3 separately. Once both are verified, the
+              candidate is suppressed from the NERP promotion preview by exact
+              email or exact full name.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {externalQueue.isLoading ? <p className="text-sm text-muted-foreground">Loading external review cases…</p> : null}
+            {externalQueue.isError ? <p className="text-sm text-red-700">{externalQueue.error.message}</p> : null}
+            {!externalQueue.isLoading && !externalQueue.data?.length ? <p className="text-sm text-muted-foreground">No external completion cases yet.</p> : null}
+            {externalQueue.data?.map(record => (
+              <Card key={record.id} className="border-slate-200">
+                <CardHeader className="pb-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-base">{record.candidateName}</CardTitle>
+                      <CardDescription>
+                        {record.candidateEmail || "No email / not registered"}
+                        {record.userId ? " · Linked account" : " · No platform account linked"}
+                        {record.providerName ? ` · ${record.providerName}` : ""}
+                      </CardDescription>
+                    </div>
+                    <Badge variant={record.status === "complete" ? "default" : "outline"}>{record.status.replaceAll("_", " ")}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-xs text-muted-foreground">Case {record.caseKey}{record.certificateReference ? ` · Reference ${record.certificateReference}` : ""}</p>
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {phases.map(phase => {
+                      const current = record.phases.find(row => row.phase === phase.key);
+                      const verified = current?.status === "verified";
+                      const form = getExternalForm(record.id, phase.key);
+                      return (
+                        <div key={phase.key} className="space-y-3 rounded-lg border p-4">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium">{phase.label}</p>
+                            <Badge variant={verified ? "default" : "outline"}>{current?.status ?? "Not reviewed"}</Badge>
+                          </div>
+                          {current?.reviewReason ? <p className="text-xs text-muted-foreground">Last review: {current.reviewReason}</p> : null}
+                          {!verified ? (
+                            <>
+                              <Input type="date" value={form.completedAt} onChange={event => updateExternalForm(record.id, phase.key, { completedAt: event.target.value })} aria-label={`${record.candidateName} ${phase.label} completion date`} />
+                              <Input value={form.evidenceNote} onChange={event => updateExternalForm(record.id, phase.key, { evidenceNote: event.target.value })} placeholder="Evidence note (required to verify)" />
+                              <Input value={form.evidenceReference} onChange={event => updateExternalForm(record.id, phase.key, { evidenceReference: event.target.value })} placeholder="Evidence reference (optional)" />
+                              <Input value={form.reason} onChange={event => updateExternalForm(record.id, phase.key, { reason: event.target.value })} placeholder="Review reason (required)" />
+                              <div className="flex flex-wrap gap-2">
+                                <Button type="button" size="sm" onClick={() => submitExternal(record.id, phase.key, "verified")} disabled={reviewExternalCase.isPending}><FileCheck2 className="mr-1 h-4 w-4" />Verify phase</Button>
+                                <Button type="button" size="sm" variant="outline" onClick={() => submitExternal(record.id, phase.key, "rejected")} disabled={reviewExternalCase.isPending}><XCircle className="mr-1 h-4 w-4" />Reject</Button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-xs text-emerald-800">Verified external evidence contributes to the NERP completion record and campaign suppression only. It does not issue an official AHA credential.</p>
+                              <Input value={form.reason} onChange={event => updateExternalForm(record.id, phase.key, { reason: event.target.value })} placeholder="Reason for revocation (required)" />
+                              <Button type="button" size="sm" variant="outline" onClick={() => submitExternal(record.id, phase.key, "revoked")} disabled={reviewExternalCase.isPending}><XCircle className="mr-1 h-4 w-4" />Revoke verification</Button>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-emerald-700" />Precise NERP campaign suppressions</CardTitle>
+            <CardDescription>
+              Use an email match for a known address or an exact full-name match
+              when no account exists. Exact-name rules never match shorter or
+              different names. This is a preview control only; sending is disabled.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form
+              className="grid gap-3 md:grid-cols-[1fr_1.6fr_1fr_auto]"
+              onSubmit={event => {
+                event.preventDefault();
+                if (!suppressionMatchValue.trim()) return;
+                upsertSuppression.mutate({ institutionalAccountId: 3, matchType: suppressionMatchType, matchValue: suppressionMatchValue, reasonCode: suppressionReasonCode, note: suppressionNote.trim() || undefined });
+              }}
+            >
+              <select className="h-10 rounded-md border bg-background px-3 text-sm" value={suppressionMatchType} onChange={event => setSuppressionMatchType(event.target.value as typeof suppressionMatchType)} aria-label="Suppression match type">
+                <option value="email">Email</option>
+                <option value="exact_name">Exact full name</option>
+              </select>
+              <Input value={suppressionMatchValue} onChange={event => setSuppressionMatchValue(event.target.value)} placeholder={suppressionMatchType === "email" ? "person@example.com" : "Exact full name"} aria-label="Suppression match value" />
+              <select className="h-10 rounded-md border bg-background px-3 text-sm" value={suppressionReasonCode} onChange={event => setSuppressionReasonCode(event.target.value as typeof suppressionReasonCode)} aria-label="Suppression reason">
+                <option value="admin_nurse">Admin nurse</option>
+                <option value="external_completion">External completion</option>
+                <option value="manual">Manual</option>
+                <option value="not_registered">Not registered</option>
+                <option value="identity_correction">Identity correction</option>
+              </select>
+              <Button type="submit" disabled={!suppressionMatchValue.trim() || upsertSuppression.isPending}>Save suppression</Button>
+              <textarea className="md:col-span-4 min-h-10 rounded-md border bg-background px-3 py-2 text-sm" value={suppressionNote} onChange={event => setSuppressionNote(event.target.value)} placeholder="Why this exact person/address is suppressed (recommended)" aria-label="Suppression note" />
+            </form>
+            {suppressions.isLoading ? <p className="text-sm text-muted-foreground">Loading suppressions…</p> : null}
+            {suppressions.data?.length ? (
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full min-w-[720px] text-sm">
+                  <thead className="bg-muted/40"><tr><th className="p-3 text-left">Match</th><th className="p-3 text-left">Reason</th><th className="p-3 text-left">Note</th><th className="p-3 text-right">Action</th></tr></thead>
+                  <tbody>{suppressions.data.map(row => <tr key={row.id} className="border-t"><td className="p-3"><div className="font-medium">{row.matchValue}</div><div className="text-xs text-muted-foreground">{row.matchType === "exact_name" ? "Exact full name" : "Email"}</div></td><td className="p-3">{row.reasonCode.replaceAll("_", " ")}</td><td className="p-3 text-muted-foreground">{row.note || "—"}</td><td className="p-3 text-right"><Button type="button" size="sm" variant="outline" onClick={() => { const reason = window.prompt("Reason for removing this suppression:"); if (reason?.trim()) deactivateSuppression.mutate({ institutionalAccountId: 3, suppressionId: row.id, reason: reason.trim() }); }} disabled={deactivateSuppression.isPending}><Trash2 className="mr-1 h-4 w-4" />Deactivate</Button></td></tr>)}</tbody>
+                </table>
+              </div>
+            ) : <p className="text-sm text-muted-foreground">No active suppressions stored.</p>}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Institution 3 · draft nurse campaign preview</CardTitle>
             <CardDescription>
               Departmental nurses only. Nursing admins are suppressed. This
@@ -445,6 +733,7 @@ export default function AdminNerpVerification() {
                     ["Suppressed", preview.data.counts.suppressed],
                     ["Needs review", preview.data.counts.needsReview],
                     ["Name excluded", preview.data.counts.excludedByName],
+                    ["Suppression-only", preview.data.counts.suppressionOnly],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-lg border p-3">
                       <p className="text-xs text-muted-foreground">{label}</p>
@@ -493,6 +782,7 @@ export default function AdminNerpVerification() {
                         <th className="p-3 text-left">Department</th>
                         <th className="p-3 text-left">Status</th>
                         <th className="p-3 text-left">Reason</th>
+                        <th className="p-3 text-left">Note</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -509,6 +799,9 @@ export default function AdminNerpVerification() {
                           </td>
                           <td className="p-3 text-muted-foreground">
                             {row.suppressionReason ?? "Ready for draft review"}
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {row.suppressionNote ?? "—"}
                           </td>
                         </tr>
                       ))}

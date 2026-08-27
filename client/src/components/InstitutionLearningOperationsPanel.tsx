@@ -24,6 +24,7 @@ import { BulkEnrollmentPanel } from "@/components/BulkEnrollmentPanel";
 import CpdPanel from "@/components/CpdPanel";
 import InstitutionLearningIntelligencePanel from "@/components/InstitutionLearningIntelligencePanel";
 import InstitutionLearningGovernancePanel from "@/components/InstitutionLearningGovernancePanel";
+import { StaffPerformanceRoster } from "@/components/StaffPerformanceRoster";
 
 type LearningTab =
   | "overview"
@@ -52,11 +53,13 @@ export default function InstitutionLearningOperationsPanel({
   iersEnabled,
   cpdEnabled,
   onOpenReadiness,
+  isInstitutionAdmin = false,
 }: {
   institutionId: number;
   iersEnabled: boolean;
   cpdEnabled: boolean;
   onOpenReadiness?: () => void;
+  isInstitutionAdmin?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<LearningTab>(() => {
     const requested = getInitialLearningTab();
@@ -164,7 +167,7 @@ export default function InstitutionLearningOperationsPanel({
           {cpdEnabled && (
             <TabsTrigger value="cpd" className="min-h-10 text-xs sm:text-sm">
               <Award className="mr-2 hidden h-4 w-4 sm:block" />
-              CPD Portal
+              CPD sessions
             </TabsTrigger>
           )}
           {cpdEnabled && (
@@ -172,7 +175,7 @@ export default function InstitutionLearningOperationsPanel({
               value="intelligence"
               className="min-h-10 text-xs sm:text-sm"
             >
-              Intelligence & reports
+              Reports & insights
             </TabsTrigger>
           )}
           {cpdEnabled && (
@@ -180,7 +183,7 @@ export default function InstitutionLearningOperationsPanel({
               value="governance"
               className="min-h-10 text-xs sm:text-sm"
             >
-              Coordinators & targets
+              People & targets
             </TabsTrigger>
           )}
         </TabsList>
@@ -378,8 +381,16 @@ export default function InstitutionLearningOperationsPanel({
           )}
         </TabsContent>
 
-        <TabsContent value="cpd" className="mt-6">
-          <CpdPanel institutionId={institutionId} />
+        <TabsContent value="cpd" className="mt-6 space-y-6">
+          <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
+            <CardContent className="grid gap-3 p-4 text-sm sm:grid-cols-3">
+              <div><p className="font-semibold">Create</p><p className="text-muted-foreground">Use the department-aware form below. This is now the single CPD session creation route.</p></div>
+              <div><p className="font-semibold">Operate</p><p className="text-muted-foreground">Use Sessions & Check-In for the QR link, attendance, certificates, and exports.</p></div>
+              <div><p className="font-semibold">Understand</p><p className="text-muted-foreground">Use People & targets for scoped coordination and follow-up; use Reports & insights for analysis.</p></div>
+            </CardContent>
+          </Card>
+          <InstitutionLearningGovernancePanel institutionId={institutionId} mode="sessions" isInstitutionAdmin={isInstitutionAdmin} />
+          <CpdPanel institutionId={institutionId} compact />
         </TabsContent>
 
         <TabsContent value="intelligence" className="mt-6">
@@ -389,8 +400,17 @@ export default function InstitutionLearningOperationsPanel({
           />
         </TabsContent>
 
-        <TabsContent value="governance" className="mt-6">
-          <InstitutionLearningGovernancePanel institutionId={institutionId} />
+        <TabsContent value="governance" className="mt-6 space-y-6">
+          <InstitutionLearningGovernancePanel institutionId={institutionId} mode="people" isInstitutionAdmin={isInstitutionAdmin} />
+          {isInstitutionAdmin ? (
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-base font-semibold">Staff development follow-up</h3>
+                <p className="text-sm text-muted-foreground">Protected institution-admin appraisal view. Department coordinators do not receive this institution-wide people list.</p>
+              </div>
+              <StaffPerformanceRoster />
+            </div>
+          ) : null}
         </TabsContent>
       </Tabs>
     </div>

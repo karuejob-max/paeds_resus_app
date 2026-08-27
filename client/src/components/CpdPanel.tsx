@@ -64,6 +64,7 @@ import {
 
 interface CpdPanelProps {
   institutionId: number;
+  compact?: boolean;
 }
 
 type CpdSubTab = "overview" | "sessions" | "staff_development" | "certificates" | "new_session" | "settings";
@@ -85,7 +86,7 @@ function AttendeeDepartmentCell({ department, canonicalDepartmentName }: { depar
   );
 }
 
-export default function CpdPanel({ institutionId }: CpdPanelProps) {
+export default function CpdPanel({ institutionId, compact = false }: CpdPanelProps) {
   const utils = trpc.useUtils();
 
   const settingsQuery = trpc.cpd.getSettings.useQuery({ institutionId });
@@ -271,7 +272,11 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
   const [staffSearch, setStaffSearch] = useState("");
 
   // Navigation Tabs for new users (avoid vertical scrolling fatigue)
-  const [cpdSubTab, setCpdSubTabState] = useState<CpdSubTab>(getInitialCpdSubTab);
+  const [cpdSubTab, setCpdSubTabState] = useState<CpdSubTab>(() => {
+    const requested = getInitialCpdSubTab();
+    if (compact && requested !== "sessions" && requested !== "certificates") return "sessions";
+    return requested;
+  });
   const setCpdSubTab = (tab: CpdSubTab) => {
     setCpdSubTabState(tab);
     if (typeof window !== "undefined") {
@@ -471,14 +476,14 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
     <>
       {/* Sub-tab navigation header for new users */}
       <div className="sticky top-2 z-20 -mx-1 mb-6 flex gap-2 overflow-x-auto border-b bg-background/95 px-1 pb-3 pt-1 shadow-sm backdrop-blur sm:static sm:mx-0 sm:flex-wrap sm:overflow-visible sm:bg-transparent sm:px-0 sm:pt-0 sm:shadow-none">
-        <Button
+        {!compact && <Button
           variant={cpdSubTab === "overview" ? "default" : "outline"}
           onClick={() => setCpdSubTab("overview")}
           className="text-xs font-semibold gap-2"
         >
           <BarChart3 className="h-4 w-4" />
           Overview & Analytics
-        </Button>
+        </Button>}
         <Button
           variant={cpdSubTab === "sessions" ? "default" : "outline"}
           onClick={() => setCpdSubTab("sessions")}
@@ -487,14 +492,14 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
           <Calendar className="h-4 w-4" />
           Sessions & Check-In
         </Button>
-        <Button
+        {!compact && <Button
           variant={cpdSubTab === "staff_development" ? "default" : "outline"}
           onClick={() => setCpdSubTab("staff_development")}
           className="text-xs font-semibold gap-2"
         >
           <UserCheck className="h-4 w-4" />
           Staff Development
-        </Button>
+        </Button>}
         <Button
           variant={cpdSubTab === "certificates" ? "default" : "outline"}
           onClick={() => setCpdSubTab("certificates")}
@@ -503,22 +508,22 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
           <Award className="h-4 w-4" />
           Certificates & Exports
         </Button>
-        <Button
+        {!compact && <Button
           variant={cpdSubTab === "new_session" ? "default" : "outline"}
           onClick={() => setCpdSubTab("new_session")}
           className="text-xs font-semibold gap-2"
         >
           <PlusCircle className="h-4 w-4" />
           Open New Session
-        </Button>
-        <Button
+        </Button>}
+        {!compact && <Button
           variant={cpdSubTab === "settings" ? "default" : "outline"}
           onClick={() => setCpdSubTab("settings")}
           className="text-xs font-semibold gap-2"
         >
           <Building2 className="h-4 w-4" />
-          Coordinator & Settings
-        </Button>
+          Certificate settings
+        </Button>}
       </div>
 
       <div className="space-y-6">
@@ -531,7 +536,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
           </CardContent>
         </Card>
         {/* --- OVERVIEW & ANALYTICS TAB --- */}
-        {cpdSubTab === "overview" && (
+        {!compact && cpdSubTab === "overview" && (
           <>
             {/* 📊 Institutional Learning Radar Summary */}
             {analytics && (
@@ -813,7 +818,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
         )}
 
         {/* --- STAFF DEVELOPMENT TAB --- */}
-        {cpdSubTab === "staff_development" && (
+        {!compact && cpdSubTab === "staff_development" && (
           <div className="space-y-6">
             <Card className="border-indigo-200 bg-indigo-50/40 dark:border-indigo-900 dark:bg-indigo-950/20">
               <CardHeader>
@@ -1189,7 +1194,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
         )}
 
         {/* --- OPEN NEW SESSION TAB --- */}
-        {cpdSubTab === "new_session" && (
+        {!compact && cpdSubTab === "new_session" && (
           <Card>
             <CardHeader>
               <CardTitle>Open CPD Event</CardTitle>
@@ -1386,7 +1391,7 @@ export default function CpdPanel({ institutionId }: CpdPanelProps) {
         )}
 
         {/* --- COORDINATOR & SETTINGS TAB --- */}
-        {cpdSubTab === "settings" && (
+        {!compact && cpdSubTab === "settings" && (
           <Card>
             <CardHeader>
               <CardTitle>CPD Coordinator</CardTitle>

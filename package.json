@@ -75,6 +75,8 @@
     "db:verify-0134": "node scripts/verify-0134-universal-paeds-resus-certificates.mjs",
     "db:apply-0135": "node scripts/apply-0135-institutional-life-support-and-facility-taxonomy.mjs",
     "db:verify-0135": "node scripts/verify-0135-institutional-life-support.mjs",
+    "db:apply-0136": "node scripts/apply-0136-nerp-cpd-controls.mjs",
+    "db:verify-0136": "node scripts/verify-0136-nerp-cpd-controls.mjs",
     "db:verify-cpr-event-link": "node scripts/verify-cpr-event-link.mjs",
     "db:verify-cpr-event-loop": "node scripts/verify-cpr-event-loop.mjs",
     "db:fresh-migrate": "node scripts/db-snapshot-and-fresh-migrate.mjs",
