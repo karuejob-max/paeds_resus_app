@@ -4604,6 +4604,8 @@ export const cpdEvents = mysqlTable("cpdEvents", {
   /** Free-text event date (e.g. "12 June 2026"); stored as entered by the admin. */
   eventDate: varchar("eventDate", { length: 64 }).notNull(),
   isOpen: boolean("isOpen").default(false).notNull(),
+  /** Canonical session lifecycle; isOpen remains for legacy registration compatibility. */
+  lifecycleStatus: mysqlEnum("lifecycleStatus", ["draft", "scheduled", "open", "attendance_review", "closed", "certificates_issued", "archived", "cancelled", "voided"]).default("open").notNull(),
   openedAt: timestamp("openedAt"),
   closedAt: timestamp("closedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -4636,6 +4638,7 @@ export const cpdEventCoPresenters = mysqlTable("cpdEventCoPresenters", {
   cpdEventId: int("cpdEventId").notNull(),
   institutionalAccountId: int("institutionalAccountId").notNull(),
   userId: int("userId"),
+  participantType: mysqlEnum("participantType", ["institution_member", "guest"]).default("institution_member").notNull(),
   fullName: varchar("fullName", { length: 255 }).notNull(),
   email: varchar("email", { length: 320 }),
   cadre: varchar("cadre", { length: 128 }),
@@ -4655,6 +4658,8 @@ export const cpdAttendees = mysqlTable("cpdAttendees", {
   cpdEventId: int("cpdEventId").notNull(),
   /** Denormalized owning institution for fast tenant scoping on certificate routes. */
   institutionalAccountId: int("institutionalAccountId").notNull(),
+  /** Stable account linkage for new signed-in registrations; historical rows may be null. */
+  userId: int("userId"),
   fullName: varchar("fullName", { length: 256 }).notNull(),
   email: varchar("email", { length: 320 }).notNull(),
   phone: varchar("phone", { length: 32 }).notNull(),
@@ -4665,11 +4670,69 @@ export const cpdAttendees = mysqlTable("cpdAttendees", {
   /** Canonical IERS facility-department identity when the registration belongs to that institution. */
   facilityDepartmentId: int("facilityDepartmentId"),
   submittedAt: timestamp("submittedAt").defaultNow().notNull(),
+  /** Registration is not attendance; only attendance_verified contributes to points/certificates. */
+  attendanceStatus: mysqlEnum("attendanceStatus", ["registered", "checked_in", "attendance_verified", "excused", "cancelled"]).default("registered").notNull(),
+  checkedInAt: timestamp("checkedInAt"),
+  attendanceVerifiedAt: timestamp("attendanceVerifiedAt"),
+  attendanceVerifiedByUserId: int("attendanceVerifiedByUserId"),
+  attendanceReviewReason: text("attendanceReviewReason"),
   attendanceType: mysqlEnum("attendanceType", ["primary_facility", "locum_outreach", "guest_external"]).default("primary_facility").notNull(),
   roleInEvent: mysqlEnum("roleInEvent", ["attendee", "presenter", "co_presenter", "moderator"]).default("attendee").notNull(),
   checkInPunctuality: mysqlEnum("checkInPunctuality", ["on_time", "late_15m", "late_30m+"]).default("on_time").notNull(),
   clinicalTakeaway: text("clinicalTakeaway"),
 });
+
+export const cpdAttendanceAuditEvents = mysqlTable("cpdAttendanceAuditEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  cpdEventId: int("cpdEventId").notNull(),
+  cpdAttendeeId: int("cpdAttendeeId").notNull(),
+  previousStatus: varchar("previousStatus", { length: 32 }),
+  nextStatus: varchar("nextStatus", { length: 32 }).notNull(),
+  reason: text("reason").notNull(),
+  actorUserId: int("actorUserId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => ({
+  attendeeIndex: index("cpd_attendance_audit_attendee_idx").on(table.cpdAttendeeId, table.createdAt),
+  institutionIndex: index("cpd_attendance_audit_institution_idx").on(table.institutionalAccountId, table.createdAt),
+}));
+export type CpdAttendanceAuditEvent = typeof cpdAttendanceAuditEvents.$inferSelect;
+export type InsertCpdAttendanceAuditEvent = typeof cpdAttendanceAuditEvents.$inferInsert;
+
+export const cpdEventAuditEvents = mysqlTable("cpdEventAuditEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  cpdEventId: int("cpdEventId").notNull(),
+  action: mysqlEnum("action", ["created", "opened", "scheduled", "closed", "attendance_review", "certificates_issued", "archived", "cancelled", "voided", "updated", "presenter_changed", "audience_changed"]).notNull(),
+  previousStatus: varchar("previousStatus", { length: 32 }),
+  nextStatus: varchar("nextStatus", { length: 32 }),
+  reason: text("reason"),
+  changedFields: text("changedFields"),
+  actorUserId: int("actorUserId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => ({
+  eventIndex: index("cpd_event_audit_event_idx").on(table.cpdEventId, table.createdAt),
+  institutionIndex: index("cpd_event_audit_institution_idx").on(table.institutionalAccountId, table.createdAt),
+}));
+export type CpdEventAuditEvent = typeof cpdEventAuditEvents.$inferSelect;
+export type InsertCpdEventAuditEvent = typeof cpdEventAuditEvents.$inferInsert;
+
+export const cpdExportAuditLogs = mysqlTable("cpdExportAuditLogs", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  eventId: int("eventId"),
+  exportType: mysqlEnum("exportType", ["attendance_csv", "certificates_zip"]).notNull(),
+  includesContactData: boolean("includesContactData").default(false).notNull(),
+  rowCount: int("rowCount").default(0).notNull(),
+  periodStart: date("periodStart"),
+  periodEnd: date("periodEnd"),
+  actorUserId: int("actorUserId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => ({
+  institutionIndex: index("cpd_export_audit_institution_idx").on(table.institutionalAccountId, table.createdAt),
+}));
+export type CpdExportAuditLog = typeof cpdExportAuditLogs.$inferSelect;
+export type InsertCpdExportAuditLog = typeof cpdExportAuditLogs.$inferInsert;
 
 export type CpdAttendee = typeof cpdAttendees.$inferSelect;
 export type InsertCpdAttendee = typeof cpdAttendees.$inferInsert;
@@ -5150,7 +5213,12 @@ export const institutionLearningTargets = mysqlTable("institutionLearningTargets
   targetValue: decimal("targetValue", { precision: 10, scale: 2 }).notNull(),
   courseProgramType: mysqlEnum("courseProgramType", ["bls", "acls", "pals", "nrp", "heartsaver", "instructor"]),
   coursePhase: mysqlEnum("coursePhase", ["cognitive", "phase_2", "phase_3", "completed"]),
-  status: mysqlEnum("status", ["active", "archived"]).default("active").notNull(),
+  status: mysqlEnum("status", ["active", "archived", "superseded"]).default("active").notNull(),
+  revisionNumber: int("revisionNumber").default(1).notNull(),
+  supersedesTargetId: int("supersedesTargetId"),
+  revisionReason: text("revisionReason"),
+  archivedAt: timestamp("archivedAt"),
+  archivedByUserId: int("archivedByUserId"),
   createdByUserId: int("createdByUserId").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -5160,6 +5228,24 @@ export const institutionLearningTargets = mysqlTable("institutionLearningTargets
 }));
 export type InstitutionLearningTarget = typeof institutionLearningTargets.$inferSelect;
 export type InsertInstitutionLearningTarget = typeof institutionLearningTargets.$inferInsert;
+
+/** Append-only history for target creation, revision, superseding, and archival. */
+export const institutionLearningTargetEvents = mysqlTable("institutionLearningTargetEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  institutionalAccountId: int("institutionalAccountId").notNull(),
+  targetId: int("targetId").notNull(),
+  action: mysqlEnum("action", ["created", "revised", "superseded", "archived"]).notNull(),
+  previousStatus: varchar("previousStatus", { length: 32 }),
+  nextStatus: varchar("nextStatus", { length: 32 }),
+  reason: text("reason").notNull(),
+  actorUserId: int("actorUserId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => ({
+  targetIndex: index("institution_learning_target_events_target_idx").on(table.targetId, table.createdAt),
+  institutionIndex: index("institution_learning_target_events_institution_idx").on(table.institutionalAccountId, table.createdAt),
+}));
+export type InstitutionLearningTargetEvent = typeof institutionLearningTargetEvents.$inferSelect;
+export type InsertInstitutionLearningTargetEvent = typeof institutionLearningTargetEvents.$inferInsert;
 
 /** Structured provider credentials: regulatory licences, Paeds Resus-derived competencies, and external AHA certificates. */
 export const professionalCredentials = mysqlTable("professionalCredentials", {

@@ -263,8 +263,8 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
   );
 
   const events = eventsQuery.data ?? [];
-  const openEvent = events.find((e) => e.isOpen) ?? null;
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const openEvent = events.find((e) => e.isOpen && e.id === selectedEventId) ?? events.find((e) => e.isOpen) ?? null;
   const effectiveEventId = selectedEventId ?? openEvent?.id ?? events[0]?.id ?? null;
   const selectedEvent = events.find((e) => e.id === effectiveEventId) ?? null;
 
@@ -309,9 +309,9 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
   const coordinatorValue = coordinatorName ?? settingsQuery.data?.coordinatorName ?? "";
 
   const publicUrl = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    return `${window.location.origin}/cpd/register/${institutionId}`;
-  }, [institutionId]);
+    if (typeof window === "undefined" || !openEvent?.id) return "";
+    return `${window.location.origin}/cpd/register/${institutionId}?eventId=${openEvent.id}`;
+  }, [institutionId, openEvent?.id]);
 
   const updateCoordinatorMutation = trpc.cpd.updateCoordinator.useMutation({
     onSuccess: () => {
@@ -361,16 +361,35 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
     },
   });
 
+  const reviewAttendanceMutation = trpc.cpd.reviewAttendance.useMutation({
+    onSuccess: () => {
+      toast.success("Attendance status updated");
+      void utils.cpd.listAttendees.invalidate({ institutionId, eventId: effectiveEventId ?? undefined });
+      void utils.cpd.listEvents.invalidate({ institutionId });
+      void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
+    },
+    onError: (err) => toast.error(err.message || "Failed to update attendance"),
+  });
+
   const deleteEventMutation = trpc.cpd.deleteEvent.useMutation({
     onSuccess: () => {
-      toast.success("CPD event permanently deleted.");
+      toast.success("CPD event archived; records were preserved.");
       setDeleteTargetEvent(null);
       setDeleteConfirmInput("");
       setDeleteConfirmAttendeesInput("");
       void utils.cpd.listEvents.invalidate({ institutionId });
       void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
     },
-    onError: (err) => toast.error(err.message || "Failed to delete event"),
+    onError: (err) => toast.error(err.message || "Failed to archive event"),
+  });
+
+  const voidEventMutation = trpc.cpd.voidEvent.useMutation({
+    onSuccess: () => {
+      toast.success("CPD event voided; attendance and audit records were preserved.");
+      void utils.cpd.listEvents.invalidate({ institutionId });
+      void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
+    },
+    onError: (err) => toast.error(err.message || "Failed to void event"),
   });
 
   const updateCpdCodeMutation = trpc.cpd.updateCpdCode.useMutation({
@@ -853,9 +872,9 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle className="text-base">Certificate register</CardTitle><CardDescription>Individual PDF links are available after attendance has been recorded.</CardDescription></CardHeader>
+              <CardHeader><CardTitle className="text-base">Certificate register</CardTitle><CardDescription>Individual PDF links are available only after attendance has been reviewed and verified.</CardDescription></CardHeader>
               <CardContent>
-                {attendees.length === 0 ? <p className="text-sm text-muted-foreground">No attendance records for this session yet.</p> : <Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Cadre</TableHead><TableHead>Department</TableHead><TableHead className="text-right">Certificate</TableHead></TableRow></TableHeader><TableBody>{attendees.map((attendee) => <TableRow key={attendee.id}><TableCell className="font-medium">{attendee.fullName}</TableCell><TableCell>{attendee.cadre === "Other" ? attendee.cadreOther || "Other" : attendee.cadre}</TableCell><TableCell><AttendeeDepartmentCell department={attendee.department} canonicalDepartmentName={attendee.canonicalDepartmentName} /></TableCell><TableCell className="text-right"><Button variant="outline" size="sm" onClick={() => window.open(`/api/cpd/certificate/${attendee.id}`, "_blank")}><Download className="mr-1 h-3.5 w-3.5" />PDF</Button></TableCell></TableRow>)}</TableBody></Table>}
+                {attendees.length === 0 ? <p className="text-sm text-muted-foreground">No attendance records for this session yet.</p> : <Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Cadre</TableHead><TableHead>Department</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Certificate</TableHead></TableRow></TableHeader><TableBody>{attendees.map((attendee) => <TableRow key={attendee.id}><TableCell className="font-medium">{attendee.fullName}</TableCell><TableCell>{attendee.cadre === "Other" ? attendee.cadreOther || "Other" : attendee.cadre}</TableCell><TableCell><AttendeeDepartmentCell department={attendee.department} canonicalDepartmentName={attendee.canonicalDepartmentName} /></TableCell><TableCell><Badge variant={attendee.attendanceStatus === "attendance_verified" ? "default" : "secondary"}>{attendee.attendanceStatus.replaceAll("_", " ")}</Badge></TableCell><TableCell className="text-right">{attendee.attendanceStatus === "attendance_verified" ? <Button variant="outline" size="sm" onClick={() => window.open(`/api/cpd/certificate/${attendee.id}`, "_blank")}><Download className="mr-1 h-3.5 w-3.5" />PDF</Button> : <span className="text-xs text-muted-foreground">Awaiting verification</span>}</TableCell></TableRow>)}</TableBody></Table>}
               </CardContent>
             </Card>
           </div>
@@ -959,16 +978,19 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                           </TableCell>
                           <TableCell>{event.eventDate}</TableCell>
                           <TableCell>
-                            {event.isOpen ? (
-                              <Badge className="bg-emerald-600">Open</Badge>
-                            ) : (
-                              <Badge variant="secondary">Closed</Badge>
-                            )}
+                            <Badge
+                              className={event.lifecycleStatus === "open" ? "bg-emerald-600" : undefined}
+                              variant={event.lifecycleStatus === "open" ? "default" : "secondary"}
+                            >
+                              {(event.lifecycleStatus ?? (event.isOpen ? "open" : "closed")).replaceAll("_", " ")}
+                            </Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="bg-slate-50 font-mono">
-                              {(event as any).attendeeCount ?? 0}
-                            </Badge>
+                            <div className="flex flex-col items-start gap-1">
+                              <Badge variant="outline" className="bg-slate-50 font-mono">
+                                {(event as any).verifiedAttendanceCount ?? 0} verified / {(event as any).attendeeCount ?? 0} registered
+                              </Badge>
+                            </div>
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
@@ -1013,12 +1035,30 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                                   Close
                                 </Button>
                               ) : null}
-                              {/* Delete button — supports both empty sessions & sessions with attendees via super-confirm */}
+                              {/* Void is exceptional; it requires a reason and preserves all records. */}
+                              {!event.isOpen && !["archived", "voided", "cancelled"].includes(event.lifecycleStatus ?? "") && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Void CPD session (requires a reason; records preserved)"
+                                  className="text-amber-700 hover:text-amber-800 hover:bg-amber-50"
+                                  disabled={voidEventMutation.isPending}
+                                  onClick={() => {
+                                    const reason = window.prompt("Why is this CPD session being voided? This action preserves the audit trail.");
+                                    if (!reason?.trim()) return;
+                                    if (!window.confirm("Void this CPD session? Attendance records will be cancelled and the action cannot be undone.")) return;
+                                    voidEventMutation.mutate({ institutionId, eventId: event.id, reason: reason.trim() });
+                                  }}
+                                >
+                                  <Ban className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                              {/* Archive button — preserves attendees, certificates, and audit history */}
                               {!event.isOpen && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  title="Delete CPD session (irreversible)"
+                                  title="Archive CPD session (records preserved)"
                                   className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                   onClick={() => {
                                     setDeleteTargetEvent({
@@ -1031,7 +1071,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                                     setDeleteConfirmAttendeesInput("");
                                   }}
                                 >
-                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <Ban className="h-3.5 w-3.5" />
                                 </Button>
                               )}
                             </div>
@@ -1097,7 +1137,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                       <div className="grid gap-3 sm:grid-cols-3">
                         <div className="relative">
                           <Label className="text-xs">
-                            Presenter Name {editPresenterUserId && <UserCheck className="inline h-3 w-3 text-emerald-600 ml-1" />}
+                            Presenter Name — type to search, then choose the department/cadre match {editPresenterUserId && <UserCheck className="inline h-3 w-3 text-emerald-600 ml-1" />}
                           </Label>
                           <Input
                             className="h-8 text-xs"
@@ -1126,7 +1166,8 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                                 >
                                   <div>
                                     <span className="font-semibold">{user.fullName}</span>
-                                    <span className="text-muted-foreground ml-1">({user.email})</span>
+                                    <span className="text-muted-foreground ml-1">· {user.department || "Department not set"}</span>
+                                    <span className="text-muted-foreground ml-1">· {user.email}</span>
                                   </div>
                                   {user.cadre && (
                                     <Badge variant="outline" className="text-[10px]">
@@ -1242,9 +1283,9 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
 
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="relative">
-                  <Label htmlFor="cpd-presenter-name">
-                    Presenter Name {presenterUserId && <UserCheck className="inline h-3.5 w-3.5 text-emerald-600 ml-1" />}
-                  </Label>
+                          <Label htmlFor="cpd-presenter-name">
+                            Lead presenter — type a name to search institution members {presenterUserId && <UserCheck className="inline h-3.5 w-3.5 text-emerald-600 ml-1" />}
+                          </Label>
                   <Input
                     id="cpd-presenter-name"
                     placeholder="Type name to search platform clinicians..."
@@ -1272,7 +1313,8 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                         >
                           <div>
                             <span className="font-semibold">{user.fullName}</span>
-                            <span className="text-muted-foreground ml-1">({user.email})</span>
+                            <span className="text-muted-foreground ml-1">· {user.department || "Department not set"}</span>
+                            <span className="text-muted-foreground ml-1">· {user.email}</span>
                           </div>
                           {user.cadre && (
                             <Badge variant="outline" className="text-[10px]">
@@ -1557,6 +1599,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                       <TableHead>Cadre</TableHead>
                       <TableHead>Department</TableHead>
                       <TableHead>Email</TableHead>
+                      <TableHead>Attendance</TableHead>
                       <TableHead className="text-right">Certificate</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1569,16 +1612,55 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                         </TableCell>
                         <TableCell><AttendeeDepartmentCell department={a.department} canonicalDepartmentName={a.canonicalDepartmentName} /></TableCell>
                         <TableCell className="text-xs">{a.email}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col items-start gap-1">
+                            <Badge variant={a.attendanceStatus === "attendance_verified" ? "default" : "outline"} className="capitalize">
+                              {a.attendanceStatus.replaceAll("_", " ")}
+                            </Badge>
+                            {!["attendance_verified", "excused", "cancelled"].includes(a.attendanceStatus) ? (
+                              <select
+                                className="h-8 rounded-md border bg-background px-2 text-xs"
+                                value={a.attendanceStatus}
+                                disabled={reviewAttendanceMutation.isPending}
+                                aria-label={`Review attendance for ${a.fullName}`}
+                                onChange={event => {
+                                  const attendanceStatus = event.target.value as "registered" | "checked_in" | "attendance_verified" | "excused" | "cancelled";
+                                  const reasonByStatus = {
+                                    registered: "Attendance review reset before check-in",
+                                    checked_in: "Attendance check-in reviewed by CPD administrator",
+                                    attendance_verified: "Attendance reviewed and verified by CPD administrator",
+                                    excused: "Absence reviewed and excused by CPD administrator",
+                                    cancelled: "Attendance registration cancelled by CPD administrator",
+                                  } as const;
+                                  reviewAttendanceMutation.mutate({
+                                    institutionId,
+                                    attendeeId: a.id,
+                                    attendanceStatus,
+                                    reason: reasonByStatus[attendanceStatus],
+                                  });
+                                }}
+                              >
+                                <option value="registered">Registered</option>
+                                <option value="checked_in">Checked in</option>
+                                <option value="attendance_verified">Verify attendance</option>
+                                <option value="excused">Excused</option>
+                                <option value="cancelled">Cancelled</option>
+                              </select>
+                            ) : null}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-right">
                           <Button
                             variant="outline"
                             size="sm"
+                            disabled={a.attendanceStatus !== "attendance_verified"}
+                            title={a.attendanceStatus === "attendance_verified" ? "Download certificate" : "Verify attendance before issuing a certificate"}
                             onClick={() =>
                               window.open(`/api/cpd/certificate/${a.id}`, "_blank")
                             }
                           >
                             <Download className="mr-1 h-3.5 w-3.5" />
-                            PDF
+                            {a.attendanceStatus === "attendance_verified" ? "PDF" : "Awaiting verification"}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -1591,7 +1673,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
         )}
       </div>  {/* end .space-y-6 */}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Archive Confirmation Dialog */}
       <AlertDialog
         open={deleteTargetEvent !== null}
         onOpenChange={(open) => {
@@ -1604,14 +1686,14 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-              <Trash2 className="h-5 w-5" />
-              Permanently Delete CPD Session
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Ban className="h-5 w-5" />
+              Archive CPD Session
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm">
                 <p>
-                  You are about to permanently delete:{" "}
+                  You are about to archive:{" "}
                   <strong>{deleteTargetEvent?.name}</strong>.
                 </p>
 
@@ -1620,15 +1702,15 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                     <p className="font-semibold">⚠️ WARNING: Registered Attendees Detected</p>
                     <p className="text-xs">
                       This session has <strong>{deleteTargetEvent.attendeeCount}</strong> registered attendee(s).
-                      Deleting it will permanently invalidate and delete all their attendance records and associated certificates!
+                      Archiving will preserve attendance records, audit history, and associated certificates.
                     </p>
-                    <p className="text-xs font-semibold">This action cannot be undone.</p>
+                    <p className="text-xs font-semibold">The session will leave active operations but remain available for audit.</p>
                   </div>
                 ) : (
                   <div className="rounded-md border border-border bg-muted/30 p-3 text-muted-foreground">
-                    <p className="font-semibold text-foreground">⚠️ This action is irreversible.</p>
+                    <p className="font-semibold text-foreground">This session will be archived.</p>
                     <p className="text-xs mt-1">
-                      All associated session records, codes, and logs will be permanently removed.
+                      Session records, codes, and logs will be preserved for audit and reporting.
                     </p>
                   </div>
                 )}
@@ -1649,14 +1731,14 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                 {deleteTargetEvent && deleteTargetEvent.attendeeCount > 0 && (
                   <div className="space-y-1 pt-1">
                     <label className="text-xs font-semibold text-destructive" htmlFor="cpd-delete-super-confirm-input">
-                      Type the super-confirm phrase below to authorize deleting attendees:
+                      Type the super-confirm phrase below to authorize archiving this session with attendees:
                     </label>
                     <div className="text-[11px] font-mono bg-destructive/10 text-destructive p-1.5 rounded select-all font-semibold text-center mb-1">
-                      DELETE SESSION WITH {deleteTargetEvent.attendeeCount} ATTENDEES
+                      ARCHIVE SESSION WITH {deleteTargetEvent.attendeeCount} ATTENDEES
                     </div>
                     <Input
                       id="cpd-delete-super-confirm-input"
-                      placeholder={`DELETE SESSION WITH ${deleteTargetEvent.attendeeCount} ATTENDEES`}
+                      placeholder={`ARCHIVE SESSION WITH ${deleteTargetEvent.attendeeCount} ATTENDEES`}
                       value={deleteConfirmAttendeesInput}
                       onChange={(e) => setDeleteConfirmAttendeesInput(e.target.value)}
                       className="border-destructive/40 focus-visible:ring-destructive text-xs h-8 font-mono"
@@ -1675,12 +1757,12 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={
                 deleteEventMutation.isPending ||
                 deleteConfirmInput.trim().toLowerCase() !== (deleteTargetEvent?.name ?? "").trim().toLowerCase() ||
                 (deleteTargetEvent !== null && deleteTargetEvent.attendeeCount > 0 &&
-                  deleteConfirmAttendeesInput.trim().toLowerCase() !== `delete session with ${deleteTargetEvent.attendeeCount} attendees`)
+                  deleteConfirmAttendeesInput.trim().toLowerCase() !== `archive session with ${deleteTargetEvent.attendeeCount} attendees`)
               }
               onClick={() => {
                 if (!deleteTargetEvent) return;
@@ -1695,9 +1777,9 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
               {deleteEventMutation.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Ban className="mr-2 h-4 w-4" />
               )}
-              Yes, permanently delete
+              Archive session
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

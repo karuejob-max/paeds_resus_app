@@ -3,7 +3,7 @@ import { ZipArchive } from "archiver";
 import { eq, and } from "drizzle-orm";
 import { getDb } from "../db";
 import { sdk } from "../_core/sdk";
-import { institutionalAccounts, cpdEvents, cpdAttendees } from "../../drizzle/schema";
+import { institutionalAccounts, cpdEvents, cpdAttendees, cpdExportAuditLogs } from "../../drizzle/schema";
 import type { User } from "../../drizzle/schema";
 import { isInstitutionAdmin } from "../lib/institution-access";
 import {
@@ -128,12 +128,27 @@ export function registerCpdRoutes(app: Express): void {
       .limit(1);
     if (!attendee) return res.status(404).json({ error: "Attendee not found" });
 
+    const [attendeeEvent] = await db
+      .select({ lifecycleStatus: cpdEvents.lifecycleStatus, isOpen: cpdEvents.isOpen })
+      .from(cpdEvents)
+      .where(eq(cpdEvents.id, attendee.cpdEventId))
+      .limit(1);
+    if (attendee.attendanceStatus !== "attendance_verified") {
+      return res.status(409).json({ error: "Certificate is available only after attendance has been verified." });
+    }
+    if (attendeeEvent?.isOpen || !["closed", "certificates_issued", "archived"].includes(attendeeEvent?.lifecycleStatus ?? "")) {
+      return res.status(409).json({ error: "The CPD session must be closed before certificates are issued." });
+    }
+
     // Access is granted to: (a) the owning institution / admin (existing behavior),
-    // or (b) the user themselves — when the logged-in user's email matches the
-    // attendee's email. This powers the self-service "My CPD Certificates" portal
-    // without weakening institution/admin access.
+    // or (b) the user themselves — preferring stable attendee ownership and using
+    // normalized email only for historical rows without a user link.
     const userEmail = (user.email ?? "").trim().toLowerCase();
-    const isOwnCertificate = userEmail.length > 0 && userEmail === attendee.email.trim().toLowerCase();
+    const isOwnCertificate = attendee.userId === user.id || (
+      attendee.userId == null &&
+      userEmail.length > 0 &&
+      userEmail === attendee.email.trim().toLowerCase()
+    );
     if (
       !isOwnCertificate &&
       !(await userCanAccessInstitution(db, user, attendee.institutionalAccountId))
@@ -176,19 +191,33 @@ export function registerCpdRoutes(app: Express): void {
       return res.status(403).json({ error: "Forbidden" });
     }
 
+    if (event.isOpen || !["closed", "certificates_issued", "archived"].includes(event.lifecycleStatus ?? "")) {
+      return res.status(409).json({ error: "The CPD session must be closed before certificates are issued." });
+    }
+
     const attendees = await db
       .select()
       .from(cpdAttendees)
       .where(
         and(
           eq(cpdAttendees.cpdEventId, eventId),
-          eq(cpdAttendees.institutionalAccountId, event.institutionalAccountId)
+          eq(cpdAttendees.institutionalAccountId, event.institutionalAccountId),
+          eq(cpdAttendees.attendanceStatus, "attendance_verified")
         )
       );
 
     if (!attendees.length) {
-      return res.status(404).json({ error: "No registrations found for this event" });
+      return res.status(404).json({ error: "No verified attendance records found for this event" });
     }
+
+    await db.insert(cpdExportAuditLogs).values({
+      institutionalAccountId: event.institutionalAccountId,
+      eventId,
+      exportType: "certificates_zip",
+      includesContactData: false,
+      rowCount: attendees.length,
+      actorUserId: user.id,
+    });
 
     const zipName = cpdCertificateFilename("ALL", event.name).replace(/\.pdf$/i, ".zip");
     res.setHeader("Content-Type", "application/zip");

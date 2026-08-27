@@ -296,6 +296,10 @@ describe("CPD Router Procedures", () => {
     const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
     mockSelect.mockReturnValue({ from: mockFrom });
 
+    // Mock event audit insert introduced by the safe code-rotation contract.
+    const mockAuditValues = vi.fn().mockResolvedValue({ success: true });
+    mockInsert.mockReturnValue({ values: mockAuditValues });
+
     // Mock update query
     const mockUpdateWhere = vi.fn().mockResolvedValue({ success: true });
     const mockSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
@@ -311,6 +315,7 @@ describe("CPD Router Procedures", () => {
     expect(res.success).toBe(true);
     expect(mockUpdate).toHaveBeenCalled();
     expect(mockSet).toHaveBeenCalledWith({ cpdCode: "TEST-CPD-123" });
+    expect(mockAuditValues).toHaveBeenCalled();
   });
 
   it("logs CPD code reveal when user views the code", async () => {

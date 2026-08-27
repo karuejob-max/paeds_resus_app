@@ -26,6 +26,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, CheckCircle, CalendarClock, AlertCircle } from "lucide-react";
@@ -82,17 +83,37 @@ type RegistrationValues = z.infer<typeof registrationSchema>;
 export default function CpdRegister() {
   const params = useParams();
   const institutionId = Number(params.institutionId);
+  const requestedEventId = typeof window !== "undefined"
+    ? Number(new URLSearchParams(window.location.search).get("eventId") || 0) || undefined
+    : undefined;
   const { toast } = useToast();
   const [submitted, setSubmitted] = useState(false);
+  const [checkedIn, setCheckedIn] = useState(false);
   const { user, loading: authLoading, sessionSettled } = useAuth();
 
   const currentEventQuery = trpc.cpd.currentEvent.useQuery(
-    { institutionId },
+    { institutionId, eventId: requestedEventId },
     { enabled: Number.isInteger(institutionId) && institutionId > 0 }
   );
   const myMembershipsQuery = trpc.institution.getMyMemberships.useQuery();
 
   const submitMutation = trpc.cpd.submitRegistration.useMutation();
+  const checkInMutation = trpc.cpd.checkInSelf.useMutation({
+    onSuccess: () => {
+      setCheckedIn(true);
+      toast({
+        title: "Check-in recorded",
+        description: "Your attendance is now awaiting CPD coordinator verification.",
+      });
+    },
+    onError: error => {
+      toast({
+        title: "Check-in failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
   const utils = trpc.useUtils();
   const updateProfileMutation = trpc.auth.updateMyProfile.useMutation({
     onSuccess: async () => {
@@ -177,6 +198,7 @@ export default function CpdRegister() {
 
       await submitMutation.mutateAsync({
         institutionId,
+        eventId: requestedEventId,
         fullName: values.fullName,
         email: values.email,
         phone: values.phone,
@@ -186,6 +208,7 @@ export default function CpdRegister() {
         facilityDepartmentId: values.facilityDepartmentId ?? null,
         facilityRelationship: values.facilityRelationship,
       });
+      setCheckedIn(false);
       setSubmitted(true);
       form.reset();
     } catch (error) {
@@ -232,7 +255,7 @@ export default function CpdRegister() {
             <Button
               className="w-full mt-2"
               onClick={() => {
-                window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+                window.location.href = `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
               }}
             >
               Sign In to Register
@@ -244,6 +267,7 @@ export default function CpdRegister() {
   }
 
   const event = currentEventQuery.data?.event ?? null;
+  const existingAttendee = currentEventQuery.data?.myAttendee ?? null;
 
   return (
     <div className="mx-auto max-w-md px-4 py-8">
@@ -267,9 +291,27 @@ export default function CpdRegister() {
               <CheckCircle className="mb-4 h-12 w-12 text-green-500" />
               <p className="text-lg font-semibold">You're registered!</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Your attendance has been recorded. Your certificate will be issued by the CPD
-                coordinator.
+                Your registration has been recorded. Check in for this exact event, then the CPD
+                coordinator will verify attendance before a certificate can be issued.
               </p>
+              {submitMutation.data?.attendeeId && submitMutation.data?.eventId ? (
+                checkedIn ? (
+                  <p className="mt-4 rounded-md bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-800">
+                    Check-in recorded. Your coordinator must verify attendance before CPD points or a certificate are issued.
+                  </p>
+                ) : (
+                  <Button
+                    className="mt-4 w-full"
+                    onClick={() => checkInMutation.mutate({
+                      attendeeId: submitMutation.data.attendeeId,
+                      eventId: submitMutation.data.eventId,
+                    })}
+                    disabled={checkInMutation.isPending}
+                  >
+                    {checkInMutation.isPending ? "Checking in…" : "Check in for this event"}
+                  </Button>
+                )
+              ) : null}
               {submitMutation.data?.facilityLinkStatus === "linked" && submitMutation.data?.facilityRelationship !== "locum_outreach" ? (
                 <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-800">
                   This hospital is now linked to your account as general staff. It is recorded as your primary facility; any IERS duty still requires a separate institutional assignment and your explicit acceptance.
@@ -307,6 +349,31 @@ export default function CpdRegister() {
                 <p className="text-sm font-semibold">{event.name}</p>
                 <p className="text-xs text-muted-foreground">{event.eventDate}</p>
               </div>
+              {existingAttendee ? (
+                <div className="rounded-lg border bg-muted/30 p-4 text-center">
+                  <p className="font-semibold">You are already registered for this event.</p>
+                  <div className="mt-3 flex items-center justify-center gap-2 text-sm">
+                    <span>Attendance status:</span>
+                    <Badge variant={existingAttendee.attendanceStatus === "attendance_verified" ? "default" : "secondary"}>
+                      {existingAttendee.attendanceStatus.replaceAll("_", " ")}
+                    </Badge>
+                  </div>
+                  {existingAttendee.attendanceStatus === "attendance_verified" ? (
+                    <p className="mt-3 text-xs text-muted-foreground">Attendance has been verified. Your CPD certificate will be available after issuance.</p>
+                  ) : existingAttendee.attendanceStatus === "cancelled" || existingAttendee.attendanceStatus === "excused" ? (
+                    <p className="mt-3 text-xs text-muted-foreground">This attendance record is not eligible for CPD points or a certificate.</p>
+                  ) : (
+                    <Button
+                      type="button"
+                      className="mt-4 w-full"
+                      onClick={() => event && checkInMutation.mutate({ attendeeId: existingAttendee.attendeeId, eventId: event.id })}
+                      disabled={!event || !event.isOpen || ["closed", "archived", "voided", "cancelled", "certificates_issued"].includes(event.lifecycleStatus ?? "") || checkInMutation.isPending}
+                    >
+                      {checkInMutation.isPending ? "Checking in…" : "Check in for this event"}
+                    </Button>
+                  )}
+                </div>
+              ) : (
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
                   <FormField
@@ -521,6 +588,7 @@ export default function CpdRegister() {
                   </Button>
                 </form>
               </Form>
+              )}
             </>
           )}
         </CardContent>

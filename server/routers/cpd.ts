@@ -11,6 +11,9 @@ import {
   cpdEvents,
   cpdAttendees,
   cpdCodeRevealLogs,
+  cpdAttendanceAuditEvents,
+  cpdEventAuditEvents,
+  cpdExportAuditLogs,
   institutionalStaffMembers,
   institutionEducationCoordinators,
   institutionMemberships,
@@ -21,6 +24,7 @@ import {
 import { canonicalizeDepartmentLabel, departmentLabelsMatch } from "../../shared/clinical-departments";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { applyCpdFacilityRelationship, autoLinkCpdFacilitiesForUser } from "../services/facility-registry.service";
+import { canRegisterForEvent, canReviewAttendanceTransition, countsAsVerifiedAttendance, isAudienceEligible } from "../lib/cpd-contract";
 
 /** Shared cadre validator for input validation, matching the cpdAttendees.cadre column. */
 const cadreEnum = z.string().trim().min(1, "Please select or specify your cadre").max(128);
@@ -432,21 +436,12 @@ export const cpdRouter = router({
         });
       }
       const now = new Date();
-      // Close any open events first (only one open event per institution).
-      await db
-        .update(cpdEvents)
-        .set({ isOpen: false, closedAt: now })
-        .where(
-          and(
-            eq(cpdEvents.institutionalAccountId, input.institutionId),
-            eq(cpdEvents.isOpen, true)
-          )
-        );
       const result = await db.insert(cpdEvents).values({
         institutionalAccountId: input.institutionId,
         name: input.name,
         eventDate: input.eventDate,
         isOpen: true,
+        lifecycleStatus: "open",
         openedAt: now,
         approvingCouncil: input.approvingCouncil ?? null,
         cpdPoints: input.cpdPoints ? String(input.cpdPoints) : null,
@@ -459,6 +454,16 @@ export const cpdRouter = router({
         scheduledEndTime: input.scheduledEndTime ?? null,
       });
       const eventId = (result as unknown as { insertId: number }).insertId;
+      await db.insert(cpdEventAuditEvents).values({
+        institutionalAccountId: input.institutionId,
+        cpdEventId: eventId,
+        action: "created",
+        previousStatus: null,
+        nextStatus: "open",
+        reason: "CPD session created",
+        changedFields: JSON.stringify(["name", "eventDate", "presenter", "audience", "cpdPoints"]),
+        actorUserId: ctx.user.id,
+      });
 
       if (presenter.department) {
         await syncUserProfileDepartment(db, presenter.userId, presenter.department);
@@ -508,16 +513,51 @@ export const cpdRouter = router({
 
       const updateData: Record<string, unknown> = {};
       if (input.eventType !== undefined) updateData.eventType = input.eventType;
-      if (input.presenterUserId !== undefined) updateData.presenterUserId = input.presenterUserId;
-      if (input.presenterName !== undefined) updateData.presenterName = input.presenterName;
-      if (input.presenterCadre !== undefined) {
-        updateData.presenterCadre = formatEventPresenterCadre(input.presenterCadre, input.presenterCadreOther ?? null);
+      if (input.presenterUserId !== undefined) {
+        updateData.presenterUserId = input.presenterUserId;
+        if (input.presenterUserId != null) {
+          const presenter = await resolveActiveInstitutionPresenter(db, input.institutionId, input.presenterUserId);
+          if (!presenter) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Choose the presenter from the active institution-member directory.",
+            });
+          }
+          updateData.presenterName = presenter.fullName;
+          updateData.presenterCadre = presenter.cadre
+            ? formatEventPresenterCadre(presenter.cadre, presenter.cadreOther)
+            : null;
+          updateData.presenterDepartment = presenter.department;
+        } else {
+          updateData.presenterName = null;
+          updateData.presenterCadre = null;
+          updateData.presenterDepartment = null;
+        }
+      } else {
+        // Metadata-only edits remain available for historical sessions whose original
+        // presenter was recorded before member IDs existed.
+        if (input.presenterName !== undefined) updateData.presenterName = input.presenterName;
+        if (input.presenterCadre !== undefined) {
+          updateData.presenterCadre = formatEventPresenterCadre(input.presenterCadre, input.presenterCadreOther ?? null);
+        }
+        if (input.presenterDepartment !== undefined) updateData.presenterDepartment = input.presenterDepartment;
       }
-      if (input.presenterDepartment !== undefined) updateData.presenterDepartment = input.presenterDepartment;
       if (input.cpdPoints !== undefined) updateData.cpdPoints = input.cpdPoints ? String(input.cpdPoints) : null;
       if (input.approvingCouncil !== undefined) updateData.approvingCouncil = input.approvingCouncil;
 
       await db.update(cpdEvents).set(updateData).where(eq(cpdEvents.id, input.eventId));
+      if (Object.keys(updateData).length > 0) {
+        await db.insert(cpdEventAuditEvents).values({
+          institutionalAccountId: input.institutionId,
+          cpdEventId: input.eventId,
+          action: input.presenterUserId !== undefined ? "presenter_changed" : "updated",
+          previousStatus: null,
+          nextStatus: null,
+          reason: "CPD session details updated",
+          changedFields: JSON.stringify(Object.keys(updateData)),
+          actorUserId: ctx.user.id,
+        });
+      }
 
       // Resolve final presenterUserId, presenterDepartment to sync
       const [finalEvent] = await db
@@ -554,7 +594,7 @@ export const cpdRouter = router({
       await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
       await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator"]);
       const [event] = await db
-        .select({ id: cpdEvents.id })
+        .select({ id: cpdEvents.id, lifecycleStatus: cpdEvents.lifecycleStatus })
         .from(cpdEvents)
         .where(
           and(
@@ -566,11 +606,26 @@ export const cpdRouter = router({
       if (!event) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Event not found for this institution" });
       }
+      const attendeeRows = await db
+        .select({ attendanceStatus: cpdAttendees.attendanceStatus })
+        .from(cpdAttendees)
+        .where(eq(cpdAttendees.cpdEventId, input.eventId));
+      const hasUnresolvedAttendance = attendeeRows.some(row => !["attendance_verified", "excused", "cancelled"].includes(row.attendanceStatus));
+      const nextStatus = hasUnresolvedAttendance ? "attendance_review" : "closed";
       await db
         .update(cpdEvents)
-        .set({ isOpen: false, closedAt: new Date() })
+        .set({ isOpen: false, lifecycleStatus: nextStatus, closedAt: new Date() })
         .where(eq(cpdEvents.id, input.eventId));
-      return { success: true as const };
+      await db.insert(cpdEventAuditEvents).values({
+        institutionalAccountId: input.institutionId,
+        cpdEventId: input.eventId,
+        action: hasUnresolvedAttendance ? "attendance_review" : "closed",
+        previousStatus: event.lifecycleStatus,
+        nextStatus,
+        reason: hasUnresolvedAttendance ? "Session closed for attendance review" : "Session closed after attendance resolution",
+        actorUserId: ctx.user.id,
+      });
+      return { success: true as const, lifecycleStatus: nextStatus };
     }),
 
   /** Admin: list all CPD events for this institution (newest first). */
@@ -586,6 +641,7 @@ export const cpdRouter = router({
           name: cpdEvents.name,
           eventDate: cpdEvents.eventDate,
           isOpen: cpdEvents.isOpen,
+          lifecycleStatus: cpdEvents.lifecycleStatus,
           closedAt: cpdEvents.closedAt,
           openedAt: cpdEvents.openedAt,
           eventType: cpdEvents.eventType,
@@ -598,6 +654,7 @@ export const cpdRouter = router({
           approvingCouncil: cpdEvents.approvingCouncil,
           cpdCode: cpdEvents.cpdCode,
           attendeeCount: sql<number>`COUNT(${cpdAttendees.id})`.mapWith(Number),
+          verifiedAttendanceCount: sql<number>`SUM(CASE WHEN ${cpdAttendees.attendanceStatus} = 'attendance_verified' THEN 1 ELSE 0 END)`.mapWith(Number),
         })
         .from(cpdEvents)
         .leftJoin(cpdAttendees, eq(cpdEvents.id, cpdAttendees.cpdEventId))
@@ -611,7 +668,7 @@ export const cpdRouter = router({
 
   /** Public: the currently open event for an institution (or null). Used by the registration page. */
   currentEvent: publicProcedure
-    .input(z.object({ institutionId: z.number().int().positive() }))
+    .input(z.object({ institutionId: z.number().int().positive(), eventId: z.number().int().positive().optional() }))
     .query(async ({ input, ctx }) => {
       const db = await requireDb();
       const [event] = await db
@@ -620,12 +677,17 @@ export const cpdRouter = router({
           name: cpdEvents.name,
           eventDate: cpdEvents.eventDate,
           institutionalAccountId: cpdEvents.institutionalAccountId,
+          lifecycleStatus: cpdEvents.lifecycleStatus,
+          isOpen: cpdEvents.isOpen,
+          audienceScope: cpdEvents.audienceScope,
+          audienceLabel: cpdEvents.audienceLabel,
+          facilityDepartmentId: cpdEvents.facilityDepartmentId,
         })
         .from(cpdEvents)
         .where(
           and(
             eq(cpdEvents.institutionalAccountId, input.institutionId),
-            eq(cpdEvents.isOpen, true)
+            input.eventId ? eq(cpdEvents.id, input.eventId) : eq(cpdEvents.isOpen, true),
           )
         )
         .orderBy(desc(cpdEvents.id))
@@ -693,16 +755,50 @@ export const cpdRouter = router({
         }
       }
 
+      let myAttendee: {
+        attendeeId: number;
+        attendanceStatus: string;
+        checkedInAt: Date | null;
+        attendanceVerifiedAt: Date | null;
+      } | null = null;
+      if (ctx.user?.id) {
+        const signedInEmail = (ctx.user.email ?? "").trim().toLowerCase();
+        const [attendee] = await db
+          .select({
+            attendeeId: cpdAttendees.id,
+            attendanceStatus: cpdAttendees.attendanceStatus,
+            checkedInAt: cpdAttendees.checkedInAt,
+            attendanceVerifiedAt: cpdAttendees.attendanceVerifiedAt,
+          })
+          .from(cpdAttendees)
+          .where(and(
+            eq(cpdAttendees.cpdEventId, event.id),
+            or(
+              eq(cpdAttendees.userId, ctx.user.id),
+              sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${signedInEmail}))`,
+            ),
+          ))
+          .orderBy(desc(cpdAttendees.id))
+          .limit(1);
+        if (attendee) myAttendee = attendee;
+      }
+
       return {
         event: {
           id: event.id,
           name: event.name,
           eventDate: event.eventDate,
+          lifecycleStatus: event.lifecycleStatus,
+          isOpen: event.isOpen,
+          audienceScope: event.audienceScope,
+          audienceLabel: event.audienceLabel,
+          facilityDepartmentId: event.facilityDepartmentId,
           institutionName: inst?.institutionName ?? null,
         },
         userDepartment,
         userFacilityDepartmentId,
         registrationDepartments,
+        myAttendee,
       };
     }),
 
@@ -711,6 +807,7 @@ export const cpdRouter = router({
     .input(
       z.object({
         institutionId: z.number().int().positive(),
+        eventId: z.number().int().positive().optional(),
         fullName: z.string().trim().min(2).max(256),
         email: z.string().trim().email().max(320),
         phone: z.string().trim().min(5).max(32),
@@ -740,23 +837,32 @@ export const cpdRouter = router({
         });
       }
 
-      // Event must be open for this institution.
-      const [event] = await db
-        .select({ id: cpdEvents.id })
+      // Resolve one exact event. Legacy links remain compatible only while exactly one event is open.
+      const openEvents = await db
+        .select({
+          id: cpdEvents.id,
+          isOpen: cpdEvents.isOpen,
+          lifecycleStatus: cpdEvents.lifecycleStatus,
+          audienceScope: cpdEvents.audienceScope,
+          audienceLabel: cpdEvents.audienceLabel,
+          facilityDepartmentId: cpdEvents.facilityDepartmentId,
+        })
         .from(cpdEvents)
-        .where(
-          and(
-            eq(cpdEvents.institutionalAccountId, input.institutionId),
-            eq(cpdEvents.isOpen, true)
-          )
-        )
+        .where(and(
+          eq(cpdEvents.institutionalAccountId, input.institutionId),
+          input.eventId ? eq(cpdEvents.id, input.eventId) : eq(cpdEvents.isOpen, true),
+        ))
         .orderBy(desc(cpdEvents.id))
-        .limit(1);
-      if (!event) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Registration is closed. No CPD event is currently open.",
-        });
+        .limit(20);
+      if (!openEvents.length) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Registration is closed. No CPD event is currently open." });
+      }
+      if (!input.eventId && openEvents.length > 1) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This institution has multiple open CPD sessions. Use the event-specific QR code or link." });
+      }
+      const event = openEvents[0];
+      if (!canRegisterForEvent(event.lifecycleStatus, event.isOpen ?? true)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This CPD event is not open for registration." });
       }
       // Self-registration is an attendee action, not institution-workspace administration.
       // Keep the product entitlement gate and the signed-in self-email check above, but do
@@ -800,6 +906,19 @@ export const cpdRouter = router({
         resolvedDepartment = canonicalizeDepartmentLabel(selectedDepartment.departmentName);
       }
 
+      if (!isAudienceEligible({
+        audienceScope: event.audienceScope,
+        audienceLabel: event.audienceLabel,
+        attendeeCadre: input.cadre,
+        attendeeDepartmentId: resolvedFacilityDepartmentId,
+        eventDepartmentId: event.facilityDepartmentId,
+      })) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "This CPD session is not open to the selected department or cadre.",
+        });
+      }
+
       // Duplicate guard: one registration per email per event.
       const normalizedEmail = input.email.trim().toLowerCase();
       const existing = await db
@@ -819,9 +938,10 @@ export const cpdRouter = router({
         ? "primary_facility"
         : "locum_outreach";
 
-      await db.insert(cpdAttendees).values({
+      const registrationResult = await db.insert(cpdAttendees).values({
         cpdEventId: event.id,
         institutionalAccountId: input.institutionId,
+        userId: ctx.user.id,
         fullName: input.fullName,
         email: normalizedEmail,
         phone: input.phone,
@@ -865,6 +985,8 @@ export const cpdRouter = router({
 
       return {
         success: true as const,
+        attendeeId: Number((registrationResult as unknown as { insertId: number }).insertId),
+        eventId: event.id,
         attendanceType,
         facilityRelationship: input.facilityRelationship,
         facilityLinkStatus: facilityLink.status,
@@ -964,6 +1086,14 @@ export const cpdRouter = router({
           submittedAt: r.submittedAt,
         }))
       );
+      await db.insert(cpdExportAuditLogs).values({
+        institutionalAccountId: input.institutionId,
+        eventId: input.eventId ?? null,
+        exportType: "attendance_csv",
+        includesContactData: true,
+        rowCount: scopedRows.length,
+        actorUserId: ctx.user.id,
+      });
       return { csv, count: scopedRows.length };
     }),
 
@@ -981,7 +1111,7 @@ export const cpdRouter = router({
       await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
       await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator"]);
       const [event] = await db
-        .select({ id: cpdEvents.id })
+        .select({ id: cpdEvents.id, lifecycleStatus: cpdEvents.lifecycleStatus, isOpen: cpdEvents.isOpen })
         .from(cpdEvents)
         .where(
           and(
@@ -993,10 +1123,23 @@ export const cpdRouter = router({
       if (!event) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Event not found for this institution" });
       }
+      if (["closed", "certificates_issued", "archived", "cancelled", "voided"].includes(event.lifecycleStatus ?? "")) {
+        throw new TRPCError({ code: "CONFLICT", message: "Check-in codes cannot be changed after a CPD session is closed." });
+      }
       await db
         .update(cpdEvents)
         .set({ cpdCode: input.cpdCode })
         .where(eq(cpdEvents.id, input.eventId));
+      await db.insert(cpdEventAuditEvents).values({
+        institutionalAccountId: input.institutionId,
+        cpdEventId: input.eventId,
+        action: "updated",
+        previousStatus: event.lifecycleStatus,
+        nextStatus: event.lifecycleStatus,
+        reason: input.cpdCode ? "CPD check-in code rotated" : "CPD check-in code cleared",
+        changedFields: "cpdCode",
+        actorUserId: ctx.user.id,
+      });
       return { success: true as const };
     }),
 
@@ -1023,7 +1166,10 @@ export const cpdRouter = router({
           and(
             eq(cpdAttendees.id, input.attendeeId),
             eq(cpdAttendees.cpdEventId, input.eventId),
-            sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${email}))`
+            or(
+              eq(cpdAttendees.userId, ctx.user.id),
+              sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${email}))`
+            )
           )
         )
         .limit(1);
@@ -1061,11 +1207,13 @@ export const cpdRouter = router({
       .select({
         attendeeId: cpdAttendees.id,
         eventId: cpdAttendees.cpdEventId,
+        institutionalAccountId: cpdAttendees.institutionalAccountId,
         fullName: cpdAttendees.fullName,
         cadre: cpdAttendees.cadre,
         cadreOther: cpdAttendees.cadreOther,
         department: cpdAttendees.department,
         submittedAt: cpdAttendees.submittedAt,
+        attendanceStatus: cpdAttendees.attendanceStatus,
         eventName: cpdEvents.name,
         eventDate: cpdEvents.eventDate,
         institutionName: institutionalAccounts.companyName,
@@ -1079,33 +1227,38 @@ export const cpdRouter = router({
         institutionalAccounts,
         eq(cpdAttendees.institutionalAccountId, institutionalAccounts.id)
       )
-      .where(sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${email}))`)
+      .where(or(
+        eq(cpdAttendees.userId, ctx.user.id),
+        sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${email}))`
+      ))
       .orderBy(desc(cpdAttendees.id));
-    // Find linked institutionalAccountIds for the current user
+    // Find linked institutionalAccountIds for the current user from both
+    // legacy roster links and active membership records.
     const userStaffLinks = await db
       .select({ instId: institutionalStaffMembers.institutionalAccountId })
       .from(institutionalStaffMembers)
       .where(eq(institutionalStaffMembers.userId, ctx.user.id));
+    const membershipResult = await db
+      .select({ instId: institutionMemberships.institutionalAccountId })
+      .from(institutionMemberships)
+      .where(and(
+        eq(institutionMemberships.userId, ctx.user.id),
+        eq(institutionMemberships.membershipStatus, "active")
+      ));
+    const userMembershipLinks = Array.isArray(membershipResult) ? membershipResult : [];
     
-    let linkedInstIds = userStaffLinks
+    let linkedInstIds = [...(Array.isArray(userStaffLinks) ? userStaffLinks : []), ...userMembershipLinks]
       .map((l) => l.instId)
-      .filter((id): id is number => id !== null);
+      .filter((id): id is number => id !== null)
+      .filter((id, index, ids) => ids.indexOf(id) === index);
 
     // If the user has no official links, find institutions where they have registered for any CPD event
     if (linkedInstIds.length === 0 && rows.length > 0) {
-      const attendedInstIds = new Set<number>();
-      for (const r of rows) {
-        // Find matching cpdAttendee record to get the institutionalAccountId
-        const attendee = await db
-          .select({ instId: cpdAttendees.institutionalAccountId })
-          .from(cpdAttendees)
-          .where(eq(cpdAttendees.id, r.attendeeId))
-          .limit(1);
-        if (attendee[0]?.instId) {
-          attendedInstIds.add(attendee[0].instId);
-        }
-      }
-      linkedInstIds = Array.from(attendedInstIds);
+      linkedInstIds = Array.from(new Set(
+        rows
+          .map(row => row.institutionalAccountId)
+          .filter((id): id is number => id != null)
+      ));
     }
 
     let totalCnes = 0;
@@ -1136,7 +1289,11 @@ export const cpdRouter = router({
           .from(cpdAttendees)
           .where(
             and(
-              sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${email}))`,
+              or(
+                eq(cpdAttendees.userId, ctx.user.id),
+                sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${email}))`
+              ),
+              eq(cpdAttendees.attendanceStatus, "attendance_verified"),
               inArray(cpdAttendees.cpdEventId, instEventIds)
             )
           );
@@ -1164,7 +1321,8 @@ export const cpdRouter = router({
         institutionName: r.institutionName ?? "Healthcare Institution",
         cpdCode: r.cpdCode ?? null,
         approvingCouncil: r.approvingCouncil ?? null,
-        cpdPoints: r.cpdPoints ?? null,
+          cpdPoints: r.cpdPoints ?? null,
+          attendanceStatus: r.attendanceStatus,
       })),
       attendanceStats: {
         totalCnes,
@@ -1199,7 +1357,10 @@ export const cpdRouter = router({
       })
       .from(cpdAttendees)
       .innerJoin(institutionalAccounts, eq(institutionalAccounts.id, cpdAttendees.institutionalAccountId))
-      .where(sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${email}))`)
+      .where(or(
+        eq(cpdAttendees.userId, ctx.user.id),
+        sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${email}))`
+      ))
       .orderBy(desc(cpdAttendees.id));
 
     const latestByInstitution = new Map<number, (typeof attendeeRows)[number]>();
@@ -1339,9 +1500,9 @@ export const cpdRouter = router({
       const events = access.departmentIds
         ? allEvents.filter(event => event.facilityDepartmentId == null || access.departmentIds?.includes(event.facilityDepartmentId))
         : allEvents;
-      const attendees = access.departmentIds
+      const attendees = (access.departmentIds
         ? allAttendees.filter(attendee => attendee.facilityDepartmentId != null && access.departmentIds?.includes(attendee.facilityDepartmentId))
-        : allAttendees;
+        : allAttendees).filter(attendee => countsAsVerifiedAttendance(attendee.attendanceStatus));
       const facilityDepartmentNames = await loadFacilityDepartmentNames(db, input.institutionId);
       const canonicalDepartmentForAttendance = (attendee: typeof attendees[number]) =>
         getCanonicalAttendeeDepartment(attendee, facilityDepartmentNames);
@@ -1359,7 +1520,7 @@ export const cpdRouter = router({
         else generalCount++;
 
         const pts = Number(ev.cpdPoints ?? 0);
-        const count = attendees.filter((a) => a.cpdEventId === ev.id).length;
+        const count = attendees.filter((a) => a.cpdEventId === ev.id && countsAsVerifiedAttendance(a.attendanceStatus)).length;
         totalPointsIssued += pts * count;
       }
 
@@ -1594,13 +1755,198 @@ export const cpdRouter = router({
     };
   }),
 
+  /** Self-service: check in the signed-in user for one exact open event. */
+  checkInSelf: protectedProcedure
+    .input(z.object({ attendeeId: z.number().int().positive(), eventId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      const email = (ctx.user.email ?? "").trim().toLowerCase();
+      if (!email) throw new TRPCError({ code: "BAD_REQUEST", message: "Your account has no email address configured." });
+      const [row] = await db
+        .select({
+          attendeeId: cpdAttendees.id,
+          eventId: cpdAttendees.cpdEventId,
+          institutionalAccountId: cpdAttendees.institutionalAccountId,
+          attendanceStatus: cpdAttendees.attendanceStatus,
+          isOpen: cpdEvents.isOpen,
+          lifecycleStatus: cpdEvents.lifecycleStatus,
+        })
+        .from(cpdAttendees)
+        .innerJoin(cpdEvents, eq(cpdEvents.id, cpdAttendees.cpdEventId))
+        .where(and(
+          eq(cpdAttendees.id, input.attendeeId),
+          eq(cpdAttendees.cpdEventId, input.eventId),
+          or(
+            eq(cpdAttendees.userId, ctx.user.id),
+            sql`LOWER(TRIM(${cpdAttendees.email})) = LOWER(TRIM(${email}))`
+          ),
+          eq(cpdEvents.isOpen, true),
+        ))
+        .limit(1);
+      if (!row || !canRegisterForEvent(row.lifecycleStatus, row.isOpen)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This CPD event is no longer open for check-in." });
+      }
+      if (row.attendanceStatus === "attendance_verified") return { success: true as const, attendanceStatus: row.attendanceStatus };
+      await db.update(cpdAttendees).set({
+        attendanceStatus: "checked_in",
+        checkedInAt: new Date(),
+      }).where(eq(cpdAttendees.id, input.attendeeId));
+      await db.insert(cpdAttendanceAuditEvents).values({
+        institutionalAccountId: row.institutionalAccountId,
+        cpdEventId: row.eventId,
+        cpdAttendeeId: row.attendeeId,
+        previousStatus: row.attendanceStatus,
+        nextStatus: "checked_in",
+        reason: "Self-service event check-in",
+        actorUserId: ctx.user.id,
+      });
+      return { success: true as const, attendanceStatus: "checked_in" as const };
+    }),
+
+  /** Admin/reviewer: review one attendance record; verified is the only countable state. */
+  reviewAttendance: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      attendeeId: z.number().int().positive(),
+      attendanceStatus: z.enum(["registered", "checked_in", "attendance_verified", "excused", "cancelled"]),
+      reason: z.string().trim().min(3).max(500),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.attendance.operate");
+      const access = await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator", "cpd_education_coordinator", "cpd_reviewer"]);
+      const [row] = await db
+        .select({
+          attendeeId: cpdAttendees.id,
+          eventId: cpdAttendees.cpdEventId,
+          institutionalAccountId: cpdAttendees.institutionalAccountId,
+          facilityDepartmentId: cpdAttendees.facilityDepartmentId,
+          previousStatus: cpdAttendees.attendanceStatus,
+        })
+        .from(cpdAttendees)
+        .innerJoin(cpdEvents, eq(cpdEvents.id, cpdAttendees.cpdEventId))
+        .where(and(
+          eq(cpdAttendees.id, input.attendeeId),
+          eq(cpdAttendees.institutionalAccountId, input.institutionId),
+        ))
+        .limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Attendance record not found." });
+      if (access.departmentIds && (row.facilityDepartmentId == null || !access.departmentIds.includes(row.facilityDepartmentId))) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You can review attendance only within your assigned departments." });
+      }
+      if (!canReviewAttendanceTransition(row.previousStatus, input.attendanceStatus)) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "This attendance record is already in a terminal state and cannot be reversed.",
+        });
+      }
+      const now = new Date();
+      const updateData: Record<string, unknown> = {
+        attendanceStatus: input.attendanceStatus,
+        attendanceReviewReason: input.reason,
+      };
+      if (input.attendanceStatus === "checked_in") updateData.checkedInAt = now;
+      if (input.attendanceStatus === "attendance_verified") {
+        updateData.attendanceVerifiedAt = now;
+        updateData.attendanceVerifiedByUserId = ctx.user.id;
+      }
+      await db.update(cpdAttendees).set(updateData).where(eq(cpdAttendees.id, input.attendeeId));
+      await db.insert(cpdAttendanceAuditEvents).values({
+        institutionalAccountId: row.institutionalAccountId,
+        cpdEventId: row.eventId,
+        cpdAttendeeId: row.attendeeId,
+        previousStatus: row.previousStatus,
+        nextStatus: input.attendanceStatus,
+        reason: input.reason,
+        actorUserId: ctx.user.id,
+      });
+
+      let eventClosed = false;
+      if (["attendance_verified", "excused", "cancelled"].includes(input.attendanceStatus)) {
+        const remaining = await db
+          .select({ attendanceStatus: cpdAttendees.attendanceStatus })
+          .from(cpdAttendees)
+          .where(and(
+            eq(cpdAttendees.cpdEventId, row.eventId),
+            eq(cpdAttendees.institutionalAccountId, input.institutionId),
+          ));
+        const unresolved = remaining.some(attendee =>
+          !["attendance_verified", "excused", "cancelled"].includes(attendee.attendanceStatus)
+        );
+        if (!unresolved) {
+          await db.update(cpdEvents).set({
+            lifecycleStatus: "closed",
+            isOpen: false,
+            closedAt: new Date(),
+          }).where(and(
+            eq(cpdEvents.id, row.eventId),
+            eq(cpdEvents.institutionalAccountId, input.institutionId),
+          ));
+          await db.insert(cpdEventAuditEvents).values({
+            institutionalAccountId: input.institutionId,
+            cpdEventId: row.eventId,
+            action: "closed",
+            previousStatus: "attendance_review",
+            nextStatus: "closed",
+            reason: "All attendance records resolved",
+            actorUserId: ctx.user.id,
+          });
+          eventClosed = true;
+        }
+      }
+      return { success: true as const, attendanceStatus: input.attendanceStatus, eventClosed };
+    }),
+
+  /** Admin: archive a session without deleting registrations, attendance, or certificates. */
+  archiveEvent: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), eventId: z.number().int().positive(), reason: z.string().trim().min(3).max(500) }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
+      await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator"]);
+      const [event] = await db.select({ id: cpdEvents.id, lifecycleStatus: cpdEvents.lifecycleStatus }).from(cpdEvents).where(and(eq(cpdEvents.id, input.eventId), eq(cpdEvents.institutionalAccountId, input.institutionId))).limit(1);
+      if (!event) throw new TRPCError({ code: "NOT_FOUND", message: "CPD event not found." });
+      await db.update(cpdEvents).set({ isOpen: false, lifecycleStatus: "archived", closedAt: new Date() }).where(eq(cpdEvents.id, input.eventId));
+      await db.insert(cpdEventAuditEvents).values({ institutionalAccountId: input.institutionId, cpdEventId: input.eventId, action: "archived", previousStatus: event.lifecycleStatus, nextStatus: "archived", reason: input.reason, actorUserId: ctx.user.id });
+      return { success: true as const };
+    }),
+
+  /** Admin: void a session while preserving its full audit trail. */
+  voidEvent: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), eventId: z.number().int().positive(), reason: z.string().trim().min(3).max(500) }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
+      await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator"]);
+      const [event] = await db.select({ id: cpdEvents.id, lifecycleStatus: cpdEvents.lifecycleStatus }).from(cpdEvents).where(and(eq(cpdEvents.id, input.eventId), eq(cpdEvents.institutionalAccountId, input.institutionId))).limit(1);
+      if (!event) throw new TRPCError({ code: "NOT_FOUND", message: "CPD event not found." });
+      const attendeeRows = await db
+        .select({ id: cpdAttendees.id, attendanceStatus: cpdAttendees.attendanceStatus })
+        .from(cpdAttendees)
+        .where(and(
+          eq(cpdAttendees.cpdEventId, input.eventId),
+          eq(cpdAttendees.institutionalAccountId, input.institutionId),
+        ));
+      await db.update(cpdEvents).set({ isOpen: false, lifecycleStatus: "voided", closedAt: new Date() }).where(eq(cpdEvents.id, input.eventId));
+      await db.update(cpdAttendees).set({ attendanceStatus: "cancelled", attendanceReviewReason: input.reason }).where(eq(cpdAttendees.cpdEventId, input.eventId));
+      if (attendeeRows.length > 0) {
+        await db.insert(cpdAttendanceAuditEvents).values(attendeeRows.map(attendee => ({
+          institutionalAccountId: input.institutionId,
+          cpdEventId: input.eventId,
+          cpdAttendeeId: attendee.id,
+          previousStatus: attendee.attendanceStatus,
+          nextStatus: "cancelled",
+          reason: `Session voided: ${input.reason}`,
+          actorUserId: ctx.user.id,
+        })));
+      }
+      await db.insert(cpdEventAuditEvents).values({ institutionalAccountId: input.institutionId, cpdEventId: input.eventId, action: "voided", previousStatus: event.lifecycleStatus, nextStatus: "voided", reason: input.reason, actorUserId: ctx.user.id });
+      return { success: true as const };
+    }),
+
   /**
-   * Admin: permanently delete a CPD event (intended for test/dummy sessions only).
-   *
-   * Premortem Defences:
-   * 1. If any cpdAttendees rows exist, requires a strict super-confirmation phrase.
-   * 2. Requires caller to type the exact event name as irreversibility confirmation.
-   * 3. Cascades in order: cpdCodeRevealLogs → cpdAttendees → cpdEvents.
+   * Compatibility adapter: the former irreversible delete action now archives the event.
+   * Registrations, attendance, certificates, and audit records are preserved.
    */
   deleteEvent: protectedProcedure
     .input(
@@ -1609,8 +1955,9 @@ export const cpdRouter = router({
         eventId: z.number().int().positive(),
         /** Must exactly match the event's name (trimmed, case-insensitive). */
         confirmName: z.string().trim().min(1).max(256),
-        /** Required super-confirm phrase if the event has registered attendees. */
+        /** Kept for old clients; it is no longer used to permit data deletion. */
         confirmAttendeesPhrase: z.string().trim().optional(),
+        reason: z.string().trim().min(3).max(500).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -1620,7 +1967,7 @@ export const cpdRouter = router({
 
       // 1. Verify the event belongs to this institution.
       const [event] = await db
-        .select({ id: cpdEvents.id, name: cpdEvents.name })
+        .select({ id: cpdEvents.id, name: cpdEvents.name, lifecycleStatus: cpdEvents.lifecycleStatus })
         .from(cpdEvents)
         .where(
           and(
@@ -1634,34 +1981,8 @@ export const cpdRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Event not found for this institution." });
       }
 
-      // 2. Super-confirm check if any attendees are registered.
-      const attendeeRows = await db
-        .select({ id: cpdAttendees.id })
-        .from(cpdAttendees)
-        .where(eq(cpdAttendees.cpdEventId, input.eventId))
-        .limit(1);
-
-      if (attendeeRows.length > 0) {
-        // Count them fully for validation.
-        const [countRow] = await db
-          .select({ n: sql<number>`COUNT(*)` })
-          .from(cpdAttendees)
-          .where(eq(cpdAttendees.cpdEventId, input.eventId));
-        const n = Number(countRow?.n ?? 1);
-        const expectedPhrase = `DELETE SESSION WITH ${n} ATTENDEES`;
-
-        if (
-          !input.confirmAttendeesPhrase ||
-          input.confirmAttendeesPhrase.trim().toLowerCase() !== expectedPhrase.toLowerCase()
-        ) {
-          throw new TRPCError({
-            code: "PRECONDITION_FAILED",
-            message: `This event has ${n} registered attendee${n === 1 ? "" : "s"}. To delete it anyway, you must provide the super-confirmation phrase: "${expectedPhrase}".`,
-          });
-        }
-      }
-
-      // 3. Confirm the typed name matches (case-insensitive, trimmed).
+      // Confirm the typed name still matches to prevent acting on the wrong row.
+      // The historical attendee phrase is intentionally ignored: deletion is no longer possible.
       if (input.confirmName.trim().toLowerCase() !== event.name.trim().toLowerCase()) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -1669,19 +1990,20 @@ export const cpdRouter = router({
         });
       }
 
-      // 4. Cascade delete in dependency order.
-      //    cpdCodeRevealLogs → cpdAttendees → cpdEvents
-      await db.delete(cpdCodeRevealLogs).where(eq(cpdCodeRevealLogs.cpdEventId, input.eventId));
-      await db.delete(cpdAttendees).where(eq(cpdAttendees.cpdEventId, input.eventId));
-      await db.delete(cpdEvents).where(eq(cpdEvents.id, input.eventId));
+      const reason = input.reason?.trim() || "Legacy delete action converted to archive";
+      await db.update(cpdEvents).set({ isOpen: false, lifecycleStatus: "archived", closedAt: new Date() }).where(eq(cpdEvents.id, input.eventId));
+      await db.insert(cpdEventAuditEvents).values({
+        institutionalAccountId: input.institutionId,
+        cpdEventId: input.eventId,
+        action: "archived",
+        previousStatus: event.lifecycleStatus,
+        nextStatus: "archived",
+        reason,
+        actorUserId: ctx.user.id,
+      });
 
-      return { success: true as const };
+      return { success: true as const, archived: true as const };
     }),
 });
-
-/**
- * Admin: permanently delete a CPD event (intended for test/dummy sessions only).
- * Guards against accidental deletion — see the deleteEvent procedure inside the router.
- */
 
 export type CpdRouter = typeof cpdRouter;
