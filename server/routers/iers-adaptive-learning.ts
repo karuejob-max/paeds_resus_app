@@ -109,7 +109,7 @@ export const iersAdaptiveLearningRouter = router({
         return counts;
       }, {});
       const firstEventTimes = (eventType: string, descriptionIncludes?: string) => linkedRows.map((row) => {
-        const candidates = events.filter((event) => event.cprSessionId === row.session.id && event.eventType === eventType && (!descriptionIncludes || event.description?.toLowerCase().includes(descriptionIncludes))).sort((a, b) => a.eventTime - b.eventTime);
+        const candidates = events.filter((event) => event.cprSessionId === row.session.id && event.eventType === eventType && event.eventTime !== null && (!descriptionIncludes || event.description?.toLowerCase().includes(descriptionIncludes))).sort((a, b) => (a.eventTime ?? 0) - (b.eventTime ?? 0));
         return candidates[0]?.eventTime ?? null;
       }).filter((value): value is number => value !== null);
       const average = (values: number[]) => values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null;
