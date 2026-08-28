@@ -19,13 +19,20 @@ import { NERP_PATHWAY_ENTRY_PATH } from "@shared/nerp-pathway";
 
 export default function NerpOfferPage() {
   const { user, loading } = useAuth();
-  const eligibility = trpc.nerp.getEligibility.useQuery(undefined, { enabled: !!user });
+  const eligibility = trpc.nerp.getEligibility.useQuery(undefined, { enabled: !!user, retry: false });
+  const enrollment = trpc.nerp.getMyEnrollment.useQuery(undefined, {
+    enabled: Boolean(user && eligibility.data?.eligible === true),
+    retry: false,
+  });
   const canStart = !user || eligibility.data?.eligible === true;
+  const paymentComplete = enrollment.data?.paymentState?.status === "completed";
   const nextHref = !user
     ? `/login?redirect=${encodeURIComponent(NERP_PATHWAY_ENTRY_PATH)}`
-    : canStart
-      ? NERP_PATHWAY_ENTRY_PATH
-      : "/provider-profile";
+    : !canStart
+      ? "/provider-profile"
+      : paymentComplete
+        ? NERP_PATHWAY_ENTRY_PATH
+        : "/programs/nerp-acls/enroll";
 
   return (
     <div className="min-h-screen bg-muted/20 px-4 py-10 md:px-8">
@@ -44,19 +51,30 @@ export default function NerpOfferPage() {
               continue to the ACLS cognitive pathway.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Button asChild variant="cta" size="lg" disabled={loading || (!!user && eligibility.isLoading)}>
+              <Button asChild variant="cta" size="lg" disabled={loading || (!!user && (eligibility.isLoading || enrollment.isLoading))}>
                 <Link href={nextHref}>
-                  {!user ? "Sign in to continue" : canStart ? "Start or resume enrollment" : "Complete provider profile first"}
+                  {!user
+                    ? "Sign in to continue"
+                    : !canStart
+                      ? "Complete provider profile first"
+                      : paymentComplete
+                        ? "Continue to learning"
+                        : "Make your first NERP payment"}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="lg">
-                <Link href={NERP_PATHWAY_ENTRY_PATH}>Check your next learning step</Link>
+              <Button asChild variant="outline" size="lg" disabled={loading || (!!user && (eligibility.isLoading || enrollment.isLoading))}>
+                <Link href={nextHref}>{paymentComplete ? "Check your next learning step" : "View payment and learning steps"}</Link>
               </Button>
               {user && eligibility.data && !eligibility.data.eligible && (
                 <p className="max-w-xl text-sm text-muted-foreground">
-                  NERP is for verified nurses. Add your Nursing Council of Kenya licence number and evidence in your provider profile before joining this pathway.
+                  NERP is for verified nurses. Submit your Nursing Council of Kenya licence number and evidence in your provider profile; payment and coursework become available after an authorised verifier confirms the licence.
                   {" "}<Link href="/provider-profile" className="font-medium text-primary underline">Open provider profile</Link>
+                </p>
+              )}
+              {user && eligibility.data?.eligible && enrollment.data?.offer && !paymentComplete && (
+                <p className="max-w-xl text-sm text-muted-foreground">
+                  Your NERP offer is ready. Continue to the checkout to make the next KES 2,500 instalment and then open the linked BLS-first learning path.
                 </p>
               )}
               <p className="text-sm text-muted-foreground">

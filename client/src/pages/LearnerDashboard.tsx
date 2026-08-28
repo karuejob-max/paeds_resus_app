@@ -19,7 +19,7 @@ import { getProgramIdentity } from "@shared/program-identity";
 import { getCertificateDisplayLabel } from "@shared/paeds-resus-certificates";
 import { inferDesignationFromCadre } from "@shared/cadre-designation-mapping";
 import { AlertCircle, Award, BookOpen, CheckCircle2, Download, FileText, GraduationCap, Loader2, Upload, Users } from "lucide-react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -1734,27 +1734,12 @@ function Phase2BookingCard() {
 }
 
 function ProgressAndLedgerCard() {
-  const { data: ierpSummary } = trpc.ierp.getSummary.useQuery(undefined, { retry: false });
   const { data: phase } = trpc.courses.getPhaseSummary.useQuery();
   const { data: phase2 } = trpc.courses.getPhase2CompletionStatus.useQuery();
-  const { data: ledger, isLoading: ledgerLoading, refetch: refetchLedger } = trpc.payments.getMyPaymentLedger.useQuery();
-  const [phoneNumber, setPhoneNumber] = useState("");
-
-  const stkMutation = trpc.payments.initiateSTKPush.useMutation({
-    onSuccess: () => {
-      toast.success("STK push sent — check your phone to complete payment.");
-      setTimeout(() => void refetchLedger(), 3000);
-    },
-    onError: (err: any) => toast.error(err.message || "Could not initiate payment"),
-  });
-
-  if (ierpSummary) return null;
+  const { data: ledger, isLoading: ledgerLoading } = trpc.payments.getMyUnifiedPaymentLedger.useQuery();
 
   // Phase 1: done once past phase_1. Phase 2: from getPhase2CompletionStatus.
-  // Phase 3: done once phaseStatus reaches phase_3/completed. Falls back to
-  // treating an unknown phase as not-yet-started rather than erroring —
-  // this card should degrade gracefully for a learner with no linked
-  // facility yet (self-service, §2), not block on it.
+  // Phase 3: done once phaseStatus reaches phase_3/completed.
   const phase1Done = !!phase && phase.phaseStatus !== "phase_1";
   const phase2Done = !!phase2?.phase2Complete;
   const phase3Done = phase?.phaseStatus === "phase_3" || phase?.phaseStatus === "completed";
@@ -1800,61 +1785,57 @@ function ProgressAndLedgerCard() {
             <p className="text-xs text-muted-foreground flex items-center gap-2">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
             </p>
-          ) : !ledger?.hasPricedEnrollment ? (
-            <p className="text-xs text-muted-foreground">Enroll through NERP, IERP, ILSP, or the Independent AHA Pathway to see your payment ledger.</p>
+          ) : !ledger?.programs?.length ? (
+            <p className="text-xs text-muted-foreground">
+              Your payment history will appear here after you join NERP, IERP, ILSP, or the Independent AHA Pathway.
+            </p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="p-2 rounded border border-border bg-muted/30">
-                  <p className="text-muted-foreground">Paid so far</p>
-                  <p className="font-semibold text-sm">KES {ledger.totalPaid.toLocaleString()}</p>
+                  <p className="text-muted-foreground">Paid across programmes</p>
+                  <p className="font-semibold text-sm">KES {ledger.totalPaidKes.toLocaleString()}</p>
                 </div>
                 <div className="p-2 rounded border border-border bg-muted/30">
-                  <p className="text-muted-foreground">Remaining</p>
-                  <p className="font-semibold text-sm">{ledger.isPaidInFull ? "Paid in full" : `KES ${ledger.balance.toLocaleString()}`}</p>
+                  <p className="text-muted-foreground">Outstanding</p>
+                  <p className="font-semibold text-sm">KES {ledger.totalOutstandingKes.toLocaleString()}</p>
                 </div>
               </div>
-              {!ledger.isPaidInFull && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <Input
-                      placeholder="2547XXXXXXXX"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      className="h-8 text-xs"
-                    />
-                    <Button
-                      size="sm"
-                      disabled={!phoneNumber || stkMutation.isPending}
-                      onClick={() => {
-                        // Accepts common local formats (07.../+254.../254...)
-                        // and normalizes to the 254XXXXXXXXX shape the
-                        // backend actually requires -- the raw regex error
-                        // otherwise fires for the majority of ways a Kenyan
-                        // learner would naturally type their own number.
-                        let normalized = phoneNumber.replace(/[\s-]/g, "");
-                        if (normalized.startsWith("+")) normalized = normalized.slice(1);
-                        if (normalized.startsWith("0")) normalized = `254${normalized.slice(1)}`;
-                        if (!/^254\d{9}$/.test(normalized)) {
-                          toast.error("Enter a valid Kenyan number, e.g. 0712345678 or 254712345678.");
-                          return;
-                        }
-                        stkMutation.mutate({
-                          phoneNumber: normalized,
-                          amount: Math.min(ledger.balance, 2500),
-                          courseId: String(ledger.courseId),
-                          courseName: ledger.courseTitle,
-                        });
-                      }}
-                    >
-                      {stkMutation.isPending ? "Sending..." : "Pay via M-Pesa"}
-                    </Button>
+              {ledger.programs.map((program) => (
+                <div key={`${program.key}-${program.referenceId ?? program.label}`} className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-sm">{program.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Paid KES {program.totalPaidKes.toLocaleString()}
+                        {program.totalDueKes !== null ? ` of KES ${program.totalDueKes.toLocaleString()}` : ""}
+                        {` · ${program.status.replaceAll("_", " ")}`}
+                      </p>
+                    </div>
+                    {program.key === "nerp" && program.balanceKes !== null && program.balanceKes > 0 ? (
+                      <Button asChild size="sm" variant="outline">
+                        <Link href="/programs/nerp-acls/enroll">Open NERP payment</Link>
+                      </Button>
+                    ) : program.key === "ierp" && program.balanceKes !== null && program.balanceKes > 0 ? (
+                      <Button asChild size="sm" variant="outline">
+                        <Link href="/programs/ierp">Open IERP payment</Link>
+                      </Button>
+                    ) : null}
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Instalment of KES {Math.min(ledger.balance, 2500).toLocaleString()} — enter your M-Pesa number and confirm the prompt on your phone.
-                  </p>
+                  {program.entries.length > 0 ? (
+                    <div className="space-y-1">
+                      {program.entries.slice(0, 4).map((entry) => (
+                        <div key={entry.id} className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                          <span>{entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : "—"}{entry.installmentNumber ? ` · installment ${entry.installmentNumber}` : ""}</span>
+                          <span>KES {entry.amountKes.toLocaleString()} · {entry.status.replaceAll("_", " ")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No payment transaction has been recorded for this programme yet.</p>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
           )}
         </div>

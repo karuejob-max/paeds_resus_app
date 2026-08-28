@@ -34,13 +34,16 @@ export default function NerpPathwayEntry() {
   }
 
   if (pathway.isError || !pathway.data) {
+    const verificationRequired = pathway.error?.message?.toLowerCase().includes("verified nursing council");
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
         <Card className="border-amber-200">
           <CardHeader>
-            <CardTitle>Complete your NERP setup</CardTitle>
+            <CardTitle>{verificationRequired ? "NERP verification required" : "Complete your NERP setup"}</CardTitle>
             <CardDescription>
-              We could not open your NERP learning path yet.
+              {verificationRequired
+                ? "Your payment and coursework link will appear after your NCK evidence is verified."
+                : "We could not open your NERP learning path yet."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -50,9 +53,21 @@ export default function NerpPathwayEntry() {
                   "Please update your professional profile or contact Paeds Resus support, then try again."}
               </AlertDescription>
             </Alert>
-            <Button asChild variant="outline">
-              <Link href="/programs/nerp-acls">Back to the NERP offer</Link>
-            </Button>
+            {verificationRequired ? (
+              <p className="text-sm leading-6 text-muted-foreground">
+                Uploading a licence is the submission step; an authorised verifier must still confirm the Nursing Council of Kenya licence and licence number before NERP enrollment and the first M-Pesa instalment can begin.
+              </p>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              {verificationRequired ? (
+                <Button asChild variant="cta">
+                  <Link href="/provider-profile">Review Professional Credentials</Link>
+                </Button>
+              ) : null}
+              <Button asChild variant="outline">
+                <Link href="/programs/nerp-acls">Back to the NERP offer</Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

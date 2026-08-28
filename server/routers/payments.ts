@@ -540,4 +540,16 @@ export const paymentsRouter = router({
       isPaidInFull: balance <= 0,
     };
   }),
+
+  /**
+   * Unified read-only learner ledger across NERP, IERP, ILSP, Independent AHA,
+   * and other existing payment records.
+   */
+  getMyUnifiedPaymentLedger: protectedProcedure.query(async ({ ctx }) => {
+    const { getDb } = await import("../db");
+    const { getUnifiedPaymentLedger } = await import("../lib/unified-payment-ledger");
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    return getUnifiedPaymentLedger(db, ctx.user.id);
+  }),
 });
