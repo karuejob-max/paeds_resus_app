@@ -77,6 +77,11 @@ function createAuthContext(): TrpcContext {
   return ctx;
 }
 
+function createMemberContext(): TrpcContext {
+  const ctx = createAuthContext();
+  return { ...ctx, user: { ...ctx.user!, role: "user" as const } };
+}
+
 function createPublicContext(): TrpcContext {
   const ctx: TrpcContext = {
     user: null,
@@ -253,6 +258,15 @@ describe("Institution Router", () => {
           secondAdminUserId: 77,
         }),
       ).rejects.toThrow("Select a Paeds Resus account with a saved name and email");
+    });
+  });
+
+  describe("updateDetails", () => {
+    it("rejects a normal institution member before profile mutation", async () => {
+      institutionDbMock.mockState.limitRows = [];
+      institutionDbMock.mockState.limitQueue = [[{ id: 1 }], [], [], []];
+      const caller = appRouter.createCaller(createMemberContext());
+      await expect(caller.institution.updateDetails({ institutionId: 1, companyName: "Unapproved Change" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     });
   });
 

@@ -32,7 +32,6 @@ export const pageVisibility: PageVisibility = {
   "/institutional-management": ["institution"],
   "/institutional-analytics": ["institution"],
   "/institutional-accreditation": ["institution"],
-  "/bulk-enrollment": ["institution"],
   "/staff-management": ["institution"],
 
   // Shared pages
@@ -147,7 +146,6 @@ export const featureVisibility: FeatureVisibility = {
   "Provider Analytics": ["provider"],
   "Institutional Dashboard": ["institution"],
   "Staff Management": ["institution"],
-  "Bulk Enrollment": ["institution"],
   "ROI Calculator": ["institution"],
   "AI Assistant": "all",
   "Chat Support": "all",
