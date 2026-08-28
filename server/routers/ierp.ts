@@ -11,6 +11,7 @@ import { normalizeKenyanPhoneNumber } from "../../shared/kenyan-phone";
 import {
   getAuthoritativePhase2CompletionStatus,
   getIerpEnrollment,
+  getIerpInternProfileAccessMessage,
   getIerpInternProfile,
   getIerpPaymentAccess,
   getIerpPaymentAccessForUser,
@@ -195,11 +196,12 @@ export const ierpRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
       const internProfile = await getIerpInternProfile(db, ctx.user.id);
+      const profileAccessMessage = getIerpInternProfileAccessMessage(internProfile);
+      if (profileAccessMessage) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: profileAccessMessage });
+      }
       if (!isIerpInternProfileReady(internProfile)) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: "Complete your Intern profile and submit your MoH deployment/posting letter before starting IERP.",
-        });
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Complete your Intern profile and submit your MoH deployment/posting letter before starting IERP." });
       }
       if (internProfile.designation !== input.designation) {
         throw new TRPCError({
@@ -302,6 +304,10 @@ export const ierpRouter = router({
       const program = await getIerpEnrollment(db, ctx.user.id);
       if (!program) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Start IERP before submitting Phase 1 evidence." });
       const internProfile = await getIerpInternProfile(db, ctx.user.id);
+      const profileAccessMessage = getIerpInternProfileAccessMessage(internProfile);
+      if (profileAccessMessage) {
+        throw new TRPCError({ code: "FORBIDDEN", message: profileAccessMessage });
+      }
       if (!isIerpInternProfileReady(internProfile)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Complete your Intern profile and submit your MoH deployment/posting letter before accessing IERP coursework." });
       }
@@ -423,6 +429,14 @@ export const ierpRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       const program = await getIerpEnrollment(db, ctx.user.id);
       if (!program) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Start IERP before making a programme payment." });
+      const internProfile = await getIerpInternProfile(db, ctx.user.id);
+      const profileAccessMessage = getIerpInternProfileAccessMessage(internProfile);
+      if (profileAccessMessage) {
+        throw new TRPCError({ code: "FORBIDDEN", message: profileAccessMessage });
+      }
+      if (!isIerpInternProfileReady(internProfile)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Complete your Intern profile and submit your MoH deployment/posting letter before making an IERP payment." });
+      }
       const paidRows = await db.select({ total: sum(ierpPayments.amountKsh) }).from(ierpPayments).where(and(eq(ierpPayments.programEnrollmentId, program.id), eq(ierpPayments.status, "completed")));
       const totalPaid = Number(paidRows[0]?.total ?? 0);
       const effectiveFeeKes = program.effectiveFeeKes ?? IERP_TOTAL_FEE_KES;

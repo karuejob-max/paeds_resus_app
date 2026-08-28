@@ -10,6 +10,8 @@ import {
 import { getDb } from "../db";
 import {
   getIerpInternProfile,
+  getIerpInternProfileAccessMessage,
+  getIerpInternProfileState,
   getIerpPaymentAccessForUser,
   isIerpInternProfileReady,
 } from "./ierp-program-state";
@@ -307,10 +309,18 @@ export async function getAhaAccessDecision(
     const ierpPayment = await getIerpPaymentAccessForUser(db, userId);
     if (ierpPayment) {
       const internProfile = await getIerpInternProfile(db, userId);
-      if (!isIerpInternProfileReady(internProfile)) {
-        ierpBlockMessage = "Complete your Intern profile and submit your MoH deployment/posting letter before accessing IERP.";
+      const internProfileState = getIerpInternProfileState(internProfile);
+      if (internProfileState === "rejected" || internProfileState === "revoked") {
+        ierpBlockMessage = getIerpInternProfileAccessMessage(internProfile);
+      } else if (!isIerpInternProfileReady(internProfile)) {
+        ierpBlockMessage = getIerpInternProfileAccessMessage(internProfile);
       } else if (!ierpPayment.cognitiveAccessLocked) {
-        return allowed("ierp", "Access granted through the IERP pathway.");
+        return allowed(
+          "ierp",
+          internProfileState === "pending_review"
+            ? "Access granted through IERP while intern evidence is under review."
+            : "Access granted through the IERP pathway.",
+        );
       } else {
         ierpBlockMessage = "IERP cognitive access is locked until the full KES 15,000 programme fee is paid.";
       }
