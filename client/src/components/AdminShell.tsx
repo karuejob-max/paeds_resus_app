@@ -16,7 +16,6 @@ import {
   SidebarProvider,
   SidebarSeparator,
   SidebarTrigger,
-  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,12 +29,12 @@ import {
   adminNavigationGroups,
   isAdminRouteActive,
 } from "@/const/admin-navigation";
-import { ArrowLeftRight, LogOut, PanelLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeftRight, LogOut, ShieldCheck } from "lucide-react";
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocation } from "wouter";
 
 export default function AdminShell({ children }: { children: ReactNode }) {
-  const [sidebarWidth] = useState(320);
+  const sidebarWidth = 320;
 
   return (
     <SidebarProvider
@@ -49,7 +48,6 @@ export default function AdminShell({ children }: { children: ReactNode }) {
 function AdminShellContent({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
-  const { toggleSidebar } = useSidebar();
   const isMobile = useIsMobile();
   const [mobileOpenLabel, setMobileOpenLabel] = useState("Menu");
 
@@ -68,13 +66,13 @@ function AdminShellContent({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <Sidebar collapsible="icon" className="border-r bg-sidebar">
+      <Sidebar collapsible="none" className="border-r bg-sidebar">
         <SidebarHeader className="border-b px-3 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
               <ShieldCheck className="h-5 w-5" />
             </div>
-            <div className="min-w-0 group-data-[collapsible=icon]:hidden">
+            <div className="min-w-0">
               <p className="truncate text-sm font-semibold tracking-tight">
                 Paeds Resus
               </p>
@@ -82,14 +80,6 @@ function AdminShellContent({ children }: { children: ReactNode }) {
                 Global Admin
               </p>
             </div>
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:hidden"
-              aria-label="Collapse Global Admin navigation"
-            >
-              <PanelLeft className="h-4 w-4" />
-            </button>
           </div>
         </SidebarHeader>
 
@@ -98,7 +88,7 @@ function AdminShellContent({ children }: { children: ReactNode }) {
             const GroupIcon = group.icon;
             return (
               <SidebarGroup key={group.label} className="px-2 py-1">
-                <SidebarGroupLabel className="min-w-0 gap-2 overflow-hidden px-2 text-[11px] font-semibold uppercase tracking-wide leading-4 text-sidebar-foreground/60 group-data-[collapsible=icon]:sr-only">
+                <SidebarGroupLabel className="min-w-0 gap-2 overflow-hidden px-2 text-[11px] font-semibold uppercase tracking-wide leading-4 text-sidebar-foreground/60">
                   <GroupIcon className="h-3.5 w-3.5 shrink-0" />
                   <span className="min-w-0 truncate">{group.label}</span>
                 </SidebarGroupLabel>
@@ -116,7 +106,7 @@ function AdminShellContent({ children }: { children: ReactNode }) {
                             className={`h-10 min-w-0 overflow-hidden font-normal ${item.badge ? "pr-12" : ""}`}
                           >
                             <ItemIcon className="h-4 w-4 shrink-0" />
-                            <span className="min-w-0 flex-1 truncate group-data-[collapsible=icon]:hidden">
+                            <span className="min-w-0 flex-1 truncate">
                               {item.label}
                             </span>
                           </SidebarMenuButton>
@@ -140,22 +130,20 @@ function AdminShellContent({ children }: { children: ReactNode }) {
             variant="outline"
             size="sm"
             onClick={() => navigate("/institution", "Institution Workspace")}
-            className="w-full justify-start gap-2 bg-sidebar group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
+            className="w-full justify-start gap-2 bg-sidebar"
           >
             <ArrowLeftRight className="h-4 w-4 shrink-0" />
-            <span className="group-data-[collapsible=icon]:hidden">
-              Switch workspace
-            </span>
+            <span>Switch workspace</span>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex w-full items-center gap-3 rounded-lg px-1 py-1 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:justify-center">
+              <button className="flex w-full items-center gap-3 rounded-lg px-1 py-1 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
                 <Avatar className="h-8 w-8 shrink-0 border border-sidebar-border">
                   <AvatarFallback className="bg-sidebar-accent text-xs font-medium text-sidebar-foreground">
                     {user?.name?.charAt(0).toUpperCase() || "A"}
                   </AvatarFallback>
                 </Avatar>
-                <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">
                     {user?.name || "Global administrator"}
                   </p>
