@@ -1,9 +1,11 @@
-import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import AdminShell from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Shield, FileText, LineChart, Wallet, GraduationCap, ShieldAlert, Globe, ImageIcon, Loader2, CheckCircle2, Target, Activity, Webhook, Building2, Mail } from "lucide-react";
-import { useEffect, useState } from "react";
+import { adminNavigationGroups, type AdminRouteItem } from "@/const/admin-navigation";
+import { AlertTriangle, ArrowRight, CheckCircle2, ImageIcon, KeyRound, Loader2, Shield } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/use-toast";
 
@@ -31,320 +33,174 @@ export default function AdminHub() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-2xl mx-auto space-y-8">
-        <div className="flex items-center gap-2">
-          <Shield className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-2xl font-bold">Admin</h1>
-            <p className="text-muted-foreground">Platform administration and analytics</p>
+    <AdminShell>
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="flex flex-col gap-4 rounded-2xl border bg-background p-5 shadow-sm md:flex-row md:items-start md:justify-between md:p-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Shield className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-primary">Paeds Resus · Global Admin</p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight">Platform overview</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                Start with the work area that matches the decision you need to make. Use Access grants for approved free or discounted access, and switch to Institution Workspace for tenant-scoped administration.
+              </p>
+            </div>
           </div>
-        </div>
+          <Button type="button" variant="outline" onClick={() => setLocation("/institution")} className="shrink-0">
+            Switch to Institution Workspace <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </header>
 
-        <div className="grid gap-4 md:grid-cols-1">
-          <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => setLocation("/admin/mpesa-reconciliation")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Wallet className="h-5 w-5" />
-                  M-Pesa reconciliation
-                </CardTitle>
-                <CardDescription>
-                  Stale pending payments, STK query reconcile, export CSV, config readiness
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
+        <section className="grid gap-4 md:grid-cols-3" aria-label="Priority admin actions">
+          <PriorityCard
+            title="Access grants"
+            description="Issue named, auditable free or discounted programme access."
+            href="/admin/access-grants"
+            icon={<KeyRound className="h-5 w-5 text-primary" />}
+            action="Open grants"
+          />
+          <PriorityCard
+            title="Platform Ops"
+            description="Inspect errors, stuck workflows, and operational health."
+            href="/admin/ops"
+            icon={<AlertTriangle className="h-5 w-5 text-amber-600" />}
+            action="Open operations"
+          />
+          <PriorityCard
+            title="Review queues"
+            description="Review Care Signal, Code Signal, and capstone items awaiting action."
+            href="/admin/care-signal-review"
+            icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />}
+            action="Open review"
+          />
+        </section>
 
-          <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => setLocation("/admin/capstone-grading")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <GraduationCap className="h-5 w-5" />
-                  Capstone Grading
-                </CardTitle>
-                <CardDescription>
-                  Review and grade fellowship capstone submissions (48h turnaround, 80% pass threshold)
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
+        <section aria-labelledby="work-areas-heading" className="space-y-3">
+          <div>
+            <h2 id="work-areas-heading" className="text-lg font-semibold">Work areas</h2>
+            <p className="text-sm text-muted-foreground">Every destination is grouped by the type of admin work it supports.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {adminNavigationGroups
+              .filter(group => group.label !== "Overview" && group.label !== "Maintenance")
+              .map(group => {
+                const GroupIcon = group.icon;
+                return (
+                  <Card key={group.label} className="border-border/80 shadow-sm">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <GroupIcon className="h-4 w-4 text-primary" />
+                        {group.label}
+                      </CardTitle>
+                      <CardDescription>
+                        {group.items.length} destination{group.items.length === 1 ? "" : "s"} available
+                      </CardDescription>
+                    </CardHeader>
+                    <div className="space-y-1 px-6 pb-5">
+                      {group.items.map(item => <DestinationLink key={item.href} item={item} onNavigate={setLocation} />)}
+                    </div>
+                  </Card>
+                );
+              })}
+          </div>
+        </section>
 
-          <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => setLocation("/admin/mpesa-webhooks")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Webhook className="h-5 w-5" />
-                  M-Pesa webhook log
-                </CardTitle>
-                <CardDescription>
-                  Audit trail for Daraja callbacks — signature rejects, payment outcomes, forensics
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => setLocation("/admin/facility-care-signal")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
-                  Facility Care Signal
-                </CardTitle>
-                <CardDescription>
-                  Per-facility QI dashboard — gaps, reporter coverage, roster without submissions
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card className="cursor-pointer hover:border-primary/50" onClick={() => setLocation("/admin/feedback")}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ShieldAlert className="h-5 w-5" />Feedback inbox</CardTitle>
-              <CardDescription>User feedback tickets — courses, ResusGPS, Care Signal, agent export</CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors border-orange-200 hover:border-orange-400"
-            onClick={() => setLocation("/admin/ops")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-orange-600" />
-                  Platform ops health
-                </CardTitle>
-                <CardDescription>
-                  Errors, failed/stale payments, stuck enrollments, deployment context, Care Signal facility rollup
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => setLocation("/admin/reports")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Reports & insights
-                </CardTitle>
-                <CardDescription>
-                  Registered users, enrollment ledger (training + micro-courses), fellowship pillar progress, BLS/ACLS enrollments & certifications, parent Safe-Truth usage, Paeds Resus activity
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => setLocation("/kaizen-dashboard")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
-                  Kaizen KPI (internal)
-                </CardTitle>
-                <CardDescription>
-                  Daily targets vs registrations, enrollments, revenue, certificates — platform ops view
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors border-emerald-200 hover:border-emerald-400"
-            onClick={() => setLocation("/admin/nerp-verification")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                  NERP verification & campaign preview
-                </CardTitle>
-                <CardDescription>
-                  Verify external NERP phases and preview suppression-aware Institution 3 nurse recipients; sending is disabled
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors border-blue-200 hover:border-blue-400"
-            onClick={() => setLocation("/admin/promotional-messaging")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Mail className="h-5 w-5 text-blue-600" />
-                  Promotional messaging governance
-                </CardTitle>
-                <CardDescription>
-                  Global Admin-only opt-in audience preview, recipient snapshots, unsubscribe controls, and bulk delivery across selected cadres
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => setLocation("/institution")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  Institution Workspace
-                </CardTitle>
-                <CardDescription>
-                  Institutional administration, learning operations, and readiness overview
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => setLocation("/care-signal-analytics")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <LineChart className="h-5 w-5" />
-                  Care Signal analytics
-                </CardTitle>
-                <CardDescription>
-                  Insights from Care Signal event submissions and system gaps
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors border-blue-200 hover:border-blue-400"
-            onClick={() => setLocation("/admin/national-signal")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5 text-blue-600" />
-                  National Paediatric Emergency Signal
-                </CardTitle>
-                <CardDescription>
-                  Anonymised national surveillance dashboard — outcomes, system gaps, facility breakdown. MOH/WHO-ready.
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors border-amber-200 hover:border-amber-400"
-            onClick={() => setLocation("/admin/care-signal-review")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <ShieldAlert className="h-5 w-5 text-amber-600" />
-                  Care Signal review queue
-                </CardTitle>
-                <CardDescription>
-                  Review and close provider-submitted incident reports awaiting institutional action
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card
-            className="cursor-pointer hover:border-primary/50 transition-colors border-amber-200 hover:border-amber-400"
-            onClick={() => setLocation("/admin/code-signal-review")}
-          >
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <ShieldAlert className="h-5 w-5 text-amber-600" />
-                  Code Signal review queue
-                </CardTitle>
-                <CardDescription>
-                  Review and close provider-submitted adult/whole-hospital resuscitation reports
-                </CardDescription>
-              </div>
-            </CardHeader>
-          </Card>
-        </div>
-
-        {/* ── Maintenance Tools ─────────────────────────────────────────────── */}
-        <div className="mt-6">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Maintenance</h2>
-          <ImageMigrationCard />
-        </div>
+        <MaintenanceCard />
       </div>
-    </div>
+    </AdminShell>
   );
 }
 
-function ImageMigrationCard() {
-  const { toast } = useToast();
-  const [done, setDone] = useState(false);
-  const migrate = trpc.adminStats.runImageMigration.useMutation({
-    onSuccess: (data) => {
-      setDone(true);
-      toast({
-        title: data.updated > 0 ? `✅ Migration complete` : '✅ Already migrated',
-        description: data.message,
-      });
-    },
-    onError: (err) => {
-      toast({ title: 'Migration failed', description: err.message, variant: 'destructive' });
-    },
-  });
-
+function PriorityCard({
+  title,
+  description,
+  href,
+  icon,
+  action,
+}: {
+  title: string;
+  description: string;
+  href: string;
+  icon: ReactNode;
+  action: string;
+}) {
+  const [, setLocation] = useLocation();
   return (
-    <Card className="border-slate-200">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div className="flex items-start gap-3">
-          <ImageIcon className="h-5 w-5 text-slate-500 mt-0.5" />
-          <div>
-            <CardTitle className="text-sm">Course Image URL Migration</CardTitle>
-            <CardDescription className="text-xs mt-0.5">
-              Replaces CDN (files.manuscdn.com) image URLs with self-hosted paths.
-              Safe to run multiple times.
-            </CardDescription>
-          </div>
-        </div>
-        <Button
-          size="sm"
-          variant={done ? 'outline' : 'default'}
-          disabled={migrate.isPending || done}
-          onClick={() => migrate.mutate()}
-          className="shrink-0"
-        >
-          {migrate.isPending ? (
-            <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Running…</>
-          ) : done ? (
-            <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-green-500" /> Done</>
-          ) : (
-            'Run Migration'
-          )}
+    <Card className="border-primary/15 bg-background shadow-sm transition-colors hover:border-primary/40">
+      <CardHeader>
+        <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-muted">{icon}</div>
+        <CardTitle className="text-base">{title}</CardTitle>
+        <CardDescription className="min-h-10">{description}</CardDescription>
+        <Button type="button" variant="link" className="h-auto justify-start px-0 pt-3" onClick={() => setLocation(href)}>
+          {action} <ArrowRight className="ml-1 h-4 w-4" />
         </Button>
       </CardHeader>
     </Card>
   );
 }
 
+function DestinationLink({ item, onNavigate }: { item: AdminRouteItem; onNavigate: (href: string) => void }) {
+  const ItemIcon = item.icon;
+  return (
+    <button
+      type="button"
+      onClick={() => onNavigate(item.href)}
+      className="group flex w-full items-start gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <ItemIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+      <span className="min-w-0">
+        <span className="flex items-center gap-2 text-sm font-medium">
+          {item.label}
+          {item.badge ? <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">{item.badge}</span> : null}
+        </span>
+        <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{item.description}</span>
+      </span>
+      <ArrowRight className="ml-auto mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+    </button>
+  );
+}
 
+function MaintenanceCard() {
+  const { toast } = useToast();
+  const [done, setDone] = useState(false);
+  const migrate = trpc.adminStats.runImageMigration.useMutation({
+    onSuccess: data => {
+      setDone(true);
+      toast({
+        title: data.updated > 0 ? "Migration complete" : "Already migrated",
+        description: data.message,
+      });
+    },
+    onError: error => {
+      toast({ title: "Migration failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <section aria-labelledby="maintenance-heading" className="rounded-xl border border-slate-200 bg-background p-4 shadow-sm md:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <ImageIcon className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
+          <div>
+            <h2 id="maintenance-heading" className="text-sm font-semibold">Maintenance</h2>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Rare, privileged technical actions. Course image URL migration is safe to run repeatedly but should not be treated as routine admin work.
+            </p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant={done ? "outline" : "default"}
+          disabled={migrate.isPending || done}
+          onClick={() => migrate.mutate()}
+          className="shrink-0"
+        >
+          {migrate.isPending ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Running…</> : done ? <><CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-500" />Done</> : "Run image migration"}
+        </Button>
+      </div>
+    </section>
+  );
+}

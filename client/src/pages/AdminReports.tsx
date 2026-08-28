@@ -33,8 +33,6 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import AhaAccessGrantPanel from "@/components/AhaAccessGrantPanel";
-import GlobalEntitlementPanel from "@/components/GlobalEntitlementPanel";
 
 type LifecycleBatchResult = {
   dryRun: boolean;
@@ -847,8 +845,6 @@ export default function AdminReports() {
             ← Back to Admin
           </button>
                 </div>
-        <AhaAccessGrantPanel />
-        <GlobalEntitlementPanel />
         {/* Tabs for different report sections */}
         <Tabs value={reportTab} onValueChange={setReportTab} className="w-full">
 
