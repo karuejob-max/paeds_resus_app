@@ -6,7 +6,9 @@
 import { router, publicProcedure, protectedProcedure } from '../_core/trpc';
 import { z } from 'zod';
 import { TRPCError } from "@trpc/server";
+import { randomUUID } from "node:crypto";
 import { getDb } from '../db';
+import { storagePut } from "../storage";
 import {
   CLINICAL_CONTENT_VERSION,
   ensureMicroCoursesCatalog,
@@ -43,6 +45,50 @@ import { getAhaAccessDecision } from "../lib/aha-access";
 import { ensurePhase2CompletionCertificateForUser } from "../lib/paeds-resus-certificate-issuance";
 
 const AHA_PROGRAM_TYPES = ['bls', 'acls', 'pals', 'heartsaver', 'nrp', 'instructor'] as const;
+
+const MAX_AHA_PROOF_BYTES = 10 * 1024 * 1024;
+
+async function getAclsElearningProof(db: any, userId: number) {
+  const [row] = await db
+    .select({
+      id: enrollments.id,
+      cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
+      videoPreworkCertificateUrl: enrollments.videoPreworkCertificateUrl,
+      precourseAssessmentCertificateUrl: enrollments.precourseAssessmentCertificateUrl,
+      precourseAssessmentPassed: enrollments.precourseAssessmentPassed,
+      elearningProofSubmittedAt: enrollments.elearningProofSubmittedAt,
+      elearningProofVerifiedAt: enrollments.elearningProofVerifiedAt,
+    })
+    .from(enrollments)
+    .where(and(eq(enrollments.userId, userId), eq(enrollments.programType, "acls"), eq(enrollments.enrollmentStatus, "active")))
+    .orderBy(desc(enrollments.createdAt))
+    .limit(1);
+  const [bls] = await db
+    .select({ cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
+    .from(enrollments)
+    .where(and(eq(enrollments.userId, userId), eq(enrollments.programType, "bls"), eq(enrollments.enrollmentStatus, "active")))
+    .orderBy(desc(enrollments.createdAt))
+    .limit(1);
+  const blsCognitiveComplete = !!bls?.cognitiveModulesComplete;
+  const courseCognitiveComplete = !!row?.cognitiveModulesComplete;
+  const proofSubmitted = !!row?.elearningProofSubmittedAt;
+  const proofComplete = !!row?.videoPreworkCertificateUrl && !!row?.precourseAssessmentCertificateUrl && row?.precourseAssessmentPassed === true;
+  return { row, blsCognitiveComplete, courseCognitiveComplete, proofSubmitted, proofComplete };
+}
+
+async function assertAclsElearningProof(db: any, userId: number) {
+  const proof = await getAclsElearningProof(db, userId);
+  if (!proof.blsCognitiveComplete) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Complete the BLS cognitive refresh on this platform before starting the ACLS prerequisite step." });
+  }
+  if (!proof.courseCognitiveComplete) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Complete the ACLS cognitive modules before uploading the AHA Video Prework and Precourse Self-Assessment certificates." });
+  }
+  if (!proof.proofComplete) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Upload both the AHA Video Prework Completion Certificate and the Passed Precourse Self-Assessment Certificate from elearning.heart.org before booking Phase 2." });
+  }
+  return proof;
+}
 
 async function fetchMyAhaEnrollments(userId: number) {
   const database = await getDb();
@@ -905,6 +951,7 @@ export const coursesRouter = router({
       const [session] = await db
         .select({
           id: trainingSchedules.id,
+          programType: courses.programType,
           maxCapacity: trainingSchedules.maxCapacity,
           enrolledCount: trainingSchedules.enrolledCount,
           status: trainingSchedules.status,
@@ -913,9 +960,12 @@ export const coursesRouter = router({
           institutionalAccountId: trainingSchedules.institutionalAccountId,
         })
         .from(trainingSchedules)
+        .innerJoin(courses, eq(trainingSchedules.courseId, courses.id))
         .where(eq(trainingSchedules.id, input.scheduleId))
         .limit(1);
       if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+      const ierpEnrollment = await getIerpEnrollment(db, ctx.user.id);
+      if (session.programType === "acls" && !ierpEnrollment) await assertAclsElearningProof(db, ctx.user.id);
       if (session.status === "cancelled") throw new TRPCError({ code: "BAD_REQUEST", message: "This session has been cancelled" });
       if (session.scheduledDate && new Date(session.scheduledDate) < new Date()) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "This session has already passed" });
@@ -925,7 +975,6 @@ export const coursesRouter = router({
       // IERP training participation is independent of an institutional roster
       // row. Its Phase 3 gate is therefore evaluated from the user-owned IERP
       // record and the authoritative named-role completion source.
-      const ierpEnrollment = await getIerpEnrollment(db, ctx.user.id);
       if (ierpEnrollment && (session.trainingType === "hands_on" || session.trainingType === "hybrid")) {
         const internProfile = await getIerpInternProfile(db, ctx.user.id);
         if (!isIerpInternProfileReady(internProfile)) {
@@ -1315,20 +1364,16 @@ export const coursesRouter = router({
         const database = await getDb();
         if (!database) throw new Error('Database unavailable');
 
-        // BLS prerequisite (CEO decision, 2026-07-19): "One must complete BLS to
-        // start ACLS or PALS" — applies platform-wide, not just to the subsidised
-        // cohort program. Deliberate interpretation, flagged not assumed: "complete"
-        // is read as full BLS certification (practicalSkillsSignedOff), not just the
-        // cognitive/online modules — ACLS and PALS both build on hands-on BLS skill,
-        // not just BLS theory. If the intent was cognitive-modules-only, this is a
-        // one-field change (practicalSkillsSignedOff -> cognitiveModulesComplete).
+        // Platform-wide sequencing: ACLS begins only after the learner has
+        // completed the platform BLS cognitive refresh. A prior BLS certificate
+        // does not bypass this refresh; practical sign-off is a later requirement.
         if (input.programType === 'acls' || input.programType === 'pals') {
           const blsEnrollment = await database
-            .select({ id: enrollments.id, signedOff: enrollments.practicalSkillsSignedOff })
+            .select({ id: enrollments.id, cognitiveComplete: enrollments.cognitiveModulesComplete })
             .from(enrollments)
             .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, 'bls')))
             .limit(1);
-          if (blsEnrollment.length === 0 || !blsEnrollment[0].signedOff) {
+          if (blsEnrollment.length === 0 || !blsEnrollment[0].cognitiveComplete) {
             return {
               success: false,
               enrollmentId: 0,
@@ -1497,6 +1542,44 @@ export const coursesRouter = router({
       return { success: true };
     }),
 
+  /** Private upload path for the two ACLS elearning.heart.org certificates. */
+  submitElearningProofFiles: protectedProcedure
+    .input(z.object({
+      documents: z.array(z.object({
+        documentType: z.enum(["video_prework", "precourse_assessment"]),
+        fileName: z.string().trim().min(1).max(255),
+        contentType: z.enum(["application/pdf", "image/jpeg", "image/png"]),
+        dataBase64: z.string().min(1).max(20_000_000),
+      })).length(2),
+    }).superRefine((value, ctx) => {
+      if (new Set(value.documents.map((document) => document.documentType)).size !== 2) {
+        ctx.addIssue({ code: "custom", message: "Submit exactly one Video Prework document and one Precourse Self-Assessment document." });
+      }
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const proof = await getAclsElearningProof(db, ctx.user.id);
+      if (!proof.blsCognitiveComplete || !proof.courseCognitiveComplete || !proof.row) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Complete the BLS refresh and ACLS cognitive modules before uploading the two AHA eLearning certificates." });
+      }
+      const updates: Record<string, unknown> = { elearningProofSubmittedAt: new Date(), precourseAssessmentPassed: true };
+      for (const document of input.documents) {
+        const raw = document.dataBase64.replace(/^data:[^;]+;base64,/, "");
+        const bytes = Buffer.from(raw, "base64");
+        if (bytes.length === 0 || bytes.length > MAX_AHA_PROOF_BYTES) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Each certificate must be between 1 byte and 10 MB." });
+        }
+        const safeName = document.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const key = `aha/${ctx.user.id}/${proof.row.id}/acls/${document.documentType}/${randomUUID()}-${safeName}`;
+        const stored = await storagePut(key, bytes, document.contentType);
+        if (document.documentType === "video_prework") updates.videoPreworkCertificateUrl = stored.key;
+        else updates.precourseAssessmentCertificateUrl = stored.key;
+      }
+      await db.update(enrollments).set(updates).where(eq(enrollments.id, proof.row.id));
+      return { success: true as const, message: "Both certificates were submitted privately. Phase 2 booking is now available." };
+    }),
+
   // ─────────────────────────────────────────────────────────────────────────
   // Phase 2 role-based booking (docs/IERP_NERP_PROGRAM_V2_SPEC.md §4). Self-
   // service throughout, no coordinator involved: an approved instructor
@@ -1620,18 +1703,22 @@ export const coursesRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
       const [session] = await db
-        .select({ id: trainingSchedules.id, status: trainingSchedules.status, trainingType: trainingSchedules.trainingType })
+        .select({ id: trainingSchedules.id, status: trainingSchedules.status, trainingType: trainingSchedules.trainingType, programType: courses.programType })
         .from(trainingSchedules)
+        .innerJoin(courses, eq(trainingSchedules.courseId, courses.id))
         .where(eq(trainingSchedules.id, input.scheduleId))
         .limit(1);
       if (!session || session.trainingType !== "online" || session.status === "cancelled") {
         throw new TRPCError({ code: "NOT_FOUND", message: "Session not found or no longer available." });
       }
+      // IERP stores the same two certificates in its private Phase 1 table;
+      // NERP and self-pay store them on the shared ACLS enrollment row.
 
       // Phase/payment gate (docs/IERP_NERP_PROGRAM_V2_SPEC.md §6.3). Phase 2
       // is cross-program by design. IERP uses its user-owned programme row;
       // NERP and legacy learners retain the existing staff-row branch.
       const ierpEnrollment = await getIerpEnrollment(db, ctx.user.id);
+      if (session.programType === "acls" && !ierpEnrollment) await assertAclsElearningProof(db, ctx.user.id);
       if (ierpEnrollment) {
         const internProfile = await getIerpInternProfile(db, ctx.user.id);
         if (!isIerpInternProfileReady(internProfile)) {
@@ -1640,10 +1727,10 @@ export const coursesRouter = router({
             message: "Complete your Intern profile and submit your MoH deployment/posting letter before booking a Phase 2 simulation.",
           });
         }
-        if (ierpEnrollment.phase1Status !== "verified") {
+        if (! ["submitted", "verified"].includes(ierpEnrollment.phase1Status)) {
           throw new TRPCError({
             code: "FORBIDDEN",
-            message: "Complete and verify both Phase 1 evidence documents before booking a Phase 2 simulation.",
+            message: "Upload both Phase 1 certificates before booking a Phase 2 simulation.",
           });
         }
         const payment = await getIerpPaymentAccessForUser(db, ctx.user.id);

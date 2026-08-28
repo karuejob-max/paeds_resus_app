@@ -441,6 +441,16 @@ export const ierpRouter = router({
       const totalPaid = Number(paidRows[0]?.total ?? 0);
       const effectiveFeeKes = program.effectiveFeeKes ?? IERP_TOTAL_FEE_KES;
       const remaining = Math.max(0, effectiveFeeKes - totalPaid);
+      const paymentAccess = getIerpPaymentAccess({
+        ...program,
+        effectiveCommencementDate: internProfile.effectiveCommencementDate,
+      });
+      if (paymentAccess.deferredStartWindow && !paymentAccess.paymentLockoutActive) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "No IERP payment is required before 1 December EAT for August–November interns. Continue with BLS and ACLS learning.",
+        });
+      }
       if (remaining <= 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "The IERP programme is already fully paid." });
       }
