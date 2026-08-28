@@ -32,7 +32,7 @@ export default function ProviderProfile() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Professional profile</h1>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Keep your professional identity and provider information accurate. Use Professional Profile for specialty, experience, languages, and biography; use Professional Credentials for one evidence-backed Licence number, jurisdiction, regulator, and verification status. Account security and workplace access remain separate so one field is not mistaken for another.
+            Keep your professional identity and provider information accurate. Choose cadre and specialization once in Professional Identity, record experience and optional language context in the smaller profile section, and use Professional Credentials for one evidence-backed Licence number, jurisdiction, regulator, and AHA certificate evidence. Account security and workplace access remain separate so one field is not mistaken for another.
           </p>
           {profile?.department ? (
             <p className="mt-2 text-sm font-medium text-primary">Current workplace department: {profile.department}</p>
