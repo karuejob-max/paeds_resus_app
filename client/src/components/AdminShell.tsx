@@ -19,15 +19,23 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useIsMobile } from "@/hooks/useMobile";
-import { adminNavigationGroups, isAdminRouteActive } from "@/const/admin-navigation";
+import {
+  adminNavigationGroups,
+  isAdminRouteActive,
+} from "@/const/admin-navigation";
 import { ArrowLeftRight, LogOut, PanelLeft, ShieldCheck } from "lucide-react";
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useLocation } from "wouter";
 
 export default function AdminShell({ children }: { children: ReactNode }) {
-  const [sidebarWidth] = useState(288);
+  const [sidebarWidth] = useState(320);
 
   return (
     <SidebarProvider
@@ -67,8 +75,12 @@ function AdminShellContent({ children }: { children: ReactNode }) {
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-              <p className="truncate text-sm font-semibold tracking-tight">Paeds Resus</p>
-              <p className="truncate text-xs text-sidebar-foreground/70">Global Admin</p>
+              <p className="truncate text-sm font-semibold tracking-tight">
+                Paeds Resus
+              </p>
+              <p className="truncate text-xs text-sidebar-foreground/70">
+                Global Admin
+              </p>
             </div>
             <button
               type="button"
@@ -86,9 +98,9 @@ function AdminShellContent({ children }: { children: ReactNode }) {
             const GroupIcon = group.icon;
             return (
               <SidebarGroup key={group.label} className="px-2 py-1">
-                <SidebarGroupLabel className="gap-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/60 group-data-[collapsible=icon]:sr-only">
-                  <GroupIcon className="h-3.5 w-3.5" />
-                  {group.label}
+                <SidebarGroupLabel className="min-w-0 gap-2 overflow-hidden px-2 text-[11px] font-semibold uppercase tracking-wide leading-4 text-sidebar-foreground/60 group-data-[collapsible=icon]:sr-only">
+                  <GroupIcon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="min-w-0 truncate">{group.label}</span>
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
@@ -101,12 +113,16 @@ function AdminShellContent({ children }: { children: ReactNode }) {
                             isActive={isActive}
                             onClick={() => navigate(item.href, item.label)}
                             tooltip={item.label}
-                            className="h-9 font-normal"
+                            className={`h-10 min-w-0 overflow-hidden font-normal ${item.badge ? "pr-12" : ""}`}
                           >
-                            <ItemIcon className="h-4 w-4" />
-                            <span>{item.label}</span>
+                            <ItemIcon className="h-4 w-4 shrink-0" />
+                            <span className="min-w-0 flex-1 truncate group-data-[collapsible=icon]:hidden">
+                              {item.label}
+                            </span>
                           </SidebarMenuButton>
-                          {item.badge ? <SidebarMenuBadge>{item.badge}</SidebarMenuBadge> : null}
+                          {item.badge ? (
+                            <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
+                          ) : null}
                         </SidebarMenuItem>
                       );
                     })}
@@ -127,7 +143,9 @@ function AdminShellContent({ children }: { children: ReactNode }) {
             className="w-full justify-start gap-2 bg-sidebar group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
           >
             <ArrowLeftRight className="h-4 w-4 shrink-0" />
-            <span className="group-data-[collapsible=icon]:hidden">Switch workspace</span>
+            <span className="group-data-[collapsible=icon]:hidden">
+              Switch workspace
+            </span>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -138,8 +156,12 @@ function AdminShellContent({ children }: { children: ReactNode }) {
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-                  <p className="truncate text-sm font-medium">{user?.name || "Global administrator"}</p>
-                  <p className="truncate text-xs text-sidebar-foreground/70">{user?.email || "Admin account"}</p>
+                  <p className="truncate text-sm font-medium">
+                    {user?.name || "Global administrator"}
+                  </p>
+                  <p className="truncate text-xs text-sidebar-foreground/70">
+                    {user?.email || "Admin account"}
+                  </p>
                 </div>
               </button>
             </DropdownMenuTrigger>
@@ -161,8 +183,12 @@ function AdminShellContent({ children }: { children: ReactNode }) {
           <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
             <SidebarTrigger className="h-9 w-9 rounded-lg" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{activeItem?.label || mobileOpenLabel}</p>
-              <p className="truncate text-xs text-muted-foreground">Global Admin</p>
+              <p className="truncate text-sm font-semibold">
+                {activeItem?.label || mobileOpenLabel}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                Global Admin
+              </p>
             </div>
           </div>
         ) : null}
