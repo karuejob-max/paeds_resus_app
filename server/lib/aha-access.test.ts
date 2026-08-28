@@ -18,6 +18,22 @@ describe("AHA access primitives", () => {
     ).toBe(true);
   });
 
+  it("accepts a verified NCK licence when NERP dates are not recorded", () => {
+    expect(
+      isCurrentNckLicence(
+        {
+          issuer: "Nursing Council of Kenya (NCK)",
+          jurisdiction: "Kenya",
+          credentialNumber: "NCK-OPTIONAL-DATES",
+          status: "verified",
+          issuedAt: undefined,
+          expiresAt: undefined,
+        },
+        now,
+      ),
+    ).toBe(true);
+  });
+
   it("rejects unverified, missing-number, expired, or unrelated licences", () => {
     expect(isCurrentNckLicence({ issuer: "NCK", credentialNumber: "NCK-1", status: "pending" }, now)).toBe(false);
     expect(isCurrentNckLicence({ issuer: "NCK", credentialNumber: "", status: "verified" }, now)).toBe(false);
