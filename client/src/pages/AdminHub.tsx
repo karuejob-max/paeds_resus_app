@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Shield, FileText, LineChart, Wallet, GraduationCap, ShieldAlert, Globe, ImageIcon, Loader2, CheckCircle2, Target, Activity, Webhook, Building2 } from "lucide-react";
+import { BarChart3, Shield, FileText, LineChart, Wallet, GraduationCap, ShieldAlert, Globe, ImageIcon, Loader2, CheckCircle2, Target, Activity, Webhook, Building2, Mail } from "lucide-react";
 import { useEffect, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/use-toast";
@@ -180,6 +180,23 @@ export default function AdminHub() {
                 </CardTitle>
                 <CardDescription>
                   Verify external NERP phases and preview suppression-aware Institution 3 nurse recipients; sending is disabled
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover:border-primary/50 transition-colors border-blue-200 hover:border-blue-400"
+            onClick={() => setLocation("/admin/promotional-messaging")}
+          >
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-blue-600" />
+                  Promotional messaging governance
+                </CardTitle>
+                <CardDescription>
+                  Global Admin-only opt-in audience preview, recipient snapshots, unsubscribe controls, and bulk delivery across selected cadres
                 </CardDescription>
               </div>
             </CardHeader>

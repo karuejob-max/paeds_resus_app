@@ -27,6 +27,7 @@ import { registerCanonicalDomainRedirect } from "./canonical-domain";
 import { registerCpdRoutes } from "../cpd/routes";
 import { registerInstitutionalReadinessRoutes } from "../routers/institutional-readiness-download";
 import { registerNerpCampaignRoutes } from "../nerp-campaign-routes";
+import { registerPromotionalCampaignRoutes } from "../promotional-campaign-routes";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -99,6 +100,7 @@ async function startServer() {
   registerInstitutionalReadinessRoutes(app);
   // NERP recipient-specific unsubscribe route; it only records opt-out suppression.
   registerNerpCampaignRoutes(app);
+  registerPromotionalCampaignRoutes(app);
 
   // tRPC API
   app.use(

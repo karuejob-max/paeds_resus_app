@@ -91,6 +91,17 @@ const categories: Array<{
 export default function NotificationPreferences() {
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
   const utils = trpc.useUtils();
+  const promotionalPreferenceQuery = trpc.promotionalCampaigns.getPreferences.useQuery(undefined, {
+    enabled: Boolean(user),
+    staleTime: 30_000,
+  });
+  const updatePromotionalPreference = trpc.promotionalCampaigns.updatePreference.useMutation({
+    onSuccess: async () => {
+      await utils.promotionalCampaigns.getPreferences.invalidate();
+      toast.success("Programme update preference saved.");
+    },
+    onError: error => toast.error(error.message || "Could not save programme update preference."),
+  });
   const preferencesQuery = trpc.notifications.getPreferences.useQuery(
     undefined,
     {
@@ -148,6 +159,34 @@ export default function NotificationPreferences() {
             </p>
           </div>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-primary" /> Optional Paeds Resus programme updates
+            </CardTitle>
+            <CardDescription>
+              From time to time, Paeds Resus may share relevant learning opportunities, programme changes, and offers. This is optional and does not affect your account, clinical tools, institutional access, certificates, or emergency workflows. You can change this choice at any time, and every optional message includes a simple unsubscribe link.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <label className="flex cursor-pointer items-start justify-between gap-4 rounded-lg border p-4">
+              <span>
+                <span className="block text-sm font-medium">Send me occasional programme updates</span>
+                <span className="mt-1 block text-xs text-muted-foreground">We will use your account email only for optional Paeds Resus programme messages. We will not sell your address or use this choice for mandatory account or safety notices.</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={promotionalPreferenceQuery.data?.consentStatus === "opted_in"}
+                onChange={event => updatePromotionalPreference.mutate({ status: event.target.checked ? "opted_in" : "opted_out", source: "account_settings" })}
+                disabled={promotionalPreferenceQuery.isLoading || updatePromotionalPreference.isPending}
+                aria-label="Send me occasional Paeds Resus programme updates"
+                className="mt-1 h-4 w-4 accent-primary"
+              />
+            </label>
+            <p className="mt-3 text-xs text-muted-foreground">Your current setting: {promotionalPreferenceQuery.data?.consentStatus === "opted_in" ? "updates allowed" : promotionalPreferenceQuery.data?.consentStatus === "opted_out" ? "updates turned off" : "not selected"}.</p>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

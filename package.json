@@ -93,6 +93,8 @@
     "db:apply-0147": "node scripts/apply-0147-global-admin-entitlements.mjs",
     "db:verify-0146": "node scripts/verify-0146-nerp-governed-campaign.mjs",
     "db:verify-0147": "node scripts/verify-0147-global-admin-entitlements.mjs",
+    "db:apply-0148": "node scripts/apply-0148-promotional-messaging-governance.mjs",
+    "db:verify-0148": "node scripts/verify-0148-promotional-messaging-governance.mjs",
     "db:verify-cpr-event-link": "node scripts/verify-cpr-event-link.mjs",
     "db:verify-cpr-event-loop": "node scripts/verify-cpr-event-loop.mjs",
     "db:fresh-migrate": "node scripts/db-snapshot-and-fresh-migrate.mjs",
