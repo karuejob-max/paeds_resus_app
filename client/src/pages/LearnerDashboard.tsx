@@ -1281,7 +1281,6 @@ function DesignationDeclarationCard() {
   const [designation, setDesignation] = useState<
     "noi" | "coi_bsc" | "coi_diploma" | "moi" | "permanent_nurse" | "permanent_doctor" | "other" | ""
   >("");
-  const [licenseNumber, setLicenseNumber] = useState("");
   const [prefilled, setPrefilled] = useState(false);
 
   // Pre-select from the user's existing cadre where it's unambiguous (CEO
@@ -1320,14 +1319,7 @@ function DesignationDeclarationCard() {
       toast.error("Please select your designation.");
       return;
     }
-    if (isNurseSelected && !licenseNumber.trim()) {
-      toast.error("A licence number is required to register as a nurse.");
-      return;
-    }
-    declareMutation.mutate({
-      designation,
-      licenseNumber: isNurseSelected ? licenseNumber.trim() : undefined,
-    });
+    declareMutation.mutate({ designation });
   };
 
   return (
@@ -1341,7 +1333,7 @@ function DesignationDeclarationCard() {
       <CardContent className="space-y-4">
         <p className="text-sm text-slate-700">
           To unlock the KES 15,000 subsidised rate for the ACLS/BLS Cohort Program, tell us which of these you are.
-          Nurses will also need to provide a licence number — interns don't need one.
+          Nurses must first add their Licence number under Professional Credentials; this designation uses that same record. Interns don't need a professional licence number.
         </p>
         <div className="bg-white p-4 rounded-lg border space-y-3">
           {prefilled && (
@@ -1365,13 +1357,11 @@ function DesignationDeclarationCard() {
           </Select>
 
           {isNurseSelected && (
-            <Input
-              id="designation-license-number"
-              type="text"
-              placeholder="Your nursing licence number"
-              value={licenseNumber}
-              onChange={(e) => setLicenseNumber(e.target.value)}
-            />
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+              Add your single regulatory Licence number in Professional Credentials
+              above. This designation check will reuse that record; you do not need
+              to type the number again here.
+            </div>
           )}
 
           {designation && (() => {

@@ -47,6 +47,7 @@ import { assertInstitutionProcedureAccess } from "../lib/institution-capabilitie
 import { classifyShiftInterval } from "../lib/iers-shift-current";
 import { createActivationQrNonce, createActivationQrToken, parseActivationQrToken } from "../lib/iers-activation-qr";
 import { ensurePublishedTeamForLegacyUtlRoster } from "../services/iers-utl-sync.service";
+import { assertCurrentClinicalLicence } from "../lib/professional-credential-safety";
 import { dispatchIersActivationPush } from "./iers-notifications";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
@@ -392,6 +393,9 @@ export const iersRouter = router({
       const continuityDecision = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.activation.operate");
       assertIersActivationContinuity(continuityDecision);
       const access = await assertActivationActor(db, ctx.user, input.institutionId, input.teamId);
+      if (access.kind === "provider") {
+        await assertCurrentClinicalLicence(db, ctx.user.id);
+      }
       const teamContext = input.teamId || access.kind === "provider"
         ? await loadCurrentTeamForProvider(db, ctx.user.id, input.institutionId, input.teamId, access.kind === "institution_admin")
         : null;
@@ -959,6 +963,9 @@ export const iersRouter = router({
           lte(shiftUtlRosters.shiftDate, horizon),
         ))
         .orderBy(shiftUtlRosters.shiftDate);
+      if (assignments.length > 0) {
+        await assertCurrentClinicalLicence(db, ctx.user.id);
+      }
       const allowedInstitutionIds = new Set<number>();
       for (const institutionId of [...new Set(assignments.map((assignment) => assignment.institutionId))]) {
         try {
@@ -989,6 +996,7 @@ export const iersRouter = router({
       if (!roster) throw new TRPCError({ code: "NOT_FOUND", message: "Assigned shift not found." });
       await assertInstitutionProductCapability(db, roster.institutionId, "iers", "iers.team_readiness.operate");
       await assertProviderCanOperate(db, ctx.user, roster.institutionId);
+      await assertCurrentClinicalLicence(db, ctx.user.id);
       assertProviderDutyDecision({
         action: "sign_off_readiness",
         requestedInstitutionId: roster.institutionId,
@@ -1262,6 +1270,9 @@ export const iersRouter = router({
         ))
         .orderBy(desc(iersActivationEvents.triggeredAt))
         .limit(20);
+      if (rows.length > 0) {
+        await assertCurrentClinicalLicence(db, ctx.user.id);
+      }
       return rows.map((row) => ({
         ...row,
         caseQrAvailable: Boolean(row.caseQrNonce),
@@ -1289,6 +1300,7 @@ export const iersRouter = router({
         eq(institutionMemberships.membershipStatus, "active"),
       )).limit(1);
       if (!membership) throw new TRPCError({ code: "FORBIDDEN", message: "An active institutional membership is required to view this activation case." });
+      await assertCurrentClinicalLicence(db, ctx.user.id);
       const [generatedSnapshot] = await db.select().from(iersActivationTeamSnapshots).where(and(
         eq(iersActivationTeamSnapshots.activationEventId, input.activationEventId),
         eq(iersActivationTeamSnapshots.providerUserId, ctx.user.id),
@@ -1352,6 +1364,7 @@ export const iersRouter = router({
         eq(institutionMemberships.membershipStatus, "active"),
       )).limit(1);
       if (!membership) throw new TRPCError({ code: "FORBIDDEN", message: "An active institutional membership is required." });
+      await assertCurrentClinicalLicence(db, ctx.user.id);
       const nonce = currentQrState?.caseQrNonce ?? createActivationQrNonce();
       const now = new Date();
       let generatedNewQr = false;
@@ -1411,6 +1424,7 @@ export const iersRouter = router({
       if (!resource) throw new TRPCError({ code: "NOT_FOUND", message: "Activation resource not found." });
       const [assignment] = await db.select({ responder: iersActivationResponders, event: iersActivationEvents }).from(iersActivationResponders).innerJoin(iersActivationEvents, eq(iersActivationEvents.id, iersActivationResponders.activationEventId)).where(and(eq(iersActivationResponders.activationEventId, resource.activationEventId), eq(iersActivationResponders.userId, ctx.user.id))).limit(1);
       if (!assignment || !["received", "acknowledged"].includes(assignment.responder.notificationStatus)) throw new TRPCError({ code: "FORBIDDEN", message: "Only an acknowledged activation responder can claim a resource." });
+      await assertCurrentClinicalLicence(db, ctx.user.id);
       if (resource.status !== "needed") throw new TRPCError({ code: "CONFLICT", message: "This resource is already claimed or resolved." });
       const now = new Date();
       await db.update(iersActivationResources).set({ status: "claimed", quantity: input.quantity ?? resource.quantity, claimedByUserId: ctx.user.id, claimedAt: now, note: input.note ?? resource.note, updatedAt: now }).where(and(eq(iersActivationResources.id, resource.id), eq(iersActivationResources.status, "needed")));
@@ -1428,6 +1442,7 @@ export const iersRouter = router({
       if (!resource) throw new TRPCError({ code: "NOT_FOUND", message: "Activation resource not found." });
       const [assignment] = await db.select({ responder: iersActivationResponders, event: iersActivationEvents }).from(iersActivationResponders).innerJoin(iersActivationEvents, eq(iersActivationEvents.id, resource.activationEventId)).where(and(eq(iersActivationResponders.activationEventId, resource.activationEventId), eq(iersActivationResponders.userId, ctx.user.id))).limit(1);
       if (!assignment) throw new TRPCError({ code: "FORBIDDEN", message: "Only an activation responder can record resource arrival." });
+      await assertCurrentClinicalLicence(db, ctx.user.id);
       const canRecord = resource.claimedByUserId === ctx.user.id || ["ert_leader", "unit_team_leader"].includes(assignment.responder.responsibilityRole);
       if (!canRecord) throw new TRPCError({ code: "FORBIDDEN", message: "Only the claimant, UTL, or ERTL can record resource arrival." });
       if (!["claimed", "in_transit"].includes(resource.status)) throw new TRPCError({ code: "CONFLICT", message: "This resource is not awaiting arrival." });
@@ -1447,6 +1462,10 @@ export const iersRouter = router({
       const [actor] = await db.select({ responder: iersActivationResponders, event: iersActivationEvents }).from(iersActivationResponders).innerJoin(iersActivationEvents, eq(iersActivationEvents.id, iersActivationResponders.activationEventId)).where(and(eq(iersActivationResponders.activationEventId, input.activationEventId), eq(iersActivationResponders.userId, ctx.user.id))).limit(1);
       const [target] = await db.select({ responder: iersActivationResponders, event: iersActivationEvents }).from(iersActivationResponders).innerJoin(iersActivationEvents, eq(iersActivationEvents.id, iersActivationResponders.activationEventId)).where(and(eq(iersActivationResponders.activationEventId, input.activationEventId), eq(iersActivationResponders.userId, targetUserId))).limit(1);
       if (!actor || !target) throw new TRPCError({ code: "FORBIDDEN", message: "Only assigned activation responders can record this arrival." });
+      await assertCurrentClinicalLicence(db, ctx.user.id);
+      if (targetUserId !== ctx.user.id) {
+        await assertCurrentClinicalLicence(db, targetUserId);
+      }
       if (target.responder.notificationStatus === "declined" || target.responder.notificationStatus === "timed_out") throw new TRPCError({ code: "CONFLICT", message: "A provider who declined or timed out cannot be recorded as arrived without a new response." });
       if (input.arrivalType === "self" && targetUserId !== ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Self arrival can only be recorded for your own provider account." });
       const actorCanWitness = actor.responder.userId === targetUserId || Boolean(actor.responder.atSceneAt) || ["ert_leader", "unit_team_leader"].includes(actor.responder.responsibilityRole);
@@ -1501,6 +1520,7 @@ export const iersRouter = router({
 
       const now = new Date();
       if (input.accept) {
+        await assertCurrentClinicalLicence(db, ctx.user.id);
         await db
           .update(iersActivationResponders)
           .set({ notificationStatus: "acknowledged", receivedAt: assignment.responder.receivedAt ?? now, acknowledgedAt: now, responseAt: assignment.responder.responseAt, updatedAt: now })
@@ -1558,6 +1578,7 @@ export const iersRouter = router({
       if (!canAdvanceIersActivation(assignment.event.status, input.state)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: `Cannot move activation from ${assignment.event.status} to ${input.state}.` });
       }
+      await assertCurrentClinicalLicence(db, ctx.user.id);
 
       const now = new Date();
       await db
@@ -1608,6 +1629,9 @@ export const iersRouter = router({
       const access = await assertInstitutionOrMember(db, ctx.user, input.institutionId);
       if (access.kind === "provider" && !LEAD_ROLES.includes(access.membership?.responsibilityRole as ResponsibilityRole)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only an ERTL, UTL, coordinator, or institution admin can advance this activation." });
+      }
+      if (access.kind === "provider") {
+        await assertCurrentClinicalLicence(db, ctx.user.id);
       }
 
       const [event] = await db

@@ -27,6 +27,7 @@ import {
 } from "../lib/institution-access";
 import { assertInstitutionAccountScope } from "../lib/institution-account-scopes";
 import { isMissingTableError } from "../lib/is-missing-db-table";
+import { evaluateClinicalLicenceRows } from "../lib/professional-credential-safety";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { loadInstitutionLearningDashboard } from "../lib/institution-learning-dashboard";
 import { storageGet, storagePut } from "../storage";
@@ -483,8 +484,8 @@ export const institutionAccountabilityRouter = router({
           });
         }
         if (
+          !input.jurisdiction ||
           !input.credentialNumber ||
-          !input.expiresAt ||
           !input.evidenceBase64 ||
           !input.evidenceFileName ||
           !input.evidenceContentType
@@ -492,7 +493,7 @@ export const institutionAccountabilityRouter = router({
           throw new TRPCError({
             code: "BAD_REQUEST",
             message:
-              "Licence number, expiry date, and licence evidence are required.",
+              "Licence jurisdiction, Licence number, and licence evidence are required. Issue date and Valid until may be left blank for NERP; both are required before ERT duties.",
           });
         }
       } else if (
@@ -505,15 +506,15 @@ export const institutionAccountabilityRouter = router({
         throw new TRPCError({
           code: "BAD_REQUEST",
           message:
-            "External AHA course date, expiry date, and certificate evidence are required.",
+                          "External AHA Issue date, Valid until, and certificate evidence are required.",
         });
       }
       const issuedAt = parseDateOnly(input.issuedAt, "Issue date");
-      const expiresAt = parseDateOnly(input.expiresAt, "Expiry date");
+      const expiresAt = parseDateOnly(input.expiresAt, "Valid until");
       if (issuedAt && expiresAt && expiresAt <= issuedAt) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Expiry date must be after the issue date.",
+          message: "Valid until must be after the Issue date.",
         });
       }
 
@@ -710,6 +711,7 @@ export const institutionAccountabilityRouter = router({
           department: institutionalStaffMembers.department,
           facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
           staffRole: institutionalStaffMembers.staffRole,
+          yearsOfExperience: institutionalStaffMembers.yearsOfExperience,
         })
         .from(institutionalStaffMembers)
         .where(
@@ -779,6 +781,9 @@ export const institutionAccountabilityRouter = router({
       );
       const staffByDepartment = new Map<number, number>();
       const currentLicenseCounts = new Map<number, number>();
+      const ertDutyReadyCounts = new Map<number, number>();
+      const experienceTotals = new Map<number, number>();
+      const experienceCounts = new Map<number, number>();
       const lifeSupportCurrentCounts = new Map<number, number>();
       const people = staffRows.map(staff => {
         const rows = credentialRows.filter(row => row.userId === staff.userId);
@@ -807,6 +812,9 @@ export const institutionAccountabilityRouter = router({
           : lifeRows.some(row => credentialDisplayStatus(row) === "expired")
             ? "expired"
             : "missing";
+        const ertLicenceDecision = evaluateClinicalLicenceRows(
+          license ? [license] : [],
+        );
         if (staff.facilityDepartmentId != null) {
           staffByDepartment.set(
             staff.facilityDepartmentId,
@@ -817,6 +825,21 @@ export const institutionAccountabilityRouter = router({
               staff.facilityDepartmentId,
               (currentLicenseCounts.get(staff.facilityDepartmentId) ?? 0) + 1
             );
+          if (ertLicenceDecision.allowed)
+            ertDutyReadyCounts.set(
+              staff.facilityDepartmentId,
+              (ertDutyReadyCounts.get(staff.facilityDepartmentId) ?? 0) + 1
+            );
+          if (staff.yearsOfExperience != null) {
+            experienceTotals.set(
+              staff.facilityDepartmentId,
+              (experienceTotals.get(staff.facilityDepartmentId) ?? 0) + Number(staff.yearsOfExperience)
+            );
+            experienceCounts.set(
+              staff.facilityDepartmentId,
+              (experienceCounts.get(staff.facilityDepartmentId) ?? 0) + 1
+            );
+          }
           if (["current", "expiring"].includes(lifeSupportStatus))
             lifeSupportCurrentCounts.set(
               staff.facilityDepartmentId,
@@ -838,8 +861,12 @@ export const institutionAccountabilityRouter = router({
               ? (departmentById.get(staff.facilityDepartmentId) ?? "Unassigned")
               : "Unassigned"),
           cadre: staff.staffRole,
+          yearsOfExperience: staff.yearsOfExperience ?? null,
+          experienceRecorded: staff.yearsOfExperience != null,
           licenseStatus,
           licenseExpiresAt: license?.expiresAt ?? null,
+          ertClinicalDutyEligible: ertLicenceDecision.allowed,
+          ertClinicalDutyBlockReason: ertLicenceDecision.allowed ? null : ertLicenceDecision.reason,
           lifeSupportStatus,
           lifeSupportSources: lifeRows.map(row =>
             credentialSourceLabel(row.sourceType, row.credentialType)
@@ -865,6 +892,11 @@ export const institutionAccountabilityRouter = router({
           department: row.name,
           staffCount: staffByDepartment.get(row.id) ?? 0,
           licensedCurrentOrExpiring: currentLicenseCounts.get(row.id) ?? 0,
+          ertClinicalDutyReady: ertDutyReadyCounts.get(row.id) ?? 0,
+          averageYearsOfExperience: experienceCounts.get(row.id)
+            ? Math.round(((experienceTotals.get(row.id) ?? 0) / experienceCounts.get(row.id)!) * 10) / 10
+            : null,
+          experienceRecordedStaff: experienceCounts.get(row.id) ?? 0,
           lifeSupportCurrentOrExpiring:
             lifeSupportCurrentCounts.get(row.id) ?? 0,
           sessionsHeld:
@@ -928,6 +960,18 @@ export const institutionAccountabilityRouter = router({
             .length,
           licensedMissing: people.filter(row => row.licenseStatus === "missing")
             .length,
+          ertClinicalDutyReady: people.filter(row => row.ertClinicalDutyEligible)
+            .length,
+          ertClinicalDutyBlocked: people.filter(row => !row.ertClinicalDutyEligible)
+            .length,
+          experienceRecordedStaff: people.filter(row => row.experienceRecorded)
+            .length,
+          averageYearsOfExperience: people.some(row => row.experienceRecorded)
+            ? Math.round(
+                (people.filter(row => row.experienceRecorded).reduce((sum, row) => sum + Number(row.yearsOfExperience ?? 0), 0) /
+                  people.filter(row => row.experienceRecorded).length) * 10,
+              ) / 10
+            : null,
           lifeSupportCurrentOrExpiring: people.filter(row =>
             ["current", "expiring"].includes(row.lifeSupportStatus)
           ).length,

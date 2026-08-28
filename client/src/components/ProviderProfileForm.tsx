@@ -25,7 +25,6 @@ interface ProviderProfileFormProps {
 
 export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComplete, showWorkplaceContext = false }) => {
   const [formData, setFormData] = useState({
-    licenseNumber: "",
     specialization: "",
     yearsOfExperience: 0,
     facilityName: "",
@@ -62,7 +61,6 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
         });
       }
       setFormData({
-        licenseNumber: profile.licenseNumber || "",
         specialization: profile.specialization || "",
         yearsOfExperience: profile.yearsOfExperience || 0,
         facilityName: profile.facilityName || "",
@@ -164,7 +162,7 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
         <CardHeader>
           <CardTitle>Professional profile</CardTitle>
           <CardDescription>
-            Manage your license, specialty, experience, certifications, languages, and professional biography. Primary care-delivery context is managed in Workplaces &amp; access.
+            Manage your specialty, experience, certifications, languages, and professional biography here. Regulatory licensing evidence belongs in Professional Credentials, where you enter one Licence number with its jurisdiction and verification evidence. Primary care-delivery context is managed in Workplaces &amp; access.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -183,17 +181,6 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
               <h3 className="font-semibold text-lg">Professional Information</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="licenseNumber">License Number</Label>
-                  <Input
-                    id="licenseNumber"
-                    name="licenseNumber"
-                    value={formData.licenseNumber}
-                    onChange={handleInputChange}
-                    placeholder="e.g., KEN-2024-12345"
-                  />
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="specialization">Specialization</Label>
                   <Input

@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +9,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { AlertCircle, CheckCircle2, FileLock2, Upload } from "lucide-react";
+import { SearchableDropdown } from "./CadreProgressiveSelector";
+import {
+  getDefaultLicensingBody,
+  getCountryName,
+  PROFESSIONAL_COUNTRIES,
+} from "@shared/professional-licensing";
 
 const externalTypes = [
   ["external_aha_bls", "External AHA BLS"],
@@ -42,6 +48,7 @@ function statusLabel(value: string): string {
 export function ProviderCredentialsCard() {
   const credentialsQuery =
     trpc.institutionAccountability.getMyCredentials.useQuery();
+  const { data: user } = trpc.auth.me.useQuery();
   const submitCredential =
     trpc.institutionAccountability.submitCredential.useMutation({
       onSuccess: async () => {
@@ -53,13 +60,68 @@ export function ProviderCredentialsCard() {
     });
   const [credentialType, setCredentialType] =
     useState<CredentialType>("regulatory_license");
-  const [issuer, setIssuer] = useState("Regulatory authority");
+  const [issuer, setIssuer] = useState("");
+  const [issuerTouched, setIssuerTouched] = useState(false);
+  const [countryCode, setCountryCode] = useState("");
   const [jurisdiction, setJurisdiction] = useState("");
   const [credentialNumber, setCredentialNumber] = useState("");
   const [issuedAt, setIssuedAt] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
+
+  const isNurseProfile = useMemo(() => {
+    const providerType = (user as { providerType?: string | null } | null | undefined)?.providerType;
+    const cadre = (user as { cadre?: string | null } | null | undefined)?.cadre ?? "";
+    const registeredNurseCadres = new Set([
+      "MSN",
+      "HND",
+      "BSN",
+      "BSM",
+      "KRCHN",
+      "KRNM",
+      "KRN",
+      "KRM",
+      "KECHN",
+      "Other RN",
+      "Other Diploma RN",
+      "Other Certificate RN",
+    ]);
+    return providerType === "nurse" || registeredNurseCadres.has(cadre);
+  }, [user]);
+
+  const countryOptions = useMemo(
+    () => PROFESSIONAL_COUNTRIES.map(country => ({ value: country.code, label: country.name })),
+    []
+  );
+  const isRegulatory = credentialType === "regulatory_license";
+  const selectedCountryName = getCountryName(countryCode);
+
+  useEffect(() => {
+    if (!isRegulatory || !countryCode || issuerTouched) return;
+    const defaultIssuer = getDefaultLicensingBody({
+      countryCode,
+      countryName: selectedCountryName,
+      isNurse: isNurseProfile,
+    });
+    setIssuer(defaultIssuer);
+    setJurisdiction(selectedCountryName ?? "");
+  }, [countryCode, isNurseProfile, isRegulatory, issuerTouched, selectedCountryName]);
+
+  useEffect(() => {
+    const regulatory = (credentialsQuery.data ?? []).find(
+      row => row.credentialType === "regulatory_license" && row.sourceType !== "paeds_resus"
+    );
+    if (!regulatory) return;
+    if (!issuer) setIssuer(regulatory.issuer ?? "");
+    if (!jurisdiction && regulatory.jurisdiction) {
+      setJurisdiction(regulatory.jurisdiction);
+      const matchingCountry = PROFESSIONAL_COUNTRIES.find(
+        country => country.name.toLowerCase() === regulatory.jurisdiction?.trim().toLowerCase()
+      );
+      if (matchingCountry) setCountryCode(matchingCountry.code);
+    }
+  }, [credentialsQuery.data, issuer, jurisdiction]);
 
   const derived = useMemo(
     () =>
@@ -79,14 +141,22 @@ export function ProviderCredentialsCard() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+    if (isRegulatory && !countryCode) {
+      setMessage("Select the country where your regulatory licence is held.");
+      return;
+    }
     try {
       const evidenceBase64 = evidenceFile
         ? await asDataUrl(evidenceFile)
         : undefined;
       await submitCredential.mutateAsync({
         credentialType,
-        issuer,
-        jurisdiction: jurisdiction || undefined,
+        issuer: issuer.trim() || getDefaultLicensingBody({
+          countryCode,
+          countryName: selectedCountryName,
+          isNurse: isNurseProfile,
+        }),
+        jurisdiction: selectedCountryName || jurisdiction || undefined,
         credentialNumber: credentialNumber || undefined,
         issuedAt: issuedAt || undefined,
         expiresAt: expiresAt || undefined,
@@ -113,15 +183,14 @@ export function ProviderCredentialsCard() {
           credentials
         </CardTitle>
         <CardDescription>
-          Licences and external AHA certificates are private evidence records.
-          They remain pending until an authorised verifier reviews them. To join
-          NERP, submit your Nursing Council of Kenya licence number and licence
-          evidence here; the licence must be verified and current before NERP
-          access is granted. External BLS or ACLS evidence supports review, while
-          Paeds Resus achievements below are filled automatically from verified
-          learning records. An IERP intern profile is a separate record and does
-          not prevent a nurse from submitting Nursing Council credentials here
-          when the institutional nurse identity is confirmed.
+          Regulatory licences and external AHA evidence are private records and
+          remain pending until an authorised verifier reviews them. Select the
+          country where you are licensed; nurses in Kenya will see Nursing Council
+          of Kenya (NCK) prefilled. Use this section for your single regulatory
+          Licence number. Issue date and Valid until are optional for NERP, but
+          both become mandatory before you can accept or use an ERT clinical
+          responsibility. An expired licence blocks ERT duties. Your IERP intern
+          profile remains a separate record.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -140,8 +209,7 @@ export function ProviderCredentialsCard() {
                   {statusLabel(row.displayStatus)}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Issued {dateLabel(row.issuedAt)} · Expires{" "}
-                  {dateLabel(row.expiresAt)}
+                  Issued {dateLabel(row.issuedAt)} · Valid until {dateLabel(row.expiresAt)}
                 </p>
               </div>
             ))
@@ -163,18 +231,19 @@ export function ProviderCredentialsCard() {
               Add or renew a professional credential
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              For NERP, choose Regulatory licence, enter issuer “Nursing Council
-              of Kenya” (or NCK), and enter your licence number. Upload the licence
-              evidence for review. You do not need to delete or replace an IERP
-              intern profile; the records are reviewed separately. A verified
-              licence establishes professional eligibility; it does not by itself
-              create NERP Phase 2 or Phase 3 completion. Maximum
-              file size is 5 MB; PDF, JPG, and PNG are accepted.
+              For a regulatory licence, choose your jurisdiction first. The
+              licensing body is suggested from your country and professional
+              identity, but you can edit it when your regulator is regional or
+              profession-specific. Enter the Licence number once here and upload
+              evidence for review. NERP may proceed with missing dates, but ERT
+              clinical duties require a verified Licence number, Issue date, and
+              Valid until date. Maximum file size is 5 MB; PDF, JPG, and PNG are
+              accepted.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-1 text-sm">
-              <span className="font-medium">Credential</span>
+              <span className="font-medium">Credential type</span>
               <select
                 className="w-full rounded-md border bg-background px-3 py-2"
                 value={credentialType}
@@ -191,52 +260,94 @@ export function ProviderCredentialsCard() {
               </select>
             </label>
             <label className="space-y-1 text-sm">
-              <span className="font-medium">Issuer / regulator</span>
+              <span className="font-medium">
+                {isRegulatory
+                  ? isNurseProfile
+                    ? "Nursing council / licensing body"
+                    : "Professional licensing body"
+                  : "Issuing organisation"}
+              </span>
               <input
                 className="w-full rounded-md border bg-background px-3 py-2"
                 value={issuer}
-                onChange={event => setIssuer(event.target.value)}
+                placeholder={isRegulatory ? "Suggested from your country" : "e.g., American Heart Association"}
+                onChange={event => {
+                  setIssuer(event.target.value);
+                  setIssuerTouched(true);
+                }}
                 required
               />
             </label>
+            {isRegulatory ? (
+              <label className="space-y-1 text-sm">
+                <span className="font-medium">Licence jurisdiction / country *</span>
+                <SearchableDropdown
+                  value={countryCode}
+                  onChange={value => {
+                    setCountryCode(value);
+                    const countryName = getCountryName(value);
+                    setJurisdiction(countryName ?? "");
+                  }}
+                  options={countryOptions}
+                  placeholder="Search and select a country"
+                  searchPlaceholder="Type a few letters…"
+                  emptyText="No country found."
+                />
+              </label>
+            ) : (
+              <label className="space-y-1 text-sm">
+                <span className="font-medium">Jurisdiction (optional)</span>
+                <input
+                  className="w-full rounded-md border bg-background px-3 py-2"
+                  placeholder="Country or regulator jurisdiction"
+                  value={jurisdiction}
+                  onChange={event => setJurisdiction(event.target.value)}
+                />
+              </label>
+            )}
             <label className="space-y-1 text-sm">
-              <span className="font-medium">Jurisdiction</span>
-              <input
-                className="w-full rounded-md border bg-background px-3 py-2"
-                placeholder="Country or regulator jurisdiction"
-                value={jurisdiction}
-                onChange={event => setJurisdiction(event.target.value)}
-              />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">Licence/certificate number</span>
+              <span className="font-medium">
+                {isRegulatory ? "Licence number *" : "Reference (optional — not a licence number)"}
+              </span>
               <input
                 className="w-full rounded-md border bg-background px-3 py-2"
                 value={credentialNumber}
                 onChange={event => setCredentialNumber(event.target.value)}
-                required={credentialType === "regulatory_license"}
+                placeholder={isRegulatory ? "Enter your regulatory licence number" : "Optional course reference"}
+                required={isRegulatory}
               />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="font-medium">Issue date</span>
+              <span className="font-medium">
+                Issue date{isRegulatory ? " (optional for NERP)" : " *"}
+              </span>
               <input
                 className="w-full rounded-md border bg-background px-3 py-2"
                 type="date"
                 value={issuedAt}
                 onChange={event => setIssuedAt(event.target.value)}
-                required={credentialType !== "regulatory_license"}
+                required={!isRegulatory}
               />
             </label>
             <label className="space-y-1 text-sm">
-              <span className="font-medium">Expiry date</span>
+              <span className="font-medium">
+                Valid until{isRegulatory ? " (optional for NERP)" : " *"}
+              </span>
               <input
                 className="w-full rounded-md border bg-background px-3 py-2"
                 type="date"
                 value={expiresAt}
                 onChange={event => setExpiresAt(event.target.value)}
-                required
+                required={!isRegulatory}
               />
             </label>
+            {isRegulatory ? (
+              <p className="md:col-span-2 text-xs text-muted-foreground">
+                NERP eligibility checks a verified current NCK licence. ERT
+                responsibilities are stricter: dates must be recorded and Valid
+                until must still be in the future.
+              </p>
+            ) : null}
           </div>
           <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed p-3 text-sm">
             <Upload className="h-4 w-4" />
@@ -279,8 +390,9 @@ export function ProviderCredentialsCard() {
                   <p className="font-medium">{row.sourceLabel}</p>
                   <p className="text-xs text-muted-foreground">
                     {row.issuer}
-                    {row.credentialNumber ? ` · ${row.credentialNumber}` : ""} ·
-                    Expires {dateLabel(row.expiresAt)}
+                    {row.credentialNumber
+                      ? ` · ${row.credentialType === "regulatory_license" ? "Licence no." : "Reference"}: ${row.credentialNumber}`
+                      : ""} · Valid until {dateLabel(row.expiresAt)}
                   </p>
                 </div>
                 <span className="rounded-full bg-muted px-2 py-1 text-xs capitalize">

@@ -8,9 +8,10 @@ import {
   cpdAttendees,
   institutionMemberships,
   institutionalAccounts,
+  institutionalStaffMembers,
   professionalCredentials,
 } from "../../drizzle/schema";
-import { eq, and, desc, or, sql } from "drizzle-orm";
+import { eq, and, desc, or, sql, isNull } from "drizzle-orm";
 import { autoLinkCpdFacilitiesForUser, syncProviderProfileFacility } from "../services/facility-registry.service";
 import { canonicalizeDepartmentLabel } from "../../shared/clinical-departments";
 
@@ -225,7 +226,7 @@ export const providerRouter = router({
         licenseNumber: z.string().optional(),
         licenseExpiry: z.date().optional(),
         specialization: z.string().optional(),
-        yearsOfExperience: z.number().optional(),
+        yearsOfExperience: z.number().int().min(0).max(80).optional(),
         facilityId: z.number().int().positive().optional(),
         facilityName: z.string().optional(),
         facilityType: z.enum([
@@ -296,6 +297,16 @@ export const providerRouter = router({
       // only their department. Previously this sync ran only when facilityId was
       // submitted, leaving institutionalStaffMembers.department and
       // facilityDepartmentId stale after a profile department edit.
+      if (input.yearsOfExperience !== undefined) {
+        await db
+          .update(institutionalStaffMembers)
+          .set({ yearsOfExperience: input.yearsOfExperience, updatedAt: new Date() })
+          .where(and(
+            eq(institutionalStaffMembers.userId, ctx.user.id),
+            isNull(institutionalStaffMembers.removedAt),
+          ));
+      }
+
       if (input.facilityId !== undefined || input.department !== undefined) {
         const [updatedProfile] = await db
           .select({ facilityId: providerProfiles.facilityId })

@@ -26,6 +26,7 @@ import { classifyShiftInterval, currentShiftSortWeight, shiftSortKey, type Shift
 import { assertShiftRoleTransition, normalizeShiftRoleKey, type ShiftRoleAssignmentStatus } from "../lib/iers-shift-role-state";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { ensurePublishedTeamForLegacyUtlRoster, projectShiftRoleDecisionToLegacyUtlRoster, requestErtlAcceptance } from "../services/iers-utl-sync.service";
+import { assertCurrentClinicalLicence } from "../lib/professional-credential-safety";
 
 const IERS_PROVIDER_ROLES: InstitutionalProductRoleKey[] = ["iers_coordinator", "iers_responder", "iers_reviewer", "iers_governance", "iers_viewer"];
 const ERT_MEMBER_ROLES = new Set([
@@ -474,6 +475,9 @@ export const iersShiftTeamRouter = router({
       if (!["pending_acceptance", "approved"].includes(row.assignment.assignmentStatus)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "This role is not awaiting your response." });
       }
+      if (input.decision === "accepted") {
+        await assertCurrentClinicalLicence(db, ctx.user.id);
+      }
       if (input.decision === "declined" && !input.reason) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A reason is required when declining a shift role." });
       }
@@ -547,6 +551,7 @@ export const iersShiftTeamRouter = router({
       const [assignment] = await db.select().from(iersShiftRoleAssignments).where(and(eq(iersShiftRoleAssignments.id, input.assignmentId), eq(iersShiftRoleAssignments.providerUserId, ctx.user.id))).limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "Assigned ERT role not found." });
       await requireActiveMembership(db, ctx.user, assignment.institutionId);
+      await assertCurrentClinicalLicence(db, ctx.user.id);
       const requestedRoleKey = normalizeRoleKey(input.requestedRoleKey);
       if (assignment.roleScope !== "ert_member" || !ERT_MEMBER_ROLES.has(requestedRoleKey)) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a supported ERT member role." });
       if (!["pending_acceptance", "accepted"].includes(assignment.assignmentStatus)) throw new TRPCError({ code: "BAD_REQUEST", message: "Only an active or awaiting ERT member role can be changed." });

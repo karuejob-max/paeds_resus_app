@@ -24,6 +24,7 @@ import {
   careSignalEvents,
   codeSignalEvents,
   providerProfiles,
+  professionalCredentials,
   instructorQualifications,
   facilityPoles,
   facilityDepartments,
@@ -70,6 +71,7 @@ import { asDateOnly, derivePoleRotationDepartmentId, isoWeekMonday, mondayForDat
 import { classifyShiftInterval } from "../lib/iers-shift-current";
 import { assertInstitutionAccountScope } from "../lib/institution-account-scopes";
 import { assertInstitutionProductRole } from "../lib/institution-product-roles";
+import { assertCurrentClinicalLicence } from "../lib/professional-credential-safety";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { getCohortProgressStats } from "../lib/cohort-progress";
 import { ensureCourseCatalogForSchedule } from "../lib/ensure-course-catalog-for-schedule";
@@ -5392,8 +5394,25 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
 
-      if (input.designation === "permanent_nurse" && !input.licenseNumber) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "A licence number is required to register as a nurse." });
+      let canonicalLicenceNumber = input.licenseNumber?.trim() || null;
+      if (input.designation === "permanent_nurse" && !canonicalLicenceNumber) {
+        const [credential] = await db
+          .select({ credentialNumber: professionalCredentials.credentialNumber })
+          .from(professionalCredentials)
+          .where(and(
+            eq(professionalCredentials.userId, ctx.user.id),
+            eq(professionalCredentials.credentialType, "regulatory_license"),
+            inArray(professionalCredentials.status, ["pending", "verified"]),
+          ))
+          .orderBy(desc(professionalCredentials.updatedAt))
+          .limit(1);
+        canonicalLicenceNumber = credential?.credentialNumber?.trim() || null;
+      }
+      if (input.designation === "permanent_nurse" && !canonicalLicenceNumber) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Add your Licence number under Professional Credentials before registering as a nurse.",
+        });
       }
 
       const staffRow = await db
@@ -5414,7 +5433,7 @@ export const institutionRouter = router({
         .set({ designation: input.designation, updatedAt: new Date() })
         .where(eq(institutionalStaffMembers.id, staffRow[0].id));
 
-      if (input.designation === "permanent_nurse" && input.licenseNumber) {
+      if (input.designation === "permanent_nurse" && canonicalLicenceNumber) {
         const existingProfile = await db
           .select({ id: providerProfiles.id })
           .from(providerProfiles)
@@ -5424,12 +5443,12 @@ export const institutionRouter = router({
         if (existingProfile.length > 0) {
           await db
             .update(providerProfiles)
-            .set({ licenseNumber: input.licenseNumber, updatedAt: new Date() })
+            .set({ licenseNumber: canonicalLicenceNumber, updatedAt: new Date() })
             .where(eq(providerProfiles.userId, ctx.user.id));
         } else {
           await db.insert(providerProfiles).values({
             userId: ctx.user.id,
-            licenseNumber: input.licenseNumber,
+            licenseNumber: canonicalLicenceNumber,
           });
         }
       }
@@ -6106,6 +6125,7 @@ export const institutionRouter = router({
         .limit(1);
       if (!rotation) throw new TRPCError({ code: "NOT_FOUND", message: "ERTL rotation assignment not found." });
       await assertActiveProviderDutyAccess(db, ctx.user, rotation.institutionId);
+      if (input.response === "accept") await assertCurrentClinicalLicence(db, ctx.user.id);
       assertProviderDutyDecision({
         action: "respond_to_assignment",
         requestedInstitutionId: rotation.institutionId,
@@ -6144,6 +6164,7 @@ export const institutionRouter = router({
         .limit(1);
       if (!roster) throw new TRPCError({ code: "NOT_FOUND", message: "Shift UTL assignment not found." });
       await assertActiveProviderDutyAccess(db, ctx.user, roster.institutionId);
+      if (input.response === "accept") await assertCurrentClinicalLicence(db, ctx.user.id);
       assertProviderDutyDecision({
         action: "respond_to_assignment",
         requestedInstitutionId: roster.institutionId,
@@ -6316,6 +6337,7 @@ export const institutionRouter = router({
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "ERCo assignment not found for this provider." });
       await assertActiveProviderDutyAccess(db, ctx.user, assignment.institutionId);
+      if (input.response === "accept") await assertCurrentClinicalLicence(db, ctx.user.id);
       assertProviderDutyDecision({
         action: "respond_to_assignment",
         requestedInstitutionId: assignment.institutionId,
@@ -6362,6 +6384,7 @@ export const institutionRouter = router({
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "Backup assignment not found for this provider." });
       await assertActiveProviderDutyAccess(db, ctx.user, assignment.institutionId);
+      if (input.response === "accept") await assertCurrentClinicalLicence(db, ctx.user.id);
       assertProviderDutyDecision({
         action: "respond_to_assignment",
         requestedInstitutionId: assignment.institutionId,
