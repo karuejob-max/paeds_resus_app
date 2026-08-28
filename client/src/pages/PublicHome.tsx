@@ -27,6 +27,10 @@ import { formatPrice, getIndividualCoursePrice } from "@/const/pricing";
 import { DEFAULT_PAGE_DESCRIPTION } from "@/lib/site-meta";
 import AcronymGlossary from "@/components/AcronymGlossary";
 import {
+  formatIerpValueLine,
+  formatNerpValueLine,
+} from "@/const/marketingCopy";
+import {
   buildJsonLdGraph,
   buildOrganizationJsonLd,
   buildWebsiteJsonLd,
@@ -192,6 +196,9 @@ export default function PublicHome() {
                     practical emergency readiness, simulation, evidence, and
                     progression. NERP is an individual product on Paeds Resus.
                   </p>
+                  <p className="rounded-lg bg-muted/60 px-3 py-2 text-xs font-semibold text-foreground">
+                    {formatNerpValueLine()}
+                  </p>
                   <a href={"/programs/nerp-acls"}>
                     <Button className="w-full gap-2">
                       Explore NERP
@@ -212,6 +219,9 @@ export default function PublicHome() {
                     A profile-first individual pathway for interns, with named
                     roles, simulation, evidence gates, and practical progression
                     toward emergency readiness.
+                  </p>
+                  <p className="rounded-lg bg-muted/60 px-3 py-2 text-xs font-semibold text-foreground">
+                    {formatIerpValueLine()}
                   </p>
                   <a href={"/programs/ierp"}>
                     <Button variant="outline" className="w-full">

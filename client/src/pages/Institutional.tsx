@@ -26,7 +26,10 @@ import CourseCalculator from "@/components/CourseCalculator";
 import { COURSES, getPublicInstitutionalCourses } from "@/lib/courseData";
 import { InstitutionalLeadForm } from "@/components/InstitutionalLeadForm";
 import { getInstitutionalPrice, institutionalPricing } from "@/const/pricing";
-import { INSTITUTIONAL_GEOGRAPHY_COPY } from "@/const/marketingCopy";
+import {
+  INSTITUTIONAL_GEOGRAPHY_COPY,
+  formatIlspPriceLine,
+} from "@/const/marketingCopy";
 
 const COURSE_TO_PRICING_KEY: Record<string, string> = {
   bls: "bls",
@@ -113,6 +116,17 @@ export default function Institutional() {
           <p className="text-sm text-orange-100/90 max-w-3xl">
             {INSTITUTIONAL_GEOGRAPHY_COPY}
           </p>
+          <div className="max-w-3xl rounded-2xl border border-white/15 bg-white/5 p-5 text-sm text-orange-50">
+            <p className="font-semibold text-white">
+              Three independent institutional offerings
+            </p>
+            <p className="mt-2 leading-6">
+              ILSP, IERS, and ICPD can be purchased separately or combined. None
+              is a prerequisite or component of another. ILSP is{" "}
+              {formatIlspPriceLine()}; IERS and ICPD are each KES 200,000 per
+              year.
+            </p>
+          </div>
           <div className="flex flex-wrap gap-3 pt-2">
             <Button
               asChild
@@ -153,7 +167,7 @@ export default function Institutional() {
               Evaluating an institutional partnership?
             </h2>
             <p className="text-sm text-orange-100/90 mb-4">
-              Start a conversation about CPD, institutional readiness,
+              Start a conversation about ICPD, institutional readiness,
               improvement, or training support. No login required.
             </p>
             <div className="flex flex-wrap gap-3">
