@@ -63,13 +63,15 @@ export async function loadNerpPromotionAudience(
       )
     );
 
-  const userIds = [
-    ...new Set(
-      staffRows.flatMap((staff: any) =>
-        typeof staff.userId === "number" ? [staff.userId] : []
-      )
-    ),
-  ];
+  const userIds: number[] = [];
+  for (const staff of staffRows) {
+    if (
+      typeof staff.userId === "number" &&
+      !userIds.includes(staff.userId)
+    ) {
+      userIds.push(staff.userId);
+    }
+  }
 
   const offerRows = userIds.length
     ? await db
