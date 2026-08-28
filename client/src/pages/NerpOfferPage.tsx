@@ -74,17 +74,19 @@ export default function NerpOfferPage() {
               </Button>
               <Button asChild variant="outline" size="lg" disabled={loading || (!!user && (eligibility.isLoading || enrollment.isLoading))}>
                 <Link href={nextHref}>
-                  {paymentConfirmed ? "Check your next learning step" : verificationPending ? "View verification requirements" : "View payment and learning steps"}
+                  {paymentConfirmed ? "Check your next learning step" : "View first payment and learning steps"}
                 </Link>
               </Button>
               {user && eligibility.data && !eligibility.data.eligible && (
                 <p className="max-w-xl text-sm text-muted-foreground">
-                  {verificationPending
-                    ? "Your Nursing Council of Kenya licence is submitted and waiting for authorised verification. View the verification status; payment and coursework remain locked until approval."
-                    : "NERP is for verified nurses. Submit your Nursing Council of Kenya licence number and evidence in your provider profile; payment and coursework become available after an authorised verifier confirms the licence."}
-                  {" "}<Link href={verificationPending ? NERP_PATHWAY_ENTRY_PATH : "/provider-profile"} className="font-medium text-primary underline">
-                    {verificationPending ? "View verification status" : "Open professional credentials"}
-                  </Link>
+                  {"NERP is for nurses with a complete Nursing Council of Kenya licence submission. Submit the licence number and evidence in Professional Credentials before starting."}
+                  {" "}<Link href="/provider-profile" className="font-medium text-primary underline">Open professional credentials</Link>
+                </p>
+              )}
+              {user && verificationPending && (
+                <p className="max-w-xl text-sm text-muted-foreground">
+                  Your NCK evidence is under review. You may start the NERP payment now; after the first confirmed KES 2,500 instalment, BLS cognitive coursework becomes available. If the submission is rejected or revoked, access pauses and the specific reason will be shown for correction.
+                  {" "}<Link href={NERP_PATHWAY_ENTRY_PATH} className="font-medium text-primary underline">View NERP next step</Link>
                 </p>
               )}
               {user && eligibility.data?.eligible && enrollment.data?.offer && !paymentConfirmed && (

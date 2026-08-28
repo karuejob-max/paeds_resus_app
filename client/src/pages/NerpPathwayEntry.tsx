@@ -34,15 +34,17 @@ export default function NerpPathwayEntry() {
   }
 
   if (pathway.isError || !pathway.data) {
-    const verificationRequired = pathway.error?.message?.toLowerCase().includes("verified nursing council");
+    const errorMessage = pathway.error?.message ?? "";
+    const lowerMessage = errorMessage.toLowerCase();
+    const credentialReviewRequired = /rejected|revoked|expired|submit complete|licence evidence/.test(lowerMessage);
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
         <Card className="border-amber-200">
           <CardHeader>
-            <CardTitle>{verificationRequired ? "NERP verification required" : "Complete your NERP setup"}</CardTitle>
+            <CardTitle>{credentialReviewRequired ? "Review your NCK licence submission" : "Complete your NERP setup"}</CardTitle>
             <CardDescription>
-              {verificationRequired
-                ? "Your payment and coursework link will appear after your NCK evidence is verified."
+              {credentialReviewRequired
+                ? "Update the Professional Credentials record using the reason below, then resubmit it for review."
                 : "We could not open your NERP learning path yet."}
             </CardDescription>
           </CardHeader>
@@ -53,13 +55,13 @@ export default function NerpPathwayEntry() {
                   "Please update your professional profile or contact Paeds Resus support, then try again."}
               </AlertDescription>
             </Alert>
-            {verificationRequired ? (
+            {credentialReviewRequired ? (
               <p className="text-sm leading-6 text-muted-foreground">
-                Uploading a licence is the submission step; an authorised verifier must still confirm the Nursing Council of Kenya licence and licence number before NERP enrollment and the first M-Pesa instalment can begin.
+                NERP access is paused for this account until the credential issue is corrected. Pending review does not pause access; rejection, revocation, expiry, or incomplete evidence does.
               </p>
             ) : null}
             <div className="flex flex-wrap gap-2">
-              {verificationRequired ? (
+              {credentialReviewRequired ? (
                 <Button asChild variant="cta">
                   <Link href="/provider-profile">Review Professional Credentials</Link>
                 </Button>
@@ -109,9 +111,12 @@ export default function NerpPathwayEntry() {
         <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/30">
           <LockKeyhole className="h-4 w-4 text-blue-700" />
           <AlertDescription className="text-blue-950 dark:text-blue-100">
-            Your professional licence must be verified before NERP enrollment.
-            Payment and certification remain subject to the programme rules and
-            instructor requirements.
+            Submitted NCK evidence allows you to begin the NERP payment and
+            coursework flow while review is pending. If the submission is later
+            rejected, revoked, expired, or found incomplete, access is paused and
+            the correction reason is shown in Professional Credentials. Payment
+            and certification remain subject to the programme rules and instructor
+            requirements.
           </AlertDescription>
         </Alert>
 

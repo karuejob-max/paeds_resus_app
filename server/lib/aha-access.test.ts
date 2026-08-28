@@ -1,8 +1,42 @@
 import { describe, expect, it } from "vitest";
-import { isActiveGrant, isCurrentNckLicence } from "./aha-access";
+import {
+  canStartNerpWithCredential,
+  getNerpCredentialState,
+  isActiveGrant,
+  isCurrentNckLicence,
+} from "./aha-access";
 
 describe("AHA access primitives", () => {
   const now = new Date("2026-08-28T09:00:00.000Z");
+
+  it("allows complete submitted NCK evidence to start NERP while review is pending", () => {
+    const state = getNerpCredentialState({
+      issuer: "Nursing Council of Kenya",
+      jurisdiction: "Kenya",
+      credentialNumber: "NCK-PENDING-1",
+      evidenceKey: "professional-credentials/1/licence.pdf",
+      status: "pending",
+    }, now);
+    expect(state).toBe("pending_review");
+    expect(canStartNerpWithCredential(state)).toBe(true);
+  });
+
+  it("blocks NERP after rejection, revocation, expiry, or incomplete evidence", () => {
+    const cases = [
+      { status: "rejected", evidenceKey: "licence.pdf" },
+      { status: "revoked", evidenceKey: "licence.pdf" },
+      { status: "verified", evidenceKey: "licence.pdf", expiresAt: new Date("2026-08-27T00:00:00.000Z") },
+      { status: "pending", evidenceKey: null },
+    ];
+    for (const credential of cases) {
+      const state = getNerpCredentialState({
+        issuer: "Nursing Council of Kenya",
+        credentialNumber: "NCK-BLOCKED",
+        ...credential,
+      }, now);
+      expect(canStartNerpWithCredential(state)).toBe(false);
+    }
+  });
 
   it("accepts a verified current Nursing Council of Kenya licence with a number", () => {
     expect(

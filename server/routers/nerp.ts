@@ -38,7 +38,10 @@ import {
   requiresExternalCandidateCadre,
   type ExternalNerpCandidateType,
 } from "../lib/nerp-external-candidate";
-import { hasVerifiedNckLicence } from "../lib/aha-access";
+import {
+  canStartNerpWithCredential,
+  getNerpCredentialState,
+} from "../lib/aha-access";
 import { consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
 
 const PHASES = ["phase_2", "phase_3"] as const;
@@ -86,6 +89,48 @@ async function getOfferForUser(db: any, userId: number) {
     )
     .limit(1);
   return rows[0] ?? null;
+}
+
+async function getLatestNerpCredentialForUser(db: any, userId: number) {
+  const rows = await db
+    .select({
+      issuer: professionalCredentials.issuer,
+      jurisdiction: professionalCredentials.jurisdiction,
+      credentialNumber: professionalCredentials.credentialNumber,
+      expiresAt: professionalCredentials.expiresAt,
+      evidenceKey: professionalCredentials.evidenceKey,
+      status: professionalCredentials.status,
+      reviewReason: professionalCredentials.reviewReason,
+    })
+    .from(professionalCredentials)
+    .where(
+      and(
+        eq(professionalCredentials.userId, userId),
+        eq(professionalCredentials.credentialType, "regulatory_license"),
+      ),
+    )
+    .orderBy(desc(professionalCredentials.updatedAt))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+function nerpCredentialBlockMessage(
+  state: ReturnType<typeof getNerpCredentialState>,
+  reviewReason?: string | null,
+) {
+  if (state === "rejected") {
+    return `Your Nursing Council of Kenya licence submission was rejected.${reviewReason ? ` Review reason: ${reviewReason}` : " Review Professional Credentials for the correction required."}`;
+  }
+  if (state === "revoked") {
+    return `Your Nursing Council of Kenya licence is revoked.${reviewReason ? ` Review reason: ${reviewReason}` : " Review Professional Credentials before continuing."}`;
+  }
+  if (state === "expired") {
+    return "Your Nursing Council of Kenya licence is expired. Update Professional Credentials before continuing.";
+  }
+  if (state === "pending_review") {
+    return "Your Nursing Council of Kenya licence is submitted and under review. You may begin the NERP payment and coursework while review is pending; access will stop if the submission is rejected or revoked.";
+  }
+  return "Submit Nursing Council of Kenya licence evidence and a licence number in Professional Credentials before starting NERP.";
 }
 
 async function ensureChildEnrollment(
@@ -297,41 +342,15 @@ export const nerpRouter = router({
 
   getEligibility: protectedProcedure.query(async ({ ctx }) => {
     const db = await requireDb();
-    const eligible = await hasVerifiedNckLicence(db, ctx.user.id);
-    const credentialRows = await db
-      .select({
-        status: professionalCredentials.status,
-        issuer: professionalCredentials.issuer,
-        jurisdiction: professionalCredentials.jurisdiction,
-        credentialNumber: professionalCredentials.credentialNumber,
-        updatedAt: professionalCredentials.updatedAt,
-      })
-      .from(professionalCredentials)
-      .where(
-        and(
-          eq(professionalCredentials.userId, ctx.user.id),
-          eq(professionalCredentials.credentialType, "regulatory_license"),
-        ),
-      )
-      .orderBy(desc(professionalCredentials.updatedAt))
-      .limit(1);
-    const latestCredential = credentialRows[0] ?? null;
-    const verificationState = eligible
-      ? "eligible"
-      : latestCredential?.status === "pending"
-        ? "pending_review"
-        : latestCredential
-          ? "needs_update"
-          : "missing";
+    const latestCredential = await getLatestNerpCredentialForUser(db, ctx.user.id);
+    const credentialState = getNerpCredentialState(latestCredential);
+    const eligible = canStartNerpWithCredential(credentialState);
     return {
       eligible,
-      verificationState,
-      state: verificationState,
-      message: eligible
-        ? "Your verified Nursing Council of Kenya licence is ready for NERP."
-        : verificationState === "pending_review"
-          ? "Your Nursing Council of Kenya licence is submitted and waiting for authorised verification before NERP payment and coursework can begin."
-          : "Complete your provider profile and submit a Nursing Council of Kenya licence with the licence number for verification before joining NERP.",
+      verificationState: credentialState,
+      state: credentialState,
+      reviewReason: latestCredential?.reviewReason ?? null,
+      message: nerpCredentialBlockMessage(credentialState, latestCredential?.reviewReason),
     };
   }),
 
@@ -365,11 +384,12 @@ export const nerpRouter = router({
 
   createOrResumeEnrollment: protectedProcedure.mutation(async ({ ctx }) => {
     const db = await requireDb();
-    if (!(await hasVerifiedNckLicence(db, ctx.user.id))) {
+    const credential = await getLatestNerpCredentialForUser(db, ctx.user.id);
+    const credentialState = getNerpCredentialState(credential);
+    if (!canStartNerpWithCredential(credentialState)) {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message:
-          "Complete your provider profile and submit a Nursing Council of Kenya licence with the licence number for verification before joining NERP.",
+        message: nerpCredentialBlockMessage(credentialState, credential?.reviewReason),
       });
     }
     const { offer, children } = await ensureOfferForUser(db, ctx.user.id);
@@ -390,11 +410,12 @@ export const nerpRouter = router({
 
   getPathwayEntry: protectedProcedure.query(async ({ ctx }) => {
     const db = await requireDb();
-    if (!(await hasVerifiedNckLicence(db, ctx.user.id))) {
+    const credential = await getLatestNerpCredentialForUser(db, ctx.user.id);
+    const credentialState = getNerpCredentialState(credential);
+    if (!canStartNerpWithCredential(credentialState)) {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message:
-          "A verified Nursing Council of Kenya licence and licence number are required before NERP enrollment.",
+        message: nerpCredentialBlockMessage(credentialState, credential?.reviewReason),
       });
     }
     const { offer, children } = await ensureOfferForUser(db, ctx.user.id);
@@ -425,11 +446,12 @@ export const nerpRouter = router({
 
   getCheckoutContext: protectedProcedure.query(async ({ ctx }) => {
     const db = await requireDb();
-    if (!(await hasVerifiedNckLicence(db, ctx.user.id))) {
+    const credential = await getLatestNerpCredentialForUser(db, ctx.user.id);
+    const credentialState = getNerpCredentialState(credential);
+    if (!canStartNerpWithCredential(credentialState)) {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message:
-          "A verified Nursing Council of Kenya licence and licence number are required before NERP checkout.",
+        message: nerpCredentialBlockMessage(credentialState, credential?.reviewReason),
       });
     }
     const { offer, children } = await ensureOfferForUser(db, ctx.user.id);
