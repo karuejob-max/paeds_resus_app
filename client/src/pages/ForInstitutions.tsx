@@ -16,9 +16,15 @@ import { usePageMeta } from "@/hooks/usePageMeta";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { buildJsonLdGraph, buildOrganizationJsonLd } from "@/lib/seo-schema";
 import WhatsAppButton from "@/components/WhatsAppButton";
-
-const SERVICE_REGION_TOWNS =
-  "Nyeri, Embu, Murang'a, Kerugoya, Nyahururu, Karatina, Naromoru, Nanyuki, Meru, Nkubu, Chuka, Isiolo, and Marsabit";
+import AcronymGlossary from "@/components/AcronymGlossary";
+import InstitutionalReadinessForm from "@/components/InstitutionalReadinessForm";
+import InstitutionalProofSection from "@/components/InstitutionalProofSection";
+import {
+  ICPD_ANNUAL_PRICE,
+  IERS_ANNUAL_PRICE,
+  INSTITUTIONAL_GEOGRAPHY_COPY,
+  formatKes,
+} from "@/const/marketingCopy";
 
 const INSTITUTIONAL_PRODUCTS = [
   {
@@ -32,14 +38,14 @@ const INSTITUTIONAL_PRODUCTS = [
     title: "IERS",
     label: "Institutional Emergency Readiness System",
     body: "A hospital-wide operating layer for response roles, activation, readiness evidence, equipment gaps, drills, corrective actions, ResusGPS, and Care Signal.",
-    price: "KES 200,000 per year",
+    price: `${formatKes(IERS_ANNUAL_PRICE)} per year`,
     icon: HeartPulse,
   },
   {
     title: "ICPD",
     label: "Institutional Continuous Professional Development",
     body: "A managed institutional service for professional-development sessions, verified attendance, targets, certificates, and leadership reporting.",
-    price: "KES 200,000 per year",
+    price: `${formatKes(ICPD_ANNUAL_PRICE)} per year`,
     icon: BarChart3,
   },
 ];
@@ -73,6 +79,7 @@ export default function ForInstitutions() {
               emergency readiness, and ICPD for continuous professional
               development.
             </p>
+            <AcronymGlossary />
             <div className="mt-8 flex flex-wrap gap-3">
               <a href="#products">
                 <Button variant="cta" size="lg">
@@ -143,6 +150,26 @@ export default function ForInstitutions() {
                 )
               )}
             </div>
+          </section>
+
+          <InstitutionalProofSection />
+
+          <section aria-labelledby="conversation-heading">
+            <div className="mb-5 max-w-3xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">
+                Start with the problem
+              </p>
+              <h2 id="conversation-heading" className="mt-2 text-3xl font-bold">
+                Choose the right institutional conversation before choosing a
+                product.
+              </h2>
+              <p className="mt-3 text-muted-foreground">
+                Share a small amount of context and we will help scope ILSP,
+                IERS, or ICPD. This is a conversation request, not a course
+                enrolment or payment.
+              </p>
+            </div>
+            <InstitutionalReadinessForm />
           </section>
 
           <section
@@ -221,7 +248,7 @@ export default function ForInstitutions() {
                 Annual institutional plan
               </p>
               <p className="mt-1 text-2xl font-bold text-primary">
-                KES 200,000
+                {formatKes(ICPD_ANNUAL_PRICE)}
               </p>
               <Link href="/institutional#quote">
                 <Button className="mt-4">Start ICPD conversation</Button>
@@ -263,10 +290,11 @@ export default function ForInstitutions() {
           <section className="rounded-2xl border border-primary/15 bg-primary/5 p-6 md:flex md:items-center md:justify-between md:gap-6">
             <div>
               <h2 className="text-2xl font-bold">
-                Serving facilities across central and upper Eastern Kenya.
+                Built and proven in central Kenya. Built to scale across Kenya
+                and the EAC.
               </h2>
               <p className="mt-2 text-muted-foreground">
-                {SERVICE_REGION_TOWNS} and surrounding referral facilities.
+                {INSTITUTIONAL_GEOGRAPHY_COPY}
               </p>
             </div>
             <div className="mt-4 flex flex-wrap gap-2 md:mt-0">

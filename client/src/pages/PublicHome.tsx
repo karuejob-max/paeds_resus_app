@@ -24,6 +24,8 @@ import { usePageMeta } from "@/hooks/usePageMeta";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { getLoginUrl } from "@/const";
 import { formatPrice, getIndividualCoursePrice } from "@/const/pricing";
+import { DEFAULT_PAGE_DESCRIPTION } from "@/lib/site-meta";
+import AcronymGlossary from "@/components/AcronymGlossary";
 import {
   buildJsonLdGraph,
   buildOrganizationJsonLd,
@@ -41,9 +43,8 @@ const TRAINING_LINKS = [
 export default function PublicHome() {
   useScrollToTop();
   usePageMeta({
-    title: "Paeds Resus — Preventable child death ends here | Kenya & EAC",
-    description:
-      "Children die from preventable causes not because the right care is unknown, but because it doesn't reach them in time. Paeds Resus is an adaptive learning system for paediatric emergencies in Kenya and East Africa — bedside guidance, training, and quality improvement that learns from every case.",
+    title: "Paeds Resus — Paediatric emergency training, readiness and ICPD",
+    description: DEFAULT_PAGE_DESCRIPTION,
     path: "/",
   });
 
@@ -101,6 +102,28 @@ export default function PublicHome() {
           </div>
         </section>
 
+        <section
+          aria-label="Choose your path"
+          className="relative z-10 mx-auto -mt-8 flex max-w-5xl flex-wrap justify-center gap-3 px-4"
+        >
+          <a href="#institutions">
+            <Button variant="cta" size="lg">
+              I’m evaluating for a hospital{" "}
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </a>
+          <a href="#providers">
+            <Button variant="outline" size="lg" className="bg-background">
+              I’m an individual provider <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </a>
+          <Link href="/for-parents">
+            <Button variant="outline" size="lg" className="bg-background">
+              I’m a parent or caregiver <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Link>
+        </section>
+
         <div className="max-w-6xl mx-auto px-4 py-12 md:py-16 space-y-16">
           {/* Why we exist — the learning system framing */}
           <section
@@ -152,6 +175,7 @@ export default function PublicHome() {
                 <p className="text-muted-foreground">
                   AHA BLS · AHA ACLS · NERP · IERP · Fellowship
                 </p>
+                <AcronymGlossary />
               </div>
             </div>
             <div className="grid md:grid-cols-3 gap-4">
@@ -344,6 +368,7 @@ export default function PublicHome() {
                 <p className="text-muted-foreground">
                   ILSP · IERS with ResusGPS · ICPD
                 </p>
+                <AcronymGlossary />
               </div>
             </div>
             <Card>

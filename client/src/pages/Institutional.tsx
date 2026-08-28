@@ -26,6 +26,7 @@ import CourseCalculator from "@/components/CourseCalculator";
 import { COURSES, getPublicInstitutionalCourses } from "@/lib/courseData";
 import { InstitutionalLeadForm } from "@/components/InstitutionalLeadForm";
 import { getInstitutionalPrice, institutionalPricing } from "@/const/pricing";
+import { INSTITUTIONAL_GEOGRAPHY_COPY } from "@/const/marketingCopy";
 
 const COURSE_TO_PRICING_KEY: Record<string, string> = {
   bls: "bls",
@@ -36,9 +37,6 @@ const COURSE_TO_PRICING_KEY: Record<string, string> = {
   silver: "fellowship",
   gold: "fellowship",
 };
-
-const SERVICE_REGION_TOWNS =
-  "Nyeri, Embu, Murang'a, Kerugoya, Nyahururu, Karatina, Naromoru, Nanyuki, Meru, Nkubu, Chuka, Isiolo, and Marsabit";
 
 export default function Institutional() {
   useScrollToTop();
@@ -109,7 +107,11 @@ export default function Institutional() {
             onboarding does not enroll staff in a course.
           </p>
           <p className="text-sm text-orange-100/90 max-w-3xl">
-            Serving central and upper Eastern Kenya — {SERVICE_REGION_TOWNS}.
+            Built and proven in central Kenya. Built to scale across Kenya and
+            the EAC.
+          </p>
+          <p className="text-sm text-orange-100/90 max-w-3xl">
+            {INSTITUTIONAL_GEOGRAPHY_COPY}
           </p>
           <div className="flex flex-wrap gap-3 pt-2">
             <Button

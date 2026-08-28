@@ -68,6 +68,9 @@ jobs:
       - name: Sprint 1 rollup verify
         run: pnpm run verify:sprint1
 
+      - name: Install Chromium for public prerendering
+        run: pnpm exec playwright install chromium --with-deps
+
       - name: Production build
         run: pnpm run build
 
