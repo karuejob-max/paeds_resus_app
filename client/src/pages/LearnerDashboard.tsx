@@ -1198,14 +1198,14 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
               <Button size="sm" className="bg-indigo-700 text-white" disabled>Coursework locked — review access status</Button>
             ) : (
               <Button asChild size="sm" className="bg-indigo-700 px-5 text-white hover:bg-indigo-800">
-                <Link href={getProviderCourseDestination("bls", blsEnrollment?.id)}>Start BLS coursework</Link>
+                <Link href={`${getProviderCourseDestination("bls", blsEnrollment?.id)}&pathway=ierp`}>Start BLS coursework</Link>
               </Button>
             )}
             {internReviewBlocked || !!summary?.payment.cognitiveAccessLocked || !blsEnrollment?.cognitiveModulesComplete ? (
               <Button size="sm" variant="outline" disabled>{!blsEnrollment?.cognitiveModulesComplete ? "ACLS starts after BLS" : "ACLS cognitive locked"}</Button>
             ) : (
               <Button asChild size="sm" variant="outline">
-                <Link href={getProviderCourseDestination("acls", aclsEnrollment?.id)}>Start ACLS coursework</Link>
+                <Link href={`${getProviderCourseDestination("acls", aclsEnrollment?.id)}&pathway=ierp`}>Start ACLS coursework</Link>
               </Button>
             )}
           </div>
