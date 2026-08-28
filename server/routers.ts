@@ -152,6 +152,7 @@ import { adminLearningRouter } from "./routers/admin-learning";
 import { adminEntitlementsRouter } from "./routers/admin-entitlements";
 import { nerpRouter } from "./routers/nerp";
 import { nerpCampaignsRouter } from "./routers/nerp-campaigns";
+import { promotionalCampaignsRouter } from "./routers/promotional-campaigns";
 import { practiceLabRouter } from "./routers/practice-lab";
 import { fpkbRouter } from "./routers/fpkb";
 
@@ -509,6 +510,7 @@ export const appRouter = router({
   adminEntitlements: adminEntitlementsRouter,
   nerp: nerpRouter,
   nerpCampaigns: nerpCampaignsRouter,
+  promotionalCampaigns: promotionalCampaignsRouter,
   facilities: facilitiesRouter,
   facilityLinking: facilityLinkingRouter,
   fpkb: fpkbRouter,

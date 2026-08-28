@@ -9345,3 +9345,226 @@ export const nerpPromotionAuditEvents = mysqlTable("nerp_promotion_audit_events"
 }));
 export type NerpPromotionAuditEvent = typeof nerpPromotionAuditEvents.$inferSelect;
 export type InsertNerpPromotionAuditEvent = typeof nerpPromotionAuditEvents.$inferInsert;
+
+
+/** Account-level optional promotional messaging preference, separate from operational notification settings. */
+export const promotionalMessagePreferences = mysqlTable(
+  "promotional_message_preferences",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("user_id").notNull(),
+    consentStatus: mysqlEnum("consent_status", [
+      "unknown",
+      "opted_in",
+      "opted_out",
+    ])
+      .default("unknown")
+      .notNull(),
+    consentSource: varchar("consent_source", { length: 128 }),
+    consentedAt: timestamp("consented_at"),
+    optedOutAt: timestamp("opted_out_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    userUnique: uniqueIndex("promotional_message_preferences_user_uq").on(
+      table.userId
+    ),
+  })
+);
+export type PromotionalMessagePreference =
+  typeof promotionalMessagePreferences.$inferSelect;
+export type InsertPromotionalMessagePreference =
+  typeof promotionalMessagePreferences.$inferInsert;
+
+/** Global email suppressions shared by governed promotional campaigns. */
+export const promotionalMessageSuppressions = mysqlTable(
+  "promotional_message_suppressions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    email: varchar("email", { length: 320 }).notNull(),
+    reason: mysqlEnum("reason", [
+      "unsubscribe",
+      "hard_bounce",
+      "manual",
+    ]).notNull(),
+    note: text("note"),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdByUserId: int("created_by_user_id"),
+    updatedByUserId: int("updated_by_user_id"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+    deactivatedAt: timestamp("deactivated_at"),
+  },
+  table => ({
+    emailUnique: uniqueIndex("promotional_message_suppressions_email_uq").on(
+      table.email
+    ),
+    activeIndex: index("promotional_message_suppressions_active_idx").on(
+      table.isActive,
+      table.email
+    ),
+  })
+);
+export type PromotionalMessageSuppression =
+  typeof promotionalMessageSuppressions.$inferSelect;
+export type InsertPromotionalMessageSuppression =
+  typeof promotionalMessageSuppressions.$inferInsert;
+
+/** Global Admin-created promotional campaign. */
+export const promotionalCampaigns = mysqlTable(
+  "promotional_campaigns",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    campaignKey: varchar("campaign_key", { length: 128 }).notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    subject: varchar("subject", { length: 255 }).notNull(),
+    bodyText: text("body_text").notNull(),
+    audienceFilterJson: text("audience_filter_json").notNull(),
+    consentPolicy: mysqlEnum("consent_policy", ["opt_in", "opt_out"])
+      .default("opt_in")
+      .notNull(),
+    templateVersion: varchar("template_version", { length: 64 }).notNull(),
+    status: mysqlEnum("status", [
+      "draft",
+      "approved",
+      "sending",
+      "sent",
+      "failed",
+      "paused",
+    ])
+      .default("draft")
+      .notNull(),
+    audienceCount: int("audience_count").default(0).notNull(),
+    sentCount: int("sent_count").default(0).notNull(),
+    failedCount: int("failed_count").default(0).notNull(),
+    skippedCount: int("skipped_count").default(0).notNull(),
+    createdByUserId: int("created_by_user_id").notNull(),
+    approvedByUserId: int("approved_by_user_id"),
+    approvedAt: timestamp("approved_at"),
+    startedAt: timestamp("started_at"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    campaignKeyUnique: uniqueIndex("promotional_campaigns_campaign_key_uq").on(
+      table.campaignKey
+    ),
+    statusIndex: index("promotional_campaigns_status_idx").on(
+      table.status,
+      table.updatedAt
+    ),
+  })
+);
+export type PromotionalCampaign = typeof promotionalCampaigns.$inferSelect;
+export type InsertPromotionalCampaign = typeof promotionalCampaigns.$inferInsert;
+
+/** Immutable cross-cadre recipient snapshot captured before a promotional send. */
+export const promotionalCampaignRecipients = mysqlTable(
+  "promotional_campaign_recipients",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    campaignId: int("campaign_id").notNull(),
+    userId: int("user_id").notNull(),
+    email: varchar("email", { length: 320 }).notNull(),
+    displayName: varchar("display_name", { length: 255 }).notNull(),
+    cadre: varchar("cadre", { length: 128 }),
+    department: varchar("department", { length: 255 }),
+    consentStatus: mysqlEnum("consent_status", [
+      "unknown",
+      "opted_in",
+      "opted_out",
+    ])
+      .default("unknown")
+      .notNull(),
+    status: mysqlEnum("status", [
+      "pending",
+      "sent",
+      "failed",
+      "skipped",
+    ])
+      .default("pending")
+      .notNull(),
+    skipReason: varchar("skip_reason", { length: 255 }),
+    providerMessageId: varchar("provider_message_id", { length: 255 }),
+    providerError: text("provider_error"),
+    attemptedAt: timestamp("attempted_at"),
+    sentAt: timestamp("sent_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  table => ({
+    campaignEmailUnique: uniqueIndex(
+      "promotional_campaign_recipients_campaign_email_uq"
+    ).on(table.campaignId, table.email),
+    campaignStatusIndex: index(
+      "promotional_campaign_recipients_campaign_status_idx"
+    ).on(table.campaignId, table.status),
+    userIndex: index("promotional_campaign_recipients_user_idx").on(
+      table.userId,
+      table.createdAt
+    ),
+  })
+);
+export type PromotionalCampaignRecipient =
+  typeof promotionalCampaignRecipients.$inferSelect;
+export type InsertPromotionalCampaignRecipient =
+  typeof promotionalCampaignRecipients.$inferInsert;
+
+/** Append-only audit trail for Global Admin promotional campaigns and deliveries. */
+export const promotionalCampaignAuditEvents = mysqlTable(
+  "promotional_campaign_audit_events",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    campaignId: int("campaign_id"),
+    recipientId: int("recipient_id"),
+    action: varchar("action", { length: 96 }).notNull(),
+    actorUserId: int("actor_user_id"),
+    details: text("details"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  table => ({
+    campaignCreatedIndex: index(
+      "promotional_campaign_audit_campaign_created_idx"
+    ).on(table.campaignId, table.createdAt),
+    recipientCreatedIndex: index(
+      "promotional_campaign_audit_recipient_created_idx"
+    ).on(table.recipientId, table.createdAt),
+  })
+);
+export type PromotionalCampaignAuditEvent =
+  typeof promotionalCampaignAuditEvents.$inferSelect;
+export type InsertPromotionalCampaignAuditEvent =
+  typeof promotionalCampaignAuditEvents.$inferInsert;
+
+/** Append-only audit trail for account-level promotional preference changes. */
+export const promotionalPreferenceAuditEvents = mysqlTable(
+  "promotional_preference_audit_events",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("user_id").notNull(),
+    previousStatus: mysqlEnum("previous_status", [
+      "unknown",
+      "opted_in",
+      "opted_out",
+    ]),
+    nextStatus: mysqlEnum("next_status", [
+      "unknown",
+      "opted_in",
+      "opted_out",
+    ]).notNull(),
+    source: varchar("source", { length: 128 }),
+    actorUserId: int("actor_user_id"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  table => ({
+    userCreatedIndex: index("promotional_preference_audit_user_created_idx").on(
+      table.userId,
+      table.createdAt
+    ),
+  })
+);
+export type PromotionalPreferenceAuditEvent =
+  typeof promotionalPreferenceAuditEvents.$inferSelect;
+export type InsertPromotionalPreferenceAuditEvent =
+  typeof promotionalPreferenceAuditEvents.$inferInsert;
