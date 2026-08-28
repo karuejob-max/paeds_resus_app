@@ -21,6 +21,7 @@ import {
   getIndependentAhaPriceKes,
   type AhaProgramType,
 } from "../../shared/aha-pathways";
+import { hasConfirmedNerpPayment } from "./nerp-offer";
 
 export type AhaAccessPathway =
   | "nerp"
@@ -133,7 +134,11 @@ export async function hasVerifiedNckLicence(db: AhaAccessDb, userId: number, now
 
 async function hasNerpPathway(db: AhaAccessDb, userId: number): Promise<boolean> {
   const rows = await db
-    .select({ status: nerpOfferEnrollments.status })
+    .select({
+      status: nerpOfferEnrollments.status,
+      amountPaidKes: nerpOfferEnrollments.amountPaidKes,
+      entitlementId: nerpOfferEnrollments.entitlementId,
+    })
     .from(nerpOfferEnrollments)
     .where(
       and(
@@ -142,7 +147,7 @@ async function hasNerpPathway(db: AhaAccessDb, userId: number): Promise<boolean>
       ),
     )
     .limit(1);
-  return rows.length > 0;
+  return rows.some((row) => hasConfirmedNerpPayment(row));
 }
 
 async function hasIlspPathway(

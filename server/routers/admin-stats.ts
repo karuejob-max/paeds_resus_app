@@ -1218,7 +1218,7 @@ export const adminStatsRouter = router({
     };
   }),
   /** Read-only clinical outcomes pilot config (CEO-gated env). */
-  getClinicalPilotStatus: adminProcedure.query(() => {
+    getClinicalPilotStatus: adminProcedure.query(() => {
     return {
       enabled: ENV.clinicalOutcomesPilotEnabled,
       pilotFacilityIds: ENV.pilotFacilityIds,
@@ -1226,4 +1226,21 @@ export const adminStatsRouter = router({
       mouTemplateDoc: "docs/legal/PILOT_HOSPITAL_MOU_TEMPLATE.md",
     };
   }),
+  /** Cross-programme payment summaries for Global Admin reporting. Read-only. */
+  getPaymentLedger: adminProcedure
+    .input(
+      z.object({
+        userId: z.number().int().positive().optional(),
+        search: z.string().max(200).optional(),
+        programKey: z.enum(["nerp", "ierp", "ilsp", "independent", "other"]).optional(),
+        limit: z.number().int().min(1).max(5000).default(100),
+        offset: z.number().int().min(0).default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { rows: [], total: 0 };
+      const { getAdminPaymentLedger } = await import("../lib/unified-payment-admin-ledger");
+      return getAdminPaymentLedger(db, input);
+    }),
 });

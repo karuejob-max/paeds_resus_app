@@ -91,7 +91,10 @@ const LIFECYCLE_CANARY_EVIDENCE_KEY = "admin_lifecycle_canary_evidence_v1";
 const LIFECYCLE_CANARY_EVIDENCE_MAX_AGE_MINUTES = 30;
 
 const LEDGER_PAGE_SIZE = 100;
+const PAYMENT_LEDGER_PAGE_SIZE = 100;
 const FELLOWSHIP_PAGE_SIZE = 100;
+
+type PaymentLedgerProgramKey = "" | "nerp" | "ierp" | "ilsp" | "independent" | "other";
 
 type LedgerProgramFilter =
   | ""
@@ -122,6 +125,10 @@ export default function AdminReports() {
   const [ledgerProgramType, setLedgerProgramType] = useState<LedgerProgramFilter>("");
   const [ledgerUserIdFilter, setLedgerUserIdFilter] = useState<number | null>(null);
   const [ledgerOffset, setLedgerOffset] = useState(0);
+  const [paymentSearch, setPaymentSearch] = useState("");
+  const [paymentProgramKey, setPaymentProgramKey] = useState<PaymentLedgerProgramKey>("");
+  const [paymentUserIdFilter, setPaymentUserIdFilter] = useState<number | null>(null);
+  const [paymentOffset, setPaymentOffset] = useState(0);
   const [fellowshipSearch, setFellowshipSearch] = useState("");
   const [fellowshipUserIdFilter, setFellowshipUserIdFilter] = useState<number | null>(null);
   const [fellowshipQualifiedOnly, setFellowshipQualifiedOnly] = useState(false);
@@ -205,6 +212,22 @@ export default function AdminReports() {
   const { data: ledgerData, isLoading: ledgerLoading } = trpc.adminStats.getEnrollmentLedger.useQuery(
     ledgerQueryInput,
     { enabled: adminRoleOk && reportTab === "enrollment-ledger" }
+  );
+
+  const paymentLedgerQueryInput = useMemo(
+    () => ({
+      search: paymentSearch.trim() || undefined,
+      userId: paymentUserIdFilter ?? undefined,
+      programKey: paymentProgramKey || undefined,
+      limit: PAYMENT_LEDGER_PAGE_SIZE,
+      offset: paymentOffset,
+    }),
+    [paymentSearch, paymentUserIdFilter, paymentProgramKey, paymentOffset]
+  );
+
+  const { data: paymentLedgerData, isLoading: paymentLedgerLoading } = trpc.adminStats.getPaymentLedger.useQuery(
+    paymentLedgerQueryInput,
+    { enabled: adminRoleOk && reportTab === "payments" }
   );
 
   const fellowshipQueryInput = useMemo(
@@ -505,6 +528,49 @@ export default function AdminReports() {
       toast.success(`Exported ${data.rows.length} row(s) (max 5000).`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not export ledger.");
+    }
+  };
+
+  const exportPaymentLedgerCsv = async () => {
+    try {
+      const data = await utils.adminStats.getPaymentLedger.fetch({
+        search: paymentSearch.trim() || undefined,
+        userId: paymentUserIdFilter ?? undefined,
+        programKey: paymentProgramKey || undefined,
+        limit: 5000,
+        offset: 0,
+      });
+      const headers = [
+        "ledgerId",
+        "programKey",
+        "programLabel",
+        "userId",
+        "userName",
+        "userEmail",
+        "referenceId",
+        "totalDueKes",
+        "totalPaidKes",
+        "balanceKes",
+        "status",
+        "paymentCount",
+        "lastPaymentAt",
+      ];
+      const csv = [
+        headers.join(","),
+        ...data.rows.map((row) =>
+          headers.map((h) => csvEscapeCell((row as Record<string, unknown>)[h])).join(",")
+        ),
+      ].join("\\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `payment-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${data.rows.length} payment ledger row(s) (max 5000).`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not export payment ledger.");
     }
   };
 
@@ -848,7 +914,7 @@ export default function AdminReports() {
         {/* Tabs for different report sections */}
         <Tabs value={reportTab} onValueChange={setReportTab} className="w-full">
 
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 gap-1 h-auto min-h-10">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-6 gap-1 h-auto min-h-10">
             <TabsTrigger value="overview" className="text-xs sm:text-sm">
               Overview
             </TabsTrigger>
@@ -857,6 +923,9 @@ export default function AdminReports() {
             </TabsTrigger>
             <TabsTrigger value="enrollment-ledger" className="text-xs sm:text-sm">
               Enrollment ledger
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="text-xs sm:text-sm">
+              Payments
             </TabsTrigger>
             <TabsTrigger value="fellowship-progress" className="text-xs sm:text-sm">
               Fellowship
@@ -2595,6 +2664,164 @@ export default function AdminReports() {
                           ledgerOffset + ledgerData.rows.length >= ledgerData.total
                         }
                         onClick={() => setLedgerOffset((o) => o + LEDGER_PAGE_SIZE)}
+                      >
+                        Next page
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="payments" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Cross-programme payment ledger</CardTitle>
+                <CardDescription>
+                  Read-only payment summaries for NERP, IERP, ILSP AHA credentialing, Independent AHA Pathway, and other recorded programme payments. This view does not create, verify, or initiate payments.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="min-w-[220px] flex-1">
+                    <label htmlFor="payment-ledger-search" className="text-xs text-muted-foreground block mb-1">
+                      Search name or email
+                    </label>
+                    <Input
+                      id="payment-ledger-search"
+                      value={paymentSearch}
+                      onChange={(e) => {
+                        setPaymentSearch(e.target.value);
+                        setPaymentOffset(0);
+                      }}
+                      placeholder="Any learner"
+                    />
+                  </div>
+                  <div className="w-[120px]">
+                    <label htmlFor="payment-ledger-user-id" className="text-xs text-muted-foreground block mb-1">
+                      User ID
+                    </label>
+                    <Input
+                      id="payment-ledger-user-id"
+                      inputMode="numeric"
+                      value={paymentUserIdFilter === null ? "" : String(paymentUserIdFilter)}
+                      onChange={(e) => {
+                        const value = e.target.value.trim();
+                        setPaymentUserIdFilter(value && /^\\d+$/.test(value) ? Number(value) : null);
+                        setPaymentOffset(0);
+                      }}
+                      placeholder="Any"
+                    />
+                  </div>
+                  <div className="min-w-[190px]">
+                    <label htmlFor="payment-ledger-program" className="text-xs text-muted-foreground block mb-1">
+                      Programme
+                    </label>
+                    <select
+                      id="payment-ledger-program"
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      value={paymentProgramKey}
+                      onChange={(e) => {
+                        setPaymentProgramKey(e.target.value as PaymentLedgerProgramKey);
+                        setPaymentOffset(0);
+                      }}
+                    >
+                      <option value="">All programmes</option>
+                      <option value="nerp">NERP</option>
+                      <option value="ierp">IERP</option>
+                      <option value="ilsp">ILSP AHA credentialing</option>
+                      <option value="independent">Independent AHA Pathway</option>
+                      <option value="other">Other recorded programme</option>
+                    </select>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setPaymentSearch("");
+                      setPaymentUserIdFilter(null);
+                      setPaymentProgramKey("");
+                      setPaymentOffset(0);
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => void exportPaymentLedgerCsv()}>
+                    <Download className="h-4 w-4" />
+                    Export CSV (max 5000)
+                  </Button>
+                </div>
+
+                {paymentLedgerLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading payment ledger…
+                  </div>
+                ) : !paymentLedgerData ? (
+                  <p className="text-sm text-muted-foreground">No payment data.</p>
+                ) : (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      Showing {paymentLedgerData.rows.length} of {paymentLedgerData.total} programme ledger row(s).
+                    </p>
+                    <div className="overflow-x-auto border rounded-md">
+                      <table className="w-full text-xs sm:text-sm">
+                        <thead className="bg-muted/50">
+                          <tr className="border-b">
+                            <th className="text-left p-2 font-medium">Learner</th>
+                            <th className="text-left p-2 font-medium">Programme</th>
+                            <th className="text-left p-2 font-medium">Reference</th>
+                            <th className="text-left p-2 font-medium">Paid</th>
+                            <th className="text-left p-2 font-medium">Balance</th>
+                            <th className="text-left p-2 font-medium">Status</th>
+                            <th className="text-left p-2 font-medium">Transactions</th>
+                            <th className="text-left p-2 font-medium">Last payment</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paymentLedgerData.rows.map((row) => (
+                            <tr key={row.ledgerId} className="border-b">
+                              <td className="p-2">
+                                <div className="font-medium">{row.userName ?? "—"}</div>
+                                <div className="text-muted-foreground text-xs">{row.userEmail ?? "—"}</div>
+                                <div className="text-muted-foreground text-xs">id {row.userId}</div>
+                              </td>
+                              <td className="p-2">
+                                <div className="font-medium">{row.programLabel}</div>
+                                <div className="text-muted-foreground text-xs font-mono">{row.programKey}</div>
+                              </td>
+                              <td className="p-2 font-mono">{row.referenceId ?? "—"}</td>
+                              <td className="p-2">KES {row.totalPaidKes.toLocaleString()}</td>
+                              <td className="p-2">{row.balanceKes === null ? "—" : `KES ${row.balanceKes.toLocaleString()}`}</td>
+                              <td className="p-2 capitalize">{row.status.replaceAll("_", " ")}</td>
+                              <td className="p-2">{row.paymentCount}</td>
+                              <td className="p-2 whitespace-nowrap">{row.lastPaymentAt ? new Date(row.lastPaymentAt).toLocaleString() : "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 justify-between">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={paymentOffset <= 0}
+                        onClick={() => setPaymentOffset((offset) => Math.max(0, offset - PAYMENT_LEDGER_PAGE_SIZE))}
+                      >
+                        Previous page
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        Page {paymentOffset / PAYMENT_LEDGER_PAGE_SIZE + 1} · {PAYMENT_LEDGER_PAGE_SIZE} per page
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!paymentLedgerData || paymentOffset + paymentLedgerData.rows.length >= paymentLedgerData.total}
+                        onClick={() => setPaymentOffset((offset) => offset + PAYMENT_LEDGER_PAGE_SIZE)}
                       >
                         Next page
                       </Button>

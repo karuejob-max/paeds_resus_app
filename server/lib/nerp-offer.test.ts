@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateNerpPaymentState,
   deriveNerpPromotionStatus,
+  hasConfirmedNerpPayment,
 } from "./nerp-offer";
 
 describe("NERP offer payment state", () => {
@@ -36,6 +37,18 @@ describe("NERP offer payment state", () => {
     expect(
       calculateNerpPaymentState({ amountPaidKes: 16000 }).amountPaidKes
     ).toBe(15000);
+  });
+});
+
+describe("NERP payment entitlement", () => {
+  it("does not treat an empty active offer as a learning entitlement", () => {
+    expect(hasConfirmedNerpPayment({ status: "active", amountPaidKes: 0, entitlementId: null })).toBe(false);
+  });
+
+  it("accepts a confirmed installment, completed offer, or explicit entitlement", () => {
+    expect(hasConfirmedNerpPayment({ status: "active", amountPaidKes: 2500, entitlementId: null })).toBe(true);
+    expect(hasConfirmedNerpPayment({ status: "completed", amountPaidKes: 0, entitlementId: null })).toBe(true);
+    expect(hasConfirmedNerpPayment({ status: "active", amountPaidKes: 0, entitlementId: 42 })).toBe(true);
   });
 });
 

@@ -410,8 +410,8 @@ export function ProviderCredentialsCard({ onExperienceDerived }: ProviderCredent
                   : "After submitting your Licence evidence, open NERP to check your verification status and continue to the programme setup when approved. Enrollment remains locked until an authorised verifier confirms the required NCK licence."}
               </p>
               <Button asChild type="button" variant="cta" className="mt-3">
-                <Link href="/programs/nerp-acls/start">
-                  Open NERP pathway <ArrowRight className="ml-2 h-4 w-4" />
+                <Link href="/programs/nerp-acls">
+                  Check NERP and continue <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
             </div>

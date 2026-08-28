@@ -43,6 +43,14 @@ export function calculateNerpPaymentState(input: {
   };
 }
 
+export function hasConfirmedNerpPayment(input: {
+  status?: string | null;
+  amountPaidKes?: number | string | null;
+  entitlementId?: number | null;
+}) {
+  return input.status === "completed" || input.entitlementId != null || Number(input.amountPaidKes ?? 0) > 0;
+}
+
 export function deriveNerpPromotionStatus(input: {
   hasValidEmail: boolean;
   hasCompletedOffer: boolean;
