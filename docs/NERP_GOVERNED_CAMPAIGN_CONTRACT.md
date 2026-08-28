@@ -31,3 +31,8 @@ Preview, download, approval, and opt-out operations never send email. The generi
 ## Required operational gates
 
 The code change must pass focused unit tests, TypeScript/build checks, protected CI, and a read-only production verifier. The migration is additive and idempotent and requires explicit owner confirmation immediately before production execution. A separate explicit confirmation is required immediately before the first real send, after the final audience count, provider readiness, subject/body, unsubscribe URL, and suppression results are reviewed.
+
+
+## Learner destination and progression
+
+The campaign must use the canonical `/programs/nerp-acls/start` entry path. It must not link directly to `/programs/nerp-acls/enroll`, `/training/acls`, or another ACLS-only destination. The entry page checks the verified nurse licence, linked NERP payment state, and linked BLS cognitive completion. When BLS cognitive completion is incomplete, the learner is directed to the BLS cognitive player. Only after that prerequisite is complete does the page direct the learner to ACLS cognitive learning. If payment setup is incomplete, the page directs the learner to the existing NERP payment flow while preserving the BLS-first rule when the learner returns.

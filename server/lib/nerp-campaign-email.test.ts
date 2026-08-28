@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { NERP_PATHWAY_ENTRY_PATH } from "../../shared/nerp-pathway";
 import {
   createNerpCampaignMessage,
   createUnsubscribeToken,
@@ -27,13 +28,14 @@ describe("governed NERP campaign email", () => {
   it("escapes the recipient name and includes the enrollment and unsubscribe links", () => {
     const message = createNerpCampaignMessage({
       displayName: "<Nurse>",
-      enrollmentUrl: "https://www.paedsresus.com/programs/nerp-acls",
+      enrollmentUrl: `https://www.paedsresus.com${NERP_PATHWAY_ENTRY_PATH}`,
       unsubscribeUrl:
         "https://www.paedsresus.com/api/nerp/campaign/unsubscribe?token=x",
     });
     expect(message.subject).toContain("AHA ACLS");
     expect(message.html).toContain("&lt;Nurse&gt;");
-    expect(message.html).toContain("/programs/nerp-acls");
+    expect(message.html).toContain(NERP_PATHWAY_ENTRY_PATH);
+    expect(message.html).not.toContain("/programs/nerp-acls/enroll");
     expect(message.html).toContain("/api/nerp/campaign/unsubscribe");
     expect(message.text).toContain("Hello <Nurse>");
   });

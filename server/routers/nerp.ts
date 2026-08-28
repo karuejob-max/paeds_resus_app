@@ -453,6 +453,44 @@ export const nerpRouter = router({
     };
   }),
 
+  getPathwayEntry: protectedProcedure.query(async ({ ctx }) => {
+    const db = await requireDb();
+    if (!(await hasVerifiedNckLicence(db, ctx.user.id))) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message:
+          "A verified Nursing Council of Kenya licence and licence number are required before NERP enrollment.",
+      });
+    }
+    const { offer, children } = await ensureOfferForUser(db, ctx.user.id);
+    if (offer.status === "completed") {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "This NERP pathway is already complete.",
+      });
+    }
+    const paymentState = calculateNerpPaymentState({
+      amountPaidKes: Number(offer.amountPaidKes),
+      totalAmountKes: Number(offer.totalAmountKes),
+      monthlyInstallmentKes: Number(offer.monthlyInstallmentKes),
+      installmentCount: offer.installmentCount,
+    });
+    return {
+      offer,
+      paymentState,
+      bls: {
+        enrollmentId: children.bls.id,
+        cognitiveModulesComplete: children.bls.cognitiveModulesComplete,
+        practicalSkillsSignedOff: children.bls.practicalSkillsSignedOff,
+      },
+      acls: {
+        enrollmentId: children.acls.id,
+        cognitiveModulesComplete: children.acls.cognitiveModulesComplete,
+        practicalSkillsSignedOff: children.acls.practicalSkillsSignedOff,
+      },
+    };
+  }),
+
   getCheckoutContext: protectedProcedure.query(async ({ ctx }) => {
     const db = await requireDb();
     if (!(await hasVerifiedNckLicence(db, ctx.user.id))) {
@@ -481,6 +519,14 @@ export const nerpRouter = router({
       amount: state.nextInstallmentAmountKes,
       installmentNumber: state.nextInstallmentNumber,
       paymentState: state,
+      bls: {
+        enrollmentId: children.bls.id,
+        cognitiveModulesComplete: children.bls.cognitiveModulesComplete,
+      },
+      acls: {
+        enrollmentId: children.acls.id,
+        cognitiveModulesComplete: children.acls.cognitiveModulesComplete,
+      },
     };
   }),
 

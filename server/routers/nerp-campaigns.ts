@@ -11,6 +11,7 @@ import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { getRawEmailProviderStatus, sendRawEmail } from "../email-service";
 import { loadNerpPromotionAudience } from "../lib/nerp-campaign-audience";
+import { NERP_PATHWAY_ENTRY_PATH } from "../../shared/nerp-pathway";
 import {
   createNerpCampaignMessage,
   createUnsubscribeToken,
@@ -164,7 +165,11 @@ export const nerpCampaignsRouter = router({
               "draft",
               "approved",
               "sending",
-            ])
+            ]),
+            eq(
+              nerpPromotionCampaigns.templateVersion,
+              NERP_CAMPAIGN_TEMPLATE_VERSION
+            )
           )
         )
         .orderBy(desc(nerpPromotionCampaigns.createdAt))
@@ -175,7 +180,7 @@ export const nerpCampaignsRouter = router({
       const message = createNerpCampaignMessage({
         displayName: "[First Name]",
         campaignKey,
-        enrollmentUrl: `${appBaseUrl()}/programs/nerp-acls`,
+        enrollmentUrl: `${appBaseUrl()}${NERP_PATHWAY_ENTRY_PATH}`,
         unsubscribeUrl: `${appBaseUrl()}/unsubscribe/nerp`,
       });
       const inserted = await db
@@ -214,6 +219,8 @@ export const nerpCampaignsRouter = router({
       const db = await requireDb();
       const campaign = await getCampaign(db, input.campaignId);
       if (!campaign) throw new Error("NERP campaign not found.");
+      if (campaign.templateVersion !== NERP_CAMPAIGN_TEMPLATE_VERSION)
+        throw new Error("This campaign draft uses an outdated learner destination. Create a new draft.");
       if (campaign.status !== "draft")
         throw new Error("Only a draft campaign can be approved.");
       const audience = await loadNerpPromotionAudience(
@@ -303,6 +310,8 @@ export const nerpCampaignsRouter = router({
       const db = await requireDb();
       const campaign = await getCampaign(db, input.campaignId);
       if (!campaign) throw new Error("NERP campaign not found.");
+      if (campaign.templateVersion !== NERP_CAMPAIGN_TEMPLATE_VERSION)
+        throw new Error("This campaign draft uses an outdated learner destination. Create a new draft.");
       if (campaign.status !== "approved" && campaign.status !== "failed")
         throw new Error("Only an approved or failed campaign can be sent.");
       const provider = getRawEmailProviderStatus();
@@ -384,7 +393,7 @@ export const nerpCampaignsRouter = router({
         const message = createNerpCampaignMessage({
           displayName: recipient.displayName,
           campaignKey: campaign.campaignKey,
-          enrollmentUrl: `${appBaseUrl()}/programs/nerp-acls`,
+          enrollmentUrl: `${appBaseUrl()}${NERP_PATHWAY_ENTRY_PATH}`,
           unsubscribeUrl: `${appBaseUrl()}/api/nerp/campaign/unsubscribe?token=${encodeURIComponent(token)}`,
         });
         const attemptedAt = new Date();
