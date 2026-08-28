@@ -279,7 +279,7 @@ export async function applyInstitutionalLifeSupportPaymentCompletion(
         .update(enrollments)
         .set({
           paymentStatus: "completed",
-          amountPaid: PAEDS_RESUS_ILS_BASE_PRICE_KES * 100,
+          amountPaid: Math.max(0, Number(order.amountPerProviderKes ?? 0)) * 100,
           activatedAt: enrollment.activatedAt ?? now,
           lastActivityAt: now,
           updatedAt: now,

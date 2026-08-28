@@ -21,6 +21,7 @@ import {
 } from "../lib/ierp-program-state";
 import { getPaedsResusCertificateStatusForUser } from "../lib/paeds-resus-certificate-issuance";
 import { isMissingTableError } from "../lib/is-missing-db-table";
+import { consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
 
 function parseDateOnly(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -212,14 +213,33 @@ export const ierpRouter = router({
         if (existing.lifecycleStatus === "withdrawn") {
           throw new TRPCError({ code: "CONFLICT", message: "This IERP enrolment was withdrawn. Contact the programme team before restarting." });
         }
+        let current = existing;
+        if (!current.entitlementId && current.paymentStatus !== "not_required" && Number(current.totalPaidAmount ?? 0) === 0) {
+          const entitlement = await findActiveGlobalEntitlement(db, { programType: "ierp", userId: ctx.user.id });
+          if (entitlement) {
+            const applied = await consumeGlobalEntitlement(db, {
+              entitlementId: entitlement.id,
+              targetUserId: ctx.user.id,
+              programType: "ierp",
+              resourceReference: `ierp-enrollment-${current.id}`,
+              originalAmountKes: IERP_TOTAL_FEE_KES,
+              redeemedByUserId: ctx.user.id,
+            });
+            if (applied) {
+              await db.update(ierpProgramEnrollments).set({ entitlementId: entitlement.id, effectiveFeeKes: applied.effectiveAmountKes, paymentStatus: applied.effectiveAmountKes === 0 ? "not_required" : "pending", updatedAt: new Date() }).where(eq(ierpProgramEnrollments.id, current.id));
+              current = (await getIerpEnrollment(db, ctx.user.id)) ?? current;
+            }
+          }
+        }
         const payment = getIerpPaymentAccess({
-          ...existing,
+          ...current,
           effectiveCommencementDate: internProfile.effectiveCommencementDate,
         });
-        return { success: true, created: false, enrollmentId: existing.id, designation: existing.designation, cognitiveAccessLocked: payment.cognitiveAccessLocked, paymentDeadline: payment.paymentDeadline?.toISOString() ?? null };
+        return { success: true, created: false, enrollmentId: current.id, designation: current.designation, cognitiveAccessLocked: payment.cognitiveAccessLocked, paymentDeadline: payment.paymentDeadline?.toISOString() ?? null, effectiveFeeKes: payment.requiredFeeKes };
       }
 
       const enrolledAt = new Date();
+      const entitlement = await findActiveGlobalEntitlement(db, { programType: "ierp", userId: ctx.user.id });
       const inserted = await db
         .insert(ierpProgramEnrollments)
         .values({
@@ -235,8 +255,27 @@ export const ierpRouter = router({
         .$returningId();
       const enrollmentId = (inserted as { id?: number }[])[0]?.id ?? 0;
       if (!enrollmentId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "IERP enrolment could not be created" });
-      const payment = getIerpPaymentAccess({ enrolledAt, totalPaidAmount: "0.00" });
-      return { success: true, created: true, enrollmentId, designation: input.designation, cognitiveAccessLocked: payment.cognitiveAccessLocked, paymentDeadline: payment.paymentDeadline?.toISOString() ?? null };
+      let appliedEntitlement = null;
+      if (entitlement) {
+        appliedEntitlement = await consumeGlobalEntitlement(db, {
+          entitlementId: entitlement.id,
+          targetUserId: ctx.user.id,
+          programType: "ierp",
+          resourceReference: `ierp-enrollment-${enrollmentId}`,
+          originalAmountKes: IERP_TOTAL_FEE_KES,
+          redeemedByUserId: ctx.user.id,
+        });
+        if (appliedEntitlement) {
+          await db.update(ierpProgramEnrollments).set({
+            entitlementId: entitlement.id,
+            effectiveFeeKes: appliedEntitlement.effectiveAmountKes,
+            paymentStatus: appliedEntitlement.effectiveAmountKes === 0 ? "not_required" : "pending",
+            updatedAt: new Date(),
+          }).where(eq(ierpProgramEnrollments.id, enrollmentId));
+        }
+      }
+      const payment = getIerpPaymentAccess({ enrolledAt, totalPaidAmount: "0.00", effectiveFeeKes: appliedEntitlement?.effectiveAmountKes ?? null, paymentStatus: appliedEntitlement?.effectiveAmountKes === 0 ? "not_required" : "pending" });
+      return { success: true, created: true, enrollmentId, designation: input.designation, cognitiveAccessLocked: payment.cognitiveAccessLocked, paymentDeadline: payment.paymentDeadline?.toISOString() ?? null, effectiveFeeKes: payment.requiredFeeKes };
     }),
 
   /**
@@ -271,7 +310,7 @@ export const ierpRouter = router({
         effectiveCommencementDate: internProfile.effectiveCommencementDate,
       });
       if (payment.cognitiveAccessLocked) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Complete the full KES 15,000 IERP programme payment before accessing or submitting Phase 1 coursework." });
+        throw new TRPCError({ code: "FORBIDDEN", message: `Complete the IERP programme payment of KES ${payment.requiredFeeKes.toLocaleString()} before accessing or submitting Phase 1 coursework.` });
       }
 
       const ahaRows = await db
@@ -367,10 +406,10 @@ export const ierpRouter = router({
     const totalPaid = rows.filter((row) => row.status === "completed").reduce((total, row) => total + row.amountKsh, 0);
       return {
       programEnrollmentId: program.id,
-      feeKsh: IERP_TOTAL_FEE_KES,
+      feeKsh: program.effectiveFeeKes ?? IERP_TOTAL_FEE_KES,
       totalPaidKsh: totalPaid,
-      balanceKsh: Math.max(0, IERP_TOTAL_FEE_KES - totalPaid),
-      isPaidInFull: totalPaid >= IERP_TOTAL_FEE_KES,
+      balanceKsh: Math.max(0, (program.effectiveFeeKes ?? IERP_TOTAL_FEE_KES) - totalPaid),
+      isPaidInFull: program.paymentStatus === "not_required" || totalPaid >= (program.effectiveFeeKes ?? IERP_TOTAL_FEE_KES),
       status: program.paymentStatus,
       entries: rows,
     };
@@ -386,7 +425,8 @@ export const ierpRouter = router({
       if (!program) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Start IERP before making a programme payment." });
       const paidRows = await db.select({ total: sum(ierpPayments.amountKsh) }).from(ierpPayments).where(and(eq(ierpPayments.programEnrollmentId, program.id), eq(ierpPayments.status, "completed")));
       const totalPaid = Number(paidRows[0]?.total ?? 0);
-      const remaining = Math.max(0, IERP_TOTAL_FEE_KES - totalPaid);
+      const effectiveFeeKes = program.effectiveFeeKes ?? IERP_TOTAL_FEE_KES;
+      const remaining = Math.max(0, effectiveFeeKes - totalPaid);
       if (remaining <= 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "The IERP programme is already fully paid." });
       }

@@ -210,6 +210,7 @@ export async function createEnrollment(data: {
   paymentId?: number;
   promoCodeId?: number;
   amountPaid?: number;
+  entitlementId?: number;
   transactionId?: string;
   /** When set, overrides default payment/enrollment status derived from paymentMethod. */
   paymentStatus?: "pending" | "completed" | "free";
@@ -226,6 +227,7 @@ export async function createEnrollment(data: {
       paymentMethod: data.paymentMethod,
       paymentId: data.paymentId,
       promoCodeId: data.promoCodeId,
+      entitlementId: data.entitlementId,
       amountPaid: data.amountPaid || 0,
       transactionId: data.transactionId,
       enrollmentStatus,

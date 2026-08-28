@@ -262,6 +262,8 @@ export const ierpProgramEnrollments = mysqlTable(
     totalPaidAmount: decimal("totalPaidAmount", { precision: 10, scale: 2 })
       .default("0.00")
       .notNull(),
+    entitlementId: int("entitlementId"),
+    effectiveFeeKes: int("effectiveFeeKes"),
     paymentStatus: mysqlEnum("paymentStatus", [
       "not_required",
       "pending",
@@ -352,6 +354,62 @@ export const ahaAccessGrants = mysqlTable("ahaAccessGrants", {
 }));
 export type AhaAccessGrant = typeof ahaAccessGrants.$inferSelect;
 export type InsertAhaAccessGrant = typeof ahaAccessGrants.$inferInsert;
+
+/** Named, programme-scoped Global Admin entitlement; never a shareable learner token. */
+export const globalEntitlements = mysqlTable(
+  "globalEntitlements",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    grantReference: varchar("grantReference", { length: 64 }).notNull().unique(),
+    targetUserId: int("targetUserId"),
+    targetInstitutionalAccountId: int("targetInstitutionalAccountId"),
+    programType: mysqlEnum("programType", ["ierp", "nerp", "paeds_resus_ils", "self_pay"]).notNull(),
+    selfPayCourseId: varchar("selfPayCourseId", { length: 128 }),
+    benefitType: mysqlEnum("benefitType", ["free", "percentage_discount"]).notNull(),
+    discountPercent: int("discountPercent"),
+    reason: varchar("reason", { length: 500 }).notNull(),
+    maxRedemptions: int("maxRedemptions").default(1).notNull(),
+    redemptionCount: int("redemptionCount").default(0).notNull(),
+    status: mysqlEnum("status", ["active", "revoked", "exhausted"]).default("active").notNull(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    createdByUserId: int("createdByUserId").notNull(),
+    revokedAt: timestamp("revokedAt"),
+    revokedByUserId: int("revokedByUserId"),
+    revokeReason: varchar("revokeReason", { length: 500 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    targetStatusIdx: index("global_entitlements_target_status_idx").on(table.targetUserId, table.targetInstitutionalAccountId, table.status),
+    programmeIdx: index("global_entitlements_programme_idx").on(table.programType, table.status, table.expiresAt),
+  })
+);
+export type GlobalEntitlement = typeof globalEntitlements.$inferSelect;
+export type InsertGlobalEntitlement = typeof globalEntitlements.$inferInsert;
+
+/** Immutable application record for a named entitlement. */
+export const globalEntitlementRedemptions = mysqlTable(
+  "globalEntitlementRedemptions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    entitlementId: int("entitlementId").notNull(),
+    targetUserId: int("targetUserId"),
+    targetInstitutionalAccountId: int("targetInstitutionalAccountId"),
+    programType: mysqlEnum("programType", ["ierp", "nerp", "paeds_resus_ils", "self_pay"]).notNull(),
+    resourceReference: varchar("resourceReference", { length: 128 }).notNull(),
+    originalAmountKes: int("originalAmountKes").notNull(),
+    discountAmountKes: int("discountAmountKes").notNull(),
+    effectiveAmountKes: int("effectiveAmountKes").notNull(),
+    redeemedByUserId: int("redeemedByUserId").notNull(),
+    redeemedAt: timestamp("redeemedAt").defaultNow().notNull(),
+  },
+  table => ({
+    entitlementIdx: index("global_entitlement_redemptions_entitlement_idx").on(table.entitlementId, table.redeemedAt),
+    resourceIdx: index("global_entitlement_redemptions_resource_idx").on(table.programType, table.resourceReference),
+  })
+);
+export type GlobalEntitlementRedemption = typeof globalEntitlementRedemptions.$inferSelect;
+export type InsertGlobalEntitlementRedemption = typeof globalEntitlementRedemptions.$inferInsert;
 
 /** Private object metadata for IERP Phase 1 evidence. Bytes live in storage. */
 export const ierpPhase1Evidence = mysqlTable(
@@ -573,6 +631,7 @@ export const payments = mysqlTable("payments", {
     "mpesa",
     "bank_transfer",
     "card",
+    "entitlement",
   ]).notNull(),
   transactionId: varchar("transactionId", { length: 255 }),
   /** Optional institutional cohort order that this payment settles. */
@@ -1099,6 +1158,8 @@ export const institutionalTrainingOrders = mysqlTable(
     paymentReceiptReference: varchar("paymentReceiptReference", {
       length: 128,
     }),
+    entitlementId: int("entitlementId"),
+    originalTotalAmountKes: int("originalTotalAmountKes"),
     createdByUserId: int("createdByUserId").notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -2202,6 +2263,7 @@ export const microCourseEnrollments = mysqlTable("microCourseEnrollments", {
   paymentId: int("paymentId"), // links to payments table if paid via M-Pesa
   promoCodeId: int("promoCodeId"), // links to promoCodes table if used promo code
   amountPaid: int("amountPaid"), // actual amount paid in KES cents (after discount)
+  entitlementId: int("entitlementId"),
   transactionId: varchar("transactionId", { length: 255 }), // M-Pesa reference
   progressPercentage: int("progressPercentage").default(0),
   quizScore: int("quizScore"), // percentage (80+ = pass)
@@ -8882,6 +8944,8 @@ export const nerpOfferEnrollments = mysqlTable(
       .default("0.00")
       .notNull(),
     nextInstallmentNumber: int("next_installment_number").default(1).notNull(),
+    entitlementId: int("entitlement_id"),
+    originalTotalAmountKes: decimal("original_total_amount_kes", { precision: 10, scale: 2 }),
     completedAt: timestamp("completed_at"),
     cancelledAt: timestamp("cancelled_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),

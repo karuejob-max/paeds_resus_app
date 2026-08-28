@@ -37,7 +37,8 @@ import {
   getInstitutionalLifeSupportCourseId,
 } from "../lib/ensure-institutional-life-support-catalog";
 import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
-import { applyInstitutionalLifeSupportPaymentFailure } from "../lib/institutional-life-support-payments";
+import { applyInstitutionalLifeSupportPaymentCompletion, applyInstitutionalLifeSupportPaymentFailure } from "../lib/institutional-life-support-payments";
+import { calculateEntitlementPrice, consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { initiateStkPush, validatePhoneNumber } from "../mpesa";
 import { isMpesaConfigured } from "../_core/mpesa";
@@ -1917,7 +1918,10 @@ export const institutionalLifeSupportRouter = router({
         });
       for (const userId of userIds) await assertExistingAccount(db, userId);
       const providerCount = selected.length;
-      const totalAmountKes = providerCount * PAEDS_RESUS_ILS_BASE_PRICE_KES;
+      const originalTotalAmountKes = providerCount * PAEDS_RESUS_ILS_BASE_PRICE_KES;
+      const institutionEntitlement = await findActiveGlobalEntitlement(db, { programType: "paeds_resus_ils", institutionalAccountId: input.institutionId });
+      const entitlementPrice = institutionEntitlement ? calculateEntitlementPrice(originalTotalAmountKes, institutionEntitlement.benefitType, institutionEntitlement.discountPercent) : null;
+      const totalAmountKes = entitlementPrice?.effectiveAmountKes ?? originalTotalAmountKes;
       const reservation = await db
         .update(ilsDeliverySessions)
         .set({
@@ -1947,8 +1951,10 @@ export const institutionalLifeSupportRouter = router({
         institutionalAccountId: input.institutionId,
         programType: PAEDS_RESUS_ILS_PROGRAM_TYPE,
         providerCount,
-        amountPerProviderKes: PAEDS_RESUS_ILS_BASE_PRICE_KES,
+        amountPerProviderKes: totalAmountKes === 0 ? 0 : Math.ceil(totalAmountKes / providerCount),
         totalAmountKes,
+        originalTotalAmountKes,
+        entitlementId: institutionEntitlement?.id ?? null,
         trainingDate: input.trainingDate,
         paymentStatus: "pending",
         orderStatus: "payment_pending",
@@ -2041,13 +2047,25 @@ export const institutionalLifeSupportRouter = router({
         });
       }
       const firstEnrollmentId = enrollmentIds[0];
+      if (institutionEntitlement && entitlementPrice) {
+        const applied = await consumeGlobalEntitlement(db, {
+          entitlementId: institutionEntitlement.id,
+          targetInstitutionalAccountId: input.institutionId,
+          programType: "paeds_resus_ils",
+          resourceReference: `ils-order-${orderId}`,
+          originalAmountKes: originalTotalAmountKes,
+          redeemedByUserId: ctx.user.id,
+        });
+        if (!applied) throw new TRPCError({ code: "CONFLICT", message: "The institution entitlement is no longer available. Refresh and try again." });
+      }
       await db.insert(payments).values({
         enrollmentId: firstEnrollmentId,
         userId: ctx.user.id,
         amount: centsFromKes(totalAmountKes),
-        paymentMethod: "mpesa",
+        paymentMethod: totalAmountKes === 0 ? "entitlement" : "mpesa",
+        transactionId: totalAmountKes === 0 && institutionEntitlement ? `ENTITLEMENT-${institutionEntitlement.grantReference}` : null,
         institutionalTrainingOrderId: orderId,
-        status: "pending",
+        status: totalAmountKes === 0 ? "completed" : "pending",
       });
       const paymentRows = await db
         .select({ id: payments.id })
@@ -2067,6 +2085,10 @@ export const institutionalLifeSupportRouter = router({
           code: "INTERNAL_SERVER_ERROR",
           message: "Could not create order payment record.",
         });
+      if (totalAmountKes === 0) {
+        await applyInstitutionalLifeSupportPaymentCompletion(db, paymentId);
+        return { success: true, orderId, paymentId, providerCount, totalAmountKes, originalTotalAmountKes, sponsored: true };
+      }
       await db.insert(ilsReminderEvents).values({
         enrollmentId: firstEnrollmentId,
         orderId,
@@ -2117,6 +2139,8 @@ export const institutionalLifeSupportRouter = router({
         checkoutRequestId: response.checkoutRequestID,
         providerCount,
         totalAmountKes,
+        originalTotalAmountKes,
+        discounted: Boolean(institutionEntitlement),
       };
     }),
 

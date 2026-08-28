@@ -139,6 +139,8 @@ type IerpPaymentEnrollment = {
   enrolledAt: Date | null;
   effectiveCommencementDate?: Date | null;
   totalPaidAmount: string | number | null;
+  effectiveFeeKes?: number | null;
+  paymentStatus?: string | null;
 };
 
 function eastAfricaCalendar(date: Date) {
@@ -169,9 +171,10 @@ export function getIerpPaymentAccess(
   enrollment: IerpPaymentEnrollment,
   now: Date = new Date()
 ) {
+  const requiredFeeKes = Math.max(0, Number(enrollment.effectiveFeeKes ?? IERP_TOTAL_FEE_KES));
   const paid = Math.max(0, Number(enrollment.totalPaidAmount ?? 0));
-  const balance = Math.max(0, IERP_TOTAL_FEE_KES - paid);
-  const isPaidInFull = paid >= IERP_TOTAL_FEE_KES;
+  const balance = Math.max(0, requiredFeeKes - paid);
+  const isPaidInFull = enrollment.paymentStatus === "not_required" || paid >= requiredFeeKes;
   const paymentStartAt = enrollment.effectiveCommencementDate ?? enrollment.enrolledAt;
   const enrolledAt = paymentStartAt ? new Date(paymentStartAt) : null;
   const startCalendar = enrolledAt ? eastAfricaCalendar(enrolledAt) : null;
@@ -188,6 +191,7 @@ export function getIerpPaymentAccess(
   return {
     paid,
     balance,
+    requiredFeeKes,
     isPaidInFull,
     enrolledAt,
     deferredStartWindow,
@@ -218,7 +222,7 @@ export async function getIerpPaymentAccessForUser(db: IerpDb, userId: number) {
   return getIerpPaymentAccess({
     enrolledAt: staff.enrollmentDate ?? staff.createdAt,
     effectiveCommencementDate: internProfile?.effectiveCommencementDate ?? null,
-    totalPaidAmount: staff.totalPaidAmount,
+    totalPaidAmount: String(staff.totalPaidAmount),
   });
 }
 

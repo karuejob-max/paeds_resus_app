@@ -67,8 +67,17 @@ router.post('/mpesa/callback', async (req: Request, res: Response) => {
 
     const enrollment = enrollmentRecord[0];
 
-    // Check result code (0 = success)
+    // Check result code (0 = success) and reconcile the amount before activation.
     if (resultCode === '0') {
+      const expectedAmountKes = Math.ceil(Number(enrollment.amountPaid ?? 0) / 100);
+      const receivedAmountKes = Number(amount);
+      if (expectedAmountKes > 0 && (!Number.isFinite(receivedAmountKes) || Math.round(receivedAmountKes) !== expectedAmountKes)) {
+        await db?.update(microCourseEnrollments).set({ enrollmentStatus: 'pending', paymentStatus: 'pending' }).where(eq(microCourseEnrollments.id, enrollment.id));
+        await db?.update(payments).set({ status: 'failed', phoneNumber: phoneNumber ? String(phoneNumber).trim() : null }).where(eq(payments.id, payment.id));
+        console.error('[M-Pesa Webhook] Amount mismatch; access was not activated:', { enrollmentId: enrollment.id, expectedAmountKes, receivedAmountKes });
+        return res.status(200).json({ success: false, message: 'Payment amount mismatch; enrollment remains pending review.', enrollmentId: enrollment.id });
+      }
+
       // Payment successful - activate enrollment
       console.log('[M-Pesa Webhook] Payment successful for enrollment:', enrollment.id);
 
