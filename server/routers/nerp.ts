@@ -1,5 +1,4 @@
 import { TRPCError } from "@trpc/server";
-import { randomUUID } from "node:crypto";
 import { and, desc, eq, isNull, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -14,7 +13,6 @@ import {
   nerpExternalVerificationAuditEvents,
   nerpCampaignSuppressions,
   nerpCampaignSuppressionAuditEvents,
-  nerpCampaignDeliveries,
   professionalCredentials,
   users,
 } from "../../drizzle/schema";
@@ -34,142 +32,15 @@ import {
   normalizedSuppressionValue,
   validEmail,
 } from "../lib/nerp-campaign-controls";
-import { loadNerpPromotionAudience } from "../lib/nerp-campaign-audience";
 import {
   canEnterNerpNurseCampaign,
   requiresExternalCandidateCadre,
   type ExternalNerpCandidateType,
 } from "../lib/nerp-external-candidate";
 import { hasVerifiedNckLicence } from "../lib/aha-access";
-import { sendEmail } from "../email";
-import { isMissingTableError } from "../lib/is-missing-db-table";
-
-const NERP_PROMOTION_CAMPAIGN_KEY = "nerp-acls-inst3-2026-08";
-const NERP_PROMOTION_SUBJECT = "A flexible six-month path to AHA ACLS certification";
-const NERP_PROMOTION_LINK = "https://www.paedsresus.com/programs/nerp-acls";
-const NERP_SUPPORT_PHONE = "0706781260";
-const NERP_SUPPORT_EMAIL = "paedsresus254@gmail.com";
-
-function escapeHtml(value: string) {
-  return value.replace(/[&<>\"']/g, character => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '\"': "&quot;",
-    "'": "&#39;",
-  })[character] ?? character);
-}
-
-function buildNerpPromotionEmail(recipientName: string) {
-  const safeName = escapeHtml(recipientName.trim() || "colleague");
-  const html = `<!doctype html>
-<html><body style="font-family:Arial,sans-serif;color:#1f2937;line-height:1.55;">
-  <div style="max-width:620px;margin:0 auto;padding:24px;">
-    <h1 style="color:#164e63;">A flexible path to AHA ACLS certification</h1>
-    <p>Hello ${safeName},</p>
-    <p>If AHA ACLS is part of your professional development plan, Paeds Resus has introduced the <strong>Nurses Emergency Readiness Program (NERP)</strong>.</p>
-    <p>With <strong>Lipa Mdogo Mdogo</strong>, you can pay <strong>KES 2,500 per month for six months</strong> (KES 15,000 total). The programme includes the AHA ACLS pathway and a Paeds Resus BLS certificate.</p>
-    <p style="text-align:center;margin:28px 0;"><a href="${NERP_PROMOTION_LINK}" style="display:inline-block;background:#0f766e;color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;font-weight:700;">View the NERP programme</a></p>
-    <p>This opportunity is optional and is not an institutional performance assessment. Please review the programme details, eligibility requirements, payment terms, and pathway before enrolling.</p>
-    <p>Questions or need clarification? Call <strong>${NERP_SUPPORT_PHONE}</strong> or email <a href="mailto:${NERP_SUPPORT_EMAIL}">${NERP_SUPPORT_EMAIL}</a>.</p>
-    <p style="font-size:12px;color:#6b7280;">If you would prefer not to receive programme updates, reply to this email or contact us using the details above.</p>
-    <p>Regards,<br />Paeds Resus</p>
-  </div>
-</body></html>`;
-  const text = `Hello ${recipientName.trim() || "colleague"},
-
-If AHA ACLS is part of your professional development plan, Paeds Resus has introduced the Nurses Emergency Readiness Program (NERP).
-
-With Lipa Mdogo Mdogo, you can pay KES 2,500 per month for six months (KES 15,000 total). The programme includes the AHA ACLS pathway and a Paeds Resus BLS certificate.
-
-View the NERP programme: ${NERP_PROMOTION_LINK}
-
-This opportunity is optional and is not an institutional performance assessment. Please review the programme details, eligibility requirements, payment terms, and pathway before enrolling.
-
-Questions or need clarification? Call ${NERP_SUPPORT_PHONE} or email ${NERP_SUPPORT_EMAIL}.
-
-If you would prefer not to receive programme updates, reply to this email or contact us using the details above.
-
-Regards,
-Paeds Resus`;
-  return { html, text };
-}
 
 const PHASES = ["phase_2", "phase_3"] as const;
 const DECISIONS = ["verified", "rejected", "revoked"] as const;
-async function getNerpCampaignSendCandidates(db: any, institutionalAccountId: number) {
-  const staffRows = await db
-    .select()
-    .from(institutionalStaffMembers)
-    .where(
-      and(
-        eq(institutionalStaffMembers.institutionalAccountId, institutionalAccountId),
-        eq(institutionalStaffMembers.staffRole, "nurse"),
-        isNull(institutionalStaffMembers.removedAt),
-      ),
-    )
-    .orderBy(institutionalStaffMembers.staffName)
-    .limit(500);
-  const suppressionRows = await getActiveCampaignSuppressions(db, institutionalAccountId);
-  const candidates: Array<{
-    staffId: number;
-    userId: number | null;
-    name: string;
-    email: string;
-  }> = [];
-
-  for (const staff of staffRows) {
-    const suppression = findCampaignSuppression(suppressionRows, staff.staffEmail, staff.staffName);
-    if (suppression || !validEmail(staff.staffEmail)) continue;
-    const offer = staff.userId ? await getOfferForUser(db, staff.userId) : null;
-    const verification = offer
-      ? await getVerificationState(db, offer.id)
-      : { phase2: null, phase3: null, rows: [] };
-    const credentials = staff.userId
-      ? await db
-          .select({
-            credentialType: professionalCredentials.credentialType,
-            status: professionalCredentials.status,
-          })
-          .from(professionalCredentials)
-          .where(
-            and(
-              eq(professionalCredentials.userId, staff.userId),
-              or(
-                eq(professionalCredentials.credentialType, "external_aha_bls"),
-                eq(professionalCredentials.credentialType, "external_aha_acls"),
-              ),
-            ),
-          )
-      : [];
-    const hasVerifiedBlsAndAcls =
-      credentials.some(
-        (row: (typeof credentials)[number]) =>
-          row.credentialType === "external_aha_bls" && row.status === "verified",
-      ) &&
-      credentials.some(
-        (row: (typeof credentials)[number]) =>
-          row.credentialType === "external_aha_acls" && row.status === "verified",
-      );
-    const status = deriveNerpPromotionStatus({
-      hasValidEmail: validEmail(staff.staffEmail),
-      hasCompletedOffer: offer?.status === "completed",
-      phase2Verified: verification.phase2?.status === "verified",
-      phase3Verified: verification.phase3?.status === "verified",
-      hasVerifiedBlsAndAcls,
-      explicitlyExcluded: false,
-    });
-    if (status.status !== "eligible") continue;
-    candidates.push({
-      staffId: staff.id,
-      userId: staff.userId,
-      name: staff.staffName,
-      email: staff.staffEmail.trim(),
-    });
-  }
-  return candidates;
-}
-
 function requireDb() {
   return getDb().then(db => {
     if (!db) {
@@ -977,153 +848,6 @@ export const nerpRouter = router({
         pathwayComplete: phase2Verified && phase3Verified,
         certificates: certificateProjection,
       };
-    }),
-
-  getPromotionPreview: adminProcedure
-    .input(
-      z.object({
-        institutionId: z.number().int().positive().default(3),
-        limit: z.number().int().min(1).max(500).default(200),
-      })
-    )
-    .query(async ({ input }) => {
-      const db = await requireDb();
-      const audience = await loadNerpPromotionAudience(db, input.institutionId, input.limit);
-      return {
-        offerKey: NERP_ACLS_OFFER_KEY,
-        generatedAt: new Date().toISOString(),
-        ...audience,
-        emailSending: false as const,
-      };
-    }),
-
-  sendPromotionCampaign: adminProcedure
-    .input(
-      z.object({
-        institutionId: z.number().int().positive().default(3),
-        campaignKey: z.string().trim().min(1).max(128).default(NERP_PROMOTION_CAMPAIGN_KEY),
-        confirmSend: z.literal(true),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      if (input.institutionId !== 3 || input.campaignKey !== NERP_PROMOTION_CAMPAIGN_KEY) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This controlled campaign is limited to the Institution 3 NERP audience.",
-        });
-      }
-      const db = await requireDb();
-      try {
-        const candidates = await getNerpCampaignSendCandidates(db, input.institutionId);
-        const processedEmails = new Set<string>();
-        const failures: Array<{ email: string; error: string }> = [];
-        let sent = 0;
-        let skipped = 0;
-
-        for (const candidate of candidates) {
-          const emailKey = normalizedEmail(candidate.email) ?? candidate.email.trim().toLowerCase();
-          if (processedEmails.has(emailKey)) {
-            skipped += 1;
-            continue;
-          }
-          processedEmails.add(emailKey);
-          const existingRows = await db
-            .select({ status: nerpCampaignDeliveries.status, createdAt: nerpCampaignDeliveries.createdAt })
-            .from(nerpCampaignDeliveries)
-            .where(
-              and(
-                eq(nerpCampaignDeliveries.campaignKey, input.campaignKey),
-                eq(nerpCampaignDeliveries.recipientEmail, candidate.email),
-              ),
-            )
-            .limit(1);
-          const existing = existingRows[0];
-          const sendingIsRecent =
-            existing?.status === "sending" &&
-            existing.createdAt &&
-            Date.now() - existing.createdAt.getTime() < 30 * 60 * 1000;
-          if (existing?.status === "sent" || sendingIsRecent) {
-            skipped += 1;
-            continue;
-          }
-
-          const deliveryValues = {
-            campaignKey: input.campaignKey,
-            institutionalAccountId: input.institutionId,
-            staffId: candidate.staffId,
-            userId: candidate.userId,
-            recipientName: candidate.name,
-            recipientEmail: candidate.email,
-            subject: NERP_PROMOTION_SUBJECT,
-            status: "sending" as const,
-            messageId: null,
-            errorMessage: null,
-            sentByUserId: ctx.user.id,
-            sentAt: null,
-          };
-          if (existing) {
-            await db
-              .update(nerpCampaignDeliveries)
-              .set(deliveryValues)
-              .where(
-                and(
-                  eq(nerpCampaignDeliveries.campaignKey, input.campaignKey),
-                  eq(nerpCampaignDeliveries.recipientEmail, candidate.email),
-                ),
-              );
-          } else {
-            await db.insert(nerpCampaignDeliveries).values(deliveryValues);
-          }
-
-          const email = buildNerpPromotionEmail(candidate.name);
-          const result = await sendEmail({
-            to: candidate.email,
-            subject: NERP_PROMOTION_SUBJECT,
-            htmlBody: email.html,
-            textBody: email.text,
-          });
-          if (result.success) {
-            await db
-              .update(nerpCampaignDeliveries)
-              .set({ status: "sent", messageId: result.messageId, errorMessage: null, sentAt: new Date() })
-              .where(
-                and(
-                  eq(nerpCampaignDeliveries.campaignKey, input.campaignKey),
-                  eq(nerpCampaignDeliveries.recipientEmail, candidate.email),
-                ),
-              );
-            sent += 1;
-          } else {
-            await db
-              .update(nerpCampaignDeliveries)
-              .set({ status: "failed", errorMessage: result.error.slice(0, 1000), sentAt: null })
-              .where(
-                and(
-                  eq(nerpCampaignDeliveries.campaignKey, input.campaignKey),
-                  eq(nerpCampaignDeliveries.recipientEmail, candidate.email),
-                ),
-              );
-            failures.push({ email: candidate.email, error: result.error });
-          }
-        }
-
-        return {
-          campaignKey: input.campaignKey,
-          candidateCount: candidates.length,
-          sent,
-          failed: failures.length,
-          skipped,
-          failures: failures.slice(0, 25),
-        };
-      } catch (error) {
-        if (isMissingTableError(error, "nerpCampaignDeliveries")) {
-          throw new TRPCError({
-            code: "PRECONDITION_FAILED",
-            message: "Campaign delivery audit is not ready. Apply migration 0145 before sending.",
-          });
-        }
-        throw error;
-      }
     }),
 
   getAuditHistory: adminProcedure

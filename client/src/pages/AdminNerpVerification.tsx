@@ -11,7 +11,6 @@ import {
   PlusCircle,
   UserPlus,
   Trash2,
-  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,8 +24,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 
-const DRAFT_SUBJECT = "A flexible six-month path to AHA ACLS certification";
-const DRAFT_BODY = `Hello [First Name],\n\nIf AHA ACLS is part of your professional development plan, Paeds Resus has introduced the Nurses Emergency Readiness Program (NERP).\n\nWith Lipa Mdogo Mdogo, you can pay KES 2,500 per month for six months (KES 15,000 total). The programme includes the AHA ACLS pathway and a Paeds Resus BLS Certificate.\n\nLearn more and check the next steps: https://www.paedsresus.com/programs/nerp-acls\n\nThis opportunity is optional and is not an institutional performance assessment. Please review the programme details, eligibility requirements, and payment terms before enrolling.\n\nQuestions or clarification? Call 0706781260 or email paedsresus254@gmail.com. If you would prefer not to receive programme updates, reply to this email or contact us using those details.\n\nRegards,\nPaeds Resus`;
+const DRAFT_SUBJECT = "A practical six-month path to AHA ACLS certification";
+const DRAFT_BODY = `Hello [First Name],\n\nIf AHA ACLS is part of your professional development plan, Paeds Resus has introduced a flexible Lipa Mdogo Mdogo option at KSh 2,500 per month for six months.\n\nThe guided pathway checks your BLS cognitive completion first. If BLS cognitive is not yet complete, you will complete that step before continuing to the ACLS cognitive pathway. On successful completion of the programme requirements, you will receive your AHA ACLS certification, together with a free Paeds Resus BLS Certificate.\n\nLearn more and check the next steps: https://www.paedsresus.com/programs/nerp-acls/start\n\nThis opportunity is optional and is not an institutional performance assessment.\n\nQuestions or clarification? Call 0706781260 or email paedsresus254@gmail.com. If you would prefer not to receive programme updates, use the recipient-specific unsubscribe link in the email.\n\nRegards,\nPaeds Resus`;
 
 const phases = [
   { key: "phase_2" as const, label: "Phase 2 · Online simulations" },
@@ -110,7 +109,6 @@ export default function AdminNerpVerification() {
   const [externalSourceType, setExternalSourceType] = useState<"external_provider_certificate" | "employer_record" | "manual_admin_attestation" | "other">("external_provider_certificate");
   const [externalCaseNote, setExternalCaseNote] = useState("");
   const [externalForms, setExternalForms] = useState<Record<string, FormState>>({});
-  const [campaignResult, setCampaignResult] = useState<string | null>(null);
   const [suppressionMatchType, setSuppressionMatchType] = useState<"email" | "exact_name">("email");
   const [suppressionMatchValue, setSuppressionMatchValue] = useState("");
   const [suppressionReasonCode, setSuppressionReasonCode] = useState<"admin_nurse" | "external_completion" | "manual" | "not_registered" | "identity_correction">("manual");
@@ -167,28 +165,6 @@ export default function AdminNerpVerification() {
       ]);
     },
   });
-  const sendPromotionCampaign = trpc.nerp.sendPromotionCampaign.useMutation({
-    onSuccess: async result => {
-      setCampaignResult(`Campaign complete: ${result.sent} sent, ${result.failed} failed, ${result.skipped} skipped.`);
-      await utils.nerp.getPromotionPreview.invalidate();
-    },
-    onError: error => setCampaignResult(`Campaign was not sent: ${error.message}`),
-  });
-
-  const sendNerpPromotion = () => {
-    if (!preview.data?.counts.sendable || sendPromotionCampaign.isPending) return;
-    const confirmed = window.confirm(
-      `Send the NERP promotion now to ${preview.data.counts.sendable} eligible, non-suppressed Institution 3 nurses? This sends real email.`,
-    );
-    if (!confirmed) return;
-    setCampaignResult(null);
-    sendPromotionCampaign.mutate({
-      institutionId: 3,
-      campaignKey: "nerp-acls-inst3-2026-08",
-      confirmSend: true,
-    });
-  };
-
   const getForm = (offerId: number, phase: string) =>
     forms[`${offerId}:${phase}`] ?? emptyForm();
   const updateForm = (
@@ -833,21 +809,10 @@ export default function AdminNerpVerification() {
                   >
                     {campaign.data?.campaign?.status === "draft" ? "Use current draft" : "Create governed draft"}
                   </Button>
-                  <Button
-                    type="button"
-                    onClick={sendNerpPromotion}
-                    disabled={!preview.data.counts.sendable || sendPromotionCampaign.isPending}
-                  >
-                    <Mail className="mr-2 h-4 w-4" />
-                    {sendPromotionCampaign.isPending ? "Sending…" : `Send to ${preview.data.counts.sendable} eligible nurses`}
-                  </Button>
                   <span className="text-sm text-muted-foreground">
                     Provider: {campaignStatus.data?.provider.provider ?? "checking"}{" "}
                     {campaignStatus.data?.provider.ready ? "ready" : "not configured"}. Automatic sending is disabled. Delivery rechecks suppression immediately before sending and records each result.
                   </span>
-                  {campaignResult ? (
-                    <span className="w-full text-sm font-medium text-foreground">{campaignResult}</span>
-                  ) : null}
                 </div>
                 {campaign.data?.campaign ? (
                   <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
@@ -907,11 +872,11 @@ export default function AdminNerpVerification() {
                 ) : null}
                 <div className="grid gap-3 rounded-lg border bg-muted/20 p-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Draft subject</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Governed subject</p>
                     <p className="mt-1 font-medium">{DRAFT_SUBJECT}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Draft body</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Governed message preview</p>
                     <textarea readOnly value={DRAFT_BODY} className="mt-1 min-h-48 w-full rounded-md border bg-background p-3 text-sm leading-6" />
                   </div>
                 </div>

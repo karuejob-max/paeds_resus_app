@@ -5,7 +5,9 @@ import { NERP_PATHWAY_ENTRY_PATH } from "../../shared/nerp-pathway";
 export const NERP_CAMPAIGN_KEY = "nerp-acls-2026";
 export const NERP_CAMPAIGN_SUBJECT =
   "A practical six-month path to AHA ACLS certification";
-export const NERP_CAMPAIGN_TEMPLATE_VERSION = "nerp-acls-2026-v2-bls-first";
+export const NERP_CAMPAIGN_TEMPLATE_VERSION = "nerp-acls-2026-v3-bls-first-support-contacts";
+export const NERP_SUPPORT_PHONE = "0706781260";
+export const NERP_SUPPORT_EMAIL = "paedsresus254@gmail.com";
 
 function baseUrl() {
   return (ENV.appBaseUrl || "https://www.paedsresus.com").replace(/\/$/, "");
@@ -97,8 +99,9 @@ The guided pathway checks your BLS cognitive completion first. If BLS cognitive 
 
 Learn more and check the next steps: ${enrollmentUrl}
 
-This opportunity is optional and is not an institutional performance assessment. If you would prefer not to receive programme updates, unsubscribe here: ${unsubscribeUrl}
-
+This opportunity is optional and is not an institutional performance assessment.
+Questions or clarification? Call ${NERP_SUPPORT_PHONE} or email ${NERP_SUPPORT_EMAIL}.
+If you would prefer not to receive programme updates, unsubscribe here: ${unsubscribeUrl}
 Regards,
 Paeds Resus`;
   const html = `<!doctype html>
@@ -111,6 +114,7 @@ Paeds Resus`;
       <p>The guided pathway checks your <strong>BLS cognitive completion first</strong>. If BLS cognitive is not yet complete, you will complete that step before continuing to the ACLS cognitive pathway. On successful completion of the programme requirements, you will receive your AHA ACLS certification, together with a free Paeds Resus BLS Certificate.</p>
       <p><a href="${safeEnrollmentUrl}" style="display:inline-block;background:#ff6633;color:#fff;padding:12px 20px;text-decoration:none;border-radius:4px">Learn more and check the next steps</a></p>
       <p>This opportunity is optional and is not an institutional performance assessment.</p>
+      <p>Questions or clarification? Call <strong>${NERP_SUPPORT_PHONE}</strong> or email <a href="mailto:${NERP_SUPPORT_EMAIL}">${NERP_SUPPORT_EMAIL}</a>.</p>
       <hr style="border:0;border-top:1px solid #e5e7eb;margin:24px 0" />
       <p style="font-size:12px;color:#6b7280">If you would prefer not to receive programme updates, <a href="${safeUnsubscribeUrl}">unsubscribe here</a>.</p>
       <p>Regards,<br />Paeds Resus</p>
