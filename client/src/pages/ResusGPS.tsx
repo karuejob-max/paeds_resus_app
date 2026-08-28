@@ -2503,7 +2503,7 @@ function SurveyStatusStrip({
             {isOnline
               ? pendingResusEventCount > 0
                 ? `${pendingResusEventCount} event${pendingResusEventCount === 1 ? '' : 's'} syncing`
-                : 'Case events server-ready'
+                : 'Online — no local events awaiting sync'
               : 'Offline — case events saved locally; sync pending'}
           </span>
         </div>
@@ -2864,6 +2864,11 @@ function NumberPairInput({
         </div>
       </div>
 
+      {hasInput && !isValid && (
+        <p className="text-xs font-medium text-amber-700 dark:text-amber-300" role="alert">
+          Enter {config.label1.toLowerCase()} {config.min1}–{config.max1} and {config.label2.toLowerCase()} {config.min2}–{config.max2} {config.unit}.
+        </p>
+      )}
       {/* Live interpretation */}
       {isValid && (
         <div>
@@ -2892,7 +2897,7 @@ function NumberPairInput({
         disabled={!isValid}
         onClick={() => onSubmit(v1, v2)}
       >
-        Confirm {isValid ? `${value1}/${value2} ${config.unit}` : ''}
+        {isValid ? `Confirm ${value1}/${value2} ${config.unit}` : 'Enter valid readings'}
         <ArrowRight className="h-4 w-4 ml-2" />
       </Button>
     </div>
