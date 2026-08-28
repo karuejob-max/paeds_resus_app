@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import {
   AlertCircle,
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   Loader2,
   LockKeyhole,
@@ -17,6 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { MpesaPaymentForm } from "@/components/MpesaPaymentForm";
 import { trpc } from "@/lib/trpc";
+import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function NerpCheckout() {
@@ -54,9 +56,22 @@ export default function NerpCheckout() {
     );
   }
 
-  const { offer, paymentState, amount, installmentNumber, enrollmentId } =
-    checkout.data;
+  const {
+    offer,
+    paymentState,
+    amount,
+    installmentNumber,
+    enrollmentId,
+    bls,
+    acls,
+  } = checkout.data;
   const isComplete = paymentState.status === "completed";
+  const nextLearningHref = bls.cognitiveModulesComplete
+    ? getProviderCourseDestination("acls", acls.enrollmentId)
+    : getProviderCourseDestination("bls", bls.enrollmentId);
+  const nextLearningLabel = bls.cognitiveModulesComplete
+    ? "Continue to ACLS cognitive learning"
+    : "Start BLS cognitive learning";
 
   const refresh = () => {
     void checkout.refetch();
@@ -81,7 +96,7 @@ export default function NerpCheckout() {
           </h1>
           <p className="mt-2 max-w-2xl text-muted-foreground">
             Your BLS and ACLS learning records are linked to one six-payment
-            pathway.
+            pathway. BLS cognitive learning must be complete before ACLS cognitive learning.
           </p>
         </div>
 
@@ -139,9 +154,13 @@ export default function NerpCheckout() {
                       Included course record
                     </p>
                   </div>
-                  <Button asChild size="sm" variant="outline">
-                    <Link href="/training/bls">Open BLS</Link>
-                  </Button>
+                  {isComplete ? (
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={getProviderCourseDestination("bls", bls.enrollmentId)}>Open BLS cognitive</Link>
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" disabled>Available after payment</Button>
+                  )}
                 </div>
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <div>
@@ -150,9 +169,15 @@ export default function NerpCheckout() {
                       Included course record
                     </p>
                   </div>
-                  <Button asChild size="sm" variant="outline">
-                    <Link href="/training/acls">Open ACLS</Link>
-                  </Button>
+                  {isComplete && bls.cognitiveModulesComplete ? (
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={getProviderCourseDestination("acls", acls.enrollmentId)}>Open ACLS cognitive</Link>
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" disabled>
+                      {isComplete ? "Complete BLS first" : "Available after payment"}
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -171,7 +196,10 @@ export default function NerpCheckout() {
                 </CardHeader>
                 <CardContent>
                   <Button asChild variant="cta">
-                    <Link href="/training/acls">Continue to ACLS</Link>
+                    <Link href={nextLearningHref}>
+                      {nextLearningLabel}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
                   </Button>
                 </CardContent>
               </Card>

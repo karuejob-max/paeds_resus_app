@@ -1,10 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { ENV } from "../_core/env";
+import { NERP_PATHWAY_ENTRY_PATH } from "../../shared/nerp-pathway";
 
 export const NERP_CAMPAIGN_KEY = "nerp-acls-2026";
 export const NERP_CAMPAIGN_SUBJECT =
   "A practical six-month path to AHA ACLS certification";
-export const NERP_CAMPAIGN_TEMPLATE_VERSION = "nerp-acls-2026-v1";
+export const NERP_CAMPAIGN_TEMPLATE_VERSION = "nerp-acls-2026-v2-bls-first";
 
 function baseUrl() {
   return (ENV.appBaseUrl || "https://www.paedsresus.com").replace(/\/$/, "");
@@ -80,7 +81,7 @@ export function createNerpCampaignMessage(input: {
 }) {
   const campaignKey = input.campaignKey || NERP_CAMPAIGN_KEY;
   const enrollmentUrl =
-    input.enrollmentUrl || `${baseUrl()}/programs/nerp-acls`;
+    input.enrollmentUrl || `${baseUrl()}${NERP_PATHWAY_ENTRY_PATH}`;
   const unsubscribeUrl =
     input.unsubscribeUrl || `${baseUrl()}/api/nerp/campaign/unsubscribe`;
   const name = firstName(input.displayName);
@@ -92,7 +93,7 @@ export function createNerpCampaignMessage(input: {
 
 If AHA ACLS is part of your professional development plan, Paeds Resus has introduced a flexible Lipa Mdogo Mdogo option at KSh 2,500 per month for six months.
 
-On successful completion of the programme requirements, you will receive your AHA ACLS certification, together with a free Paeds Resus BLS Certificate.
+The guided pathway checks your BLS cognitive completion first. If BLS cognitive is not yet complete, you will complete that step before continuing to the ACLS cognitive pathway. On successful completion of the programme requirements, you will receive your AHA ACLS certification, together with a free Paeds Resus BLS Certificate.
 
 Learn more and check the next steps: ${enrollmentUrl}
 
@@ -107,7 +108,7 @@ Paeds Resus`;
       <h1 style="color:#1a4d4d">Paeds Resus</h1>
       <p>Hello ${safeName},</p>
       <p>If AHA ACLS is part of your professional development plan, Paeds Resus has introduced a flexible Lipa Mdogo Mdogo option at <strong>KSh 2,500 per month for six months</strong>.</p>
-      <p>On successful completion of the programme requirements, you will receive your AHA ACLS certification, together with a free Paeds Resus BLS Certificate.</p>
+      <p>The guided pathway checks your <strong>BLS cognitive completion first</strong>. If BLS cognitive is not yet complete, you will complete that step before continuing to the ACLS cognitive pathway. On successful completion of the programme requirements, you will receive your AHA ACLS certification, together with a free Paeds Resus BLS Certificate.</p>
       <p><a href="${safeEnrollmentUrl}" style="display:inline-block;background:#ff6633;color:#fff;padding:12px 20px;text-decoration:none;border-radius:4px">Learn more and check the next steps</a></p>
       <p>This opportunity is optional and is not an institutional performance assessment.</p>
       <hr style="border:0;border-top:1px solid #e5e7eb;margin:24px 0" />

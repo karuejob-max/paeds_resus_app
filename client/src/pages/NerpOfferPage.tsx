@@ -15,15 +15,16 @@ import {
 } from "@/components/ui/card";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
+import { NERP_PATHWAY_ENTRY_PATH } from "@shared/nerp-pathway";
 
 export default function NerpOfferPage() {
   const { user, loading } = useAuth();
   const eligibility = trpc.nerp.getEligibility.useQuery(undefined, { enabled: !!user });
   const canStart = !user || eligibility.data?.eligible === true;
   const nextHref = !user
-    ? "/login?redirect=%2Fprograms%2Fnerp-acls%2Fenroll"
+    ? `/login?redirect=${encodeURIComponent(NERP_PATHWAY_ENTRY_PATH)}`
     : canStart
-      ? "/programs/nerp-acls/enroll"
+      ? NERP_PATHWAY_ENTRY_PATH
       : "/provider-profile";
 
   return (
@@ -35,11 +36,12 @@ export default function NerpOfferPage() {
               Paeds Resus learning pathway
             </p>
             <h1 className="text-3xl font-bold tracking-tight md:text-5xl">
-              A manageable path to ACLS readiness
+              A guided path from BLS to ACLS readiness
             </h1>
             <p className="text-lg leading-8 text-muted-foreground">
-              Complete the NERP ACLS pathway through six manageable monthly
-              payments, with BLS included as part of the learning journey.
+              Complete the NERP pathway through six manageable monthly payments.
+              Start with BLS cognitive learning when it is incomplete, then
+              continue to the ACLS cognitive pathway.
             </p>
             <div className="flex flex-wrap gap-3">
               <Button asChild variant="cta" size="lg" disabled={loading || (!!user && eligibility.isLoading)}>
@@ -49,7 +51,7 @@ export default function NerpOfferPage() {
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg">
-                <Link href="/training/acls">View ACLS course</Link>
+                <Link href={NERP_PATHWAY_ENTRY_PATH}>Check your next learning step</Link>
               </Button>
               {user && eligibility.data && !eligibility.data.eligible && (
                 <p className="max-w-xl text-sm text-muted-foreground">
@@ -93,18 +95,11 @@ export default function NerpOfferPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-2 text-sm">
-                <Link
-                  className="rounded-full border px-3 py-1 text-primary hover:underline"
-                  href="/training/bls"
-                >
-                  Paeds Resus BLS
-                </Link>
-                <Link
-                  className="rounded-full border px-3 py-1 text-primary hover:underline"
-                  href="/training/acls"
-                >
-                  AHA ACLS
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p><strong className="text-foreground">BLS cognitive first</strong> when your linked record is incomplete.</p>
+                <p><strong className="text-foreground">ACLS cognitive next</strong> after the BLS prerequisite is complete.</p>
+                <Link className="inline-block text-primary hover:underline" href={NERP_PATHWAY_ENTRY_PATH}>
+                  Open the guided pathway entry
                 </Link>
               </div>
             </CardContent>
@@ -134,8 +129,8 @@ export default function NerpOfferPage() {
           </CardHeader>
           <CardContent className="grid gap-3 text-sm text-muted-foreground md:grid-cols-2">
             {[
-              "Access to the Paeds Resus BLS learning pathway",
-              "Access to the AHA ACLS cognitive pathway",
+              "BLS cognitive prerequisite checked before ACLS access",
+              "Access to the AHA ACLS cognitive pathway after BLS completion",
               "Six-month KES 2,500 payment plan",
               "Payment progress and remaining balance in one ledger",
               "Free Paeds Resus BLS Certificate on completion of its requirements",

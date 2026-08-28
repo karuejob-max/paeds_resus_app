@@ -128,6 +128,7 @@ const JoinSession = lazy(() => import("./pages/JoinSession"));
 const Home = lazy(() => import("./pages/Home"));
 const Payment = lazy(() => import("./pages/Payment"));
 const NerpOfferPage = lazy(() => import("./pages/NerpOfferPage"));
+const NerpPathwayEntry = lazy(() => import("./pages/NerpPathwayEntry"));
 const NerpCheckout = lazy(() => import("./pages/NerpCheckout"));
 const AdminNerpVerification = lazy(() => import("./pages/AdminNerpVerification"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
@@ -385,6 +386,11 @@ function Router() {
           )}</Route>
           <Route path="/training" component={TrainingHub} />
           <Route path="/programs/nerp-acls" component={NerpOfferPage} />
+          <Route path="/programs/nerp-acls/start">{() => (
+            <RoleGate allowed={["provider"]}>
+              <NerpPathwayEntry />
+            </RoleGate>
+          )}</Route>
           <Route path="/programs/nerp-acls/enroll">{() => (
             <RoleGate allowed={["provider"]}>
               <NerpCheckout />
