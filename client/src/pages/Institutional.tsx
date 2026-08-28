@@ -1,12 +1,26 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { ArrowRight, BarChart3, CheckCircle2, LogIn, ShieldCheck, Siren, Users } from "lucide-react";
+import {
+  ArrowRight,
+  BarChart3,
+  CheckCircle2,
+  LogIn,
+  ShieldCheck,
+  Siren,
+  Users,
+} from "lucide-react";
 
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { usePageMeta } from "@/hooks/usePageMeta";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import CourseCalculator from "@/components/CourseCalculator";
 import { COURSES, getPublicInstitutionalCourses } from "@/lib/courseData";
@@ -29,13 +43,14 @@ const SERVICE_REGION_TOWNS =
 export default function Institutional() {
   useScrollToTop();
   usePageMeta({
-    title: "Institutional CPD and Emergency Readiness Platform Kenya | Paeds Resus",
+    title: "ILSP, IERS and ICPD for Hospitals in Kenya | Paeds Resus",
     description:
-      "Institutional CPD, emergency readiness, and improvement tools for hospitals, training organizations, universities, networks, and public-health teams in Kenya.",
+      "Institutional products for hospitals and health facilities in Kenya: ILSP life-support cohorts, IERS emergency readiness with ResusGPS and Care Signal, and ICPD professional-development records and reporting.",
     path: "/institutional",
   });
 
-  const { trackPricingCalculatorUsed, trackButtonClick } = useAnalytics("Institutional");
+  const { trackPricingCalculatorUsed, trackButtonClick } =
+    useAnalytics("Institutional");
   const [staffCount, setStaffCount] = useState(50);
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
 
@@ -43,20 +58,29 @@ export default function Institutional() {
     if (typeof window === "undefined") return;
     if (window.location.hash !== "#quote") return;
     const t = window.setTimeout(() => {
-      document.getElementById("quote")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document
+        .getElementById("quote")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
     return () => window.clearTimeout(t);
   }, []);
 
-  const pricingKey = selectedCourse ? COURSE_TO_PRICING_KEY[selectedCourse] ?? "bls" : "bls";
+  const pricingKey = selectedCourse
+    ? (COURSE_TO_PRICING_KEY[selectedCourse] ?? "bls")
+    : "bls";
   const institutionalResult = getInstitutionalPrice(pricingKey, staffCount);
-  const config = institutionalPricing[pricingKey as keyof typeof institutionalPricing];
-  const pricePerPerson = institutionalResult?.pricePerSeat ?? config?.basePricePerSeat ?? 8000;
-  const totalCost = institutionalResult?.totalPrice ?? staffCount * pricePerPerson;
+  const config =
+    institutionalPricing[pricingKey as keyof typeof institutionalPricing];
+  const pricePerPerson =
+    institutionalResult?.pricePerSeat ?? config?.basePricePerSeat ?? 8000;
+  const totalCost =
+    institutionalResult?.totalPrice ?? staffCount * pricePerPerson;
 
-  const pricingTiers = (config?.bulkDiscounts ?? []).map((t) => ({
+  const pricingTiers = (config?.bulkDiscounts ?? []).map(t => ({
     staff: t.seats,
-    price: Math.round((config?.basePricePerSeat ?? 8000) * (1 - t.discount / 100)),
+    price: Math.round(
+      (config?.basePricePerSeat ?? 8000) * (1 - t.discount / 100)
+    ),
     discount: t.discount,
   }));
 
@@ -65,28 +89,51 @@ export default function Institutional() {
       <section className="bg-gradient-to-br from-[#1a4d4d] via-[#0d3333] to-[#052020] text-white py-16 px-4">
         <div className="max-w-6xl mx-auto space-y-5">
           <p className="text-sm font-medium text-orange-200 tracking-wide uppercase">
-            Institutional platform · CPD, readiness, and improvement
+            Institutional products · ILSP, IERS, and ICPD
           </p>
           <h1 className="text-4xl md:text-5xl font-bold max-w-4xl">
-            No child should die from a preventable emergency — even when every department is stretched thin
+            No child should die from a preventable emergency — even when every
+            department is stretched thin
           </h1>
           <p className="text-lg md:text-xl text-orange-100 max-w-3xl leading-relaxed">
-            Paeds Resus helps hospitals, faith-based facilities, training organizations, universities, networks, and public-health teams build measurable capability through the <strong className="font-semibold text-white">Institution Workspace</strong> — with CPD tracking, staff development, emergency readiness, improvement visibility, and a route to discuss training partnerships. Hospitals can add a nurse-led Emergency Response System (ERS) when that scope is needed; onboarding does not enroll staff in a course.
+            Paeds Resus helps hospitals, faith-based facilities, training
+            organizations, universities, networks, and public-health teams
+            choose the right institutional product:{" "}
+            <strong className="font-semibold text-white">ILSP</strong> for
+            life-support cohorts,{" "}
+            <strong className="font-semibold text-white">IERS</strong> for
+            emergency readiness with ResusGPS and Care Signal, and{" "}
+            <strong className="font-semibold text-white">ICPD</strong> for
+            verified professional-development records and reporting. These
+            products can work together, but they are not interchangeable;
+            onboarding does not enroll staff in a course.
           </p>
           <p className="text-sm text-orange-100/90 max-w-3xl">
             Serving central and upper Eastern Kenya — {SERVICE_REGION_TOWNS}.
           </p>
           <div className="flex flex-wrap gap-3 pt-2">
-            <Button asChild className="bg-[#ff6633] hover:bg-[#e85a2e]" onClick={() => trackButtonClick("institutional_ers_contact")}>
+            <Button
+              asChild
+              className="bg-[#ff6633] hover:bg-[#e85a2e]"
+              onClick={() => trackButtonClick("institutional_ers_contact")}
+            >
               <a href="#quote">Contact / request onboarding</a>
             </Button>
             <Link href="/institution">
-              <Button variant="outline" className="border-white/50 text-white hover:bg-white/10" onClick={() => trackButtonClick("institutional_hospital_admin")}>
+              <Button
+                variant="outline"
+                className="border-white/50 text-white hover:bg-white/10"
+                onClick={() => trackButtonClick("institutional_hospital_admin")}
+              >
                 Institution Workspace
               </Button>
             </Link>
             <Link href="/institutional-onboarding">
-              <Button variant="ghost" className="text-orange-100 hover:text-white hover:bg-white/10" onClick={() => trackButtonClick("institutional_onboarding")}>
+              <Button
+                variant="ghost"
+                className="text-orange-100 hover:text-white hover:bg-white/10"
+                onClick={() => trackButtonClick("institutional_onboarding")}
+              >
                 Start institution onboarding
               </Button>
             </Link>
@@ -94,15 +141,25 @@ export default function Institutional() {
         </div>
       </section>
 
-      <section className="bg-[#0a2828] border-t border-white/10 text-white" aria-label="How to work with us">
+      <section
+        className="bg-[#0a2828] border-t border-white/10 text-white"
+        aria-label="How to work with us"
+      >
         <div className="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-2 gap-6">
           <div className="rounded-xl border border-white/20 p-6 bg-white/5">
-            <h2 className="text-lg font-semibold mb-2">Evaluating an institutional partnership?</h2>
+            <h2 className="text-lg font-semibold mb-2">
+              Evaluating an institutional partnership?
+            </h2>
             <p className="text-sm text-orange-100/90 mb-4">
-              Start a conversation about CPD, institutional readiness, improvement, or training support. No login required.
+              Start a conversation about CPD, institutional readiness,
+              improvement, or training support. No login required.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Button asChild className="bg-[#ff6633] hover:bg-[#e85a2e]" onClick={() => trackButtonClick("institutional_get_quote")}>
+              <Button
+                asChild
+                className="bg-[#ff6633] hover:bg-[#e85a2e]"
+                onClick={() => trackButtonClick("institutional_get_quote")}
+              >
                 <a href="#quote">Get a quote</a>
               </Button>
               <WhatsAppButton
@@ -116,22 +173,33 @@ export default function Institutional() {
           <div className="rounded-xl border border-white/20 p-6 bg-white/5">
             <h2 className="text-lg font-semibold mb-2">Already onboarded?</h2>
             <p className="text-sm text-orange-100/90 mb-4">
-              Use the Institution Workspace for roster management, learning operations, and readiness evidence.
+              Use the Institution Workspace for roster management, learning
+              operations, and readiness evidence.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link href="/login">
-                <Button variant="secondary" className="gap-2 bg-white text-[#0a2828] hover:bg-orange-50" onClick={() => trackButtonClick("institutional_sign_in")}>
+                <Button
+                  variant="secondary"
+                  className="gap-2 bg-white text-[#0a2828] hover:bg-orange-50"
+                  onClick={() => trackButtonClick("institutional_sign_in")}
+                >
                   <LogIn className="h-4 w-4" />
                   Sign in
                 </Button>
               </Link>
               <Link href="/institution">
-                <Button variant="outline" className="border-white/50 text-white hover:bg-white/10">
+                <Button
+                  variant="outline"
+                  className="border-white/50 text-white hover:bg-white/10"
+                >
                   Open portal
                 </Button>
               </Link>
               <Link href="/institutional-onboarding">
-                <Button variant="ghost" className="text-orange-100 hover:text-white hover:bg-white/10">
+                <Button
+                  variant="ghost"
+                  className="text-orange-100 hover:text-white hover:bg-white/10"
+                >
                   Start institution onboarding
                 </Button>
               </Link>
@@ -143,13 +211,18 @@ export default function Institutional() {
       <section className="py-14 px-4" aria-labelledby="ers-components-heading">
         <div className="max-w-6xl mx-auto space-y-8">
           <div className="text-center max-w-3xl mx-auto">
-            <h2 id="ers-components-heading" className="text-2xl md:text-3xl font-bold text-[#1a4d4d] mb-3">
+            <h2
+              id="ers-components-heading"
+              className="text-2xl md:text-3xl font-bold text-[#1a4d4d] mb-3"
+            >
               What the Hospital ERS includes
             </h2>
             <p className="text-muted-foreground text-sm">
-              Working Emergency Response Systems plus AHA-aligned training — not generic bulk certification where
-              emergency response never improves. Readiness assessment and ERT design first; training follows identified
-              gaps.
+              IERS is the emergency-readiness product. It connects readiness
+              assessment, ERT design, activation, ResusGPS bedside guidance,
+              Care Signal improvement, evidence, and training decisions.
+              Training follows identified gaps; it is not generic bulk
+              certification where emergency response never improves.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -161,8 +234,9 @@ export default function Institutional() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                Hospital-wide activation with paediatric priority — one nurse responds during a code while a colleague
-                keeps the department running; a second responder coordinates teams across units.
+                Hospital-wide activation with paediatric priority — one nurse
+                responds during a code while a colleague keeps the department
+                running; a second responder coordinates teams across units.
               </CardContent>
             </Card>
             <Card>
@@ -173,8 +247,9 @@ export default function Institutional() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                Structured ABCDE flows, CPR Clock, and weight-based dosing. Supports teams — does not replace local
-                policy or senior decision making.
+                Structured ABCDE flows, CPR Clock, and weight-based dosing.
+                Supports teams — does not replace local policy or senior
+                decision making.
               </CardContent>
             </Card>
             <Card>
@@ -185,8 +260,8 @@ export default function Institutional() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                BLS, ACLS, PALS, and NRP from Paeds Resus Limited — mapped to role and gap, not generic bulk
-                certification drives.
+                BLS, ACLS, PALS, and NRP from Paeds Resus Limited — mapped to
+                role and gap, not generic bulk certification drives.
               </CardContent>
             </Card>
             <Card>
@@ -197,8 +272,9 @@ export default function Institutional() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                ERT activations, time to response, Care Signal QI, training coverage, and equipment readiness fixes —
-                honest metrics, not seat counts alone.
+                ERT activations, time to response, Care Signal QI, training
+                coverage, and equipment readiness fixes — honest metrics, not
+                seat counts alone.
               </CardContent>
             </Card>
           </div>
@@ -207,30 +283,41 @@ export default function Institutional() {
 
       <section className="py-16 px-4 bg-gradient-to-b from-white to-orange-50">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold mb-3 text-center text-[#1a4d4d]">Training mesh (after gap assessment)</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-3 text-center text-[#1a4d4d]">
+            Training mesh (after gap assessment)
+          </h2>
           <p className="text-center text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Programmes align to your ERS rollout — preview content and planning costs once readiness scope is agreed.
+            Programmes align to your ERS rollout — preview content and planning
+            costs once readiness scope is agreed.
           </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-            {getPublicInstitutionalCourses().map((course) => (
+            {getPublicInstitutionalCourses().map(course => (
               <Card
                 key={course.id}
                 className="border-t-4 border-[#ff6633] hover:shadow-lg transition cursor-pointer"
                 onClick={() => {
                   setSelectedCourse(course.id);
-                  trackButtonClick("institutional_programme_selected", { courseId: course.id });
+                  trackButtonClick("institutional_programme_selected", {
+                    courseId: course.id,
+                  });
                 }}
               >
                 <CardHeader>
-                  <CardTitle className="text-[#1a4d4d]">{course.name}</CardTitle>
+                  <CardTitle className="text-[#1a4d4d]">
+                    {course.name}
+                  </CardTitle>
                   <CardDescription>{course.duration}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <p className="text-sm text-foreground/90">{course.description}</p>
+                  <p className="text-sm text-foreground/90">
+                    {course.description}
+                  </p>
                   <div className="bg-[#ff6633]/5 p-3 rounded">
-                    <p className="text-sm font-semibold text-[#1a4d4d] mb-2">Selected topics:</p>
+                    <p className="text-sm font-semibold text-[#1a4d4d] mb-2">
+                      Selected topics:
+                    </p>
                     <ul className="text-xs space-y-1">
-                      {course.topics.slice(0, 4).map((topic) => (
+                      {course.topics.slice(0, 4).map(topic => (
                         <li key={topic} className="flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4 text-[#ff6633]" />
                           {topic}
@@ -239,8 +326,12 @@ export default function Institutional() {
                     </ul>
                   </div>
                   <div className="border-t pt-3">
-                    <p className="font-bold text-[#1a4d4d]">{course.basePrice.toLocaleString()} KES base price</p>
-                    <Button className="w-full mt-3 bg-[#ff6633] hover:bg-[#e55a22]">Open programme calculator</Button>
+                    <p className="font-bold text-[#1a4d4d]">
+                      {course.basePrice.toLocaleString()} KES base price
+                    </p>
+                    <Button className="w-full mt-3 bg-[#ff6633] hover:bg-[#e55a22]">
+                      Open programme calculator
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -259,12 +350,19 @@ export default function Institutional() {
 
       <section className="py-16 px-4 bg-gradient-to-r from-[#1a4d4d]/5 to-[#ff6633]/5">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold mb-10 text-center text-[#1a4d4d]">Budget planning calculator</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-10 text-center text-[#1a4d4d]">
+            Budget planning calculator
+          </h2>
           <div className="grid md:grid-cols-2 gap-12">
             <Card className="border-t-4 border-[#ff6633]">
               <CardHeader>
-                <CardTitle className="text-[#1a4d4d]">Estimate programme budget</CardTitle>
-                <CardDescription>Use this for planning only. Final quote depends on confirmed scope.</CardDescription>
+                <CardTitle className="text-[#1a4d4d]">
+                  Estimate programme budget
+                </CardTitle>
+                <CardDescription>
+                  Use this for planning only. Final quote depends on confirmed
+                  scope.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
@@ -277,32 +375,50 @@ export default function Institutional() {
                     max="500"
                     step="10"
                     value={staffCount}
-                    onChange={(e) => {
+                    onChange={e => {
                       const newCount = Number(e.target.value);
                       setStaffCount(newCount);
-                      const result = getInstitutionalPrice(pricingKey, newCount);
-                      trackPricingCalculatorUsed(newCount, result?.totalPrice ?? newCount * 8000);
+                      const result = getInstitutionalPrice(
+                        pricingKey,
+                        newCount
+                      );
+                      trackPricingCalculatorUsed(
+                        newCount,
+                        result?.totalPrice ?? newCount * 8000
+                      );
                     }}
                     className="w-full"
                   />
                 </div>
 
                 <div className="bg-brand-surface p-4 rounded-lg space-y-3 border border-border/60">
-                  <p className="text-xs text-muted-foreground">Programme: {config?.name ?? "Institutional programme"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Programme: {config?.name ?? "Institutional programme"}
+                  </p>
                   <div className="flex justify-between border-t pt-2">
-                    <span className="text-muted-foreground">Estimated price per seat:</span>
-                    <span className="font-bold">{pricePerPerson.toLocaleString()} KES</span>
+                    <span className="text-muted-foreground">
+                      Estimated price per seat:
+                    </span>
+                    <span className="font-bold">
+                      {pricePerPerson.toLocaleString()} KES
+                    </span>
                   </div>
                   <div className="flex justify-between text-lg font-bold border-t pt-2">
                     <span>Estimated total:</span>
-                    <span className="text-green-900">{totalCost.toLocaleString()} KES</span>
+                    <span className="text-green-900">
+                      {totalCost.toLocaleString()} KES
+                    </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    This estimate excludes any bespoke consulting or implementation scope.
+                    This estimate excludes any bespoke consulting or
+                    implementation scope.
                   </p>
                 </div>
 
-                <Button asChild className="w-full bg-green-900 hover:bg-green-800">
+                <Button
+                  asChild
+                  className="w-full bg-green-900 hover:bg-green-800"
+                >
                   <a href="#quote">Request formal quote</a>
                 </Button>
               </CardContent>
@@ -311,24 +427,38 @@ export default function Institutional() {
             <Card>
               <CardHeader>
                 <CardTitle>How engagement works</CardTitle>
-                <CardDescription>A typical institutional path from inquiry to operations.</CardDescription>
+                <CardDescription>
+                  A typical institutional path from inquiry to operations.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 text-sm text-muted-foreground">
                 <p className="inline-flex items-start gap-2">
                   <span className="font-semibold text-foreground">1.</span>
-                  <span>Scope your cohort, training priorities, and timeline with the partnerships team.</span>
+                  <span>
+                    Scope your cohort, training priorities, and timeline with
+                    the partnerships team.
+                  </span>
                 </p>
                 <p className="inline-flex items-start gap-2">
                   <span className="font-semibold text-foreground">2.</span>
-                  <span>Receive a quote with programme options and delivery assumptions.</span>
+                  <span>
+                    Receive a quote with programme options and delivery
+                    assumptions.
+                  </span>
                 </p>
                 <p className="inline-flex items-start gap-2">
                   <span className="font-semibold text-foreground">3.</span>
-                  <span>Onboard your team to the institutional portal for scheduling and staff operations.</span>
+                  <span>
+                    Onboard your team to the institutional portal for scheduling
+                    and staff operations.
+                  </span>
                 </p>
                 <p className="inline-flex items-start gap-2">
                   <span className="font-semibold text-foreground">4.</span>
-                  <span>Review participation and operational indicators to guide improvement planning.</span>
+                  <span>
+                    Review participation and operational indicators to guide
+                    improvement planning.
+                  </span>
                 </p>
                 <Link href="/help">
                   <Button variant="outline" className="w-full justify-between">
@@ -344,28 +474,41 @@ export default function Institutional() {
 
       <section className="py-16 px-4">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold mb-10 text-center">Bulk pricing tiers</h2>
+          <h2 className="text-3xl font-bold mb-10 text-center">
+            Bulk pricing tiers
+          </h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b-2 border-border">
                   <th className="text-left py-4 px-4">Staff count</th>
-                  <th className="text-left py-4 px-4">Estimated price per person</th>
+                  <th className="text-left py-4 px-4">
+                    Estimated price per person
+                  </th>
                   <th className="text-left py-4 px-4">Discount</th>
                   <th className="text-left py-4 px-4">Estimated total</th>
                 </tr>
               </thead>
               <tbody>
-                {pricingTiers.map((tier) => (
-                  <tr key={String(tier.staff)} className="border-b border-border hover:bg-muted/40">
-                    <td className="py-4 px-4 font-semibold">{tier.staff}+ staff</td>
-                    <td className="py-4 px-4">{tier.price.toLocaleString()} KES</td>
+                {pricingTiers.map(tier => (
+                  <tr
+                    key={String(tier.staff)}
+                    className="border-b border-border hover:bg-muted/40"
+                  >
+                    <td className="py-4 px-4 font-semibold">
+                      {tier.staff}+ staff
+                    </td>
+                    <td className="py-4 px-4">
+                      {tier.price.toLocaleString()} KES
+                    </td>
                     <td className="py-4 px-4">
                       <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
                         {tier.discount}% off
                       </span>
                     </td>
-                    <td className="py-4 px-4 font-bold">{(tier.staff * tier.price).toLocaleString()} KES</td>
+                    <td className="py-4 px-4 font-bold">
+                      {(tier.staff * tier.price).toLocaleString()} KES
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -376,13 +519,20 @@ export default function Institutional() {
 
       <section className="py-16 px-4 bg-green-900 text-white">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to build your hospital ERS?</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-6">
+            Ready to build your hospital ERS?
+          </h2>
           <p className="text-lg text-green-100 mb-8">
-            Share your staffing reality and current emergency response setup. We will scope ERT design, readiness audit,
-            and training mesh — with an honest onboarding path.
+            Share your staffing reality and current emergency response setup. We
+            will scope ERT design, readiness audit, and training mesh — with an
+            honest onboarding path.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <Button asChild size="lg" className="bg-white text-green-900 hover:bg-green-50">
+            <Button
+              asChild
+              size="lg"
+              className="bg-white text-green-900 hover:bg-green-50"
+            >
               <a href="#quote">Request quote</a>
             </Button>
             <WhatsAppButton
@@ -393,7 +543,11 @@ export default function Institutional() {
               label="Chat on WhatsApp"
             />
             <Link href="/help">
-              <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-white text-white hover:bg-white/10"
+              >
                 View support centre
               </Button>
             </Link>
@@ -404,9 +558,12 @@ export default function Institutional() {
       <section id="quote" className="py-16 bg-muted/30 scroll-mt-24">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Contact / request hospital onboarding</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+              Contact / request hospital onboarding
+            </h2>
             <p className="text-lg text-muted-foreground">
-              We use your details to scope ERS readiness, ERT design, and training — then follow up with your leadership team.
+              We use your details to scope ERS readiness, ERT design, and
+              training — then follow up with your leadership team.
             </p>
           </div>
           <InstitutionalLeadForm />

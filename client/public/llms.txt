@@ -1,0 +1,53 @@
+# Paeds Resus
+
+> Paeds Resus is a paediatric emergency-care organisation and platform serving healthcare providers and institutions in Kenya and the East African Community.
+
+## Canonical product architecture
+
+### Individual products
+
+- AHA BLS: basic life support training for individual healthcare providers. Price anchor: KES 10,000 per person; KES 7,500 per person for cohorts of more than six.
+- AHA ACLS: advanced cardiovascular life support training for individual healthcare providers. Price anchor: KES 20,000 per person; KES 17,500 per person for cohorts of more than six.
+- NERP: Nurses Emergency Readiness Program. Individual nurse pathway; request the current offer.
+- IERP: Interns Emergency Readiness Program. Individual intern pathway; request the current offer.
+- Paeds Resus Fellowship: individual paediatric emergency micro-course pathway; catalogue pricing applies.
+
+### Institutional products
+
+- ILSP: Institutional Life Support Program for institution-paid life-support cohorts, delivery, practical assessment, and completion evidence.
+- IERS: Institutional Emergency Readiness System for hospital-wide emergency-response governance, activation, readiness evidence, drills, equipment gaps, corrective actions, and reporting. Price anchor: KES 200,000 per year.
+- ICPD: Institutional Continuous Professional Development for verified professional-development activity, attendance, targets, certificates, and leadership reporting. Price anchor: KES 200,000 per year.
+
+## Products within IERS
+
+- ResusGPS is a product within IERS and is the IERS bedside-guidance product. It supports structured paediatric emergency assessment, CPR timing, weight-based calculations, protocols, and reassessment prompts. It does not replace local protocols, senior clinical judgement, supervision, or emergency services.
+- Care Signal is the improvement layer within IERS. It supports honest reporting and review of incidents, near-misses, and corrective actions. It is not a punitive reporting tool and is not a substitute for a formal clinical record.
+
+## Public pages
+
+- Home: https://www.paedsresus.com/
+- About: https://www.paedsresus.com/about
+- Individual providers: https://www.paedsresus.com/for-providers
+- Institutions: https://www.paedsresus.com/for-institutions
+- Institutional product details: https://www.paedsresus.com/institutional
+- Training catalogue: https://www.paedsresus.com/training
+- AHA courses: https://www.paedsresus.com/aha-courses
+- NERP: https://www.paedsresus.com/programs/nerp-acls
+- IERP: https://www.paedsresus.com/programs/ierp
+- Fellowship: https://www.paedsresus.com/fellowship
+- Parent Safe-Truth: https://www.paedsresus.com/parent-safe-truth
+
+## Naming and claims rules
+
+- Paeds Resus is the organisation and platform.
+- Paeds Resus Limited is the training legal entity used on course pages.
+- ResusGPS is an IERS product, not a standalone top-level institutional product.
+- Use AHA-aligned unless the exact certification wording has been approved for the relevant course and delivery arrangement.
+- Do not claim that software, training, or a certificate replaces clinical judgement, local protocols, supervision, or emergency services.
+- Do not make unsupported mortality, competence, readiness, or certification guarantees.
+
+## Contact
+
+- Email: paedsresus254@gmail.com
+- Phone/WhatsApp: +254 706 781 260
+- Canonical website: https://www.paedsresus.com

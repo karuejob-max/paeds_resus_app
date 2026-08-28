@@ -39,6 +39,9 @@ export const PUBLIC_SEO_ROUTES = [
   "/for-providers",
   "/for-institutions",
   "/for-parents",
+  "/programs/nerp-acls",
+  "/programs/ierp",
+  "/fellowship",
 ] as const;
 
 export function buildOrganizationJsonLd() {
@@ -51,7 +54,7 @@ export function buildOrganizationJsonLd() {
     url: SITE_ORIGIN,
     logo: `${SITE_ORIGIN}/og-image.png`,
     description:
-      "Paeds Resus is an adaptive learning system for paediatric emergency care in Kenya and the East African Community. Every case worked through ResusGPS, every Care Signal report, and every parent's Safe-Truth experience feeds a system that closes the gap between what's known to save children and what actually happens at the bedside — through training, bedside guidance, quality improvement, and institutional readiness.",
+      "Paeds Resus is a paediatric emergency-care organisation and platform serving Kenya and the East African Community. Individual products include AHA BLS, AHA ACLS, NERP, IERP, and the Paeds Resus Fellowship. Institutional products include ILSP, IERS, and ICPD. ResusGPS and Care Signal are products within IERS: ResusGPS supports bedside guidance and Care Signal supports institutional improvement. Paeds Resus also provides Parent Safe-Truth family resources.",
     areaServed: ["Kenya", "East African Community"],
     email: "paedsresus254@gmail.com",
     telephone: "+254706781260",
@@ -118,7 +121,8 @@ export function buildCourseJsonLd(input: CourseSchemaInput) {
   };
 
   if (input.duration) {
-    (course.hasCourseInstance as Record<string, unknown>).courseWorkload = input.duration;
+    (course.hasCourseInstance as Record<string, unknown>).courseWorkload =
+      input.duration;
   }
 
   if (input.priceKes != null && input.priceKes > 0) {
