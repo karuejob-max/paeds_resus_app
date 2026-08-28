@@ -1023,7 +1023,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
     onSuccess: async (result) => {
       toast.success(result.cognitiveAccessLocked
         ? "Your IERP enrolment is ready. Complete the full KES 15,000 payment before starting cognitive learning."
-        : "Your IERP enrolment is ready. Start with Phase 1 cognitive learning.");
+        : "Your IERP enrolment is ready. Continue to Phase 1 while your intern evidence review continues.");
       await Promise.all([
         utils.ierp.getMyEnrollment.invalidate(),
         utils.ierp.getSummary.invalidate(),
@@ -1117,6 +1117,9 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
     );
   }
 
+  const internReviewBlocked = internProfile?.status === "rejected" || internProfile?.status === "revoked";
+  const internReviewPending = internProfile?.status === "pending";
+  const internReviewReason = internProfile?.reviewReason?.trim();
   const phase1Done = !!summary?.phase1Complete;
   const phase2Done = !!summary?.phase2.phase2Complete;
   const phase2CertificateIssued = !!summary?.phase2Certificate;
@@ -1162,7 +1165,19 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-slate-700">Your IERP training record is independent of IERS facility membership. Confirmed named simulation roles and approved retrospective claims are the source of Phase 2 progress. The programme fee is KES 15,000 in total; complete the full balance before Phase 3, and from December onward before cognitive coursework and further Phase 2 access.</p>
+        <p className="text-sm text-slate-700">Your IERP training record is independent of IERS facility membership. Confirmed named simulation roles and approved retrospective claims are the source of Phase 2 progress. The programme fee is KES 15,000 in total. Submitted intern evidence lets you continue the learner journey while review is pending; the payment window still determines when cognitive and Phase 2 access is available, and the full balance is required before Phase 3.</p>
+        {internReviewPending ? (
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-950">
+            <p className="font-semibold">Intern evidence under review — you can continue</p>
+            <p className="mt-1 text-xs">Your MoH deployment/posting letter was submitted. Continue to the next available payment or learning step; if the review later finds a problem, access will pause and the correction reason will be shown here.</p>
+          </div>
+        ) : null}
+        {internReviewBlocked ? (
+          <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-950">
+            <p className="font-semibold">IERP access paused — correction required</p>
+            <p className="mt-1 text-xs">{internReviewReason || "Your intern evidence was not approved. Review your Intern Profile and submit corrected evidence before continuing."}</p>
+          </div>
+        ) : null}
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {phaseStatus.map((phase) => (
             <div key={phase.label} className={`rounded-lg border p-3 text-xs ${phase.done ? "border-green-200 bg-green-50 text-green-800" : "border-slate-200 bg-white text-slate-600"}`}>
@@ -1211,7 +1226,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
           <Button
             size="sm"
             variant="outline"
-            disabled={!phase1Files.video_prework || !phase1Files.precourse_assessment || evidenceMutation.isPending}
+            disabled={internReviewBlocked || !phase1Files.video_prework || !phase1Files.precourse_assessment || evidenceMutation.isPending}
             onClick={() => {
               const video = phase1Files.video_prework;
               const assessment = phase1Files.precourse_assessment;
@@ -1246,7 +1261,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
               <Button
                 size="sm"
                 className="bg-indigo-700 text-white hover:bg-indigo-800"
-                disabled={paymentMutation.isPending || !canonicalPaymentPhone}
+                disabled={internReviewBlocked || paymentMutation.isPending || !canonicalPaymentPhone}
                 onClick={() => canonicalPaymentPhone && paymentMutation.mutate({ amountKsh: ierpLedger.balanceKsh, phase: "general", phoneNumber: canonicalPaymentPhone })}
               >
                 {paymentMutation.isPending ? "Sending…" : `Pay KES ${ierpLedger.balanceKsh.toLocaleString()}`}

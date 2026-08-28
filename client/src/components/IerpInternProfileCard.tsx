@@ -220,6 +220,17 @@ export function IerpInternProfileCard({
             <Badge variant={statusVariant}>{statusLabel}</Badge>
           </div>
         ) : null}
+        {profile?.status === "pending" ? (
+          <div className="flex items-start gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-950">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              Your intern evidence is under review. You can continue to the
+              IERP payment and the next available learning step while review is
+              pending. If the evidence is rejected or revoked, access will pause
+              and the reviewer’s reason will be shown here.
+            </p>
+          </div>
+        ) : null}
         {profile?.status === "rejected" || profile?.status === "revoked" ? (
           <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />

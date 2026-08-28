@@ -74,12 +74,16 @@ export default function IerpEnrollment() {
         <div className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-950">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-indigo-700" />
           <div>
-            <p className="font-semibold">Intern evidence is required</p>
+              <p className="font-semibold">Verification → Payment → Learning</p>
             <p className="mt-1">
               Submit your MoH deployment/posting letter, official internship
-              letter reference number, and effective commencement date.
-              August–November starters may access Phases 1–2 before 1 December;
-              December–July starters must pay in full before cognitive access.
+              letter reference number, and effective commencement date. You may
+              start the IERP payment and continue to the next available learning
+              step while your evidence is under review. August–November starters
+              have deferred access until 1 December; December–July starters must
+              complete payment before cognitive access. If evidence is rejected
+              or revoked, access pauses and the reviewer’s correction reason is
+              shown before you can continue.
             </p>
           </div>
         </div>
