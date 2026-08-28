@@ -20,6 +20,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { LegalReconsentGate } from "@/components/LegalReconsentGate";
 import { trpc } from "@/lib/trpc";
 import { AHA_HUB_STALE_MS } from "@/const/aha-hub-query";
+import AdminShell from "./components/AdminShell";
 
 const Login = lazy(() => import("./pages/Login"));
 const CpdRegister = lazy(() => import("./pages/CpdRegister"));
@@ -899,7 +900,7 @@ function AdminGate({ children }: { children: ReactNode }) {
       />
     );
   }
-  return <>{children}</>;
+  return <AdminShell>{children}</AdminShell>;
 }
 
 function HomeEntry() {
