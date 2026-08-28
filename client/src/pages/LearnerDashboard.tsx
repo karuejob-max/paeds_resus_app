@@ -19,7 +19,7 @@ import { getProgramIdentity } from "@shared/program-identity";
 import { getCertificateDisplayLabel } from "@shared/paeds-resus-certificates";
 import { inferDesignationFromCadre } from "@shared/cadre-designation-mapping";
 import { AlertCircle, Award, BookOpen, CheckCircle2, Download, FileText, GraduationCap, Loader2, Upload, Users } from "lucide-react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";

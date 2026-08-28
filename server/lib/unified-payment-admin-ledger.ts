@@ -73,7 +73,12 @@ export async function getAdminPaymentLedger(
   const userRows = await (userWhere ? userQuery.where(userWhere) : userQuery).limit(5000);
   if (userRows.length === 0) return { rows: [], total: 0 };
   const userIds = userRows.map((user: any) => Number(user.id));
-  const userMap = new Map(userRows.map((user: any) => [Number(user.id), user]));
+  const userMap = new Map<number, { name: string | null; email: string | null }>(
+    userRows.map((user: any) => [
+      Number(user.id),
+      { name: user.name ?? null, email: user.email ?? null },
+    ] as const)
+  );
 
   const [offers, ierpPrograms, ilsRequests, genericPayments, learnerEnrollments] = await Promise.all([
     db.select().from(nerpOfferEnrollments).where(inArray(nerpOfferEnrollments.userId, userIds)).orderBy(desc(nerpOfferEnrollments.createdAt)),
