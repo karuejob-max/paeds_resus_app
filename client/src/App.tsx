@@ -20,6 +20,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { LegalReconsentGate } from "@/components/LegalReconsentGate";
 import { trpc } from "@/lib/trpc";
 import { AHA_HUB_STALE_MS } from "@/const/aha-hub-query";
+import AdminShell from "./components/AdminShell";
 
 const Login = lazy(() => import("./pages/Login"));
 const CpdRegister = lazy(() => import("./pages/CpdRegister"));
@@ -35,12 +36,14 @@ const CareSignal = lazy(() => import("./pages/CareSignal"));
 const CodeSignal = lazy(() => import("./pages/CodeSignal"));
 const Institutional = lazy(() => import("./pages/Institutional"));
 const AdminHub = lazy(() => import("./pages/AdminHub"));
+const AdminAccessGrants = lazy(() => import("./pages/AdminAccessGrants"));
 const AdminReports = lazy(() => import("./pages/AdminReports"));
 const AdminMpesaReconciliation = lazy(() => import("./pages/AdminMpesaReconciliation"));
 const AdminOps = lazy(() => import("./pages/AdminOps"));
 const AdminMpesaWebhooks = lazy(() => import("./pages/AdminMpesaWebhooks"));
 const AdminFacilityCareSignal = lazy(() => import("./pages/AdminFacilityCareSignal"));
 const AdminFeedback = lazy(() => import("./pages/AdminFeedback"));
+const AdminCoursesPanel = lazy(() => import("./pages/AdminCoursesPanel"));
 const AdminCpdAnalytics = lazy(() => import("./pages/AdminCpdAnalytics"));
 const FeedbackPage = lazy(() => import("./pages/FeedbackPage"));
 const Help = lazy(() => import("./pages/Help"));
@@ -288,6 +291,11 @@ function Router() {
           <Route path="/admin">{() => (
             <AdminGate>
               <AdminHub />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin/access-grants">{() => (
+            <AdminGate>
+              <AdminAccessGrants />
             </AdminGate>
           )}</Route>
           <Route path="/admin/reports">{() => (
@@ -659,7 +667,9 @@ function Router() {
             </AdminGate>
           )}</Route>
           <Route path="/admin/courses">{() => (
-            <Redirect to="/admin" />
+            <AdminGate>
+              <AdminCoursesPanel />
+            </AdminGate>
           )}</Route>
           {/* Common typo / old links — same page */}
           <Route path="/institution-onboarding">{() => <Redirect to="/institutional-onboarding" />}</Route>
@@ -890,7 +900,7 @@ function AdminGate({ children }: { children: ReactNode }) {
       />
     );
   }
-  return <>{children}</>;
+  return <AdminShell>{children}</AdminShell>;
 }
 
 function HomeEntry() {
