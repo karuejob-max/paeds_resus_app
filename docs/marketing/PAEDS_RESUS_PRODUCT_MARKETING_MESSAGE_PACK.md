@@ -4,8 +4,8 @@
 **Date:** 28 August 2026  
 **Brand:** Paeds Resus  
 **Training entity:** Paeds Resus Limited  
-**Bedside product:** ResusGPS  
-**Institutional emergency-readiness product:** IERS  
+**Institutional emergency-readiness system:** IERS
+**IERS bedside-guidance product:** ResusGPS
 **Institutional learning and professional-development product:** ICPD
 
 ---
@@ -33,12 +33,11 @@ ICPD must not be presented as proof of emergency readiness, bedside competence, 
 | **NERP** | Nurses Emergency Readiness Program: a structured nurse-specific readiness pathway with learning, simulations, practical progression, and governed evidence | Nurses and nurse leaders | **Price to be confirmed in the commercial offer** |
 | **IERP** | Interns Emergency Readiness Program: a profile-first pathway for interns covering learning, role-based simulations, practical progression, and evidence gates | Medical interns | **Price to be confirmed in the commercial offer**; current internal reference is KES 15,000 for the IERP BLS + ACLS pathway |
 | **ILSP** | Institutional Life Support Program: institution-paid, cohort-scoped life-support training with roster, delivery, readiness, and practical-assessment controls | Hospitals and health facilities | **Price to be confirmed by cohort scope and proposal** |
-| **IERS** | Institutional Emergency Readiness System: a hospital-wide operating layer for emergency-response governance, activation, readiness evidence, improvement actions, and aggregate reporting | CEOs, medical directors, nursing leadership, county and facility teams | **KES 200,000 per year** |
+| **IERS** | Institutional Emergency Readiness System: a hospital-wide operating layer for emergency-response governance, activation, readiness evidence, improvement actions, aggregate reporting, and the ResusGPS bedside-guidance product | CEOs, medical directors, nursing leadership, county and facility teams | **KES 200,000 per year** |
 | **ICPD** | Institutional Continuous Professional Development: a managed institutional service for recording, verifying, tracking, and reporting staff professional-development activity | Hospitals, education departments, HR, nursing education, medical education, quality teams | **KES 200,000 per year** |
 | **Paeds Resus Fellowship** | A unified online pathway of condition-specific paediatric emergency micro-courses that builds breadth, pattern recognition, and a Paeds Resus Fellow identity | Healthcare providers who care for sick children | Course-level pricing applies; confirm catalogue price before publishing |
-| **ResusGPS** | Structured bedside paediatric emergency decision-support for assessment, prioritisation, calculations, CPR timing, and reassessment prompts | Trained healthcare providers | Access depends on the applicable plan or programme |
 
-**Pricing note:** The requested BLS, ACLS, IERS, and ICPD prices are treated as the current marketing anchors. NERP, IERP, and ILSP should not receive invented prices in public copy until the commercial offer is confirmed. The current IERP internal reference is recorded for sales and proposal preparation, not as a final public price approval.
+**Portfolio hierarchy:** The individual-provider portfolio comprises **AHA BLS, AHA ACLS, NERP, IERP, and the Paeds Resus Fellowship**. The institutional portfolio comprises **ILSP, IERS, and ICPD**. **ResusGPS is a product within IERS**, alongside the Care Signal improvement layer; it is not a separate top-level product. The requested BLS, ACLS, IERS, and ICPD prices are treated as the current marketing anchors. NERP, IERP, and ILSP should not receive invented prices in public copy until the commercial offer is confirmed. The current IERP internal reference is recorded for sales and proposal preparation, not as a final public price approval.
 
 ---
 
@@ -50,7 +49,7 @@ ICPD must not be presented as proof of emergency readiness, bedside competence, 
 
 ### Master description
 
-Paeds Resus helps healthcare providers and hospitals prepare for high-stakes emergencies with practical training, structured bedside guidance, institutional emergency-readiness systems, and measurable professional development. From AHA-aligned BLS and ACLS pathways to IERP, NERP, ILSP, IERS, ICPD, and ResusGPS, each offer has a defined purpose and a clear boundary.
+Paeds Resus helps healthcare providers and hospitals prepare for high-stakes emergencies with practical training, institutional emergency-readiness systems, ResusGPS bedside guidance within IERS, and measurable professional development. From AHA-aligned BLS and ACLS pathways to IERP, NERP, ILSP, IERS, and ICPD, each offer has a defined purpose and a clear boundary.
 
 ### Master call to action
 
@@ -58,7 +57,7 @@ Paeds Resus helps healthcare providers and hospitals prepare for high-stakes eme
 
 ### Short master version for social profiles
 
-> Paeds Resus builds paediatric emergency capability through practical training, ResusGPS bedside guidance, IERS institutional readiness, and ICPD professional-development tracking.
+> Paeds Resus builds paediatric emergency capability through practical training, IERS institutional readiness with ResusGPS bedside guidance, and ICPD professional-development tracking.
 
 ---
 
@@ -277,13 +276,13 @@ Never say that ICPD proves a provider is ready for an emergency, competent at th
 
 > **Build paediatric emergency depth one condition at a time.** The Paeds Resus Fellowship is a unified online pathway of focused micro-courses covering the conditions and patterns that broad certification courses cannot exhaust. Start with the emergencies you see most, build breadth across domains, and progress toward Paeds Resus Fellow identity.
 
-### ResusGPS
+### ResusGPS — an IERS product
 
-> **The next safe action, when time matters.** ResusGPS provides structured paediatric emergency reference support for assessment, prioritisation, weight-based calculations, CPR timing, and reassessment prompts. It supports trained providers and does not replace local protocols, clinical judgement, supervision, or emergency services.
+> **The next safe action, when time matters.** ResusGPS is the bedside-guidance product within IERS. It provides structured paediatric emergency reference support for assessment, prioritisation, weight-based calculations, CPR timing, and reassessment prompts. It supports trained providers and does not replace local protocols, clinical judgement, supervision, or emergency services.
 
-### Care Signal
+### Care Signal — an IERS improvement layer
 
-> **Turn near-misses into safer systems.** Care Signal supports honest, blameless reporting and institutional review of near-misses, incidents, and improvement actions. It is a quality-improvement layer, not a punitive reporting tool and not a substitute for a formal clinical record.
+> **Turn near-misses into safer systems.** Care Signal is the improvement layer within IERS. It supports honest, blameless reporting and institutional review of near-misses, incidents, and improvement actions. It is not a punitive reporting tool and not a substitute for a formal clinical record.
 
 ### Cohort and institutional readiness conversation
 
@@ -319,7 +318,7 @@ Never say that ICPD proves a provider is ready for an emergency, competent at th
 1. Begin with an **IERS readiness conversation** and baseline.
 2. Use **ILSP**, BLS, ACLS, and other agreed training pathways to close role-mapped competency gaps.
 3. Use **ICPD** to organise and report wider staff professional development.
-4. Use **ResusGPS** and Care Signal to support bedside reference and improvement loops.
+4. Use **ResusGPS within IERS** for structured bedside reference, and Care Signal for improvement loops.
 5. Review process measures and open actions at 30, 60, and 90 days.
 
 ---
@@ -349,12 +348,12 @@ Keep these distinctions exact:
 
 | Do say | Do not say |
 |---|---|
-| Paeds Resus is the organisation and platform | ResusGPS is the name of every Paeds Resus product |
+| Paeds Resus is the organisation and platform | ResusGPS is a separate top-level institutional product |
 | Paeds Resus Limited delivers the contracted training entity work | Every Paeds Resus course is automatically an official AHA credential |
 | IERP is the Interns Emergency Readiness Program | IERP is the Institutional Emergency Readiness System |
 | IERS is the Institutional Emergency Readiness System | IERS is a CPD tracker or certificate bundle |
 | ICPD records professional-development activity | ICPD proves emergency readiness or bedside competence |
-| ResusGPS is bedside clinical decision support | ResusGPS replaces protocols, emergency services, or judgement |
+| ResusGPS is the bedside-guidance product within IERS | ResusGPS replaces protocols, emergency services, or judgement |
 | IERS is readiness infrastructure plus training coordination | IERS is merely bulk AHA certification |
 
 ---
@@ -369,7 +368,7 @@ Keep these distinctions exact:
 
 **Delay:** Publishing a final NERP, IERP, or ILSP price until leadership confirms the commercial offer and scope. Do not create discounts by copying the BLS/ACLS cohort rates into those programmes.
 
-**Ignore:** Any old copy that treats the former CPD Portal label as the public product name, collapses IERS into training seats, or describes AHA, Fellowship, IERP, NERP, and ResusGPS as one undifferentiated programme.
+**Ignore:** Any old copy that treats the former CPD Portal label as the public product name, collapses IERS into training seats, treats ResusGPS as a standalone product outside IERS, or describes AHA, Fellowship, IERP, and NERP as one undifferentiated programme.
 
 ---
 
