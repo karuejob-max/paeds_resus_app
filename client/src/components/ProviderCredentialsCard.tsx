@@ -407,8 +407,8 @@ export function ProviderCredentialsCard({ onExperienceDerived }: ProviderCredent
               <p className="font-semibold text-emerald-950 dark:text-emerald-100">Next step: open your NERP pathway</p>
               <p className="mt-1 text-sm text-emerald-900/80 dark:text-emerald-100/80">
                 {showNerpNextStep
-                  ? "Your Licence evidence is waiting for verification. Open the guided NERP pathway to see your verification status; payment and coursework remain locked until an authorised verifier confirms the required NCK licence."
-                  : "After submitting your Licence evidence, open the guided NERP pathway. Verified learners will see the first-payment step; pending learners will see their verification status."}
+                  ? "Your Licence evidence is waiting for verification. Open the guided NERP pathway to start the first-payment step; after the first confirmed instalment, BLS cognitive coursework becomes available. If the submission is rejected or revoked, access pauses and the correction reason is shown."
+                  : "After submitting your Licence evidence, open the guided NERP pathway. You can start payment while review is pending; after the first confirmed instalment, BLS cognitive coursework becomes available."}
               </p>
               <Button asChild type="button" variant="cta" className="mt-3">
                 <Link href={NERP_PATHWAY_ENTRY_PATH}>
