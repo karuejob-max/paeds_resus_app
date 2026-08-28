@@ -15,6 +15,8 @@ interface EmailParams {
   subject: string;
   htmlBody: string;
   textBody?: string;
+  configurationSetName?: string;
+  tags?: Record<string, string>;
 }
 
 const getAppBaseUrl = () => {
@@ -33,6 +35,8 @@ export async function sendEmail({
   subject,
   htmlBody,
   textBody,
+  configurationSetName,
+  tags,
 }: EmailParams): Promise<SesSendResult> {
   const from = process.env.SES_FROM_EMAIL?.trim() || "noreply@paedsresus.com";
   const region = process.env.AWS_REGION?.trim() || "us-east-1";
@@ -45,6 +49,12 @@ export async function sendEmail({
     const command = new SendEmailCommand({
       Source: from,
       ReplyToAddresses: [process.env.SES_REPLY_TO_EMAIL?.trim() || "paedsresus254@gmail.com"],
+      ConfigurationSetName: configurationSetName?.trim() || undefined,
+      Tags: tags
+        ? Object.entries(tags)
+            .filter(([name, value]) => name.trim() && value.trim())
+            .map(([Name, Value]) => ({ Name, Value }))
+        : undefined,
       Destination: {
         ToAddresses: [to],
       },

@@ -9316,6 +9316,9 @@ export const nerpPromotionRecipients = mysqlTable("nerp_promotion_recipients", {
   displayName: varchar("display_name", { length: 255 }).notNull(),
   department: varchar("department", { length: 255 }),
   status: mysqlEnum("status", ["pending", "sent", "failed", "skipped"]).default("pending").notNull(),
+  deliveryStatus: mysqlEnum("delivery_status", ["unknown", "delivered", "bounced", "complained", "rejected", "delayed", "suppressed"]).default("unknown").notNull(),
+  deliveryEventAt: timestamp("delivery_event_at"),
+  deliveryEventType: varchar("delivery_event_type", { length: 64 }),
   skipReason: varchar("skip_reason", { length: 255 }),
   providerMessageId: varchar("provider_message_id", { length: 255 }),
   providerError: text("provider_error"),
@@ -9329,6 +9332,23 @@ export const nerpPromotionRecipients = mysqlTable("nerp_promotion_recipients", {
 }));
 export type NerpPromotionRecipientRow = typeof nerpPromotionRecipients.$inferSelect;
 export type InsertNerpPromotionRecipient = typeof nerpPromotionRecipients.$inferInsert;
+
+/** Append-only SES event records used to reconcile provider acceptance with final delivery outcomes. */
+export const nerpPromotionDeliveryEvents = mysqlTable("nerp_promotion_delivery_events", {
+  id: int("id").autoincrement().primaryKey(),
+  providerEventId: varchar("provider_event_id", { length: 255 }).notNull().unique(),
+  providerMessageId: varchar("provider_message_id", { length: 255 }).notNull(),
+  eventType: mysqlEnum("event_type", ["send", "delivery", "bounce", "complaint", "reject", "delivery_delay", "subscription", "rendering_failure", "unknown"]).default("unknown").notNull(),
+  recipientEmail: varchar("recipient_email", { length: 320 }),
+  eventAt: timestamp("event_at"),
+  eventJson: text("event_json").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, table => ({
+  messageIndex: index("nerp_delivery_events_message_idx").on(table.providerMessageId),
+  recipientIndex: index("nerp_delivery_events_recipient_idx").on(table.recipientEmail, table.createdAt),
+}));
+export type NerpPromotionDeliveryEvent = typeof nerpPromotionDeliveryEvents.$inferSelect;
+export type InsertNerpPromotionDeliveryEvent = typeof nerpPromotionDeliveryEvents.$inferInsert;
 
 /** Append-only audit trail for NERP campaign preview, approval, opt-out, and delivery. */
 export const nerpPromotionAuditEvents = mysqlTable("nerp_promotion_audit_events", {
