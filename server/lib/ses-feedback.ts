@@ -1,3 +1,14 @@
+export type SesEventType =
+  | "send"
+  | "delivery"
+  | "bounce"
+  | "complaint"
+  | "reject"
+  | "delivery_delay"
+  | "subscription"
+  | "rendering_failure"
+  | "unknown";
+
 export type SesDeliveryOutcome =
   | "delivered"
   | "bounced"
@@ -10,7 +21,7 @@ export type SesDeliveryOutcome =
 export type SesFeedbackEvent = {
   providerEventId: string;
   providerMessageId: string;
-  eventType: string;
+  eventType: SesEventType;
   outcome: SesDeliveryOutcome;
   recipientEmail: string | null;
   eventAt: Date | null;
@@ -23,14 +34,21 @@ function normalizeEmail(value: unknown) {
     : null;
 }
 
-function canonicalEventType(eventType: string) {
+function canonicalEventType(eventType: string): SesEventType {
   switch (eventType.toLowerCase()) {
+    case "send":
+    case "delivery":
+    case "bounce":
+    case "complaint":
+    case "reject":
+    case "subscription":
+      return eventType.toLowerCase() as SesEventType;
     case "deliverydelay":
       return "delivery_delay";
     case "renderingfailure":
       return "rendering_failure";
     default:
-      return eventType.toLowerCase();
+      return "unknown";
   }
 }
 
