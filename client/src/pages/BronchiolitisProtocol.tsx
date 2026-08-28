@@ -48,8 +48,8 @@ type AgeGroup = 'neonate' | 'infant' | 'child';
 
 export default function BronchiolitisProtocol({ patientAge: propAge, patientWeight: propWeight, onClose }: Props = {}) {
   // Patient data
-  const [patientWeight, setPatientWeight] = useState<number>(propWeight || 5);
-  const [patientAge, setPatientAge] = useState<number>(propAge || 0.25); // Default 3 months
+  const [patientWeight, setPatientWeight] = useState<number>(propWeight ?? 0);
+  const [patientAge, setPatientAge] = useState<number>(propAge ?? -1); // years; negative means unconfirmed
   
   // Age group detection (CRITICAL: Neonates managed differently)
   const ageInDays = patientAge * 365;
@@ -134,6 +134,21 @@ export default function BronchiolitisProtocol({ patientAge: propAge, patientWeig
     };
     return <Badge className={`${colors[ageGroup]} text-white`}>{labels[ageGroup]}</Badge>;
   };
+
+  const hasCompleteContext = typeof propAge === 'number' && Number.isFinite(propAge) && propAge >= 0 && typeof propWeight === 'number' && Number.isFinite(propWeight) && propWeight > 0;
+  if (!hasCompleteContext) {
+    return (
+      <div className="fixed inset-0 bg-black/95 z-50 overflow-y-auto p-4">
+        <Card className="mx-auto mt-16 max-w-xl border-red-700 bg-gray-900 text-white">
+          <CardContent className="p-6 space-y-4">
+            <h1 className="text-xl font-bold">Bronchiolitis pathway context required</h1>
+            <p className="text-gray-300">No respiratory-support calculation will be shown until the governed ResusGPS flow supplies an explicit age and verified dosing weight.</p>
+            <Button onClick={onClose} className="w-full">Return to ResusGPS</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/95 z-50 overflow-y-auto">

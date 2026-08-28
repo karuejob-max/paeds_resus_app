@@ -35,6 +35,8 @@ import {
 
 interface Props {
   patientWeight: number;
+  /** Optional legacy context; absent context is deliberately blocked. */
+  patientAge?: number;
   onClose: () => void;
 }
 
@@ -48,7 +50,7 @@ interface ArrestEvent {
   details?: string;
 }
 
-export function CPRClock({ patientWeight, onClose }: Props) {
+export function CPRClock({ patientWeight, patientAge, onClose }: Props) {
   // Core timing state
   const [isRunning, setIsRunning] = useState(false);
   const [arrestDuration, setArrestDuration] = useState(0); // seconds
@@ -77,9 +79,10 @@ export function CPRClock({ patientWeight, onClose }: Props) {
   const metronomeRef = useRef<NodeJS.Timeout | null>(null);
   const speechSynthRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // Calculate doses
-  const epiDose = Math.round(patientWeight * 0.01 * 100) / 100; // 0.01 mg/kg
-  const amiodaroneDose = Math.round(patientWeight * 5); // 5 mg/kg, max 300mg first dose
+  // This legacy component has no complete all-age pack contract. The live ResusGPS CPR-GPS route is the only supported arrest source.
+  const hasSupportedPaediatricContext = Number.isFinite(patientAge) && patientAge! >= 0.08 && patientAge! < 18 && Number.isFinite(patientWeight) && patientWeight > 0;
+  const epiDose = hasSupportedPaediatricContext ? Math.round(patientWeight * 0.01 * 100) / 100 : 0;
+  const amiodaroneDose = hasSupportedPaediatricContext ? Math.min(Math.round(patientWeight * 5), 300) : 0;
 
   // Format time as MM:SS
   const formatTime = (seconds: number): string => {
@@ -356,6 +359,21 @@ export function CPRClock({ patientWeight, onClose }: Props) {
   const currentAction = getCurrentAction();
   const timeToNextRhythmCheck = 120 - cycleTime;
   const timeToNextEpi = lastEpiTime !== null ? Math.max(0, 180 - (arrestDuration - lastEpiTime)) : 0;
+
+  if (!hasSupportedPaediatricContext) {
+    return (
+      <div className="fixed inset-0 bg-black/95 z-50 overflow-y-auto p-4">
+        <Card className="mx-auto mt-16 max-w-xl bg-gray-900 border-red-700">
+          <CardContent className="p-6 space-y-4 text-white">
+            <h1 className="text-xl font-bold">Use the governed CPR-GPS route</h1>
+            <p className="text-gray-300">This legacy CPR clock is disabled without an explicit non-neonatal paediatric algorithm context and verified dosing weight. Adults must use governed ACLS; delivery-room newborns must use NRP.</p>
+            <p className="text-yellow-300">Return to ResusGPS and start the current age/context-specific CPR-GPS pathway. This screen has not issued a dose or claimed a resuscitation action.</p>
+            <Button onClick={onClose} className="w-full">Return</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // If not started
   if (!isRunning && arrestDuration === 0) {

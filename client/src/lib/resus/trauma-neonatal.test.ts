@@ -282,6 +282,7 @@ describe('Neonatal Resuscitation Engine', () => {
         chestRise: 'none',
         breathSounds: 'absent',
         heartRateAfterVentilation: 40,
+        heartRateAfterCompressions: 40,
         color: 'pale',
         meconiumAspiration: true,
       };
@@ -401,6 +402,7 @@ describe('Neonatal Resuscitation Engine', () => {
         chestRise: 'none',
         breathSounds: 'absent',
         heartRateAfterVentilation: 40,
+        heartRateAfterCompressions: 40,
         color: 'pale',
         meconiumAspiration: true,
       };
@@ -433,6 +435,7 @@ describe('Neonatal Resuscitation Engine', () => {
         chestRise: 'none',
         breathSounds: 'absent',
         heartRateAfterVentilation: 40,
+        heartRateAfterCompressions: 40,
         color: 'pale',
         meconiumAspiration: false,
       };
@@ -463,6 +466,7 @@ describe('Neonatal Resuscitation Engine', () => {
         chestRise: 'none',
         breathSounds: 'absent',
         heartRateAfterVentilation: 40,
+        heartRateAfterCompressions: 40,
         color: 'pale',
         meconiumAspiration: false,
       };
@@ -494,6 +498,7 @@ describe('Neonatal Resuscitation Engine', () => {
         chestRise: 'none',
         breathSounds: 'absent',
         heartRateAfterVentilation: 40,
+        heartRateAfterCompressions: 40,
         color: 'pale',
         meconiumAspiration: false,
       };
@@ -506,7 +511,7 @@ describe('Neonatal Resuscitation Engine', () => {
       expect(epiInterventions[0].dosing).toContain('0.035 mg');
     });
 
-    it('should calculate correct volume expansion dose for 3 kg neonate', () => {
+    it('should keep volume expansion protocol-gated for a 3 kg neonate', () => {
       const assessment: NeonatalAssessment = {
         ageMinutes: 10,
         birthWeight: 3000,
@@ -524,6 +529,7 @@ describe('Neonatal Resuscitation Engine', () => {
         chestRise: 'none',
         breathSounds: 'absent',
         heartRateAfterVentilation: 40,
+        heartRateAfterCompressions: 40,
         color: 'pale',
         meconiumAspiration: false,
       };
@@ -533,7 +539,9 @@ describe('Neonatal Resuscitation Engine', () => {
       
       const volumeInterventions = interventions.filter(i => i.type === 'volume_expansion');
       expect(volumeInterventions.length).toBeGreaterThan(0);
-      expect(volumeInterventions[0].dosing).toContain('30.0 mL');
+      expect(volumeInterventions[0].dosing).toContain('local neonatal volume-expansion protocol');
+      expect(volumeInterventions[0].dosing).toContain('verified birth weight');
+      expect(volumeInterventions[0].dosing).not.toContain('O-negative');
     });
   });
 });

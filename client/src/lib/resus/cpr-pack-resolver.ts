@@ -14,6 +14,8 @@ const PUBERTY_AGE_MONTHS = 144; // 12 years
 
 export type LifeSupportAgeBand = 'newborn_delivery_room' | 'infant_child' | 'adult';
 
+const MAX_DELIVERY_ROOM_AGE_MONTHS = 1;
+
 export interface LifeSupportPackResult {
   pack: LifeSupportPack;
   label: string;
@@ -36,10 +38,13 @@ export function resolveLifeSupportPack(
   }
 
   if (setting === 'delivery_room') {
+    if (ageMonths >= MAX_DELIVERY_ROOM_AGE_MONTHS) {
+      throw new Error('Delivery-room NRP requires an explicitly confirmed newborn under 1 month; use the hospital paediatric pathway for older patients.');
+    }
     return {
       pack: 'NRP',
       label: 'Neonatal Resuscitation (NRP)',
-      rationale: 'Delivery-room/newborn resuscitation context',
+      rationale: 'Explicit delivery-room newborn context with age under 1 month',
       ageBand: 'newborn_delivery_room',
       contentVersion: '2025 AHA/AAP reference',
     };
@@ -49,7 +54,9 @@ export function resolveLifeSupportPack(
     return {
       pack: 'ACLS',
       label: 'Adult ACLS',
-      rationale: 'Post-pubertal or age ≥12 years — adult cardiac arrest algorithms',
+      rationale: puberty === true
+        ? 'Explicit post-pubertal/adult algorithm selection'
+        : 'Age ≥12 years — adult algorithm selection per current product policy',
       ageBand: 'adult',
       contentVersion: '2025 AHA/AAP reference',
     };

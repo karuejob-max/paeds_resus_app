@@ -16,11 +16,15 @@ function roundDose(n: number, maxDose?: number): number {
 }
 
 function mgKg(dose: number, weight: number, maxDose?: number): string {
-  return `${roundDose(dose * weight, maxDose)} mg`;
+  return weight > 0 ? `${roundDose(dose * weight, maxDose)} mg` : 'Enter a verified dosing weight before calculating this dose';
 }
 
 function mlKg(dose: number, weight: number, maxDose?: number): string {
-  return `${roundDose(dose * weight, maxDose)} mL`;
+  return weight > 0 ? `${roundDose(dose * weight, maxDose)} mL` : 'Enter a verified dosing weight before calculating this volume';
+}
+
+function safeWeight(weight: number): number {
+  return Number.isFinite(weight) && weight > 0 ? weight : 0;
 }
 
 function baseMeta(
@@ -53,7 +57,7 @@ function baseMeta(
 
 /** Seriously ill child — WHO ETAT+ / ABCDE stabilization + disposition */
 export function buildSeriouslyIllChildProtocol(weight: number, _ageCategory: string): ConditionProtocol {
-  const w = weight || 10;
+  const w = safeWeight(weight);
   const steps: ProtocolStep[] = [
     {
       id: 'sic_01_abcde',
@@ -141,7 +145,7 @@ export function buildSeriouslyIllChildProtocol(weight: number, _ageCategory: str
 
 /** Hypovolemic shock — WHO ETAT+ fluid resuscitation */
 export function buildHypovolemicShockProtocol(weight: number, _ageCategory: string): ConditionProtocol {
-  const w = weight || 10;
+  const w = safeWeight(weight);
   const steps: ProtocolStep[] = [
     {
       id: 'hvs_01_access',
@@ -221,7 +225,7 @@ export function buildHypovolemicShockProtocol(weight: number, _ageCategory: stri
     'bg-cyan-50',
     ['dehydration', 'haemorrhage'],
     ['CRT <3 sec target', 'Urine output >1 mL/kg/h', 'Total fluids mL/kg documented'],
-    ['20 mL/kg boluses in resource-limited settings', 'Missing blood for haemorrhage', 'Ignoring fluid overload'],
+    ['Fixed-volume boluses without age-/perfusion-specific reassessment', 'Missing blood for haemorrhage', 'Ignoring fluid overload'],
     ['WHO ETAT+ 2016', 'SSC Paediatric Sepsis 2020', 'APLS'],
     steps
   );
@@ -229,7 +233,7 @@ export function buildHypovolemicShockProtocol(weight: number, _ageCategory: stri
 
 /** Cardiogenic shock — fluids caution, inotropes, echo */
 export function buildCardiogenicShockProtocol(weight: number, _ageCategory: string): ConditionProtocol {
-  const w = weight || 10;
+  const w = safeWeight(weight);
   const steps: ProtocolStep[] = [
     {
       id: 'cgs_01_support',
@@ -252,7 +256,7 @@ export function buildCardiogenicShockProtocol(weight: number, _ageCategory: stri
         {
           drug: 'Dopamine',
           dose: '5–10 mcg/kg/min IV infusion',
-          calculated: `${round1(5 * w)} – ${round1(10 * w)} mcg/min (titrate to perfusion)`,
+          calculated: w > 0 ? `${round1(5 * w)} – ${round1(10 * w)} mcg/min (titrate to perfusion)` : 'Enter a verified dosing weight and use the monitored infusion protocol; no default weight is used',
           route: 'IV infusion',
           notes: 'Alternative: adrenaline 0.05–0.3 mcg/kg/min per local protocol.',
         },
@@ -310,12 +314,12 @@ export function buildCardiogenicShockProtocol(weight: number, _ageCategory: stri
 
 /** Severe pneumonia / ARDS — oxygen, antibiotics, ventilation thresholds */
 export function buildSeverePneumoniaProtocol(weight: number, _ageCategory: string): ConditionProtocol {
-  const w = weight || 10;
+  const w = safeWeight(weight);
   const steps: ProtocolStep[] = [
     {
       id: 'pna_01_o2',
       phase: 'Immediate (0–5 min)',
-      action: 'Supplemental O₂ — target SpO₂ ≥94% (WHO). Nasal cannula → HFNC → CPAP per escalation.',
+      action: 'Give age-, size-, and severity-appropriate oxygen/ventilatory support if hypoxaemic and titrate to the selected clinical target. Escalate from low-flow support to HFNC/CPAP/advanced ventilation according to response and local capability.',
       status: 'pending',
     },
     {
@@ -398,19 +402,19 @@ export function buildSeverePneumoniaProtocol(weight: number, _ageCategory: strin
 
 /** Meningitis — antibiotics, dexamethasone, LP timing */
 export function buildMeningitisProtocol(weight: number, _ageCategory: string): ConditionProtocol {
-  const w = weight || 10;
+  const w = safeWeight(weight);
   const steps: ProtocolStep[] = [
     {
       id: 'men_01_abx',
       phase: 'Immediate (0–15 min)',
-      action: 'Ceftriaxone 100 mg/kg/day IV divided (max 4 g/day) — do NOT delay for LP if unstable.',
+      action: 'Start the age-, neonatal-status-, local-resistance-, and formulary-specific meningitis antimicrobial protocol promptly; do not delay treatment for LP when the patient is unstable.',
       doses: [
         {
           drug: 'Ceftriaxone',
-          dose: '100 mg/kg/day IV (loading 50 mg/kg if severe)',
-          calculated: `${mgKg(50, w, 2000)} IV loading dose`,
-          route: 'IV',
-          maxDose: '2000 mg per dose',
+          dose: 'Protocol-specific antimicrobial dose',
+          calculated: `${mgKg(50, w, 2000)} only if the selected local protocol confirms this loading dose`,
+          route: 'IV/IO per protocol',
+          maxDose: 'Use the selected age-, indication-, and formulary-specific maximum',
         },
       ],
       safetyWarning: 'Give antibiotics within 1 hour of recognition — LP must not delay treatment.',
@@ -419,14 +423,14 @@ export function buildMeningitisProtocol(weight: number, _ageCategory: string): C
     {
       id: 'men_02_steroid',
       phase: 'Immediate (0–15 min)',
-      action: 'Dexamethasone 0.15 mg/kg IV q6h × 4 doses — give with or just before first antibiotic.',
+      action: 'Consider corticosteroid only if the selected meningitis/etiology protocol indicates it; never delay antimicrobial treatment for steroid preparation.',
       doses: [
         {
           drug: 'Dexamethasone',
-          dose: '0.15 mg/kg IV',
-          calculated: `${mgKg(0.15, w, 10)} IV`,
-          route: 'IV',
-          notes: '4 doses total if bacterial meningitis confirmed or strongly suspected.',
+          dose: 'Protocol-specific steroid dose only when indicated',
+          calculated: 'No universal meningitis steroid dose is calculated here.',
+          route: 'IV per selected protocol',
+          notes: 'Steroid use depends on age, suspected aetiology, local protocol, contraindications, and timing; it is not routine prevention.',
         },
       ],
       status: 'pending',
@@ -467,7 +471,7 @@ export function buildMeningitisProtocol(weight: number, _ageCategory: string): C
     {
       id: 'men_07_reassess',
       phase: 'Ongoing',
-      action: '⟳ REASSESS GCS, perfusion, rash, fontanelle tension hourly.',
+      action: '⟳ REASSESS AVPU/age-appropriate neurological status, perfusion, rash, seizures, and fontanelle findings when applicable.',
       isReassessment: true,
       status: 'pending',
     },
@@ -480,7 +484,7 @@ export function buildMeningitisProtocol(weight: number, _ageCategory: string): C
     'text-violet-700',
     'bg-violet-50',
     ['meningitis', 'neck_stiffness'],
-    ['GCS hourly', 'Perfusion', 'Seizure activity'],
+    ['AVPU/age-appropriate neurological status', 'Perfusion', 'Seizure activity'],
     ['Delaying antibiotics for LP', 'Missing petechial rash', 'No contact prophylaxis'],
     ['WHO Pocket Book', 'NICE CG102', 'AHA PALS 2020'],
     steps
@@ -489,7 +493,7 @@ export function buildMeningitisProtocol(weight: number, _ageCategory: string): C
 
 /** Severe malaria — WHO artesunate, glucose, transfusion */
 export function buildSevereMalariaProtocol(weight: number, _ageCategory: string): ConditionProtocol {
-  const w = weight || 10;
+  const w = safeWeight(weight);
   const steps: ProtocolStep[] = [
     {
       id: 'mal_01_artesunate',
@@ -585,8 +589,8 @@ export function buildSevereMalariaProtocol(weight: number, _ageCategory: string)
 
 /** Burns — Parkland, airway, escharotomy */
 export function buildBurnsProtocol(weight: number, _ageCategory: string): ConditionProtocol {
-  const w = weight || 10;
-  const parkland24h = round1(w * 4 * 30); // example TBSA 30% placeholder — learner documents actual TBSA
+  const w = safeWeight(weight);
+  const parkland24h = w > 0 ? round1(w * 4 * 30) : 0;
   const steps: ProtocolStep[] = [
     {
       id: 'brn_01_airway',
@@ -604,14 +608,14 @@ export function buildBurnsProtocol(weight: number, _ageCategory: string): Condit
     {
       id: 'brn_03_fluids',
       phase: 'Fluid resuscitation',
-      action: 'Parkland formula guide: 4 mL × kg × %TBSA in first 24 h — half in first 8 h from time of burn.',
+      action: 'Major-burn fluid planning requires actual TBSA, time since burn, patient age/size, inhalation injury assessment, urine-output target, and a burn-service/local protocol. Do not use a default 30% TBSA calculation.',
       doses: [
         {
           drug: '0.9% NaCl / balanced crystalloid',
-          dose: '4 mL/kg/%TBSA over 24 h',
-          calculated: `Example at 30% TBSA: ~${parkland24h} mL/24h — titrate to urine output 0.5–1 mL/kg/h`,
-          route: 'IV infusion',
-          notes: 'Titrate to urine output; avoid over-resuscitation.',
+          dose: 'Protocol-specific burn resuscitation calculation',
+          calculated: w > 0 ? `Requires actual documented TBSA and time since burn; a 30% example would be approximately ${parkland24h} mL/24h before protocol adjustment, not a patient dose.` : 'Enter verified dosing weight and actual TBSA/time since burn; no default calculation is used.',
+          route: 'IV infusion per burn protocol',
+          notes: 'Use age-appropriate burn guidance and titrate to monitored response; avoid over-resuscitation.',
         },
       ],
       status: 'pending',
@@ -659,7 +663,7 @@ export function buildBurnsProtocol(weight: number, _ageCategory: string): Condit
 
 /** Trauma — APLS haemorrhage control, TXA, imaging */
 export function buildTraumaProtocol(weight: number, _ageCategory: string): ConditionProtocol {
-  const w = weight || 10;
+  const w = safeWeight(weight);
   const steps: ProtocolStep[] = [
     {
       id: 'trm_01_primary',
@@ -739,7 +743,7 @@ export function buildTraumaProtocol(weight: number, _ageCategory: string): Condi
 
 /** Severe anaemia — transfusion thresholds, malaria workup */
 export function buildSevereAnaemiaProtocol(weight: number, _ageCategory: string): ConditionProtocol {
-  const w = weight || 10;
+  const w = safeWeight(weight);
   const steps: ProtocolStep[] = [
     {
       id: 'sma_01_assess',
@@ -750,13 +754,13 @@ export function buildSevereAnaemiaProtocol(weight: number, _ageCategory: string)
     {
       id: 'sma_02_transfuse',
       phase: 'Transfusion',
-      action: 'Transfuse 10 mL/kg PRBC over 3–4 h if Hb <4 g/dL or <6 g/dL with shock — NOT 20 mL/kg if heart failure.',
+      action: 'If transfusion is indicated, use the indication-, age-, weight-, product-, rate-, compatibility-, and monitoring-specific local transfusion protocol; reassess for overload throughout.',
       doses: [
         {
-          drug: 'Packed red cells',
-          dose: '10 mL/kg over 3–4 h',
-          calculated: `${mlKg(10, w)} mL PRBC`,
-          route: 'IV',
+          drug: 'Packed red cells or locally indicated component',
+          dose: 'Protocol-specific volume and rate; no universal dose is issued here',
+          calculated: w > 0 ? 'Use the validated local transfusion calculator and senior review' : 'Enter verified dosing weight and use the validated local transfusion protocol',
+          route: 'IV with compatibility, warming, and monitoring per protocol',
         },
       ],
       safetyWarning: 'Transfusion-associated circulatory overload kills — monitor HR, RR, liver size.',
@@ -765,13 +769,13 @@ export function buildSevereAnaemiaProtocol(weight: number, _ageCategory: string)
     {
       id: 'sma_03_diurese',
       phase: 'Transfusion',
-      action: 'Furosemide 1 mg/kg IV mid-transfusion if overload signs develop.',
+      action: 'If overload signs develop, stop/review transfusion and obtain senior help; consider diuresis only when specifically indicated under local protocol with monitoring.',
       doses: [
         {
-          drug: 'Furosemide',
-          dose: '1 mg/kg IV',
-          calculated: `${mgKg(1, w, 40)} IV`,
-          route: 'IV',
+          drug: 'Diuretic if specifically indicated',
+          dose: 'Use only the local age-, renal-, perfusion-, and overload-specific protocol',
+          calculated: 'No universal diuretic dose is issued here; obtain senior review and monitor response',
+          route: 'Route and monitoring per protocol',
         },
       ],
       status: 'pending',
@@ -811,7 +815,7 @@ export function buildSevereAnaemiaProtocol(weight: number, _ageCategory: string)
     'bg-red-50',
     ['anaemia', 'pallor'],
     ['Hb post-transfusion', 'Signs of overload', 'Malaria workup'],
-    ['20 mL/kg bolus transfusion', 'Missing malaria', 'Ignoring heart failure'],
+    ['Unmonitored transfusion volume or rate', 'Missing malaria or other regional causes', 'Ignoring heart failure'],
     ['WHO Blood Transfusion Safety', 'WHO Severe Anaemia guidelines'],
     steps
   );
@@ -819,7 +823,7 @@ export function buildSevereAnaemiaProtocol(weight: number, _ageCategory: string)
 
 /** AKI — fluids, hyperkalaemia, dialysis criteria */
 export function buildAcuteKidneyInjuryProtocol(weight: number, _ageCategory: string): ConditionProtocol {
-  const w = weight || 10;
+  const w = safeWeight(weight);
   const steps: ProtocolStep[] = [
     {
       id: 'aki_01_cause',

@@ -62,13 +62,13 @@ export const PALS_CAPSTONE_SCENARIOS: Record<ClinicalPhase, ClinicalScenario> = 
     correctOrder: ["apply-oxygen", "position-airway", "prepare-equipment", "monitor-airway"],
     shuffledOrder: ["prepare-equipment", "apply-oxygen", "monitor-airway", "position-airway"],
     interventions: {
-      "apply-oxygen": { id: "apply-oxygen", description: "Apply high-flow oxygen (10-15 L/min)", priority: 1, critical: true },
+      "apply-oxygen": { id: "apply-oxygen", description: "Apply age-, size-, and severity-appropriate oxygen support and titrate to the selected target", priority: 1, critical: true },
       "position-airway": { id: "position-airway", description: "Position airway (sniffing position)", priority: 2, critical: true },
       "prepare-equipment": { id: "prepare-equipment", description: "Prepare airway equipment", priority: 3, critical: false },
       "monitor-airway": { id: "monitor-airway", description: "Monitor for airway compromise", priority: 4, critical: false },
     },
     feedback: {
-      "apply-oxygen": "SpO2 improves to 94% with high-flow oxygen.",
+      "apply-oxygen": "Reassess SpO₂, work of breathing, and ventilation after the selected oxygen support; do not assume response.",
       "position-airway": "Airway positioned, stridor slightly improved.",
       "prepare-equipment": "Equipment ready for potential intubation.",
       "monitor-airway": "Continuous monitoring for deterioration.",
@@ -99,13 +99,13 @@ export const PALS_CAPSTONE_SCENARIOS: Record<ClinicalPhase, ClinicalScenario> = 
     shuffledOrder: ["monitor-vitals", "establish-iv-access", "assess-perfusion", "fluid-bolus"],
     interventions: {
       "establish-iv-access": { id: "establish-iv-access", description: "Establish IV access (2 large-bore lines)", priority: 1, critical: true },
-      "fluid-bolus": { id: "fluid-bolus", description: "Administer 20 mL/kg normal saline bolus", priority: 2, critical: true },
+      "fluid-bolus": { id: "fluid-bolus", description: "Administer a controlled isotonic aliquot from the selected paediatric shock protocol and reassess before repeating", priority: 2, critical: true },
       "assess-perfusion": { id: "assess-perfusion", description: "Reassess perfusion after bolus", priority: 3, critical: true },
       "monitor-vitals": { id: "monitor-vitals", description: "Continuous vital sign monitoring", priority: 4, critical: false },
     },
     feedback: {
       "establish-iv-access": "Two 20-gauge IVs established successfully.",
-      "fluid-bolus": "20 mL/kg (400 mL) normal saline infused over 15 minutes.",
+      "fluid-bolus": "The prescribed age/context isotonic aliquot was administered; document the actual volume and reassess perfusion, respiratory status, and overload before any repeat.",
       "assess-perfusion": "Perfusion improves slightly; HR now 145/min, CRT 2 sec.",
       "monitor-vitals": "Continuous monitoring shows persistent tachycardia and borderline BP.",
     },
@@ -116,13 +116,13 @@ export const PALS_CAPSTONE_SCENARIOS: Record<ClinicalPhase, ClinicalScenario> = 
     correctOrder: ["assess-consciousness", "check-pupils", "assess-motor", "assess-sensory"],
     shuffledOrder: ["assess-sensory", "assess-consciousness", "check-pupils", "assess-motor"],
     interventions: {
-      "assess-consciousness": { id: "assess-consciousness", description: "Assess level of consciousness (AVPU/GCS)", priority: 1, critical: true },
+      "assess-consciousness": { id: "assess-consciousness", description: "Assess level of consciousness using AVPU and an age-appropriate neurological assessment", priority: 1, critical: true },
       "check-pupils": { id: "check-pupils", description: "Check pupil size and reactivity", priority: 2, critical: true },
       "assess-motor": { id: "assess-motor", description: "Assess motor response and tone", priority: 3, critical: false },
       "assess-sensory": { id: "assess-sensory", description: "Assess sensory response", priority: 4, critical: false },
     },
     feedback: {
-      "assess-consciousness": "Alert but increasingly irritable, GCS 14/15.",
+      "assess-consciousness": "Alert but increasingly irritable; document AVPU and age-appropriate neurological findings rather than assuming a universal score.",
       "check-pupils": "Pupils 3mm, equal, round, reactive to light.",
       "assess-motor": "Normal motor tone, moves all extremities.",
       "assess-sensory": "Responds to voice and touch appropriately.",

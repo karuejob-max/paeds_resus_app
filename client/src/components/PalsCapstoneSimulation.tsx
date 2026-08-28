@@ -346,7 +346,7 @@ export function PalsCapstoneSimulation({
                 Phase 2: Airway & Breathing Intervention
               </CardTitle>
               <CardDescription>
-                The patient has respiratory distress (RR 45, SpO₂ 88%). Choose the appropriate oxygen delivery method.
+                The patient has respiratory distress (RR 45, SpO₂ 88%). Choose an age-, size-, and severity-appropriate oxygen or ventilation method, then titrate to the selected target.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -356,7 +356,7 @@ export function PalsCapstoneSimulation({
                 className="w-full justify-start"
               >
                 <Wind className="h-4 w-4 mr-2" />
-                High-Flow Oxygen (15 L/min)
+                Age- and device-appropriate oxygen support
               </Button>
               <Button
                 variant="outline"
@@ -445,7 +445,7 @@ export function PalsCapstoneSimulation({
                 Phase 4: Fluid Resuscitation
               </CardTitle>
               <CardDescription>
-                Initiate IV/IO access and give a 20 mL/kg crystalloid bolus over 15 minutes.
+                Initiate IV/IO access. If shock is present, give a controlled isotonic aliquot from the selected age/context protocol and reassess before repeating.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -456,10 +456,10 @@ export function PalsCapstoneSimulation({
                   type="number"
                   value={fluidInput.volume}
                   onChange={(e) => setFluidInput({ ...fluidInput, volume: e.target.value })}
-                  placeholder={`Expected: ${state.patientState.weight * 20} mL`}
+                  placeholder="Enter the prescribed protocol volume (mL)"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Expected: {state.patientState.weight} kg × 20 mL/kg = {state.patientState.weight * 20} mL
+                  Use the selected age/context shock protocol; do not apply a universal 20 mL/kg bolus. Reassess after each aliquot.
                 </p>
               </div>
               <div>

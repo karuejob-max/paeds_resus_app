@@ -95,21 +95,24 @@ export const generateBreathingActions = (assessment: PhaseAssessment): Action[] 
   const actions: Action[] = [];
   const { findings, weight, age } = assessment;
 
-  // Action 1: High-flow oxygen
-  if (!findings.oxygenApplied || findings.spO2 < 94) {
+  // Action 1: oxygen/ventilatory support. A target must be selected by the age/diagnosis pathway first.
+  const selectedOxygenTarget = typeof findings.oxygenTarget === 'number' && Number.isFinite(findings.oxygenTarget)
+    ? findings.oxygenTarget
+    : null;
+  if (selectedOxygenTarget !== null && (!findings.oxygenApplied || findings.spO2 < selectedOxygenTarget)) {
     actions.push({
       id: 'breathing-1-oxygen',
       sequence: 1,
-      title: 'Apply High-Flow Oxygen',
-      description: 'Apply high-flow oxygen via non-rebreather mask (10-15 L/min) to achieve SpO2 >94%.',
-      rationale: 'Hypoxemia is immediately life-threatening. High-flow oxygen is first-line intervention.',
-      expectedOutcome: 'SpO2 >94%, improved oxygenation and perfusion',
+      title: 'Provide Age- and Diagnosis-Appropriate Oxygen/Support',
+      description: 'Use an age-, size-, severity-, and diagnosis-appropriate interface and flow. Titrate to the selected target and reassess ventilation, work of breathing, and perfusion.',
+      rationale: 'Support hypoxaemia or respiratory failure according to the selected clinical target; avoid a universal flow rate or saturation target.',
+      expectedOutcome: `SpO2 at the selected target (${selectedOxygenTarget}%) with improved ventilation and perfusion`,
       urgency: 'critical',
       phase: 'breathing',
       timeframe: 'Immediate',
-      monitoring: ['SpO2 (target >94%)', 'Respiratory rate', 'Work of breathing', 'Color'],
-      prerequisites: ['Airway patent'],
-      contraindications: ['None - oxygen always first-line in emergency'],
+      monitoring: [`SpO2 (selected target ${selectedOxygenTarget}%)`, 'Respiratory rate', 'Work of breathing', 'Color', 'Ventilation/mental status'],
+      prerequisites: ['Airway patent or supported'],
+      contraindications: ['Do not use this generic step without a selected age-/diagnosis-specific target'],
     });
   }
 

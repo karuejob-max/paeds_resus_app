@@ -78,7 +78,7 @@ export const TRAUMA_PRIMARY_SURVEY: PrimarySurveyStep[] = [
       'Flail chest',
     ],
     immediateInterventions: [
-      'High-flow oxygen (15L via non-rebreather)',
+      'Give age-, size-, and severity-appropriate oxygen/ventilatory support if hypoxaemic; titrate to the selected clinical target and escalate if ventilation is inadequate.',
       'Needle decompression for tension pneumothorax',
       'Occlusive dressing (3-sided) for open pneumothorax',
       'Chest tube for hemothorax',
@@ -108,7 +108,7 @@ export const TRAUMA_PRIMARY_SURVEY: PrimarySurveyStep[] = [
       'Tourniquet for life-threatening limb hemorrhage',
       'Pelvic binder for suspected pelvic fracture',
       'IV access x2 (large bore)',
-      'Warm crystalloid bolus 20 mL/kg',
+      'Use a small age-, injury-, perfusion-, and setting-appropriate crystalloid or blood aliquot with reassessment after each; do not use a universal bolus',
       'Tranexamic acid (TXA) if significant hemorrhage',
       'Activate massive transfusion protocol if needed',
     ],
@@ -125,13 +125,13 @@ export const TRAUMA_PRIMARY_SURVEY: PrimarySurveyStep[] = [
       'Blood glucose level?',
     ],
     criticalFindings: [
-      'GCS ≤ 8 (coma)',
+      'Unable to maintain airway, protect airway, or ventilate; document a validated age-appropriate neurological assessment',
       'Unequal pupils or fixed dilated pupils',
       'Cushing triad (hypertension, bradycardia, irregular breathing)',
       'Focal neurological deficit',
     ],
     immediateInterventions: [
-      'Protect airway if GCS ≤ 8',
+      'Protect and support the airway when patency, airway protection, or ventilation is inadequate; use expert-led age-appropriate escalation',
       'Elevate head of bed 30° (if no spinal injury)',
       'Avoid hypotension and hypoxia',
       'Treat hypoglycemia if present',
@@ -197,7 +197,7 @@ export const HEMORRHAGE_CLASSES: HemorrhageClassification[] = [
     capRefill: '2-3 seconds',
     mentalStatus: 'Irritable, confused',
     urineOutput: '0.5-1 mL/kg/hr',
-    fluidReplacement: 'Crystalloid 20 mL/kg, consider blood',
+    fluidReplacement: 'Use age-, injury-, perfusion-, and setting-specific crystalloid or blood aliquots with reassessment; consider blood early when haemorrhage is suspected',
   },
   {
     class: 'III',

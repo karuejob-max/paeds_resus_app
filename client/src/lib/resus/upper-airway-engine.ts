@@ -233,8 +233,8 @@ Vancomycin: ${vancomycin.toFixed(0)}mg/day IV (${(vancomycin / 4).toFixed(0)}mg 
   // Oxygen therapy
   interventions.push({
     type: 'oxygen_therapy',
-    description: 'High-flow oxygen',
-    indication: 'Maintain oxygenation',
+    description: 'Provide age-, size-, and severity-appropriate oxygen/ventilatory support',
+    indication: 'Maintain oxygenation using the selected target and reassess ventilation and airway status',
     dosing: SPO2_TARGET_RESUS_DETAIL,
     monitoring: 'Continuous pulse oximetry',
   });

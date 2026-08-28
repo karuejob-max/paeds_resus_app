@@ -193,44 +193,47 @@ export const ECGQuickReference: React.FC<{
   rhythm: string;
   showTreatment?: boolean;
   patientWeight?: number;
-}> = ({ rhythm, showTreatment = true, patientWeight = 20 }) => {
+  patientAgeYears?: number;
+}> = ({ rhythm, showTreatment = true, patientWeight, patientAgeYears }) => {
   const rhythmData = rhythmPaths[rhythm];
+  const hasPaediatricTreatmentContext = Number.isFinite(patientAgeYears) && patientAgeYears! >= 0.08 && patientAgeYears! < 18 && Number.isFinite(patientWeight) && patientWeight! > 0;
+  const weight = hasPaediatricTreatmentContext ? patientWeight! : 0;
   
   if (!rhythmData) return null;
   
   const treatments: Record<string, { action: string; dose?: string }[]> = {
     'vfib': [
-      { action: 'Defibrillate', dose: `${(patientWeight * 2).toFixed(0)}J (2 J/kg), then ${(patientWeight * 4).toFixed(0)}J` },
+      { action: 'Defibrillate', dose: `${(weight * 2).toFixed(0)}J (2 J/kg), then ${(weight * 4).toFixed(0)}J` },
       { action: 'CPR 2 minutes' },
-      { action: 'Epinephrine', dose: `${(patientWeight * 0.01).toFixed(3)} mg (0.01 mg/kg) IV/IO q3-5min` },
-      { action: 'Amiodarone', dose: `${(patientWeight * 5).toFixed(0)} mg (5 mg/kg) IV/IO` }
+      { action: 'Epinephrine', dose: `${(weight * 0.01).toFixed(3)} mg (0.01 mg/kg) IV/IO q3-5min` },
+      { action: 'Amiodarone', dose: `${(weight * 5).toFixed(0)} mg (5 mg/kg) IV/IO` }
     ],
     'vtach': [
-      { action: 'If pulseless: Defibrillate', dose: `${(patientWeight * 2).toFixed(0)}J` },
-      { action: 'If pulse + unstable: Synchronized cardioversion', dose: `${(patientWeight * 0.5).toFixed(0)}-${patientWeight}J` },
-      { action: 'If pulse + stable: Amiodarone', dose: `${(patientWeight * 5).toFixed(0)} mg IV over 20-60 min` }
+      { action: 'If pulseless: Defibrillate', dose: `${(weight * 2).toFixed(0)}J` },
+      { action: 'If pulse + unstable: Synchronized cardioversion', dose: `${(weight * 0.5).toFixed(0)}-${weight}J` },
+      { action: 'If pulse + stable: Amiodarone', dose: `${(weight * 5).toFixed(0)} mg IV over 20-60 min` }
     ],
     'asystole': [
       { action: 'CPR - High quality' },
-      { action: 'Epinephrine', dose: `${(patientWeight * 0.01).toFixed(3)} mg IV/IO q3-5min` },
+      { action: 'Epinephrine', dose: `${(weight * 0.01).toFixed(3)} mg IV/IO q3-5min` },
       { action: 'Identify reversible causes (Hs and Ts)' }
     ],
     'pea': [
       { action: 'CPR - High quality' },
-      { action: 'Epinephrine', dose: `${(patientWeight * 0.01).toFixed(3)} mg IV/IO q3-5min` },
+      { action: 'Epinephrine', dose: `${(weight * 0.01).toFixed(3)} mg IV/IO q3-5min` },
       { action: 'Treat reversible causes (Hs and Ts)' }
     ],
     'svt': [
       { action: 'Vagal maneuvers (ice to face in infant)' },
-      { action: 'Adenosine', dose: `${(patientWeight * 0.1).toFixed(1)} mg (0.1 mg/kg) rapid IV push, max 6mg` },
-      { action: 'If no response: Adenosine', dose: `${(patientWeight * 0.2).toFixed(1)} mg (0.2 mg/kg), max 12mg` },
-      { action: 'If unstable: Synchronized cardioversion', dose: `${(patientWeight * 0.5).toFixed(0)}-${patientWeight}J` }
+      { action: 'Adenosine', dose: `${(weight * 0.1).toFixed(1)} mg (0.1 mg/kg) rapid IV push, max 6mg` },
+      { action: 'If no response: Adenosine', dose: `${(weight * 0.2).toFixed(1)} mg (0.2 mg/kg), max 12mg` },
+      { action: 'If unstable: Synchronized cardioversion', dose: `${(weight * 0.5).toFixed(0)}-${weight}J` }
     ],
     'sinus_brady': [
       { action: 'Optimize oxygenation and ventilation first' },
       { action: 'If HR <60 with poor perfusion: CPR' },
-      { action: 'Epinephrine', dose: `${(patientWeight * 0.01).toFixed(3)} mg IV/IO` },
-      { action: 'Atropine (if vagal cause)', dose: `${(patientWeight * 0.02).toFixed(2)} mg (0.02 mg/kg), min 0.1mg` }
+      { action: 'Epinephrine', dose: `${(weight * 0.01).toFixed(3)} mg IV/IO` },
+      { action: 'Atropine (if vagal cause)', dose: `${(weight * 0.02).toFixed(2)} mg (0.02 mg/kg), min 0.1mg` }
     ],
     'chb': [
       { action: 'Prepare for pacing' },
@@ -238,8 +241,8 @@ export const ECGQuickReference: React.FC<{
       { action: 'Isoproterenol if available', dose: `0.1-1 mcg/kg/min` }
     ],
     'torsades': [
-      { action: 'Magnesium sulfate', dose: `${(patientWeight * 25).toFixed(0)}-${(patientWeight * 50).toFixed(0)} mg IV over 10-20 min` },
-      { action: 'If pulseless: Defibrillate', dose: `${(patientWeight * 2).toFixed(0)}J` },
+      { action: 'Magnesium sulfate', dose: `${(weight * 25).toFixed(0)}-${(weight * 50).toFixed(0)} mg IV over 10-20 min` },
+      { action: 'If pulseless: Defibrillate', dose: `${(weight * 2).toFixed(0)}J` },
       { action: 'Correct electrolytes (K, Ca)' },
       { action: 'Consider overdrive pacing' }
     ]
@@ -254,7 +257,13 @@ export const ECGQuickReference: React.FC<{
         <p className="text-slate-300 text-sm">{rhythmData.description}</p>
       </div>
       
-      {showTreatment && treatments[rhythm] && (
+      {showTreatment && !hasPaediatricTreatmentContext && (
+        <div className="mt-4 rounded border border-yellow-700 bg-yellow-900/20 p-3 text-sm text-yellow-200">
+          Treatment calculations are unavailable here without an explicit non-neonatal paediatric age and verified dosing weight. Adults must use governed ACLS; delivery-room newborns must use NRP.
+        </div>
+      )}
+
+      {showTreatment && hasPaediatricTreatmentContext && treatments[rhythm] && (
         <div className="mt-4">
           <h4 className="text-white font-semibold mb-2">Treatment</h4>
           <ol className="space-y-2">

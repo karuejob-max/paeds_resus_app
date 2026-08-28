@@ -185,7 +185,7 @@ const FALLBACK_PROTOCOLS: Partial<Record<string, DefinitiveCareFallbackStep[]>> 
 
   severe_pneumonia: [
 
-    fb('pna', 1, 'Oxygen', 'SpO₂ target ≥94% — nasal cannula → HFNC → CPAP per escalation'),
+    fb('pna', 1, 'Oxygen', 'Use age-, condition-, and severity-appropriate oxygen/ventilatory support; titrate to the selected clinical target and escalate based on response'),
 
     fb('pna', 2, 'Antibiotics', 'Ceftriaxone 50 mg/kg IV/IM (max 2 g) — add vancomycin if MRSA risk'),
 
@@ -201,9 +201,9 @@ const FALLBACK_PROTOCOLS: Partial<Record<string, DefinitiveCareFallbackStep[]>> 
 
   meningitis: [
 
-    fb('men', 1, 'Antibiotics', 'Ceftriaxone 100 mg/kg/day IV (max 4 g) — do NOT delay for LP if unstable'),
+    fb('men', 1, 'Antibiotics', 'Start the age-, neonatal-status-, local-resistance-, and formulary-specific meningitis antimicrobial protocol promptly; do not delay treatment for LP when unstable'),
 
-    fb('men', 2, 'Steroid', 'Dexamethasone 0.15 mg/kg IV q6h × 4 doses — give with or just before first antibiotic'),
+    fb('men', 2, 'Steroid', 'Consider corticosteroid only if the selected meningitis/etiology protocol indicates it; never delay antimicrobial treatment'),
 
     fb('men', 3, 'LP', 'Lumbar puncture when safe — contraindicated if signs of raised ICP or shock'),
 
@@ -231,7 +231,7 @@ const FALLBACK_PROTOCOLS: Partial<Record<string, DefinitiveCareFallbackStep[]>> 
 
     fb('brn', 1, 'Airway', 'Assess inhalation injury — early intubation if stridor, soot, facial burns'),
 
-    fb('brn', 2, 'Fluids', 'Parkland formula guide — titrate to urine output 0.5–1 mL/kg/hr in children'),
+    fb('brn', 2, 'Fluids', 'Major-burn fluid planning requires actual TBSA, time since burn, age/size, urine-output target, and burn-service/local protocol; do not use a default formula calculation'),
 
     fb('brn', 3, 'Wound', 'Clean and dress; topical silver sulfadiazine if available'),
 
@@ -245,9 +245,9 @@ const FALLBACK_PROTOCOLS: Partial<Record<string, DefinitiveCareFallbackStep[]>> 
 
     fb('trm', 1, 'Haemorrhage', 'Direct pressure, tourniquet if life-threatening limb bleed'),
 
-    fb('trm', 2, 'TXA', 'Tranexamic acid 15 mg/kg IV (max 1 g) within 3 hours if significant haemorrhage'),
+    fb('trm', 2, 'TXA', 'Consider tranexamic acid only under the age-, weight-, timing-, indication-, contraindication-, and local-haemorrhage-protocol-specific pathway'),
 
-    fb('trm', 3, 'Fluids', '10 mL/kg aliquots if shocked — blood early if haemorrhagic; reassess perfusion'),
+    fb('trm', 3, 'Fluids', 'Use small age-, injury-, perfusion-, and setting-specific crystalloid or blood aliquots if indicated; reassess after each and activate the haemorrhage protocol early when needed'),
 
     fb('trm', 4, 'C-spine', 'Maintain cervical spine protection until cleared clinically'),
 
@@ -257,9 +257,9 @@ const FALLBACK_PROTOCOLS: Partial<Record<string, DefinitiveCareFallbackStep[]>> 
 
   severe_anaemia: [
 
-    fb('ana', 1, 'Transfuse', '10 mL/kg PRBC over 3–4 h — not 20 mL/kg if cardiac failure signs'),
+    fb('ana', 1, 'Transfuse', 'Use the indication-, age-, weight-, product-, rate-, compatibility-, and monitoring-specific transfusion protocol; do not use a universal volume or rate'),
 
-    fb('ana', 2, 'Diurese', 'Furosemide 1 mg/kg IV mid-transfusion if overload (hepatomegaly, gallop)'),
+    fb('ana', 2, 'Manage overload', 'If signs of overload develop, stop/review the transfusion and obtain senior help; consider diuresis only when specifically indicated under local protocol with monitoring'),
 
     fb('ana', 3, 'Cause', 'Treat malaria (artesunate), sickle crisis (hydration, analgesia), iron deficiency'),
 
@@ -301,15 +301,15 @@ const CO_DIAGNOSIS_ADDONS: Partial<Record<string, DefinitiveCareFallbackStep[]>>
 
   severe_pneumonia: [
 
-    fb('co_pna', 1, 'Co-diagnosis: Pneumonia', 'Supplemental O₂ to SpO₂ ≥94%', { isCoDiagnosis: true }),
+    fb('co_pna', 1, 'Co-diagnosis: Pneumonia', 'Use age-, condition-, and severity-appropriate oxygen/ventilatory support and titrate to the selected target', { isCoDiagnosis: true }),
 
     fb('co_pna', 2, 'Co-diagnosis: Pneumonia', 'Antibiotics per local pneumonia guideline', { isCoDiagnosis: true }),
 
   ],
 
   meningitis: [
-    fb('co_men', 1, 'Co-diagnosis: Meningitis', 'Dexamethasone 0.15 mg/kg with first antibiotic dose', { isCoDiagnosis: true }),
-    fb('co_men', 2, 'Co-diagnosis: Meningitis', 'Ceftriaxone 100 mg/kg/day — do not delay if LP pending', { isCoDiagnosis: true }),
+    fb('co_men', 1, 'Co-diagnosis: Meningitis', 'Use corticosteroid only if the selected meningitis/etiology protocol indicates it; do not delay antibiotics', { isCoDiagnosis: true }),
+    fb('co_men', 2, 'Co-diagnosis: Meningitis', 'Start the age-, neonatal-status-, local-resistance-, and formulary-specific antimicrobial protocol promptly; LP must not delay treatment when unsafe', { isCoDiagnosis: true }),
   ],
   hypovolemic_shock: [
     fb('co_hvs', 1, 'Co-diagnosis: Hypovolemia', '10 mL/kg aliquots with reassessment — identify fluid/blood loss source', { isCoDiagnosis: true }),
@@ -319,10 +319,10 @@ const CO_DIAGNOSIS_ADDONS: Partial<Record<string, DefinitiveCareFallbackStep[]>>
     fb('co_mal', 2, 'Co-diagnosis: Malaria', 'Monitor glucose frequently — treat hypoglycaemia', { isCoDiagnosis: true }),
   ],
   trauma: [
-    fb('co_trm', 1, 'Co-diagnosis: Trauma', 'TXA 15 mg/kg within 3 h if significant haemorrhage (APLS)', { isCoDiagnosis: true }),
+    fb('co_trm', 1, 'Co-diagnosis: Trauma', 'Use tranexamic acid only when the age-, weight-, timing-, indication-, contraindication-, and local-haemorrhage-protocol criteria are met', { isCoDiagnosis: true }),
   ],
   status_epilepticus: [
-    fb('co_se', 1, 'Co-diagnosis: Seizures', 'Benzodiazepine per status epilepticus protocol if seizing', { isCoDiagnosis: true }),
+    fb('co_se', 1, 'Co-diagnosis: Seizures', 'Use the age-, route-, neonatal-status-, and formulary-specific status-seizure protocol; neonates require a neonatal pathway', { isCoDiagnosis: true }),
   ],
 };
 

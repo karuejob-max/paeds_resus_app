@@ -229,7 +229,7 @@ export function evaluateShockAssessment(
   // This suggests hypovolemic or distributive shock (not cardiogenic with pulmonary edema)
   const isCorrect = shockType === 'hypovolemic' || shockType === 'distributive';
   const feedback = isCorrect
-    ? '✓ Correct shock type. Hypovolemic/distributive shock recognized. Next: Establish IV/IO access and initiate fluid resuscitation (20 mL/kg bolus).'
+    ? '✓ Correct shock type. Hypovolemic/distributive shock recognized. Next: Establish IV/IO access and give an age-, perfusion-, and setting-appropriate crystalloid aliquot (often 10–20 mL/kg) with reassessment after each aliquot.'
     : '✗ Incorrect. The clinical picture (delayed CRT, weak pulse, tachycardia) suggests hypovolemic or distributive shock, not cardiogenic. Reassess.';
 
   const newState = { ...state };
@@ -257,15 +257,15 @@ export function evaluateFluidResuscitation(
   fluidVolume: number,
   fluidType: 'normal_saline' | 'lactated_ringer'
 ): { isCorrect: boolean; feedback: string; newState: SimulationState } {
-  const expectedVolume = state.patientState.weight * 20; // 20 mL/kg
-  const tolerance = expectedVolume * 0.1; // ±10%
-  const volumeCorrect = Math.abs(fluidVolume - expectedVolume) <= tolerance;
+  const minimumVolume = state.patientState.weight * 10;
+  const maximumVolume = state.patientState.weight * 20;
+  const volumeCorrect = fluidVolume >= minimumVolume && fluidVolume <= maximumVolume;
   const fluidCorrect = fluidType === 'normal_saline' || fluidType === 'lactated_ringer';
 
   const isCorrect = volumeCorrect && fluidCorrect;
   const feedback = isCorrect
-    ? `✓ Correct fluid bolus: ${fluidVolume} mL of ${fluidType}. Reassessing patient...`
-    : `✗ Fluid bolus incorrect. Expected: ${expectedVolume} mL (±10%) of crystalloid. You gave: ${fluidVolume} mL. Try again.`;
+    ? `✓ Appropriate initial crystalloid aliquot: ${fluidVolume} mL of ${fluidType}. Reassess perfusion, lungs, liver size, and work of breathing before any further fluid.`
+    : `✗ Choose an age-, perfusion-, and setting-appropriate initial aliquot between ${minimumVolume} and ${maximumVolume} mL of crystalloid, then reassess. You gave: ${fluidVolume} mL.`;
 
   const newState = { ...state };
   if (isCorrect) {

@@ -530,7 +530,11 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     }
     const setting = entry?.resusSetting ?? 'hospital';
     const ageMonths = parseAgeToMonths(entryAge);
-    if (setting === 'delivery_room' && (ageMonths === null || ageMonths >= 1)) {
+    if (ageMonths === null) {
+      toast.error('Enter age in a supported format before starting age-specific guidance.');
+      return;
+    }
+    if (setting === 'delivery_room' && ageMonths >= 1) {
       toast.error('Delivery-room NRP requires a newborn age under 1 month and explicit birth-context confirmation.');
       return;
     }

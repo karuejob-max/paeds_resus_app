@@ -245,8 +245,8 @@ export const resusAutoLaunch = router({
         .limit(1);
 
       let demographics = {
-        defaultAge: 5,
-        defaultWeight: 18,
+        defaultAge: null as number | null,
+        defaultWeight: null as number | null,
         defaultAgeUnit: 'years' as const,
         defaultWeightUnit: 'kg' as const,
       };
@@ -257,8 +257,8 @@ export const resusAutoLaunch = router({
             ? JSON.parse(lastSession[0].eventData)
             : lastSession[0].eventData;
 
-          if (data.patientAge) demographics.defaultAge = data.patientAge;
-          if (data.patientWeight) demographics.defaultWeight = data.patientWeight;
+          if (typeof data.patientAge === 'number' && Number.isFinite(data.patientAge) && data.patientAge >= 0) demographics.defaultAge = data.patientAge;
+          if (typeof data.patientWeight === 'number' && Number.isFinite(data.patientWeight) && data.patientWeight > 0) demographics.defaultWeight = data.patientWeight;
         } catch (e) {
           console.error('Error parsing last session:', e);
         }

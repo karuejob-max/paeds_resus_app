@@ -4,9 +4,9 @@
  * Clinical workflow aligned with EAACI (European Academy of Allergy and Clinical Immunology) guidelines:
  * 1. Severity assessment and diagnosis
  * 2. IM epinephrine administration (FIRST-LINE, TIME-CRITICAL)
- * 3. Adjunct medications (H1/H2 antihistamines, corticosteroids)
- * 4. Supportive care (oxygen, fluids, positioning)
- * 5. Biphasic reaction monitoring (4-8 hours)
+ * 3. Optional symptom-directed adjuncts after epinephrine and reassessment
+ * 4. Supportive care (oxygen/ventilation, fluids only when indicated, positioning)
+ * 5. Risk-stratified monitoring and disposition
  * 6. Discharge planning and follow-up
  */
 
@@ -46,8 +46,8 @@ type Severity = 'mild' | 'moderate' | 'severe';
 
 export default function AnaphylaxisProtocol({ patientAge: propAge, patientWeight: propWeight, onClose }: Props = {}) {
   // Patient data
-  const [patientWeight, setPatientWeight] = useState<number>(propWeight || 20);
-  const [patientAge, setPatientAge] = useState<number>(propAge || 5);
+  const [patientWeight, setPatientWeight] = useState<number>(propWeight ?? 0);
+  const [patientAge, setPatientAge] = useState<number>(propAge ?? -1); // years; negative means unconfirmed
   
   // Clinical state
   const [currentStage, setCurrentStage] = useState<AnaphylaxisStage>('assessment');
@@ -65,7 +65,9 @@ export default function AnaphylaxisProtocol({ patientAge: propAge, patientWeight
   const [minutesSinceStart, setMinutesSinceStart] = useState<number>(0);
   const [minutesSinceLastEpi, setMinutesSinceLastEpi] = useState<number | null>(null);
 
-  // Calculate epinephrine dose
+  const hasCompleteContext = typeof propAge === 'number' && Number.isFinite(propAge) && propAge >= 0 && typeof propWeight === 'number' && Number.isFinite(propWeight) && propWeight > 0;
+
+  // Dose arithmetic is only reachable after the caller supplies explicit age and verified dosing weight.
   const epiDose = Math.min(patientWeight * 0.01, 0.5); // 0.01 mg/kg, max 0.5mg
   const epiVolume = epiDose; // 1:1000 concentration (1 mg/mL)
 
@@ -116,6 +118,20 @@ export default function AnaphylaxisProtocol({ patientAge: propAge, patientWeight
     if (minutesSinceLastEpi === null) return false;
     return minutesSinceLastEpi >= 5 && minutesSinceLastEpi <= 15;
   };
+
+  if (!hasCompleteContext) {
+    return (
+      <div className="fixed inset-0 bg-black/95 z-50 overflow-y-auto p-4">
+        <Card className="mx-auto mt-16 max-w-xl border-red-700 bg-gray-900 text-white">
+          <CardContent className="p-6 space-y-4">
+            <h1 className="text-xl font-bold">Anaphylaxis pathway context required</h1>
+            <p className="text-gray-300">No dose will be calculated until the governed ResusGPS flow supplies an explicit age and verified dosing weight. Do not use a guessed default.</p>
+            <Button onClick={onClose} className="w-full">Return to ResusGPS</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/95 z-50 overflow-y-auto">
@@ -514,36 +530,21 @@ export default function AnaphylaxisProtocol({ patientAge: propAge, patientWeight
                 {/* Corticosteroid */}
                 <div className="bg-gray-800 p-4 rounded">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-white">Corticosteroid</h3>
+                    <h3 className="font-semibold text-white">Corticosteroids — not routine anaphylaxis treatment</h3>
                     <input
                       type="checkbox"
-                      checked={steroidGiven}
-                      onChange={(e) => setSteroidGiven(e.target.checked)}
+                      checked={false}
+                      disabled
+                      aria-label="Corticosteroids are not routine anaphylaxis treatment"
                       className="h-5 w-5"
                     />
                   </div>
                   <div className="text-sm text-gray-300 space-y-2">
-                    <div>
-                      <p className="font-semibold text-blue-300">Methylprednisolone (Solu-Medrol):</p>
-                      <p className="ml-4">• Dose: 1-2 mg/kg (max 125 mg)</p>
-                      <p className="ml-4">• Route: IV or IM</p>
-                      <p className="ml-4">• Calculated: {Math.min(patientWeight * 1, 125).toFixed(0)} mg</p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-blue-300">OR Hydrocortisone:</p>
-                      <p className="ml-4">• Dose: 5 mg/kg (max 200 mg)</p>
-                      <p className="ml-4">• Route: IV or IM</p>
-                      <p className="ml-4">• Calculated: {Math.min(patientWeight * 5, 200).toFixed(0)} mg</p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-blue-300">OR Prednisone:</p>
-                      <p className="ml-4">• Dose: 1 mg/kg (max 60 mg)</p>
-                      <p className="ml-4">• Route: PO</p>
-                      <p className="ml-4">• Calculated: {Math.min(patientWeight * 1, 60).toFixed(0)} mg</p>
-                    </div>
+                    <p>Corticosteroids do not treat the acute airway, breathing, or circulatory features of anaphylaxis and should not be used routinely to prevent biphasic reactions.</p>
+                    <p>Consider only for a separate steroid-responsive indication under the local protocol and senior review; never delay or replace IM epinephrine.</p>
                   </div>
                   <p className="text-xs text-yellow-300 mt-2">
-                    Note: May reduce biphasic reactions but does NOT affect acute symptoms
+                    This pathway intentionally does not calculate or recommend a routine corticosteroid dose.
                   </p>
                 </div>
 

@@ -44,8 +44,8 @@ type SeverityLevel = 'mild' | 'moderate' | 'severe';
 
 export default function CroupProtocol({ patientAge: propAge, patientWeight: propWeight, onClose }: Props = {}) {
   // Patient data
-  const [patientWeight, setPatientWeight] = useState<number>(propWeight || 12);
-  const [patientAge, setPatientAge] = useState<number>(propAge || 2); // Default 2 years
+  const [patientWeight, setPatientWeight] = useState<number>(propWeight ?? 0);
+  const [patientAge, setPatientAge] = useState<number>(propAge ?? -1); // years; negative means unconfirmed
   
   // Westley Croup Score components (0-17 scale)
   const [stridor, setStridor] = useState<number>(0); // 0=none, 1=with agitation, 2=at rest
@@ -116,6 +116,21 @@ export default function CroupProtocol({ patientAge: propAge, patientWeight: prop
     const minutesSinceLastDose = (Date.now() - lastDose.getTime()) / 1000 / 60;
     return minutesSinceLastDose >= 15; // Can repeat every 15-20 minutes
   };
+
+  const hasCompleteContext = typeof propAge === 'number' && Number.isFinite(propAge) && propAge > 0 && typeof propWeight === 'number' && Number.isFinite(propWeight) && propWeight > 0;
+  if (!hasCompleteContext) {
+    return (
+      <div className="fixed inset-0 bg-black/95 z-50 overflow-y-auto p-4">
+        <Card className="mx-auto mt-16 max-w-xl border-red-700 bg-gray-900 text-white">
+          <CardContent className="p-6 space-y-4">
+            <h1 className="text-xl font-bold">Croup pathway context required</h1>
+            <p className="text-gray-300">No dose will be calculated until an explicit age and verified dosing weight are supplied by the governed ResusGPS flow.</p>
+            <Button onClick={onClose} className="w-full">Return to ResusGPS</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/95 z-50 overflow-y-auto">

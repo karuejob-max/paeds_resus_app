@@ -16,9 +16,7 @@ import { AlertTriangle, Zap, Pill, CheckCircle, Clock } from 'lucide-react';
 import {
   assessSeverity,
   calculateEpinephrineImDose,
-  calculateEpinephrineIvDose,
   calculateAntihistamineDose,
-  calculateCorticosteroidDose,
   evaluateEpinephrineEligibility,
   evaluateIcuAdmissionCriteria,
   identifyTrigger,
@@ -123,13 +121,10 @@ export const AnaphylaxisEmergencyFlow: React.FC<AnaphylaxisEmergencyFlowProps> =
     });
   };
 
-  const handleGiveEpinephrine = (route: 'IM' | 'IV') => {
+  const handleGiveEpinephrine = () => {
     const newState = { ...engineState };
     newState.epinephrineDoses = (newState.epinephrineDoses || 0) + 1;
     newState.lastEpinephrineTime = timerSeconds;
-    if (route === 'IV') {
-      newState.ivAccessEstablished = true;
-    }
     setEngineState(newState);
     onSaveData?.(newState);
   };
@@ -139,9 +134,6 @@ export const AnaphylaxisEmergencyFlow: React.FC<AnaphylaxisEmergencyFlowProps> =
     switch (medicationType) {
       case 'antihistamine':
         newState.antihistamineDoses = (newState.antihistamineDoses || 0) + 1;
-        break;
-      case 'corticosteroid':
-        newState.corticosteroidDoses = (newState.corticosteroidDoses || 0) + 1;
         break;
     }
     setEngineState(newState);
@@ -154,9 +146,7 @@ export const AnaphylaxisEmergencyFlow: React.FC<AnaphylaxisEmergencyFlowProps> =
   const triggers = identifyTrigger(triggerContext);
 
   const epinephrineImDose = calculateEpinephrineImDose(patientWeight);
-  const epinephrineIvDose = calculateEpinephrineIvDose(patientWeight);
   const antihistamineDose = calculateAntihistamineDose(patientWeight);
-  const corticosteroidDose = calculateCorticosteroidDose(patientWeight);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -374,7 +364,7 @@ export const AnaphylaxisEmergencyFlow: React.FC<AnaphylaxisEmergencyFlowProps> =
                 <strong>Doses given:</strong> {engineState.epinephrineDoses || 0}
               </p>
               <Button
-                onClick={() => handleGiveEpinephrine('IM')}
+                onClick={handleGiveEpinephrine}
                 disabled={!epinephrineEligibility.eligible}
                 className="w-full bg-red-600 hover:bg-red-700"
                 size="lg"
@@ -388,36 +378,6 @@ export const AnaphylaxisEmergencyFlow: React.FC<AnaphylaxisEmergencyFlowProps> =
             </CardContent>
           </Card>
 
-          {/* Epinephrine IV - If IM Failed */}
-          {engineState.epinephrineDoses! > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5" />
-                  Epinephrine IV (if IM failed)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="rounded bg-blue-50 p-3">
-                  <p className="text-sm font-semibold text-gray-700">Bolus</p>
-                  <p className="text-lg font-bold text-blue-600">
-                    {epinephrineIvDose.bolus.dose} {epinephrineIvDose.bolus.unit}
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    {epinephrineIvDose.bolus.volume} {epinephrineIvDose.bolus.volumeUnit} of{' '}
-                    {epinephrineIvDose.bolus.concentration}
-                  </p>
-                </div>
-                <Button
-                  onClick={() => handleGiveEpinephrine('IV')}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Give Epinephrine IV
-                </Button>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Antihistamine */}
           {engineState.epinephrineDoses! > 0 && (
@@ -425,7 +385,7 @@ export const AnaphylaxisEmergencyFlow: React.FC<AnaphylaxisEmergencyFlowProps> =
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Pill className="h-5 w-5" />
-                  Antihistamine (H1 Blocker)
+                  Optional antihistamine adjunct
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -441,38 +401,19 @@ export const AnaphylaxisEmergencyFlow: React.FC<AnaphylaxisEmergencyFlowProps> =
                   className="w-full bg-purple-600 hover:bg-purple-700"
                 >
                   <CheckCircle className="mr-2 h-4 w-4" />
-                  Give Antihistamine
+                  Document adjunct given
                 </Button>
               </CardContent>
             </Card>
           )}
 
-          {/* Corticosteroid */}
           {engineState.epinephrineDoses! > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Pill className="h-5 w-5" />
-                  Corticosteroid (Prevent Biphasic Reaction)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="rounded bg-green-50 p-3">
-                  <p className="text-sm font-semibold text-gray-700">Dose</p>
-                  <p className="text-lg font-bold text-green-600">
-                    {corticosteroidDose.dose} {corticosteroidDose.unit}
-                  </p>
-                  <p className="text-xs text-gray-600">{corticosteroidDose.agent} - {corticosteroidDose.route}</p>
-                </div>
-                <Button
-                  onClick={() => handleGiveMedication('corticosteroid')}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                >
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Give Corticosteroid
-                </Button>
-              </CardContent>
-            </Card>
+            <Alert className="border-amber-200 bg-amber-50">
+              <AlertTriangle className="h-4 w-4 text-amber-700" />
+              <AlertDescription className="text-amber-900">
+                Corticosteroids are not routine prevention for biphasic anaphylaxis. Never delay epinephrine, airway care, shock treatment, or escalation. Use only for a separately documented local indication.
+              </AlertDescription>
+            </Alert>
           )}
         </TabsContent>
 
@@ -495,13 +436,12 @@ export const AnaphylaxisEmergencyFlow: React.FC<AnaphylaxisEmergencyFlowProps> =
           <Card>
             <CardHeader>
               <CardTitle>Observation Period</CardTitle>
-              <CardDescription>Monitor for biphasic anaphylaxis (1-72 hours)</CardDescription>
+              <CardDescription>Continue risk-stratified observation under local policy</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-700">
-                Patient should be observed for 4-8 hours minimum. Biphasic reactions can occur up to 72 hours after
-                initial onset. Ensure epinephrine auto-injector is prescribed and patient receives allergy specialist
-                referral.
+                Continue observation for recurrence according to local risk-stratified policy. Monitor for recurrent
+                airway, breathing, or circulatory symptoms; provide trigger education and arrange appropriate follow-up.
               </p>
             </CardContent>
           </Card>

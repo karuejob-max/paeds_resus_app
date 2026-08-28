@@ -110,7 +110,7 @@ const PRACTICAL_PHASES: PracticalPhase[] = [
       { name: 'Hypoxia', description: 'SpO2 88%', critical: true },
     ],
     interventions: [
-      { name: 'Apply high-flow oxygen', description: '10-15 L/min via non-rebreather mask', required: true },
+      { name: 'Apply age- and device-appropriate oxygen support', description: 'Select an age-, size-, and severity-appropriate interface and titrate to the selected target', required: true },
       { name: 'Position airway', description: 'Neutral head position, sniffing position if needed', required: true },
       { name: 'Prepare airway adjunct', description: 'Have airway equipment at bedside', required: false },
     ],
@@ -156,8 +156,8 @@ const PRACTICAL_PHASES: PracticalPhase[] = [
     ],
     interventions: [
       { name: 'Establish IV access', description: 'Insert peripheral IV or IO', required: true },
-      { name: 'Prepare fluid bolus', description: '20 mL/kg normal saline (240 mL for 12 kg child)', required: true },
-      { name: 'Administer fluid bolus', description: 'Run bolus over 15-20 minutes', required: true },
+      { name: 'Prepare a controlled isotonic aliquot', description: 'Use the selected paediatric shock protocol; reassess perfusion, respiratory status, and fluid overload after each aliquot', required: true },
+      { name: 'Administer and reassess fluid', description: 'Give the prescribed aliquot over the protocol time, then document response before repeating', required: true },
       { name: 'Prepare vasopressors', description: 'Have epinephrine ready if no response to fluids', required: false },
     ],
     successMessage: '✓ Excellent! You recognized shock and initiated fluid resuscitation. Monitor response closely.',
@@ -205,7 +205,7 @@ const PRACTICAL_PHASES: PracticalPhase[] = [
       { name: 'Recognize sepsis', description: 'Fever + rash + shock = septic shock', required: true },
       { name: 'Prepare antibiotics', description: 'Ceftriaxone or cefotaxime IV', required: true },
       { name: 'Culture blood', description: 'Draw blood cultures before antibiotics', required: true },
-      { name: 'Continue fluid resuscitation', description: 'Aggressive fluids for septic shock', required: true },
+      { name: 'Continue protocol-guided shock treatment', description: 'Use controlled fluid aliquots with reassessment and escalate to vasoactive support when indicated; avoid blind large-volume fluids', required: true },
     ],
     successMessage: '✓ Critical finding! Petechiae + fever + shock = meningococcal sepsis. Antibiotics are urgent.',
     hints: [
@@ -253,7 +253,7 @@ const PRACTICAL_PHASES: PracticalPhase[] = [
       { name: 'Start CPR immediately', description: 'Begin chest compressions at 100-120/min', required: true },
       { name: 'Call for help', description: 'Activate code blue, get crash cart', required: true },
       { name: 'Attach defibrillator', description: 'Place pads, analyze rhythm', required: true },
-      { name: 'Prepare medications', description: 'Epinephrine 0.01 mg/kg IV/IO', required: true },
+      { name: 'Prepare rhythm-guided medications', description: 'Use the active CPR-GPS PALS pack for rhythm-specific epinephrine timing, dose, route, and reassessment', required: true },
     ],
     successMessage: '✓ You recognized cardiac arrest and started CPR. Continue high-quality CPR and prepare for advanced interventions.',
     hints: [
@@ -267,7 +267,7 @@ const PRACTICAL_PHASES: PracticalPhase[] = [
   {
     page: 'cpr_clock',
     clinicalObjective: 'CPR Management & Medications',
-    instructorDescription: 'CPR is ongoing. At 3 minutes, give epinephrine 0.01 mg/kg IV. Continue CPR. At 5 minutes, reassess rhythm.',
+    instructorDescription: 'CPR is ongoing. Use the active CPR-GPS PALS pack for rhythm-specific medication timing, vascular access, ventilation, defibrillation, and reassessment. Do not use a fixed elapsed-time medication shortcut.',
     assessmentFindings: [
       { name: 'CPR ongoing', description: 'Compressions at 100-120/min', critical: true },
       { name: 'Rhythm check at 2 min', description: 'Reassess every 2 minutes', critical: true },
@@ -275,14 +275,14 @@ const PRACTICAL_PHASES: PracticalPhase[] = [
     ],
     interventions: [
       { name: 'Continue CPR', description: 'Maintain compressions without interruption', required: true },
-      { name: 'Give epinephrine', description: '0.01 mg/kg IV/IO at 3 minutes', required: true },
+      { name: 'Give rhythm-guided epinephrine', description: 'Use the CPR-GPS PALS pack for 0.01 mg/kg IV/IO timing and repeat interval', required: true },
       { name: 'Reassess rhythm', description: 'Every 2 minutes', required: true },
       { name: 'Prepare defibrillation', description: 'If VF/pulseless VT develops', required: false },
     ],
     successMessage: '✓ Good medication management! Continue CPR and monitor for rhythm change.',
     hints: [
-      'Calculate epinephrine dose: 0.01 mg/kg',
-      'Give it IV/IO every 3-5 minutes',
+      'Use the active CPR-GPS PALS pack to calculate epinephrine dose and timing',
+      'Give medications only at the rhythm-specific CPR-GPS checkpoints',
       'Continue CPR between medications',
       'Reassess rhythm every 2 minutes',
     ],
@@ -301,7 +301,7 @@ const PRACTICAL_PHASES: PracticalPhase[] = [
       { name: 'Confirm ROSC', description: 'Pulse check, monitor, capnography', required: true },
       { name: 'Continue supportive care', description: 'Oxygen, fluids, monitoring', required: true },
       { name: 'Prepare for ICU transfer', description: 'Arrange transport', required: true },
-      { name: 'Initiate therapeutic hypothermia', description: 'Consider if available', required: false },
+      { name: 'Manage temperature', description: 'Use the current post-cardiac-arrest temperature-management protocol; do not apply a generic hypothermia instruction', required: false },
     ],
     successMessage: '✓ Excellent! You successfully resuscitated the child. Now focus on post-resuscitation care and preventing complications.',
     hints: [

@@ -60,6 +60,16 @@ function normalizeGlucose(glucose: number, unit: 'mg/dL' | 'mmol/L'): number {
  * Assess DKA severity
  */
 export function assessDKASeverity(assessment: DKAAssessment): DKASeverity {
+  if (!Number.isFinite(assessment.age) || assessment.age < 0) {
+    throw new Error('A valid non-negative age is required for DKA guidance.');
+  }
+  if (!Number.isFinite(assessment.weightKg) || assessment.weightKg <= 0) {
+    throw new Error('A valid positive dosing weight is required for DKA guidance.');
+  }
+  if (!Number.isFinite(assessment.pH) || !Number.isFinite(assessment.bicarbonate)) {
+    throw new Error('Valid pH and bicarbonate values are required for DKA severity assessment.');
+  }
+
   let score = 0;
   const glucoseMgdl = normalizeGlucose(assessment.bloodGlucose, assessment.glucoseUnit);
 
@@ -95,7 +105,7 @@ export function assessDKASeverity(assessment: DKAAssessment): DKASeverity {
   if (score >= 8 || assessment.pH < 7.1 || assessment.mentalStatus === 'unresponsive') {
     level = 'severe';
     classification = 'Severe DKA';
-    riskOfCerebralEdema = true;
+    riskOfCerebralEdema = assessment.age < 18;
   } else if (score >= 5 || assessment.pH < 7.2) {
     level = 'moderate';
     classification = 'Moderate DKA';
@@ -125,43 +135,32 @@ export function calculateDKAFluidResuscitation(
 ): DKAIntervention[] {
   const interventions: DKAIntervention[] = [];
 
-  // Calculate total fluid deficit
-  // fluidDeficit is percent (e.g. 5 = 5% of body weight → mL)
-  const totalDeficitMl = assessment.weightKg * (assessment.fluidDeficit / 100) * 1000;
+  const estimatedDeficitMl = assessment.weightKg * (assessment.fluidDeficit / 100) * 1000;
 
-  // Phase 1: Initial resuscitation (first 30 minutes)
-  const phase1Fluid = Math.min(totalDeficitMl * 0.5, assessment.weightKg * 20);
   interventions.push({
     type: 'fluid_resuscitation_phase1',
-    description: 'Initial IV fluid resuscitation (Phase 1)',
-    indication: 'Replace 50% of fluid deficit over 30 minutes',
-    dosing: `${phase1Fluid.toFixed(0)} mL isotonic fluid (0.9% NaCl or balanced crystalloid per availability)
-Note: large 0.9% NaCl volumes may worsen hyperchloraemic acidosis — ISPAD allows balanced crystalloids where available.`,
-    frequency: 'Over 30 minutes',
-    monitoring: 'Blood pressure, heart rate, urine output',
+    description: 'Initial isotonic fluid and perfusion assessment',
+    indication: 'Use the selected age/context DKA protocol. If shock or poor perfusion is present, give a controlled isotonic aliquot and reassess before repeating.',
+    dosing: `Estimated fluid deficit: ${estimatedDeficitMl.toFixed(0)} mL for planning only. Do not replace a fixed percentage of the deficit rapidly or use this estimate as an automatic bolus schedule. Select paediatric or adult DKA protocol and account for corrected sodium, osmolality, renal/cardiac status, and perfusion.`,
+    frequency: 'Reassess haemodynamics, neurological status, glucose, sodium, and fluid balance after each intervention',
+    monitoring: 'Blood pressure, heart rate, respiratory effort, urine output, neurological status, corrected sodium, osmolality, and signs of fluid overload',
   });
 
-  // Phase 2: Continued resuscitation (next 2.5 hours)
-  const phase2Fluid = totalDeficitMl * 0.5;
   interventions.push({
     type: 'fluid_resuscitation_phase2',
-    description: 'Continued IV fluid resuscitation (Phase 2)',
-    indication: 'Replace remaining 50% of fluid deficit over 2.5 hours',
-    dosing: `${phase2Fluid.toFixed(0)}mL of 0.9% normal saline
-Infusion rate: ${(phase2Fluid / 2.5).toFixed(0)}mL/hour`,
-    frequency: 'Over 2.5 hours',
-    monitoring: 'Glucose, electrolytes, urine output',
+    description: 'Controlled deficit and maintenance replacement',
+    indication: 'After initial stabilisation, replace deficit and maintenance using the selected age/context DKA protocol; avoid a generic time-and-volume schedule.',
+    dosing: 'Use a protocol-calculated infusion rate with serial reassessment. Adjust for corrected sodium, glucose trend, neurological findings, kidney function, heart failure, and local crystalloid availability.',
+    frequency: 'Continuous protocol-guided infusion with frequent reassessment',
+    monitoring: 'Glucose, electrolytes, venous pH/bicarbonate, fluid balance, urine output, and neurological status',
   });
 
-  // Maintenance fluids
-  const maintenanceMl = assessment.weightKg * 100;
   interventions.push({
     type: 'maintenance_fluids',
-    description: 'Maintenance IV fluids',
-    indication: 'Ongoing hydration',
-    dosing: `${maintenanceMl.toFixed(0)}mL/day of 0.45% normal saline
-Typical rate: ${(maintenanceMl / 24).toFixed(0)}mL/hour`,
-    monitoring: 'Electrolytes, fluid balance',
+    description: 'Protocol-guided maintenance fluid',
+    indication: 'Ongoing hydration after initial stabilisation',
+    dosing: 'Do not use a universal 4-2-1 or 100 mL/kg/day assumption across ages. Use the selected paediatric or adult DKA protocol and local fluid policy.',
+    monitoring: 'Electrolytes, corrected sodium, osmolality, fluid balance, renal function, and signs of overload',
   });
 
   return interventions;
@@ -175,6 +174,17 @@ export function generateInsulinProtocol(
   severity: DKASeverity
 ): DKAIntervention[] {
   const interventions: DKAIntervention[] = [];
+
+  if (assessment.age >= 18) {
+    interventions.push({
+      type: 'adult_dka_protocol_gate',
+      description: 'Adult DKA insulin protocol required',
+      indication: 'Adult DKA requires the current adult institutional protocol and senior review.',
+      dosing: 'Use the approved adult DKA insulin, potassium, fluid, and glucose-addition protocol. Do not apply the paediatric no-bolus/rate wording from this engine.',
+      monitoring: 'Hourly glucose and frequent electrolytes, ketones, acid-base status, fluid balance, and neurological assessment.',
+    });
+    return interventions;
+  }
 
   // No insulin bolus in children (ISPAD) — infusion only
   // Continuous insulin infusion (0.05-0.1 U/kg/hour)
@@ -192,8 +202,7 @@ export function generateInsulinProtocol(
     type: 'glucose_management',
     description: 'Glucose + ketone targets',
     indication: 'Avoid stopping insulin when glucose normalises',
-    dosing: `If glucose <14 mmol/L (<${formatMmollFromMgdl(250)} mmol/L from mg/dL labs): add dextrose to fluids.
-Continue insulin until ketosis resolving and pH >7.3 — not glucose alone.`,
+    dosing: `When glucose falls according to the selected protocol, add dextrose so insulin can continue until ketosis resolves. Do not stop insulin for normoglycaemia alone; use serial ketones, pH, bicarbonate, and clinical status.`,
     frequency: 'Check glucose every 1 hour',
     monitoring: 'Ensure glucose decline is gradual (avoid rapid drop)',
   });
@@ -261,10 +270,10 @@ export function generateCerebralEdemaProtocol(assessment: DKAAssessment): DKAInt
     type: 'cerebral_edema_prevention',
     description: 'Cerebral edema prevention measures',
     indication: 'Reduce risk of cerebral edema during DKA treatment',
-    dosing: `- Avoid hypotonic fluids (use 0.9% NS)
-- Avoid rapid glucose decline (target 50-100 mg/dL/hour or 2.8-5.6 mmol/L/hour)
-- Monitor for signs: headache, altered mental status, seizures
-- If cerebral edema suspected: Mannitol 0.25-1 g/kg IV or hypertonic saline`,
+    dosing: `- Use the selected age/context DKA fluid protocol and monitor corrected sodium/osmolality
+- Avoid rapid changes in glucose or osmolality
+- Monitor for headache, altered mental status, irritability, bradycardia, hypertension, or seizures
+- If cerebral oedema is suspected: treat immediately under the local paediatric/adult emergency protocol; do not delay for imaging and do not use an ungoverned universal dose`,
     monitoring: 'Continuous neurological assessment',
   });
 
@@ -310,8 +319,8 @@ Risk Assessment:
 - Cerebral Edema Risk: ${severity.riskOfCerebralEdema ? 'HIGH - Monitor closely' : 'Low'}
 
 Treatment Plan:
-1. Fluid Resuscitation: URGENT (0.9% NS)
-2. Insulin Therapy: Start after fluids initiated
+1. Fluid resuscitation: use the selected age/context DKA protocol with reassessment
+2. Insulin therapy: start after appropriate fluid initiation and potassium safety check
 3. Electrolyte Management: Monitor and supplement as needed
 4. Cerebral Edema Prevention: Avoid rapid glucose decline
 

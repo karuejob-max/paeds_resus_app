@@ -27,7 +27,7 @@ export const detectOverrides = (emergencyType: string, findings: Record<string, 
       overrideType: 'no_oxygen_severe_asthma',
       severity: 'high',
       description: 'Severe asthma without supplemental oxygen',
-      recommendation: 'Start high-flow oxygen',
+      recommendation: 'Provide age-, size-, and severity-appropriate oxygen/ventilatory support using the selected target; reassess airway, ventilation, and perfusion.',
       requiresJustification: true,
     });
   }

@@ -8,8 +8,8 @@
  * Clinical Framework:
  * 1. RECOGNIZE: Anaphylaxis symptoms (respiratory, cardiovascular, skin, GI)
  * 2. TREAT: Epinephrine IM immediately (0.01 mg/kg, max 0.5 mg)
- * 3. SUPPORT: IV access, oxygen, antihistamines, corticosteroids
- * 4. MONITOR: Biphasic reactions (recurrence 1-72 hours)
+ * 3. SUPPORT: IV/IO access, oxygen when indicated, fluids for shock, adjuncts only when indicated
+ * 4. MONITOR: risk-stratified observation for recurrence under local policy
  * 5. ESCALATE: ICU if cardiovascular collapse
  */
 
@@ -73,8 +73,13 @@ export const assessSeverity = (findings: {
     return 'cardiovascular_collapse';
   }
 
-  // Severe: respiratory compromise
-  if ((wheezing || stridor) && oxygenSaturation < 94) {
+  // Stridor is an airway warning even when oxygen saturation is initially normal.
+  if (stridor) {
+    return 'severe';
+  }
+
+  // Severe: respiratory compromise with hypoxaemia.
+  if (wheezing && oxygenSaturation < 94) {
     return 'severe';
   }
 
@@ -127,33 +132,22 @@ export const calculateEpinephrineImDose = (patientWeight: number): {
 };
 
 /**
- * Calculate epinephrine IV dose (if IM failed or cardiovascular collapse)
- * IV: 0.01 mg/kg bolus (max 0.5 mg), then infusion
+ * Describe expert-only IV epinephrine escalation.
+ * A routine IV bolus is intentionally not returned: it is a high-risk medication error pathway.
  */
-export const calculateEpinephrineIvDose = (patientWeight: number): {
-  bolus: { dose: number; unit: string; concentration: string; volume: number; volumeUnit: string };
+export const calculateEpinephrineIvDose = (_patientWeight: number): {
+  bolus: null;
   infusion: { concentration: string; initialRate: number; rateUnit: string };
   indication: string;
-} => {
-  const bolusDose = Math.min(patientWeight * 0.01, 0.5);
-  const bolusMl = bolusDose / 0.1; // 1:10,000 concentration (0.1 mg/mL)
-
-  return {
-    bolus: {
-      dose: parseFloat(bolusDose.toFixed(3)),
-      unit: 'mg',
-      concentration: '1:10,000 (0.1 mg/mL)',
-      volume: parseFloat(bolusMl.toFixed(2)),
-      volumeUnit: 'mL',
-    },
-    infusion: {
-      concentration: '1:10,000 (0.1 mg/mL)',
-      initialRate: 0.1, // mL/kg/min
-      rateUnit: 'mL/kg/min',
-    },
-    indication: 'IV access established and IM epinephrine failed, or cardiovascular collapse',
-  };
-};
+} => ({
+  bolus: null,
+  infusion: {
+    concentration: 'Use the locally approved dilution only',
+    initialRate: 0.1,
+    rateUnit: 'mcg/kg/min (expert titration)',
+  },
+  indication: 'Expert-led infusion only for refractory shock in a monitored setting; never give a routine IV epinephrine bolus for anaphylaxis.',
+});
 
 /**
  * Calculate antihistamine dose (H1 blocker)
@@ -172,14 +166,14 @@ export const calculateAntihistamineDose = (patientWeight: number): {
     dose: parseFloat(dose.toFixed(1)),
     unit: 'mg',
     agent: 'Diphenhydramine',
-    route: 'IV or IM',
-    frequency: 'Once, after epinephrine and IV access',
+    route: 'Adjunct route per local protocol',
+    frequency: 'Only for persistent skin symptoms after epinephrine; never delays epinephrine or airway/shock care',
   };
 };
 
 /**
- * Calculate corticosteroid dose (prevent biphasic reaction)
- * Methylprednisolone: 1-2 mg/kg IV (max 125 mg)
+ * Describe corticosteroid dosing only for a separately governed indication.
+ * Corticosteroids are not routine prevention for biphasic anaphylaxis.
  */
 export const calculateCorticosteroidDose = (patientWeight: number): {
   dose: number;
@@ -195,9 +189,9 @@ export const calculateCorticosteroidDose = (patientWeight: number): {
     dose: parseFloat(dose.toFixed(1)),
     unit: 'mg',
     agent: 'Methylprednisolone',
-    route: 'IV',
-    frequency: 'Once, after epinephrine',
-    indication: 'Prevent biphasic anaphylaxis (recurrence 1-72 hours later)',
+    route: 'Only if a separate local indication is documented',
+    frequency: 'Not routine treatment; never delay epinephrine or definitive care',
+    indication: 'Not recommended routinely to prevent biphasic anaphylaxis; consider only for a separate governed indication.',
   };
 };
 
@@ -235,7 +229,9 @@ export const evaluateEpinephrineEligibility = (
   timeSinceLast?: number;
   recommendation: string;
 } => {
-  const timeSinceLast = state.lastEpinephrineTime ? state.symptomOnsetTime - state.lastEpinephrineTime : Infinity;
+  const timeSinceLast = state.lastEpinephrineTime != null
+    ? Math.max(0, state.symptomOnsetTime - state.lastEpinephrineTime)
+    : Infinity;
 
   // First dose: always eligible
   if (state.epinephrineDoses === 0) {
@@ -278,7 +274,7 @@ export const evaluateIcuAdmissionCriteria = (state: AnaphylaxisEngineState): {
 
   if (state.severity === 'cardiovascular_collapse') {
     criteria.push('Cardiovascular collapse (hypotension, shock)');
-    recommendations.push('Aggressive fluid resuscitation, continuous epinephrine infusion, ICU monitoring');
+    recommendations.push('Isotonic fluid boluses with reassessment; expert-led epinephrine infusion only in a monitored setting; ICU review');
   }
 
   if (state.wheezing && state.oxygenSaturation < 94) {
@@ -333,16 +329,16 @@ export const generateRecommendation = (state: AnaphylaxisEngineState): string =>
   }
 
   if (state.severity === 'cardiovascular_collapse') {
-    return `ANAPHYLACTIC SHOCK: Aggressive fluid resuscitation, continuous epinephrine infusion, ICU admission. Prepare for intubation.`;
+    return 'ANAPHYLACTIC SHOCK: Reassess airway, breathing, and circulation now; establish IV/IO access, give isotonic fluid boluses with reassessment, obtain urgent expert help, and use an expert-led epinephrine infusion only in a monitored setting when indicated. Do not give IV epinephrine as a routine bolus.';
   }
 
   if (state.antihistamineDoses === 0) {
-    return `Epinephrine given. Establish IV access and give antihistamine + corticosteroid to prevent biphasic reaction.`;
+    return 'Epinephrine given. Reassess airway, breathing, circulation, and response; give oxygen if indicated, establish IV/IO access, and use antihistamine only as an optional adjunct for persistent skin symptoms. Corticosteroids are not routine.';
   }
 
   if (state.severity === 'severe') {
-    return `Severe anaphylaxis. Monitor closely for 4-8 hours for biphasic reaction. Consider ICU observation.`;
+    return 'Severe anaphylaxis: continue close monitoring and risk-stratified observation under local policy; escalate early if symptoms persist or recur.';
   }
 
-  return `Anaphylaxis managed. Observe for 4-8 hours. Prescribe epinephrine auto-injector and refer to allergy specialist.`;
+  return 'Anaphylaxis treated: continue reassessment and observation under local risk-stratified policy, provide trigger education, and arrange follow-up.';
 };

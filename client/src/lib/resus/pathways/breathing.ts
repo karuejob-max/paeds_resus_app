@@ -37,7 +37,7 @@ export const breathingPathway: Pathway = {
         {
           id: 'br_o2',
           action: 'HIGH-FLOW OXYGEN',
-          detail: `Non-rebreather mask at 15 L/min. ${SPO2_TARGET_ASTHMA_DETAIL}`,
+          detail: `Use an age-, size-, and severity-appropriate oxygen interface and titrate to the selected target. ${SPO2_TARGET_ASTHMA_DETAIL}` ,
           critical: true,
         },
         {
@@ -45,7 +45,12 @@ export const breathingPathway: Pathway = {
           action: 'SALBUTAMOL NEBULIZER',
           dose: {
             drug: 'Salbutamol',
-            dosePerKg: 0.15,
+            dosePerKg: 0,
+            doseModel: 'fixed_band',
+            doseBands: [
+              { maxWeightKg: 20, dose: 2.5 },
+              { minWeightKg: 20, dose: 5 },
+            ],
             unit: 'mg',
             maxDose: 5,
             route: 'Nebulizer',
@@ -79,11 +84,12 @@ export const breathingPathway: Pathway = {
           action: 'GIVE SYSTEMIC STEROIDS',
           dose: {
             drug: 'Prednisolone',
-            dosePerKg: 1,
+            dosePerKg: 0,
+            doseModel: 'protocol_only',
             unit: 'mg',
-            maxDose: 40,
-            route: 'PO (or IV methylprednisolone if unable to swallow)',
-            preparation: 'If IV needed: Methylprednisolone 1 mg/kg (max 60mg)',
+            maxDose: 0,
+            route: 'PO/IV per protocol',
+            preparation: 'Use the age-, severity-, formulation-, and local-protocol-specific systemic corticosteroid dose; do not use a generic alternative-dose menu.',
             frequency: 'Once daily for 3-5 days',
           },
           detail: 'Give early. Takes 4-6 hours to work. Critical for reducing inflammation.',
@@ -111,11 +117,12 @@ export const breathingPathway: Pathway = {
           action: 'IV SALBUTAMOL INFUSION',
           dose: {
             drug: 'Salbutamol IV',
-            dosePerKg: 5,
-            unit: 'mcg/min',
-            maxDose: 20,
+            dosePerKg: 0,
+            doseModel: 'protocol_only',
+            unit: 'mcg/kg/min',
+            maxDose: 0,
             route: 'IV continuous infusion',
-            preparation: 'Start at 1 mcg/kg/min, increase by 1 mcg/kg/min every 15 min. Max 5 mcg/kg/min.',
+            preparation: 'ICU/senior-led protocol only. Confirm weight-based rate, concentration, pump setup, cardiac monitoring, potassium, and local approval before use.',
           },
           detail: 'ICU-level care. Continuous cardiac monitoring required. Watch for tachycardia, hypokalemia.',
           critical: true,
@@ -196,8 +203,8 @@ export const breathingPathway: Pathway = {
     // General respiratory distress (no wheezing, no stridor)
     {
       id: 'rd_o2',
-      action: 'HIGH-FLOW OXYGEN',
-      detail: `Non-rebreather mask at 15 L/min. ${SPO2_TARGET_ASTHMA_DETAIL} If infant: consider high-flow nasal cannula.`,
+      action: 'AGE-APPROPRIATE OXYGEN/VENTILATION SUPPORT',
+      detail: `Use an age-, size-, and severity-appropriate oxygen interface and titrate to the selected target. ${SPO2_TARGET_ASTHMA_DETAIL} Escalate ventilation support if respiratory effort is failing.`,
       critical: true,
     },
     {
@@ -214,21 +221,22 @@ export const breathingPathway: Pathway = {
     {
       id: 'rd_niv',
       action: 'CONSIDER NON-INVASIVE VENTILATION',
-      detail: 'CPAP or BiPAP if available. Start CPAP at 5-7 cmH2O. Useful for bronchiolitis, pneumonia, pulmonary edema.',
+      detail: 'Consider CPAP/BiPAP only when the patient, indication, interface, monitoring, contraindications, and local protocol are appropriate. Use age- and diagnosis-specific settings; do not apply a universal starting pressure.',
     },
     {
       id: 'rd_antibiotics',
       action: 'ANTIBIOTICS IF INFECTION SUSPECTED',
-      dose: {
-        drug: 'Ceftriaxone',
-        dosePerKg: 50,
-        unit: 'mg',
-        maxDose: 2000,
-        route: 'IV',
-        preparation: 'Give over 30 minutes. Add vancomycin if MRSA suspected.',
-        frequency: 'Once daily',
-      },
-      detail: 'If fever + crackles + respiratory distress → treat as pneumonia. Don\'t wait for CXR.',
+        dose: {
+          drug: 'Empiric respiratory antibiotics',
+          dosePerKg: 0,
+          doseModel: 'protocol_only',
+          unit: 'mg',
+          maxDose: 0,
+          route: 'IV/IO per protocol',
+          preparation: 'Select the age-, diagnosis-, severity-, renal-, and local-resistance-specific antibiotic protocol. Do not use a universal ceftriaxone dose.',
+          frequency: 'Per protocol',
+        },
+        detail: 'If severe infection is suspected, obtain appropriate samples when feasible but do not delay time-critical treatment. Choose neonatal, paediatric, or adult guidance explicitly.',
     },
     {
       id: 'rd_intubation',

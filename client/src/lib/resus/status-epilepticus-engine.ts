@@ -49,6 +49,13 @@ export interface StatusEpilepticusIntervention {
 export function assessStatusEpilepticusSeverity(
   assessment: StatusEpilepticusAssessment
 ): StatusEpilepticusSeverity {
+  if (!Number.isFinite(assessment.age) || assessment.age < 0) {
+    throw new Error('A valid non-negative age is required for seizure guidance.');
+  }
+  if (!Number.isFinite(assessment.weightKg) || assessment.weightKg <= 0) {
+    throw new Error('A valid positive dosing weight is required for seizure guidance.');
+  }
+
   let level: 'early_se' | 'established_se' | 'refractory_se' | 'super_refractory_se';
   let description: string;
 
@@ -107,6 +114,14 @@ export function generateFirstLineTherapy(
   const midazolamDose = Math.min(midazolam, 10);
 
   interventions.push({
+    type: 'benzodiazepine_choice_gate',
+    description: 'Choose ONE first-line benzodiazepine regimen',
+    indication: 'Select one available age-appropriate route; do not administer multiple benzodiazepine options together.',
+    monitoring: 'Airway, breathing, oxygen saturation, seizure cessation',
+    timeWindow: '0-5 minutes',
+  });
+
+  interventions.push({
     type: 'benzodiazepine_first_line',
     description: 'Buccal/IM/IV midazolam (international first-line)',
     indication: 'Initial seizure management',
@@ -162,10 +177,9 @@ export function generateFirstLineTherapy(
     type: 'supportive_care_initial',
     description: 'Initial supportive care',
     indication: 'Maintain airway and oxygenation',
-    dosing: `- Position on side
-- Clear airway of secretions
-- Supplemental oxygen to maintain SpO2 > 94%
-- Establish IV access if possible`,
+    dosing: `- Position safely and clear visible secretions
+- Give oxygen if hypoxaemic or clinically indicated; titrate to the selected age/context target
+- Establish IV/IO access if possible`,
     monitoring: 'Airway patency, oxygen saturation, vital signs',
   });
 
@@ -183,6 +197,14 @@ export function generateSecondLineTherapy(
   // Phenytoin
   const phenytoin = assessment.weightKg * 20; // max 1000mg
   const phenytoinDose = Math.min(phenytoin, 1000);
+
+  interventions.push({
+    type: 'antiepileptic_choice_gate',
+    description: 'Choose ONE second-line antiseizure medicine',
+    indication: 'If seizures continue after an appropriate benzodiazepine, select one locally approved second-line agent; do not give all alternatives together.',
+    monitoring: 'Seizure cessation, airway, cardiac rhythm, blood pressure, and medicine-specific contraindications',
+    timeWindow: '5-30 minutes',
+  });
 
   interventions.push({
     type: 'antiepileptic_phenytoin',
@@ -244,12 +266,10 @@ export function generateThirdLineTherapy(
     type: 'anesthesia_induction',
     description: 'Anesthetic induction (third-line)',
     indication: 'Refractory status epilepticus (30-60 minutes)',
-    dosing: `Propofol: 1-2 mg/kg IV bolus, then 2-10 mg/kg/hour infusion
-OR
-Midazolam: 0.15 mg/kg IV bolus, then 0.1-0.4 mg/kg/hour infusion`,
-    frequency: 'Continuous infusion',
-    timeWindow: '30-60 minutes',
-    monitoring: 'EEG monitoring, vital signs, sedation level',
+    dosing: 'Use an ICU/anaesthesia-led refractory-status protocol. Do not select an anaesthetic, bolus, or infusion rate from this cognitive aid without local specialist protocol and airway/ventilation capability.',
+    frequency: 'Continuous infusion only under specialist protocol',
+    timeWindow: 'After failure of appropriate first- and second-line therapy',
+    monitoring: 'Continuous airway/ventilation, haemodynamics, EEG where available, and sedation level',
   });
 
   // Intubation
@@ -287,9 +307,8 @@ export function generateSupportiveCareAndMonitoring(
   interventions.push({
     type: 'glucose_management',
     description: 'Glucose monitoring and management',
-    indication: 'Maintain glucose 100-180 mg/dL',
-    dosing: `Check glucose immediately
-If < 60 mg/dL: Give dextrose (2-5 mL/kg of 10% dextrose)`,
+    indication: 'Check for and correct hypoglycaemia using the selected age/context protocol',
+    dosing: 'Check glucose immediately. If low, give the age- and concentration-appropriate dextrose treatment; do not use a universal volume without the neonatal, paediatric, or adult protocol.',
     monitoring: 'Blood glucose every 1-2 hours',
   });
 
@@ -307,9 +326,9 @@ If < 60 mg/dL: Give dextrose (2-5 mL/kg of 10% dextrose)`,
     type: 'infection_workup',
     description: 'Infection investigation',
     indication: 'Rule out infectious causes',
-    dosing: `- Blood cultures
-- Lumbar puncture (if no contraindications)
-- Empiric antibiotics if infection suspected`,
+    dosing: `- Blood cultures when indicated
+- Consider lumbar puncture only after stabilisation and when no contraindication exists
+- Give empiric antibiotics promptly when infection is suspected and do not delay time-critical stabilisation`,
     monitoring: 'Culture results, CSF analysis',
   });
 
