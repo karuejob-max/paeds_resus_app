@@ -58,6 +58,40 @@ export function serveStatic(app: Express) {
     );
   }
 
+  const prerenderedRoutes = [
+    "/",
+    "/for-institutions",
+    "/for-providers",
+    "/institutional",
+    "/about",
+    "/training",
+    "/aha-courses",
+    "/fellowship",
+    "/for-parents",
+    "/programs/nerp-acls",
+    "/programs/ierp",
+  ];
+
+  for (const route of prerenderedRoutes) {
+    app.get(route, (req, res, next) => {
+      const spaShell = path.resolve(distPath, "index.html");
+      if (req.headers.cookie) {
+        res.sendFile(spaShell);
+        return;
+      }
+      const prerenderedFile = path.resolve(
+        distPath,
+        route === "/" ? "index.html" : route.slice(1),
+        route === "/" ? "" : "index.html"
+      );
+      if (fs.existsSync(prerenderedFile)) {
+        res.sendFile(prerenderedFile);
+        return;
+      }
+      next();
+    });
+  }
+
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist

@@ -13,6 +13,14 @@ import { JsonLdScript } from "@/components/JsonLdScript";
 import { usePageMeta } from "@/hooks/usePageMeta";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { getLoginUrl } from "@/const";
+import AcronymGlossary from "@/components/AcronymGlossary";
+import {
+  ACLS_COHORT_PRICE,
+  ACLS_PRICE,
+  BLS_COHORT_PRICE,
+  BLS_PRICE,
+  formatCohortLine,
+} from "@/const/marketingCopy";
 import { buildJsonLdGraph, buildOrganizationJsonLd } from "@/lib/seo-schema";
 
 const INDIVIDUAL_PRODUCTS = [
@@ -20,14 +28,14 @@ const INDIVIDUAL_PRODUCTS = [
     title: "AHA BLS",
     eyebrow: "Foundation",
     body: "Build dependable CPR, AED, team-response, and paediatric basic-life-support skills.",
-    price: "KES 10,000 per person · KES 7,500 for cohorts of 7+",
+    price: formatCohortLine(BLS_PRICE, BLS_COHORT_PRICE),
     href: "/training/bls",
   },
   {
     title: "AHA ACLS",
     eyebrow: "Advanced response",
     body: "Strengthen advanced cardiovascular emergency response, team leadership, and algorithm-based decision-making.",
-    price: "KES 20,000 per person · KES 17,500 for cohorts of 7+",
+    price: formatCohortLine(ACLS_PRICE, ACLS_COHORT_PRICE),
     href: "/training/acls",
   },
   {
@@ -81,6 +89,7 @@ export default function ForProviders() {
               so you can see exactly what you are joining and what it is
               designed to do.
             </p>
+            <AcronymGlossary />
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/training">
                 <Button variant="cta" size="lg">
