@@ -392,6 +392,35 @@ describe('Dose Calculation', () => {
     }, null);
     expect(result.calculatedDose).toContain('/kg');
   });
+
+  it('should keep protocol-only instructions non-calculated', () => {
+    const result = calculateDose({
+      drug: 'Dextrose 10%',
+      dosePerKg: 0,
+      doseModel: 'protocol_only',
+      unit: 'mL',
+      route: 'IV/IO',
+      preparation: 'Use the selected age-specific protocol and reassess glucose.',
+    }, 25);
+    expect(result.calculatedDose).toContain('follow the selected age-');
+    expect(result.calculatedDose).not.toContain('0.0 mL');
+  });
+
+  it('should select a fixed weight-band dose without weight multiplication', () => {
+    const result = calculateDose({
+      drug: 'Salbutamol',
+      dosePerKg: 0,
+      doseModel: 'fixed_band',
+      doseBands: [
+        { maxWeightKg: 20, dose: 2.5 },
+        { minWeightKg: 20, dose: 5 },
+      ],
+      unit: 'mg',
+      route: 'nebulizer',
+    }, 25);
+    expect(result.calculatedDose).toContain('5 mg');
+    expect(result.calculatedDose).not.toContain('0.0 mg');
+  });
 });
 
 // ─── PATHWAY REGISTRY ────────────────────────────────────

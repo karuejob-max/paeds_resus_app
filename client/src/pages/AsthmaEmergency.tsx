@@ -38,8 +38,8 @@ interface Props {
 
 export default function AsthmaEmergency({ patientAge: propAge, patientWeight: propWeight, onClose }: Props = {}) {
   const [, setLocation] = useLocation();
-  const [patientWeight, setPatientWeight] = useState<number>(propWeight || 20);
-  const [patientAge, setPatientAge] = useState<number>((propAge || 5) * 12); // convert years to months
+  const [patientWeight, setPatientWeight] = useState<number>(propWeight ?? 0);
+  const [patientAge, setPatientAge] = useState<number>(propAge !== undefined ? propAge * 12 : 0); // months; zero means unconfirmed
   const [currentStage, setCurrentStage] = useState<AsthmaStage>('assessment');
   const [severity, setSeverity] = useState<SeverityLevel>('moderate');
   const [completedInterventions, setCompletedInterventions] = useState<string[]>([]);
@@ -83,6 +83,23 @@ export default function AsthmaEmergency({ patientAge: propAge, patientWeight: pr
       ett_depth: `${Math.round((patientAge / 12) * 3 + 12)}cm at lip`,
     };
   };
+
+  const hasCompleteContext = patientWeight > 0 && patientAge > 0;
+
+  if (!hasCompleteContext) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white p-4">
+        <Card className="mx-auto mt-16 max-w-xl border-red-700 bg-gray-900">
+          <CardContent className="p-6 space-y-4">
+            <h1 className="text-xl font-bold">Asthma pathway context required</h1>
+            <p className="text-gray-300">This pathway will not calculate or display medication doses until an explicit age in months and verified dosing weight are entered through the governed ResusGPS patient-context flow.</p>
+            <p className="text-yellow-300">No guessed dose has been issued. Return to ResusGPS for age/context routing and weight provenance.</p>
+            <Button onClick={() => onClose ? onClose() : setLocation('/resus')} className="w-full">Return to ResusGPS</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const doses = calculateDoses();
 

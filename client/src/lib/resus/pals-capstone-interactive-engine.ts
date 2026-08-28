@@ -112,7 +112,7 @@ const INTERACTIVE_SCENARIO_PHASES: InstructorFinding[] = [
       'Check capillary refill (delayed = poor perfusion)',
       'Recognize these signs indicate shock',
     ],
-    successMessage: 'Excellent! You recognized shock. This child needs fluid resuscitation. Prepare a 20 mL/kg bolus.',
+    successMessage: 'Excellent! You recognized shock. Prepare an age-, perfusion-, and setting-appropriate crystalloid aliquot (often 10–20 mL/kg when indicated), then reassess perfusion, lungs, liver size, and work of breathing before further fluid.',
   },
   {
     page: 'disability',
@@ -150,7 +150,7 @@ const INTERACTIVE_SCENARIO_PHASES: InstructorFinding[] = [
       'Ask about Last meal',
       'Ask about Events leading up to this',
     ],
-    successMessage: 'Good history! Acute fever + cough + shock = likely septic shock from pneumonia. Continue aggressive resuscitation.',
+    successMessage: 'Good history! Acute fever + cough + shock suggests possible septic shock from pneumonia. Continue controlled resuscitation with reassessment, timely antimicrobial treatment, and escalation according to the selected age- and setting-specific protocol.',
   },
   {
     page: 'cardiac_arrest',
@@ -169,13 +169,13 @@ const INTERACTIVE_SCENARIO_PHASES: InstructorFinding[] = [
   {
     page: 'cpr_clock',
     clinicalObjective: 'Manage CPR & Medications',
-    instructorDescription: 'CPR is ongoing. At 3 minutes, give epinephrine 0.01 mg/kg IV. Continue CPR. At 5 minutes, reassess rhythm.',
+    instructorDescription: 'CPR is ongoing. Use the selected age/context life-support pack for medication timing, route, dose, and rhythm reassessment; continue CPR between checks and follow the governed CPR-GPS sequence.',
     targetFindings: ['cpr_ongoing', 'epinephrine_given', 'correct_dose', 'rhythm_check_at_5_min'],
     hints: [
-      'Calculate epinephrine dose: 0.01 mg/kg',
-      'Give it IV/IO every 3-5 minutes',
-      'Continue CPR between medications',
-      'Reassess rhythm every 2 minutes',
+      'Use the selected age/context life-support pack for epinephrine dose, route, and timing',
+      'Give medications only when the governed CPR sequence and rhythm state indicate them',
+      'Continue CPR between rhythm checks and medication actions as directed',
+      'Reassess rhythm at the governed interval for the selected life-support pack',
     ],
     successMessage: 'Good medication management! Continue CPR and prepare for defibrillation if indicated.',
   },

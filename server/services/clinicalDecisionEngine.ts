@@ -51,6 +51,24 @@ export function generateAirwayRecommendations(
 ): ClinicalRecommendation[] {
   const recommendations: ClinicalRecommendation[] = [];
 
+  if (patientParams.age.years >= 18) {
+    return [{
+      action: 'USE GOVERNED ADULT AIRWAY/RESPIRATORY PROTOCOL',
+      rationale: 'This legacy recommender is child-focused and must not issue paediatric treatment claims for adults.',
+      priority: 'critical',
+      guidelineReference: 'Local adult airway and resuscitation protocol required',
+    }];
+  }
+
+  if (patientParams.age.years === 0 && patientParams.age.months < 1) {
+    return [{
+      action: 'USE GOVERNED NEONATAL AIRWAY/RESPIRATORY PROTOCOL',
+      rationale: 'Delivery-room/newborn care requires explicit neonatal context and a neonatal source of truth.',
+      priority: 'critical',
+      guidelineReference: 'Current neonatal resuscitation protocol required',
+    }];
+  }
+
   // BLS/ALS Activation
   if (findings.responsiveness === "U") {
     recommendations.push({
@@ -117,17 +135,17 @@ export function generateAirwayRecommendations(
       });
 
       recommendations.push({
-        action: "Nebulize epinephrine 1:1000",
-        dosage: `${(patientParams.weight * 0.05).toFixed(2)} mL (0.05 mL/kg)`,
-        rationale: "Reduces airway edema in croup/epiglottitis",
+        action: "Nebulized epinephrine — USE AGE/DIAGNOSIS PROTOCOL",
+        dosage: "Protocol-only: confirm preparation, dose, maximum, monitoring, and escalation pathway before administration.",
+        rationale: "May reduce upper-airway edema in selected diagnoses; do not use a universal dose from this legacy recommender.",
         priority: "high",
         guidelineReference: "AHA ECC 2020 - Upper airway obstruction management",
       });
 
       recommendations.push({
-        action: "Administer corticosteroid",
-        dosage: `Dexamethasone 0.6 mg/kg = ${(patientParams.weight * 0.6).toFixed(1)} mg OR Hydrocortisone 1-2 mg/kg = ${(patientParams.weight * 1).toFixed(1)}-${(patientParams.weight * 2).toFixed(1)} mg`,
-        rationale: "Reduces airway inflammation",
+        action: "Corticosteroid — USE AGE/DIAGNOSIS PROTOCOL",
+        dosage: "Protocol-only: select the approved agent, dose, route, maximum, and contraindications for the diagnosis.",
+        rationale: "May reduce airway inflammation in selected diagnoses; do not use a universal alternative-dose menu.",
         priority: "high",
         guidelineReference: "AHA ECC 2020 - Corticosteroid therapy",
       });
@@ -157,8 +175,8 @@ export function generateAirwayRecommendations(
     // Lower Airway Obstruction (Wheeze)
     if (findings.obstructionType === "lower_airway") {
       recommendations.push({
-        action: "Provide oxygen 100% FiO2",
-        rationale: "Maximize oxygenation in respiratory distress",
+        action: "Provide age- and device-appropriate oxygen support",
+        rationale: "Treat hypoxaemia and titrate to the selected patient-specific target; use escalation if ventilation is failing.",
         priority: "high",
         guidelineReference: "AHA ECC 2020 - Oxygen therapy",
       });
@@ -166,9 +184,9 @@ export function generateAirwayRecommendations(
       // Only salbutamol if age > 2 years
       if (patientParams.age.years >= 2) {
         recommendations.push({
-          action: "Nebulize salbutamol (albuterol)",
-          dosage: `${(patientParams.weight * 0.15).toFixed(2)} mg (0.15 mg/kg)`,
-          rationale: "Bronchodilator for lower airway obstruction/asthma",
+          action: "Nebulize salbutamol (albuterol) — USE AGE/DIAGNOSIS PROTOCOL",
+          dosage: "Protocol-only: confirm age-, device-, formulation-, and severity-specific dose; do not multiply a fixed nebulizer dose by weight.",
+          rationale: "Bronchodilator may be indicated in selected lower-airway disease; assess response and contraindications.",
           priority: "high",
           guidelineReference: "AHA ECC 2020 - Bronchodilator therapy",
         });

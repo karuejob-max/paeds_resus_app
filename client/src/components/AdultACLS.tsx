@@ -49,6 +49,8 @@ interface ArrestEvent {
 }
 
 export function AdultACLS({ patientAge, patientWeight, onClose }: Props) {
+  const isAdultContext = Number.isFinite(patientAge) && patientAge >= 18;
+
   // Timer state
   const [elapsedTime, setElapsedTime] = useState(0);
   const [cycleTime, setCycleTime] = useState(0);
@@ -63,8 +65,8 @@ export function AdultACLS({ patientAge, patientWeight, onClose }: Props) {
   const [hasROSC, setHasROSC] = useState(false);
   
   // Patient data
-  const [weight, setWeight] = useState(patientWeight || 70); // Default 70kg if not provided
-  const [showWeightDialog, setShowWeightDialog] = useState(!patientWeight); // Show if weight not provided
+  const [weight, setWeight] = useState<number | null>(patientWeight ?? null);
+  const [showWeightDialog, setShowWeightDialog] = useState(!patientWeight); // Require explicit weight when absent
   const [defibrillatorType, setDefibrillatorType] = useState<'biphasic' | 'monophasic'>('biphasic');
   const [shockEnergy, setShockEnergy] = useState(200); // 200J for biphasic, 360J for monophasic
   
@@ -234,6 +236,21 @@ export function AdultACLS({ patientAge, patientWeight, onClose }: Props) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  if (!isAdultContext) {
+    return (
+      <div className="fixed inset-0 bg-black/95 z-50 overflow-y-auto p-4">
+        <Card className="mx-auto mt-16 max-w-xl bg-gray-900 border-red-700">
+          <CardContent className="p-6 space-y-4 text-white">
+            <h1 className="text-xl font-bold">Use the correct life-support pathway</h1>
+            <p className="text-gray-300">This component is adult ACLS only. Patients younger than 18 years require the governed PALS pathway; delivery-room newborns require NRP.</p>
+            <p className="text-yellow-300">No adult dose, rhythm action, or resuscitation claim has been issued by this screen.</p>
+            <Button onClick={onClose} className="w-full">Return</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black/95 z-50 overflow-y-auto">
       <div className="min-h-screen p-4">
@@ -244,7 +261,7 @@ export function AdultACLS({ patientAge, patientWeight, onClose }: Props) {
               <Heart className="h-6 w-6 text-red-500" />
               Adult ACLS - Cardiac Arrest
             </h1>
-            <p className="text-gray-400 text-sm">Patient Age: {patientAge} years | Weight: {weight}kg</p>
+            <p className="text-gray-400 text-sm">Patient Age: {patientAge} years | Weight: {weight ?? 'unconfirmed'}{weight ? 'kg' : ''}</p>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -650,7 +667,7 @@ export function AdultACLS({ patientAge, patientWeight, onClose }: Props) {
                     <Input
                       id="weight"
                       type="number"
-                      value={weight}
+                      value={weight ?? ''}
                       onChange={(e) => setWeight(Number(e.target.value))}
                       className="bg-gray-800 border-gray-600 text-white"
                       min="30"
@@ -663,7 +680,7 @@ export function AdultACLS({ patientAge, patientWeight, onClose }: Props) {
                   <Button
                     onClick={() => setShowWeightDialog(false)}
                     className="w-full bg-blue-600 hover:bg-blue-700"
-                    disabled={weight < 30 || weight > 300}
+                    disabled={weight === null || weight < 30 || weight > 300}
                   >
                     Confirm Weight
                   </Button>
@@ -714,7 +731,7 @@ export function AdultACLS({ patientAge, patientWeight, onClose }: Props) {
                     <ul className="text-sm text-gray-300 space-y-1">
                       <li>• Shock Energy: <span className="text-white font-bold">{shockEnergy}J</span></li>
                       <li>• Device Type: <span className="text-white font-bold">{defibrillatorType}</span></li>
-                      <li>• Patient Weight: <span className="text-white font-bold">{weight}kg</span></li>
+                      <li>• Patient Weight: <span className="text-white font-bold">{weight ?? 'unconfirmed'}{weight ? 'kg' : ''}</span></li>
                     </ul>
                   </div>
                 </div>

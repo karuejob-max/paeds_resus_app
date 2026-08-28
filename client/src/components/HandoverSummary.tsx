@@ -127,11 +127,11 @@ export function HandoverSummary({ handover, onExport }: HandoverSummaryProps) {
                   </div>
                   <div>
                     <p className="text-gray-600">Age:</p>
-                    <p className="font-medium">{handover.situation.patientIdentification.age} years</p>
+                    <p className="font-medium">{handover.situation.patientIdentification.age === null ? 'Not confirmed' : `${handover.situation.patientIdentification.age} years`}</p>
                   </div>
                   <div>
                     <p className="text-gray-600">Weight:</p>
-                    <p className="font-medium">{handover.situation.patientIdentification.weight} kg</p>
+                    <p className="font-medium">{handover.situation.patientIdentification.weight === null ? 'Not confirmed' : `${handover.situation.patientIdentification.weight} kg`}</p>
                   </div>
                   <div>
                     <p className="text-gray-600">Gender:</p>

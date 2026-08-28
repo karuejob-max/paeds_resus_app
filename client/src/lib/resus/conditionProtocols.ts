@@ -111,15 +111,15 @@ function roundDose(n: number, maxDose?: number): number {
 }
 
 function mgKg(dose: number, weight: number, maxDose?: number): string {
-  return `${roundDose(dose * weight, maxDose)} mg`;
+  return weight > 0 ? `${roundDose(dose * weight, maxDose)} mg` : 'Enter a verified dosing weight before calculating this dose';
 }
 
 function mlKg(dose: number, weight: number, maxDose?: number): string {
-  return `${roundDose(dose * weight, maxDose)} mL`;
+  return weight > 0 ? `${roundDose(dose * weight, maxDose)} mL` : 'Enter a verified dosing weight before calculating this volume';
 }
 
 function mcgKg(dose: number, weight: number, maxDose?: number): string {
-  return `${roundDose(dose * weight, maxDose)} mcg`;
+  return weight > 0 ? `${roundDose(dose * weight, maxDose)} mcg` : 'Enter a verified dosing weight before calculating this dose';
 }
 
 // ─── Protocol Factories ─────────────────────────────────────
@@ -134,7 +134,28 @@ function mcgKg(dose: number, weight: number, maxDose?: number): string {
  *   - Vasopressors if fluid-refractory (≥40 mL/kg without improvement)
  */
 export function buildSepticShockProtocol(weight: number, ageCategory: string): ConditionProtocol {
-  const w = weight || 10;
+  const hasVerifiedWeight = Number.isFinite(weight) && weight > 0;
+  const isAdult = ageCategory === 'adult';
+  if (!hasVerifiedWeight || isAdult) {
+    const reason = isAdult
+      ? 'This paediatric septic-shock protocol cannot issue adult treatment doses.'
+      : 'Enter a verified measured, last-known, or clearly labelled emergency-estimated dosing weight before calculating treatment doses.';
+    return {
+      id: 'septic_shock',
+      name: 'Septic Shock',
+      shortName: 'Septic Shock',
+      icon: '⚠️',
+      color: 'text-red-700',
+      bgColor: 'bg-red-50',
+      triggerFindings: ['fever', 'hypotension', 'poor_perfusion', 'altered_consciousness'],
+      steps: [{ id: 'ss_prerequisite', phase: 'Prerequisite', action: reason, safetyWarning: 'Do not use a hidden default weight or calculate a medication/fluid dose until the dosing context is confirmed.', status: 'pending' }],
+      monitoringTargets: ['Airway, breathing, circulation, mental status, glucose, perfusion, and response to each intervention'],
+      keyPitfalls: ['Do not apply paediatric doses to adults', 'Do not use a hidden default weight', 'Do not give repeated fluid boluses without reassessment'],
+      references: ['Current age- and setting-specific sepsis protocol required'],
+    };
+  }
+
+  const w = weight;
   const isNeonate = ageCategory === 'neonate';
 
   const steps: ProtocolStep[] = [
@@ -148,8 +169,8 @@ export function buildSepticShockProtocol(weight: number, ageCategory: string): C
     {
       id: 'ss_02_o2',
       phase: 'Immediate (0–5 min)',
-      action: 'High-flow O₂ via non-rebreather mask (15 L/min) or bag-mask ventilation if inadequate respiratory effort.',
-      rationale: 'Optimise oxygen delivery before fluid resuscitation.',
+      action: 'Give age-, size-, and severity-appropriate oxygen support if hypoxaemic; use bag-mask ventilation or advanced ventilation support if respiratory effort is inadequate.',
+      rationale: 'Optimise oxygenation and ventilation before and during circulation support without applying an adult device/flow assumption to every patient.',
       status: 'pending',
     },
     {
@@ -265,7 +286,7 @@ export function buildSepticShockProtocol(weight: number, ageCategory: string): C
     {
       id: 'ss_11_bolus3',
       phase: 'Escalation (15–60 min)',
-      action: 'If still shocked after 20 mL/kg and NO fluid overload: give bolus 3. Total cumulative: 30 mL/kg.',
+      action: 'If shock persists without fluid overload, give another small aliquot only under the selected age-, perfusion-, aetiology-, and setting-specific protocol; reassess before further fluid and escalate early if refractory.',
       doses: [
         {
           drug: 'Ringer\'s Lactate',
@@ -351,7 +372,7 @@ export function buildSepticShockProtocol(weight: number, ageCategory: string): C
       'HR: age-appropriate normal range',
       'CRT: <2 sec (peripheral), <1 sec (central)',
       'MAP: >50 mmHg (infant), >60 mmHg (child)',
-      'SpO₂: ≥94%',
+      'Use the age- and condition-appropriate oxygenation target; do not apply a universal saturation target',
       'Urine output: >1 mL/kg/h',
       'Glucose: 4–10 mmol/L',
       'Lactate: <2 mmol/L (target)',
@@ -384,7 +405,26 @@ export function buildSepticShockProtocol(weight: number, ageCategory: string): C
  *   - Identify and treat underlying cause
  */
 export function buildStatusEpilepticusProtocol(weight: number, ageCategory: string): ConditionProtocol {
-  const w = weight || 10;
+  const hasVerifiedWeight = Number.isFinite(weight) && weight > 0;
+  if (!hasVerifiedWeight || ageCategory === 'adult') {
+    const reason = ageCategory === 'adult'
+      ? 'This paediatric status-epilepticus protocol cannot issue adult treatment doses.'
+      : 'Enter a verified measured, last-known, or clearly labelled emergency-estimated dosing weight before calculating seizure-treatment doses.';
+    return {
+      id: 'status_epilepticus',
+      name: 'Status Epilepticus',
+      shortName: 'Status Epilepticus',
+      icon: '⚠️',
+      color: 'text-red-700',
+      bgColor: 'bg-red-50',
+      triggerFindings: ['seizure', 'altered_consciousness'],
+      steps: [{ id: 'se_prerequisite', phase: 'Prerequisite', action: reason, safetyWarning: 'Do not use a hidden default weight or calculate an anticonvulsant dose until the dosing context is confirmed.', status: 'pending' }],
+      monitoringTargets: ['Airway, breathing, glucose, seizure duration, cardiorespiratory status, and response after each intervention'],
+      keyPitfalls: ['Do not apply paediatric doses to adults', 'Do not use a hidden default weight', 'Avoid simultaneous alternative benzodiazepines'],
+      references: ['Current age- and setting-specific seizure protocol required'],
+    };
+  }
+  const w = weight;
   const isNeonate = ageCategory === 'neonate';
 
   const steps: ProtocolStep[] = [
@@ -404,7 +444,7 @@ export function buildStatusEpilepticusProtocol(weight: number, ageCategory: stri
     {
       id: 'se_03_o2',
       phase: 'Immediate (0–5 min)',
-      action: 'High-flow O₂ via non-rebreather mask. Suction airway if secretions. Jaw thrust if airway obstructed.',
+      action: 'Give age-, size-, and severity-appropriate oxygen support if hypoxaemic. Suction airway if secretions and use jaw thrust if airway obstructed; escalate ventilation support if effort is failing.',
       status: 'pending',
     },
     {
@@ -606,7 +646,7 @@ export function buildStatusEpilepticusProtocol(weight: number, ageCategory: stri
         {
           drug: 'Midazolam infusion (post-intubation)',
           dose: '0.1–0.4 mg/kg/h IV infusion',
-          calculated: `${round1(0.1 * w)} – ${round1(0.4 * w)} mg/h IV infusion`,
+              calculated: w > 0 ? `${round1(0.1 * w)} – ${round1(0.4 * w)} mg/h IV infusion` : 'Enter a verified dosing weight and use the monitored infusion protocol; no default weight is used',
           route: 'IV infusion',
           notes: 'Titrate to EEG burst suppression if available.',
         },
@@ -634,7 +674,7 @@ export function buildStatusEpilepticusProtocol(weight: number, ageCategory: stri
     steps,
     monitoringTargets: [
       'Seizure activity: clinically stopped?',
-      'SpO₂: ≥94% (hypoxia prolongs seizures)',
+      'Use the age- and condition-appropriate oxygenation target and reassess oxygenation/ventilation',
       'Glucose: 4–10 mmol/L',
       'Temperature: normothermia',
       'Electrolytes: Na, Ca, Mg',
@@ -668,7 +708,26 @@ export function buildStatusEpilepticusProtocol(weight: number, ageCategory: stri
  *   - Cerebral oedema is the leading cause of death — monitor closely
  */
 export function buildDKAProtocol(weight: number, ageCategory: string): ConditionProtocol {
-  const w = weight || 10;
+  const hasVerifiedWeight = Number.isFinite(weight) && weight > 0;
+  if (!hasVerifiedWeight || ageCategory === 'adult') {
+    const reason = ageCategory === 'adult'
+      ? 'This paediatric DKA protocol cannot issue adult treatment calculations.'
+      : 'Enter a verified measured, last-known, or clearly labelled emergency-estimated dosing weight before calculating DKA treatment.';
+    return {
+      id: 'dka',
+      name: 'Diabetic Ketoacidosis',
+      shortName: 'DKA',
+      icon: '⚠️',
+      color: 'text-red-700',
+      bgColor: 'bg-red-50',
+      triggerFindings: ['hyperglycaemia', 'ketones', 'acidosis', 'altered_consciousness'],
+      steps: [{ id: 'dka_prerequisite', phase: 'Prerequisite', action: reason, safetyWarning: 'Do not use a hidden default weight or calculate fluid, insulin, potassium, or cerebral-oedema treatment until the dosing context is confirmed.', status: 'pending' }],
+      monitoringTargets: ['Glucose, ketones, pH/bicarbonate, potassium, neurological status, fluid balance, perfusion, and ECG'],
+      keyPitfalls: ['Do not apply paediatric calculations to adults', 'Do not use a hidden default weight', 'Do not give insulin before checking potassium and the fluid/timing prerequisites'],
+      references: ['Current age- and setting-specific DKA protocol required'],
+    };
+  }
+  const w = weight;
 
   // Fluid calculations
   const maintenanceMlHr = round1(w <= 10 ? 100 * w / 24 : w <= 20 ? (1000 + 50 * (w - 10)) / 24 : (1500 + 20 * (w - 20)) / 24);
@@ -722,7 +781,7 @@ export function buildDKAProtocol(weight: number, ageCategory: string): Condition
           dose: '10 mL/kg IV over 30–60 min',
           calculated: `${mlKg(10, w, 500)} mL IV over 30–60 min`,
           route: 'IV',
-          notes: 'Repeat if still shocked. Maximum 20 mL/kg total before reassessing. Do NOT use Ringer\'s Lactate in DKA.',
+          notes: 'Use only when haemodynamically compromised and reassess after each aliquot. Do not use a universal cumulative volume; follow the selected DKA fluid protocol and monitor for cerebral oedema.',
           maxDose: '500 mL',
         },
       ],
@@ -776,7 +835,7 @@ export function buildDKAProtocol(weight: number, ageCategory: string): Condition
         {
           drug: 'Soluble Insulin (Actrapid / Regular Insulin)',
           dose: '0.05–0.1 units/kg/hour IV infusion',
-          calculated: `${round1(0.05 * w)} – ${round1(0.1 * w)} units/hour IV infusion`,
+          calculated: w > 0 ? `${round1(0.05 * w)} – ${round1(0.1 * w)} units/hour IV infusion` : 'Enter a verified dosing weight before calculating the infusion rate',
           route: 'IV infusion',
           notes: 'Start at 0.05 units/kg/h in mild/moderate DKA. Use 0.1 units/kg/h in severe DKA. Do NOT give IV bolus insulin.',
         },
@@ -930,10 +989,25 @@ export function getProtocolProgress(
 // ─── 7.1  Neonatal Resuscitation Protocol (NRP 8th Ed / AHA 2020) ────────────
 
 function buildNRPProtocol(weight: number, _ageCategory: string): ConditionProtocol {
-  const w = weight > 0 ? weight : 3; // default 3 kg for neonate
-  const epiDose = roundDose(0.01 * w * 1000, 1000); // 0.01 mg/kg = 0.1 mL/kg of 1:10000 → mcg
-  const epiMl = round1(0.1 * w);                    // 0.1 mL/kg of 1:10000 epinephrine
-  const volumeBolusML = round1(10 * w);              // 10 mL/kg NS for volume
+  if (!Number.isFinite(weight) || weight <= 0) {
+    return {
+      id: 'nrp',
+      name: 'Neonatal Resuscitation (NRP)',
+      shortName: 'NRP',
+      icon: '👶',
+      color: 'text-pink-700',
+      bgColor: 'bg-pink-50',
+      triggerFindings: ['apnea', 'bradycardia', 'cyanosis', 'poor_tone'],
+      steps: [{ id: 'nrp_prerequisite', phase: 'Prerequisite', action: 'Enter a verified birth/dosing weight before calculating neonatal medication, airway, or volume details.', safetyWarning: 'Do not use a hidden default neonatal weight. Continue immediate NRP assessment and ventilation while the team confirms the dosing weight.', status: 'pending' }],
+      monitoringTargets: ['Effective ventilation, chest rise, HR response, temperature, oxygen saturation targets, and glucose after stabilisation'],
+      keyPitfalls: ['Do not use a hidden default weight', 'Do not delay effective ventilation while calculating a dose', 'Confirm concentration and route before epinephrine'],
+      references: ['Current neonatal resuscitation protocol required'],
+    };
+  }
+  const w = weight;
+  const epiDose = roundDose(0.01 * w * 1000, 1000);
+  const epiMl = round1(0.1 * w);
+  const volumeBolusML = round1(10 * w);
 
   return {
     id: 'nrp',
@@ -1062,7 +1136,7 @@ function buildNRPProtocol(weight: number, _ageCategory: string): ConditionProtoc
             dose: '10 mL/kg IV/IO',
             calculated: `${volumeBolusML} mL IV/IO over 5–10 min`,
             route: 'IV/IO',
-            notes: 'O-negative blood if haemorrhagic shock. Avoid albumin as first-line.',
+            notes: 'If haemorrhagic shock is suspected, use the local neonatal blood/component protocol with compatibility, warming, monitoring, and senior oversight; do not assume O-negative availability or use a universal product.',
           },
         ],
         status: 'pending',
@@ -1081,14 +1155,11 @@ function buildNRPProtocol(weight: number, _ageCategory: string): ConditionProtoc
 // ─── 7.2a  Anaphylaxis (WAO / RCUK / AHA PALS 2020) ─────────────────────────
 
 function buildAnaphylaxisProtocol(weight: number, _ageCategory: string): ConditionProtocol {
-  const w = weight > 0 ? weight : 20;
-  const epiIMDose = roundDose(0.01 * w, 0.5);       // 0.01 mg/kg IM, max 0.5 mg
-  const epiIVDose = roundDose(0.001 * w * 1000, 500); // 1 mcg/kg IV, max 500 mcg
-  const epiIVMl = round1(0.001 * w);                 // mL of 1:1000 for IV (diluted)
-  const chlorphenamineDose = w < 6 ? 2.5 : w < 12 ? 5 : w < 18 ? 10 : 10;
-  const hydrocortisoneDose = w < 6 ? 25 : w < 12 ? 50 : w < 18 ? 100 : 200;
-  const salineBolus = round1(10 * w);
-  const salbutamolPuffs = w < 20 ? 4 : 8;
+  const w = weight > 0 ? weight : 0;
+  const epiIMDose = w > 0 ? roundDose(0.01 * w, 0.5) : 0;
+  const epiIVDose = w > 0 ? roundDose(0.001 * w * 1000, 500) : 0;
+  const epiIVMl = w > 0 ? round1(0.001 * w) : 0;
+  const weightRequired = w > 0 ? `for ${w} kg` : 'after a verified dosing weight is entered';
 
   return {
     id: 'anaphylaxis',
@@ -1100,7 +1171,7 @@ function buildAnaphylaxisProtocol(weight: number, _ageCategory: string): Conditi
     triggerFindings: ['urticaria', 'angioedema', 'stridor', 'wheeze', 'hypotension', 'collapse'],
     monitoringTargets: [
       'HR, BP, SpO₂ every 5 min until stable',
-      'Observe minimum 4–6 hours after epinephrine (12 h if severe/biphasic risk)',
+      'Use risk-stratified observation and disposition after epinephrine, based on severity, treatment response, recurrence risk, comorbidity, and local policy',
       'SpO₂ ≥ 90% (WHO severe illness); titrate toward 90–94% when feasible',
       'Systolic BP > 70 + (2 × age in years) mmHg',
       'Resolution of urticaria, angioedema, and bronchospasm',
@@ -1108,7 +1179,7 @@ function buildAnaphylaxisProtocol(weight: number, _ageCategory: string): Conditi
     keyPitfalls: [
       'Epinephrine IM is ALWAYS first-line — do not delay for antihistamines or steroids',
       'Antihistamines and steroids do NOT treat airway compromise or cardiovascular collapse',
-      'Biphasic reaction occurs in 5–20% — observe for minimum 4–6 hours',
+      'Symptoms may recur; use risk-stratified observation and reassessment rather than a universal observation timer',
       'Supine position with legs elevated improves venous return in shock',
       'If patient is upright and has respiratory compromise, do NOT force to lie down',
       'IV epinephrine is for refractory anaphylaxis only — use with extreme caution',
@@ -1129,12 +1200,12 @@ function buildAnaphylaxisProtocol(weight: number, _ageCategory: string): Conditi
       {
         id: 'ana_epi_im',
         phase: 'Immediate (0–2 min)',
-        action: `Give Epinephrine IM (anterolateral mid-thigh): 0.01 mg/kg, max 0.5 mg. Repeat every 5–15 min if no improvement.`,
+        action: `Give Epinephrine IM (anterolateral mid-thigh): 0.01 mg/kg, max 0.5 mg, ${weightRequired}. Repeat every 5–15 min if no improvement.`,
         doses: [
           {
             drug: 'Epinephrine 1:1,000 (1 mg/mL)',
             dose: '0.01 mg/kg IM',
-            calculated: `${epiIMDose} mg IM (${round1(epiIMDose)} mL of 1:1,000) for ${w} kg`,
+            calculated: w > 0 ? `${epiIMDose} mg IM (${round1(epiIMDose)} mL of 1:1,000) for ${w} kg` : 'Enter verified dosing weight before calculating; no default weight is used',
             route: 'IM anterolateral thigh',
             maxDose: '0.5 mg',
             notes: 'Auto-injector: < 15 kg → 0.15 mg; ≥ 15 kg → 0.3 mg. Repeat every 5–15 min PRN.',
@@ -1153,7 +1224,7 @@ function buildAnaphylaxisProtocol(weight: number, _ageCategory: string): Conditi
       {
         id: 'ana_o2_airway',
         phase: 'Immediate (0–2 min)',
-        action: 'Give high-flow O₂ (15 L/min via non-rebreather mask). Prepare for airway management — angioedema can progress rapidly.',
+        action: 'Give age-, size-, and severity-appropriate oxygen support if hypoxaemic. Prepare for airway management — angioedema can progress rapidly.',
         safetyWarning: 'Early intubation if stridor, hoarse voice, or progressive angioedema. Airway can close within minutes.',
         status: 'pending',
       },
@@ -1161,12 +1232,12 @@ function buildAnaphylaxisProtocol(weight: number, _ageCategory: string): Conditi
       {
         id: 'ana_iv_fluids',
         phase: 'IV Access & Fluids (2–5 min)',
-        action: `Establish IV/IO access. If hypotensive or shocked: give Normal Saline ${salineBolus} mL (10 mL/kg) IV over 5–10 min. Repeat PRN.`,
+        action: 'Establish IV/IO access. If hypotensive or shocked: give a controlled isotonic crystalloid aliquot from the age- and local-protocol-specific shock pathway, with reassessment before repeating.',
         doses: [
           {
             drug: 'Normal Saline 0.9%',
-            dose: '10 mL/kg IV bolus',
-            calculated: `${salineBolus} mL IV over 5–10 min`,
+            dose: 'Protocol-specific controlled isotonic crystalloid aliquot',
+            calculated: 'No universal bolus is calculated here; verify age, perfusion, respiratory status, and local shock protocol before each aliquot.',
             route: 'IV/IO',
             notes: 'Repeat bolus if still hypotensive. Large volumes may be needed in distributive shock.',
           },
@@ -1177,14 +1248,14 @@ function buildAnaphylaxisProtocol(weight: number, _ageCategory: string): Conditi
       {
         id: 'ana_antihistamine',
         phase: 'Adjunct Medications (after epinephrine)',
-        action: `Give Chlorphenamine (H1 blocker) IV/IM: ${chlorphenamineDose} mg. Adjunct only — does NOT treat airway or haemodynamic compromise.`,
+        action: 'Consider an antihistamine only after stabilisation for persistent skin symptoms; verify age, route, sedation risk, and local formulary.',
         doses: [
           {
             drug: 'Chlorphenamine (Chlorpheniramine)',
-            dose: w < 6 ? '2.5 mg' : w < 12 ? '5 mg' : '10 mg',
-            calculated: `${chlorphenamineDose} mg IV/IM`,
-            route: 'IV slow push or IM',
-            notes: 'H1 blocker for urticaria/pruritus. Not life-saving. Give after epinephrine.',
+            dose: 'Protocol-specific adjunct dose',
+            calculated: 'No universal dose is calculated here.',
+            route: 'PO/IV/IM only if approved by local protocol',
+            notes: 'For persistent skin symptoms only; not life-saving and not a substitute for epinephrine or shock/airway care.',
           },
         ],
         status: 'pending',
@@ -1192,14 +1263,14 @@ function buildAnaphylaxisProtocol(weight: number, _ageCategory: string): Conditi
       {
         id: 'ana_steroid',
         phase: 'Adjunct Medications (after epinephrine)',
-        action: `Give Hydrocortisone IV: ${hydrocortisoneDose} mg. Prevents/reduces biphasic reaction. Not immediate-acting.`,
+        action: 'Do not give corticosteroids routinely for anaphylaxis or to prevent biphasic reactions.',
         doses: [
           {
             drug: 'Hydrocortisone',
-            dose: w < 6 ? '25 mg' : w < 12 ? '50 mg' : w < 18 ? '100 mg' : '200 mg',
-            calculated: `${hydrocortisoneDose} mg IV`,
-            route: 'IV slow push',
-            notes: 'Takes 4–6 hours to work. Does NOT replace epinephrine. Reduces risk of biphasic reaction.',
+            dose: 'Not routine; only for a separate governed indication',
+            calculated: 'No anaphylaxis steroid dose is calculated here.',
+            route: 'Only under the relevant age- and diagnosis-specific protocol',
+            notes: 'Not acute first-line treatment and not routine prevention of biphasic reactions.',
           },
         ],
         status: 'pending',
@@ -1207,12 +1278,12 @@ function buildAnaphylaxisProtocol(weight: number, _ageCategory: string): Conditi
       {
         id: 'ana_bronchospasm',
         phase: 'Adjunct Medications (after epinephrine)',
-        action: `If bronchospasm persists after epinephrine: give Salbutamol ${salbutamolPuffs} puffs via spacer (or 2.5 mg nebulised).`,
+        action: 'If bronchospasm persists after epinephrine: use the age-, device-, formulation-, and severity-specific bronchodilator protocol.',
         doses: [
           {
             drug: 'Salbutamol MDI + spacer',
-            dose: `${salbutamolPuffs} puffs (100 mcg/puff)`,
-            calculated: `${salbutamolPuffs} puffs via spacer OR 2.5 mg nebulised`,
+            dose: 'Protocol-specific bronchodilator dose',
+            calculated: 'No universal inhaled dose is calculated here.',
             route: 'Inhaled',
             notes: 'Adjunct for bronchospasm only. Epinephrine is still primary treatment.',
           },
@@ -1228,7 +1299,7 @@ function buildAnaphylaxisProtocol(weight: number, _ageCategory: string): Conditi
           {
             drug: 'Epinephrine IV infusion',
             dose: '0.1–1 mcg/kg/min',
-            calculated: `Start: ${round1(0.1 * w)} mcg/min IV infusion`,
+            calculated: w > 0 ? `Start: ${round1(0.1 * w)} mcg/min IV infusion after dilution and pump verification` : 'Enter verified dosing weight and use the monitored infusion protocol; no default weight is used',
             route: 'IV infusion (diluted)',
             maxDose: '10 mcg/kg/min',
             notes: 'Dilute: 0.3 mg/kg in 50 mL NS → 1 mL/hr = 0.1 mcg/kg/min. Requires cardiac monitoring.',
@@ -1245,7 +1316,7 @@ function buildAnaphylaxisProtocol(weight: number, _ageCategory: string): Conditi
           {
             drug: 'Glucagon',
             dose: '20–30 mcg/kg IV',
-            calculated: `${roundDose(0.025 * w, 1)} mg IV over 5 min`,
+            calculated: w > 0 ? `${roundDose(0.025 * w, 1)} mg IV over 5 min` : 'Enter verified dosing weight before calculating; no default weight is used',
             route: 'IV slow push',
             maxDose: '1 mg',
             notes: 'Bypasses beta-blockade. Causes vomiting — have suction ready.',
@@ -1257,9 +1328,9 @@ function buildAnaphylaxisProtocol(weight: number, _ageCategory: string): Conditi
       {
         id: 'ana_reassess',
         phase: 'Reassessment',
-        action: 'Reassess HR, BP, SpO₂, skin, and airway every 5 min. Observe minimum 4–6 hours after last epinephrine dose.',
+        action: 'Reassess HR, BP, SpO₂, skin, and airway frequently until stable, then use risk-stratified observation and disposition after the last epinephrine dose.',
         isReassessment: true,
-        rationale: 'Biphasic anaphylaxis occurs in 5–20% of cases, typically within 8 hours. High-risk patients (severe initial reaction, unknown trigger) observe 12–24 hours.',
+        rationale: 'Recurrence risk varies. Base observation and disposition on severity, treatment response, number/timing of epinephrine doses, comorbidity, access to care, and local policy.',
         status: 'pending',
       },
       {
@@ -1275,8 +1346,29 @@ function buildAnaphylaxisProtocol(weight: number, _ageCategory: string): Conditi
 // ─── 7.2b  Severe Asthma / Status Asthmaticus (GINA 2023 / BTS / AHA PALS) ──
 
 function buildSevereAsthmaProtocol(weight: number, ageCategory: string): ConditionProtocol {
-  const w = weight > 0 ? weight : 20;
-  const isInfant = ageCategory === 'infant' || ageCategory === 'neonate';
+  const hasVerifiedWeight = Number.isFinite(weight) && weight > 0;
+  if (!hasVerifiedWeight || ageCategory === 'adult' || ageCategory === 'neonate') {
+    const reason = ageCategory === 'adult'
+      ? 'This paediatric severe-asthma protocol cannot issue adult treatment calculations.'
+      : ageCategory === 'neonate'
+        ? 'Do not assume asthma in a neonate; use the neonatal respiratory differential and neonatal resuscitation protocol.'
+        : 'Enter a verified measured, last-known, or clearly labelled emergency-estimated dosing weight before calculating asthma treatment.';
+    return {
+      id: 'severe_asthma',
+      name: 'Severe Asthma / Status Asthmaticus',
+      shortName: 'Severe Asthma',
+      icon: '⚠️',
+      color: 'text-red-700',
+      bgColor: 'bg-red-50',
+      triggerFindings: ['wheeze', 'increased_wob', 'tachypnoea', 'hypoxia', 'silent_chest'],
+      steps: [{ id: 'asthma_prerequisite', phase: 'Prerequisite', action: reason, safetyWarning: 'Confirm age, diagnosis, weight, device, formulation, and local protocol before using a dose calculation.', status: 'pending' }],
+      monitoringTargets: ['Work of breathing, oxygenation/ventilation, air entry, wheeze or silent chest, HR, potassium when indicated, and response after each intervention'],
+      keyPitfalls: ['Do not apply paediatric calculations to adults', 'Do not use a hidden default weight', 'Do not mistake a silent chest for improvement'],
+      references: ['Current age- and setting-specific asthma protocol required'],
+    };
+  }
+  const w = weight;
+  const isInfant = ageCategory === 'infant';
   const salbutamolNebDose = w < 20 ? 2.5 : 5;
   const salbutamolPuffs = w < 20 ? 4 : 8;
   const ipratropiumNebDose = w < 20 ? 0.25 : 0.5;
@@ -1322,13 +1414,13 @@ function buildSevereAsthmaProtocol(weight: number, ageCategory: string): Conditi
       {
         id: 'asthma_o2',
         phase: 'Immediate (0–5 min)',
-        action: `Give supplemental O₂ to maintain SpO₂ ≥90% (titrate toward 90–94%). High-flow via NRB if SpO₂ <90%.`,
+        action: 'Give age-, size-, and severity-appropriate oxygen support if hypoxaemic and titrate to the selected clinical target. Escalate ventilation support if effort is failing.',
         status: 'pending',
       },
       {
         id: 'asthma_salbutamol_neb',
         phase: 'Immediate (0–5 min)',
-        action: `Give Salbutamol nebulised: ${salbutamolNebDose} mg (2.5 mg if < 20 kg). Drive with O₂ at 6–8 L/min. Repeat every 20 min × 3 in first hour if severe.`,
+        action: `Give the age-, device-, and formulation-appropriate salbutamol nebulised dose (${salbutamolNebDose} mg band shown for this paediatric protocol). Confirm delivery flow and repeat only at the protocol checkpoint with reassessment.`,
         doses: [
           {
             drug: 'Salbutamol (Albuterol) nebulised',
@@ -1343,7 +1435,7 @@ function buildSevereAsthmaProtocol(weight: number, ageCategory: string): Conditi
       {
         id: 'asthma_ipratropium',
         phase: 'Immediate (0–5 min)',
-        action: `Add Ipratropium bromide nebulised: ${ipratropiumNebDose} mg. Give with first 3 salbutamol doses in severe/life-threatening asthma.`,
+        action: `If severe/life-threatening bronchospasm is confirmed, add the age- and formulation-appropriate ipratropium dose (${ipratropiumNebDose} mg band shown for this paediatric protocol) with the initial bronchodilator treatments.`,
         doses: [
           {
             drug: 'Ipratropium bromide',
@@ -1442,7 +1534,7 @@ function buildSevereAsthmaProtocol(weight: number, ageCategory: string): Conditi
         id: 'asthma_intubation',
         phase: 'Intubation (life-threatening, impending respiratory failure)',
         action: 'Indications: exhaustion, rising CO₂ (> 45 mmHg), SpO₂ < 90% despite max O₂, altered consciousness, respiratory arrest.',
-        safetyWarning: `RSI: Ketamine ${roundDose(1.5 * w, 200)} mg IV (1.5 mg/kg — bronchodilator) + Rocuronium ${roundDose(1.2 * w, 200)} mg IV (1.2 mg/kg). Avoid succinylcholine if possible. Post-intubation: long expiratory time (I:E 1:3), low RR (10–12/min), permissive hypercapnia (CO₂ 45–55 acceptable).`,
+        safetyWarning: 'RSI and post-intubation ventilation are expert-led only. Use the age-, weight-, concentration-, airway-, and local-protocol-specific medication and ventilation plan. Confirm tube placement and avoid dynamic hyperinflation; do not use a generic drug-dose shortcut.',
         status: 'pending',
       },
       // ── Final Reassessment ───────────────────────────────────────────────
@@ -1471,6 +1563,22 @@ export function buildExtendedProtocol(
   const validation = validateResusWeight(weight);
   if (!validation.valid) {
     throw new RangeError(validation.message);
+  }
+
+  if (ageCategory === 'adult' && id !== 'anaphylaxis') {
+    return {
+      id,
+      name: 'Age-specific protocol required',
+      shortName: 'Adult protocol required',
+      icon: '⚠️',
+      color: 'text-red-700',
+      bgColor: 'bg-red-50',
+      triggerFindings: [],
+      steps: [{ id: 'adult_protocol_required', phase: 'Safety gate', action: `The selected ${id.replaceAll('_', ' ')} pathway contains paediatric or context-specific guidance and cannot issue an adult dose here. Use the governed adult protocol or senior clinical review.`, safetyWarning: 'Do not apply a paediatric fellowship dose to an adult patient.', status: 'pending' }],
+      monitoringTargets: ['Use the adult clinical pathway appropriate to the diagnosis and local capability'],
+      keyPitfalls: ['Do not apply paediatric calculations to adults', 'Do not use an ungoverned substitute dose'],
+      references: ['Governed adult protocol required'],
+    };
   }
 
   switch (id) {

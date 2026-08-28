@@ -174,7 +174,7 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       {
         id: "airway-oxygen",
         label: "Provide High-Flow Oxygen",
-        description: "Non-rebreather mask or bag-mask ventilation",
+        description: "Provide age-, size-, and severity-appropriate oxygen/ventilatory support; titrate to the selected target and reassess ventilation",
         priority: 4,
         category: "required"
       }
@@ -286,7 +286,7 @@ export const PALS_PRIORITY_SCENARIOS: Record<ClinicalPhase, PriorityOrderingChal
       {
         id: "circ-fluid",
         label: "Administer Fluid Bolus",
-        description: "20 mL/kg normal saline or Ringer's lactate over 15 min",
+        description: "Use an age-, perfusion-, and setting-appropriate crystalloid aliquot (often 10–20 mL/kg when indicated); reassess perfusion, lungs, liver size, and work of breathing before further fluid",
         priority: 6,
         category: "required"
       }

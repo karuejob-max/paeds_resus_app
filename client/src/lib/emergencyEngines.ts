@@ -26,6 +26,8 @@ export interface AssessmentFindings {
   // Breathing
   respiratoryRate?: number;
   spO2?: number;
+  /** Selected by the age/diagnosis pathway; generic engines must not invent a target. */
+  oxygenTarget?: number;
   workOfBreathing?: 'normal' | 'increased' | 'severe';
   breathSounds?: 'clear' | 'decreased' | 'absent';
   grunting?: boolean;
@@ -217,7 +219,7 @@ export const createRespiratoryFailureEngine = (weight: number, age: { years: num
         assessment.retractions ||
         assessment.nasal_flare;
 
-      const hypoxemia = !!(assessment.spO2 && assessment.spO2 < 90);
+      const hypoxemia = typeof assessment.oxygenTarget === 'number' && typeof assessment.spO2 === 'number' && Number.isFinite(assessment.spO2) && assessment.spO2 < assessment.oxygenTarget;
 
       return inadequateBreathing || hypoxemia;
     },
@@ -226,14 +228,14 @@ export const createRespiratoryFailureEngine = (weight: number, age: { years: num
       {
         id: 'resp-1-oxygen',
         sequence: 1,
-        title: 'Apply High-Flow Oxygen',
-        description: 'Apply oxygen via non-rebreather mask at 10-15 L/min to achieve SpO2 >94%',
-        rationale: 'Hypoxemia is immediately life-threatening. Oxygen is first-line intervention.',
-        expectedOutcome: 'SpO2 >94%, improved oxygenation',
+        title: 'Provide Age- and Diagnosis-Appropriate Oxygen/Support',
+        description: 'Use an age-, size-, severity-, and diagnosis-appropriate interface and flow. Titrate to the selected target and reassess ventilation, work of breathing, and perfusion.',
+        rationale: 'Support hypoxaemia or respiratory failure according to the selected clinical target; do not use a universal flow rate or saturation target.',
+        expectedOutcome: 'SpO2 at the selected target with improved ventilation and perfusion',
         urgency: 'critical',
         phase: 'breathing',
         timeframe: 'Immediate',
-        monitoring: ['SpO2 (target >94%)', 'Respiratory effort', 'Color'],
+        monitoring: ['SpO2 (selected target)', 'Respiratory effort', 'Ventilation/mental status', 'Color', 'Perfusion'],
       },
       {
         id: 'resp-2-position',

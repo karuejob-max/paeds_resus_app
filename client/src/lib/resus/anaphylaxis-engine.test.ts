@@ -123,23 +123,17 @@ describe('Anaphylaxis Engine - Epinephrine IM Dosing', () => {
 });
 
 describe('Anaphylaxis Engine - Epinephrine IV Dosing', () => {
-  it('should calculate correct epinephrine IV bolus for 20 kg child', () => {
+  it('must not expose a routine IV epinephrine bolus', () => {
     const dose = calculateEpinephrineIvDose(20);
-    expect(dose.bolus.dose).toBe(0.2); // 0.01 mg/kg * 20 = 0.2 mg
-    expect(dose.bolus.concentration).toBe('1:10,000 (0.1 mg/mL)');
-    expect(dose.bolus.volume).toBeCloseTo(2, 1); // 0.2 mg / 0.1 mg/mL = 2 mL
+    expect(dose.bolus).toBeNull();
+    expect(dose.indication).toContain('never give a routine IV epinephrine bolus');
   });
 
-  it('should cap epinephrine IV bolus at 0.5 mg', () => {
-    const dose = calculateEpinephrineIvDose(60);
-    expect(dose.bolus.dose).toBe(0.5);
-  });
-
-  it('should provide infusion guidance', () => {
+  it('should provide only expert-monitored infusion guidance', () => {
     const dose = calculateEpinephrineIvDose(20);
-    expect(dose.infusion.concentration).toBe('1:10,000 (0.1 mg/mL)');
+    expect(dose.infusion.concentration).toContain('locally approved dilution');
     expect(dose.infusion.initialRate).toBe(0.1);
-    expect(dose.infusion.rateUnit).toBe('mL/kg/min');
+    expect(dose.infusion.rateUnit).toBe('mcg/kg/min (expert titration)');
   });
 });
 
@@ -361,7 +355,7 @@ describe('Anaphylaxis Engine - Clinical Recommendations', () => {
     };
 
     const rec = generateRecommendation(state as AnaphylaxisEngineState);
-    expect(rec).toContain('IV access');
+    expect(rec).toContain('IV/IO access');
     expect(rec).toContain('antihistamine');
   });
 
@@ -373,8 +367,8 @@ describe('Anaphylaxis Engine - Clinical Recommendations', () => {
     };
 
     const rec = generateRecommendation(state as AnaphylaxisEngineState);
-    expect(rec).toContain('4-8 hours');
-    expect(rec).toContain('biphasic');
+    expect(rec).toContain('risk-stratified observation');
+    expect(rec).toContain('recur');
   });
 
   it('should recommend allergy specialist referral for resolved anaphylaxis', () => {
@@ -385,6 +379,6 @@ describe('Anaphylaxis Engine - Clinical Recommendations', () => {
     };
 
     const rec = generateRecommendation(state as AnaphylaxisEngineState);
-    expect(rec).toContain('allergy specialist');
+    expect(rec).toContain('follow-up');
   });
 });

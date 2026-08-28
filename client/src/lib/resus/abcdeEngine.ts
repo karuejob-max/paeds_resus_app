@@ -80,11 +80,24 @@ export interface Threat {
   findings: string[];
 }
 
+export type DoseModel = 'per_kg' | 'fixed' | 'fixed_band' | 'range' | 'infusion_rate' | 'protocol_only';
+
+export interface DoseBand {
+  minWeightKg?: number;
+  maxWeightKg?: number;
+  dose: number;
+}
+
 export interface DoseInfo {
   drug: string;
+  /** Kept for backwards compatibility; fixed/fixed-band doses do not use this value. */
   dosePerKg: number;
   unit: string;
   route: string;
+  doseModel?: DoseModel;
+  doseValue?: number;
+  doseRange?: { min: number; max: number };
+  doseBands?: DoseBand[];
   maxDose?: number;
   concentration?: string;
   preparation?: string;
@@ -923,20 +936,60 @@ function uid(): string {
 }
 
 function makeDose(drug: string, dosePerKg: number, unit: string, route: string, opts?: Partial<DoseInfo>): DoseInfo {
-  return { drug, dosePerKg, unit, route, ...opts };
+  return { drug, dosePerKg, unit, route, doseModel: opts?.doseModel ?? 'per_kg', ...opts };
+}
+
+function makeFixedDose(drug: string, doseValue: number, unit: string, route: string, opts?: Partial<DoseInfo>): DoseInfo {
+  return { drug, dosePerKg: 0, unit, route, doseModel: 'fixed', doseValue, ...opts };
+}
+
+function makeFixedBandDose(drug: string, doseBands: DoseBand[], unit: string, route: string, opts?: Partial<DoseInfo>): DoseInfo {
+  return { drug, dosePerKg: 0, unit, route, doseModel: 'fixed_band', doseBands, ...opts };
+}
+
+function formatDoseAmount(amount: number): string {
+  return amount < 1 ? amount.toFixed(2) : amount < 10 ? amount.toFixed(1) : Math.round(amount).toString();
+}
+
+function selectDoseBand(dose: DoseInfo, weightKg: number | null): number | null {
+  if (!dose.doseBands?.length || !weightKg || weightKg <= 0) return null;
+  const match = dose.doseBands.find((band) =>
+    (band.minWeightKg === undefined || weightKg >= band.minWeightKg) &&
+    (band.maxWeightKg === undefined || weightKg < band.maxWeightKg),
+  );
+  return match?.dose ?? null;
 }
 
 /**
  * Calculate dose — ALWAYS shows drug name first.
+ * Dose semantics are explicit: fixed and fixed-band actions never multiply by weight.
  */
 function calcDose(dose: DoseInfo, weightKg: number | null): string {
+  if (dose.doseModel === 'fixed') {
+    const amount = dose.doseValue;
+    return amount === undefined
+      ? `${dose.drug}: follow local fixed-dose protocol ${dose.route}`
+      : `${dose.drug}: ${formatDoseAmount(amount)} ${dose.unit} ${dose.route}`;
+  }
+
+  if (dose.doseModel === 'fixed_band') {
+    const amount = selectDoseBand(dose, weightKg);
+    return amount === null
+      ? `${dose.drug}: use the approved weight-band dose ${dose.route}`
+      : `${dose.drug}: ${formatDoseAmount(amount)} ${dose.unit} ${dose.route} (fixed weight band)`;
+  }
+
+  if (dose.doseModel === 'protocol_only') {
+    return `${dose.drug}: follow the selected protocol ${dose.route}`;
+  }
+
   if (!weightKg || weightKg <= 0) {
     return `${dose.drug}: ${dose.dosePerKg} ${dose.unit}/kg ${dose.route}`;
   }
   let amount = dose.dosePerKg * weightKg;
-  if (dose.maxDose && amount > dose.maxDose) amount = dose.maxDose;
-  const rounded = amount < 1 ? amount.toFixed(2) : amount < 10 ? amount.toFixed(1) : Math.round(amount).toString();
-  const maxNote = dose.maxDose && dose.dosePerKg * weightKg >= dose.maxDose ? ' (MAX DOSE)' : '';
+  if (dose.maxDose !== undefined && amount > dose.maxDose) amount = dose.maxDose;
+  const rounded = formatDoseAmount(amount);
+  const maxNote = dose.maxDose !== undefined && dose.dosePerKg * weightKg >= dose.maxDose ? ' (MAX DOSE)' : '';
   return `${dose.drug}: ${rounded} ${dose.unit} ${dose.route}${maxNote}`;
 }
 
@@ -1064,7 +1117,7 @@ function makeBolusReassessmentChecks(session: ResusSession): ReassessmentCheck[]
 }
 
 // ─── Shock Escalation Ladder ────────────────────────────────
-// Protocol: Epi → Norepi → Hydrocortisone → Check Ca²⁺ → Milrinone/Vasopressin
+// Generic engine guard: do not prescribe a universal vasoactive sequence; use the selected age/context protocol and senior review.
 
 function makeShockEscalationLadder(session: ResusSession): ReassessmentCheck {
   return {
@@ -1076,25 +1129,22 @@ function makeShockEscalationLadder(session: ResusSession): ReassessmentCheck {
         label: 'COLD SHOCK — Cold extremities, weak pulses, prolonged CRT, narrow pulse pressure',
         value: 'cold_shock',
         action: 'escalate',
-        recommendation: 'Step 1: Start Epinephrine infusion. Epinephrine provides both inotropic and chronotropic support for myocardial dysfunction.',
-        rationale: 'Cold shock = low cardiac output state. Epinephrine increases contractility (β1) and heart rate. If still refractory → Step 2: Add Milrinone (inodilator for catecholamine-refractory cold shock). Step 3: Hydrocortisone for adrenal insufficiency. Step 4: Check ionized calcium.',
-        dose: makeDose('Epinephrine infusion', 0.1, 'mcg/kg', '/min IV', { preparation: 'Start at 0.1 mcg/kg/min. Titrate to MAP target. Range: 0.1-1 mcg/kg/min. If refractory → add Milrinone 0.25-0.75 mcg/kg/min.' }),
+        recommendation: 'Obtain senior/critical-care help and use the selected age-, context-, and haemodynamic-protocol-specific vasoactive plan. Do not delay basic resuscitation or monitoring while arranging escalation.',
+        rationale: 'Cold features suggest low cardiac output, but vasoactive choice, concentration, route, dose, monitoring, and targets are age-, diagnosis-, and capability-dependent. Reassess perfusion, rhythm, lungs, glucose, calcium, and fluid response before and after any infusion.',
       },
       {
         label: 'WARM SHOCK — Warm/flushed extremities, bounding pulses, flash CRT, wide pulse pressure',
         value: 'warm_shock',
         action: 'escalate',
-        recommendation: 'Step 1: Start Norepinephrine infusion. Norepinephrine provides vasoconstriction for vasodilatory shock.',
-        rationale: 'Warm shock = vasodilatory state with preserved cardiac output. Norepinephrine (α1 > β1) provides vasoconstriction. If refractory → Step 2: Add Vasopressin 0.0003-0.002 units/kg/min. Step 3: Hydrocortisone. Step 4: Check ionized calcium.',
-        dose: makeDose('Norepinephrine infusion', 0.1, 'mcg/kg', '/min IV', { preparation: 'Start at 0.1 mcg/kg/min. Titrate to MAP target. Range: 0.05-2 mcg/kg/min. If refractory → add Vasopressin.' }),
+        recommendation: 'Obtain senior/critical-care help and use the selected age-, context-, and haemodynamic-protocol-specific vasoactive plan. Do not assume norepinephrine, vasopressin, concentration, or access route is available.',
+        rationale: 'Warm features may suggest vasodilation, but vasoactive choice, concentration, route, dose, monitoring, and targets are age-, diagnosis-, and capability-dependent. Reassess perfusion, rhythm, lungs, glucose, calcium, and fluid response before and after any infusion.',
       },
       {
         label: 'UNCERTAIN — Cannot differentiate shock type',
         value: 'uncertain',
         action: 'escalate',
-        recommendation: 'Start Epinephrine as first-line vasopressor. It works for both cardiac dysfunction AND has some vasopressor effect. Reassess shock type after initiation.',
-        rationale: 'When shock type is unclear, Epinephrine is a reasonable first choice — universally available, provides both inotropic and vasopressor effects. Reassess after starting: if warm shock features emerge → add Norepinephrine.',
-        dose: makeDose('Epinephrine infusion', 0.1, 'mcg/kg', '/min IV', { preparation: 'Start at 0.1 mcg/kg/min. Reassess shock type. Add Norepinephrine if warm shock features emerge.' }),
+        recommendation: 'Do not choose a universal vasoactive drug from an uncertain phenotype. Obtain senior/critical-care help, continue immediate supportive care, and use the selected age-, context-, and capability-specific shock protocol.',
+        rationale: 'An uncertain shock phenotype requires further examination and monitoring. Vasoactive choice, concentration, route, dose, and target are age-, diagnosis-, and capability-dependent; reassess before and after any intervention.',
       },
     ]
   };
@@ -1110,8 +1160,8 @@ const threatRules: ThreatRule[] = [
     condition: (f) => f.catastrophic_hemorrhage === 'yes',
     interventions: (s) => [
       { id: uid(), action: 'APPLY DIRECT PRESSURE', detail: 'Apply firm, direct pressure to bleeding site. Use tourniquet if limb and pressure fails.', critical: true, status: 'pending' },
-      { id: uid(), action: 'ACTIVATE MASSIVE TRANSFUSION', detail: 'Call for O-negative blood / massive transfusion protocol if available.', critical: true, status: 'pending' },
-      { id: uid(), action: 'TRANEXAMIC ACID (TXA)', dose: makeDose('Tranexamic Acid (TXA)', 15, 'mg', 'IV over 10 min', { maxDose: 1000, notes: 'Give within 3 hours of injury' }), critical: true, status: 'pending' },
+      { id: uid(), action: 'ACTIVATE HAEMORRHAGE/TRANSFUSION PROTOCOL', detail: 'Activate the local age-, injury-, bleeding-, and capability-specific haemorrhage/transfusion protocol. Do not assume O-negative blood, a universal product ratio, or a universal threshold.', critical: true, status: 'pending' },
+      { id: uid(), action: 'CONSIDER TXA UNDER TRAUMA PROTOCOL', detail: 'Use TXA only when age-, weight-, timing-, injury-, contraindication-, and local haemorrhage-protocol criteria are met. Do not infer an adult regimen.', critical: true, status: 'pending' },
     ]
   },
 
@@ -1237,7 +1287,7 @@ const threatRules: ThreatRule[] = [
     severity: 'critical',
     condition: (f) => f.breathing_effort === 'absent',
     interventions: () => [
-      { id: uid(), action: 'BAG-VALVE-MASK VENTILATION', detail: 'Start BVM at 12-20 breaths/min. Ensure chest rise. Two-person technique preferred. E-C grip on mask.', critical: true, status: 'pending' },
+      { id: uid(), action: 'BAG-VALVE-MASK VENTILATION', detail: 'Start age- and context-appropriate assisted ventilation using the selected neonatal, paediatric, or adult protocol. Ensure chest rise and minimise excessive ventilation.', critical: true, status: 'pending' },
       { id: uid(), action: 'CHECK PULSE', detail: 'If no pulse → START CPR immediately. If pulse present → continue assisted ventilation.', critical: true, status: 'pending' },
     ]
   },
@@ -1248,7 +1298,7 @@ const threatRules: ThreatRule[] = [
     severity: 'urgent',
     condition: (f) => f.breathing_effort === 'deep_labored',
     interventions: () => [
-      { id: uid(), action: 'HIGH-FLOW OXYGEN', detail: 'Apply O2 via non-rebreather. This breathing pattern is COMPENSATORY for metabolic acidosis — the body is blowing off CO2.', critical: true, status: 'pending' },
+      { id: uid(), action: 'AGE-APPROPRIATE OXYGEN SUPPORT', detail: 'Use the appropriate oxygen device and target for the selected age/context protocol. This breathing pattern may be compensatory for metabolic acidosis; do not suppress it with unsafe ventilation.', critical: true, status: 'pending' },
       { id: uid(), action: 'DO NOT INTUBATE UNLESS FAILING', detail: '⚠️ CRITICAL: Deep labored breathing is compensatory. Intubation may WORSEN acidosis if ventilation rate drops below the patient\'s compensatory rate. Only intubate if respiratory failure is imminent.', critical: true, status: 'pending' },
       { id: uid(), action: 'IDENTIFY CAUSE — Differential Diagnosis', detail: 'Deep labored breathing = metabolic acidosis. DIFFERENTIALS:\n• DKA (check glucose + ketones)\n• Sepsis with lactic acidosis\n• Starvation ketones (poor feeding + ketones but normal/mildly elevated glucose)\n• Renal failure (check urea/creatinine)\n• Poisoning (salicylates, methanol, ethylene glycol)\n• Severe dehydration with lactic acidosis\n\n⚠️ Do NOT assume DKA — a septic child with poor feeding can have ketones + stress hyperglycemia.', status: 'pending' },
       { id: uid(), action: 'CHECK GLUCOSE, KETONES, LACTATE, VBG', detail: 'Urgent labs: blood glucose, urine/serum ketones, lactate, venous blood gas (pH, HCO3, BE). These differentiate the cause of metabolic acidosis.', status: 'pending' },
@@ -1261,9 +1311,9 @@ const threatRules: ThreatRule[] = [
     severity: 'urgent',
     condition: (f) => f.breathing_sounds === 'wheezing',
     interventions: (s) => [
-      { id: uid(), action: 'HIGH-FLOW OXYGEN', detail: `Apply high-flow O2 via non-rebreather mask. ${SPO2_TARGET_ASTHMA_DETAIL}`, critical: true, status: 'pending' },
-      { id: uid(), action: 'SALBUTAMOL NEBULIZER', dose: makeDose('Salbutamol', 2.5, 'mg', 'nebulized', { preparation: '2.5mg if <20kg, 5mg if ≥20kg. Can repeat every 20 min x3, then hourly.' }), critical: true, status: 'pending' },
-      { id: uid(), action: 'IPRATROPIUM BROMIDE', dose: makeDose('Ipratropium Bromide', 250, 'mcg', 'nebulized', { preparation: '250mcg if <20kg, 500mcg if ≥20kg. Add to salbutamol neb.' }), detail: 'Add to salbutamol nebulizer for moderate-severe wheeze.', status: 'pending' },
+      { id: uid(), action: 'AGE-APPROPRIATE OXYGEN SUPPORT', detail: `Use a titrated age-appropriate oxygen interface and target. ${SPO2_TARGET_ASTHMA_DETAIL}`, critical: true, status: 'pending' },
+      { id: uid(), action: 'SALBUTAMOL NEBULIZER', dose: makeFixedBandDose('Salbutamol', [{ maxWeightKg: 20, dose: 2.5 }, { minWeightKg: 20, dose: 5 }], 'mg', 'nebulized', { preparation: 'Fixed dose: 2.5 mg if <20 kg; 5 mg if ≥20 kg. Can repeat every 20 min x3, then hourly per selected asthma protocol.' }), critical: true, status: 'pending' },
+      { id: uid(), action: 'IPRATROPIUM BROMIDE', dose: makeFixedBandDose('Ipratropium Bromide', [{ maxWeightKg: 20, dose: 250 }, { minWeightKg: 20, dose: 500 }], 'mcg', 'nebulized', { preparation: 'Fixed dose: 250 micrograms if <20 kg; 500 micrograms if ≥20 kg. Add to salbutamol nebulizer for moderate-severe wheeze.' }), detail: 'Add to salbutamol nebulizer for moderate-severe wheeze.', status: 'pending' },
       { id: uid(), action: 'SYSTEMIC STEROIDS', dose: makeDose('Prednisolone', 1, 'mg', 'PO', { maxDose: 60, preparation: 'Or Dexamethasone 0.6mg/kg PO (max 16mg), or Methylprednisolone 2mg/kg IV (max 60mg)' }), status: 'pending' },
     ]
   },
@@ -1289,7 +1339,7 @@ const threatRules: ThreatRule[] = [
       return spo2 !== undefined && spo2 < 90;
     },
     interventions: () => [
-      { id: uid(), action: 'HIGH-FLOW OXYGEN', detail: `15L/min via non-rebreather mask. ${SPO2_TARGET_RESUS_DETAIL}`, critical: true, status: 'pending' },
+      { id: uid(), action: 'AGE-APPROPRIATE OXYGEN SUPPORT', detail: `Use an age-appropriate oxygen device and titrate to the selected resuscitation target. ${SPO2_TARGET_RESUS_DETAIL}`, critical: true, status: 'pending' },
       { id: uid(), action: 'ASSESS FOR TENSION PNEUMOTHORAX', detail: 'If unilateral absent breath sounds + tracheal deviation → needle decompression at 2nd intercostal space, midclavicular line.', status: 'pending' },
     ]
   },
@@ -1303,7 +1353,7 @@ const threatRules: ThreatRule[] = [
       return spo2 !== undefined && spo2 >= 90 && spo2 < 94;
     },
     interventions: () => [
-      { id: uid(), action: 'SUPPLEMENTAL OXYGEN', detail: `Start O2 via nasal cannula or simple face mask. ${SPO2_TARGET_RESUS_DETAIL}`, status: 'pending' },
+      { id: uid(), action: 'SUPPLEMENTAL OXYGEN', detail: `Start oxygen with an age-appropriate interface and titrate to the selected resuscitation target. ${SPO2_TARGET_RESUS_DETAIL}`, status: 'pending' },
     ]
   },
 
@@ -1513,7 +1563,7 @@ const threatRules: ThreatRule[] = [
     interventions: () => [
       { id: uid(), action: 'CHECK KETONES + LACTATE + VBG', detail: 'Urine ketones, serum ketones, lactate, and venous blood gas (pH, HCO3, BE). These differentiate DKA from other causes of hyperglycemia.', critical: true, status: 'pending' },
       { id: uid(), action: 'DIFFERENTIAL DIAGNOSIS', detail: '⚠️ Hyperglycemia does NOT automatically mean DKA. Consider:\n• DKA: Glucose >14 + ketones + acidosis (pH <7.3, HCO3 <15)\n• Stress hyperglycemia: Sepsis, trauma, or critical illness can cause hyperglycemia WITHOUT ketoacidosis\n• Starvation ketones + stress hyperglycemia: Septic child with poor feeding may have ketones + elevated glucose\n\nConfirm with ketones AND blood gas before starting DKA protocol.', status: 'pending' },
-      { id: uid(), action: 'DO NOT GIVE INSULIN YET', detail: '⚠️ Insulin is part of definitive DKA management, NOT primary survey. Stabilize ABCDE first. Use 10 mL/kg boluses only (NOT 20 mL/kg — risk of cerebral edema in DKA).', status: 'pending' },
+      { id: uid(), action: 'DO NOT START INSULIN UNTIL DKA IS CONFIRMED', detail: 'Insulin is part of definitive DKA management, not the primary survey. Confirm ketones and acidosis, correct shock with the selected age-/context-specific DKA protocol, check potassium, and use specialist reassessment to avoid cerebral injury.', status: 'pending' },
     ]
   },
   {
@@ -1573,13 +1623,11 @@ const threatRules: ThreatRule[] = [
         { id: uid(), action: 'SEVERE MALARIA (endemic area)', detail: 'If severe malaria suspected (altered consciousness, seizures, severe anaemia, acidosis): IV/IM artesunate 3 mg/kg (WHO) — not IV artemether. Check glucose in mmol/L (<3.3 treat).', status: 'pending' },
         {
           id: uid(),
-          action: isNeonate ? 'CEFOTAXIME (Neonate-safe)' : 'CEFTRIAXONE (High Dose)',
-          dose: isNeonate
-            ? makeDose('Cefotaxime', 50, 'mg', 'IV', { preparation: 'Preferred in neonates: avoids bilirubin displacement and renal toxicity risk.' })
-            : makeDose('Ceftriaxone', 100, 'mg', 'IV', { maxDose: 4000, preparation: '80–100 mg/kg/day (max 4 g/day). If meningitis as cause of sepsis — treat as meningitis; do not delay for LP.' }),
+          action: isNeonate ? 'NEONATAL EMPIRIC ANTIBIOTICS — USE LOCAL PROTOCOL' : 'EMPIRIC ANTIBIOTICS — USE AGE/CAUSE PROTOCOL',
+          dose: makeDose(isNeonate ? 'Neonatal empiric antibiotics' : 'Empiric antibiotics', 0, 'mg', 'IV/IO per protocol', { doseModel: 'protocol_only', preparation: isNeonate ? 'Use the neonatal sepsis protocol for agent, dose, interval, renal adjustment, and contraindications.' : 'Select agent, dose, interval, renal adjustment, and meningitis coverage from the age- and cause-specific local protocol. Do not delay time-critical treatment for cultures.' }),
           critical: true, status: 'pending'
         },
-        { id: uid(), action: 'ANTIPYRETIC', dose: makeDose('Paracetamol (Acetaminophen)', 15, 'mg', 'PO/IV/PR', { maxDose: 1000, frequency: 'Every 4-6 hours' }), status: 'pending' },
+        { id: uid(), action: 'ANTIPYRETIC — CHECK AGE/WEIGHT/CONTRAINDICATIONS', dose: makeDose('Paracetamol (acetaminophen)', 0, 'mg', 'PO/IV/PR per protocol', { doseModel: 'protocol_only', preparation: 'Use the age-, weight-, liver-, and formulation-specific local dosing protocol and check the cumulative daily dose.' }), status: 'pending' },
       ];
     }
   },
@@ -1594,7 +1642,7 @@ const threatRules: ThreatRule[] = [
       return [
         { id: uid(), action: 'AIRWAY — INHALATION INJURY', detail: 'Facial burns, singed nasal hairs, carbonaceous sputum, hoarse voice → early intubation. Airway oedema may progress over hours.', critical: true, status: 'pending' },
         { id: uid(), action: 'STOP BURNING PROCESS', detail: 'Remove clothing/jewellery. Cool with room-temperature water briefly — do not ice. Cover with clean dry dressing.', status: 'pending' },
-        { id: uid(), action: 'FLUID RESUSCITATION', dose: makeDose(fluid.name, 4, 'mL', 'IV × TBSA% × weight (Parkland estimate)', { preparation: `Titrate to urine output 0.5–1 mL/kg/hr (>1 if myoglobinuria). ${fluid.rationale}` }), critical: true, status: 'pending' },
+        { id: uid(), action: 'BURN FLUID RESUSCITATION — USE AGE/TBSA PROTOCOL', dose: makeDose('Burn resuscitation fluid', 0, 'mL', 'IV/IO per burn protocol', { doseModel: 'protocol_only', preparation: `Calculate using the age-, TBSA-, time-since-injury-, and burn-centre-specific protocol; include maintenance fluid for children and titrate to urine output. ${fluid.rationale}` }), critical: true, status: 'pending' },
         { id: uid(), action: 'ESCHAROTOMY IF NEEDED', detail: 'Circumferential full-thickness burns with compartment signs (pain out of proportion, paresthesias, pulselessness) → escharotomy — not elective.', status: 'pending' },
         { id: uid(), action: 'OXYGEN', detail: SPO2_TARGET_RESUS_DETAIL, status: 'pending' },
         { id: uid(), action: 'REFER TO BURN CENTRE', detail: '>10% partial-thickness, >5% full-thickness, face/hands/perineum, inhalation injury, circumferential burns.', status: 'pending' },
@@ -1611,7 +1659,7 @@ const threatRules: ThreatRule[] = [
       const fluid = getDefaultFluid(s);
       return [
         { id: uid(), action: 'EPINEPHRINE IM (FIRST LINE)', dose: makeDose('Epinephrine (1:1000)', 0.01, 'mL', 'IM anterolateral thigh', { maxDose: 0.5, preparation: '0.01 mg/kg = 0.01 mL/kg of 1:1000. Can repeat every 5-15 min.', frequency: 'Every 5-15 min if needed' }), critical: true, status: 'pending', timerSeconds: 300, reassessAfter: 'Reassess: Is anaphylaxis improving?' },
-        { id: uid(), action: 'HIGH-FLOW OXYGEN', detail: '15L/min via non-rebreather mask.', critical: true, status: 'pending' },
+        { id: uid(), action: 'AGE-APPROPRIATE OXYGEN SUPPORT', detail: `Use an age- and device-appropriate oxygen interface and titrate to the selected target. ${SPO2_TARGET_RESUS_DETAIL}`, critical: true, status: 'pending' },
         { id: uid(), action: 'FLUID BOLUS', dose: makeDose(fluid.name, 10, 'mL', 'IV/IO rapid bolus', { preparation: `For hypotension in anaphylaxis. ${fluid.rationale}` }), status: 'pending' },
         { id: uid(), action: 'REMOVE TRIGGER', detail: 'Stop infusion, remove allergen if identifiable.', status: 'pending' },
       ];
@@ -1634,11 +1682,11 @@ const threatRules: ThreatRule[] = [
           id: uid(),
           action: 'IMMEDIATE ANTIBIOTICS',
           dose: isNeonate
-            ? makeDose('Cefotaxime', 50, 'mg', 'IV', { preparation: 'Neonate: Cefotaxime preferred. Add Ampicillin 50mg/kg for Listeria coverage.' })
-            : makeDose('Ceftriaxone', 100, 'mg', 'IV', { maxDose: 4000, preparation: 'Meningitis dose. Give IMMEDIATELY. Do not delay for LP.' }),
+            ? makeDose('Neonatal meningitis antibiotics', 0, 'mg', 'IV/IO per protocol', { doseModel: 'protocol_only', preparation: 'Use the neonatal meningitis protocol for empiric coverage, doses, intervals, renal adjustment, and contraindications.' })
+            : makeDose('Meningitis antibiotics', 0, 'mg', 'IV/IO per protocol', { doseModel: 'protocol_only', preparation: 'Use the age-, cause-, renal-, and local-resistance-specific meningitis protocol. Give promptly; do not delay for LP.' }),
           critical: true, status: 'pending'
         },
-        { id: uid(), action: 'DEXAMETHASONE (before or with 1st antibiotic dose)', dose: makeDose('Dexamethasone', 0.15, 'mg', 'IV', { maxDose: 10, preparation: 'Give before or with first dose of antibiotics. Reduces neurological sequelae.' }), status: 'pending' },
+        ...(!isNeonate ? [{ id: uid(), action: 'DEXAMETHASONE — ONLY IF INDICATED BY MENINGITIS PROTOCOL', dose: makeDose('Dexamethasone', 0, 'mg', 'IV per protocol', { doseModel: 'protocol_only', preparation: 'Use only when indicated by the age-, pathogen-, and local-protocol-specific meningitis guidance.' }), status: 'pending' as const }] : []),
       ];
     }
   },
@@ -1710,19 +1758,19 @@ const safetyRules: SafetyRule[] = [
       const glucose = s.vitalSigns.glucose;
       return s.bolusCount >= 1 && glucose !== undefined && glucose > 14;
     },
-    message: '⚠️ FLUID BOLUSING WITH HYPERGLYCEMIA — Use 10 mL/kg boluses ONLY (not 20 mL/kg). Risk of cerebral edema from rapid osmolality changes.',
+    message: '⚠️ HYPERGLYCAEMIA WITH POSSIBLE DKA — Do not apply a generic bolus. Confirm ketones/acidosis and use the selected age-/context-specific DKA fluid protocol with cautious reassessment for cerebral injury and overload.',
     severity: 'danger',
   },
   {
     id: 'fluid_refractory',
     condition: (s) => s.fluidTracker.isFluidRefractory,
-    message: '🚨 FLUID-REFRACTORY SHOCK (≥60 mL/kg given) — START VASOPRESSOR SUPPORT. Follow shock escalation ladder: Epinephrine (cold shock) or Norepinephrine (warm shock).',
+    message: '🚨 FLUID-REFRACTORY SHOCK — This requires an explicit age-, diagnosis-, perfusion-, and protocol-based clinical disposition. Obtain senior/critical-care help and use the selected vasoactive pathway; do not infer it from volume alone.',
     severity: 'danger',
   },
   {
     id: 'large_total_volume',
     condition: (s) => s.patientWeight !== null && s.fluidTracker.totalVolumePerKg >= 40 && !s.fluidTracker.isFluidRefractory,
-    message: '⚠️ TOTAL BOLUS VOLUME ≥ 40 mL/kg — High risk of fluid overload. Strongly consider vasopressor support.',
+    message: '⚠️ HIGH CUMULATIVE FLUID VOLUME — Reassess perfusion, lungs, liver size, renal status, electrolytes, and shock phenotype. Use age-, diagnosis-, and setting-specific escalation; do not treat a volume threshold as an automatic vasopressor indication.',
     severity: 'danger',
   },
   {
@@ -1824,7 +1872,8 @@ export function updatePatientInfo(
     // Recalculate fluid tracker per-kg
     if (weight > 0) {
       next.fluidTracker.totalVolumePerKg = next.fluidTracker.totalVolumeMl / weight;
-      next.fluidTracker.isFluidRefractory = next.fluidTracker.totalVolumePerKg >= 60;
+      // Volume alone does not establish fluid-refractory shock across ages or diagnoses. Set this only from an explicit protocol/clinical disposition in a governed pathway.
+      next.fluidTracker.isFluidRefractory = false;
     }
   }
   if (age !== null && age !== next.patientAge) {
@@ -1960,6 +2009,12 @@ export function answerPrimarySurvey(
     next.derivedPerfusion = derivePerfusionState(next);
   }
 
+  // A confirmed absent pulse is a route-changing finding, not a generic C threat.
+  // Enter the canonical CPR-GPS branch immediately after preserving the finding event.
+  if (question.letter === 'C' && questionId === 'pulse_quality' && answer === 'absent') {
+    return triggerCardiacArrest(next);
+  }
+
   // Detect threats from accumulated findings
   const findingsMap: Record<string, string> = {};
   next.findings.forEach(f => { findingsMap[f.id] = f.description; });
@@ -2041,7 +2096,8 @@ export function completeIntervention(session: ResusSession, interventionId: stri
           next.totalBolusVolume += volumeMl;
           next.fluidTracker.totalVolumeMl += volumeMl;
           next.fluidTracker.totalVolumePerKg = next.fluidTracker.totalVolumeMl / next.patientWeight;
-          next.fluidTracker.isFluidRefractory = next.fluidTracker.totalVolumePerKg >= 60;
+          // Volume alone does not establish fluid-refractory shock across ages or diagnoses. Set this only from an explicit protocol/clinical disposition in a governed pathway.
+          next.fluidTracker.isFluidRefractory = false;
           next.fluidTracker.bolusHistory.push({
             timestamp: Date.now(),
             volumeMl,
@@ -2522,7 +2578,7 @@ export function getSuggestedDiagnoses(session: ResusSession): DiagnosisSuggestio
       diagnosis: 'Sepsis / Septic Shock',
       confidence: 'high',
       supportingFindings: [`Temp ${vs.temp}°C`, `Perfusion: ${perfusion}`, ...(f.rash === 'petechiae' ? ['Petechiae/Purpura'] : []), ...(vs.lactate && vs.lactate > 2 ? [`Lactate ${vs.lactate} mmol/L`] : [])],
-      protocol: 'Sepsis Bundle: Cultures → Antibiotics → 10 mL/kg balanced crystalloid boluses → Vasopressors if refractory',
+      protocol: 'Sepsis pathway: cultures when feasible without delaying antibiotics → age-, perfusion-, and setting-specific antimicrobial treatment → controlled fluid aliquots only when indicated with reassessment → vasoactive escalation if refractory.',
     });
   }
 
@@ -2532,7 +2588,7 @@ export function getSuggestedDiagnoses(session: ResusSession): DiagnosisSuggestio
       diagnosis: 'Anaphylaxis',
       confidence: 'high',
       supportingFindings: ['Urticaria', ...(f.breathing_effort === 'labored' ? ['Respiratory distress'] : []), ...(perfusion && perfusion !== 'normal' ? ['Shock'] : [])],
-      protocol: 'Anaphylaxis: Epinephrine IM → O2 → Fluids → Remove trigger',
+      protocol: 'Anaphylaxis: remove trigger/call for help → epinephrine IM immediately → age-, size-, and severity-appropriate oxygen/ventilation support → controlled fluid only for shock with reassessment → expert escalation if refractory.',
     });
   }
 
@@ -2542,7 +2598,7 @@ export function getSuggestedDiagnoses(session: ResusSession): DiagnosisSuggestio
       diagnosis: 'Meningitis / Meningococcal Sepsis',
       confidence: 'high',
       supportingFindings: [`Temp ${vs.temp}°C`, 'Altered consciousness', 'Petechiae/Purpura'],
-      protocol: 'IMMEDIATE: Ceftriaxone 100mg/kg IV + Dexamethasone 0.15mg/kg IV. Do NOT delay for LP.',
+      protocol: 'Urgent meningitis/meningococcal-sepsis pathway: stabilise ABCDE, start age-, neonatal-status-, local-resistance-, and formulary-specific antimicrobials promptly; do not delay treatment for LP when unstable. Steroid use requires a separate governed indication/protocol.',
     });
   }
 
@@ -2552,7 +2608,7 @@ export function getSuggestedDiagnoses(session: ResusSession): DiagnosisSuggestio
       diagnosis: 'Status Epilepticus',
       confidence: 'high',
       supportingFindings: ['Active seizure'],
-      protocol: 'Benzodiazepine → Repeat at 5 min → Phenytoin/Levetiracetam if refractory',
+      protocol: 'Status-seizure pathway: time the seizure, support airway/breathing and glucose, then use one age-, route-, and formulary-appropriate first-line anticonvulsant with reassessment; escalate to the governed second-line protocol if refractory. Neonates require a neonatal-specific pathway.',
     });
   }
 
@@ -2562,7 +2618,7 @@ export function getSuggestedDiagnoses(session: ResusSession): DiagnosisSuggestio
       diagnosis: 'Raised Intracranial Pressure',
       confidence: 'moderate',
       supportingFindings: [f.pupils === 'unequal' ? 'Unequal pupils' : 'Fixed dilated pupils'],
-      protocol: 'Head up 30° + Hypertonic saline 3% 5mL/kg IV + Urgent neurosurgery consult',
+      protocol: 'Possible raised intracranial pressure: protect airway/oxygenation and perfusion, elevate head if appropriate, prevent secondary injury, obtain urgent senior/neurosurgical review, and use the age-, weight-, concentration-, and local-protocol-specific hyperosmolar treatment only when indicated.',
     });
   }
 

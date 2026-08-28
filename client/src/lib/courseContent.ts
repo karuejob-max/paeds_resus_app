@@ -2707,7 +2707,7 @@ CO binds haemoglobin with 250× affinity of O₂. SpO₂ pulse oximetry is UNREL
 | 20–40% | Syncope, seizures |
 | >40% | Coma, cardiovascular collapse |
 
-**Treatment:** 100% O₂ via tight-fitting non-rebreather mask. Half-life of COHb:
+**Treatment:** For suspected clinically significant carbon-monoxide exposure, give high-concentration oxygen with an age-/size-appropriate interface and support ventilation/airway as required under the toxicology protocol. This is an exposure-specific treatment, not a generic hypoxaemia instruction. Half-life of COHb:
 - Room air: 5–6 hours
 - 100% O₂: 60–90 minutes
 - Hyperbaric O₂: 20–30 minutes
@@ -2715,7 +2715,7 @@ CO binds haemoglobin with 250× affinity of O₂. SpO₂ pulse oximetry is UNREL
 ### Cyanide Poisoning
 From burning plastics/synthetics. Causes histotoxic hypoxia (cells cannot use O₂).
 - Suspect: persistent metabolic acidosis despite adequate resuscitation
-- Treatment: Hydroxocobalamin 70 mg/kg IV (binds cyanide → cyanocobalamin, renally excreted)
+- Treatment: Consider hydroxocobalamin only for suspected cyanide toxicity under toxicology/senior protocol; use the age- and weight-specific dose with the protocol maximum (commonly 70 mg/kg IV, maximum 5 g per dose) and monitor response.
 
 ### Ventilation Strategy for Inhalation Injury
 - Low tidal volume ventilation (6 mL/kg IBW)

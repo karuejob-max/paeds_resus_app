@@ -43,6 +43,9 @@ export interface DoseCalc {
   drug: string;
   dosePerKg: number;
   unit: string;
+  doseModel?: 'per_kg' | 'fixed' | 'fixed_band' | 'protocol_only';
+  doseValue?: number;
+  doseBands?: { minWeightKg?: number; maxWeightKg?: number; dose: number }[];
   maxDose?: number;
   route: string;
   concentration?: string;
@@ -348,6 +351,33 @@ export function calculateDose(dose: DoseCalc, weightKg: number | null): {
   calculatedDose: string;
   preparation: string;
 } {
+  if (dose.doseModel === 'protocol_only') {
+    return {
+      calculatedDose: `${dose.drug}: follow the selected age-, context-, and indication-specific protocol ${dose.route}`,
+      preparation: dose.preparation || '',
+    };
+  }
+
+  if (dose.doseModel === 'fixed' && dose.doseValue !== undefined) {
+    return {
+      calculatedDose: `${dose.drug}: ${dose.doseValue} ${dose.unit} ${dose.route}`,
+      preparation: dose.preparation || '',
+    };
+  }
+
+  if (dose.doseModel === 'fixed_band') {
+    const band = weightKg && dose.doseBands?.find((candidate) =>
+      (candidate.minWeightKg === undefined || weightKg >= candidate.minWeightKg) &&
+      (candidate.maxWeightKg === undefined || weightKg < candidate.maxWeightKg)
+    );
+    return {
+      calculatedDose: band
+        ? `${dose.drug}: ${band.dose} ${dose.unit} ${dose.route} (approved weight band)`
+        : `${dose.drug}: use the approved weight-band dose ${dose.route}`,
+      preparation: dose.preparation || '',
+    };
+  }
+
   if (!weightKg) {
     return {
       calculatedDose: `${dose.dosePerKg} ${dose.unit}/kg ${dose.route}`,

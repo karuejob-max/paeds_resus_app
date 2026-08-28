@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  answerPrimarySurvey,
   createSession,
   getBlockingPrimarySurveyInterventions,
   markInterventionUnavailable,
   resolveBlsAssessment,
   returnToPrimarySurvey,
   updateResusSetting,
+  primarySurveyQuestions,
   type Threat,
 } from "./abcdeEngine";
 import { resolveLifeSupportPack } from "./cpr-pack-resolver";
@@ -15,7 +17,17 @@ describe("ResusGPS synthetic/manikin hardening matrix", () => {
   it("routes age and care context without silently selecting NRP", () => {
     expect(resolveLifeSupportPack(0, false, "hospital").pack).toBe("PALS");
     expect(resolveLifeSupportPack(0, false, "delivery_room").pack).toBe("NRP");
+    expect(() => resolveLifeSupportPack(24, false, "delivery_room")).toThrow(/newborn under 1 month/i);
     expect(resolveLifeSupportPack(216, false, "hospital").pack).toBe("ACLS");
+  });
+
+  it("reroutes a confirmed absent pulse into the cardiac-arrest branch", () => {
+    const session = createSession(20, "5 years");
+    const circulationQuestion = primarySurveyQuestions.C.find((question) => question.id === "pulse_quality");
+    if (!circulationQuestion) throw new Error("pulse_quality question missing from canonical C survey");
+    const next = answerPrimarySurvey(session, "pulse_quality", "absent", circulationQuestion);
+    expect(next.phase).toBe("CARDIAC_ARREST");
+    expect(next.events.some((event) => event.type === "cardiac_arrest_start")).toBe(true);
   });
 
   it("keeps the arrest branch distinct from non-arrest routing at the BLS gate", () => {

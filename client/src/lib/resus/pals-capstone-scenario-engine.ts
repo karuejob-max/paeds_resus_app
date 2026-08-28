@@ -102,7 +102,7 @@ const SCENARIO_FINDINGS: Record<ResusGpsPage, ScenarioFinding> = {
     },
     instruction: 'The child is in shock. Assess the type of shock and initiate fluid resuscitation.',
     expectedActions: ['assess_shock_type', 'establish_iv_access', 'administer_fluid_bolus'],
-    clinicalContext: 'Signs of hypovolemic or septic shock. Fluid bolus 20 mL/kg of normal saline is indicated.',
+    clinicalContext: 'Signs of hypovolemic or septic shock. Use an age-, perfusion-, and setting-appropriate crystalloid aliquot (often 10–20 mL/kg when indicated), followed by reassessment before further fluid.',
   },
   disability: {
     page: 'disability',

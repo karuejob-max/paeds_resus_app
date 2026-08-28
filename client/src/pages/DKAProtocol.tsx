@@ -47,8 +47,8 @@ type SeverityLevel = 'mild' | 'moderate' | 'severe';
 
 export default function DKAProtocol({ patientAge: propAge, patientWeight: propWeight, onClose }: Props = {}) {
   // Patient data
-  const [patientWeight, setPatientWeight] = useState<number>(propWeight || 20);
-  const [patientAge, setPatientAge] = useState<number>(propAge || 10);
+  const [patientWeight, setPatientWeight] = useState<number>(propWeight ?? 0);
+  const [patientAge, setPatientAge] = useState<number>(propAge ?? -1); // years; negative means unconfirmed
   
   // Age group detection (ISPAD 2022 population-based guidelines)
   const ageGroup = patientAge < 1 ? 'infant' : patientAge < 10 ? 'child' : 'adolescent';
@@ -129,6 +129,21 @@ export default function DKAProtocol({ patientAge: propAge, patientWeight: propWe
       </Badge>
     );
   };
+
+  const hasCompleteContext = typeof propAge === 'number' && Number.isFinite(propAge) && propAge >= 0 && typeof propWeight === 'number' && Number.isFinite(propWeight) && propWeight > 0;
+  if (!hasCompleteContext) {
+    return (
+      <div className="fixed inset-0 bg-black/95 z-50 overflow-y-auto p-4">
+        <Card className="mx-auto mt-16 max-w-xl border-red-700 bg-gray-900 text-white">
+          <CardContent className="p-6 space-y-4">
+            <h1 className="text-xl font-bold">DKA pathway context required</h1>
+            <p className="text-gray-300">No fluid, insulin, electrolyte, or cerebral-injury calculation will be shown until the governed ResusGPS flow supplies an explicit age and verified dosing weight.</p>
+            <Button onClick={onClose} className="w-full">Return to ResusGPS</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/95 z-50 overflow-y-auto">

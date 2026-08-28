@@ -48,8 +48,8 @@ type ShockType = 'warm' | 'cold' | 'mixed';
 
 export default function SepticShockProtocol({ patientAge: propAge, patientWeight: propWeight, onClose }: Props = {}) {
   // Patient data
-  const [patientWeight, setPatientWeight] = useState<number>(propWeight || 20);
-  const [patientAge, setPatientAge] = useState<number>(propAge || 5);
+  const [patientWeight, setPatientWeight] = useState<number>(propWeight ?? 0);
+  const [patientAge, setPatientAge] = useState<number>(propAge ?? -1); // years; negative means unconfirmed
   
   // Clinical state
   const [currentStage, setCurrentStage] = useState<ShockStage>('recognition');
@@ -116,6 +116,21 @@ export default function SepticShockProtocol({ patientAge: propAge, patientWeight
     if (minutesSinceStart < 60) return { color: 'text-yellow-400', message: 'Urgent' };
     return { color: 'text-red-400', message: 'DELAYED' };
   };
+
+  const hasCompleteContext = typeof propAge === 'number' && Number.isFinite(propAge) && propAge >= 0 && typeof propWeight === 'number' && Number.isFinite(propWeight) && propWeight > 0;
+  if (!hasCompleteContext) {
+    return (
+      <div className="fixed inset-0 bg-black/95 z-50 overflow-y-auto p-4">
+        <Card className="mx-auto mt-16 max-w-xl border-red-700 bg-gray-900 text-white">
+          <CardContent className="p-6 space-y-4">
+            <h1 className="text-xl font-bold">Septic-shock pathway context required</h1>
+            <p className="text-gray-300">No fluid-volume, MAP, antibiotic, or vasoactive calculation will be shown until the governed ResusGPS flow supplies an explicit age and verified dosing weight.</p>
+            <Button onClick={onClose} className="w-full">Return to ResusGPS</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/95 z-50 overflow-y-auto">

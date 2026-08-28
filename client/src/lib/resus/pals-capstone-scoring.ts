@@ -213,14 +213,14 @@ export function getDetailedFeedback(
       ? '✓ Excellent ABCDE assessment. You correctly identified respiratory distress and poor perfusion.'
       : '✗ ABCDE assessment incomplete. Review the clinical findings and try again.',
     oxygen_intervention: actions.oxygen_intervention
-      ? '✓ Correct oxygen therapy initiated. Oxygen saturation improved to 94%.'
-      : '✗ Oxygen intervention incorrect. Use high-flow oxygen or HFNC for respiratory distress.',
+      ? '✓ Appropriate oxygen/ventilatory support initiated. Confirm response and titrate to the selected age- and condition-specific target.'
+      : '✗ Oxygen intervention incomplete. Treat hypoxaemia with age-, size-, and severity-appropriate support and reassess ventilation.',
     shock_assessment: actions.shock_assessment
       ? '✓ Correct shock type identified. You recognized hypovolemic/distributive shock.'
       : '✗ Shock assessment incorrect. Review the clinical clues and differentiate shock types.',
     fluid_resuscitation: actions.fluid_resuscitation
-      ? '✓ Correct fluid bolus given. 20 mL/kg of crystalloid initiated.'
-      : '✗ Fluid resuscitation incorrect. Calculate 20 mL/kg and use appropriate crystalloid.',
+      ? '✓ Appropriate initial crystalloid aliquot given. Reassess perfusion, lungs, liver size, and work of breathing before further fluid.'
+      : '✗ Fluid resuscitation incomplete. Use an age-, perfusion-, and setting-appropriate 10–20 mL/kg range only when indicated, then reassess.',
     cpr_execution: actions.cpr_execution
       ? '✓ Excellent CPR execution. Compressions at correct rate and depth, shock delivered, medication given.'
       : '✗ CPR execution issues. Review compression rate, depth, shock delivery, and medication timing.',
@@ -228,7 +228,7 @@ export function getDetailedFeedback(
       ? '✓ ROSC achieved. Pulse restored, breathing spontaneous.'
       : '✗ ROSC not achieved. Continue CPR cycles and reassess.',
     post_resuscitation_care: actions.post_resuscitation_care
-      ? '✓ Excellent post-resuscitation care. Therapeutic hypothermia, sedation, monitoring, and referral initiated.'
-      : '✗ Post-resuscitation care incomplete. Initiate therapeutic hypothermia and arrange PICU transfer.',
+      ? '✓ Appropriate post-resuscitation care initiated: airway/ventilation, haemodynamic and temperature management, glucose, seizure surveillance, monitoring, and referral.'
+      : '✗ Post-resuscitation care incomplete. Use the age-, condition-, neurological-status-, temperature-, and local-protocol-specific post-arrest pathway and arrange appropriate higher-level care.',
   };
 }

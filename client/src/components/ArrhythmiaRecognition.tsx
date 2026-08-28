@@ -161,7 +161,7 @@ const ARRHYTHMIA_PATTERNS: ArrhythmiaPattern[] = [
     treatment: [
       { step: 1, action: 'Identify and treat underlying cause', notes: 'Do NOT cardiovert sinus tachycardia' },
       { step: 2, action: 'If fever: Antipyretics', dose: 'Paracetamol 15 mg/kg PO/PR' },
-      { step: 3, action: 'If hypovolemia: Fluid bolus', dose: '10-20 mL/kg crystalloid' },
+      { step: 3, action: 'If hypovolaemia is confirmed: give an age-, cause-, perfusion-, and setting-appropriate fluid aliquot with reassessment after each aliquot' },
       { step: 4, action: 'If pain: Appropriate analgesia' },
       { step: 5, action: 'If hypoxia: Supplemental oxygen' },
     ],
@@ -311,7 +311,7 @@ const ARRHYTHMIA_PATTERNS: ArrhythmiaPattern[] = [
       { step: 2, action: 'Epinephrine IV/IO', dose: '0.01 mg/kg', notes: 'Every 3-5 min' },
       { step: 3, action: 'DO NOT defibrillate PEA' },
       { step: 4, action: 'Aggressively search for and treat reversible causes' },
-      { step: 5, action: 'Fluid bolus if hypovolemia suspected', dose: '20 mL/kg' },
+      { step: 5, action: 'If hypovolaemia is confirmed, use the selected age- and cause-specific fluid/blood protocol with reassessment after each aliquot' },
       { step: 6, action: 'Needle decompression if tension pneumothorax suspected' },
     ],
     urgency: 'immediate',
@@ -382,6 +382,15 @@ const ArrhythmiaRecognition: React.FC<ArrhythmiaRecognitionProps> = ({
   
   const calculateDose = (doseTemplate: string): string => {
     if (!doseTemplate) return '';
+    if (!Number.isFinite(patientAge) || patientAge < 0.08) {
+      return 'Confirm a non-neonatal paediatric context; neonatal rhythm treatment requires the governed NRP pathway.';
+    }
+    if (patientAge >= 18) {
+      return 'Use the governed adult ACLS protocol; this paediatric rhythm calculator does not issue adult treatment calculations.';
+    }
+    if (!Number.isFinite(patientWeight) || patientWeight <= 0) {
+      return 'Enter a verified dosing weight before calculating this paediatric treatment.';
+    }
     
     // Replace weight-based calculations
     let dose = doseTemplate;
@@ -439,10 +448,9 @@ const ArrhythmiaRecognition: React.FC<ArrhythmiaRecognitionProps> = ({
       dose = dose.replace('25-50 mg/kg', `${mgLow}-${mgHigh} mg`);
     }
     
-    // Fluid bolus
+    // Fluid decisions remain protocol- and reassessment-dependent; do not silently calculate a universal bolus here.
     if (dose.includes('20 mL/kg')) {
-      const fluidVolume = (patientWeight * 20).toFixed(0);
-      dose = dose.replace('20 mL/kg', `${fluidVolume} mL`);
+      dose = dose.replace('20 mL/kg', 'age-, cause-, perfusion-, and setting-specific aliquot');
     }
     
     // Procainamide
@@ -463,7 +471,7 @@ const ArrhythmiaRecognition: React.FC<ArrhythmiaRecognitionProps> = ({
             <Heart className="h-6 w-6 text-red-400" />
             <div>
               <h3 className="text-lg font-bold text-white">Arrhythmia Recognition</h3>
-              <p className="text-slate-400 text-sm">Identify rhythm and get treatment pathway</p>
+              <p className="text-slate-400 text-sm">Identify rhythm; paediatric calculations only. Adults use governed ACLS and neonates use NRP.</p>
             </div>
           </div>
           <Button

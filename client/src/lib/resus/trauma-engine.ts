@@ -74,9 +74,24 @@ export interface TraumaIntervention {
 }
 
 /**
+ * Use a conservative age-aware systolic hypotension threshold for triage only.
+ * Trauma decisions must still use perfusion, mental status, pulse quality, and haemorrhage findings.
+ */
+function getSystolicHypotensionThreshold(ageYears: number): number {
+  return ageYears < 1 ? 70 : ageYears <= 10 ? 70 + (2 * ageYears) : 90;
+}
+
+/**
  * Assess trauma severity using ATLS principles
  */
 export function assessTraumaSeverity(assessment: TraumaAssessment): TraumaSeverity {
+  if (!Number.isFinite(assessment.age) || assessment.age < 0) {
+    throw new Error('A valid non-negative age is required for trauma guidance.');
+  }
+  if (!Number.isFinite(assessment.weightKg) || assessment.weightKg <= 0) {
+    throw new Error('A valid positive dosing weight is required for trauma guidance.');
+  }
+
   let level: 'minor' | 'moderate' | 'severe' | 'critical';
   let requiresOperatingRoom = false;
   let requiresBloodProducts = false;
@@ -86,7 +101,7 @@ export function assessTraumaSeverity(assessment: TraumaAssessment): TraumaSeveri
   const isInShock =
     assessment.capillaryRefillTime > 2 ||
     assessment.skinPerfusion !== 'warm_pink' ||
-    assessment.systolicBP < 90 ||
+    assessment.systolicBP < getSystolicHypotensionThreshold(assessment.age) ||
     assessment.pulseQuality === 'weak' ||
     assessment.pulseQuality === 'thready';
 
@@ -114,8 +129,8 @@ export function assessTraumaSeverity(assessment: TraumaAssessment): TraumaSeveri
     (isInHemorrhagicShock && assessment.systolicBP < 70)
   ) {
     level = 'critical';
-    requiresOperatingRoom = true;
-    requiresBloodProducts = true;
+    requiresOperatingRoom = assessment.penetratingInjury || estimatedBloodLoss > 500;
+    requiresBloodProducts = isInHemorrhagicShock || estimatedBloodLoss > 500;
     traumaTeamActivation = true;
   } else if (
     isInShock ||
@@ -174,10 +189,10 @@ export function generatePrimarySurveyInterventions(
       type: 'airway_management',
       description: 'Airway Management',
       indication: `Airway ${assessment.airwayPatency}`,
-      dosing: `- Head tilt-chin lift or jaw thrust (maintain c-spine precautions)
-- Clear airway of blood/secretions
-- Insert airway adjunct if needed (NPA/OPA)
-- Prepare for intubation if GCS ≤ 8`,
+      dosing: `- Use jaw thrust when cervical-spine injury is suspected; otherwise use the age-appropriate airway manoeuvre
+- Clear visible blood/secretions
+- Insert an appropriate airway adjunct if trained and indicated
+- Prepare for advanced airway management if protective reflexes or ventilation fail; do not infer this from a simplified score`,
       priority: 'immediate',
       monitoring: 'Airway patency, oxygen saturation',
     });
@@ -189,26 +204,25 @@ export function generatePrimarySurveyInterventions(
       type: 'breathing_management',
       description: 'Breathing Support',
       indication: `SpO2 ${assessment.oxygenSaturation}%, breath sounds ${assessment.breathSounds}`,
-      dosing: `- High-flow oxygen (15 L/min via non-rebreather) — ${SPO2_TARGET_RESUS_DETAIL}
-- Bag-valve-mask ventilation if needed
-- Needle decompression if tension pneumothorax
-- Chest tube if pneumothorax/hemothorax`,
+      dosing: `- Give the age- and device-appropriate oxygen or ventilation support and titrate to the selected target — ${SPO2_TARGET_RESUS_DETAIL}
+- Use bag-valve-mask ventilation when indicated and ensure visible chest rise
+- Treat suspected tension pneumothorax immediately according to local trauma capability
+- Obtain expert chest intervention/transfer support when required; do not delay life-saving decompression`,
       priority: 'immediate',
       monitoring: 'Oxygen saturation, breath sounds, chest rise',
     });
   }
 
   // Circulation Management (C)
-  if (assessment.systolicBP < 90 || assessment.capillaryRefillTime > 2) {
-    const fluidBolus = assessment.weightKg * 20; // 20 mL/kg
+  if (assessment.systolicBP < getSystolicHypotensionThreshold(assessment.age) || assessment.capillaryRefillTime > 2) {
+    const fluidBolus = assessment.weightKg * (assessment.age < 18 ? 10 : 20);
 
     interventions.push({
       type: 'fluid_resuscitation',
       description: 'Fluid Resuscitation (Hemorrhagic Shock)',
       indication: `Hypotension (SBP ${assessment.systolicBP}), CRT ${assessment.capillaryRefillTime}s`,
-      dosing: `Initial bolus: ${fluidBolus} mL warmed crystalloid IV (10–20 mL/kg with reassessment)
-(20 mL/kg)
-Reassess after 10-15 minutes`,
+      dosing: `Initial controlled aliquot: approximately ${fluidBolus} mL warmed isotonic fluid (${assessment.age < 18 ? '10 mL/kg in paediatric haemorrhagic shock when blood is unavailable' : 'adult trauma protocol aliquot'}) with immediate reassessment.
+Prioritise haemorrhage control and blood products when indicated; avoid repeated crystalloid boluses without reassessment.`,
       frequency: 'Repeat bolus if no improvement',
       priority: 'immediate',
       monitoring: 'Blood pressure, heart rate, perfusion, urine output',
@@ -233,11 +247,11 @@ Reassess after 10-15 minutes`,
     interventions.push({
       type: 'disability_assessment',
       description: 'Neurological Assessment',
-      indication: `GCS ${getGCSScore(assessment)}, pupils ${assessment.pupilSize}`,
-      dosing: `- Full neurological exam (GCS, pupils, motor/sensory)
-- Document baseline findings
-- Prepare for head CT if altered consciousness
-- Elevate head 30° if safe`,
+      indication: `Altered consciousness ${assessment.consciousness}, pupils ${assessment.pupilSize}`,
+      dosing: `- Complete and document a full age-appropriate GCS and neurological exam; do not infer GCS from consciousness alone
+- Document baseline findings and serial changes
+- Prepare for imaging when indicated after stabilisation
+- Elevate head 30° only if safe and consistent with spinal/neurological management`,
       priority: 'urgent',
       monitoring: 'GCS, pupil size/reactivity, focal deficits',
     });
@@ -335,11 +349,10 @@ export function generateSpinalPrecautionInterventions(
       type: 'spinal_precautions',
       description: 'Spinal Immobilization',
       indication: 'Suspected spinal injury',
-      dosing: `- C-spine collar application
-- Backboard immobilization
-- Log-roll technique for all movements
-- Maintain neutral spine alignment
-- Avoid hyperextension/flexion`,
+      dosing: `- Use age- and mechanism-appropriate spinal motion restriction per local trauma protocol
+- Maintain neutral alignment and minimise unnecessary movement
+- Use a collar or other device only when indicated and available
+- Reassess airway, breathing, perfusion, skin pressure, and neurological status`,
       priority: 'immediate',
       monitoring: 'Spine alignment, neurological status',
     });
@@ -357,27 +370,6 @@ export function generateSpinalPrecautionInterventions(
   }
 
   return interventions;
-}
-
-/**
- * Calculate GCS score
- */
-function getGCSScore(assessment: TraumaAssessment): number {
-  let score = 0;
-
-  // Eye opening
-  if (assessment.consciousness === 'alert') score += 4;
-  else if (assessment.consciousness === 'verbal') score += 3;
-  else if (assessment.consciousness === 'pain') score += 2;
-  else score += 1;
-
-  // Verbal response (simplified)
-  score += 3;
-
-  // Motor response (simplified)
-  score += 4;
-
-  return Math.min(score, 15);
 }
 
 /**
@@ -419,7 +411,7 @@ Circulation:
 
 Disability:
 - Consciousness: ${assessment.consciousness}
-- GCS: ${getGCSScore(assessment)}/15
+- GCS: Not calculated here — complete a full age-appropriate GCS
 - Pupils: ${assessment.pupilSize} (${assessment.pupilReactivity})
 
 Exposure:

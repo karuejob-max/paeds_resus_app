@@ -27,8 +27,8 @@ export interface SBARHandover {
 export interface SituationComponent {
   patientIdentification: {
     name: string;
-    age: number;
-    weight: number;
+    age: number | null;
+    weight: number | null;
     gender: string;
   };
   chiefComplaint: string;
@@ -106,8 +106,8 @@ export function generateSBARHandover(assessmentData: any): SBARHandover {
     situation: {
       patientIdentification: {
         name: assessmentData.patientName || 'Patient',
-        age: assessmentData.age || 0,
-        weight: assessmentData.weight || 0,
+        age: typeof assessmentData.age === 'number' && Number.isFinite(assessmentData.age) ? assessmentData.age : null,
+        weight: typeof assessmentData.weight === 'number' && Number.isFinite(assessmentData.weight) && assessmentData.weight > 0 ? assessmentData.weight : null,
         gender: assessmentData.gender || 'Unknown',
       },
       chiefComplaint: assessmentData.chiefComplaint || 'Emergency presentation',
@@ -491,8 +491,10 @@ export function formatSBARAsText(handover: SBARHandover): string {
   text += `SITUATION\n`;
   text += `=========\n`;
   text += `Patient: ${handover.situation.patientIdentification.name}, `;
-  text += `Age: ${handover.situation.patientIdentification.age} years, `;
-  text += `Weight: ${handover.situation.patientIdentification.weight} kg\n`;
+  const ageText = handover.situation.patientIdentification.age === null ? 'not confirmed' : `${handover.situation.patientIdentification.age} years`;
+  const weightText = handover.situation.patientIdentification.weight === null ? 'not confirmed' : `${handover.situation.patientIdentification.weight} kg`;
+  text += `Age: ${ageText}, `;
+  text += `Weight: ${weightText}\n`;
   text += `Chief Complaint: ${handover.situation.chiefComplaint}\n`;
   text += `Timeline: ${handover.situation.timelineOfPresentation}\n`;
   text += `Current Status: Consciousness=${handover.situation.currentStatus.consciousness}, `;

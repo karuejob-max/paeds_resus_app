@@ -148,9 +148,9 @@ export const ETT_INTUBATION: NRPProcedure = {
     },
     {
       step: 2,
-      action: 'Pre-oxygenate',
-      details: 'Provide PPV with 100% oxygen for 30 seconds before attempt',
-      warning: 'Each intubation attempt should be limited to 30 seconds',
+      action: 'Optimise oxygenation and ventilation before the attempt',
+      details: 'Use the NRP gestational-age-specific starting oxygen concentration and titrate to preductal SpO₂ targets during effective PPV. Do not routinely pre-oxygenate with 100% oxygen; use 100% oxygen when indicated during coordinated chest compressions, then titrate down when appropriate.',
+      warning: 'Each intubation attempt should be limited to 30 seconds; stop and re-establish ventilation if the attempt is unsuccessful.',
     },
     {
       step: 3,

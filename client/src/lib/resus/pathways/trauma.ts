@@ -36,13 +36,13 @@ export const traumaPathway: Pathway = {
         {
           id: 'ht_airway',
           action: 'SECURE AIRWAY (jaw thrust only)',
-          detail: 'Jaw thrust — NO head tilt. Suction blood/vomit. Consider intubation if GCS ≤ 8.',
+          detail: 'Use age-appropriate airway manoeuvres while protecting the cervical spine; suction blood/vomit. Escalate advanced airway only for inadequate airway protection or ventilation and only with appropriate expertise/equipment.',
           critical: true,
         },
         {
           id: 'ht_o2',
           action: 'HIGH-FLOW OXYGEN',
-          detail: 'Non-rebreather at 15 L/min.',
+          detail: 'Give age-, size-, and severity-appropriate oxygen/ventilatory support if hypoxaemic and titrate to the selected clinical target.',
           critical: true,
         },
         {
@@ -60,25 +60,25 @@ export const traumaPathway: Pathway = {
             unit: 'mg',
             maxDose: 1000,
             route: 'IV over 10 minutes',
-            preparation: 'Give within 3 hours of injury. Follow with 2 mg/kg/hr infusion for 8 hours.',
+            preparation: 'Use only the selected age-, weight-, timing-, indication-, and local haemorrhage-protocol regimen; do not infer an adult infusion schedule.',
           },
-          detail: 'Give EARLY. Reduces mortality in hemorrhagic trauma. Most effective within 1 hour.',
+          detail: 'Consider TXA only when the age-, weight-, timing-, injury-, contraindication-, and local haemorrhage-protocol criteria are met. Do not use an adult regimen for a child or neonate.',
           critical: true,
         },
         {
           id: 'ht_fluid',
-          action: 'FLUID RESUSCITATION: 20 mL/kg',
+          action: 'CONTROLLED FLUID/BLOOD RESUSCITATION',
           dose: {
             drug: 'Normal Saline 0.9%',
-            dosePerKg: 20,
+            dosePerKg: 0,
             unit: 'mL',
-            route: 'IV rapid push',
-            preparation: 'Permissive hypotension: target systolic 80-90 mmHg (not normal). Avoid over-resuscitation.',
-            frequency: 'Max 40 mL/kg crystalloid, then switch to blood',
+            route: 'IV/IO per protocol',
+            preparation: 'Use small, age-, injury-, perfusion-, and capability-appropriate aliquots or blood products under a haemorrhage protocol. Do not apply a universal permissive-hypotension target to children or neonates.',
+            frequency: 'Reassess after every aliquot; escalate early for blood, surgery, or higher-level care when indicated',
           },
           timer: 300,
           reassess: 'Is perfusion improving?',
-          escalateIf: 'Still hypotensive after 40 mL/kg → give blood products',
+          escalateIf: 'If perfusion remains poor or haemorrhage continues, escalate promptly under the age- and setting-specific haemorrhage/transfusion protocol.',
           critical: true,
         },
         {
@@ -89,9 +89,9 @@ export const traumaPathway: Pathway = {
             dosePerKg: 10,
             unit: 'mL',
             route: 'IV',
-            preparation: 'O-negative if crossmatch unavailable. Consider massive transfusion protocol: 1:1:1 ratio (pRBC:FFP:platelets).',
+            preparation: 'Use emergency blood or component therapy only under the local age- and setting-specific transfusion protocol with compatibility, warming, monitoring, and senior oversight.',
           },
-          detail: 'Switch to blood early. Don\'t wait for lab results in active hemorrhage.',
+          detail: 'Activate the local haemorrhage/transfusion protocol early when indicated. Product choice, dose, ratio, compatibility, warming, and monitoring must be age- and setting-specific; do not use a universal ratio or emergency blood assumption.',
           critical: true,
         },
         {
@@ -108,13 +108,13 @@ export const traumaPathway: Pathway = {
     {
       id: 'tr_cspine',
       action: 'C-SPINE IMMOBILIZATION',
-      detail: 'Manual in-line stabilization. Collar if available. Assume injury until cleared.',
+      detail: 'Use manual in-line stabilization and an age-/mechanism-appropriate spinal-protection plan until clinically cleared by a trained clinician; avoid unnecessary movement.',
       critical: true,
     },
     {
       id: 'tr_airway',
       action: 'AIRWAY: Jaw thrust (NO head tilt)',
-      detail: 'Maintain C-spine. Suction if needed. Intubate if GCS ≤ 8.',
+      detail: 'Maintain spinal protection and suction if needed. Escalate the airway for inability to maintain patency, protect the airway, or ventilate—not from an isolated age-generalized GCS cutoff.',
       critical: true,
     },
     {
@@ -127,7 +127,7 @@ export const traumaPathway: Pathway = {
     {
       id: 'tr_o2',
       action: 'HIGH-FLOW OXYGEN',
-      detail: 'Non-rebreather at 15 L/min.',
+      detail: 'Give age-, size-, and severity-appropriate oxygen/ventilatory support if hypoxaemic and titrate to the selected clinical target.',
     },
     {
       id: 'tr_circulation',
@@ -143,7 +143,7 @@ export const traumaPathway: Pathway = {
     {
       id: 'tr_disability',
       action: 'ASSESS DISABILITY',
-      detail: 'GCS/AVPU. Pupils: size, reactivity, symmetry. Blood glucose. Lateralizing signs.',
+      detail: 'AVPU or age-appropriate neurological assessment; pupils, glucose, and lateralizing signs. Use a validated age-appropriate GCS when a formal score is required—do not substitute a simplified score.',
       critical: true,
     },
     {

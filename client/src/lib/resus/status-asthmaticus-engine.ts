@@ -75,7 +75,7 @@ export const assessSeverity = (findings: {
     accessoryMusclUse &&
     speakingAbility === 'words' &&
     oxygenSaturation < 92 &&
-    (peakFlowPercent && peakFlowPercent < 50)
+    (peakFlowPercent === undefined || peakFlowPercent < 50)
   ) {
     return 'severe';
   }
@@ -85,7 +85,7 @@ export const assessSeverity = (findings: {
     accessoryMusclUse &&
     (speakingAbility === 'phrases' || speakingAbility === 'words') &&
     oxygenSaturation < 95 &&
-    (peakFlowPercent && peakFlowPercent < 80)
+    (peakFlowPercent === undefined || peakFlowPercent < 80)
   ) {
     return 'moderate';
   }
@@ -210,10 +210,12 @@ export const evaluateMedicationEligibility = (
   recommendations: string[];
 } => {
   const recommendations: string[] = [];
-  const timeSinceLast = (lastTime?: number) => (lastTime ? state.symptomOnsetTime - lastTime : Infinity);
+  const timeSinceLast = (lastTime?: number) => (
+    lastTime != null ? Math.max(0, state.symptomOnsetTime - lastTime) : Infinity
+  );
 
   // Salbutamol (always eligible, can repeat every 15-20 minutes)
-  const salbutamolEligible = !state.lastBronchodilatorTime || timeSinceLast(state.lastBronchodilatorTime) >= 900; // 15 minutes
+  const salbutamolEligible = state.lastBronchodilatorTime == null || timeSinceLast(state.lastBronchodilatorTime) >= 900; // 15 minutes
   if (salbutamolEligible && state.salbutamolDoses < 3) {
     recommendations.push(`Give salbutamol dose ${state.salbutamolDoses + 1}`);
   }

@@ -315,9 +315,9 @@ export const SIMULATION_CASES: SimulationCase[] = [
       { id: 'a4', name: 'Give epinephrine IM (0.01 mg/kg)', category: 'medication', points: 25, isCorrect: true, feedback: 'Excellent! Epinephrine is first-line treatment.', timeBonus: 10 },
       { id: 'a5', name: 'Give oxygen', category: 'breathing', points: 10, isCorrect: true, feedback: 'Good supportive care.' },
       { id: 'a6', name: 'Establish IV access', category: 'circulation', points: 10, isCorrect: true, feedback: 'Important for fluids and medications.' },
-      { id: 'a7', name: 'Give IV fluids (20 mL/kg bolus)', category: 'circulation', points: 10, isCorrect: true, feedback: 'Correct! Anaphylaxis causes distributive shock.' },
-      { id: 'a8', name: 'Give antihistamine (diphenhydramine)', category: 'medication', points: 5, isCorrect: true, feedback: 'Adjunct therapy, not first-line.' },
-      { id: 'a9', name: 'Give corticosteroids', category: 'medication', points: 5, isCorrect: true, feedback: 'May help prevent biphasic reaction.' },
+      { id: 'a7', name: 'Give a controlled isotonic fluid aliquot if shock is present, with reassessment', category: 'circulation', points: 10, isCorrect: true, feedback: 'Use the age- and local-protocol-appropriate aliquot and reassess after each bolus.' },
+      { id: 'a8', name: 'Consider an antihistamine only for persistent skin symptoms after epinephrine', category: 'medication', points: 5, isCorrect: true, feedback: 'Adjunct therapy only; never delay epinephrine or airway/shock care.' },
+      { id: 'a9', name: 'Use corticosteroids only for a separate governed indication', category: 'medication', points: 0, isCorrect: true, feedback: 'Corticosteroids are not routine prevention for biphasic anaphylaxis.' },
       { id: 'a10', name: 'Repeat epinephrine if needed', category: 'medication', points: 15, isCorrect: true, feedback: 'Can repeat every 5-15 minutes.' }
     ],
     incorrectActions: [
@@ -330,8 +330,8 @@ export const SIMULATION_CASES: SimulationCase[] = [
       'IM injection in lateral thigh (vastus lateralis) is preferred',
       'Dose: 0.01 mg/kg of 1:1000 (1 mg/mL), max 0.5 mg',
       'Can repeat every 5-15 minutes if symptoms persist',
-      'Biphasic reactions can occur 4-12 hours later - observe patient',
-      'Antihistamines and steroids are adjuncts, not replacements for epinephrine'
+      'Symptoms may recur; use risk-stratified observation and repeat IM epinephrine if clinically indicated',
+      'Antihistamines are optional adjuncts for skin symptoms; corticosteroids are not routine prevention and neither replaces epinephrine'
     ],
     passingScore: 75,
     translations: {
@@ -397,13 +397,13 @@ export const SIMULATION_CASES: SimulationCase[] = [
         id: 'e2',
         timeOffset: 300,
         type: 'vital_change',
-        description: 'After 40 mL/kg fluids, still hypotensive.',
+        description: 'After repeated age-, perfusion-, and setting-specific aliquots with reassessment, the patient remains hypotensive; reassess lungs, liver size, perfusion, and fluid overload before escalation.',
         vitals: {
           heartRate: 165,
           bloodPressure: { systolic: 72, diastolic: 42 },
           capillaryRefill: 4
         },
-        expectedAction: 'Start vasopressor (epinephrine or norepinephrine)',
+        expectedAction: 'Escalate to senior/critical-care review and the selected age-/context-specific vasoactive protocol; do not infer a drug or dose from volume alone.',
         criticalWindow: 120,
         points: 20
       },
@@ -426,21 +426,20 @@ export const SIMULATION_CASES: SimulationCase[] = [
       { id: 'a2', name: 'Establish IV/IO access', category: 'circulation', points: 15, isCorrect: true, feedback: 'Access within 5 minutes is the goal.', timeBonus: 5 },
       { id: 'a3', name: 'Draw blood cultures', category: 'assessment', points: 10, isCorrect: true, feedback: 'Before antibiotics if possible, but don\'t delay antibiotics.' },
       { id: 'a4', name: 'Give antibiotics within 1 hour', category: 'medication', points: 20, isCorrect: true, feedback: 'Each hour delay increases mortality!', timeBonus: 10 },
-      { id: 'a5', name: 'Give fluid bolus (20 mL/kg)', category: 'circulation', points: 15, isCorrect: true, feedback: 'Correct! Reassess after each bolus.' },
+      { id: 'a5', name: 'Give an age- and perfusion-appropriate crystalloid aliquot', category: 'circulation', points: 15, isCorrect: true, feedback: 'Correct! Use the selected local protocol and reassess after each aliquot.' },
       { id: 'a6', name: 'Reassess perfusion after fluids', category: 'assessment', points: 10, isCorrect: true, feedback: 'Good! Titrate to clinical response.' },
-      { id: 'a7', name: 'Give additional fluid boluses (up to 60 mL/kg)', category: 'circulation', points: 10, isCorrect: true, feedback: 'May need up to 60 mL/kg in first hour.' },
+      { id: 'a7', name: 'Give further controlled aliquots only if indicated and reassessment supports them', category: 'circulation', points: 10, isCorrect: true, feedback: 'Correct! Stop for overload or no response and escalate to vasoactive support, blood, or higher-level care as indicated.' },
       { id: 'a8', name: 'Start vasopressor for fluid-refractory shock', category: 'medication', points: 20, isCorrect: true, feedback: 'Correct! Epinephrine or norepinephrine.' },
       { id: 'a9', name: 'Check lactate', category: 'assessment', points: 5, isCorrect: true, feedback: 'Lactate helps guide resuscitation.' },
       { id: 'a10', name: 'Check glucose and correct hypoglycemia', category: 'medication', points: 10, isCorrect: true, feedback: 'Important! Children are prone to hypoglycemia.' }
     ],
     incorrectActions: [
       { id: 'i1', name: 'Delay antibiotics for cultures', category: 'medication', points: -20, isCorrect: false, feedback: 'Never delay antibiotics! Draw cultures but give antibiotics immediately.' },
-      { id: 'i2', name: 'Give only 10 mL/kg fluid bolus', category: 'circulation', points: -10, isCorrect: false, feedback: 'Standard bolus is 20 mL/kg. Reassess and repeat.' },
       { id: 'i3', name: 'Use dopamine as first-line vasopressor', category: 'medication', points: -5, isCorrect: false, feedback: 'Epinephrine or norepinephrine preferred over dopamine.' }
     ],
     debriefingPoints: [
       'Sepsis bundle: IV access, cultures, antibiotics, fluids - all within 1 hour',
-      'Fluid resuscitation: 20 mL/kg boluses, reassess, may need up to 60 mL/kg',
+      'Fluid resuscitation: use the selected age-, perfusion-, and setting-specific aliquot; reassess after each and stop/escalate if overload or no response',
       'Fluid-refractory shock: Start vasopressors (epinephrine or norepinephrine)',
       'Antibiotic delay increases mortality - give within 1 hour',
       'Monitor for fluid overload (hepatomegaly, rales, worsening oxygenation)',

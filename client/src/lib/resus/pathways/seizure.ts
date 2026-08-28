@@ -33,8 +33,8 @@ export const seizurePathway: Pathway = {
         },
         {
           id: 'sz_o2',
-          action: 'HIGH-FLOW OXYGEN',
-          detail: 'Non-rebreather mask or blow-by. Suction if secretions. Jaw thrust if needed.',
+          action: 'PROVIDE AGE- AND TARGET-APPROPRIATE OXYGEN/VENTILATORY SUPPORT',
+          detail: 'Use the selected age-, size-, severity-, and diagnosis-appropriate interface; titrate to the selected target and reassess ventilation. Suction if secretions. Jaw thrust if needed.',
           critical: true,
         },
         {
@@ -42,10 +42,11 @@ export const seizurePathway: Pathway = {
           action: 'CHECK GLUCOSE IMMEDIATELY',
           dose: {
             drug: 'Dextrose 10%',
-            dosePerKg: 5,
+            dosePerKg: 0,
             unit: 'mL',
-            route: 'IV',
-            preparation: 'If glucose < 3 mmol/L (54 mg/dL): give D10W 2-5 mL/kg IV.',
+            route: 'IV/IO',
+            doseModel: 'protocol_only',
+            preparation: 'If glucose is low, confirm the unit and use the age-/size-specific local dextrose protocol; reassess glucose and neurologic status. Do not use a universal range or delay seizure stabilization.',
           },
           detail: 'Hypoglycemia is a reversible cause. Check and correct FIRST.',
           critical: true,

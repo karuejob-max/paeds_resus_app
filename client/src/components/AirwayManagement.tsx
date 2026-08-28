@@ -216,10 +216,10 @@ export function AirwayManagement({ weightKg, onTreatmentComplete, onReferralRequ
           <div className="space-y-2">
             <h4 className="font-semibold">Additional Treatments:</h4>
             <ul className="list-disc list-inside text-sm space-y-1">
-              <li>High-flow oxygen</li>
-              <li>IV fluid bolus 20 mL/kg if hypotensive</li>
+              <li>Age-, size-, and severity-appropriate oxygen/ventilatory support if hypoxaemic</li>
+              <li>Controlled age- and perfusion-appropriate fluid aliquot only if indicated; reassess after each aliquot</li>
               <li>Nebulized epinephrine if stridor persists</li>
-              <li>Consider IM dexamethasone {dexamethasoneDose.toFixed(1)} mg</li>
+              <li>Consider dexamethasone only for a separately confirmed, diagnosis-specific indication under local protocol</li>
               <li>Antihistamines (secondary - do NOT delay epinephrine)</li>
             </ul>
           </div>

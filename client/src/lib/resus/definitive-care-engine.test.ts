@@ -59,12 +59,12 @@ describe('definitive-care-engine', () => {
     expect(care!.allSteps.some((s) => s.id.startsWith('dc_sic'))).toBe(true);
   });
 
-  it('meningitis protocol includes antibiotics and LP guidance', () => {
-    const care = resolveDefinitiveCare('meningitis', 18, '7 years');
-    const actions = care!.protocol!.steps.map((s) => s.action).join(' ');
-    expect(actions).toMatch(/Ceftriaxone/i);
-    expect(actions).toMatch(/Dexamethasone/i);
-    expect(actions).toMatch(/Lumbar puncture/i);
-  });
+  it('meningitis protocol includes governed antimicrobial, conditional steroid, and safe LP guidance', () => {
+    const care = resolveDefinitiveCare('meningitis', 18, '7 years');
+    const actions = care!.protocol!.steps.map((s) => s.action).join(' ');
+    expect(actions).toMatch(/antimicrobial protocol/i);
+    expect(actions).toMatch(/corticosteroid.*indicated/i);
+    expect(actions).toMatch(/Lumbar puncture/i);
+  });
 });
 

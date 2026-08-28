@@ -46,8 +46,8 @@ type SEStage =
 
 export default function StatusEpilepticusProtocol({ patientAge: propAge, patientWeight: propWeight, onClose }: Props = {}) {
   // Patient data
-  const [patientWeight, setPatientWeight] = useState<number>(propWeight || 20);
-  const [patientAge, setPatientAge] = useState<number>(propAge || 5);
+  const [patientWeight, setPatientWeight] = useState<number>(propWeight ?? 0);
+  const [patientAge, setPatientAge] = useState<number>(propAge ?? -1); // years; negative means unconfirmed
   
   // Clinical state
   const [currentStage, setCurrentStage] = useState<SEStage>('stabilization');
@@ -76,14 +76,7 @@ export default function StatusEpilepticusProtocol({ patientAge: propAge, patient
       const elapsed = Math.floor((Date.now() - startTime.getTime()) / 1000 / 60);
       setMinutesSinceStart(elapsed);
 
-      // Auto-advance stages based on time
-      if (elapsed >= 5 && elapsed < 20 && currentStage === 'first_line' && benzoGiven.length >= 2) {
-        setCurrentStage('second_line');
-      } else if (elapsed >= 20 && elapsed < 40 && currentStage === 'second_line') {
-        setCurrentStage('third_line');
-      } else if (elapsed >= 40 && currentStage === 'third_line') {
-        setCurrentStage('refractory');
-      }
+      // Time informs escalation review; it must not auto-advance treatment stages or imply response.
     }, 10000); // Update every 10 seconds
 
     return () => clearInterval(interval);
@@ -116,6 +109,21 @@ export default function StatusEpilepticusProtocol({ patientAge: propAge, patient
       return <Badge className="bg-purple-600 text-white">SUPER-REFRACTORY (40+ min)</Badge>;
     }
   };
+
+  const hasCompleteContext = typeof propAge === 'number' && Number.isFinite(propAge) && propAge >= 0 && typeof propWeight === 'number' && Number.isFinite(propWeight) && propWeight > 0;
+  if (!hasCompleteContext) {
+    return (
+      <div className="fixed inset-0 bg-black/95 z-50 overflow-y-auto p-4">
+        <Card className="mx-auto mt-16 max-w-xl border-red-700 bg-gray-900 text-white">
+          <CardContent className="p-6 space-y-4">
+            <h1 className="text-xl font-bold">Seizure pathway context required</h1>
+            <p className="text-gray-300">No benzodiazepine, second-line, or airway dose will be calculated until the governed ResusGPS flow supplies an explicit age and verified dosing weight.</p>
+            <Button onClick={onClose} className="w-full">Return to ResusGPS</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/95 z-50 overflow-y-auto">

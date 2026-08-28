@@ -34,7 +34,8 @@ export interface NeonatalAssessment {
   breathSounds: 'bilateral_equal' | 'unilateral' | 'absent';
   
   // Heart Rate Response
-  heartRateAfterVentilation: number; // bpm
+  heartRateAfterVentilation: number; // bpm after effective PPV assessment
+  heartRateAfterCompressions?: number; // bpm after at least 60 seconds of coordinated 3:1 compressions and ventilation
   
   // Skin Color
   color: 'pink' | 'acrocyanosis' | 'cyanotic' | 'pale';
@@ -102,8 +103,9 @@ export function assessNeonatalSeverity(assessment: NeonatalAssessment): Neonatal
     // Severely depressed if no heart rate or HR <60
     if (assessment.heartRate < 60 || assessment.heartRate === 0) {
       level = 'severely_depressed';
-      requiresChestCompressions = true;
-      requiresEpinephrine = assessment.heartRate === 0 || assessment.heartRate < 60;
+      requiresVentilation = true;
+      requiresChestCompressions = assessment.heartRateAfterVentilation < 60;
+      requiresEpinephrine = assessment.heartRateAfterCompressions != null && assessment.heartRateAfterCompressions < 60;
       requiresVolume = true;
     } else {
       level = 'depressed';
@@ -114,8 +116,8 @@ export function assessNeonatalSeverity(assessment: NeonatalAssessment): Neonatal
     requiresVentilation = true;
   }
 
-  // Reassess after ventilation
-  if (assessment.heartRateAfterVentilation < 100 && requiresVentilation) {
+  // Reassess after effective ventilation. NRP chest compressions are indicated only when HR remains <60 bpm.
+  if (assessment.heartRateAfterVentilation < 60 && requiresVentilation) {
     requiresChestCompressions = true;
   }
 
@@ -131,7 +133,7 @@ export function assessNeonatalSeverity(assessment: NeonatalAssessment): Neonatal
     }`,
     requiresVentilation,
     requiresChestCompressions,
-    requiresIntubation: level === 'severely_depressed' || assessment.meconiumAspiration,
+    requiresIntubation: level === 'severely_depressed' || (assessment.chestRise !== 'adequate' && assessment.breathingEffort !== 'spontaneous'),
     requiresEpinephrine,
     requiresVolume,
     requiresICU: level === 'severely_depressed' || Boolean(assessment.complications?.length),
@@ -289,8 +291,8 @@ export function generateChestCompressionInterventions(
     interventions.push({
       type: 'chest_compressions',
       description: 'Chest Compressions',
-      indication: `Heart rate <60 bpm despite 15 seconds of adequate ventilation with 100% oxygen`,
-      dosing: `Compression rate: 120 compressions/minute (3:1 compression-to-ventilation ratio)
+      indication: `Heart rate <60 bpm despite at least 30 seconds of effective PPV; use 100% oxygen once compressions begin`,
+      dosing: `Compression rate: 90 compressions/minute with 30 breaths/minute (3:1 ratio; 120 events/minute)
 Depth: ${compressionDepth} cm (1/3 of chest diameter)
 Technique: Two-thumb encircling hands method
 Hand position: Just below nipple line
@@ -323,10 +325,10 @@ export function generateMedicationInterventions(
     interventions.push({
       type: 'epinephrine',
       description: 'Epinephrine',
-      indication: `Heart rate remains <60 bpm after 10 minutes of resuscitation`,
-      dosing: `IV Route (preferred): ${epiDoseIV.toFixed(3)} mg (1:10,000 concentration)
-Endotracheal Route: ${epiDoseET.toFixed(3)} mg (1:1,000 concentration)
-Repeat every 3-5 minutes if HR remains <60`,
+      indication: `Heart rate remains <60 bpm after at least 60 seconds of coordinated 3:1 compressions with effective ventilation and 100% oxygen`,
+      dosing: `Use the current NRP dose/concentration table. Preferred intravascular route: ${epiDoseIV.toFixed(3)} mg at 0.01-0.03 mg/kg using the approved 0.1 mg/mL (1:10,000) preparation.
+If intravascular access is not available, use only the current NRP endotracheal fallback protocol; do not improvise concentration or volume.
+Repeat every 3-5 minutes only while the HR remains <60 after reassessment.`,
       frequency: 'Every 3-5 minutes',
       priority: 'urgent',
       monitoring: 'Heart rate, perfusion, blood pressure',
@@ -340,28 +342,18 @@ Repeat every 3-5 minutes if HR remains <60`,
     interventions.push({
       type: 'volume_expansion',
       description: 'Volume Expansion',
-      indication: `Hypovolemia (pale, poor perfusion) despite resuscitation`,
-      dosing: `Normal saline or O-negative blood: ${volumeDose.toFixed(1)} mL IV
-Infuse over 5-10 minutes
-Reassess perfusion after infusion`,
-      frequency: 'Single dose, repeat if needed',
+      indication: `Suspected blood loss with persistent poor perfusion despite effective ventilation and compressions when indicated`,
+      dosing: `Use the local neonatal volume-expansion protocol for the verified birth weight and available product.
+Give a cautious aliquot over the protocol interval.
+Reassess perfusion, heart rate, respiratory status, and signs of overload before any repeat dose.`,
+      frequency: 'Only repeat after explicit reassessment and senior/protocol confirmation',
       priority: 'urgent',
       monitoring: 'Perfusion, heart rate, blood pressure',
     });
   }
 
-  // Sodium Bicarbonate (only after prolonged resuscitation)
-  if (assessment.ageMinutes > 10) {
-    interventions.push({
-      type: 'sodium_bicarbonate',
-      description: 'Sodium Bicarbonate (if prolonged resuscitation)',
-      indication: `Prolonged resuscitation (>10 minutes) with metabolic acidosis`,
-      dosing: `0.5-1 mEq/kg IV (4.2% solution)
-Consider only after 10 minutes of resuscitation`,
-      priority: 'delayed',
-      monitoring: 'pH, base deficit, heart rate',
-    });
-  }
+  // Sodium bicarbonate is not a routine neonatal resuscitation intervention.
+  // Keep it out of the automatic bedside list; an expert may consider it only under a separate governed protocol.
 
   return interventions;
 }

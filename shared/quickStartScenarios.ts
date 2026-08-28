@@ -73,15 +73,15 @@ export const QUICK_START_SCENARIOS: QuickStartScenario[] = [
       'Remove allergen if possible',
       'Give IM epinephrine IMMEDIATELY',
       'Position flat (or recovery if vomiting)',
-      'High-flow oxygen',
-      'Establish IV access',
-      'Prepare for fluid bolus',
+      'Age-appropriate oxygen support titrated to the selected target',
+      'Establish IV/IO access when indicated',
+      'If shock: give isotonic fluid aliquots with reassessment after each bolus',
     ],
     keyDrugs: [
       { name: 'Epinephrine IM', dose: '0.01 mg/kg (max 0.5 mg)', route: 'IM anterolateral thigh - REPEAT every 5-15 min' },
-      { name: 'Epinephrine IV', dose: '0.001 mg/kg (1 mcg/kg)', route: 'IV if refractory (use 1:100,000)' },
-      { name: 'Hydrocortisone', dose: '4 mg/kg (max 200 mg)', route: 'IV (prevents biphasic reaction)' },
-      { name: 'Diphenhydramine', dose: '1 mg/kg (max 50 mg)', route: 'IV/IM (adjunct only)' },
+      { name: 'Epinephrine infusion', dose: 'Expert-led infusion only; use the locally approved dilution and monitored protocol', route: 'IV infusion for refractory shock — never an IV bolus' },
+      { name: 'Corticosteroid', dose: 'Not routine for preventing biphasic anaphylaxis', route: 'Only for a separate documented local indication' },
+      { name: 'Antihistamine', dose: 'Optional adjunct for persistent skin symptoms after epinephrine', route: 'Use local protocol; never delay definitive care' },
     ],
     assessmentFocus: [
       'Airway patency (stridor, voice changes)',
@@ -132,9 +132,9 @@ export const QUICK_START_SCENARIOS: QuickStartScenario[] = [
     color: 'yellow',
     description: 'Suspected infection with signs of shock (cold/warm shock)',
     immediateActions: [
-      'High-flow oxygen',
-      'Establish IV/IO access (2 if possible)',
-      'Fluid bolus 10-20 mL/kg',
+      'Age-appropriate oxygen support titrated to the selected target',
+      'Establish IV/IO access when indicated',
+      'If shock: give isotonic fluid aliquots with reassessment after each bolus',
       'Draw blood cultures',
       'Give broad-spectrum antibiotics',
       'Check lactate and glucose',
@@ -165,7 +165,7 @@ export const QUICK_START_SCENARIOS: QuickStartScenario[] = [
     description: 'Severe respiratory distress with impending failure',
     immediateActions: [
       'Position of comfort / airway positioning',
-      'High-flow oxygen (target SpO2 > 94%)',
+      'Age-appropriate oxygen support titrated to the selected target',
       'Assess for obstruction',
       'Prepare for assisted ventilation',
       'Nebulized bronchodilator if wheezing',
@@ -196,17 +196,17 @@ export const QUICK_START_SCENARIOS: QuickStartScenario[] = [
     description: 'Diabetic ketoacidosis - hyperglycemia, acidosis, ketosis',
     immediateActions: [
       'Establish IV access',
-      'Initial fluid bolus 10-20 mL/kg NS',
+      'Use a selected DKA protocol; do not use an ungoverned generic bolus schedule',
       'Check glucose, ketones, blood gas',
       'Start insulin infusion (after initial fluids)',
       'Cardiac monitoring (for K+ changes)',
       'Neuro checks every hour',
     ],
     keyDrugs: [
-      { name: 'NS Bolus', dose: '10-20 mL/kg', route: 'IV over 1-2 hours' },
+      { name: 'Isotonic fluid', dose: 'Use a selected DKA protocol; avoid ungoverned bolus scheduling', route: 'IV/IO with reassessment' },
       { name: 'Insulin infusion', dose: '0.05-0.1 units/kg/hr', route: 'IV (start after initial fluids)' },
       { name: 'Potassium', dose: '20-40 mEq/L in fluids', route: 'IV (if K+ < 5.5)' },
-      { name: 'Sodium bicarbonate', dose: '1-2 mEq/kg', route: 'IV (only if pH < 6.9)' },
+      { name: 'Sodium bicarbonate', dose: 'Not routine; specialist protocol only', route: 'IV only under a governed indication' },
     ],
     assessmentFocus: [
       'Glucose (target decrease 50-100 mg/dL/hr)',
@@ -226,23 +226,23 @@ export const QUICK_START_SCENARIOS: QuickStartScenario[] = [
     color: 'orange',
     description: 'Significant mechanism of injury requiring trauma assessment',
     immediateActions: [
-      'C-spine immobilization',
-      'Airway with jaw thrust (not head tilt)',
+      'Protect the cervical spine when indicated by mechanism and examination',
+      'Airway with jaw thrust when cervical-spine injury is suspected',
       'Control external hemorrhage',
-      'High-flow oxygen',
+      'Age-appropriate oxygen support titrated to the selected target',
       'Establish IV access x2',
       'Warm fluids ready',
     ],
     keyDrugs: [
-      { name: 'NS/LR Bolus', dose: '20 mL/kg', route: 'IV (warm fluids)' },
-      { name: 'TXA', dose: '15-20 mg/kg (max 1g)', route: 'IV over 10 min (within 3 hrs)' },
-      { name: 'Fentanyl', dose: '1-2 mcg/kg', route: 'IV (pain control)' },
-      { name: 'Ketamine', dose: '1-2 mg/kg', route: 'IV (procedural sedation)' },
+      { name: 'Crystalloid/blood aliquot', dose: 'Age-, injury-, perfusion-, and setting-specific protocol with reassessment after each aliquot', route: 'IV/IO with warming and monitoring when available' },
+      { name: 'TXA', dose: 'Use only when age-, weight-, timing-, injury-, and contraindication criteria are met under the local haemorrhage protocol', route: 'Route and infusion schedule per protocol' },
+      { name: 'Analgesia', dose: 'Use a weight- and age-appropriate local analgesia protocol', route: 'Route and monitoring per trained clinician' },
+      { name: 'Ketamine', dose: 'Use a governed procedural-sedation protocol only', route: 'Requires airway readiness and monitoring' },
     ],
     assessmentFocus: [
       'ABCDE with C-spine protection',
       'Hemorrhage control',
-      'GCS and pupils',
+      'Age-appropriate neurological assessment and pupils',
       'Secondary survey',
       'Imaging (CT, X-ray)',
     ],
@@ -264,9 +264,9 @@ export const QUICK_START_SCENARIOS: QuickStartScenario[] = [
       'PPV if HR < 100 or apneic',
     ],
     keyDrugs: [
-      { name: 'Epinephrine', dose: '0.01-0.03 mg/kg', route: 'IV/UVC (1:10,000)' },
-      { name: 'NS Bolus', dose: '10 mL/kg', route: 'IV/UVC (for hypovolemia)' },
-      { name: 'Dextrose 10%', dose: '2 mL/kg', route: 'IV (for hypoglycemia)' },
+      { name: 'Epinephrine', dose: 'Use the current neonatal resuscitation dose and concentration table', route: 'UVC/IO per NRP; no improvised concentration' },
+      { name: 'Isotonic fluid', dose: 'Only for suspected blood loss/hypovolaemia under the neonatal protocol', route: 'UVC/IO with reassessment' },
+      { name: 'Dextrose', dose: 'Check glucose and use the neonatal hypoglycaemia protocol', route: 'IV/IO per local neonatal protocol' },
     ],
     assessmentFocus: [
       'Heart rate (most important)',
@@ -302,25 +302,34 @@ export function getScenarioDrugDose(
   );
   if (!drug) return null;
 
-  // Parse dose string and calculate
-  const doseMatch = drug.dose.match(/([\d.]+)\s*(mg|mcg|mL|g|units)\/kg/i);
-  if (doseMatch) {
-    const dosePerKg = parseFloat(doseMatch[1]);
-    const unit = doseMatch[2];
-    const calculated = dosePerKg * weightKg;
-    
-    // Check for max dose
-    const maxMatch = drug.dose.match(/max\s*([\d.]+)\s*(mg|mcg|mL|g)/i);
-    const maxDose = maxMatch ? parseFloat(maxMatch[1]) : Infinity;
-    const finalDose = Math.min(calculated, maxDose);
+  if (!Number.isFinite(weightKg) || weightKg <= 0) {
+    return { dose: drug.dose, calculated: 'Enter a valid dosing weight and use the governed protocol.' };
+  }
 
+  // Quick Start is a reference launcher, not an independent dose engine.
+  // Refuse ambiguous ranges, infusions, concentrations, fixed-dose bands, and
+  // protocol-only wording rather than calculating from the first number in text.
+  const doseText = drug.dose.toLowerCase();
+  const hasRange = /\d+(?:\.\d+)?\s*[-–]\s*\d+/.test(doseText);
+  const isInfusionOrConcentration = /infusion|units?\/kg\/hr|mcg\/kg\/min|mEq\/L|concentration|protocol|not routine|expert-led|selected/.test(doseText);
+  const doseMatch = drug.dose.match(/^\s*([\d.]+)\s*(mg|mcg|mL|g|units)\/kg\s*(?:\(\s*max\s*([\d.]+)\s*(mg|mcg|mL|g|units)\s*\))?\s*$/i);
+
+  if (!doseMatch || hasRange || isInfusionOrConcentration) {
     return {
       dose: drug.dose,
-      calculated: `${finalDose.toFixed(1)} ${unit}`,
+      calculated: 'Use the selected age/context clinical protocol; no automatic Quick Start calculation.',
     };
   }
 
-  return { dose: drug.dose, calculated: drug.dose };
+  const dosePerKg = Number(doseMatch[1]);
+  const unit = doseMatch[2];
+  const maxDose = doseMatch[3] ? Number(doseMatch[3]) : Infinity;
+  const finalDose = Math.min(dosePerKg * weightKg, maxDose);
+
+  return {
+    dose: drug.dose,
+    calculated: `${finalDose.toFixed(1)} ${unit}`,
+  };
 }
 
 /**

@@ -2,11 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { resolveLifeSupportPack } from './cpr-pack-resolver';
 
 describe('resolveLifeSupportPack', () => {
-  it('returns NRP for delivery room regardless of age', () => {
-    const r = resolveLifeSupportPack(24, false, 'delivery_room');
+  it('returns NRP for an explicitly confirmed delivery-room newborn', () => {
+    const r = resolveLifeSupportPack(0, false, 'delivery_room');
     expect(r.pack).toBe('NRP');
     expect(r.ageBand).toBe('newborn_delivery_room');
     expect(r.contentVersion).toBe('2025 AHA/AAP reference');
+  });
+
+  it('rejects an older patient in a delivery-room NRP context', () => {
+    expect(() => resolveLifeSupportPack(24, false, 'delivery_room')).toThrow(/newborn under 1 month/i);
   });
 
   it('returns PALS for a hospital infant even when under 1 month', () => {
