@@ -228,9 +228,10 @@ export function SearchableDropdown({
 
   const optionList = (
     <Command
-      shouldFilter={false}
-      value={searchQuery}
-      onValueChange={setSearchQuery}
+      shouldFilter={searchAlwaysVisible ? false : undefined}
+      {...(!searchAlwaysVisible
+        ? { value: searchQuery, onValueChange: setSearchQuery }
+        : {})}
     >
       {!searchAlwaysVisible ? <CommandInput placeholder={searchPlaceholder} /> : null}
       <CommandList className="max-h-[250px]">
@@ -266,6 +267,9 @@ export function SearchableDropdown({
           value={searchQuery}
           placeholder={searchPlaceholder}
           aria-label={searchPlaceholder}
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
           onFocus={() => setOpen(true)}
           onChange={event => {
             setSearchQuery(event.target.value);

@@ -3,6 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, TrendingUp } from "lucide-react";
+import { useState } from "react";
 import { Link } from "wouter";
 import { ProviderProfileForm } from "@/components/ProviderProfileForm";
 import { ProfessionalIdentityCard } from "@/components/ProfessionalIdentityCard";
@@ -12,6 +13,7 @@ import { IerpInternProfileCard } from "@/components/IerpInternProfileCard";
 export default function ProviderProfile() {
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
   const profileQuery = trpc.provider.getProfile.useQuery();
+  const [experienceOverride, setExperienceOverride] = useState<number | null>(null);
 
   if (loading || profileQuery.isLoading) {
     return (
@@ -55,8 +57,8 @@ export default function ProviderProfile() {
 
         <ProfessionalIdentityCard />
         <IerpInternProfileCard />
-        <ProviderCredentialsCard />
-        <ProviderProfileForm />
+        <ProviderCredentialsCard onExperienceDerived={setExperienceOverride} />
+        <ProviderProfileForm experienceOverride={experienceOverride} />
 
         <Card>
           <CardHeader>
