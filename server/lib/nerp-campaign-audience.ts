@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import {
   institutionalStaffMembers,
   nerpCampaignSuppressions,
@@ -27,32 +27,6 @@ export type NerpPromotionRecipient = {
   hasVerifiedBlsAndAcls: boolean;
   suppressionOnly: boolean;
 };
-
-async function getOfferForUserForCampaign(db: any, userId: number) {
-  const rows = await db
-    .select()
-    .from(nerpOfferEnrollments)
-    .where(
-      and(
-        eq(nerpOfferEnrollments.userId, userId),
-        eq(nerpOfferEnrollments.offerKey, NERP_ACLS_OFFER_KEY)
-      )
-    )
-    .orderBy(desc(nerpOfferEnrollments.id))
-    .limit(1);
-  return rows[0] ?? null;
-}
-
-async function getVerificationStateForCampaign(db: any, offerId: number) {
-  const rows = await db
-    .select()
-    .from(nerpOfferExternalVerifications)
-    .where(eq(nerpOfferExternalVerifications.nerpOfferEnrollmentId, offerId));
-  return {
-    phase2: rows.find((row: any) => row.phase === "phase_2") ?? null,
-    phase3: rows.find((row: any) => row.phase === "phase_3") ?? null,
-  };
-}
 
 export async function loadNerpPromotionAudience(
   db: any,
@@ -88,8 +62,80 @@ export async function loadNerpPromotionAudience(
         eq(nerpCampaignSuppressions.isActive, true)
       )
     );
-  const matchedSuppressionIds = new Set<number>();
 
+  const userIds: number[] = [];
+  for (const staff of staffRows) {
+    if (
+      typeof staff.userId === "number" &&
+      !userIds.includes(staff.userId)
+    ) {
+      userIds.push(staff.userId);
+    }
+  }
+
+  const offerRows = userIds.length
+    ? await db
+        .select()
+        .from(nerpOfferEnrollments)
+        .where(
+          and(
+            inArray(nerpOfferEnrollments.userId, userIds),
+            eq(nerpOfferEnrollments.offerKey, NERP_ACLS_OFFER_KEY)
+          )
+        )
+        .orderBy(desc(nerpOfferEnrollments.id))
+    : [];
+  const offerByUserId = new Map<number, any>();
+  for (const offer of offerRows) {
+    if (!offerByUserId.has(offer.userId)) offerByUserId.set(offer.userId, offer);
+  }
+
+  const offerIds = offerRows.map((offer: any) => offer.id);
+  const verificationRows = offerIds.length
+    ? await db
+        .select()
+        .from(nerpOfferExternalVerifications)
+        .where(inArray(nerpOfferExternalVerifications.nerpOfferEnrollmentId, offerIds))
+    : [];
+  const verificationByOfferId = new Map<
+    number,
+    { phase2: any | null; phase3: any | null }
+  >();
+  for (const verification of verificationRows) {
+    const state = verificationByOfferId.get(
+      verification.nerpOfferEnrollmentId
+    ) ?? { phase2: null, phase3: null };
+    if (verification.phase === "phase_2") state.phase2 = verification;
+    if (verification.phase === "phase_3") state.phase3 = verification;
+    verificationByOfferId.set(verification.nerpOfferEnrollmentId, state);
+  }
+
+  const credentialRows = userIds.length
+    ? await db
+        .select({
+          userId: professionalCredentials.userId,
+          credentialType: professionalCredentials.credentialType,
+          status: professionalCredentials.status,
+        })
+        .from(professionalCredentials)
+        .where(
+          and(
+            inArray(professionalCredentials.userId, userIds),
+            or(
+              eq(professionalCredentials.credentialType, "external_aha_bls"),
+              eq(professionalCredentials.credentialType, "external_aha_acls")
+            )
+          )
+        )
+    : [];
+  const credentialsByUserId = new Map<number, Array<{ credentialType: string; status: string }>>();
+  for (const credential of credentialRows) {
+    const rows = credentialsByUserId.get(credential.userId) ?? [];
+    rows.push(credential);
+    credentialsByUserId.set(credential.userId, rows);
+  }
+
+  const matchedSuppressionIds = new Set<number>();
   for (const staff of staffRows) {
     const suppression = findCampaignSuppression(
       suppressionRows,
@@ -100,37 +146,22 @@ export async function loadNerpPromotionAudience(
     if (suppression) matchedSuppressionIds.add(suppression.id);
 
     const offer = staff.userId
-      ? await getOfferForUserForCampaign(db, staff.userId)
+      ? offerByUserId.get(staff.userId) ?? null
       : null;
     const verification = offer
-      ? await getVerificationStateForCampaign(db, offer.id)
+      ? verificationByOfferId.get(offer.id) ?? { phase2: null, phase3: null }
       : { phase2: null, phase3: null };
     const credentials = staff.userId
-      ? await db
-          .select({
-            credentialType: professionalCredentials.credentialType,
-            status: professionalCredentials.status,
-          })
-          .from(professionalCredentials)
-          .where(
-            and(
-              eq(professionalCredentials.userId, staff.userId),
-              or(
-                eq(professionalCredentials.credentialType, "external_aha_bls"),
-                eq(professionalCredentials.credentialType, "external_aha_acls")
-              )
-            )
-          )
+      ? credentialsByUserId.get(staff.userId) ?? []
       : [];
     const hasVerifiedBlsAndAcls =
       credentials.some(
-        (row: { credentialType: string; status: string }) =>
+        (row) =>
           row.credentialType === "external_aha_bls" && row.status === "verified"
       ) &&
       credentials.some(
-        (row: { credentialType: string; status: string }) =>
-          row.credentialType === "external_aha_acls" &&
-          row.status === "verified"
+        (row) =>
+          row.credentialType === "external_aha_acls" && row.status === "verified"
       );
     const status = deriveNerpPromotionStatus({
       hasValidEmail: validEmail(staff.staffEmail),
