@@ -1,6 +1,12 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   ArrowRight,
   Award,
@@ -18,7 +24,11 @@ import { usePageMeta } from "@/hooks/usePageMeta";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { getLoginUrl } from "@/const";
 import { formatPrice, getIndividualCoursePrice } from "@/const/pricing";
-import { buildJsonLdGraph, buildOrganizationJsonLd, buildWebsiteJsonLd } from "@/lib/seo-schema";
+import {
+  buildJsonLdGraph,
+  buildOrganizationJsonLd,
+  buildWebsiteJsonLd,
+} from "@/lib/seo-schema";
 
 const TRAINING_LINKS = [
   { href: "/training/bls", label: "BLS" },
@@ -37,7 +47,10 @@ export default function PublicHome() {
     path: "/",
   });
 
-  const jsonLd = buildJsonLdGraph([buildOrganizationJsonLd(), buildWebsiteJsonLd()]);
+  const jsonLd = buildJsonLdGraph([
+    buildOrganizationJsonLd(),
+    buildWebsiteJsonLd(),
+  ]);
 
   return (
     <>
@@ -53,10 +66,11 @@ export default function PublicHome() {
               No child should die from a preventable emergency
             </h1>
             <p className="text-lg md:text-xl text-white/90 max-w-2xl mb-8 leading-relaxed">
-              Most preventable child deaths don't happen because the right treatment is unknown — they happen
-              because it doesn't reach the child in time. Paeds Resus is built to close that gap: bedside
-              guidance, training, and a quality-improvement system that learns from every case to make the next
-              one safer.
+              Most preventable child deaths don't happen because the right
+              treatment is unknown — they happen because it doesn't reach the
+              child in time. Paeds Resus is built to close that gap: bedside
+              guidance, training, and a quality-improvement system that learns
+              from every case to make the next one safer.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link href="/register">
@@ -66,12 +80,20 @@ export default function PublicHome() {
                 </Button>
               </Link>
               <a href={getLoginUrl()}>
-                <Button variant="outline" size="lg" className="bg-white/10 border-white/30 text-white hover:bg-white/20">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+                >
                   Sign in
                 </Button>
               </a>
               <Link href="/training">
-                <Button variant="ghost" size="lg" className="text-white hover:bg-white/10">
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  className="text-white hover:bg-white/10"
+                >
                   Browse training
                 </Button>
               </Link>
@@ -81,25 +103,36 @@ export default function PublicHome() {
 
         <div className="max-w-6xl mx-auto px-4 py-12 md:py-16 space-y-16">
           {/* Why we exist — the learning system framing */}
-          <section id="why" aria-labelledby="why-heading" className="text-center max-w-3xl mx-auto">
+          <section
+            id="why"
+            aria-labelledby="why-heading"
+            className="text-center max-w-3xl mx-auto"
+          >
             <div className="flex justify-center mb-4">
               <div className="rounded-full bg-brand-orange/10 p-4 text-brand-orange">
                 <Brain className="h-8 w-8" />
               </div>
             </div>
-            <h2 id="why-heading" className="text-2xl md:text-3xl font-bold mb-4">
+            <h2
+              id="why-heading"
+              className="text-2xl md:text-3xl font-bold mb-4"
+            >
               Not a training company. A system that learns.
             </h2>
             <p className="text-muted-foreground leading-relaxed mb-3">
-              The largest reductions in child mortality have come from simple, well-known interventions delivered
-              reliably — not from rarer breakthroughs. The hardest problem in paediatric emergency care isn't
-              discovering what works. It's making sure what works actually happens, every time, for every child.
+              The largest reductions in child mortality have come from simple,
+              well-known interventions delivered reliably — not from rarer
+              breakthroughs. The hardest problem in paediatric emergency care
+              isn't discovering what works. It's making sure what works actually
+              happens, every time, for every child.
             </p>
             <p className="text-muted-foreground leading-relaxed">
-              Paeds Resus works the way aviation safety works: every near-miss reported by a provider, every
-              experience shared by a parent, feeds a system that gets better for everyone who uses it next.
-              ResusGPS, training, and Care Signal aren't separate products bundled together — they're one loop.
-              Use the tool, reflect on the case, the system learns, the next child gets better care.
+              Paeds Resus works the way aviation safety works: every near-miss
+              reported by a provider, every experience shared by a parent, feeds
+              a system that gets better for everyone who uses it next. ResusGPS,
+              training, and Care Signal aren't separate products bundled
+              together — they're one loop. Use the tool, reflect on the case,
+              the system learns, the next child gets better care.
             </p>
           </section>
 
@@ -110,26 +143,34 @@ export default function PublicHome() {
                 <Stethoscope className="h-6 w-6" />
               </div>
               <div>
-                <h2 id="providers-heading" className="text-2xl md:text-3xl font-bold">
-                  Healthcare providers
+                <h2
+                  id="providers-heading"
+                  className="text-2xl md:text-3xl font-bold"
+                >
+                  Individual healthcare providers
                 </h2>
-                <p className="text-muted-foreground">ResusGPS · Care Signal · Fellowship</p>
+                <p className="text-muted-foreground">
+                  AHA BLS · AHA ACLS · NERP · IERP · Fellowship
+                </p>
               </div>
             </div>
             <div className="grid md:grid-cols-3 gap-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">ResusGPS</CardTitle>
-                  <CardDescription>Bedside paediatric emergency guidance</CardDescription>
+                  <CardTitle className="text-lg">NERP</CardTitle>
+                  <CardDescription>
+                    Nurses Emergency Readiness Program
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Structured ABCDE flows, CPR Clock, weight-based drug calculators, and protocols for
-                    time-critical decisions. ResusGPS is one product on Paeds Resus — not the whole platform.
+                    A structured individual pathway for nurses who need
+                    practical emergency readiness, simulation, evidence, and
+                    progression. NERP is an individual product on Paeds Resus.
                   </p>
-                  <a href={getLoginUrl("/resus")}>
+                  <a href={"/programs/nerp-acls"}>
                     <Button className="w-full gap-2">
-                      Sign in to open ResusGPS
+                      Explore NERP
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </a>
@@ -137,34 +178,42 @@ export default function PublicHome() {
               </Card>
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Care Signal</CardTitle>
-                  <CardDescription>Monthly QI incident & near-miss reporting</CardDescription>
+                  <CardTitle className="text-lg">IERP</CardTitle>
+                  <CardDescription>
+                    Interns Emergency Readiness Program
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Provider-facing quality improvement — distinct from Parent Safe-Truth. Contributes to
-                    Fellowship Pillar C when you maintain qualifying monthly reports.
+                    A profile-first individual pathway for interns, with named
+                    roles, simulation, evidence gates, and practical progression
+                    toward emergency readiness.
                   </p>
-                  <a href={getLoginUrl("/care-signal")}>
+                  <a href={"/programs/ierp"}>
                     <Button variant="outline" className="w-full">
-                      Sign in for Care Signal
+                      Explore IERP
                     </Button>
                   </a>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Paeds Resus Fellowship</CardTitle>
-                  <CardDescription>Three pillars · one earned title</CardDescription>
+                  <CardTitle className="text-lg">
+                    AHA courses & Fellowship
+                  </CardTitle>
+                  <CardDescription>
+                    Three pillars · one earned title
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Micro-courses, ResusGPS attributable cases, and Care Signal discipline — automated
-                    progress tracking. BLS/ACLS/PALS are optional parallel tracks, not fellowship requirements.
+                    Choose AHA BLS, AHA ACLS, or the Paeds Resus Fellowship
+                    according to your learning goal. These are separate
+                    individual pathways with clear scope and progression.
                   </p>
                   <Link href="/for-providers">
                     <Button variant="outline" className="w-full">
-                      Learn about the pathway
+                      Explore individual learning
                     </Button>
                   </Link>
                 </CardContent>
@@ -179,22 +228,30 @@ export default function PublicHome() {
                 <GraduationCap className="h-6 w-6" />
               </div>
               <div>
-                <h2 id="training-heading" className="text-2xl md:text-3xl font-bold">
+                <h2
+                  id="training-heading"
+                  className="text-2xl md:text-3xl font-bold"
+                >
                   Training & AHA-aligned courses
                 </h2>
-                <p className="text-muted-foreground">Delivered by Paeds Resus Limited</p>
+                <p className="text-muted-foreground">
+                  Delivered by Paeds Resus Limited
+                </p>
               </div>
             </div>
             <p className="text-muted-foreground mb-6 max-w-3xl">
-              BLS, ACLS, PALS, NRP, Heartsaver, and condition-focused micro-courses — blended cognitive modules
-              plus hands-on skills sessions. Individual pricing from{" "}
-              {formatPrice(getIndividualCoursePrice("heartsaver") ?? 0)} (Heartsaver) to{" "}
-              {formatPrice(getIndividualCoursePrice("acls") ?? 0)} (ACLS/PALS); NRP from{" "}
-              {formatPrice(getIndividualCoursePrice("nrp") ?? 0)}. Search-friendly landing pages explain each
-              course for teams across Kenya and the East African Community.
+              BLS, ACLS, PALS, NRP, Heartsaver, and condition-focused
+              micro-courses — blended cognitive modules plus hands-on skills
+              sessions. Individual pricing from{" "}
+              {formatPrice(getIndividualCoursePrice("heartsaver") ?? 0)}{" "}
+              (Heartsaver) to{" "}
+              {formatPrice(getIndividualCoursePrice("acls") ?? 0)} (ACLS/PALS);
+              NRP from {formatPrice(getIndividualCoursePrice("nrp") ?? 0)}.
+              Search-friendly landing pages explain each course for teams across
+              Kenya and the East African Community.
             </p>
             <div className="flex flex-wrap gap-2 mb-6">
-              {TRAINING_LINKS.map((link) => (
+              {TRAINING_LINKS.map(link => (
                 <Link key={link.href} href={link.href}>
                   <Button variant="outline" size="sm">
                     {link.label}
@@ -217,7 +274,8 @@ export default function PublicHome() {
                 <div>
                   <p className="font-semibold">Ready to enroll?</p>
                   <p className="text-sm text-muted-foreground">
-                    Create a provider account, choose your course, and complete cognitive modules at your pace.
+                    Create a provider account, choose your course, and complete
+                    cognitive modules at your pace.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -239,7 +297,10 @@ export default function PublicHome() {
                 <Heart className="h-6 w-6" />
               </div>
               <div>
-                <h2 id="parents-heading" className="text-2xl md:text-3xl font-bold">
+                <h2
+                  id="parents-heading"
+                  className="text-2xl md:text-3xl font-bold"
+                >
                   Parents & caregivers
                 </h2>
                 <p className="text-muted-foreground">Parent Safe-Truth</p>
@@ -248,8 +309,9 @@ export default function PublicHome() {
             <Card>
               <CardContent className="py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <p className="text-muted-foreground max-w-2xl">
-                  Trustworthy, appropriately scoped family resources — separate tone and audience from
-                  ResusGPS and Care Signal. Help your community recognise danger signs and seek care early.
+                  Trustworthy, appropriately scoped family resources — separate
+                  tone and audience from ResusGPS and Care Signal. Help your
+                  community recognise danger signs and seek care early.
                 </p>
                 <div className="flex flex-wrap gap-2 shrink-0">
                   <Link href="/parent-safe-truth">
@@ -273,24 +335,30 @@ export default function PublicHome() {
                 <Building2 className="h-6 w-6" />
               </div>
               <div>
-                <h2 id="institutions-heading" className="text-2xl md:text-3xl font-bold">
+                <h2
+                  id="institutions-heading"
+                  className="text-2xl md:text-3xl font-bold"
+                >
                   Hospitals & institutions
                 </h2>
-                <p className="text-muted-foreground">Hospital ERS · nurse-led ERT · readiness systems</p>
+                <p className="text-muted-foreground">
+                  ILSP · IERS with ResusGPS · ICPD
+                </p>
               </div>
             </div>
             <Card>
               <CardContent className="py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <p className="text-muted-foreground max-w-2xl">
-                  Build a hospital-wide Emergency Readiness System with paediatric priority — nurse-led 24/7 ERT that
-                  coordinates teams across units, ResusGPS, Care Signal QI, AHA-aligned training mesh, and readiness
-                  audits. Serving Nyeri, Embu, Murang&apos;a, Meru, and central Kenya — working ERS plus training, not
-                  seat bundles.
+                  Choose the institutional layer that fits your facility: ILSP
+                  for life-support cohorts, IERS for emergency readiness with
+                  ResusGPS and Care Signal, or ICPD for professional-development
+                  records and reporting. Serving facilities across Kenya and the
+                  East African Community.
                 </p>
                 <div className="flex flex-wrap gap-2 shrink-0">
                   <Link href="/institutional">
                     <Button variant="cta" className="gap-2">
-                      Institutional portal
+                      Explore institutional products
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
@@ -312,7 +380,10 @@ export default function PublicHome() {
                 <ShieldCheck className="h-6 w-6" />
               </div>
               <div>
-                <h2 id="trust-heading" className="text-2xl md:text-3xl font-bold">
+                <h2
+                  id="trust-heading"
+                  className="text-2xl md:text-3xl font-bold"
+                >
                   Trust & verification
                 </h2>
               </div>
@@ -327,7 +398,8 @@ export default function PublicHome() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Employers and institutions can verify Paeds Resus and AHA-aligned certificates publicly.
+                    Employers and institutions can verify Paeds Resus and
+                    AHA-aligned certificates publicly.
                   </p>
                   <Link href="/verify">
                     <Button variant="outline" size="sm">
@@ -338,12 +410,15 @@ export default function PublicHome() {
               </Card>
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Paeds Resus Limited</CardTitle>
+                  <CardTitle className="text-base">
+                    Paeds Resus Limited
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    Legal entity and AHA-aligned training provider for BLS, ACLS, PALS, and instructor
-                    programmes. Invoices and training correspondence use Paeds Resus Limited.
+                    Legal entity and AHA-aligned training provider for BLS,
+                    ACLS, PALS, and instructor programmes. Invoices and training
+                    correspondence use Paeds Resus Limited.
                   </p>
                 </CardContent>
               </Card>
@@ -356,8 +431,9 @@ export default function PublicHome() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground mb-3">
-                    We support — not replace — professional judgment and local protocols. Read our intended
-                    use statement before bedside use.
+                    We support — not replace — professional judgment and local
+                    protocols. Read our intended use statement before bedside
+                    use.
                   </p>
                   <Link href="/legal/clinical-use">
                     <Button variant="outline" size="sm">
@@ -371,12 +447,16 @@ export default function PublicHome() {
 
           {/* EAC note */}
           <section className="rounded-xl border border-border bg-muted/30 p-6 md:p-8">
-            <h2 className="text-xl font-bold mb-2">Kenya today · East Africa next</h2>
+            <h2 className="text-xl font-bold mb-2">
+              Kenya today · East Africa next
+            </h2>
             <p className="text-muted-foreground text-sm leading-relaxed max-w-3xl">
-              Paeds Resus is headquartered in Kenya and built for resource-limited settings across the East
-              African Community. Training cohorts, institutional pilots, and localized discovery pages will
-              expand as we partner with ministries of health and referral hospitals — without compromising
-              data integrity or brand clarity.
+              Paeds Resus is headquartered in Kenya and built for
+              resource-limited settings across the East African Community.
+              Training cohorts, institutional pilots, and localized discovery
+              pages will expand as we partner with ministries of health and
+              referral hospitals — without compromising data integrity or brand
+              clarity.
             </p>
           </section>
         </div>
