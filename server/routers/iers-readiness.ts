@@ -19,6 +19,7 @@ import { assertInstitutionProductRole } from "../lib/institution-product-roles";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { deriveUtlReadinessStatus, isCriticalReadinessGap } from "../lib/iers-readiness-state";
 import { ensureDefaultUtlReadinessTemplate } from "../services/iers-readiness-template.service";
+import { assertCurrentClinicalLicence } from "../lib/professional-credential-safety";
 import { TRPCError } from "@trpc/server";
 
 const ITEM_STATUSES = [
@@ -103,6 +104,7 @@ export const iersReadinessRouter = router({
       try {
       const { team } = await resolveAcceptedUtl(db, ctx.user.id, input.teamId, input.shiftUtlRosterId);
       await requireActiveMember(db, ctx.user.id, team.institutionId);
+      await assertCurrentClinicalLicence(db, ctx.user.id);
       await ensureDefaultUtlReadinessTemplate(db, { institutionId: team.institutionId, fallbackActorUserId: ctx.user.id });
       const [template] = await db.select().from(iersReadinessTemplates).where(and(eq(iersReadinessTemplates.institutionId, team.institutionId), eq(iersReadinessTemplates.status, "active"), lte(iersReadinessTemplates.effectiveFrom, team.shiftDate))).orderBy(desc(iersReadinessTemplates.effectiveFrom), desc(iersReadinessTemplates.id)).limit(1);
       if (!template) return { template: null, items: [], latestCheck: null };
@@ -139,6 +141,7 @@ export const iersReadinessRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       const { assignment, team, departmentId } = await resolveAcceptedUtl(db, ctx.user.id, input.teamId, input.shiftUtlRosterId);
       await requireActiveMember(db, ctx.user.id, team.institutionId);
+      await assertCurrentClinicalLicence(db, ctx.user.id);
       const [existingRequest] = await db.select({ id: iersUtlReadinessChecks.id, status: iersUtlReadinessChecks.status }).from(iersUtlReadinessChecks).where(and(eq(iersUtlReadinessChecks.checkedByUserId, ctx.user.id), eq(iersUtlReadinessChecks.idempotencyKey, input.clientRequestId))).limit(1);
       if (existingRequest) return { success: true, checkId: existingRequest.id, status: existingRequest.status, criticalGapCount: 0, nonCriticalGapCount: 0, duplicate: true };
       const [template] = await db.select().from(iersReadinessTemplates).where(and(eq(iersReadinessTemplates.id, input.templateId), eq(iersReadinessTemplates.institutionId, team.institutionId), eq(iersReadinessTemplates.status, "active"), lte(iersReadinessTemplates.effectiveFrom, team.shiftDate))).limit(1);

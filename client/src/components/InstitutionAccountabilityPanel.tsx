@@ -156,6 +156,40 @@ export function InstitutionAccountabilityPanel({
         />
       </div>
 
+      <Card className="border-rose-200 bg-rose-50/40 dark:border-rose-900/50 dark:bg-rose-950/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-rose-700" />
+            Clinical duty safety & experience
+          </CardTitle>
+          <CardDescription>
+            ERT duty-ready means verified Licence number, Issue date, and Valid
+            until are present and the licence is current. Experience is shown
+            only as a workforce-QI signal, not as a competency decision.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-3">
+          <MetricCard
+            label="ERT duty-ready"
+            value={`${data.summary.ertClinicalDutyReady}`}
+            detail={`${data.summary.ertClinicalDutyBlocked} blocked or incomplete`}
+            tone="text-emerald-700"
+          />
+          <MetricCard
+            label="Experience recorded"
+            value={`${data.summary.experienceRecordedStaff}/${data.summary.staffCount}`}
+            detail={data.summary.averageYearsOfExperience == null ? "No experience data" : `Average ${data.summary.averageYearsOfExperience} years`}
+            tone="text-indigo-700"
+          />
+          <MetricCard
+            label="Licence action needed"
+            value={`${data.summary.licensedExpired + data.summary.licensedMissing}`}
+            detail="Expired or missing licence record"
+            tone="text-amber-700"
+          />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -174,6 +208,8 @@ export function InstitutionAccountabilityPanel({
                 <th className="px-3 py-2">Department</th>
                 <th className="px-3 py-2">Staff</th>
                 <th className="px-3 py-2">Licence current</th>
+                <th className="px-3 py-2">ERT duty-ready</th>
+                <th className="px-3 py-2">Avg experience</th>
                 <th className="px-3 py-2">Life Support current</th>
                 <th className="px-3 py-2">Sessions</th>
                 <th className="px-3 py-2">Attendance</th>
@@ -187,6 +223,12 @@ export function InstitutionAccountabilityPanel({
                   <td className="px-3 py-3">{row.staffCount}</td>
                   <td className="px-3 py-3">
                     {row.licensedCurrentOrExpiring}/{row.staffCount}
+                  </td>
+                  <td className="px-3 py-3">
+                    {row.ertClinicalDutyReady}/{row.staffCount}
+                  </td>
+                  <td className="px-3 py-3">
+                    {row.averageYearsOfExperience == null ? "—" : `${row.averageYearsOfExperience} yrs`}
                   </td>
                   <td className="px-3 py-3">
                     {row.lifeSupportCurrentOrExpiring}/{row.staffCount}
@@ -233,7 +275,9 @@ export function InstitutionAccountabilityPanel({
                   <th className="px-3 py-2">Staff member</th>
                   <th className="px-3 py-2">Department</th>
                   <th className="px-3 py-2">Cadre</th>
+                  <th className="px-3 py-2">Experience</th>
                   <th className="px-3 py-2">Licence</th>
+                  <th className="px-3 py-2">ERT duty</th>
                   <th className="px-3 py-2">Life Support</th>
                   <th className="px-3 py-2">CPD attendance</th>
                   <th className="px-3 py-2">CPD target signal</th>
@@ -246,12 +290,28 @@ export function InstitutionAccountabilityPanel({
                     <td className="px-3 py-3">{row.department}</td>
                     <td className="px-3 py-3">{row.cadre ?? "Not recorded"}</td>
                     <td className="px-3 py-3">
+                      {row.experienceRecorded ? `${row.yearsOfExperience} years` : "Not recorded"}
+                    </td>
+                    <td className="px-3 py-3">
                       <Badge
                         variant={statusVariant(row.licenseStatus)}
                         className="capitalize"
                       >
                         {label(row.licenseStatus)}
                       </Badge>
+                    </td>
+                    <td className="px-3 py-3">
+                      <Badge
+                        variant={row.ertClinicalDutyEligible ? "default" : "destructive"}
+                        className="capitalize"
+                      >
+                        {row.ertClinicalDutyEligible ? "ready" : "blocked"}
+                      </Badge>
+                      {!row.ertClinicalDutyEligible ? (
+                        <div className="mt-1 text-[11px] text-muted-foreground">
+                          {label(row.ertClinicalDutyBlockReason)}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-3 py-3">
                       <Badge
