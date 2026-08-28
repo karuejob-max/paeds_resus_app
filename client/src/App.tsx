@@ -386,11 +386,7 @@ function Router() {
           )}</Route>
           <Route path="/training" component={TrainingHub} />
           <Route path="/programs/nerp-acls" component={NerpOfferPage} />
-          <Route path="/programs/nerp-acls/start">{() => (
-            <RoleGate allowed={["provider"]}>
-              <NerpPathwayEntry />
-            </RoleGate>
-          )}</Route>
+          <Route path="/programs/nerp-acls/start" component={NerpPathwayEntry} />
           <Route path="/programs/nerp-acls/enroll">{() => (
             <RoleGate allowed={["provider"]}>
               <NerpCheckout />

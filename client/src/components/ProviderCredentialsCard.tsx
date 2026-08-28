@@ -119,7 +119,9 @@ export function ProviderCredentialsCard() {
           evidence here; the licence must be verified and current before NERP
           access is granted. External BLS or ACLS evidence supports review, while
           Paeds Resus achievements below are filled automatically from verified
-          learning records.
+          learning records. An IERP intern profile is a separate record and does
+          not prevent a nurse from submitting Nursing Council credentials here
+          when the institutional nurse identity is confirmed.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -163,9 +165,10 @@ export function ProviderCredentialsCard() {
             <p className="mt-1 text-xs text-muted-foreground">
               For NERP, choose Regulatory licence, enter issuer “Nursing Council
               of Kenya” (or NCK), and enter your licence number. Upload the licence
-              evidence for review. A verified licence establishes professional
-              eligibility; it does not by itself create NERP Phase 2 or Phase 3
-              completion. Maximum
+              evidence for review. You do not need to delete or replace an IERP
+              intern profile; the records are reviewed separately. A verified
+              licence establishes professional eligibility; it does not by itself
+              create NERP Phase 2 or Phase 3 completion. Maximum
               file size is 5 MB; PDF, JPG, and PNG are accepted.
             </p>
           </div>

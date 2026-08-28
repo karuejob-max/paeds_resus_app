@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   cpdEvents,
@@ -27,6 +27,7 @@ import {
 } from "../lib/institution-access";
 import { assertInstitutionAccountScope } from "../lib/institution-account-scopes";
 import { isMissingTableError } from "../lib/is-missing-db-table";
+import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { loadInstitutionLearningDashboard } from "../lib/institution-learning-dashboard";
 import { storageGet, storagePut } from "../storage";
 import {
@@ -446,19 +447,39 @@ export const institutionAccountabilityRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
       const [user] = await db
-        .select({ providerType: users.providerType })
+        .select({
+          providerType: users.providerType,
+          cadre: users.cadre,
+          cadreOther: users.cadreOther,
+        })
         .from(users)
         .where(eq(users.id, ctx.user.id))
         .limit(1);
+      const activeNurseStaff = await db
+        .select({ id: institutionalStaffMembers.id })
+        .from(institutionalStaffMembers)
+        .where(
+          and(
+            eq(institutionalStaffMembers.userId, ctx.user.id),
+            eq(institutionalStaffMembers.staffRole, "nurse"),
+            isNull(institutionalStaffMembers.removedAt),
+          ),
+        )
+        .limit(1);
+      const hasLicensedIdentity =
+        Boolean(user?.providerType && LICENSED_PROVIDER_TYPES.has(user.providerType)) ||
+        activeNurseStaff.length > 0 ||
+        isRegisteredRnProfile({
+          providerType: user?.providerType,
+          cadre: user?.cadre,
+          cadreOther: user?.cadreOther,
+        });
       if (input.credentialType === "regulatory_license") {
-        if (
-          !user?.providerType ||
-          !LICENSED_PROVIDER_TYPES.has(user.providerType)
-        ) {
+        if (!hasLicensedIdentity) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message:
-              "A regulatory licence can only be submitted for a licensed provider cadre.",
+              "Set your professional identity to a licensed provider or Registered Nurse before submitting a regulatory licence. Your IERP intern profile and nursing credentials are stored separately.",
           });
         }
         if (
@@ -543,7 +564,7 @@ export const institutionAccountabilityRouter = router({
             : "external_aha",
         issuer: input.issuer,
         jurisdiction: input.jurisdiction?.trim() || null,
-        cadre: input.cadre?.trim() || user?.providerType || null,
+          cadre: input.cadre?.trim() || user?.providerType || (activeNurseStaff.length > 0 ? "nurse" : user?.cadre) || null,
         credentialNumber: input.credentialNumber?.trim() || null,
         issuedAt,
         expiresAt,
