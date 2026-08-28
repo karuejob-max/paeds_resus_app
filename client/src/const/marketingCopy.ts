@@ -6,6 +6,11 @@ export const BLS_COHORT_PRICE = 7_500;
 export const ACLS_PRICE = 20_000;
 export const ACLS_COHORT_PRICE = 17_500;
 export const IERP_FULL_PRICE = 15_000;
+export const NERP_TOTAL_PRICE = 15_000;
+export const NERP_INSTALLMENT = 2_500;
+export const NERP_INSTALLMENT_COUNT = 6;
+export const ILSP_PRICE_PER_STAFF = 10_000;
+export const ILSP_RENEWAL_YEARS = 2;
 export const IERS_ANNUAL_PRICE = 200_000;
 export const ICPD_ANNUAL_PRICE = 200_000;
 
@@ -23,4 +28,19 @@ export function formatKes(amount: number): string {
 
 export function formatCohortLine(base: number, cohort: number): string {
   return `${formatKes(base)} per person; ${formatKes(cohort)} per person for ${COHORT_LABEL}`;
+}
+
+export const IERP_STANDALONE_TOTAL = BLS_PRICE + ACLS_PRICE;
+export const IERP_SAVINGS = IERP_STANDALONE_TOTAL - IERP_FULL_PRICE;
+
+export function formatIerpValueLine(): string {
+  return `${formatKes(IERP_FULL_PRICE)} for AHA ACLS + BLS bundled — save ${formatKes(IERP_SAVINGS)} vs booking them separately`;
+}
+
+export function formatNerpValueLine(): string {
+  return `${formatKes(NERP_INSTALLMENT)} x ${NERP_INSTALLMENT_COUNT} monthly payments (${formatKes(NERP_TOTAL_PRICE)} total) — BLS coursework unlocks after your first payment`;
+}
+
+export function formatIlspPriceLine(): string {
+  return `${formatKes(ILSP_PRICE_PER_STAFF)} per staff member, renewable every ${ILSP_RENEWAL_YEARS} years`;
 }

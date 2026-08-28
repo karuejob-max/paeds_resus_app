@@ -20,6 +20,8 @@ import {
   BLS_COHORT_PRICE,
   BLS_PRICE,
   formatCohortLine,
+  formatIerpValueLine,
+  formatNerpValueLine,
 } from "@/const/marketingCopy";
 import { buildJsonLdGraph, buildOrganizationJsonLd } from "@/lib/seo-schema";
 
@@ -42,14 +44,14 @@ const INDIVIDUAL_PRODUCTS = [
     title: "NERP",
     eyebrow: "For nurses",
     body: "A structured Nurses Emergency Readiness Program with learning, simulations, evidence, and practical progression.",
-    price: "Request the current offer",
+    price: formatNerpValueLine(),
     href: "/programs/nerp-acls",
   },
   {
     title: "IERP",
     eyebrow: "For interns",
     body: "A profile-first Interns Emergency Readiness Program with named roles, simulations, and evidence gates.",
-    price: "Request the current offer",
+    price: formatIerpValueLine(),
     href: "/programs/ierp",
   },
   {

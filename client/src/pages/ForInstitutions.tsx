@@ -23,6 +23,7 @@ import {
   ICPD_ANNUAL_PRICE,
   IERS_ANNUAL_PRICE,
   INSTITUTIONAL_GEOGRAPHY_COPY,
+  formatIlspPriceLine,
   formatKes,
 } from "@/const/marketingCopy";
 
@@ -31,7 +32,7 @@ const INSTITUTIONAL_PRODUCTS = [
     title: "ILSP",
     label: "Institutional Life Support Program",
     body: "A managed institution-paid cohort pathway for life-support learning, delivery, practical assessment, and completion evidence.",
-    price: "Quoted by cohort and scope",
+    price: formatIlspPriceLine(),
     icon: Users,
   },
   {
@@ -113,8 +114,9 @@ export default function ForInstitutions() {
                 Three products. Three clear jobs.
               </h2>
               <p className="mt-3 text-muted-foreground">
-                These products can work together, but they should remain
-                separate in scope, pricing, evidence, and reporting.
+                ILSP, IERS, and ICPD are independent offerings. Choose the one
+                your facility needs, or combine them; none is a prerequisite or
+                component of another.
               </p>
             </div>
             <div className="grid gap-5 lg:grid-cols-3">
