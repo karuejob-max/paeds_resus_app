@@ -1188,26 +1188,26 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
             </div>
           ))}
         </div>
-        <div className="rounded-lg border border-indigo-100 bg-white p-3 space-y-3">
+        <div className="rounded-xl border-2 border-indigo-400 bg-indigo-50 p-4 shadow-sm space-y-3">
           <div>
-            <p className="text-sm font-semibold text-indigo-950">Your IERP learning access</p>
-            <p className="text-xs text-slate-600">August–November interns do not pay before 1 December. Refresh your BLS knowledge first; ACLS opens after BLS cognitive completion.</p>
+            <p className="text-base font-bold text-indigo-950">Start your IERP coursework now</p>
+            <p className="text-xs text-indigo-900">Your profile is registered. Begin the BLS cognitive refresh below; ACLS opens automatically after BLS cognitive completion. Previous BLS certification does not replace this refresh.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {blsEnrollment ? (internReviewBlocked || !!summary?.payment.cognitiveAccessLocked ? (
-              <Button size="sm" className="bg-indigo-700 text-white" disabled>Open BLS cognitive refresh</Button>
+            {internReviewBlocked || !!summary?.payment.cognitiveAccessLocked ? (
+              <Button size="sm" className="bg-indigo-700 text-white" disabled>Coursework locked — review access status</Button>
             ) : (
-              <Button asChild size="sm" className="bg-indigo-700 text-white hover:bg-indigo-800">
-                <Link href={getProviderCourseDestination("bls", blsEnrollment.id)}>Open BLS cognitive refresh</Link>
+              <Button asChild size="sm" className="bg-indigo-700 px-5 text-white hover:bg-indigo-800">
+                <Link href={getProviderCourseDestination("bls", blsEnrollment?.id)}>Start BLS coursework</Link>
               </Button>
-            )) : null}
-            {aclsEnrollment ? (internReviewBlocked || !!summary?.payment.cognitiveAccessLocked || !blsEnrollment?.cognitiveModulesComplete ? (
-              <Button size="sm" variant="outline" disabled> {!blsEnrollment?.cognitiveModulesComplete ? "Complete BLS first" : "ACLS cognitive locked"}</Button>
+            )}
+            {internReviewBlocked || !!summary?.payment.cognitiveAccessLocked || !blsEnrollment?.cognitiveModulesComplete ? (
+              <Button size="sm" variant="outline" disabled>{!blsEnrollment?.cognitiveModulesComplete ? "ACLS starts after BLS" : "ACLS cognitive locked"}</Button>
             ) : (
               <Button asChild size="sm" variant="outline">
-                <Link href={getProviderCourseDestination("acls", aclsEnrollment.id)}>Open ACLS cognitive</Link>
+                <Link href={getProviderCourseDestination("acls", aclsEnrollment?.id)}>Start ACLS coursework</Link>
               </Button>
-            )) : null}
+            )}
           </div>
           {!blsEnrollment?.cognitiveModulesComplete ? <p className="text-xs text-amber-700">Complete BLS cognitive learning to unlock ACLS cognitive learning.</p> : null}
           {summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? <p className="text-xs font-medium text-emerald-700">No payment is required before 1 December EAT. Continue learning during the deferred window.</p> : null}
