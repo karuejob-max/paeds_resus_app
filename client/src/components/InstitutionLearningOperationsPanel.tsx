@@ -20,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { CohortProgressWidget } from "@/components/CohortProgressWidget";
 import { Phase1ProofReviewWidget } from "@/components/Phase1ProofReviewWidget";
 import { InstitutionIersCompetencyPanel } from "@/components/InstitutionIersCompetencyPanel";
-import { BulkEnrollmentPanel } from "@/components/BulkEnrollmentPanel";
 import CpdPanel from "@/components/CpdPanel";
 import InstitutionLearningIntelligencePanel from "@/components/InstitutionLearningIntelligencePanel";
 import InstitutionLearningGovernancePanel from "@/components/InstitutionLearningGovernancePanel";
@@ -74,9 +73,6 @@ export default function InstitutionLearningOperationsPanel({
     }
     return requested;
   });
-  const [courseType, setCourseType] = useState<"bls" | "acls" | "pals">("bls");
-  const [trainingDate, setTrainingDate] = useState("");
-  const [phone, setPhone] = useState("");
 
   const setLearningTab = (tab: LearningTab) => {
     setActiveTab(tab);
@@ -365,15 +361,15 @@ export default function InstitutionLearningOperationsPanel({
           </Card>
           {iersEnabled && (
             <>
-              <BulkEnrollmentPanel
-                institutionId={institutionId}
-                courseType={courseType}
-                setCourseType={setCourseType}
-                trainingDate={trainingDate}
-                setTrainingDate={setTrainingDate}
-                phone={phone}
-                setPhone={setPhone}
-              />
+              <Card className="border-violet-200 bg-violet-50/40 dark:border-violet-900 dark:bg-violet-950/20">
+                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-semibold">Institutional Life Support cohorts use the ILS workspace</p>
+                    <p className="mt-1 text-sm text-muted-foreground">The institution selects linked Paeds Resus accounts and pays once per cohort. Individual BLS/ACLS/PALS payment is not started from this Learning workspace.</p>
+                  </div>
+                  <Button asChild variant="outline" className="shrink-0"><a href="/training/institutional-life-support">Open ILS operations <GraduationCap className="ml-2 h-4 w-4" /></a></Button>
+                </CardContent>
+              </Card>
               <InstitutionIersCompetencyPanel institutionId={institutionId} />
               <CohortProgressWidget institutionId={institutionId} />
               <Phase1ProofReviewWidget institutionId={institutionId} />

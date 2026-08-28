@@ -65,11 +65,11 @@ import { eq, desc, and, inArray, count, asc, isNotNull, isNull, like, gte, lte, 
 import { processBulkEnrollment, getInstitutionalPricing } from "../institutional-enrollment";
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from "../_core/mpesa";
 import { assertInstitutionAccess, getAdministeredInstitutionIds, countInstitutionAdmins, isInstitutionAdmin } from "../lib/institution-access";
+import { assertInstitutionAccountScope } from "../lib/institution-account-scopes";
 import { materializeMembershipAndStaff } from "./facility-linking";
 import { assertInstitutionProductCapability, assertWritableProductAccess } from "../lib/institution-entitlements";
 import { asDateOnly, derivePoleRotationDepartmentId, isoWeekMonday, mondayForDate, rotationAnchorForLeadershipWeek } from "../lib/iers-pole-rotation";
 import { classifyShiftInterval } from "../lib/iers-shift-current";
-import { assertInstitutionAccountScope } from "../lib/institution-account-scopes";
 import { assertInstitutionProductRole } from "../lib/institution-product-roles";
 import { assertCurrentClinicalLicence } from "../lib/professional-credential-safety";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
@@ -96,6 +96,7 @@ import { insertCanonicalFacilityDepartments } from "../lib/iers-department-setup
 import { DEFAULT_SHIFT_TEMPLATES, formatShiftInterval, shiftTemplateForType, validateShiftInterval } from "../lib/iers-shift-times";
 import { DEPARTMENT_ALIASES, canonicalizeDepartmentLabel, departmentLabelsMatch, isPresetDepartment } from "../../shared/clinical-departments";
 import {
+  CARE_FACILITY_LEVEL_VALUES,
   FACILITY_OWNERSHIP_VALUES,
   INSTITUTION_CATEGORY_VALUES,
   INSTITUTION_PLATFORM_NEED_VALUES,
@@ -2414,7 +2415,11 @@ export const institutionRouter = router({
         companyName: z.string().optional(),
         contactPhone: z.string().optional(),
         contactEmail: z.string().email().optional(),
-        staffCount: z.number().optional(),
+        staffCount: z.number().int().min(0).optional(),
+        organizationCategory: z.enum(INSTITUTION_CATEGORY_VALUES).optional(),
+        facilityOwnership: z.enum(FACILITY_OWNERSHIP_VALUES).optional(),
+        facilityCareLevel: z.enum(CARE_FACILITY_LEVEL_VALUES).optional(),
+        facilityLocalLevel: z.string().trim().max(128).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -2426,15 +2431,33 @@ export const institutionRouter = router({
         });
       }
 
-      await assertInstitutionAccess(db, ctx.user, input.institutionId);
-
+            await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+      const [current] = await db.select({ organizationCategory: institutionalAccounts.organizationCategory, facilityOwnership: institutionalAccounts.facilityOwnership, facilityCareLevel: institutionalAccounts.facilityCareLevel, facilityLocalLevel: institutionalAccounts.facilityLocalLevel }).from(institutionalAccounts).where(eq(institutionalAccounts.id, input.institutionId)).limit(1);
+      if (!current) throw new TRPCError({ code: "NOT_FOUND", message: "Institution not found" });
+      const effectiveCategory = input.organizationCategory ?? current.organizationCategory;
+      const requiresClassification = requiresCareFacilityClassification(effectiveCategory);
+      const effectiveOwnership = input.facilityOwnership ?? current.facilityOwnership;
+      const effectiveCareLevel = input.facilityCareLevel ?? current.facilityCareLevel;
+      if (requiresClassification && (!effectiveOwnership || !effectiveCareLevel)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Healthcare facilities must include ownership and care classification." });
+      }
       const updateData: Record<string, unknown> = { updatedAt: new Date() };
-      if (input.companyName) updateData.companyName = input.companyName;
-      if (input.contactPhone) updateData.contactPhone = input.contactPhone;
-      if (input.contactEmail) updateData.contactEmail = input.contactEmail;
-      if (input.staffCount) updateData.staffCount = input.staffCount;
-
+      if (input.companyName !== undefined) updateData.companyName = input.companyName.trim();
+      if (input.contactPhone !== undefined) updateData.contactPhone = input.contactPhone.trim() || null;
+      if (input.contactEmail !== undefined) updateData.contactEmail = input.contactEmail.trim().toLowerCase();
+      if (input.staffCount !== undefined) updateData.staffCount = input.staffCount;
+      if (input.organizationCategory !== undefined) updateData.organizationCategory = input.organizationCategory;
+      if (input.facilityOwnership !== undefined) updateData.facilityOwnership = input.facilityOwnership;
+      if (input.facilityCareLevel !== undefined) updateData.facilityCareLevel = input.facilityCareLevel;
+      if (input.facilityLocalLevel !== undefined) updateData.facilityLocalLevel = input.facilityLocalLevel.trim() || null;
+      if (!requiresClassification) {
+        updateData.facilityOwnership = null;
+        updateData.facilityCareLevel = null;
+        updateData.facilityLocalLevel = null;
+      }
       await db
+
         .update(institutionalAccounts)
         .set(updateData)
         .where(eq(institutionalAccounts.id, input.institutionId));

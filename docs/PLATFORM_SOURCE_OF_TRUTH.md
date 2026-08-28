@@ -970,6 +970,14 @@ The **Institutional Life Support Training Program** is a first-class **instituti
 
 All institution administrators and institution-paid providers must be existing Paeds Resus accounts with saved names and email addresses. Onboarding uses authenticated account search and selection, never free-text identity linking. Payment confirmation is reconciled idempotently before cohort enrolments or credentialing requests advance.
 
+### 24.2b Institution Administration control plane
+
+Institution Administration is the institution’s control plane for identity, roster, access, products, billing, programme handoffs, data, support, and governance. Its overview must surface current attention signals and route each decision to one owner. The Administration lanes are **Overview**, **People & access**, **Products & billing**, **Programme operations**, and **Data & support**. Product-specific execution remains in the IERS Readiness, Learning/CPD, and ILS workspaces.
+
+The institution dashboard must not expose platform-global subscription overrides or legacy bulk AHA purchasing as institution self-service. Platform administrators may manage platform-level product status from their authorized operations surface. Institutions use the ILS workspace for institution-paid provider cohorts; individual AHA requests remain separate and follow the ILS certificate and AHA review rules.
+
+Administration preserves history. Retiring or unlinking a person, suspending access, changing a product status, changing classification, or requesting data recovery is an auditable state transition and must not delete clinical, learning, payment, or certificate evidence. Institution profile updates require an account-administrator scope. Organization category, ownership, and country-neutral care classification are visible and maintainable from the profile.
+
 ### 24.3 Staffing reality during Code Blue
 
 **Honest baseline:** Many departments run with **roughly two nurses per shift** — enough to keep the ward running, **not** enough for one responder to leave every bedside unattended during a code. **Do not exaggerate** to “one nurse covers all wards.”
