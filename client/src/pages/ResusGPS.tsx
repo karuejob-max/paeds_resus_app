@@ -153,6 +153,7 @@ import {
   Users,
   GraduationCap,
   Loader2,
+  MoreHorizontal,
 } from 'lucide-react';
 import {
   FELLOWSHIP_MICROCOURSE_RESUS_CONDITIONS,
@@ -359,6 +360,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   }, [session]);
   const [interventionPanelOpen, setInterventionPanelOpen] = useState(false);
   const [patientInfoOpen, setPatientInfoOpen] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState<'cardiac_arrest' | 'new_case' | null>(null);
   const [tempWeight, setTempWeight] = useState('');
   const [tempAge, setTempAge] = useState('');
   const [tempWeightSource, setTempWeightSource] = useState<'measured' | 'last_known'>('measured');
@@ -1339,6 +1341,9 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     setDismissedReassessmentIds(new Set());
   };
 
+  const requestCardiacArrest = useCallback(() => setPendingConfirmation('cardiac_arrest'), []);
+  const requestNewCase = useCallback(() => setPendingConfirmation('new_case'), []);
+
   // ── Resume dialog ──────────────────────────────────────────────────────────
   if (resumeCandidate) {
     return (
@@ -1428,11 +1433,12 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
           setPatientInfoOpen(true);
         }}
         onOpenInterventions={() => setInterventionPanelOpen(true)}
-        onCardiacArrest={handleCardiacArrest}
+        onCardiacArrest={requestCardiacArrest}
         onSaveSession={handleSaveSession}
+        isSaving={recordSessionMutation.isPending || recordCaseMutation.isPending}
         onExport={handleExport}
         onCopySummary={handleCopySummary}
-        onNewCase={handleNewCase}
+        onNewCase={requestNewCase}
         onShowLog={() => setShowEventLog(true)}
         onOpenDocuments={() => setShowDocuments(true)}
         onOpenProtocols={() => setShowProtocols(true)}
@@ -1878,6 +1884,42 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       {/* PWA install prompt — only shown on idle screen, never during active case */}
       {session.phase === 'IDLE' && <PWAInstallBanner variant="banner" />}
 
+      <Dialog
+        open={pendingConfirmation !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingConfirmation(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {pendingConfirmation === 'cardiac_arrest' ? 'Open CPR-GPS?' : 'Start a new case?'}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingConfirmation === 'cardiac_arrest'
+                ? 'Use this only when cardiac arrest is confirmed or strongly suspected. The current non-arrest survey will be paused and the CPR-GPS path will open.'
+                : 'This clears the active case from the bedside view and starts a blank case. Save or export the current record first if you need it.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setPendingConfirmation(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant={pendingConfirmation === 'cardiac_arrest' ? 'destructive' : 'default'}
+              onClick={() => {
+                const action = pendingConfirmation;
+                setPendingConfirmation(null);
+                if (action === 'cardiac_arrest') handleCardiacArrest();
+                if (action === 'new_case') handleNewCase();
+              }}
+            >
+              {pendingConfirmation === 'cardiac_arrest' ? 'Open CPR-GPS' : 'Start new case'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* Duplicate medication override dialog */}
       {duplicateCheck?.result.isDuplicate && (
         <DuplicateWarningDialog
@@ -1977,6 +2019,7 @@ function TopBar({
   onOpenInterventions,
   onCardiacArrest,
   onSaveSession,
+  isSaving = false,
   onExport,
   onCopySummary,
   onNewCase,
@@ -2001,6 +2044,7 @@ function TopBar({
   onOpenInterventions: () => void;
   onCardiacArrest: () => void;
   onSaveSession: () => void;
+  isSaving?: boolean;
   onExport: () => void;
   onCopySummary: () => void;
   onNewCase: () => void;
@@ -2009,6 +2053,8 @@ function TopBar({
   onOpenProtocols: () => void;
   onOpenMCIBoard: () => void;
 }) {
+  const [showMore, setShowMore] = useState(false);
+
   if (session.phase === 'IDLE') return null;
 
   return (
@@ -2027,8 +2073,11 @@ function TopBar({
 
         {/* Patient Info (clickable to edit) */}
         <button
+          type="button"
           onClick={onOpenPatientInfo}
           className="flex shrink-0 items-center gap-1 text-sm hover:bg-accent/50 rounded px-1.5 py-0.5 transition-colors"
+          aria-label="Edit patient age and dosing weight"
+          title="Edit patient age and dosing weight"
         >
           <User className="h-3.5 w-3.5 text-muted-foreground" />
           {weight ? (
@@ -2084,6 +2133,8 @@ function TopBar({
             variant="ghost"
             className="relative text-xs h-8 w-8 p-0"
             onClick={onOpenInterventions}
+            aria-label={`Open ${activeThreats.length} active threat${activeThreats.length === 1 ? '' : 's'} and interventions`}
+            title="Open active threats and interventions"
           >
             <Shield className="h-4 w-4" />
             <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px] bg-red-500 text-white border-0">
@@ -2099,9 +2150,11 @@ function TopBar({
             variant="destructive"
             className="text-xs gap-1 h-8"
             onClick={onCardiacArrest}
+            aria-label="Confirm cardiac arrest or absent pulse, then open CPR-GPS"
+            title="Confirm cardiac arrest or absent pulse before opening CPR-GPS"
           >
             <Zap className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Arrest</span>
+            <span>CPR-GPS</span>
           </Button>
         )}
 
@@ -2151,7 +2204,7 @@ function TopBar({
               variant="ghost"
               className="text-xs h-8 w-8 p-0"
               onClick={onOpenProtocols}
-              title="Condition protocols (Septic Shock, Status Epilepticus, DKA, NRP, Anaphylaxis, Severe Asthma)"
+              title="Condition protocols"
               aria-label="Condition protocols"
             >
               <Layers className="h-4 w-4" />
@@ -2161,50 +2214,88 @@ function TopBar({
               variant="ghost"
               className="text-xs h-8 w-8 p-0"
               onClick={onOpenDocuments}
-              title="Generate clinical documents (Referral / Progress Note)"
+              title="Generate clinical documents"
               aria-label="Clinical documents"
             >
               <BookOpen className="h-4 w-4" />
             </Button>
+            <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onShowLog} title="Event log" aria-label="Event log">
+              <FileText className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs h-8 w-8 p-0"
+              onClick={onCopySummary}
+              title="Copy session summary"
+              aria-label="Copy session summary"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className={cn(
+                'text-xs h-8 px-2',
+                fellowshipSaved
+                  ? 'border-emerald-500/60 text-emerald-600 bg-emerald-500/10'
+                  : 'border-green-500/50 text-green-400 hover:bg-green-500/10'
+              )}
+              onClick={onSaveSession}
+              disabled={isSaving}
+              title="Save session for fellowship credit"
+              aria-label="Save session"
+              aria-busy={isSaving}
+            >
+              <CheckCircle2 className="h-4 w-4 mr-1" />
+              {isSaving ? 'Saving…' : fellowshipSaved ? 'Saved' : 'Save'}
+            </Button>
+            <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onNewCase} title="Start a new case" aria-label="Start a new case">
+              <RotateCcw className="h-4 w-4" />
+            </Button>
           </>
         )}
-        <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onShowLog}>
-          <FileText className="h-4 w-4" />
-        </Button>
-        {!compact && (
+        {compact && (
           <Button
             size="sm"
-            variant="ghost"
+            variant={showMore ? 'secondary' : 'ghost'}
             className="text-xs h-8 w-8 p-0"
-            onClick={onCopySummary}
-            title="Copy session summary"
-            aria-label="Copy session summary"
+            onClick={() => setShowMore((open) => !open)}
+            title="More case tools"
+            aria-label="More case tools"
+            aria-expanded={showMore}
           >
-            <Copy className="h-4 w-4" />
+            <MoreHorizontal className="h-4 w-4" />
           </Button>
         )}
-        {/* Save Session for Fellowship Credit */}
-        <Button
-          size="sm"
-          variant="outline"
-          className={cn(
-            'text-xs h-8 px-2',
-            fellowshipSaved
-              ? 'border-emerald-500/60 text-emerald-600 bg-emerald-500/10'
-              : 'border-green-500/50 text-green-400 hover:bg-green-500/10'
-          )}
-          onClick={onSaveSession}
-          title="Save session for fellowship credit"
-          aria-label="Save session"
-        >
-          <CheckCircle2 className="h-4 w-4 mr-1" />
-          {fellowshipSaved ? 'Saved' : 'Save'}
-        </Button>
-        {/* New Case */}
-        <Button size="sm" variant="ghost" className="text-xs h-8 w-8 p-0" onClick={onNewCase}>
-          <RotateCcw className="h-4 w-4" />
-        </Button>
               </div>
+        {compact && showMore && (
+          <div className="border-t border-border py-2">
+            <div className="grid grid-cols-2 gap-2">
+              <Button size="sm" variant="outline" onClick={() => { onShowLog(); setShowMore(false); }}>
+                <FileText className="mr-1 h-4 w-4" /> Event log
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => { onOpenProtocols(); setShowMore(false); }}>
+                <Layers className="mr-1 h-4 w-4" /> Protocols
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => { onOpenDocuments(); setShowMore(false); }}>
+                <BookOpen className="mr-1 h-4 w-4" /> Documents
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => { onCopySummary(); setShowMore(false); }}>
+                <Copy className="mr-1 h-4 w-4" /> Copy summary
+              </Button>
+              <Button size="sm" variant="outline" disabled={isSaving} onClick={() => { onSaveSession(); setShowMore(false); }}>
+                <CheckCircle2 className="mr-1 h-4 w-4" /> {isSaving ? 'Saving…' : 'Save record'}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => { onOpenMCIBoard(); setShowMore(false); }}>
+                <Users className="mr-1 h-4 w-4" /> Multi-patient
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => { onNewCase(); setShowMore(false); }}>
+                <RotateCcw className="mr-1 h-4 w-4" /> New case
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2732,7 +2823,10 @@ function NumberPairInput({
 }) {
   const v1 = parseFloat(value1);
   const v2 = parseFloat(value2);
-  const isValid = !isNaN(v1) && !isNaN(v2);
+  const hasInput = value1.trim().length > 0 || value2.trim().length > 0;
+  const isValid = Number.isFinite(v1) && Number.isFinite(v2)
+    && v1 >= config.min1 && v1 <= config.max1
+    && v2 >= config.min2 && v2 <= config.max2;
 
   return (
     <div className="space-y-4">
@@ -2745,7 +2839,11 @@ function NumberPairInput({
             placeholder={config.placeholder1}
             value={value1}
             onChange={e => onChange1(e.target.value)}
-            className="text-lg bg-background text-foreground"
+            className={`text-lg bg-background text-foreground ${hasInput && !isValid ? 'border-2 border-amber-500/70' : ''}`}
+            aria-invalid={hasInput && !isValid}
+            min={config.min1}
+            max={config.max1}
+            step="1"
             autoFocus
           />
         </div>
@@ -2757,7 +2855,11 @@ function NumberPairInput({
             placeholder={config.placeholder2}
             value={value2}
             onChange={e => onChange2(e.target.value)}
-            className="text-lg bg-background text-foreground"
+            className={`text-lg bg-background text-foreground ${hasInput && !isValid ? 'border-2 border-amber-500/70' : ''}`}
+            aria-invalid={hasInput && !isValid}
+            min={config.min2}
+            max={config.max2}
+            step="1"
           />
         </div>
       </div>
@@ -2907,14 +3009,19 @@ function InterventionScreen({
                     <Button size="sm" className="flex-1" onClick={() => onStart(intervention.id)}>
                       <Play className="h-3 w-3 mr-1" /> Start
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => onComplete(intervention.id)}>
-                      <CheckCircle2 className="h-3 w-3 mr-1" /> Done
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      aria-label={`Document ${intervention.action} as already completed`}
+                      onClick={() => onComplete(intervention.id)}
+                    >
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Document completed
                     </Button>
                   </>
                 )}
                 {intervention.status === 'in_progress' && (
                   <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => onComplete(intervention.id)}>
-                    <CheckCircle2 className="h-3 w-3 mr-1" /> Mark Complete
+                    <CheckCircle2 className="h-3 w-3 mr-1" /> Document completed
                   </Button>
                 )}
               </div>

@@ -7,6 +7,8 @@ interface ResusGpsNextStepBannerProps {
   banner: PrimaryNextStepBanner;
   onReassess?: (interventionId: string) => void;
   onDismissReassessment?: () => void;
+  /** Place below the persistent survey status strip during non-arrest active care. */
+  stackedUnderSurvey?: boolean;
   className?: string;
 }
 
@@ -14,6 +16,7 @@ export function ResusGpsNextStepBanner({
   banner,
   onReassess,
   onDismissReassessment,
+  stackedUnderSurvey = false,
   className,
 }: ResusGpsNextStepBannerProps) {
   const Icon =
@@ -37,7 +40,10 @@ export function ResusGpsNextStepBanner({
   return (
     <div
       className={cn(
-        'sticky top-[var(--resus-topbar-offset,3rem)] z-20 border-b px-3 py-2',
+        'sticky z-20 border-b px-3 py-2',
+        stackedUnderSurvey
+          ? 'top-[calc(var(--resus-topbar-offset,3rem)+5.5rem)]'
+          : 'top-[var(--resus-topbar-offset,3rem)]',
         tone,
         className
       )}
