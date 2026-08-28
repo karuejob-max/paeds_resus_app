@@ -39,6 +39,7 @@ import {
   type ExternalNerpCandidateType,
 } from "../lib/nerp-external-candidate";
 import { hasVerifiedNckLicence } from "../lib/aha-access";
+import { consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
 
 const PHASES = ["phase_2", "phase_3"] as const;
 const DECISIONS = ["verified", "rejected", "revoked"] as const;
@@ -197,6 +198,39 @@ async function ensureOfferForUser(db: any, userId: number) {
         enrollmentId: children[programType].id,
         programType,
       });
+    }
+  }
+  if (!offer.entitlementId && offer.status === "active") {
+    const entitlement = await findActiveGlobalEntitlement(db, { programType: "nerp", userId });
+    if (entitlement) {
+      const originalTotalAmountKes = NERP_ACLS_OFFER.totalAmountKes;
+      const applied = await consumeGlobalEntitlement(db, {
+        entitlementId: entitlement.id,
+        targetUserId: userId,
+        programType: "nerp",
+        resourceReference: `nerp-offer-${offer.id}`,
+        originalAmountKes: originalTotalAmountKes,
+        redeemedByUserId: userId,
+      });
+      if (applied) {
+        const amountAlreadyPaid = Number(offer.amountPaidKes ?? 0);
+        const effectiveTotal = Math.max(amountAlreadyPaid, applied.effectiveAmountKes);
+        const installment = effectiveTotal === 0 ? 0 : Math.ceil(effectiveTotal / NERP_ACLS_OFFER.installmentCount);
+        await db.update(nerpOfferEnrollments).set({
+          entitlementId: entitlement.id,
+          originalTotalAmountKes: originalTotalAmountKes.toFixed(2),
+          totalAmountKes: effectiveTotal.toFixed(2),
+          monthlyInstallmentKes: installment.toFixed(2),
+          status: effectiveTotal === 0 ? "completed" : "active",
+          nextInstallmentNumber: effectiveTotal === 0 ? NERP_ACLS_OFFER.installmentCount + 1 : offer.nextInstallmentNumber,
+          completedAt: effectiveTotal === 0 ? new Date() : null,
+          updatedAt: new Date(),
+        }).where(eq(nerpOfferEnrollments.id, offer.id));
+        if (effectiveTotal === 0) {
+          await db.update(enrollments).set({ paymentStatus: "completed", updatedAt: new Date() }).where(and(eq(enrollments.userId, userId), or(eq(enrollments.programType, "bls"), eq(enrollments.programType, "acls"))));
+        }
+        offer = (await db.select().from(nerpOfferEnrollments).where(eq(nerpOfferEnrollments.id, offer.id)).limit(1))[0] ?? offer;
+      }
     }
   }
   if (created) {

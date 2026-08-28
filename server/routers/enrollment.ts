@@ -25,6 +25,7 @@ import {
 import { isAhaProgramType } from "../../shared/training-product-taxonomy";
 import { isPaidEnrollmentStatus } from "../../shared/payment-success";
 import { getAhaAccessDecision } from "../lib/aha-access";
+import { calculateEntitlementPrice, consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
 import {
   INTUBATION_SAMPLE_MICRO_COURSE_ID,
   ensureIntubationSampleCourseCatalog,
@@ -376,6 +377,8 @@ export const enrollmentRouter = router({
         } = await import("../db-enrollment");
 
         const userId = ctx.user.id;
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
         const isIntubationSample = input.courseId === INTUBATION_SAMPLE_MICRO_COURSE_ID;
 
         async function ensureIntubationLearningEnrollment(
@@ -463,6 +466,8 @@ export const enrollmentRouter = router({
         }
 
         const pendingMpesaEnrollment = await getPendingMpesaEnrollment(userId, course.id);
+        const namedEntitlement = await findActiveGlobalEntitlement(db, { programType: "self_pay", userId, selfPayCourseId: input.courseId });
+        const namedEntitlementPrice = namedEntitlement ? calculateEntitlementPrice(Math.ceil(course.price / 100), namedEntitlement.benefitType, namedEntitlement.discountPercent) : null;
         const isManualLipaPath = input.paymentPath === "manual_lipa";
         if (
           pendingMpesaEnrollment &&
@@ -477,9 +482,50 @@ export const enrollmentRouter = router({
               : "Pending M-Pesa payment found - continue with your phone prompt",
             paymentMethod: "m-pesa",
             checkoutRequestId: pendingMpesaEnrollment.transactionId,
-            amountPaid: course.price,
+            amountPaid: pendingMpesaEnrollment.amountPaid ?? course.price,
             learningEnrollmentId,
           };
+        }
+
+        if (namedEntitlement && namedEntitlementPrice) {
+          if (namedEntitlementPrice.effectiveAmountKes === 0) {
+            const learningEnrollmentId = await ensureIntubationLearningEnrollment("completed", 0);
+            const enrollment = await createEnrollmentDb({
+              userId,
+              microCourseId: course.id,
+              paymentMethod: "admin-free",
+              amountPaid: 0,
+              entitlementId: namedEntitlement.id,
+              paymentStatus: "free",
+            });
+            const applied = await consumeGlobalEntitlement(db, {
+              entitlementId: namedEntitlement.id,
+              targetUserId: userId,
+              programType: "self_pay",
+              selfPayCourseId: input.courseId,
+              resourceReference: `micro-course-enrollment-${enrollment.insertId}`,
+              originalAmountKes: namedEntitlementPrice.originalAmountKes,
+              redeemedByUserId: userId,
+            });
+            if (!applied) return { success: false, error: "This named entitlement is no longer available. Refresh and try again." };
+            await trackMicroCourseEnrollWithPayment({ userId, courseIdSlug: input.courseId, microCourseId: course.id, enrollmentId: enrollment.insertId, paymentMethod: "admin-free", amountPaid: 0 });
+            return { success: true, enrollmentId: enrollment.insertId, message: "Enrollment successful — sponsored access", paymentMethod: "admin-free", amountPaid: 0, learningEnrollmentId };
+          }
+          if (!input.phoneNumber) return { success: false, error: "Phone number required for the discounted M-Pesa payment" };
+          const discountedAmountCents = namedEntitlementPrice.effectiveAmountKes * 100;
+          const enrollment = await createEnrollmentDb({ userId, microCourseId: course.id, paymentMethod: "m-pesa", amountPaid: discountedAmountCents, entitlementId: namedEntitlement.id });
+          const applied = await consumeGlobalEntitlement(db, { entitlementId: namedEntitlement.id, targetUserId: userId, programType: "self_pay", resourceReference: `micro-course-enrollment-${enrollment.insertId}`, originalAmountKes: namedEntitlementPrice.originalAmountKes, redeemedByUserId: userId });
+          if (!applied) return { success: false, error: "This named entitlement is no longer available. Refresh and try again." };
+          const learningEnrollmentId = await ensureIntubationLearningEnrollment("pending", discountedAmountCents);
+          if (isManualLipaPath) return { success: true, enrollmentId: enrollment.insertId, message: "Discounted access reserved. Complete Paybill payment, then submit your M-Pesa reference for verification.", paymentMethod: "m-pesa", amountPaid: discountedAmountCents, learningEnrollmentId };
+          const { getMpesaAccessToken, initiateStkPush } = await import("../mpesa");
+          const { buildStkAccountReference } = await import("../lib/daraja-account-reference");
+          await getMpesaAccessToken();
+          const accountReference = buildStkAccountReference({ enrollmentId: enrollment.insertId, learnerName: ctx.user.name, userId: ctx.user.id });
+          const mpesaResult = await initiateStkPush({ phoneNumber: input.phoneNumber, amount: namedEntitlementPrice.effectiveAmountKes, accountReference, transactionDesc: `${course.title} - sponsored discount`, orderId: `ENROLL-${enrollment.insertId}` });
+          if (!mpesaResult.success) return { success: false, error: mpesaResult.error || "Failed to initiate discounted M-Pesa payment" };
+          if (mpesaResult.checkoutRequestID) await setEnrollmentCheckoutRequestId(enrollment.insertId, mpesaResult.checkoutRequestID);
+          return { success: true, enrollmentId: enrollment.insertId, message: "Discounted M-Pesa STK Push initiated — check your phone", paymentMethod: "m-pesa", checkoutRequestId: mpesaResult.checkoutRequestID, amountPaid: discountedAmountCents, learningEnrollmentId };
         }
 
         const isAdmin = await isUserAdmin(userId);
