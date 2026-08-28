@@ -79,3 +79,9 @@ pnpm run db:verify-0147
 ## Production boundary
 
 The release now provides the schema and deployed application paths for Global Admin named entitlements. The first operational use must still be governed: an administrator should issue only a named, reasoned, time-bounded entitlement, verify the target account or institution, confirm the programme-specific policy, and review the redemption and payment result. Entitlements do not bypass clinical eligibility, IERP/NERP evidence review, ILSP roster/readiness/practical controls, self-pay prerequisites, certificate gates, or AHA credentialing rules.
+
+## Read-only live smoke check
+
+After deployment and migration, the live Global Admin Reports route was opened under an authenticated browser session at [`/admin/reports`](https://www.paedsresus.com/admin/reports). The page rendered the existing AHA access-grants panel and the new **Global Admin entitlements** panel. The panel exposed IERP, NERP, ILSP, and self-pay programme choices; named-account targeting; self-pay course scope; full waiver or percentage discount; expiry; maximum redemptions; business reason; creation; and entitlement history.
+
+No target was selected. No grant, entitlement, learner, institution, cohort, payment, certificate, assessment, or other operational record was created during the smoke check.
