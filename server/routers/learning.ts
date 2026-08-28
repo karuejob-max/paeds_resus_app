@@ -7,6 +7,7 @@ import {
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { isAhaProgramType, assertAhaAccess } from "../lib/aha-access";
+import { getIerpInternProfile, getIerpInternProfileAccessMessage, getIerpPaymentAccessForUser, isIerpInternProfileReady } from "../lib/ierp-program-state";
 import { eq, and, desc } from "drizzle-orm";
 import { invokeLLM } from "../_core/llm";
 import {
@@ -116,9 +117,25 @@ async function getProgramTypeForQuiz(
 async function assertAhaCognitiveAccess(
   db: any,
   userId: number | undefined,
-  programType: string | null | undefined
+  programType: string | null | undefined,
+  pathway?: "ierp"
 ) {
   if (!userId || !isAhaProgramType(programType)) return;
+  // An active IERP enrollment owns BLS/ACLS cognitive access. Infer it here
+  // for every player request, not only the first route load, so module content,
+  // quizzes, and summative exams cannot fall back to standalone AHA pricing.
+  const ierpPayment = await getIerpPaymentAccessForUser(db, userId);
+  if (ierpPayment && (programType === "bls" || programType === "acls" || pathway === "ierp")) {
+    const profile = await getIerpInternProfile(db, userId);
+    const profileMessage = getIerpInternProfileAccessMessage(profile);
+    if (!isIerpInternProfileReady(profile) || profileMessage) {
+      throw new TRPCError({ code: "FORBIDDEN", message: profileMessage ?? "Complete your IERP Intern Profile before starting coursework." });
+    }
+    if (ierpPayment.cognitiveAccessLocked) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "IERP cognitive access is locked until the full KES 15,000 programme fee is paid. August–November interns may continue before 1 December EAT." });
+    }
+    return;
+  }
   await assertAhaAccess(db, userId, programType);
 }
 
@@ -318,6 +335,7 @@ export const learningRouter = router({
             "paeds_resus_ils",
           ])
           .optional(),
+        pathway: z.enum(["ierp"]).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -379,7 +397,7 @@ export const learningRouter = router({
       }
 
       const pt = courseRow.programType as string;
-      await assertAhaCognitiveAccess(db, ctx.user?.id, pt);
+      await assertAhaCognitiveAccess(db, ctx.user?.id, pt, input.pathway);
       if (pt === "paeds_resus_ils") {
         if (!ctx.user?.id) {
           throw new TRPCError({
