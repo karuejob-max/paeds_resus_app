@@ -76,9 +76,10 @@ export default function NerpPathwayEntry() {
 
   const { offer, paymentState, bls, acls } = pathway.data;
   const paymentComplete = paymentState.status === "completed";
+  const paymentConfirmed = paymentComplete || paymentState.amountPaidKes > 0;
   const blsComplete = bls.cognitiveModulesComplete;
   const nextStep = getNerpNextStep({
-    paymentComplete,
+    paymentConfirmed,
     blsCognitiveComplete: blsComplete,
   });
   const nextLearningHref = blsComplete
@@ -124,8 +125,12 @@ export default function NerpPathwayEntry() {
                   practical and certification steps.
                 </CardDescription>
               </div>
-              <Badge variant={paymentComplete ? "default" : "outline"}>
-                {paymentComplete ? "Payment complete" : "Payment setup required"}
+              <Badge variant={paymentConfirmed ? "default" : "outline"}>
+                {paymentComplete
+                  ? "Payment complete"
+                  : paymentConfirmed
+                    ? "First payment confirmed"
+                    : "First payment required"}
               </Badge>
             </div>
           </CardHeader>
@@ -160,10 +165,10 @@ export default function NerpPathwayEntry() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              {!paymentComplete ? (
+              {!paymentConfirmed ? (
                 <Button asChild variant="cta">
                   <Link href="/programs/nerp-acls/enroll">
-                    Open NERP payment plan
+                    Make your first NERP payment
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
@@ -182,15 +187,15 @@ export default function NerpPathwayEntry() {
               </Button>
             </div>
 
-            {!paymentComplete ? (
+            {!paymentConfirmed ? (
               <p className="text-sm text-muted-foreground">
-                After payment setup, return here. The page will still send you
-                to BLS first unless your BLS cognitive record is already complete.
+                Make the first KES 2,500 instalment to unlock BLS cognitive learning.
+                Later instalments remain visible in your payment ledger.
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Current pathway offer: {offer.offerKey}. The course player will
-                use the linked enrollment record for progress and certification.
+                Current pathway offer: {offer.offerKey}. Your confirmed first payment
+                unlocks the linked BLS record; ACLS follows after BLS cognitive completion.
               </p>
             )}
           </CardContent>

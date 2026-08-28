@@ -66,6 +66,7 @@ export default function NerpCheckout() {
     acls,
   } = checkout.data;
   const isComplete = paymentState.status === "completed";
+  const paymentConfirmed = isComplete || paymentState.amountPaidKes > 0;
   const nextLearningHref = bls.cognitiveModulesComplete
     ? getProviderCourseDestination("acls", acls.enrollmentId)
     : getProviderCourseDestination("bls", bls.enrollmentId);
@@ -154,12 +155,12 @@ export default function NerpCheckout() {
                       Included course record
                     </p>
                   </div>
-                  {isComplete ? (
+                  {paymentConfirmed ? (
                     <Button asChild size="sm" variant="outline">
                       <Link href={getProviderCourseDestination("bls", bls.enrollmentId)}>Open BLS cognitive</Link>
                     </Button>
                   ) : (
-                    <Button size="sm" variant="outline" disabled>Available after payment</Button>
+                    <Button size="sm" variant="outline" disabled>Available after first payment</Button>
                   )}
                 </div>
                 <div className="flex items-center justify-between rounded-lg border p-3">
@@ -169,13 +170,13 @@ export default function NerpCheckout() {
                       Included course record
                     </p>
                   </div>
-                  {isComplete && bls.cognitiveModulesComplete ? (
+                  {paymentConfirmed && bls.cognitiveModulesComplete ? (
                     <Button asChild size="sm" variant="outline">
                       <Link href={getProviderCourseDestination("acls", acls.enrollmentId)}>Open ACLS cognitive</Link>
                     </Button>
                   ) : (
                     <Button size="sm" variant="outline" disabled>
-                      {isComplete ? "Complete BLS first" : "Available after payment"}
+                      {paymentConfirmed ? "Complete BLS first" : "Available after first payment"}
                     </Button>
                   )}
                 </div>
@@ -184,14 +185,27 @@ export default function NerpCheckout() {
           </div>
 
           <div className="space-y-4">
-            {isComplete ? (
+            {!isComplete ? (
+              <MpesaPaymentForm
+                courseId="acls"
+                courseName={`NERP ACLS installment ${installmentNumber} of ${offer.installmentCount}`}
+                amount={amount}
+                enrollmentId={enrollmentId}
+                initialPhoneNumber={user?.phone ?? ""}
+                nerpOfferEnrollmentId={offer.id}
+                installmentNumber={installmentNumber}
+                onPaymentComplete={refresh}
+              />
+            ) : null}
+            {paymentConfirmed ? (
               <Card className="border-emerald-200 bg-emerald-50/60">
                 <CardHeader>
                   <CheckCircle2 className="h-7 w-7 text-emerald-700" />
-                  <CardTitle>Pathway paid in full</CardTitle>
+                  <CardTitle>{isComplete ? "Pathway paid in full" : "First payment confirmed"}</CardTitle>
                   <CardDescription>
-                    Your payment ledger is complete. Continue with the linked
-                    course requirements.
+                    {isComplete
+                      ? "Your payment ledger is complete. Continue with the linked course requirements."
+                      : "Your first confirmed instalment unlocks BLS cognitive learning. Continue with the linked course requirements; the remaining balance stays in your ledger."}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -203,18 +217,7 @@ export default function NerpCheckout() {
                   </Button>
                 </CardContent>
               </Card>
-            ) : (
-              <MpesaPaymentForm
-                courseId="acls"
-                courseName={`NERP ACLS installment ${installmentNumber} of ${offer.installmentCount}`}
-                amount={amount}
-                enrollmentId={enrollmentId}
-                initialPhoneNumber={user?.phone ?? ""}
-                nerpOfferEnrollmentId={offer.id}
-                installmentNumber={installmentNumber}
-                onPaymentComplete={refresh}
-              />
-            )}
+            ) : null}
             <Card className="border-blue-100 bg-blue-50/50">
               <CardContent className="flex items-start gap-3 pt-6">
                 <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />

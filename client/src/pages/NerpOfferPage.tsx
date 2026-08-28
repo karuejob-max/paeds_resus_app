@@ -24,15 +24,22 @@ export default function NerpOfferPage() {
     enabled: Boolean(user && eligibility.data?.eligible === true),
     retry: false,
   });
-  const canStart = !user || eligibility.data?.eligible === true;
+  const canStart = eligibility.data?.eligible === true;
   const paymentComplete = enrollment.data?.paymentState?.status === "completed";
+  const paymentConfirmed = Boolean(
+    enrollment.data?.paymentState &&
+      (paymentComplete || enrollment.data.paymentState.amountPaidKes > 0)
+  );
+  const verificationPending = eligibility.data?.state === "pending_review";
   const nextHref = !user
     ? `/login?redirect=${encodeURIComponent(NERP_PATHWAY_ENTRY_PATH)}`
-    : !canStart
-      ? "/provider-profile"
-      : paymentComplete
+    : canStart
+      ? paymentConfirmed
         ? NERP_PATHWAY_ENTRY_PATH
-        : "/programs/nerp-acls/enroll";
+        : "/programs/nerp-acls/enroll"
+      : verificationPending
+        ? NERP_PATHWAY_ENTRY_PATH
+        : "/provider-profile";
 
   return (
     <div className="min-h-screen bg-muted/20 px-4 py-10 md:px-8">
@@ -56,25 +63,38 @@ export default function NerpOfferPage() {
                   {!user
                     ? "Sign in to continue"
                     : !canStart
-                      ? "Complete provider profile first"
-                      : paymentComplete
+                      ? verificationPending
+                        ? "View verification status"
+                        : "Complete professional credentials"
+                      : paymentConfirmed
                         ? "Continue to learning"
                         : "Make your first NERP payment"}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg" disabled={loading || (!!user && (eligibility.isLoading || enrollment.isLoading))}>
-                <Link href={nextHref}>{paymentComplete ? "Check your next learning step" : "View payment and learning steps"}</Link>
+                <Link href={nextHref}>
+                  {paymentConfirmed ? "Check your next learning step" : verificationPending ? "View verification requirements" : "View payment and learning steps"}
+                </Link>
               </Button>
               {user && eligibility.data && !eligibility.data.eligible && (
                 <p className="max-w-xl text-sm text-muted-foreground">
-                  NERP is for verified nurses. Submit your Nursing Council of Kenya licence number and evidence in your provider profile; payment and coursework become available after an authorised verifier confirms the licence.
-                  {" "}<Link href="/provider-profile" className="font-medium text-primary underline">Open provider profile</Link>
+                  {verificationPending
+                    ? "Your Nursing Council of Kenya licence is submitted and waiting for authorised verification. View the verification status; payment and coursework remain locked until approval."
+                    : "NERP is for verified nurses. Submit your Nursing Council of Kenya licence number and evidence in your provider profile; payment and coursework become available after an authorised verifier confirms the licence."}
+                  {" "}<Link href={verificationPending ? NERP_PATHWAY_ENTRY_PATH : "/provider-profile"} className="font-medium text-primary underline">
+                    {verificationPending ? "View verification status" : "Open professional credentials"}
+                  </Link>
                 </p>
               )}
-              {user && eligibility.data?.eligible && enrollment.data?.offer && !paymentComplete && (
+              {user && eligibility.data?.eligible && enrollment.data?.offer && !paymentConfirmed && (
                 <p className="max-w-xl text-sm text-muted-foreground">
-                  Your NERP offer is ready. Continue to the checkout to make the next KES 2,500 instalment and then open the linked BLS-first learning path.
+                  Your NERP offer is ready. Make the first KES 2,500 instalment to unlock the linked BLS-first learning path.
+                </p>
+              )}
+              {user && eligibility.data?.eligible && enrollment.data?.offer && paymentConfirmed && !paymentComplete && (
+                <p className="max-w-xl text-sm text-muted-foreground">
+                  Your first NERP payment is confirmed. Continue to BLS cognitive learning now; the next KES 2,500 instalment remains available in your payment ledger.
                 </p>
               )}
               <p className="text-sm text-muted-foreground">

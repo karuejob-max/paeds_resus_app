@@ -16,6 +16,7 @@ import {
   getCountryName,
   PROFESSIONAL_COUNTRIES,
 } from "@shared/professional-licensing";
+import { NERP_PATHWAY_ENTRY_PATH } from "@shared/nerp-pathway";
 
 const externalTypes = [
   ["external_aha_bls", "External AHA BLS"],
@@ -406,12 +407,12 @@ export function ProviderCredentialsCard({ onExperienceDerived }: ProviderCredent
               <p className="font-semibold text-emerald-950 dark:text-emerald-100">Next step: open your NERP pathway</p>
               <p className="mt-1 text-sm text-emerald-900/80 dark:text-emerald-100/80">
                 {showNerpNextStep
-                  ? "Your Licence evidence is waiting for verification. Open NERP to see your verification status and the next programme step. Enrollment remains locked until an authorised verifier confirms the required NCK licence."
-                  : "After submitting your Licence evidence, open NERP to check your verification status and continue to the programme setup when approved. Enrollment remains locked until an authorised verifier confirms the required NCK licence."}
+                  ? "Your Licence evidence is waiting for verification. Open the guided NERP pathway to see your verification status; payment and coursework remain locked until an authorised verifier confirms the required NCK licence."
+                  : "After submitting your Licence evidence, open the guided NERP pathway. Verified learners will see the first-payment step; pending learners will see their verification status."}
               </p>
               <Button asChild type="button" variant="cta" className="mt-3">
-                <Link href="/programs/nerp-acls">
-                  Check NERP and continue <ArrowRight className="ml-2 h-4 w-4" />
+                <Link href={NERP_PATHWAY_ENTRY_PATH}>
+                  Open NERP next step <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
             </div>

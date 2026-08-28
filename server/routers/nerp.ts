@@ -298,11 +298,40 @@ export const nerpRouter = router({
   getEligibility: protectedProcedure.query(async ({ ctx }) => {
     const db = await requireDb();
     const eligible = await hasVerifiedNckLicence(db, ctx.user.id);
+    const credentialRows = await db
+      .select({
+        status: professionalCredentials.status,
+        issuer: professionalCredentials.issuer,
+        jurisdiction: professionalCredentials.jurisdiction,
+        credentialNumber: professionalCredentials.credentialNumber,
+        updatedAt: professionalCredentials.updatedAt,
+      })
+      .from(professionalCredentials)
+      .where(
+        and(
+          eq(professionalCredentials.userId, ctx.user.id),
+          eq(professionalCredentials.credentialType, "regulatory_license"),
+        ),
+      )
+      .orderBy(desc(professionalCredentials.updatedAt))
+      .limit(1);
+    const latestCredential = credentialRows[0] ?? null;
+    const verificationState = eligible
+      ? "eligible"
+      : latestCredential?.status === "pending"
+        ? "pending_review"
+        : latestCredential
+          ? "needs_update"
+          : "missing";
     return {
       eligible,
+      verificationState,
+      state: verificationState,
       message: eligible
         ? "Your verified Nursing Council of Kenya licence is ready for NERP."
-        : "Complete your provider profile and submit a Nursing Council of Kenya licence with the licence number for verification before joining NERP.",
+        : verificationState === "pending_review"
+          ? "Your Nursing Council of Kenya licence is submitted and waiting for authorised verification before NERP payment and coursework can begin."
+          : "Complete your provider profile and submit a Nursing Council of Kenya licence with the licence number for verification before joining NERP.",
     };
   }),
 
@@ -369,12 +398,9 @@ export const nerpRouter = router({
       });
     }
     const { offer, children } = await ensureOfferForUser(db, ctx.user.id);
-    if (offer.status === "completed") {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "This NERP pathway is already complete.",
-      });
-    }
+    // A fully paid offer still needs the learning pathway for coursework,
+    // practical requirements, and certification progress. Only checkout should
+    // stop once the financial obligation is complete.
     const paymentState = calculateNerpPaymentState({
       amountPaidKes: Number(offer.amountPaidKes),
       totalAmountKes: Number(offer.totalAmountKes),
