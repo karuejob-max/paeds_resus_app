@@ -1,10 +1,11 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, like, or } from "drizzle-orm";
 import { z } from "zod";
 import {
   globalEntitlements,
   globalEntitlementRedemptions,
   institutionalAccounts,
+  microCourses,
   users,
 } from "../../drizzle/schema";
 import { adminProcedure, router } from "../_core/trpc";
@@ -107,6 +108,32 @@ export const adminEntitlementsRouter = router({
       label: programmeLabels[programType],
     }))
   ),
+
+  /**
+   * Authoritative self-pay catalog for the Global Admin course picker.
+   * Keep the slug visible so an issued entitlement remains auditable.
+   */
+  listSelfPayCourses: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db)
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Database unavailable",
+      });
+    return db
+      .select({
+        courseId: microCourses.courseId,
+        title: microCourses.title,
+        level: microCourses.level,
+        emergencyType: microCourses.emergencyType,
+        duration: microCourses.duration,
+        price: microCourses.price,
+        prerequisiteId: microCourses.prerequisiteId,
+        isPublished: microCourses.isPublished,
+      })
+      .from(microCourses)
+      .orderBy(asc(microCourses.order), asc(microCourses.courseId));
+  }),
 
   searchUsers: adminProcedure
     .input(z.object({ query: z.string().trim().min(2).max(255) }))
@@ -255,6 +282,29 @@ export const adminEntitlementsRouter = router({
             code: "NOT_FOUND",
             message: "Target institution was not found.",
           });
+      }
+      if (input.programType === "self_pay" && input.selfPayCourseId) {
+        const [selectedCourse] = await db
+          .select({
+            courseId: microCourses.courseId,
+            isPublished: microCourses.isPublished,
+          })
+          .from(microCourses)
+          .where(eq(microCourses.courseId, input.selfPayCourseId))
+          .limit(1);
+        if (!selectedCourse) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Self-pay course was not found in the catalog.",
+          });
+        }
+        if (!selectedCourse.isPublished) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "This self-pay course is not published and cannot receive a grant.",
+          });
+        }
       }
       const grantReference = newEntitlementReference();
       await db.insert(globalEntitlements).values({

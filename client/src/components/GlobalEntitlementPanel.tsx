@@ -2,7 +2,9 @@ import { useMemo, useState } from "react";
 import {
   BadgePercent,
   Building2,
+  CheckCircle2,
   KeyRound,
+  Search,
   ShieldCheck,
   UserPlus,
   XCircle,
@@ -37,6 +39,7 @@ export default function GlobalEntitlementPanel() {
   const [targetInstitutionalAccountId, setTargetInstitutionalAccountId] =
     useState<number | null>(null);
   const [selfPayCourseId, setSelfPayCourseId] = useState("");
+  const [selfPayCourseQuery, setSelfPayCourseQuery] = useState("");
   const [benefitType, setBenefitType] = useState<
     "free" | "percentage_discount"
   >("free");
@@ -55,12 +58,17 @@ export default function GlobalEntitlementPanel() {
     { enabled: isInstitutionTarget && targetQuery.trim().length >= 2 }
   );
   const listQuery = trpc.adminEntitlements.list.useQuery();
+  const selfPayCoursesQuery =
+    trpc.adminEntitlements.listSelfPayCourses.useQuery(undefined, {
+      enabled: programType === "self_pay",
+    });
   const createMutation = trpc.adminEntitlements.create.useMutation({
     onSuccess: () => {
       setTargetQuery("");
       setTargetUserId(null);
       setTargetInstitutionalAccountId(null);
       setSelfPayCourseId("");
+      setSelfPayCourseQuery("");
       setReason("");
       void listQuery.refetch();
     },
@@ -88,6 +96,19 @@ export default function GlobalEntitlementPanel() {
     /^\d{4}-\d{2}-\d{2}$/.test(expiresAt) &&
     Number(maxRedemptions) >= 1 &&
     (programType !== "self_pay" || selfPayCourseId.trim().length > 0);
+  const selectedSelfPayCourse = selfPayCoursesQuery.data?.find(
+    course => course.courseId === selfPayCourseId
+  );
+  const filteredSelfPayCourses = useMemo(() => {
+    const query = selfPayCourseQuery.trim().toLowerCase();
+    const courses = selfPayCoursesQuery.data ?? [];
+    if (!query) return courses;
+    return courses.filter(course =>
+      [course.title, course.courseId, course.emergencyType, course.level].some(
+        value => value.toLowerCase().includes(query)
+      )
+    );
+  }, [selfPayCourseQuery, selfPayCoursesQuery.data]);
   const selectedTargetLabel =
     selectedInstitution?.companyName ||
     selectedUser?.name ||
@@ -155,6 +176,8 @@ export default function GlobalEntitlementPanel() {
               onChange={event => {
                 setProgramType(event.target.value as Programme);
                 resetTarget();
+                setSelfPayCourseId("");
+                setSelfPayCourseQuery("");
               }}
               className="h-10 w-full rounded-md border bg-background px-3 text-sm"
             >
@@ -234,14 +257,88 @@ export default function GlobalEntitlementPanel() {
                 className="text-sm font-medium"
                 htmlFor="global-entitlement-course"
               >
-                Self-pay course ID
+                Self-pay course
               </label>
-              <Input
-                id="global-entitlement-course"
-                value={selfPayCourseId}
-                onChange={event => setSelfPayCourseId(event.target.value)}
-                placeholder="Catalog course ID / slug"
-              />
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="global-entitlement-course"
+                  value={selfPayCourseQuery}
+                  onChange={event => {
+                    setSelfPayCourseQuery(event.target.value);
+                    setSelfPayCourseId("");
+                  }}
+                  placeholder="Search by course title or course ID"
+                  className="pl-9"
+                  aria-describedby="global-entitlement-course-help"
+                />
+              </div>
+              <p
+                id="global-entitlement-course-help"
+                className="text-xs leading-5 text-muted-foreground"
+              >
+                Select the published catalogue course. The course ID is copied
+                into the grant automatically.
+              </p>
+              {selectedSelfPayCourse ? (
+                <div className="flex items-start justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <p className="font-medium">{selectedSelfPayCourse.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {selectedSelfPayCourse.courseId} · KES{" "}
+                      {Math.ceil(
+                        selectedSelfPayCourse.price / 100
+                      ).toLocaleString()}{" "}
+                      · {selectedSelfPayCourse.level}
+                    </p>
+                  </div>
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                </div>
+              ) : null}
+              <div className="max-h-56 overflow-y-auto rounded-md border bg-background text-sm">
+                {selfPayCoursesQuery.isLoading ? (
+                  <p className="px-3 py-3 text-muted-foreground">
+                    Loading self-pay catalogue…
+                  </p>
+                ) : selfPayCoursesQuery.isError ? (
+                  <p className="px-3 py-3 text-destructive">
+                    Self-pay catalogue unavailable. Refresh and try again.
+                  </p>
+                ) : filteredSelfPayCourses.length ? (
+                  filteredSelfPayCourses.map(course => (
+                    <button
+                      type="button"
+                      key={course.courseId}
+                      disabled={!course.isPublished}
+                      onClick={() => {
+                        setSelfPayCourseId(course.courseId);
+                        setSelfPayCourseQuery(course.title);
+                      }}
+                      className={`block w-full border-b px-3 py-2 text-left last:border-b-0 ${course.isPublished ? "hover:bg-muted" : "cursor-not-allowed opacity-50"} ${selfPayCourseId === course.courseId ? "bg-muted" : ""}`}
+                    >
+                      <span className="flex items-center justify-between gap-3">
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium">
+                            {course.title}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {course.courseId} · KES{" "}
+                            {Math.ceil(course.price / 100).toLocaleString()} ·{" "}
+                            {course.level}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          {course.isPublished ? "Published" : "Unavailable"}
+                        </span>
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <p className="px-3 py-3 text-muted-foreground">
+                    No matching self-pay courses.
+                  </p>
+                )}
+              </div>
             </div>
           )}
           <div className="space-y-2">
