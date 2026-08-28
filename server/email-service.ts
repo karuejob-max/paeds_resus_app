@@ -23,6 +23,8 @@ export interface EmailOptions {
   cc?: string[];
   bcc?: string[];
   replyTo?: string;
+  configurationSetName?: string;
+  tags?: Record<string, string>;
 }
 
 // Email templates for different scenarios
@@ -838,6 +840,8 @@ export async function sendRawEmail(options: EmailOptions): Promise<{ success: bo
       subject: options.subject,
       htmlBody: options.html || "",
       textBody: options.text,
+      configurationSetName: options.configurationSetName,
+      tags: options.tags,
     });
     return result.success
       ? { success: true as const, messageId: result.messageId, provider: "ses" }
