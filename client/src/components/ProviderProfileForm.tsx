@@ -39,7 +39,6 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
     department: "",
   });
 
-  const [newCertification, setNewCertification] = useState("");
   const [newLanguage, setNewLanguage] = useState("");
   const [completionPercentage, setCompletionPercentage] = useState(0);
   const [facility, setFacility] = useState<FacilitySelection | null>(null);
@@ -90,23 +89,6 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
     setFormData(prev => ({
       ...prev,
       [name]: value,
-    }));
-  };
-
-  const addCertification = () => {
-    if (newCertification.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        certifications: [...prev.certifications, newCertification],
-      }));
-      setNewCertification("");
-    }
-  };
-
-  const removeCertification = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      certifications: prev.certifications.filter((_, i) => i !== index),
     }));
   };
 
@@ -162,7 +144,7 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
         <CardHeader>
           <CardTitle>Professional profile</CardTitle>
           <CardDescription>
-            Manage your specialty, experience, certifications, languages, and professional biography here. Regulatory licensing evidence belongs in Professional Credentials, where you enter one Licence number with its jurisdiction and verification evidence. Primary care-delivery context is managed in Workplaces &amp; access.
+            Manage your years of experience, optional language context, and professional biography here. Cadre and specialization are captured once in Professional Identity. Regulatory licensing and AHA evidence belong in Professional Credentials, where you enter one Licence number with its jurisdiction and verification evidence. Primary care-delivery context is managed in Workplaces &amp; access.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -176,23 +158,13 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
               <Progress value={completionPercentage} className="h-2" />
             </div>
 
-            {/* Professional Information Section */}
+                          {/* Professional Information Section */}
             <div className="space-y-4 border-t pt-4">
-              <h3 className="font-semibold text-lg">Professional Information</h3>
+              <h3 className="font-semibold text-lg">Experience and language context</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="specialization">Specialization</Label>
-                  <Input
-                    id="specialization"
-                    name="specialization"
-                    value={formData.specialization}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Pediatrics, Emergency Medicine"
-                  />
-                </div>
 
-                <div className="space-y-2">
                   <Label htmlFor="yearsOfExperience">Years of Experience</Label>
                   <Input
                     id="yearsOfExperience"
@@ -232,47 +204,16 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
                 />}
               </div> : null}
 
-              {/* Certifications */}
-              <div className="space-y-2">
-                <Label>Certifications</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={newCertification}
-                    onChange={(e) => setNewCertification(e.target.value)}
-                    placeholder="Add certification (e.g., BLS, ACLS)"
-                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addCertification())}
-                  />
-                  <Button type="button" onClick={addCertification} variant="outline">
-                    Add
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.certifications.map((cert, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center gap-2"
-                    >
-                      {cert}
-                      <button
-                        type="button"
-                        onClick={() => removeCertification(idx)}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* AHA evidence is intentionally not collected here. It belongs in Professional Credentials. */}
 
               {/* Languages */}
               <div className="space-y-2">
-                <Label>Languages</Label>
+                <Label>Languages (optional)</Label>
                 <div className="flex gap-2">
                   <Input
                     value={newLanguage}
                     onChange={(e) => setNewLanguage(e.target.value)}
-                    placeholder="Add language (e.g., Swahili, French)"
+                    placeholder="Add another language if useful"
                     onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addLanguage())}
                   />
                   <Button type="button" onClick={addLanguage} variant="outline">

@@ -8,7 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AlertCircle, CheckCircle2, FileLock2, Upload } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, FileLock2, Upload } from "lucide-react";
+import { Link } from "wouter";
 import { SearchableDropdown } from "./CadreProgressiveSelector";
 import {
   getDefaultLicensingBody,
@@ -53,6 +54,7 @@ export function ProviderCredentialsCard() {
     trpc.institutionAccountability.submitCredential.useMutation({
       onSuccess: async () => {
         setMessage("Credential submitted for verification.");
+        setShowNerpNextStep(isRegulatory && isNurseProfile);
         setEvidenceFile(null);
         await credentialsQuery.refetch();
       },
@@ -69,6 +71,7 @@ export function ProviderCredentialsCard() {
   const [expiresAt, setExpiresAt] = useState("");
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
+  const [showNerpNextStep, setShowNerpNextStep] = useState(false);
 
   const isNurseProfile = useMemo(() => {
     const providerType = (user as { providerType?: string | null } | null | undefined)?.providerType;
@@ -141,6 +144,7 @@ export function ProviderCredentialsCard() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+    setShowNerpNextStep(false);
     if (isRegulatory && !countryCode) {
       setMessage("Select the country where your regulatory licence is held.");
       return;
@@ -292,6 +296,7 @@ export function ProviderCredentialsCard() {
                   placeholder="Search and select a country"
                   searchPlaceholder="Type a few letters…"
                   emptyText="No country found."
+                  searchAlwaysVisible
                 />
               </label>
             ) : (
@@ -365,6 +370,21 @@ export function ProviderCredentialsCard() {
               {evidenceFile?.name ?? "No file selected"}
             </span>
           </label>
+          {isRegulatory && isNurseProfile ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20" role="status">
+              <p className="font-semibold text-emerald-950 dark:text-emerald-100">Next step: open your NERP pathway</p>
+              <p className="mt-1 text-sm text-emerald-900/80 dark:text-emerald-100/80">
+                {showNerpNextStep
+                  ? "Your Licence evidence is waiting for verification. Open NERP to see your verification status and the next programme step. Enrollment remains locked until an authorised verifier confirms the required NCK licence."
+                  : "After submitting your Licence evidence, open NERP to check your verification status and continue to the programme setup when approved. Enrollment remains locked until an authorised verifier confirms the required NCK licence."}
+              </p>
+              <Button asChild type="button" variant="cta" className="mt-3">
+                <Link href="/programs/nerp-acls/start">
+                  Open NERP pathway <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          ) : null}
           {message ? (
             <p className="flex items-start gap-2 text-sm text-muted-foreground">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />

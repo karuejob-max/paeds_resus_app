@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -194,6 +194,8 @@ interface SearchableDropdownProps {
   placeholder?: string;
   searchPlaceholder?: string;
   emptyText?: string;
+  /** Keep a type-ahead field visible alongside the scrollable option list. */
+  searchAlwaysVisible?: boolean;
 }
 
 export function SearchableDropdown({
@@ -203,56 +205,99 @@ export function SearchableDropdown({
   placeholder = "Select option...",
   searchPlaceholder = "Search option...",
   emptyText = "No option found.",
+  searchAlwaysVisible = false,
 }: SearchableDropdownProps) {
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const selectedOption = options.find((opt) => opt.value === value);
+  const filteredOptions = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return options;
+    return options.filter(
+      option =>
+        option.label.toLowerCase().includes(query) ||
+        option.value.toLowerCase().includes(query),
+    );
+  }, [options, searchQuery]);
+
+  const selectOption = (optionValue: string) => {
+    onChange(value === optionValue ? "" : optionValue);
+    setSearchQuery("");
+    setOpen(false);
+  };
+
+  const optionList = (
+    <Command
+      shouldFilter={false}
+      value={searchQuery}
+      onValueChange={setSearchQuery}
+    >
+      {!searchAlwaysVisible ? <CommandInput placeholder={searchPlaceholder} /> : null}
+      <CommandList className="max-h-[250px]">
+        <CommandEmpty>{emptyText}</CommandEmpty>
+        <CommandGroup>
+          {filteredOptions.map(opt => (
+            <CommandItem
+              key={opt.value}
+              value={opt.label}
+              onSelect={() => selectOption(opt.value)}
+            >
+              <Check
+                className={cn(
+                  "mr-2 h-4 w-4",
+                  value === opt.value ? "opacity-100" : "opacity-0"
+                )}
+              />
+              {opt.label}
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      </CommandList>
+    </Command>
+  );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between font-normal bg-background border-input hover:bg-accent hover:text-accent-foreground text-left"
+    <div className={cn(
+      "space-y-2",
+      searchAlwaysVisible && "rounded-md border border-input bg-background p-2",
+    )}>
+      {searchAlwaysVisible ? (
+        <Input
+          value={searchQuery}
+          placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder}
+          onFocus={() => setOpen(true)}
+          onChange={event => {
+            setSearchQuery(event.target.value);
+            setOpen(true);
+          }}
+        />
+      ) : null}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between font-normal bg-background border-input hover:bg-accent hover:text-accent-foreground text-left"
+          >
+            <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-[var(--radix-popover-trigger-width)] p-0"
+          align="start"
         >
-          <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-[var(--radix-popover-trigger-width)] p-0"
-        align="start"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-      >
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} />
-          <CommandList className="max-h-[250px]">
-            <CommandEmpty>{emptyText}</CommandEmpty>
-            <CommandGroup>
-              {options.map((opt) => (
-                <CommandItem
-                  key={opt.value}
-                  value={opt.label}
-                  onSelect={() => {
-                    onChange(value === opt.value ? "" : opt.value);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === opt.value ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  {opt.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+          {optionList}
+        </PopoverContent>
+      </Popover>
+      {searchAlwaysVisible ? (
+        <p className="text-xs text-muted-foreground">
+          Type a few letters to narrow the list, or open the selector and scroll.
+        </p>
+      ) : null}
+    </div>
   );
 }
 
