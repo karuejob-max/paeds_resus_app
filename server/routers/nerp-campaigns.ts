@@ -181,7 +181,7 @@ export const nerpCampaignsRouter = router({
         displayName: "[First Name]",
         campaignKey,
         enrollmentUrl: `${appBaseUrl()}${NERP_PATHWAY_ENTRY_PATH}`,
-        unsubscribeUrl: `${appBaseUrl()}/unsubscribe/nerp`,
+        unsubscribeUrl: `${appBaseUrl()}/api/nerp/campaign/unsubscribe?token=[recipient-specific-token]`,
       });
       const inserted = await db
         .insert(nerpPromotionCampaigns)
@@ -220,7 +220,9 @@ export const nerpCampaignsRouter = router({
       const campaign = await getCampaign(db, input.campaignId);
       if (!campaign) throw new Error("NERP campaign not found.");
       if (campaign.templateVersion !== NERP_CAMPAIGN_TEMPLATE_VERSION)
-        throw new Error("This campaign draft uses an outdated learner destination. Create a new draft.");
+        throw new Error(
+          "This campaign draft uses an outdated learner destination. Create a new draft."
+        );
       if (campaign.status !== "draft")
         throw new Error("Only a draft campaign can be approved.");
       const audience = await loadNerpPromotionAudience(
@@ -241,8 +243,13 @@ export const nerpCampaignsRouter = router({
         throw new Error(
           "No eligible recipients remain after suppression checks."
         );
-      if (!process.env.NERP_CAMPAIGN_TOKEN_SECRET?.trim() && !process.env.JWT_SECRET?.trim()) {
-        throw new Error("Campaign unsubscribe signing secret is not configured on the server.");
+      if (
+        !process.env.NERP_CAMPAIGN_TOKEN_SECRET?.trim() &&
+        !process.env.JWT_SECRET?.trim()
+      ) {
+        throw new Error(
+          "Campaign unsubscribe signing secret is not configured on the server."
+        );
       }
       await db.insert(nerpPromotionRecipients).values(
         sendable.map(row => ({
@@ -311,7 +318,9 @@ export const nerpCampaignsRouter = router({
       const campaign = await getCampaign(db, input.campaignId);
       if (!campaign) throw new Error("NERP campaign not found.");
       if (campaign.templateVersion !== NERP_CAMPAIGN_TEMPLATE_VERSION)
-        throw new Error("This campaign draft uses an outdated learner destination. Create a new draft.");
+        throw new Error(
+          "This campaign draft uses an outdated learner destination. Create a new draft."
+        );
       if (campaign.status !== "approved" && campaign.status !== "failed")
         throw new Error("Only an approved or failed campaign can be sent.");
       const provider = getRawEmailProviderStatus();

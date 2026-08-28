@@ -5,7 +5,8 @@ import { NERP_PATHWAY_ENTRY_PATH } from "../../shared/nerp-pathway";
 export const NERP_CAMPAIGN_KEY = "nerp-acls-2026";
 export const NERP_CAMPAIGN_SUBJECT =
   "A practical six-month path to AHA ACLS certification";
-export const NERP_CAMPAIGN_TEMPLATE_VERSION = "nerp-acls-2026-v3-bls-first-support-contacts";
+export const NERP_CAMPAIGN_TEMPLATE_VERSION =
+  "nerp-acls-2026-v4-bls-first-recipient-unsubscribe";
 export const NERP_SUPPORT_PHONE = "0706781260";
 export const NERP_SUPPORT_EMAIL = "paedsresus254@gmail.com";
 
@@ -18,7 +19,9 @@ function signingSecret() {
 }
 
 export function firstName(displayName: string) {
-  return displayName.trim().split(/\s+/)[0] || "Provider";
+  const trimmed = displayName.trim();
+  if (/^\[First(?:\s+Name)?\]$/i.test(trimmed)) return "[First Name]";
+  return trimmed.split(/\s+/)[0] || "Provider";
 }
 
 export function escapeHtml(value: string) {
@@ -85,7 +88,8 @@ export function createNerpCampaignMessage(input: {
   const enrollmentUrl =
     input.enrollmentUrl || `${baseUrl()}${NERP_PATHWAY_ENTRY_PATH}`;
   const unsubscribeUrl =
-    input.unsubscribeUrl || `${baseUrl()}/api/nerp/campaign/unsubscribe`;
+    input.unsubscribeUrl ||
+    `${baseUrl()}/api/nerp/campaign/unsubscribe?token=[recipient-specific-token]`;
   const name = firstName(input.displayName);
   const safeName = escapeHtml(name);
   const safeEnrollmentUrl = escapeHtml(enrollmentUrl);

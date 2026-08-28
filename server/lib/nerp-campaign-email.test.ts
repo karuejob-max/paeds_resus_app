@@ -27,6 +27,14 @@ describe("governed NERP campaign email", () => {
     expect(verifyUnsubscribeToken(`${token}tampered`)).toBeNull();
   });
 
+  it("keeps the draft name placeholder intact and marks unsubscribe links as recipient-specific", () => {
+    const message = createNerpCampaignMessage({ displayName: "[First Name]" });
+    expect(message.text).toContain("Hello [First Name],");
+    expect(message.text).not.toContain("Hello [First,");
+    expect(message.text).toContain("token=[recipient-specific-token]");
+    expect(message.html).toContain("token=[recipient-specific-token]");
+  });
+
   it("escapes the recipient name and includes the enrollment and unsubscribe links", () => {
     const message = createNerpCampaignMessage({
       displayName: "<Nurse>",
