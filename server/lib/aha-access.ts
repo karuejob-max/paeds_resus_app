@@ -59,6 +59,7 @@ export function isCurrentNckLicence(credential: {
   issuer?: string | null;
   jurisdiction?: string | null;
   credentialNumber?: string | null;
+  issuedAt?: Date | null;
   expiresAt?: Date | null;
   status?: string | null;
 }, now: Date = new Date()): boolean {
