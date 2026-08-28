@@ -46,7 +46,23 @@ function statusLabel(value: string): string {
   return value.replaceAll("_", " ");
 }
 
-export function ProviderCredentialsCard() {
+function completedYearsSince(dateValue: string): number | null {
+  if (!dateValue) return null;
+  const issued = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(issued.getTime())) return null;
+  const now = new Date();
+  if (issued > now) return null;
+  let years = now.getFullYear() - issued.getFullYear();
+  const anniversary = new Date(now.getFullYear(), issued.getMonth(), issued.getDate());
+  if (anniversary > now) years -= 1;
+  return Math.max(0, years);
+}
+
+type ProviderCredentialsCardProps = {
+  onExperienceDerived?: (years: number) => void;
+};
+
+export function ProviderCredentialsCard({ onExperienceDerived }: ProviderCredentialsCardProps) {
   const credentialsQuery =
     trpc.institutionAccountability.getMyCredentials.useQuery();
   const { data: user } = trpc.auth.me.useQuery();
@@ -193,8 +209,9 @@ export function ProviderCredentialsCard() {
           of Kenya (NCK) prefilled. Use this section for your single regulatory
           Licence number. Issue date and Valid until are optional for NERP, but
           both become mandatory before you can accept or use an ERT clinical
-          responsibility. An expired licence blocks ERT duties. Your IERP intern
-          profile remains a separate record.
+          responsibility. An expired licence blocks ERT duties. To add an AHA
+          certificate, choose an External AHA credential in the form below and
+          upload the certificate there. Your IERP intern profile remains a separate record.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -330,7 +347,12 @@ export function ProviderCredentialsCard() {
                 className="w-full rounded-md border bg-background px-3 py-2"
                 type="date"
                 value={issuedAt}
-                onChange={event => setIssuedAt(event.target.value)}
+                onChange={event => {
+                  const nextIssuedAt = event.target.value;
+                  setIssuedAt(nextIssuedAt);
+                  const derivedYears = completedYearsSince(nextIssuedAt);
+                  if (derivedYears !== null) onExperienceDerived?.(derivedYears);
+                }}
                 required={!isRegulatory}
               />
             </label>
@@ -352,11 +374,20 @@ export function ProviderCredentialsCard() {
                 responsibilities are stricter: dates must be recorded and Valid
                 until must still be in the future.
               </p>
-            ) : null}
+            ) : (
+              <div className="md:col-span-2 rounded-lg border border-blue-200 bg-blue-50/70 p-3 text-sm dark:border-blue-900/50 dark:bg-blue-950/20">
+                <p className="font-semibold text-blue-950 dark:text-blue-100">Adding an AHA certificate</p>
+                <p className="mt-1 text-blue-900/80 dark:text-blue-100/80">
+                  Choose External AHA BLS, ACLS, PALS, NRP, or other above, enter the issuing organisation and certificate reference, add the issue and Valid until dates, then upload the certificate below for verification.
+                </p>
+              </div>
+            )}
           </div>
           <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed p-3 text-sm">
             <Upload className="h-4 w-4" />
-            <span className="flex-1">Upload private evidence</span>
+            <span className="flex-1">
+              {isRegulatory ? "Upload private licence evidence" : "Upload AHA certificate evidence"}
+            </span>
             <input
               className="max-w-[220px] text-xs"
               type="file"

@@ -21,9 +21,10 @@ import { DepartmentSelectors } from "./DepartmentSelectors";
 interface ProviderProfileFormProps {
   onComplete?: () => void;
   showWorkplaceContext?: boolean;
+  experienceOverride?: number | null;
 }
 
-export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComplete, showWorkplaceContext = false }) => {
+export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComplete, showWorkplaceContext = false, experienceOverride = null }) => {
   const [formData, setFormData] = useState({
     specialization: "",
     yearsOfExperience: 0,
@@ -76,6 +77,11 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
       setCompletionPercentage(profile.profileCompletionPercentage || 0);
     }
   }, [getProfileMutation.data]);
+
+  useEffect(() => {
+    if (experienceOverride === null || experienceOverride === undefined) return;
+    setFormData(prev => ({ ...prev, yearsOfExperience: experienceOverride }));
+  }, [experienceOverride]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -166,6 +172,11 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
                 <div className="space-y-2">
 
                   <Label htmlFor="yearsOfExperience">Years of Experience</Label>
+                  {experienceOverride !== null && experienceOverride !== undefined ? (
+                    <p className="text-xs text-muted-foreground">
+                      Autofilled from the Licence Issue date. Review and adjust if your professional experience began earlier or later.
+                    </p>
+                  ) : null}
                   <Input
                     id="yearsOfExperience"
                     name="yearsOfExperience"
