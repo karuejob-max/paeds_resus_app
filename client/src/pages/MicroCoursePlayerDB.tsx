@@ -99,6 +99,9 @@ export default function MicroCoursePlayerDB() {
     return null;
   }, [search]);
   const programType = programFromQuery ?? ahaProgramFromSlug ?? ilsProgramFromSlug;
+  const requestedPathway = useMemo(() => {
+    return new URLSearchParams(search).get("pathway") === "ierp" ? "ierp" as const : undefined;
+  }, [search]);
   const isIlsCourse = programType === PAEDS_RESUS_ILS_PROGRAM_TYPE;
   const isAhaCourse = numericCourseId !== null || programType !== null;
   const isInstructor = slug === "instructor";
@@ -225,6 +228,7 @@ export default function MicroCoursePlayerDB() {
       {
         courseId: numericCourseId ?? 0,
         programType: programType ?? undefined,
+        pathway: requestedPathway,
       },
       { enabled: isAhaCourse && !!programType }
     );
