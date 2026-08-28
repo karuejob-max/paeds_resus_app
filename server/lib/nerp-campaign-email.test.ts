@@ -4,6 +4,8 @@ import {
   createNerpCampaignMessage,
   createUnsubscribeToken,
   verifyUnsubscribeToken,
+  NERP_SUPPORT_EMAIL,
+  NERP_SUPPORT_PHONE,
 } from "./nerp-campaign-email";
 
 describe("governed NERP campaign email", () => {
@@ -37,6 +39,10 @@ describe("governed NERP campaign email", () => {
     expect(message.html).toContain(NERP_PATHWAY_ENTRY_PATH);
     expect(message.html).not.toContain("/programs/nerp-acls/enroll");
     expect(message.html).toContain("/api/nerp/campaign/unsubscribe");
+    expect(message.html).toContain(NERP_SUPPORT_PHONE);
+    expect(message.html).toContain(`mailto:${NERP_SUPPORT_EMAIL}`);
     expect(message.text).toContain("Hello <Nurse>");
+    expect(message.text).toContain(NERP_SUPPORT_PHONE);
+    expect(message.text).toContain(NERP_SUPPORT_EMAIL);
   });
 });
