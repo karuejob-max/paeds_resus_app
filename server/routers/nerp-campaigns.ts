@@ -92,6 +92,7 @@ export const nerpCampaignsRouter = router({
     sendPhrase: SEND_PHRASE,
     automaticSending: false as const,
     campaignKey: NERP_CAMPAIGN_KEY,
+    templateVersion: NERP_CAMPAIGN_TEMPLATE_VERSION,
   })),
 
   previewAudience: adminProcedure

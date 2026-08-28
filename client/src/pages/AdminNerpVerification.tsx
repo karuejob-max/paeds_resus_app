@@ -97,9 +97,24 @@ export default function AdminNerpVerification() {
       await Promise.all([campaign.refetch(), campaigns.refetch(), preview.refetch()]);
     },
   });
+  const currentTemplateVersion = campaignStatus.data?.templateVersion;
+  const currentCampaign = useMemo(
+    () =>
+      campaigns.data?.find(
+        item =>
+          item.templateVersion === currentTemplateVersion &&
+          ["draft", "approved", "sending"].includes(item.status)
+      ),
+    [campaigns.data, currentTemplateVersion]
+  );
   useEffect(() => {
-    if (campaignId === null && campaigns.data?.[0]?.id) setCampaignId(campaigns.data[0].id);
-  }, [campaignId, campaigns.data]);
+    if (!campaigns.data || !currentTemplateVersion) return;
+    if (currentCampaign?.id) {
+      if (campaignId !== currentCampaign.id) setCampaignId(currentCampaign.id);
+      return;
+    }
+    if (campaignId !== null) setCampaignId(null);
+  }, [campaignId, campaigns.data, currentCampaign?.id, currentTemplateVersion]);
   const [externalCandidateType, setExternalCandidateType] = useState<"nerp_nurse" | "non_nurse_external">("nerp_nurse");
   const [externalCandidateName, setExternalCandidateName] = useState("");
   const [externalCandidateEmail, setExternalCandidateEmail] = useState("");
@@ -807,7 +822,7 @@ export default function AdminNerpVerification() {
                     onClick={() => createCampaignDraft.mutate({ institutionId: 3 })}
                     disabled={createCampaignDraft.isPending}
                   >
-                    {campaign.data?.campaign?.status === "draft" ? "Use current draft" : "Create governed draft"}
+                    {currentCampaign?.status === "draft" ? "Use current draft" : "Create governed draft"}
                   </Button>
                   <span className="text-sm text-muted-foreground">
                     Provider: {campaignStatus.data?.provider.provider ?? "checking"}{" "}
