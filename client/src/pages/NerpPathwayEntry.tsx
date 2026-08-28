@@ -13,6 +13,7 @@ import {
 import { trpc } from "@/lib/trpc";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import { getNerpNextStep } from "@shared/nerp-pathway";
+import { AclsElearningProofCard } from "@/components/AclsElearningProofCard";
 import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function NerpPathwayEntry() {
@@ -120,15 +121,16 @@ export default function NerpPathwayEntry() {
           </AlertDescription>
         </Alert>
 
+        {acls.cognitiveModulesComplete ? <AclsElearningProofCard compact /> : null}
+
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <CardTitle>One linked pathway</CardTitle>
-                <CardDescription>
-                  BLS cognitive prerequisite → ACLS cognitive learning → required
-                  practical and certification steps.
-                </CardDescription>
+                  <CardDescription>
+                    BLS cognitive refresh → ACLS cognitive learning → AHA Video Prework and Passed Precourse Self-Assessment → Phase 2 booking.
+                  </CardDescription>
               </div>
               <Badge variant={paymentConfirmed ? "default" : "outline"}>
                 {paymentComplete

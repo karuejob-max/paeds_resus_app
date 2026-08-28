@@ -1124,6 +1124,8 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
   const phase2Done = !!summary?.phase2.phase2Complete;
   const phase2CertificateIssued = !!summary?.phase2Certificate;
   const phase3Unlocked = !!summary?.phase3GateUnlocked;
+  const blsEnrollment = summary?.aha.find((row) => row.programType === "bls");
+  const aclsEnrollment = summary?.aha.find((row) => row.programType === "acls");
   const phase3Detail = summaryLoading
     ? "Checking Phases 1 and 2…"
     : summaryError
@@ -1186,6 +1188,30 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
             </div>
           ))}
         </div>
+        <div className="rounded-lg border border-indigo-100 bg-white p-3 space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-indigo-950">Your IERP learning access</p>
+            <p className="text-xs text-slate-600">August–November interns do not pay before 1 December. Refresh your BLS knowledge first; ACLS opens after BLS cognitive completion.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {blsEnrollment ? (internReviewBlocked || !!summary?.payment.cognitiveAccessLocked ? (
+              <Button size="sm" className="bg-indigo-700 text-white" disabled>Open BLS cognitive refresh</Button>
+            ) : (
+              <Button asChild size="sm" className="bg-indigo-700 text-white hover:bg-indigo-800">
+                <Link href={getProviderCourseDestination("bls", blsEnrollment.id)}>Open BLS cognitive refresh</Link>
+              </Button>
+            )) : null}
+            {aclsEnrollment ? (internReviewBlocked || !!summary?.payment.cognitiveAccessLocked || !blsEnrollment?.cognitiveModulesComplete ? (
+              <Button size="sm" variant="outline" disabled> {!blsEnrollment?.cognitiveModulesComplete ? "Complete BLS first" : "ACLS cognitive locked"}</Button>
+            ) : (
+              <Button asChild size="sm" variant="outline">
+                <Link href={getProviderCourseDestination("acls", aclsEnrollment.id)}>Open ACLS cognitive</Link>
+              </Button>
+            )) : null}
+          </div>
+          {!blsEnrollment?.cognitiveModulesComplete ? <p className="text-xs text-amber-700">Complete BLS cognitive learning to unlock ACLS cognitive learning.</p> : null}
+          {summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? <p className="text-xs font-medium text-emerald-700">No payment is required before 1 December EAT. Continue learning during the deferred window.</p> : null}
+        </div>
         <div className="rounded-lg border border-indigo-100 bg-white p-3 space-y-2">
           <p className="text-sm font-semibold text-indigo-950">Completion certificates</p>
           <p className="text-xs text-slate-600">
@@ -1246,10 +1272,10 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
           )}
           {summary?.payment.cognitiveAccessLocked && <span className="font-semibold text-red-700">Cognitive coursework and Phase 2 access are locked until the full KES 15,000 balance is paid.</span>}
         </div>
-        {ierpLedger && ierpLedger.balanceKsh > 0 && (
+        {ierpLedger && ierpLedger.balanceKsh > 0 && (!summary?.payment.deferredStartWindow || !!summary.payment.cognitiveAccessLocked) && (
           <div className="rounded-lg border border-indigo-100 bg-white p-3 space-y-2">
             <p className="text-xs font-semibold text-indigo-950">Complete IERP payment</p>
-            <p className="text-xs text-slate-600">IERP is not a Lipa Mdogo Mdogo plan. Pay the remaining balance of KES {ierpLedger.balanceKsh.toLocaleString()} in one payment to unlock any payment-gated coursework and Phase 3.</p>
+            <p className="text-xs text-slate-600">From 1 December EAT, IERP requires the remaining balance of KES {ierpLedger.balanceKsh.toLocaleString()} in one payment. No instalment plan is used for IERP.</p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 aria-label="IERP M-Pesa phone number"

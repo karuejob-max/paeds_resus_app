@@ -77,13 +77,13 @@ export default function IerpEnrollment() {
               <p className="font-semibold">Verification → Payment → Learning</p>
             <p className="mt-1">
               Submit your MoH deployment/posting letter, official internship
-              letter reference number, and effective commencement date. You may
-              start the IERP payment and continue to the next available learning
-              step while your evidence is under review. August–November starters
-              have deferred access until 1 December; December–July starters must
-              complete payment before cognitive access. If evidence is rejected
-              or revoked, access pauses and the reviewer’s correction reason is
-              shown before you can continue.
+              letter reference number, and effective commencement date. After your
+              profile is registered, open the BLS cognitive refresh; ACLS opens
+              after BLS cognitive completion. August–November starters do not pay
+              before 1 December EAT. From 1 December, the full KES 15,000 balance
+              must be paid in one payment before continuing. If evidence is
+              rejected or revoked, access pauses and the reviewer’s correction
+              reason is shown before you can continue.
             </p>
           </div>
         </div>

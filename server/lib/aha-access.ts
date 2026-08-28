@@ -251,6 +251,16 @@ async function hasIlspPathway(
   return rows.length > 0;
 }
 
+async function hasCompletedBlsCognitive(db: AhaAccessDb, userId: number): Promise<boolean> {
+  const rows = await db
+    .select({ cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
+    .from(enrollments)
+    .where(and(eq(enrollments.userId, userId), eq(enrollments.programType, "bls"), eq(enrollments.enrollmentStatus, "active")))
+    .orderBy(desc(enrollments.createdAt))
+    .limit(1);
+  return !!rows[0]?.cognitiveModulesComplete;
+}
+
 async function hasIndependentPayment(
   db: AhaAccessDb,
   userId: number,
@@ -298,6 +308,12 @@ export async function getAhaAccessDecision(
 ): Promise<AhaAccessDecision> {
   if (!isAhaProgramType(programType)) {
     return blocked("This course is not an AHA programme supported by the access gate.");
+  }
+
+  // Previous BLS certification never bypasses the platform BLS refresh.
+  // ACLS learners must complete the current BLS cognitive modules first.
+  if (programType === "acls" && !(await hasCompletedBlsCognitive(db, userId))) {
+    return blocked("Complete the BLS cognitive refresh on this platform before starting ACLS.");
   }
 
   if (await hasActiveAdminGrant(db, userId, programType, now)) {
