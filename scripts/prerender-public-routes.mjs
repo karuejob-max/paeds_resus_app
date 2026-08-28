@@ -24,6 +24,7 @@ const server = spawn(
   {
     cwd: root,
     stdio: "ignore",
+    detached: true,
   }
 );
 
@@ -60,5 +61,11 @@ try {
   }
   await browser.close();
 } finally {
-  server.kill("SIGTERM");
+  if (server.pid) {
+    try {
+      process.kill(-server.pid, "SIGTERM");
+    } catch {
+      // The preview process may already have exited after the last page render.
+    }
+  }
 }
