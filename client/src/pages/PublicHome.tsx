@@ -160,19 +160,18 @@ export default function PublicHome() {
               Not a training company. A system that learns.
             </h2>
             <p className="text-muted-foreground leading-relaxed mb-3">
-              The largest reductions in child mortality have come from simple,
-              well-known interventions delivered reliably — not from rarer
-              breakthroughs. The hardest problem in paediatric emergency care
-              isn't discovering what works. It's making sure what works actually
-              happens, every time, for every child.
+              The hardest part of emergency care was never figuring out what to
+              do — it&apos;s making sure the right person does it, every single
+              time, when it counts. You already know the steps. The question is
+              whether they&apos;re second nature at 2 a.m., on your worst shift,
+              with everyone watching.
             </p>
             <p className="text-muted-foreground leading-relaxed">
-              Paeds Resus works the way aviation safety works: every near-miss
-              reported by a provider, every experience shared by a parent, feeds
-              a system that gets better for everyone who uses it next. ResusGPS,
-              training, and Care Signal aren't separate products bundled
-              together — they're one loop. Use the tool, reflect on the case,
-              the system learns, the next child gets better care.
+              That&apos;s what Paeds Resus builds. ResusGPS, training, and Care
+              Signal aren&apos;t separate tools — they&apos;re one loop: you
+              respond, the case gets reviewed, the system gets sharper, and the
+              next person who faces that moment is a little more ready than you
+              were.
             </p>
           </section>
 
@@ -204,10 +203,13 @@ export default function PublicHome() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  <p className="text-base font-semibold text-foreground">
+                    Don&apos;t just shout for help — be the help.
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    A structured individual pathway for nurses who need
-                    practical emergency readiness, simulation, evidence, and
-                    progression. NERP is an individual product on Paeds Resus.
+                    A structured path from &quot;call the doctor&quot; to
+                    &quot;I&apos;ve got this,&quot; six payments, KES 2,500
+                    each.
                   </p>
                   <p className="rounded-lg bg-muted/60 px-3 py-2 text-xs font-semibold text-foreground">
                     {formatNerpValueLine()}
@@ -228,10 +230,12 @@ export default function PublicHome() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  <p className="text-base font-semibold text-foreground">
+                    Be ready when that call comes.
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    A profile-first individual pathway for interns, with named
-                    roles, simulation, evidence gates, and practical progression
-                    toward emergency readiness.
+                    Named roles, real simulations, and evidence gates — so the
+                    page doesn&apos;t catch you off guard.
                   </p>
                   <p className="rounded-lg bg-muted/60 px-3 py-2 text-xs font-semibold text-foreground">
                     {formatIerpValueLine()}
@@ -253,10 +257,21 @@ export default function PublicHome() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  <p className="text-base font-semibold text-foreground">
+                    Be ready for the next interview, the next posting, the next
+                    shift that needs proof you can handle it.
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    Choose AHA BLS, AHA ACLS, or the Paeds Resus Fellowship
-                    according to your learning goal. These are separate
-                    individual pathways with clear scope and progression.
+                    AHA-aligned certification that opens doors, not just a line
+                    on a CV.
+                  </p>
+                  <p className="text-base font-semibold text-foreground">
+                    Go from &quot;I got through it&quot; to &quot;I know exactly
+                    what to do.&quot;
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Deep paediatric pattern recognition, for the provider who
+                    wants to be the one others call.
                   </p>
                   <Link href="/for-providers">
                     <Button variant="outline" className="w-full">
