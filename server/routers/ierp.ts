@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sum } from "drizzle-orm";
+import { and, desc, eq, inArray, sum, like, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
@@ -155,6 +155,39 @@ export const ierpRouter = router({
       evidenceAvailable: Boolean(profile.deploymentLetterKey),
     }));
   }),
+
+  listPhase1EvidenceForReview: adminProcedure
+    .input(z.object({ search: z.string().trim().max(120).optional(), limit: z.number().int().min(1).max(200).default(100) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const search = input.search ? `%${input.search}%` : undefined;
+      const rows = await db
+        .select({
+          programEnrollmentId: ierpPhase1Evidence.programEnrollmentId,
+          evidenceId: ierpPhase1Evidence.id,
+          documentType: ierpPhase1Evidence.documentType,
+          fileName: ierpPhase1Evidence.fileName,
+          status: ierpPhase1Evidence.status,
+          submittedAt: ierpPhase1Evidence.submittedAt,
+          reviewedAt: ierpPhase1Evidence.reviewedAt,
+          reviewReason: ierpPhase1Evidence.reviewReason,
+          userId: ierpPhase1Evidence.userId,
+          userName: users.name,
+          userEmail: users.email,
+          phase1Status: ierpProgramEnrollments.phase1Status,
+        })
+        .from(ierpPhase1Evidence)
+        .innerJoin(ierpProgramEnrollments, eq(ierpProgramEnrollments.id, ierpPhase1Evidence.programEnrollmentId))
+        .innerJoin(users, eq(users.id, ierpPhase1Evidence.userId))
+        .where(and(
+          sql`${ierpPhase1Evidence.status} IN ('submitted', 'rejected')`,
+          search ? or(like(users.name, search), like(users.email, search)) : undefined,
+        ))
+        .orderBy(desc(ierpPhase1Evidence.submittedAt))
+        .limit(input.limit);
+      return rows;
+    }),
 
   getInternProfileEvidenceUrl: adminProcedure
     .input(z.object({ profileId: z.number().int().positive() }))
