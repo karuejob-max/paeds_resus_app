@@ -140,6 +140,30 @@ export default function ForInstitutions() {
           </div>
         </section>
 
+        <section
+          className="mx-auto max-w-6xl px-4 pt-12 md:pt-16"
+          aria-labelledby="institution-system-heading"
+        >
+          <div className="mx-auto max-w-3xl rounded-2xl border border-brand-teal/15 bg-brand-teal/5 p-6 md:p-8">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">
+              Why this matters across your facility
+            </p>
+            <h2
+              id="institution-system-heading"
+              className="mt-2 text-2xl font-bold md:text-3xl"
+            >
+              Not a training company. A system that learns.
+            </h2>
+            <p className="mt-4 leading-relaxed text-muted-foreground">
+              Your teams may know the protocol and still face variation when the
+              emergency is real. Paeds Resus helps your facility turn readiness
+              into something visible: people know their roles, gaps are
+              recorded, learning is followed through, and each reviewed case
+              helps the next response run better.
+            </p>
+          </div>
+        </section>
+
         <main className="mx-auto max-w-6xl space-y-16 px-4 py-14 md:py-20">
           <InstitutionalProofSection />
 

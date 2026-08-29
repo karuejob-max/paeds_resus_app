@@ -31,11 +31,11 @@ const aclsPrice = readNumber("ACLS_PRICE").toLocaleString("en-KE");
 const aclsCohortPrice = readNumber("ACLS_COHORT_PRICE").toLocaleString("en-KE");
 const iersPrice = readNumber("IERS_ANNUAL_PRICE").toLocaleString("en-KE");
 const icpdPrice = readNumber("ICPD_ANNUAL_PRICE").toLocaleString("en-KE");
-const towns = readString("SERVICE_REGION_TOWNS");
+const geography = readString("INSTITUTIONAL_GEOGRAPHY_COPY");
 
 const output = `# Paeds Resus
 
-> Paeds Resus is a paediatric emergency-care organisation and platform serving healthcare providers and institutions in Kenya and the East African Community.
+> Paeds Resus is an emergency-care organisation and platform based in Kenya, serving providers and institutions across all patient populations. Current institutional focus is Central Kenya; expansion across Kenya is planned, while East African Community expansion is not yet active.
 
 ## Canonical product architecture
 
@@ -71,11 +71,11 @@ const output = `# Paeds Resus
 - IERP: https://www.paedsresus.com/programs/ierp
 - Fellowship: https://www.paedsresus.com/fellowship
 - IERS orientation: https://www.paedsresus.com/iers/orientation
-- Parent Safe-Truth: https://www.paedsresus.com/parent-safe-truth
+- Family & Caregiver Safe-Truth: https://www.paedsresus.com/parent-safe-truth
 
 ## Institutional presence
 
-Paeds Resus institutional deployments today are concentrated in ${towns} and surrounding referral facilities — real facilities, real rollouts, not a boundary on service. The same IERS, ILSP, and ICPD architecture is built to onboard any facility in Kenya or the East African Community; contact Paeds Resus to scope your facility regardless of location.
+${geography}
 
 ## Naming and claims rules
 

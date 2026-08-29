@@ -128,6 +128,35 @@ export default function ForProviders() {
           </div>
         </section>
 
+        <section
+          className="mx-auto max-w-6xl px-4 pt-12 md:pt-16"
+          aria-labelledby="provider-system-heading"
+        >
+          <div className="mx-auto max-w-3xl rounded-2xl border border-brand-teal/15 bg-brand-teal/5 p-6 md:p-8">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">
+              Why this matters on your worst shift
+            </p>
+            <h2
+              id="provider-system-heading"
+              className="mt-2 text-2xl font-bold md:text-3xl"
+            >
+              Not a training company. A system that learns.
+            </h2>
+            <p className="mt-4 leading-relaxed text-muted-foreground">
+              The hardest part of emergency care was never figuring out what to
+              do — it&apos;s making sure the right person does it, every single
+              time, when it counts. You already know the steps. The question is
+              whether they&apos;re second nature at 2 a.m., on your worst shift,
+              with everyone watching.
+            </p>
+            <p className="mt-3 leading-relaxed text-muted-foreground">
+              That&apos;s what Paeds Resus builds. You respond, the case gets
+              reviewed, the system gets sharper, and the next person who faces
+              that moment is a little more ready than you were.
+            </p>
+          </div>
+        </section>
+
         <main className="mx-auto max-w-6xl space-y-16 px-4 py-14 md:py-20">
           <section aria-labelledby="pathways-heading">
             <div className="mb-8 max-w-3xl">
