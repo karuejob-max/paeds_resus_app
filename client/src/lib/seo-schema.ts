@@ -54,8 +54,8 @@ export function buildOrganizationJsonLd() {
     url: SITE_ORIGIN,
     logo: `${SITE_ORIGIN}/og-image.png`,
     description:
-      "Paeds Resus is a paediatric emergency-care organisation and platform serving Kenya and the East African Community. Individual products include AHA BLS, AHA ACLS, NERP, IERP, and the Paeds Resus Fellowship. Institutional products include ILSP, IERS, and ICPD. ResusGPS and Care Signal are products within IERS: ResusGPS supports bedside guidance and Care Signal supports institutional improvement. Paeds Resus also provides Parent Safe-Truth family resources.",
-    areaServed: ["Kenya", "East African Community"],
+      "Paeds Resus is an emergency-care organisation and platform based in Kenya, built on paediatric resuscitation science and serving providers and institutions across all patient populations. Individual products include AHA BLS, AHA ACLS, NERP, IERP, and the Paeds Resus Fellowship. Institutional products include ILSP, IERS, and ICPD. ResusGPS and Care Signal are products within IERS: ResusGPS supports bedside guidance and Care Signal supports institutional improvement. Paeds Resus also provides family and caregiver resources.",
+    areaServed: ["Kenya"],
     email: "paedsresus254@gmail.com",
     telephone: "+254706781260",
     sameAs: [
@@ -111,7 +111,7 @@ export function buildCourseJsonLd(input: CourseSchemaInput) {
       courseMode: "blended",
       location: {
         "@type": "Place",
-        name: "Kenya and East African Community",
+        name: "Kenya",
         address: {
           "@type": "PostalAddress",
           addressCountry: "KE",

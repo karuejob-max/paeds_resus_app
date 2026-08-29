@@ -1,6 +1,6 @@
 # Paeds Resus
 
-> Paeds Resus is a paediatric emergency-care organisation and platform serving healthcare providers and institutions in Kenya and the East African Community.
+> Paeds Resus is an emergency-care organisation and platform based in Kenya, serving providers and institutions across all patient populations. Current institutional focus is Central Kenya; expansion across Kenya is planned, while East African Community expansion is not yet active.
 
 ## Canonical product architecture
 
@@ -36,11 +36,11 @@
 - IERP: https://www.paedsresus.com/programs/ierp
 - Fellowship: https://www.paedsresus.com/fellowship
 - IERS orientation: https://www.paedsresus.com/iers/orientation
-- Parent Safe-Truth: https://www.paedsresus.com/parent-safe-truth
+- Family & Caregiver Safe-Truth: https://www.paedsresus.com/parent-safe-truth
 
 ## Institutional presence
 
-Paeds Resus institutional deployments today are concentrated in Nyeri, Embu, Murang'a, Kerugoya, Nyahururu, Karatina, Naromoru, Nanyuki, Meru, Nkubu, Chuka, Isiolo, and Marsabit and surrounding referral facilities — real facilities, real rollouts, not a boundary on service. The same IERS, ILSP, and ICPD architecture is built to onboard any facility in Kenya or the East African Community; contact Paeds Resus to scope your facility regardless of location.
+Paeds Resus is based in Kenya, with our current institutional focus in Central Kenya. ILSP, IERS, and ICPD are built to scale to any facility in Kenya as we grow — East African Community expansion is planned, not yet active. Contact us to discuss your facility.
 
 ## Naming and claims rules
 

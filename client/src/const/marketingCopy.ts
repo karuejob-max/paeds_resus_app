@@ -14,10 +14,8 @@ export const ILSP_RENEWAL_YEARS = 2;
 export const IERS_ANNUAL_PRICE = 200_000;
 export const ICPD_ANNUAL_PRICE = 200_000;
 
-export const SERVICE_REGION_TOWNS =
-  "Nyeri, Embu, Murang'a, Kerugoya, Nyahururu, Karatina, Naromoru, Nanyuki, Meru, Nkubu, Chuka, Isiolo, and Marsabit";
-
-export const INSTITUTIONAL_GEOGRAPHY_COPY = `Paeds Resus institutional deployments today are concentrated in ${SERVICE_REGION_TOWNS} and surrounding referral facilities — real facilities, real rollouts, not a pilot on paper. The same IERS, ILSP, and ICPD architecture is built to onboard any facility in Kenya or the East African Community; contact us to scope your facility regardless of location.`;
+export const INSTITUTIONAL_GEOGRAPHY_COPY =
+  "Paeds Resus is based in Kenya, with our current institutional focus in Central Kenya. ILSP, IERS, and ICPD are built to scale to any facility in Kenya as we grow — East African Community expansion is planned, not yet active. Contact us to discuss your facility.";
 
 export const INSTITUTIONAL_RESPONSE_PROMISE =
   "We will review your facility needs and respond with the right next step for your scope.";

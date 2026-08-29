@@ -2,7 +2,17 @@ import React from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { Home, TrendingUp, Share2, MessageCircle, BookOpen, Siren, FileText, Compass, Users } from "lucide-react";
+import {
+  Home,
+  TrendingUp,
+  Share2,
+  MessageCircle,
+  BookOpen,
+  Siren,
+  FileText,
+  Compass,
+  Users,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const BottomNav: React.FC = () => {
@@ -17,7 +27,11 @@ export const BottomNav: React.FC = () => {
         { path: "/start", label: "Start", icon: Compass },
         { path: "/resus", label: "Resus", icon: Siren },
         { path: "/institutional", label: "Hospitals", icon: Users },
-        { path: "/safe-truth", label: "Parents", icon: MessageCircle },
+        {
+          path: "/safe-truth",
+          label: "Family & caregivers",
+          icon: MessageCircle,
+        },
       ];
     }
 
@@ -31,9 +45,7 @@ export const BottomNav: React.FC = () => {
     }
 
     if (role === "institution") {
-      return [
-        { path: "/institution", label: "Workspace", icon: Home },
-      ];
+      return [{ path: "/institution", label: "Workspace", icon: Home }];
     }
 
     // Default
@@ -55,7 +67,7 @@ export const BottomNav: React.FC = () => {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-[#1a4d4d] z-40 md:hidden">
       <div className="flex justify-around items-center h-16 px-2">
-        {navItems.map((item) => {
+        {navItems.map(item => {
           const Icon = item.icon;
           const active = isActive(item.path);
 
@@ -72,7 +84,9 @@ export const BottomNav: React.FC = () => {
               aria-label={item.label}
             >
               <Icon className="w-5 h-5" />
-              <span className="text-xs font-medium leading-none">{item.label}</span>
+              <span className="text-xs font-medium leading-none">
+                {item.label}
+              </span>
             </button>
           );
         })}
