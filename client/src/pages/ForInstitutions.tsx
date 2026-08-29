@@ -98,10 +98,41 @@ export default function ForInstitutions() {
                 </Button>
               </Link>
             </div>
+            <div
+              className="mt-6 flex flex-wrap gap-3"
+              aria-label="Choose your institutional need"
+            >
+              <a href="#ilsp-heading">
+                <Button
+                  variant="ghost"
+                  className="text-white hover:bg-white/10"
+                >
+                  My staff need better emergency-response training
+                </Button>
+              </a>
+              <a href="#iers-heading">
+                <Button
+                  variant="ghost"
+                  className="text-white hover:bg-white/10"
+                >
+                  I need to prove hospital-wide readiness
+                </Button>
+              </a>
+              <a href="#icpd-heading">
+                <Button
+                  variant="ghost"
+                  className="text-white hover:bg-white/10"
+                >
+                  I need to track staff CPD compliance
+                </Button>
+              </a>
+            </div>
           </div>
         </section>
 
         <main className="mx-auto max-w-6xl space-y-16 px-4 py-14 md:py-20">
+          <InstitutionalProofSection />
+
           <section id="products" aria-labelledby="products-heading">
             <div className="mb-8 max-w-3xl">
               <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">
@@ -154,7 +185,38 @@ export default function ForInstitutions() {
             </div>
           </section>
 
-          <InstitutionalProofSection />
+          <section
+            id="ilsp-heading"
+            aria-labelledby="ilsp-title"
+            className="grid gap-8 rounded-3xl border border-primary/15 bg-primary/5 p-6 md:p-10 lg:grid-cols-[1fr_auto] lg:items-center"
+          >
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">
+                ILSP
+              </p>
+              <h2 id="ilsp-title" className="mt-2 text-3xl font-bold">
+                Institutional Life Support Program.
+              </h2>
+              <p className="mt-3 max-w-3xl text-lg leading-relaxed text-muted-foreground">
+                ILSP is the managed cohort pathway for facilities that need
+                staff training delivered as an organized programme: scheduling,
+                practical assessment, completion evidence, and a clear record of
+                who finished what. It is independent from IERS and ICPD, and can
+                be purchased on its own or combined with them.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-primary/20 bg-background p-5 text-center">
+              <p className="text-sm text-muted-foreground">
+                Institutional ILSP
+              </p>
+              <p className="mt-1 text-2xl font-bold text-primary">
+                {formatIlspPriceLine()}
+              </p>
+              <Link href="/institutional#quote">
+                <Button className="mt-4">Discuss ILSP</Button>
+              </Link>
+            </div>
+          </section>
 
           <section aria-labelledby="conversation-heading">
             <div className="mb-5 max-w-3xl">
