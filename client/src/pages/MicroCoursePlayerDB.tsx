@@ -1159,10 +1159,15 @@ export default function MicroCoursePlayerDB() {
         </p>
         {isAhaPathwayLocked ? (
           <div className="flex flex-wrap justify-center gap-2">
+            <Button asChild className="bg-primary text-primary-foreground">
+              <Link href={`/enroll?courseId=${encodeURIComponent(programType ?? "bls")}`}>
+                Pay for {programType === "acls" ? "ACLS" : "BLS"} independently
+              </Link>
+            </Button>
             <Button asChild variant="outline"><Link href="/programs/nerp-acls">NERP</Link></Button>
             <Button asChild variant="outline"><Link href="/programs/ierp">IERP</Link></Button>
             <Button asChild variant="outline"><Link href="/training/institutional-life-support">ILSP</Link></Button>
-            <Button asChild><Link href="/aha-courses">Independent AHA Pathway</Link></Button>
+            <Button asChild variant="outline"><Link href="/aha-courses">View AHA pathways</Link></Button>
           </div>
         ) : (
           <Button onClick={() => navigate(coursesHubPath)}>Go Back</Button>

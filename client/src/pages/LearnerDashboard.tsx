@@ -371,6 +371,7 @@ export default function LearnerDashboard() {
           </Card>
         ) : selectedRole === "provider" ? (
           <div className="grid md:grid-cols-3 gap-6">
+            <IerpProgramCard />
             {lifecycleResumeNudge && (
               <Card className="md:col-span-3 border-2 border-primary/30 bg-primary/5">
                 <CardHeader>
@@ -588,7 +589,6 @@ export default function LearnerDashboard() {
               </CardContent>
             </Card>
 
-            <IerpProgramCard />
             <ProgressAndLedgerCard />
 
             <ProgramIdentityBadge />
