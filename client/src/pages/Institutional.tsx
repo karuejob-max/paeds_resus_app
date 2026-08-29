@@ -93,7 +93,7 @@ export default function Institutional() {
             Institutional products · ILSP, IERS, and ICPD
           </p>
           <h1 className="text-4xl md:text-5xl font-bold max-w-4xl">
-            No child should die from a preventable emergency — even when every
+            No patient should die from a preventable emergency — even when every
             department is stretched thin
           </h1>
           <p className="text-lg md:text-xl text-orange-100 max-w-3xl leading-relaxed">
@@ -306,6 +306,26 @@ export default function Institutional() {
             Programmes align to your ERS rollout — preview content and planning
             costs once readiness scope is agreed.
           </p>
+          <div className="mx-auto mb-8 max-w-3xl rounded-2xl border border-primary/15 bg-primary/5 p-5 text-sm leading-6 text-muted-foreground">
+            <p className="font-semibold text-foreground">
+              Two ways to train your staff.
+            </p>
+            <p className="mt-2">
+              Book AHA courses directly for a fixed per-seat price and receive
+              certificates, or run the same courses through{" "}
+              <strong className="text-foreground">ILSP</strong> (
+              {formatIlspPriceLine()}) for managed cohort scheduling, practical
+              assessment tracking, and completion evidence your board or
+              regulator can review.{" "}
+              <a
+                href="/for-institutions#ilsp-heading"
+                className="font-semibold text-primary underline underline-offset-4"
+              >
+                See what ILSP includes
+              </a>
+              .
+            </p>
+          </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
             {getPublicInstitutionalCourses().map(course => (
               <Card

@@ -68,64 +68,77 @@ export default function PublicHome() {
               Kenya · East African Community · LMIC-focused
             </p>
             <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-4 max-w-3xl">
-              No child should die from a preventable emergency
+              No patient should die from a preventable emergency
             </h1>
             <p className="text-lg md:text-xl text-white/90 max-w-2xl mb-8 leading-relaxed">
-              Most preventable child deaths don't happen because the right
-              treatment is unknown — they happen because it doesn't reach the
-              child in time. Paeds Resus is built to close that gap: bedside
-              guidance, training, and a quality-improvement system that learns
-              from every case to make the next one safer.
+              Most preventable deaths don't happen because the right treatment
+              is unknown — they happen because it doesn't reach the patient in
+              time. Paeds Resus is built to close that gap: bedside guidance,
+              training, and a quality-improvement system that learns from every
+              case to make the next one safer.
             </p>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/register">
-                <Button variant="cta" size="lg" className="gap-2">
-                  Create free account
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
+            <section aria-label="Choose your path" className="mt-10">
+              <p className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-white/80">
+                What brings you here today?
+              </p>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Link href="/for-providers">
+                  <Card className="h-full cursor-pointer border-white/20 bg-white/10 p-6 text-white transition hover:bg-white/20">
+                    <Stethoscope className="h-6 w-6 text-brand-orange" />
+                    <p className="mt-3 font-semibold">My own readiness</p>
+                    <p className="mt-1 text-sm text-white/80">
+                      I want to be ready for the next code blue, shift, or
+                      emergency I personally respond to.
+                    </p>
+                  </Card>
+                </Link>
+                <Link href="/for-institutions">
+                  <Card className="h-full cursor-pointer border-white/20 bg-white/10 p-6 text-white transition hover:bg-white/20">
+                    <Building2 className="h-6 w-6 text-brand-orange" />
+                    <p className="mt-3 font-semibold">
+                      Our institution&apos;s readiness
+                    </p>
+                    <p className="mt-1 text-sm text-white/80">
+                      I&apos;m responsible for how our hospital or facility
+                      responds, hospital-wide.
+                    </p>
+                  </Card>
+                </Link>
+                <Link href="/for-parents">
+                  <Card className="h-full cursor-pointer border-white/20 bg-white/10 p-6 text-white transition hover:bg-white/20">
+                    <Heart className="h-6 w-6 text-brand-orange" />
+                    <p className="mt-3 font-semibold">
+                      As a parent or caregiver
+                    </p>
+                    <p className="mt-1 text-sm text-white/80">
+                      I want to understand what good emergency care should look
+                      like.
+                    </p>
+                  </Card>
+                </Link>
+              </div>
+            </section>
+            <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-white/80">
+              <Link
+                href="/register"
+                className="underline underline-offset-4 hover:text-white"
+              >
+                Create free account
               </Link>
-              <a href={getLoginUrl()}>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="bg-white/10 border-white/30 text-white hover:bg-white/20"
-                >
-                  Sign in
-                </Button>
+              <a
+                href={getLoginUrl()}
+                className="underline underline-offset-4 hover:text-white"
+              >
+                Sign in
               </a>
-              <Link href="/training">
-                <Button
-                  variant="ghost"
-                  size="lg"
-                  className="text-white hover:bg-white/10"
-                >
-                  Browse training
-                </Button>
+              <Link
+                href="/training"
+                className="underline underline-offset-4 hover:text-white"
+              >
+                Browse training
               </Link>
             </div>
           </div>
-        </section>
-
-        <section
-          aria-label="Choose your path"
-          className="relative z-10 mx-auto -mt-8 flex max-w-5xl flex-wrap justify-center gap-3 px-4"
-        >
-          <a href="#institutions">
-            <Button variant="cta" size="lg">
-              I’m evaluating for a hospital{" "}
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </a>
-          <a href="#providers">
-            <Button variant="outline" size="lg" className="bg-background">
-              I’m an individual provider <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </a>
-          <Link href="/for-parents">
-            <Button variant="outline" size="lg" className="bg-background">
-              I’m a parent or caregiver <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Link>
         </section>
 
         <div className="max-w-6xl mx-auto px-4 py-12 md:py-16 space-y-16">

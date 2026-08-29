@@ -129,10 +129,35 @@ export default function ForProviders() {
                 individual.
               </p>
             </div>
+            <div
+              className="mb-6 flex flex-wrap gap-3"
+              aria-label="Choose your provider pathway"
+            >
+              <a href="#nerp">
+                <Button variant="outline">
+                  I&apos;m a nurse needing certification
+                </Button>
+              </a>
+              <a href="#ierp">
+                <Button variant="outline">I&apos;m a medical intern</Button>
+              </a>
+              <a href="#courses">
+                <Button variant="outline">I know which course I need</Button>
+              </a>
+            </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {INDIVIDUAL_PRODUCTS.map(product => (
                 <Card
                   key={product.title}
+                  id={
+                    product.title === "NERP"
+                      ? "nerp"
+                      : product.title === "IERP"
+                        ? "ierp"
+                        : product.title === "AHA BLS"
+                          ? "courses"
+                          : undefined
+                  }
                   className="flex flex-col border-border/80"
                 >
                   <CardHeader>
