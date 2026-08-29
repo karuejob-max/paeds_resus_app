@@ -181,6 +181,13 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
         risk: "review",
       },
       {
+        label: "AHA proof review",
+        href: "/admin/aha-proof-review",
+        description: "Review private AHA Video Prework and Self-Assessment certificates.",
+        icon: ClipboardCheck,
+        risk: "review",
+      },
+      {
         label: "IERP campaigns",
         href: "/admin/ierp-campaigns",
         description: "Manage governed IERP campaign operations.",
