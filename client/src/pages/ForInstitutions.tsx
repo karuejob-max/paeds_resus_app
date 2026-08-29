@@ -32,6 +32,9 @@ const INSTITUTIONAL_PRODUCTS = [
     title: "ILSP",
     label: "Institutional Life Support Program",
     body: "A managed institution-paid cohort pathway for life-support learning, delivery, practical assessment, and completion evidence.",
+    tagline: "Don't wait for the code to find out who's ready.",
+    supporting:
+      "A managed cohort pathway — training, assessment, and completion evidence your file can actually stand behind, at KES 10,000 per staff member, renewable every two years.",
     price: formatIlspPriceLine(),
     icon: Users,
   },
@@ -39,6 +42,10 @@ const INSTITUTIONAL_PRODUCTS = [
     title: "IERS",
     label: "Institutional Emergency Readiness System",
     body: "A hospital-wide operating layer for response roles, activation, readiness evidence, equipment gaps, drills, corrective actions, ResusGPS, and Care Signal.",
+    tagline:
+      "Know your hospital is ready before the call comes — and be able to prove it.",
+    supporting:
+      "Response roles, activation, readiness evidence, and a system that gets better after every case, hospital-wide.",
     price: `${formatKes(IERS_ANNUAL_PRICE)} per year`,
     icon: HeartPulse,
   },
@@ -46,6 +53,9 @@ const INSTITUTIONAL_PRODUCTS = [
     title: "ICPD",
     label: "Institutional Continuous Professional Development",
     body: "A managed institutional service for professional-development sessions, verified attendance, targets, certificates, and leadership reporting.",
+    tagline: "Your regulator will ask. Have the answer ready.",
+    supporting:
+      "Verified attendance, targets, and certificates your leadership team can report on without a scramble.",
     price: `${formatKes(ICPD_ANNUAL_PRICE)} per year`,
     icon: BarChart3,
   },
@@ -152,7 +162,15 @@ export default function ForInstitutions() {
             </div>
             <div className="grid gap-5 lg:grid-cols-3">
               {INSTITUTIONAL_PRODUCTS.map(
-                ({ title, label, body, price, icon: Icon }) => (
+                ({
+                  title,
+                  label,
+                  body,
+                  tagline,
+                  supporting,
+                  price,
+                  icon: Icon,
+                }) => (
                   <Card key={title} className="flex flex-col border-border/80">
                     <CardHeader>
                       <Icon className="h-6 w-6 text-primary" />
@@ -162,6 +180,10 @@ export default function ForInstitutions() {
                       <CardTitle className="mt-1 text-xl">{label}</CardTitle>
                     </CardHeader>
                     <CardContent className="flex flex-1 flex-col gap-5 text-sm text-muted-foreground">
+                      <p className="text-base font-semibold leading-relaxed text-foreground">
+                        {tagline}
+                      </p>
+                      <p className="leading-relaxed">{supporting}</p>
                       <p className="leading-relaxed">{body}</p>
                       <p className="mt-auto rounded-lg bg-muted/60 px-3 py-2 font-semibold text-foreground">
                         {price}

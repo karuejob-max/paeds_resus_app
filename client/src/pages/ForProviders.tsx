@@ -30,6 +30,10 @@ const INDIVIDUAL_PRODUCTS = [
     title: "AHA BLS",
     eyebrow: "Foundation",
     body: "Build dependable CPR, AED, team-response, and paediatric basic-life-support skills.",
+    tagline:
+      "Be ready for the next interview, the next posting, the next shift that needs proof you can handle it.",
+    supporting:
+      "AHA-aligned certification that opens doors, not just a line on a CV.",
     price: formatCohortLine(BLS_PRICE, BLS_COHORT_PRICE),
     href: "/training/bls",
   },
@@ -37,6 +41,10 @@ const INDIVIDUAL_PRODUCTS = [
     title: "AHA ACLS",
     eyebrow: "Advanced response",
     body: "Strengthen advanced cardiovascular emergency response, team leadership, and algorithm-based decision-making.",
+    tagline:
+      "Be ready for the next interview, the next posting, the next shift that needs proof you can handle it.",
+    supporting:
+      "AHA-aligned certification that opens doors, not just a line on a CV.",
     price: formatCohortLine(ACLS_PRICE, ACLS_COHORT_PRICE),
     href: "/training/acls",
   },
@@ -44,6 +52,9 @@ const INDIVIDUAL_PRODUCTS = [
     title: "NERP",
     eyebrow: "For nurses",
     body: "A structured Nurses Emergency Readiness Program with learning, simulations, evidence, and practical progression.",
+    tagline: "Don't just shout for help — be the help.",
+    supporting:
+      'A structured path from "call the doctor" to "I\'ve got this," six payments, KES 2,500 each.',
     price: formatNerpValueLine(),
     href: "/programs/nerp-acls",
   },
@@ -51,6 +62,9 @@ const INDIVIDUAL_PRODUCTS = [
     title: "IERP",
     eyebrow: "For interns",
     body: "A profile-first Interns Emergency Readiness Program with named roles, simulations, and evidence gates.",
+    tagline: "Be ready when that call comes.",
+    supporting:
+      "Named roles, real simulations, and evidence gates — so the page doesn't catch you off guard.",
     price: formatIerpValueLine(),
     href: "/programs/ierp",
   },
@@ -58,6 +72,9 @@ const INDIVIDUAL_PRODUCTS = [
     title: "Paeds Resus Fellowship",
     eyebrow: "Deep paediatric learning",
     body: "Focused micro-courses that build paediatric emergency breadth and pattern recognition over time.",
+    tagline: 'Go from "I got through it" to "I know exactly what to do."',
+    supporting:
+      "Deep paediatric pattern recognition, for the provider who wants to be the one others call.",
     price: "Explore the catalogue",
     href: "/fellowship",
   },
@@ -169,6 +186,10 @@ export default function ForProviders() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="flex flex-1 flex-col gap-4 text-sm text-muted-foreground">
+                    <p className="text-base font-semibold leading-relaxed text-foreground">
+                      {product.tagline}
+                    </p>
+                    <p className="leading-relaxed">{product.supporting}</p>
                     <p className="leading-relaxed">{product.body}</p>
                     <p className="mt-auto rounded-lg bg-muted/60 px-3 py-2 text-xs font-semibold text-foreground">
                       {product.price}
