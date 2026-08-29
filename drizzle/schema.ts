@@ -200,6 +200,8 @@ export const enrollments = mysqlTable("enrollments", {
   ),
   elearningProofSubmittedAt: timestamp("elearningProofSubmittedAt"),
   elearningProofVerifiedAt: timestamp("elearningProofVerifiedAt"),
+  elearningProofRejectedAt: timestamp("elearningProofRejectedAt"),
+  elearningProofRejectionReason: text("elearningProofRejectionReason"),
   /** ILS operations: first paid access and most recent learning activity for activation/reporting. */
   activatedAt: timestamp("activatedAt"),
   lastActivityAt: timestamp("lastActivityAt"),
