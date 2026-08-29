@@ -30,6 +30,16 @@ export default function ProviderLearn() {
     staleTime: 30_000,
     retry: 1,
   });
+  const ierpEnrollmentQuery = trpc.ierp.getMyEnrollment.useQuery(undefined, {
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+    retry: 1,
+  });
+  const ierpSummaryQuery = trpc.ierp.getSummary.useQuery(undefined, {
+    enabled: isAuthenticated && Boolean(ierpEnrollmentQuery.data),
+    staleTime: 30_000,
+    retry: 1,
+  });
 
   if (loading || !user) {
     return (
@@ -43,6 +53,11 @@ export default function ProviderLearn() {
   const microEnrollments = microEnrollmentsQuery.data ?? [];
   const ahaEnrollments = ahaEnrollmentsQuery.data ?? [];
   const nerpEnrollment = nerpEnrollmentQuery.data;
+  const ierpSummary = ierpSummaryQuery.data;
+  const ierpBlsEnrollment = ierpSummary?.aha.find((entry) => entry.programType === "bls");
+  const ierpCoursePath = ierpBlsEnrollment
+    ? `${getProviderCourseDestination("bls", ierpBlsEnrollment.id)}&pathway=ierp`
+    : null;
   const verifications = (nerpEnrollment?.verifications ?? []) as Array<{
     decision: string | null;
     phase: string | null;
@@ -135,12 +150,22 @@ export default function ProviderLearn() {
                 </Button>
               </div>
             ) : null}
-            <div className="rounded-lg border border-teal-200 bg-white p-3">
+            <div className="rounded-lg border-2 border-teal-300 bg-teal-50/50 p-3 shadow-sm">
               <p className="text-sm font-semibold text-slate-900">Intern Emergency Readiness Program (IERP)</p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">KES 15,000 for AHA ACLS plus Paeds Resus BLS. Register your intern profile before starting.</p>
-              <Button type="button" variant="link" className="mt-1 h-auto px-0 text-xs text-teal-800" onClick={() => setLocation("/programs/ierp")}>
-                View IERP <ArrowRight className="ml-1 h-3.5 w-3.5" />
-              </Button>
+              <p className="mt-1 text-xs leading-5 text-slate-600">BLS refresh first, then ACLS. Your direct coursework action appears here after registration.</p>
+              {ierpEnrollmentQuery.data && ierpCoursePath && !ierpSummary?.payment.cognitiveAccessLocked ? (
+                <Button type="button" className="mt-3 bg-teal-700 text-white hover:bg-teal-800" onClick={() => setLocation(ierpCoursePath)}>
+                  Start BLS coursework <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              ) : ierpEnrollmentQuery.data && ierpSummary?.payment.cognitiveAccessLocked ? (
+                <Button type="button" variant="outline" className="mt-3 border-teal-300 text-teal-900" onClick={() => setLocation("/programs/ierp/enroll")}>
+                  Open IERP payment <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              ) : (
+                <Button type="button" variant="link" className="mt-1 h-auto px-0 text-xs text-teal-800" onClick={() => setLocation("/programs/ierp")}>
+                  View IERP and register <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
