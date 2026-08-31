@@ -494,11 +494,11 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
   );  return (
     <>
       {/* Sub-tab navigation header for new users */}
-      <div className="sticky top-2 z-20 -mx-1 mb-6 flex gap-2 overflow-x-auto border-b bg-background/95 px-1 pb-3 pt-1 shadow-sm backdrop-blur sm:static sm:mx-0 sm:flex-wrap sm:overflow-visible sm:bg-transparent sm:px-0 sm:pt-0 sm:shadow-none">
+      <div className="sticky top-2 z-20 -mx-1 mb-6 flex min-w-0 flex-col gap-2 overflow-hidden border-b bg-background/95 px-1 pb-3 pt-1 shadow-sm backdrop-blur sm:static sm:mx-0 sm:flex-row sm:flex-wrap sm:overflow-visible sm:bg-transparent sm:px-0 sm:pt-0 sm:shadow-none">
         {!compact && <Button
           variant={cpdSubTab === "overview" ? "default" : "outline"}
           onClick={() => setCpdSubTab("overview")}
-          className="text-xs font-semibold gap-2"
+          className="w-full min-w-0 justify-start whitespace-normal text-left text-xs font-semibold gap-2 sm:w-auto sm:justify-center sm:text-center"
         >
           <BarChart3 className="h-4 w-4" />
           Overview & Analytics
@@ -506,7 +506,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
         <Button
           variant={cpdSubTab === "sessions" ? "default" : "outline"}
           onClick={() => setCpdSubTab("sessions")}
-          className="text-xs font-semibold gap-2"
+          className="w-full min-w-0 justify-start whitespace-normal text-left text-xs font-semibold gap-2 sm:w-auto sm:justify-center sm:text-center"
         >
           <Calendar className="h-4 w-4" />
           Sessions & Check-In
@@ -514,7 +514,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
         {!compact && <Button
           variant={cpdSubTab === "staff_development" ? "default" : "outline"}
           onClick={() => setCpdSubTab("staff_development")}
-          className="text-xs font-semibold gap-2"
+          className="w-full min-w-0 justify-start whitespace-normal text-left text-xs font-semibold gap-2 sm:w-auto sm:justify-center sm:text-center"
         >
           <UserCheck className="h-4 w-4" />
           Staff Development
@@ -522,7 +522,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
         <Button
           variant={cpdSubTab === "certificates" ? "default" : "outline"}
           onClick={() => setCpdSubTab("certificates")}
-          className="text-xs font-semibold gap-2"
+          className="w-full min-w-0 justify-start whitespace-normal text-left text-xs font-semibold gap-2 sm:w-auto sm:justify-center sm:text-center"
         >
           <Award className="h-4 w-4" />
           Certificates & Exports
@@ -530,7 +530,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
         {!compact && <Button
           variant={cpdSubTab === "new_session" ? "default" : "outline"}
           onClick={() => setCpdSubTab("new_session")}
-          className="text-xs font-semibold gap-2"
+          className="w-full min-w-0 justify-start whitespace-normal text-left text-xs font-semibold gap-2 sm:w-auto sm:justify-center sm:text-center"
         >
           <PlusCircle className="h-4 w-4" />
           Open New Session
@@ -538,14 +538,14 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
         {!compact && <Button
           variant={cpdSubTab === "settings" ? "default" : "outline"}
           onClick={() => setCpdSubTab("settings")}
-          className="text-xs font-semibold gap-2"
+          className="w-full min-w-0 justify-start whitespace-normal text-left text-xs font-semibold gap-2 sm:w-auto sm:justify-center sm:text-center"
         >
           <Building2 className="h-4 w-4" />
           Certificate settings
         </Button>}
       </div>
 
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-6">
         <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
           <CardContent className="grid gap-3 p-4 text-xs sm:grid-cols-4">
             <div><p className="font-semibold text-blue-950 dark:text-blue-100">Reporting scope</p><p className="text-muted-foreground">Professional development activity only.</p></div>
@@ -838,7 +838,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
 
         {/* --- STAFF DEVELOPMENT TAB --- */}
         {!compact && cpdSubTab === "staff_development" && (
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <Card className="border-indigo-200 bg-indigo-50/40 dark:border-indigo-900 dark:bg-indigo-950/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><UserCheck className="h-5 w-5 text-indigo-700" />Staff Development</CardTitle>
@@ -851,7 +851,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
 
         {/* --- CERTIFICATES & EXPORTS TAB --- */}
         {cpdSubTab === "certificates" && (
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Award className="h-5 w-5 text-purple-700" />CPD Certificates & Exports</CardTitle>
@@ -1810,7 +1810,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
           <div className="py-4">
             {/* SESSIONS VIEW */}
             {drilldownType === "sessions" && (
-              <div className="border rounded-md overflow-x-auto">
+              <div className="max-w-full overflow-x-auto rounded-md border">
                 <table className="w-full text-sm text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-900 border-b">
@@ -1854,7 +1854,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                     <Loader2 className="h-5 w-5 animate-spin" /> Loading registrations...
                   </div>
                 ) : (
-                  <div className="border rounded-md overflow-x-auto">
+                  <div className="max-w-full overflow-x-auto rounded-md border">
                     <table className="w-full text-sm text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-slate-900 border-b">
@@ -1901,7 +1901,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                     <Loader2 className="h-5 w-5 animate-spin" /> Loading points leaderboard...
                   </div>
                 ) : (
-                  <div className="border rounded-md overflow-x-auto">
+                  <div className="max-w-full overflow-x-auto rounded-md border">
                     <table className="w-full text-sm text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-slate-900 border-b">
@@ -1965,7 +1965,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
 
             {/* ACTIVE DEPTS VIEW */}
             {drilldownType === "active_depts" && (
-              <div className="border rounded-md overflow-x-auto">
+              <div className="max-w-full overflow-x-auto rounded-md border">
                 <table className="w-full text-sm text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-900 border-b">
@@ -2028,7 +2028,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                     <Loader2 className="h-5 w-5 animate-spin" /> Loading department check-ins...
                   </div>
                 ) : (
-                  <div className="border rounded-md overflow-x-auto">
+                  <div className="max-w-full overflow-x-auto rounded-md border">
                     <table className="w-full text-sm text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-slate-900 border-b">
@@ -2071,7 +2071,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
 
             {/* ROLE ENGAGEMENT VIEW */}
             {drilldownType === "role_engagement" && (
-              <div className="border rounded-md overflow-x-auto">
+              <div className="max-w-full overflow-x-auto rounded-md border">
                 <table className="w-full text-sm text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-900 border-b">

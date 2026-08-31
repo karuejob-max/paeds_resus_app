@@ -78,7 +78,7 @@ export default function InstitutionLearningGovernancePanel({
   const [audienceLabel, setAudienceLabel] = useState("");
   const [presenterUserId, setPresenterUserId] = useState("");
   const [cpdPoints, setCpdPoints] = useState("1");
-  const [coPresenters, setCoPresenters] = useState([{ userId: "" }]);
+  const [coPresenters, setCoPresenters] = useState<Array<{ userId: string }>>([]);
   const [targetScope, setTargetScope] = useState<
     "facility" | "department" | "individual"
   >("facility");
@@ -199,7 +199,7 @@ export default function InstitutionLearningGovernancePanel({
       setSessionName("");
       setPresenterUserId("");
       setAudienceLabel("");
-      setCoPresenters([{ userId: "" }]);
+      setCoPresenters([]);
       await invalidateLearning();
     },
     onError: error => toast.error(error.message),
@@ -265,7 +265,7 @@ export default function InstitutionLearningGovernancePanel({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       {mode !== "sessions" && (
       <Card className="border-violet-200 bg-violet-50/30 dark:border-violet-900 dark:bg-violet-950/20">
         <CardHeader>
@@ -283,7 +283,7 @@ export default function InstitutionLearningGovernancePanel({
           {isInstitutionAdmin ? (
               <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
             <select
-              className="h-10 rounded-md border bg-background px-3 text-sm"
+              className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
               value={selectedDepartmentId}
               onChange={event => setSelectedDepartmentId(event.target.value)}
             >
@@ -295,7 +295,7 @@ export default function InstitutionLearningGovernancePanel({
               ))}
             </select>
             <select
-              className="h-10 rounded-md border bg-background px-3 text-sm"
+              className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
               value={selectedCoordinatorUserId}
               onChange={event =>
                 setSelectedCoordinatorUserId(event.target.value)
@@ -376,14 +376,15 @@ export default function InstitutionLearningGovernancePanel({
           <CardDescription>
             Classify the audience at creation time so facility-wide, nursing
             CNE, clinical, M&M, and other-cadre learning can be analysed
-            separately. Co-presenters are stored as presenters, not attendees.
+            separately. Add one or more presenters; co-presenters are stored as
+            presenters, not attendees.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid min-w-0 gap-3 md:grid-cols-2">
             <Field label="Session title">
               <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={sessionName}
                 onChange={event => setSessionName(event.target.value)}
                 placeholder="e.g. Paediatric sepsis recognition"
@@ -391,7 +392,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Date">
               <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 type="date"
                 value={sessionDate}
                 onChange={event => setSessionDate(event.target.value)}
@@ -399,7 +400,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Session type">
               <select
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={eventType}
                 onChange={event => setEventType(event.target.value)}
               >
@@ -415,7 +416,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Audience">
               <select
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={audienceScope}
                 onChange={event => setAudienceScope(event.target.value)}
               >
@@ -430,7 +431,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Department (optional for facility sessions)">
               <select
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={sessionDepartmentId}
                 onChange={event => setSessionDepartmentId(event.target.value)}
               >
@@ -445,7 +446,7 @@ export default function InstitutionLearningGovernancePanel({
             {audienceScope === "other_cadre" && (
               <Field label="Audience cadre">
                 <select
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                   value={audienceLabel}
                   onChange={event => setAudienceLabel(event.target.value)}
                 >
@@ -466,6 +467,7 @@ export default function InstitutionLearningGovernancePanel({
                 placeholder="Type to search presenter"
                 searchPlaceholder="Search name, department, cadre, or email..."
                 emptyText="No active institution member found."
+                clearable
               />
               {selectedPresenter ? (
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -477,7 +479,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="CPD points">
               <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 type="number"
                 min="0"
                 step="0.5"
@@ -487,11 +489,13 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
           </div>
           <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Co-presenters</p>
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-medium">Co-presenters (optional)</p>
                 <p className="text-xs text-muted-foreground">
-                  Add up to six. They do not inflate attendance counts.
+                  Add up to six additional presenters. Leave this section empty
+                  for a single-presenter session; co-presenters do not inflate
+                  attendance counts.
                 </p>
               </div>
               <Button
@@ -508,11 +512,17 @@ export default function InstitutionLearningGovernancePanel({
                       : rows
                   )
                 }
+                className="w-full shrink-0 sm:w-auto"
                 disabled={coPresenters.length >= 6}
               >
                 Add co-presenter
               </Button>
             </div>
+            {coPresenters.length === 0 ? (
+              <p className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+                No co-presenter added. This session can be created with the lead presenter alone.
+              </p>
+            ) : null}
             {coPresenters.map((presenter, index) => {
               const selectedCoPresenterIds = new Set(
                 coPresenters.map(row => Number(row.userId)).filter(Boolean)
@@ -528,7 +538,7 @@ export default function InstitutionLearningGovernancePanel({
               return (
                 <div
                   key={index}
-                  className="grid gap-2 md:grid-cols-[1fr_auto]"
+                  className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_auto]"
                 >
                   <div>
                     <SearchableDropdown
@@ -544,6 +554,7 @@ export default function InstitutionLearningGovernancePanel({
                       placeholder="Type to search co-presenter"
                       searchPlaceholder="Search name, department, cadre, or email..."
                       emptyText="No available institution member found."
+                      clearable
                     />
                     {selectedCoPresenter ? (
                       <p className="mt-1 text-xs text-muted-foreground">
@@ -557,9 +568,7 @@ export default function InstitutionLearningGovernancePanel({
                     variant="ghost"
                     onClick={() =>
                       setCoPresenters(rows =>
-                        rows.length === 1
-                          ? [{ userId: "" }]
-                          : rows.filter((_, rowIndex) => rowIndex !== index)
+                        rows.filter((_, rowIndex) => rowIndex !== index)
                       )
                     }
                     aria-label="Remove co-presenter"
@@ -604,7 +613,7 @@ export default function InstitutionLearningGovernancePanel({
           <div className="grid gap-3 md:grid-cols-3">
             <Field label="Target scope">
               <select
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={targetScope}
                 onChange={event =>
                   setTargetScope(event.target.value as typeof targetScope)
@@ -618,7 +627,7 @@ export default function InstitutionLearningGovernancePanel({
             {targetScope === "department" && (
               <Field label="Department">
                 <select
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                   value={targetDepartmentId}
                   onChange={event => setTargetDepartmentId(event.target.value)}
                 >
@@ -635,7 +644,7 @@ export default function InstitutionLearningGovernancePanel({
               <>
                 <Field label="Filter staff by department">
                   <select
-                    className="h-10 rounded-md border bg-background px-3 text-sm"
+                    className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                     value={targetDepartmentId}
                     onChange={event => {
                       setTargetDepartmentId(event.target.value);
@@ -652,7 +661,7 @@ export default function InstitutionLearningGovernancePanel({
                 </Field>
                 <Field label="Individual">
                   <select
-                    className="h-10 rounded-md border bg-background px-3 text-sm"
+                    className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                     value={targetUserId}
                     onChange={event => setTargetUserId(event.target.value)}
                   >
@@ -671,7 +680,7 @@ export default function InstitutionLearningGovernancePanel({
             )}
             <Field label="Metric">
               <select
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={metricKey}
                 onChange={event =>
                   setMetricKey(event.target.value as typeof metricKey)
@@ -686,7 +695,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Period">
               <select
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={periodType}
                 onChange={event =>
                   setPeriodType(event.target.value as typeof periodType)
@@ -699,7 +708,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Start">
               <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 type="date"
                 value={periodStart}
                 onChange={event => setPeriodStart(event.target.value)}
@@ -707,7 +716,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="End">
               <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 type="date"
                 value={periodEnd}
                 onChange={event => setPeriodEnd(event.target.value)}
@@ -715,7 +724,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Target value">
               <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 type="number"
                 min="0"
                 step="1"
@@ -725,7 +734,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Revision reason (optional)">
               <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={targetRevisionReason}
                 onChange={event => setTargetRevisionReason(event.target.value)}
                 placeholder="Why is this target changing?"
@@ -735,7 +744,7 @@ export default function InstitutionLearningGovernancePanel({
               metricKey === "course_phase_completion") && (
               <Field label="Course">
                 <select
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                   value={courseProgramType}
                   onChange={event => setCourseProgramType(event.target.value)}
                 >
@@ -751,7 +760,7 @@ export default function InstitutionLearningGovernancePanel({
             {metricKey === "course_phase_completion" && (
               <Field label="Phase">
                 <select
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                   value={coursePhase}
                   onChange={event => setCoursePhase(event.target.value)}
                 >
@@ -777,7 +786,7 @@ export default function InstitutionLearningGovernancePanel({
             {saveTarget.isPending ? "Saving…" : "Save target"}
           </Button>
           {targets.length > 0 && (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="max-w-full overflow-x-auto rounded-lg border">
               <table className="w-full min-w-[720px] text-sm">
                 <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
@@ -838,7 +847,7 @@ export default function InstitutionLearningGovernancePanel({
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="space-y-1.5 text-sm">
+    <label className="min-w-0 space-y-1.5 text-sm">
       <span className="block text-xs font-medium text-muted-foreground">
         {label}
       </span>

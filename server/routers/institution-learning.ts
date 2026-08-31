@@ -646,19 +646,28 @@ export const institutionLearningRouter = router({
         presenterDepartment: z.string().trim().max(128).nullable().optional(),
         cpdPoints: z.number().min(0).nullable().optional(),
         approvingCouncil: z.string().trim().max(128).nullable().optional(),
-        coPresenters: z
-          .array(
-            z.object({
-              userId: z.number().int().positive(),
-              /** Legacy fields remain input-compatible but are ignored. */
-              fullName: z.string().trim().min(1).max(255).optional(),
-              email: z.string().email().nullable().optional(),
-              cadre: z.string().trim().max(128).nullable().optional(),
-              department: z.string().trim().max(128).nullable().optional(),
-            })
-          )
-          .max(6)
-          .default([]),
+        coPresenters: z.preprocess(
+          value =>
+            Array.isArray(value)
+              ? value.filter(entry => {
+                  if (!entry || typeof entry !== "object") return true;
+                  return (entry as { userId?: unknown }).userId !== "";
+                })
+              : value,
+          z
+            .array(
+              z.object({
+                userId: z.number().int().positive(),
+                /** Legacy fields remain input-compatible but are ignored. */
+                fullName: z.string().trim().min(1).max(255).optional(),
+                email: z.string().email().nullable().optional(),
+                cadre: z.string().trim().max(128).nullable().optional(),
+                department: z.string().trim().max(128).nullable().optional(),
+              })
+            )
+            .max(6)
+            .default([])
+        ),
       })
     )
     .mutation(async ({ input, ctx }) => {
