@@ -11,7 +11,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CadreProgressiveSelectorProps {
@@ -196,6 +196,8 @@ interface SearchableDropdownProps {
   emptyText?: string;
   /** Keep a type-ahead field visible alongside the scrollable option list. */
   searchAlwaysVisible?: boolean;
+  /** Allow the selected value to be removed with Backspace/Delete or a clear button. */
+  clearable?: boolean;
 }
 
 export function SearchableDropdown({
@@ -206,6 +208,7 @@ export function SearchableDropdown({
   searchPlaceholder = "Search option...",
   emptyText = "No option found.",
   searchAlwaysVisible = false,
+  clearable = false,
 }: SearchableDropdownProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -271,31 +274,65 @@ export function SearchableDropdown({
           autoCorrect="off"
           spellCheck={false}
           onFocus={() => setOpen(true)}
+          onKeyDown={event => {
+            if (clearable && value && !searchQuery && (event.key === "Backspace" || event.key === "Delete")) {
+              event.preventDefault();
+              onChange("");
+              setSearchQuery("");
+              setOpen(false);
+            }
+          }}
           onChange={event => {
             setSearchQuery(event.target.value);
             setOpen(true);
           }}
         />
       ) : null}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="w-full justify-between font-normal bg-background border-input hover:bg-accent hover:text-accent-foreground text-left"
+      <div className="flex min-w-0 gap-2">
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              onKeyDown={event => {
+                if (clearable && value && (event.key === "Backspace" || event.key === "Delete")) {
+                  event.preventDefault();
+                  onChange("");
+                  setSearchQuery("");
+                  setOpen(false);
+                }
+              }}
+              className="min-w-0 flex-1 justify-between font-normal bg-background border-input hover:bg-accent hover:text-accent-foreground text-left"
+            >
+              <span className="min-w-0 truncate">{selectedOption ? selectedOption.label : placeholder}</span>
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-0"
+            align="start"
           >
-            <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            {optionList}
+          </PopoverContent>
+        </Popover>
+        {clearable && value ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Clear selection"
+            title="Clear selection"
+            onClick={() => {
+              onChange("");
+              setSearchQuery("");
+              setOpen(false);
+            }}
+          >
+            <X className="h-4 w-4" />
           </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          className="w-[var(--radix-popover-trigger-width)] p-0"
-          align="start"
-        >
-          {optionList}
-        </PopoverContent>
-      </Popover>
+        ) : null}
+      </div>
       {searchAlwaysVisible ? (
         <p className="text-xs text-muted-foreground">
           Type a few letters to narrow the list, or open the selector and scroll.

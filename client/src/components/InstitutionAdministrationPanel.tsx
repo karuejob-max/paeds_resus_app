@@ -96,20 +96,20 @@ export function InstitutionAdministrationPanel({ institutionId, institution }: {
   };
 
   return (
-    <Tabs value={tab} onValueChange={(value) => setAdministrationTab(value as AdministrationTab)} className="space-y-6">
-      <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-5">
-        <TabsTrigger value="overview"><ShieldCheck className="mr-2 h-4 w-4" />Overview</TabsTrigger>
-        <TabsTrigger value="institution"><Users className="mr-2 h-4 w-4" />People & access</TabsTrigger>
-        <TabsTrigger value="billing"><CreditCard className="mr-2 h-4 w-4" />Products & billing</TabsTrigger>
-        <TabsTrigger value="program_operations"><GraduationCap className="mr-2 h-4 w-4" />Programme operations</TabsTrigger>
-        <TabsTrigger value="data_support"><LifeBuoy className="mr-2 h-4 w-4" />Data & support</TabsTrigger>
+    <Tabs value={tab} onValueChange={(value) => setAdministrationTab(value as AdministrationTab)} className="min-w-0 space-y-6">
+      <TabsList className="grid h-auto min-w-0 w-full grid-cols-1 gap-1 min-[420px]:grid-cols-2 sm:grid-cols-5">
+        <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="overview"><ShieldCheck className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Overview</TabsTrigger>
+        <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="institution"><Users className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />People & access</TabsTrigger>
+        <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="billing"><CreditCard className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Products & billing</TabsTrigger>
+        <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="program_operations"><GraduationCap className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Programme operations</TabsTrigger>
+        <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="data_support"><LifeBuoy className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Data & support</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="overview" className="space-y-6">
+      <TabsContent value="overview" className="min-w-0 space-y-6">
         <InstitutionAdministrationOverview institutionId={institutionId} onNavigate={setAdministrationTab} />
       </TabsContent>
 
-      <TabsContent value="institution" className="space-y-6">
+      <TabsContent value="institution" className="min-w-0 space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />People & access</CardTitle>
@@ -117,24 +117,24 @@ export function InstitutionAdministrationPanel({ institutionId, institution }: {
           </CardHeader>
           <CardContent>
             <Tabs value={peopleTab} onValueChange={(value) => setPeopleSection(value as PeopleTab)}>
-              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-5">
-                <TabsTrigger value="institution"><Building2 className="mr-1.5 h-4 w-4" />Institution</TabsTrigger>
-                <TabsTrigger value="people_access"><Users className="mr-1.5 h-4 w-4" />People & roles</TabsTrigger>
-                <TabsTrigger value="departments"><FileText className="mr-1.5 h-4 w-4" />Departments & CPD</TabsTrigger>
-                <TabsTrigger value="access_links"><ShieldCheck className="mr-1.5 h-4 w-4" />Access & links</TabsTrigger>
-                <TabsTrigger value="staff_import"><Users className="mr-1.5 h-4 w-4" />Staff import</TabsTrigger>
+              <TabsList className="grid h-auto min-w-0 w-full grid-cols-1 gap-1 min-[420px]:grid-cols-2 sm:grid-cols-5">
+                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="institution"><Building2 className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Institution</TabsTrigger>
+                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="people_access"><Users className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />People & roles</TabsTrigger>
+                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="departments"><FileText className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Departments & CPD</TabsTrigger>
+                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="access_links"><ShieldCheck className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Access & links</TabsTrigger>
+                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="staff_import"><Users className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Staff import</TabsTrigger>
               </TabsList>
               <TabsContent value="institution" className="mt-5"><InstitutionDetailsCard institutionId={institutionId} companyName={institution.companyName} contactPhone={institution.contactPhone} contactEmail={institution.contactEmail} staffCount={institution.staffCount} organizationCategory={institution.organizationCategory} facilityOwnership={institution.facilityOwnership} facilityCareLevel={institution.facilityCareLevel} facilityLocalLevel={institution.facilityLocalLevel} /></TabsContent>
               <TabsContent value="people_access" className="mt-5"><InstitutionPeopleRolesPanel institutionId={institutionId} /></TabsContent>
               <TabsContent value="departments" className="mt-5"><InstitutionDepartmentReconciliationPanel institutionId={institutionId} /></TabsContent>
-              <TabsContent value="access_links" className="mt-5 grid gap-6 xl:grid-cols-2"><AccountAdminsWidget institutionId={institutionId} /><PendingLinkRequestsWidget institutionId={institutionId} /></TabsContent>
+              <TabsContent value="access_links" className="mt-5 grid min-w-0 gap-6 xl:grid-cols-2"><AccountAdminsWidget institutionId={institutionId} /><PendingLinkRequestsWidget institutionId={institutionId} /></TabsContent>
               <TabsContent value="staff_import" className="mt-5"><StaffBulkImport institutionId={institutionId} /></TabsContent>
             </Tabs>
           </CardContent>
         </Card>
       </TabsContent>
 
-      <TabsContent value="billing" className="space-y-6">
+      <TabsContent value="billing" className="min-w-0 space-y-6">
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5" />Products & billing</CardTitle><CardDescription>Review IERS and CPD Portal access, renewal, contracts, and payment history. ILS is an order-based institutional programme and is operated in its separate lane.</CardDescription></CardHeader>
           <CardContent>
@@ -148,10 +148,10 @@ export function InstitutionAdministrationPanel({ institutionId, institution }: {
         </Card>
       </TabsContent>
 
-      <TabsContent value="program_operations" className="space-y-6">
+      <TabsContent value="program_operations" className="min-w-0 space-y-6">
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><GraduationCap className="h-5 w-5" />Programme operations</CardTitle><CardDescription>Administration coordinates people, access, and handoffs. Product-specific operations stay in their own lanes so the wrong workflow is not mistaken for another.</CardDescription></CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-3">
+          <CardContent className="grid min-w-0 gap-3 md:grid-cols-3">
             <ProgrammeLink title="Open ILS operations" detail="Institution-paid provider cohorts, delivery readiness, practical assessment, certificates, and AHA requests." href="/training/institutional-life-support" icon={<GraduationCap className="h-5 w-5" />} />
             <ProgrammeLink title="Open IERS Readiness" detail="Departments, ERCo governance, teams, drills, equipment, evidence, and response improvement." href="/institution?section=iers&iersTab=command" icon={<HeartPulse className="h-5 w-5" />} />
             <ProgrammeLink title="Open Learning / CPD" detail="CPD sessions, staff development, attendance, targets, certificates, and reports." href="/institution?section=learning&learningTab=overview" icon={<BookOpen className="h-5 w-5" />} />
@@ -163,7 +163,7 @@ export function InstitutionAdministrationPanel({ institutionId, institution }: {
         </Card>
       </TabsContent>
 
-      <TabsContent value="data_support" className="space-y-6">
+      <TabsContent value="data_support" className="min-w-0 space-y-6">
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><LifeBuoy className="h-5 w-5" />Data, support & governance</CardTitle><CardDescription>Separate preservation and export work from support requests and notification review so each exception has a clear owner.</CardDescription></CardHeader>
           <CardContent>
@@ -181,7 +181,7 @@ export function InstitutionAdministrationPanel({ institutionId, institution }: {
 }
 
 function ProgrammeLink({ title, detail, href, icon }: { title: string; detail: string; href: string; icon: React.ReactNode }) {
-  return <Button asChild variant="outline" className="h-auto justify-start p-4 text-left"><a href={href}><span className="mr-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">{icon}</span><span><span className="block font-semibold">{title}</span><span className="mt-1 block text-xs font-normal text-muted-foreground">{detail}</span></span><ArrowRight className="ml-auto h-4 w-4 shrink-0" /></a></Button>;
+  return <Button asChild variant="outline" className="h-auto w-full min-w-0 justify-start p-4 text-left"><a className="flex min-w-0 items-center" href={href}><span className="mr-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">{icon}</span><span className="min-w-0"><span className="block break-words font-semibold">{title}</span><span className="mt-1 block break-words text-xs font-normal text-muted-foreground">{detail}</span></span><ArrowRight className="ml-auto h-4 w-4 shrink-0" /></a></Button>;
 }
 
 function Rule({ title, detail }: { title: string; detail: string }) {

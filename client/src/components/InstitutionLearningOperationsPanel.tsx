@@ -90,7 +90,7 @@ export default function InstitutionLearningOperationsPanel({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -146,22 +146,22 @@ export default function InstitutionLearningOperationsPanel({
         value={activeTab}
         onValueChange={value => setLearningTab(value as LearningTab)}
       >
-        <TabsList className="sticky top-2 z-20 grid h-auto w-full grid-cols-1 gap-1 bg-background/95 p-1 shadow-sm backdrop-blur min-[420px]:grid-cols-2 sm:grid-cols-5 sm:static sm:bg-transparent sm:p-0 sm:shadow-none">
-          <TabsTrigger value="overview" className="min-h-10 text-xs sm:text-sm">
+        <TabsList className="sticky top-2 z-20 grid h-auto min-w-0 w-full grid-cols-1 gap-1 bg-background/95 p-1 shadow-sm backdrop-blur min-[420px]:grid-cols-2 sm:grid-cols-5 sm:static sm:bg-transparent sm:p-0 sm:shadow-none">
+          <TabsTrigger value="overview" className="min-h-10 min-w-0 whitespace-normal px-2 text-center text-xs leading-tight sm:text-sm">
             <BookOpenCheck className="mr-2 hidden h-4 w-4 sm:block" />
             Learning overview
           </TabsTrigger>
           {iersEnabled && (
             <TabsTrigger
               value="competency"
-              className="min-h-10 text-xs sm:text-sm"
+              className="min-h-10 min-w-0 whitespace-normal px-2 text-center text-xs leading-tight sm:text-sm"
             >
               <CalendarDays className="mr-2 hidden h-4 w-4 sm:block" />
               Cohorts & competency
             </TabsTrigger>
           )}
           {cpdEnabled && (
-            <TabsTrigger value="cpd" className="min-h-10 text-xs sm:text-sm">
+            <TabsTrigger value="cpd" className="min-h-10 min-w-0 whitespace-normal px-2 text-center text-xs leading-tight sm:text-sm">
               <Award className="mr-2 hidden h-4 w-4 sm:block" />
               CPD sessions
             </TabsTrigger>
@@ -169,7 +169,7 @@ export default function InstitutionLearningOperationsPanel({
           {cpdEnabled && (
             <TabsTrigger
               value="intelligence"
-              className="min-h-10 text-xs sm:text-sm"
+              className="min-h-10 min-w-0 whitespace-normal px-2 text-center text-xs leading-tight sm:text-sm"
             >
               Reports & insights
             </TabsTrigger>
@@ -177,7 +177,7 @@ export default function InstitutionLearningOperationsPanel({
           {cpdEnabled && (
             <TabsTrigger
               value="governance"
-              className="min-h-10 text-xs sm:text-sm"
+              className="min-h-10 min-w-0 whitespace-normal px-2 text-center text-xs leading-tight sm:text-sm"
             >
               People & targets
             </TabsTrigger>

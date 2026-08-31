@@ -221,7 +221,7 @@ export default function InstitutionWorkspace() {
 
   return (
     <div className="min-h-screen bg-slate-50/70 dark:bg-slate-950/30">
-      <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto min-w-0 max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
         <div className="mb-4 flex min-w-0 flex-col justify-between gap-3 md:mb-6 md:flex-row md:items-start md:gap-4">
           <div className="min-w-0">
             <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
@@ -277,7 +277,7 @@ export default function InstitutionWorkspace() {
           })}
         </div>
 
-        <Tabs value={visibleSection} onValueChange={(value) => setSection(value as WorkspaceSection)}>
+        <Tabs value={visibleSection} onValueChange={(value) => setSection(value as WorkspaceSection)} className="min-w-0">
           <TabsList className="mb-6 grid h-auto w-full grid-cols-1 gap-1 p-1 min-[380px]:grid-cols-2 sm:grid-cols-4">
             <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="overview"><LayoutDashboard className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Home</span></TabsTrigger>
             <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="iers"><HeartPulse className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Readiness</span></TabsTrigger>
