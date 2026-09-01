@@ -262,7 +262,13 @@ export default function Footer() {
           <p className="text-sm text-white/70 mb-4 md:mb-0">
             © {currentYear} Paeds Resus. All rights reserved. · Kenya
           </p>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <div
+              google-add-preferred-source-btn=""
+              data-theme="dark"
+              data-lang="en"
+              aria-label="Add Paeds Resus as a preferred source in Google"
+            />
             {socialLinks.map(social => (
               <a
                 key={social.name}

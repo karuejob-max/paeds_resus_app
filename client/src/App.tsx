@@ -21,6 +21,7 @@ import { LegalReconsentGate } from "@/components/LegalReconsentGate";
 import { trpc } from "@/lib/trpc";
 import { AHA_HUB_STALE_MS } from "@/const/aha-hub-query";
 import AdminShell from "./components/AdminShell";
+import NotFound from "./pages/NotFound";
 
 const Login = lazy(() => import("./pages/Login"));
 const CpdRegister = lazy(() => import("./pages/CpdRegister"));
@@ -702,8 +703,8 @@ function Router() {
           <Route path="/elite-fellowship">{() => <Redirect to="/fellowship" />}</Route>
           {/* / : public compound for anonymous; role home for authenticated */}
           <Route path="/" component={HomeEntry} />
-          {/* Catch-all → role-aware redirect or public home */}
-            <Route component={FallbackEntry} />
+          {/* Catch-all: show a clear 404 instead of silently rendering the homepage. */}
+          <Route component={NotFound} />
           </Switch>
         </Suspense>
         </LegalReconsentGate>
