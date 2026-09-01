@@ -26,6 +26,7 @@ import {
   type AppDb,
 } from "../lib/institution-access";
 import { assertInstitutionAccountScope } from "../lib/institution-account-scopes";
+import { assertCanManageDepartmentHead } from "../lib/institution-role-authority";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { evaluateClinicalLicenceRows } from "../lib/professional-credential-safety";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
@@ -1059,6 +1060,7 @@ export const institutionAccountabilityRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertCanManageDepartmentHead(db, ctx.user, input.institutionId);
       const [department] = await db
         .select({ id: facilityDepartments.id })
         .from(facilityDepartments)
@@ -1216,6 +1218,7 @@ export const institutionAccountabilityRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertCanManageDepartmentHead(db, ctx.user, input.institutionId);
       const [assignment] = await db
         .select()
         .from(institutionDepartmentHeads)

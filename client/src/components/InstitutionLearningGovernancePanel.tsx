@@ -96,6 +96,11 @@ export default function InstitutionLearningGovernancePanel({
   const [courseProgramType, setCourseProgramType] = useState("");
   const [coursePhase, setCoursePhase] = useState("");
   const utils = trpc.useUtils();
+  const { data: learningAuthority } = trpc.institutionLearning.getMyAuthority.useQuery(
+    { institutionId },
+    { staleTime: 30_000 },
+  );
+  const canManageCoordinatorAssignments = isInstitutionAdmin || learningAuthority?.roleKey === "institution_admin" || learningAuthority?.roleKey === "cpd_coordinator" || learningAuthority?.roleKey === "cpd_department_head";
   const { data: departments = [] } =
     trpc.institutionLearning.listDepartments.useQuery(
       { institutionId },
@@ -278,13 +283,14 @@ export default function InstitutionLearningGovernancePanel({
             Education Coordinators by department
           </CardTitle>
           <CardDescription>
-            Assign a coordinator from each department. They can create and
-            coordinate learning in their department, while institutional
-            administrators retain the all-facility view.
+            Assign a coordinator from each department. Institutional CPD
+            Coordinators can manage all departments; Departmental Heads can
+            manage only their own department. All-facility visibility remains
+            with institutional administrators and the Institutional CPD Coordinator.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isInstitutionAdmin ? (
+          {canManageCoordinatorAssignments ? (
               <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
             <select
               className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
@@ -332,7 +338,7 @@ export default function InstitutionLearningGovernancePanel({
               <UserPlus className="mr-2 h-4 w-4" />
               Assign
             </Button>
-          </div> ) : ( <p className="text-sm text-muted-foreground">Coordinator assignments are managed by institutional administrators. You only see coordinators for your assigned department(s).</p>)}
+            </div> ) : ( <p className="text-sm text-muted-foreground">Coordinator assignments are managed by the Institutional CPD Coordinator, Departmental Head for the relevant department, or an institutional administrator. You only see coordinators for your permitted department(s).</p>)}
           <div className="grid gap-2 md:grid-cols-2">
             {coordinators
               .filter(row => row.assignmentStatus === "active")
@@ -350,19 +356,21 @@ export default function InstitutionLearningGovernancePanel({
                       {row.email ?? "No email"}
                     </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      endCoordinator.mutate({
-                        institutionId,
-                        assignmentId: row.id,
-                      })
-                    }
-                    disabled={endCoordinator.isPending}
-                  >
-                    End assignment
-                  </Button>
+                  {canManageCoordinatorAssignments && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        endCoordinator.mutate({
+                          institutionId,
+                          assignmentId: row.id,
+                        })
+                      }
+                      disabled={endCoordinator.isPending}
+                    >
+                      End assignment
+                    </Button>
+                  )}
                 </div>
               ))}
           </div>
