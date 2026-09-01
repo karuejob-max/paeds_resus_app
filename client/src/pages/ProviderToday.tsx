@@ -336,7 +336,7 @@ export default function ProviderToday() {
   const ierpSummary = ierpSummaryQuery.data;
   const ierpBlsEnrollment = ierpSummary?.aha.find((entry) => entry.programType === "bls");
   const ierpCoursePath = ierpBlsEnrollment
-    ? `${getProviderCourseDestination("bls", ierpBlsEnrollment.id)}&pathway=ierp`
+    ? `${getProviderCourseDestination("bls", ierpBlsEnrollment.id, "/learner-dashboard", ierpBlsEnrollment.courseId ?? undefined)}&pathway=ierp`
     : null;
   const ierpAccessLocked = ierpSummary?.payment.cognitiveAccessLocked ?? false;
 
@@ -402,6 +402,11 @@ export default function ProviderToday() {
               </Button>
             ) : ierpSummaryQuery.isLoading ? (
               <p className="flex items-center gap-2 text-sm text-indigo-900"><Loader2 className="h-4 w-4 animate-spin" /> Checking your IERP learning access…</p>
+            ) : ierpSummaryQuery.isError ? (
+              <div className="space-y-2">
+                <p className="text-sm text-indigo-950">IERP learning access could not be checked. Refresh this page to retry; your course access has not been changed.</p>
+                <Button type="button" variant="outline" onClick={() => void ierpSummaryQuery.refetch()}>Retry IERP access check</Button>
+              </div>
             ) : ierpAccessLocked ? (
               <div className="space-y-2">
                 <p className="text-sm text-indigo-950">IERP learning is currently payment-locked. Open the programme page to complete the required payment.</p>
