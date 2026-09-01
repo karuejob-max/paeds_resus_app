@@ -47,9 +47,9 @@ export default function About() {
   useScrollToTop();
   usePageMeta({
     title:
-      "About Paeds Resus — Paediatric emergency training and readiness in Kenya",
+      "About Paeds Resus — Emergency Care Training and Readiness in Kenya",
     description:
-      "Paeds Resus builds paediatric emergency capability through individual training, institutional readiness, IERS with ResusGPS and Care Signal, and ICPD professional-development records across Kenya and East Africa.",
+      "Paeds Resus builds emergency-care capability through individual training, institutional readiness, IERS with ResusGPS and Care Signal, and ICPD professional-development records in Kenya.",
     path: "/about",
   });
 
@@ -64,13 +64,12 @@ export default function About() {
               About Paeds Resus
             </p>
             <h1 className="mt-4 max-w-4xl text-4xl font-bold leading-tight md:text-6xl">
-              Building the people and systems that make paediatric emergency
-              care more reliable.
+              Building the people and systems that make emergency care more reliable.
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-relaxed text-teal-50 md:text-xl">
-              Paeds Resus is a paediatric emergency-care organisation and
-              platform for healthcare providers and institutions in Kenya and
-              the East African Community. We connect practical training,
+              Paeds Resus is an emergency-care organisation and platform for healthcare
+              providers and institutions in Kenya, built on paediatric
+              resuscitation science and extended to every patient population. We connect practical training,
               institutional readiness, bedside guidance, quality improvement,
               and professional development without collapsing them into one
               unclear product.
