@@ -203,8 +203,11 @@ export function getIerpPaymentAccess(
   const paid = Math.max(0, Number(enrollment.totalPaidAmount ?? 0));
   const balance = Math.max(0, requiredFeeKes - paid);
   const isPaidInFull = enrollment.paymentStatus === "not_required" || paid >= requiredFeeKes;
-  const paymentStartAt = enrollment.effectiveCommencementDate ?? enrollment.enrolledAt;
-  const enrolledAt = paymentStartAt ? new Date(paymentStartAt) : null;
+  // The programme specification defines the payment window from the IERP
+  // enrolment timestamp. The intern profile commencement date is retained for
+  // eligibility/audit purposes, but must not move an active cohort into a
+  // different payment year or create a false December lock.
+  const enrolledAt = enrollment.enrolledAt ? new Date(enrollment.enrolledAt) : null;
   const startCalendar = enrolledAt ? eastAfricaCalendar(enrolledAt) : null;
   const deferredStartWindow = !!startCalendar &&
     startCalendar.month >= IERP_DEFERRED_START_MONTH &&
