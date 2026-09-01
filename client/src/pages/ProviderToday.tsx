@@ -176,6 +176,11 @@ export default function ProviderToday() {
     staleTime: 30_000,
     retry: 1,
   });
+  const ierpDashboardAccessQuery = trpc.ierp.getDashboardAccess.useQuery(undefined, {
+    enabled: isAuthenticated && Boolean(ierpEnrollmentQuery.data),
+    staleTime: 30_000,
+    retry: 1,
+  });
 
   const membershipsQuery = trpc.institution.getMyMemberships.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -334,11 +339,12 @@ export default function ProviderToday() {
       });
 
   const ierpSummary = ierpSummaryQuery.data;
-  const ierpBlsEnrollment = ierpSummary?.aha.find((entry) => entry.programType === "bls");
+  const ierpDashboardAccess = ierpDashboardAccessQuery.data;
+  const ierpBlsEnrollment = ierpDashboardAccess?.bls ?? ierpSummary?.aha.find((entry) => entry.programType === "bls");
   const ierpCoursePath = ierpBlsEnrollment
     ? `${getProviderCourseDestination("bls", ierpBlsEnrollment.id, "/learner-dashboard", ierpBlsEnrollment.courseId ?? undefined)}&pathway=ierp`
     : null;
-  const ierpAccessLocked = ierpSummary?.payment.cognitiveAccessLocked ?? false;
+  const ierpAccessLocked = ierpDashboardAccess?.payment.cognitiveAccessLocked ?? false;
 
   const isRefreshing =
     membershipsQuery.isFetching ||
@@ -400,12 +406,12 @@ export default function ProviderToday() {
               <Button type="button" className="bg-indigo-700 text-white hover:bg-indigo-800" onClick={() => setLocation("/programs/ierp/enroll")}>
                 Open IERP enrollment <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-            ) : ierpSummaryQuery.isLoading ? (
+            ) : ierpDashboardAccessQuery.isLoading ? (
               <p className="flex items-center gap-2 text-sm text-indigo-900"><Loader2 className="h-4 w-4 animate-spin" /> Checking your IERP learning access…</p>
-            ) : ierpSummaryQuery.isError ? (
+            ) : ierpDashboardAccessQuery.isError ? (
               <div className="space-y-2">
                 <p className="text-sm text-indigo-950">IERP learning access could not be checked. Refresh this page to retry; your course access has not been changed.</p>
-                <Button type="button" variant="outline" onClick={() => void ierpSummaryQuery.refetch()}>Retry IERP access check</Button>
+                <Button type="button" variant="outline" onClick={() => void ierpDashboardAccessQuery.refetch()}>Retry IERP access check</Button>
               </div>
             ) : ierpAccessLocked ? (
               <div className="space-y-2">
