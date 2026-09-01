@@ -433,11 +433,13 @@ export const nerpRouter = router({
       paymentState,
       bls: {
         enrollmentId: children.bls.id,
+        courseId: children.bls.courseId,
         cognitiveModulesComplete: children.bls.cognitiveModulesComplete,
         practicalSkillsSignedOff: children.bls.practicalSkillsSignedOff,
       },
       acls: {
         enrollmentId: children.acls.id,
+        courseId: children.acls.courseId,
         cognitiveModulesComplete: children.acls.cognitiveModulesComplete,
         practicalSkillsSignedOff: children.acls.practicalSkillsSignedOff,
       },
@@ -475,10 +477,12 @@ export const nerpRouter = router({
       paymentState: state,
       bls: {
         enrollmentId: children.bls.id,
+        courseId: children.bls.courseId,
         cognitiveModulesComplete: children.bls.cognitiveModulesComplete,
       },
       acls: {
         enrollmentId: children.acls.id,
+        courseId: children.acls.courseId,
         cognitiveModulesComplete: children.acls.cognitiveModulesComplete,
       },
     };

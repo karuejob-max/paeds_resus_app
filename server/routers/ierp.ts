@@ -534,6 +534,7 @@ export const ierpRouter = router({
     const ahaRows = await db
       .select({
         id: enrollments.id,
+        courseId: enrollments.courseId,
         programType: enrollments.programType,
         cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
         practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,

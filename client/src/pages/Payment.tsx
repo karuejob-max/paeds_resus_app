@@ -461,8 +461,7 @@ export default function Payment() {
                     }}
                     onPaymentError={(message) => {
                       if (/payments server|Failed to fetch|network/i.test(message)) {
-                        setPaymentMethod("bank");
-                        toast.error("M-Pesa could not connect. Switched to bank transfer as a fallback.");
+                        toast.error("M-Pesa could not connect. Please try again, or contact Paeds Resus support if the problem continues.");
                       }
                     }}
                   />

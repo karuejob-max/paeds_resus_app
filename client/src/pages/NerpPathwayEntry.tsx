@@ -86,8 +86,8 @@ export default function NerpPathwayEntry() {
     blsCognitiveComplete: blsComplete,
   });
   const nextLearningHref = blsComplete
-    ? getProviderCourseDestination("acls", acls.enrollmentId)
-    : getProviderCourseDestination("bls", bls.enrollmentId);
+    ? getProviderCourseDestination("acls", acls.enrollmentId, "/learner-dashboard", acls.courseId ?? undefined)
+    : getProviderCourseDestination("bls", bls.enrollmentId, "/learner-dashboard", bls.courseId ?? undefined);
   const nextLearningLabel = nextStep === "acls_cognitive"
     ? "Continue to ACLS cognitive learning"
     : "Start BLS cognitive learning";
