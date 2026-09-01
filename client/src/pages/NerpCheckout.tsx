@@ -68,8 +68,8 @@ export default function NerpCheckout() {
   const isComplete = paymentState.status === "completed";
   const paymentConfirmed = isComplete || paymentState.amountPaidKes > 0;
   const nextLearningHref = bls.cognitiveModulesComplete
-    ? getProviderCourseDestination("acls", acls.enrollmentId)
-    : getProviderCourseDestination("bls", bls.enrollmentId);
+    ? getProviderCourseDestination("acls", acls.enrollmentId, "/learner-dashboard", acls.courseId ?? undefined)
+    : getProviderCourseDestination("bls", bls.enrollmentId, "/learner-dashboard", bls.courseId ?? undefined);
   const nextLearningLabel = bls.cognitiveModulesComplete
     ? "Continue to ACLS cognitive learning"
     : "Start BLS cognitive learning";
@@ -157,7 +157,7 @@ export default function NerpCheckout() {
                   </div>
                   {paymentConfirmed ? (
                     <Button asChild size="sm" variant="outline">
-                      <Link href={getProviderCourseDestination("bls", bls.enrollmentId)}>Open BLS cognitive</Link>
+                      <Link href={getProviderCourseDestination("bls", bls.enrollmentId, "/learner-dashboard", bls.courseId ?? undefined)}>Open BLS cognitive</Link>
                     </Button>
                   ) : (
                     <Button size="sm" variant="outline" disabled>Available after first payment</Button>
@@ -172,7 +172,7 @@ export default function NerpCheckout() {
                   </div>
                   {paymentConfirmed && bls.cognitiveModulesComplete ? (
                     <Button asChild size="sm" variant="outline">
-                      <Link href={getProviderCourseDestination("acls", acls.enrollmentId)}>Open ACLS cognitive</Link>
+                      <Link href={getProviderCourseDestination("acls", acls.enrollmentId, "/learner-dashboard", acls.courseId ?? undefined)}>Open ACLS cognitive</Link>
                     </Button>
                   ) : (
                     <Button size="sm" variant="outline" disabled>

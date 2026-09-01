@@ -233,15 +233,6 @@ export default function MicroCoursePlayerDB() {
       { enabled: isAhaCourse && !!programType }
     );
 
-  // Replace legacy hardcoded ids (/micro-course/1) with the real catalog id
-  useEffect(() => {
-    if (!ahaCourseDetails?.id || !programType || numericCourseId === null) return;
-    if (numericCourseId === ahaCourseDetails.id) return;
-    const qs = new URLSearchParams(search);
-    qs.set("programType", programType);
-    navigate(`/micro-course/${ahaCourseDetails.id}?${qs.toString()}`, { replace: true });
-  }, [ahaCourseDetails?.id, programType, numericCourseId, search, navigate]);
-
   // Unified dbCourse: either fellowship or AHA
   const dbCourse = useMemo(() => {
     if (isAhaCourse && ahaCourseDetails) {
@@ -1111,12 +1102,12 @@ export default function MicroCoursePlayerDB() {
   const isLoading = isAhaCourse
     ? ahaDetailsLoading
     : (catalogLoading || coursesLoading || detailsLoading);
-  const isAhaPathwayLocked = isAhaCourse && Boolean(
-    (ahaDetailsError as any)?.data?.code === "FORBIDDEN" ||
-    ahaDetailsError?.message?.includes("Choose NERP") ||
-    ahaDetailsError?.message?.includes("IERP cognitive access") ||
-    ahaDetailsError?.message?.includes("Complete your Intern profile")
+  const ahaAccessErrorMessage = ahaDetailsError?.message?.trim() ?? "";
+  const isAhaPathwayMissing = isAhaCourse && Boolean(
+    ahaAccessErrorMessage.startsWith("Choose NERP") ||
+    ahaAccessErrorMessage.startsWith("Choose an approved")
   );
+  const isAhaAccessBlocked = isAhaCourse && Boolean(ahaDetailsHasError && ahaAccessErrorMessage);
 
   if (isLoading) {
     return (
@@ -1147,17 +1138,17 @@ export default function MicroCoursePlayerDB() {
     return (
       <div className="min-h-screen bg-background p-4 flex flex-col items-center justify-center text-center">
         <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-        <h2 className="text-xl font-bold mb-2">{isAhaPathwayLocked ? "AHA pathway required" : "Content Not Found"}</h2>
+        <h2 className="text-xl font-bold mb-2">{isAhaPathwayMissing ? "AHA pathway required" : isAhaAccessBlocked ? `${programType?.toUpperCase() ?? "AHA"} access paused` : "Content Not Found"}</h2>
         <p className="text-muted-foreground mb-6 max-w-md">
-          {isAhaPathwayLocked
-            ? ahaDetailsError?.message ?? "Choose an approved AHA pathway before accessing or continuing this course."
+          {isAhaAccessBlocked
+            ? ahaDetailsError?.message ?? "Access is paused. Review the pathway requirements before continuing this course."
             : isAhaCourse && !ahaDetailsLoading && (ahaDetailsHasError || !ahaCourseDetails)
               ? isIlsCourse
                 ? "This Institutional Life Support programme could not be loaded. Please return to the programme page and try again."
                 : "This AHA course could not be loaded. Please refresh the page or return to AHA Courses and try again."
               : "This course is not yet available in the interactive format."}
         </p>
-        {isAhaPathwayLocked ? (
+        {isAhaAccessBlocked ? (
           <div className="flex flex-wrap justify-center gap-2">
             <Button asChild className="bg-primary text-primary-foreground">
               <Link href={`/enroll?courseId=${encodeURIComponent(programType ?? "bls")}`}>
