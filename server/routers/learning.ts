@@ -426,18 +426,28 @@ export const learningRouter = router({
         }
       }
       let blsCatalogStale = false;
+      let blsModuleCount = 0;
       if (pt === "bls" && SEEDED_COURSES.has(pt)) {
         const blsModuleRows = await (db as any)
           .select({ order: modules.order, title: modules.title })
           .from(modules)
           .where(eq(modules.courseId, courseRow.id))
           .orderBy(modules.order);
+        blsModuleCount = blsModuleRows.length;
         blsCatalogStale = isBlsCatalogShapeStale(blsModuleRows);
       }
 
       if (pt && (!SEEDED_COURSES.has(pt) || blsCatalogStale)) {
         if (pt === "bls") {
-          await synchronizeBlsCatalog(db);
+          if (blsCatalogStale && blsModuleCount > 0) {
+            // Existing learner content is usable; do not make first paint wait
+            // for a full catalog repair. Repair asynchronously for next load.
+            void synchronizeBlsCatalog(db).catch(error =>
+              console.error("[learning.getCourseDetails] BLS background sync:", error)
+            );
+          } else {
+            await synchronizeBlsCatalog(db);
+          }
         } else if (pt === "acls") {
           await ensureAclsCatalog(db);
         } else if (pt === "heartsaver") {
