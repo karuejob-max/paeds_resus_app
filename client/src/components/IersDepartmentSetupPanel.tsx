@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, ClipboardList, Shield } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { CheckCircle2, ClipboardList, Shield, Plus, ArrowDown, ArrowUp } from "lucide-react";
 import { toast } from "sonner";
 import { DepartmentSelectors } from "@/components/DepartmentSelectors";
 
@@ -14,11 +15,14 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
   const [draftNames, setDraftNames] = useState<Record<number, string>>({});
   const [newDepartmentName, setNewDepartmentName] = useState("");
   const [departmentPoleSelections, setDepartmentPoleSelections] = useState<Record<number, string>>({});
+  const [newPoleName, setNewPoleName] = useState("");
+  const [showNewPoleForm, setShowNewPoleForm] = useState(false);
 
   const { data: departments, isLoading: departmentsLoading } = trpc.institution.getFacilityDepartments.useQuery({ institutionId });
   const { data: poles } = trpc.institution.getFacilityPoles.useQuery({ institutionId });
   const missingPoleAlertsQuery = trpc.institutionDepartmentReconciliation.getIersMissingPoleAlerts.useQuery({ institutionId });
-  const activePoleId = selectedPoleId ? Number(selectedPoleId) : poles?.[0]?.id;
+  const poleList = poles ?? [];
+  const activePoleId = selectedPoleId ? Number(selectedPoleId) : poleList[0]?.id;
 
   useEffect(() => {
     if (!departments) return;
@@ -31,6 +35,24 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
     [departments],
   );
   const unassignedCount = useMemo(() => eligibleDepartments.filter((department) => department.poleId == null).length, [eligibleDepartments]);
+
+  const createPoleMutation = trpc.institution.createFacilityPole.useMutation({
+    onSuccess: (result) => {
+      toast.success("Facility pole created.");
+      setNewPoleName("");
+      setShowNewPoleForm(false);
+      setSelectedPoleId(String(result.poleId));
+      void utils.institution.getFacilityPoles.invalidate({ institutionId });
+    },
+    onError: (error) => toast.error(error.message || "Could not create the facility pole."),
+  });
+  const reorderPolesMutation = trpc.institution.reorderFacilityPoles.useMutation({
+    onSuccess: async () => {
+      toast.success("Pole order updated.");
+      await utils.institution.getFacilityPoles.invalidate({ institutionId });
+    },
+    onError: (error) => toast.error(error.message || "Could not update pole order."),
+  });
 
   const confirmMutation = trpc.institution.confirmFacilityDepartments.useMutation({
     onSuccess: (result) => {
@@ -117,7 +139,25 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
         </div>
 
         <div className="rounded-lg border bg-muted/20 p-3 text-sm">
-          <p className="font-semibold">Step 2 — IERS Lead assigns poles</p>
+          <p className="font-semibold">Departments & poles — create, order, and assign coverage</p>
+          <p className="mt-1 text-muted-foreground">Create the facility zones or response poles first, then assign each eligible department to the pole that owns its response coverage. The order controls navigation only; it does not change the weekly rotation rule.</p>
+          <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            {showNewPoleForm ? (
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                <Input value={newPoleName} onChange={(event) => setNewPoleName(event.target.value)} placeholder="Pole name, e.g. East Wing" className="w-full min-w-0 sm:w-56" autoFocus />
+                <Button className="w-full sm:w-auto" size="sm" disabled={!newPoleName.trim() || createPoleMutation.isPending} onClick={() => createPoleMutation.mutate({ institutionId, poleName: newPoleName.trim() })}>Save pole</Button>
+                <Button className="w-full sm:w-auto" size="sm" variant="ghost" onClick={() => setShowNewPoleForm(false)}>Cancel</Button>
+              </div>
+            ) : <Button size="sm" variant="outline" className="w-full gap-1.5 sm:w-auto" onClick={() => setShowNewPoleForm(true)}><Plus className="h-3.5 w-3.5" />New pole</Button>}
+            <span className="text-xs text-muted-foreground">{(poles ?? []).length} pole(s)</span>
+          </div>
+          {(poles ?? []).length > 0 ? <div className="mt-3 space-y-2">
+            {(poles ?? []).map((pole, index) => <div key={pole.id} className="flex min-w-0 flex-col gap-2 rounded-md border bg-background/70 p-2 sm:flex-row sm:items-center sm:justify-between"><span className="break-words text-sm font-medium">{index + 1}. {pole.poleName}</span><div className="flex shrink-0 gap-1"><Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Move ${pole.poleName} up`} disabled={index === 0 || reorderPolesMutation.isPending} onClick={() => { const poleIds = poleList.map((item) => item.id); [poleIds[index - 1], poleIds[index]] = [poleIds[index], poleIds[index - 1]]; reorderPolesMutation.mutate({ institutionId, poleIds }); }}><ArrowUp className="h-3.5 w-3.5" /></Button><Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Move ${pole.poleName} down`} disabled={index === poleList.length - 1 || reorderPolesMutation.isPending} onClick={() => { const poleIds = poleList.map((item) => item.id); [poleIds[index], poleIds[index + 1]] = [poleIds[index + 1], poleIds[index]]; reorderPolesMutation.mutate({ institutionId, poleIds }); }}><ArrowDown className="h-3.5 w-3.5" /></Button></div></div>)}
+          </div> : <p className="mt-3 rounded-md border border-dashed p-3 text-xs text-muted-foreground">No response poles exist yet. Create the first pole here before assigning departments.</p>}
+        </div>
+
+        <div className="rounded-lg border bg-muted/20 p-3 text-sm">
+          <p className="font-semibold">Assign departments to poles</p>
           <p className="mt-1 text-muted-foreground">Assigning a pole makes a confirmed department explicitly marked as IERS operational available in that pole’s weekly ERTL rotation and monthly UTL automation.</p>
           <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
             <Select value={selectedPoleId || (poles?.[0]?.id ? String(poles[0].id) : undefined)} onValueChange={setSelectedPoleId}>
@@ -153,9 +193,9 @@ export function IersDepartmentSetupPanel({ institutionId }: { institutionId: num
         </div>
 
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
-          <p className="font-semibold text-amber-800 dark:text-amber-300">Step 3 — ERCo prepares the UTL rota</p>
-          <p className="mt-1 text-amber-700 dark:text-amber-400">Pole allocation does not decide who will work. The accepted ERCo for each department opens the Shift staffing tab, chooses the nurse for the month if useful, and then confirms the actual nurse for each morning, evening, or night shift.</p>
-          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">All departments assigned to the selected pole are carried into Shift staffing, including departments that do not yet have a linked nurse. No provider is selected automatically, and every named provider must accept the dated duty in the provider portal.</p>
+          <p className="font-semibold text-amber-800 dark:text-amber-300">Handoff — ERCo prepares the UTL rota</p>
+          <p className="mt-1 text-amber-700 dark:text-amber-400">Pole allocation does not decide who will work. The accepted ERCo for each department opens the Shift roster section below, chooses the nurse for the month if useful, and then confirms the actual nurse for each morning, evening, or night shift.</p>
+          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">All departments assigned to the selected pole are carried into the Shift roster section, including departments that do not yet have a linked nurse. No provider is selected automatically, and every named provider must accept the dated duty in the provider portal.</p>
         </div>
       </CardContent>
     </Card>
