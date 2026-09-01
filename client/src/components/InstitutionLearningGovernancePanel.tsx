@@ -195,12 +195,16 @@ export default function InstitutionLearningGovernancePanel({
     });
   const createSession = trpc.institutionLearning.createSession.useMutation({
     onSuccess: async () => {
-      toast.success("CPD session created");
+      toast.success("CPD session created. Registration QR code and link are ready below.");
       setSessionName("");
       setPresenterUserId("");
       setAudienceLabel("");
       setCoPresenters([]);
-      await invalidateLearning();
+      await Promise.all([
+        invalidateLearning(),
+        utils.cpd.listEvents.invalidate({ institutionId }),
+        utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId }),
+      ]);
     },
     onError: error => toast.error(error.message),
   });
