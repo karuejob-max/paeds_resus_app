@@ -521,6 +521,29 @@ export const ierpRouter = router({
       return { success: true as const, checkoutRequestId, message: response.CustomerMessage ?? "Confirm the M-Pesa prompt on your phone." };
     }),
 
+  /** Lightweight dashboard CTA state; avoids loading Phase 2 and certificate data. */
+  getDashboardAccess: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    const program = await getIerpEnrollment(db, ctx.user.id);
+    if (!program) return null;
+    const [ahaRows, payment] = await Promise.all([
+      db
+        .select({ id: enrollments.id, courseId: enrollments.courseId, programType: enrollments.programType, cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
+        .from(enrollments)
+        .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, "bls")))
+        .orderBy(desc(enrollments.createdAt))
+        .limit(1),
+      getIerpPaymentAccessForUser(db, ctx.user.id),
+    ]);
+    return {
+      enrollmentId: program.id,
+      lifecycleStatus: program.lifecycleStatus,
+      payment: payment ?? getIerpPaymentAccess({ ...program, effectiveCommencementDate: null }),
+      bls: ahaRows[0] ?? null,
+    };
+  }),
+
   /**
    * Authoritative IERP learner summary. Phase 2 is calculated from confirmed
    * named roles and approved claims; it never uses the legacy generic counts.
