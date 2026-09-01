@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -23,6 +23,7 @@ import {
   Settings2,
   ShieldCheck,
   Users,
+  Wrench,
 } from "lucide-react";
 import { IersActivationPanel } from "@/components/IersActivationPanel";
 import { IersDrillPanel } from "@/components/IersDrillPanel";
@@ -40,6 +41,7 @@ import InstitutionConnectedServicesPanel from "@/components/InstitutionConnected
 import InstitutionLearningOperationsPanel from "@/components/InstitutionLearningOperationsPanel";
 import InstitutionHomePanel from "@/components/InstitutionHomePanel";
 import { InstitutionAccountabilityPanel } from "@/components/InstitutionAccountabilityPanel";
+import { IersWorkforceTab, resolveIersTab, workforceAnchor } from "@/lib/institution-readiness-navigation";
 
 const PRODUCT_LABELS = {
   iers: {
@@ -67,8 +69,6 @@ const PRODUCT_LABELS = {
 
 type ProductKey = keyof typeof PRODUCT_LABELS;
 type WorkspaceSection = "overview" | "iers" | "learning" | "accountability" | "administration" | "connected";
-type IersWorkforceTab = "departments" | "erco" | "roster" | "equipment";
-
 type ProductStatus = "trial" | "active" | "grace" | "past_due" | "expired" | "suspended" | "cancelled" | "legacy_unclassified" | "not_subscribed" | "available";
 
 function getInitialWorkspaceState(): { section: WorkspaceSection; iersTab: string; workforceTab: IersWorkforceTab } {
@@ -78,7 +78,9 @@ function getInitialWorkspaceState(): { section: WorkspaceSection; iersTab: strin
   const section: WorkspaceSection = requested === "cpd_portal" ? "learning" : requested === "learning" || requested === "iers" || requested === "accountability" || requested === "administration" || requested === "connected" ? requested : "overview";
   const requestedWorkforceTab = params.get("workforceTab");
   const workforceTab: IersWorkforceTab = requestedWorkforceTab === "erco" || requestedWorkforceTab === "roster" || requestedWorkforceTab === "equipment" ? requestedWorkforceTab : "departments";
-  return { section, iersTab: params.get("iersTab") || "command", workforceTab };
+  const requestedIersTab = params.get("iersTab") || "command";
+  const iersTab = resolveIersTab(requestedIersTab, workforceTab);
+  return { section, iersTab, workforceTab };
 }
 
 function canUseProduct(status: ProductStatus | undefined): boolean {
@@ -114,7 +116,7 @@ export default function InstitutionWorkspace() {
   const initialWorkspaceState = getInitialWorkspaceState();
   const [activeSection, setActiveSection] = useState<WorkspaceSection>(initialWorkspaceState.section);
   const [activeIersTab, setActiveIersTab] = useState(initialWorkspaceState.iersTab);
-  const [activeWorkforceTab, setActiveWorkforceTab] = useState<IersWorkforceTab>(initialWorkspaceState.workforceTab);
+  const legacyWorkforceTab = initialWorkspaceState.workforceTab;
 
   const setSection = (section: WorkspaceSection) => {
     setActiveSection(section);
@@ -134,24 +136,19 @@ export default function InstitutionWorkspace() {
     }
   };
 
-  const setWorkforceTab = (tab: IersWorkforceTab) => {
-    setActiveWorkforceTab(tab);
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      params.set("iersTab", "workforce");
-      params.set("workforceTab", tab);
-      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
-    }
-  };
-
   const { data: myInstitution, isLoading: institutionLoading } = trpc.institutionAccountability.getMyWorkspace.useQuery(undefined, {
     enabled: isAuthenticated,
   });
   const institutionId = myInstitution?.institution?.id ?? null;
+
+  useEffect(() => {
+    if (activeIersTab !== "workforce" || legacyWorkforceTab === "departments" || typeof window === "undefined") return;
+    window.requestAnimationFrame(() => document.getElementById(workforceAnchor(legacyWorkforceTab))?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [activeIersTab, legacyWorkforceTab]);
   const catalog = (myInstitution?.productAccess ?? []).filter(item => item.institutionId === institutionId);
   const isInstitutionAdmin = myInstitution?.isInstitutionAdmin === true;
   const canViewAccountability = myInstitution?.canViewAccountability === true;
-  const visibleSection = activeSection === "accountability" && !canViewAccountability ? "overview" : activeSection;
+  const visibleSection = (activeSection === "accountability" && !canViewAccountability) || (activeSection === "connected" && !isInstitutionAdmin) ? "overview" : activeSection;
   const { data: adminInstitutionDetails, isLoading: adminDetailsLoading } = trpc.institution.getMyInstitution.useQuery(undefined, {
     enabled: isAuthenticated && isInstitutionAdmin,
   });
@@ -278,12 +275,13 @@ export default function InstitutionWorkspace() {
         </div>
 
         <Tabs value={visibleSection} onValueChange={(value) => setSection(value as WorkspaceSection)} className="min-w-0">
-          <TabsList className="mb-6 grid h-auto w-full grid-cols-1 gap-1 p-1 min-[380px]:grid-cols-2 sm:grid-cols-4">
+          <TabsList className="mb-6 grid h-auto w-full grid-cols-1 gap-1 p-1 min-[380px]:grid-cols-2 sm:grid-cols-5">
             <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="overview"><LayoutDashboard className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Home</span></TabsTrigger>
             <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="iers"><HeartPulse className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Readiness</span></TabsTrigger>
             <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="learning"><ClipboardCheck className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Learning</span></TabsTrigger>
             {canViewAccountability ? <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="accountability"><ShieldCheck className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Accountability</span></TabsTrigger> : null}
             {isInstitutionAdmin ? <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="administration"><Settings2 className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Administration</span></TabsTrigger> : null}
+            {isInstitutionAdmin ? <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="connected"><Wrench className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Connected</span></TabsTrigger> : null}
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -312,29 +310,36 @@ export default function InstitutionWorkspace() {
                   <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="command">Command centre</TabsTrigger>
                   <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="evidence">Evidence & actions</TabsTrigger>
                   <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="drills">Drills & debriefs</TabsTrigger>
-                  <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="workforce">ERT & equipment</TabsTrigger>
+                  <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="workforce">Team & shift setup</TabsTrigger>
+                  <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="equipment">Equipment</TabsTrigger>
                   <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="plan">Implementation plan</TabsTrigger>
                   <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-left text-xs leading-tight sm:text-sm" value="report">Executive snapshot</TabsTrigger>
                 </TabsList>
                 <TabsContent value="command"><IersActivationPanel institutionId={institutionId} /></TabsContent>
                 <TabsContent value="evidence"><IersEvidencePanel institutionId={institutionId} /></TabsContent>
                 <TabsContent value="drills"><IersDrillPanel institutionId={institutionId} /></TabsContent>
-                <TabsContent value="workforce" className="space-y-6">
-                  <Tabs value={activeWorkforceTab} onValueChange={(value) => setWorkforceTab(value as IersWorkforceTab)}>
-                    <TabsList className="sticky top-16 z-10 flex h-auto w-full max-w-full min-w-0 justify-start gap-1 overflow-x-auto overscroll-x-contain bg-background/95 p-1 shadow-sm backdrop-blur sm:flex-wrap sm:overflow-visible sm:shadow-none">
-                      <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-xs sm:text-sm" value="departments">Departments & poles</TabsTrigger>
-                      <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-xs sm:text-sm" value="erco">ERCo governance</TabsTrigger>
-                      <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-xs sm:text-sm" value="roster">Shift staffing</TabsTrigger>
-                      <TabsTrigger className="min-h-10 flex-none shrink-0 whitespace-nowrap px-3 py-2 text-xs sm:text-sm" value="equipment">Equipment</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="departments" className="mt-4"><IersDepartmentSetupPanel institutionId={institutionId} /></TabsContent>
-                    <TabsContent value="erco" className="mt-4"><InstitutionErcoGovernancePanel institutionId={institutionId} /></TabsContent>
-                    <TabsContent value="roster" className="mt-4"><ErtRosterPanel institutionId={institutionId} /></TabsContent>
-                    <TabsContent value="equipment" className="mt-4 space-y-6"><IersReadinessTemplateAdminPanel institutionId={institutionId} /><EquipmentAuditPanel institutionId={institutionId} /></TabsContent>
-                  </Tabs>
+                <TabsContent value="workforce" className="mt-4 min-w-0 space-y-10">
+                  <nav aria-label="Team and shift setup steps" className="sticky top-2 z-10 flex min-w-0 flex-wrap gap-2 rounded-lg border bg-background/95 p-2 text-xs shadow-sm backdrop-blur sm:text-sm">
+                    <a href="#team-setup-departments" className="rounded-md px-2 py-1.5 font-medium text-primary hover:bg-muted">Step 1: Departments & poles</a>
+                    <a href="#team-setup-erco" className="rounded-md px-2 py-1.5 font-medium text-primary hover:bg-muted">Step 2: ERCo governance</a>
+                    <a href="#team-setup-roster" className="rounded-md px-2 py-1.5 font-medium text-primary hover:bg-muted">Step 3: Shift roster</a>
+                  </nav>
+                  <section id="team-setup-departments" className="scroll-mt-24 space-y-3"><h2 className="text-base font-semibold sm:text-lg">Step 1 — Departments & poles</h2><IersDepartmentSetupPanel institutionId={institutionId} /></section>
+                  <section id="team-setup-erco" className="scroll-mt-24 space-y-3"><h2 className="text-base font-semibold sm:text-lg">Step 2 — ERCo governance</h2><InstitutionErcoGovernancePanel institutionId={institutionId} /></section>
+                  <section id="team-setup-roster" className="scroll-mt-24 space-y-3"><h2 className="text-base font-semibold sm:text-lg">Step 3 — Shift roster</h2><ErtRosterPanel institutionId={institutionId} /></section>
+                </TabsContent>
+                <TabsContent value="equipment" className="mt-4 min-w-0 space-y-8">
+                  <section>
+                    <h3 className="mb-3 text-sm font-semibold text-muted-foreground">Crash-cart audit — all staff, regular</h3>
+                    <EquipmentAuditPanel institutionId={institutionId} />
+                  </section>
+                  <section>
+                    <h3 className="mb-3 text-sm font-semibold text-muted-foreground">Checklist governance — admin, occasional</h3>
+                    <IersReadinessTemplateAdminPanel institutionId={institutionId} />
+                  </section>
                 </TabsContent>
                 <TabsContent value="plan"><IersImplementationPlanPanel institutionId={institutionId} /></TabsContent>
-                <TabsContent value="report" className="space-y-6"><IersAdaptiveLearningPanel institutionId={institutionId} /><IersExecutiveReportPanel institutionId={institutionId} /></TabsContent>
+                <TabsContent value="report" className="space-y-6"><IersAdaptiveLearningPanel institutionId={institutionId} /><IersExecutiveReportPanel institutionId={institutionId} onOpenEvidence={() => setIersTab("evidence")} /></TabsContent>
               </Tabs>
             ) : (
               <ProductLockedState product="IERS" status={productStatus.iers} onAdministration={() => setActiveSection("administration")} />
