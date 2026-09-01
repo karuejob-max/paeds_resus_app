@@ -42,6 +42,18 @@ describe("IERP authoritative programme state", () => {
     expect(access.phase2BookingLocked).toBe(false);
   });
 
+  it("treats an early-paid August-to-November starter as fully unlocked", () => {
+    const access = getIerpPaymentAccess(
+      { enrolledAt: new Date("2026-09-01T10:00:00+03:00"), totalPaidAmount: String(IERP_TOTAL_FEE_KES) },
+      new Date("2026-09-15T12:00:00+03:00")
+    );
+    expect(access.deferredStartWindow).toBe(true);
+    expect(access.isPaidInFull).toBe(true);
+    expect(access.balance).toBe(0);
+    expect(access.cognitiveAccessLocked).toBe(false);
+    expect(access.phase2BookingLocked).toBe(false);
+  });
+
   it("locks an unpaid August-to-November starter at the December EAT boundary", () => {
     const access = getIerpPaymentAccess(
       { enrolledAt: new Date("2026-08-15T10:00:00+03:00"), totalPaidAmount: "0.00" },

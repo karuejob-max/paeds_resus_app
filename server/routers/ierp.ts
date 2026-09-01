@@ -478,12 +478,6 @@ export const ierpRouter = router({
         ...program,
         effectiveCommencementDate: internProfile.effectiveCommencementDate,
       });
-      if (paymentAccess.deferredStartWindow && !paymentAccess.paymentLockoutActive) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "No IERP payment is required before 1 December EAT for August–November interns. Continue with BLS and ACLS learning.",
-        });
-      }
       if (remaining <= 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "The IERP programme is already fully paid." });
       }

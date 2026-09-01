@@ -1210,7 +1210,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
             )}
           </div>
           {!blsEnrollment?.cognitiveModulesComplete ? <p className="text-xs text-amber-700">Complete BLS cognitive learning to unlock ACLS cognitive learning.</p> : null}
-          {summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? <p className="text-xs font-medium text-emerald-700">No payment is required before 1 December EAT. Continue learning during the deferred window.</p> : null}
+          {summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? <p className="text-xs font-medium text-emerald-700">No payment is required before 1 December EAT. Continue learning during the deferred window, or pay early below if you prefer.</p> : null}
         </div>
         <div className="rounded-lg border border-indigo-100 bg-white p-3 space-y-2">
           <p className="text-sm font-semibold text-indigo-950">Completion certificates</p>
@@ -1272,10 +1272,10 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
           )}
           {summary?.payment.cognitiveAccessLocked && <span className="font-semibold text-red-700">Cognitive coursework and Phase 2 access are locked until the full KES 15,000 balance is paid.</span>}
         </div>
-        {ierpLedger && ierpLedger.balanceKsh > 0 && (!summary?.payment.deferredStartWindow || !!summary.payment.cognitiveAccessLocked) && (
+        {ierpLedger && ierpLedger.balanceKsh > 0 && (
           <div className="rounded-lg border border-indigo-100 bg-white p-3 space-y-2">
-            <p className="text-xs font-semibold text-indigo-950">Complete IERP payment</p>
-            <p className="text-xs text-slate-600">From 1 December EAT, IERP requires the remaining balance of KES {ierpLedger.balanceKsh.toLocaleString()} in one payment. No instalment plan is used for IERP.</p>
+            <p className="text-xs font-semibold text-indigo-950">{summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? "Pay IERP early (optional)" : "Complete IERP payment"}</p>
+            <p className="text-xs text-slate-600">{summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? `Not required yet — you are covered until 1 December EAT. Pay now if you would rather clear the KES ${ierpLedger.balanceKsh.toLocaleString()} balance early.` : `From 1 December EAT, IERP requires the remaining balance of KES ${ierpLedger.balanceKsh.toLocaleString()} in one payment. No instalment plan is used for IERP.`}</p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 aria-label="IERP M-Pesa phone number"
