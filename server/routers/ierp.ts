@@ -531,52 +531,50 @@ export const ierpRouter = router({
     const program = await getIerpEnrollment(db, ctx.user.id);
     if (!program) return null;
 
-    const ahaRows = await db
-      .select({
-        id: enrollments.id,
-        courseId: enrollments.courseId,
-        programType: enrollments.programType,
-        cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
-        practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
-        paymentStatus: enrollments.paymentStatus,
-      })
-      .from(enrollments)
-      .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, [...IERP_COGNITIVE_PROGRAMS])))
-      .orderBy(desc(enrollments.createdAt));
-
-    const evidence = await db
-      .select({
-        id: ierpPhase1Evidence.id,
-        documentType: ierpPhase1Evidence.documentType,
-        fileName: ierpPhase1Evidence.fileName,
-        contentType: ierpPhase1Evidence.contentType,
-        fileSizeBytes: ierpPhase1Evidence.fileSizeBytes,
-        status: ierpPhase1Evidence.status,
-        submittedAt: ierpPhase1Evidence.submittedAt,
-        reviewedAt: ierpPhase1Evidence.reviewedAt,
-        reviewReason: ierpPhase1Evidence.reviewReason,
-      })
-      .from(ierpPhase1Evidence)
-      .where(eq(ierpPhase1Evidence.programEnrollmentId, program.id))
-      .orderBy(desc(ierpPhase1Evidence.updatedAt));
-
-    const phase2 = await getAuthoritativePhase2CompletionStatus(db, ctx.user.id);
-    const payment =
-      (await getIerpPaymentAccessForUser(db, ctx.user.id)) ??
-      getIerpPaymentAccess({ ...program, effectiveCommencementDate: null });
+    const [ahaRows, evidence, phase2, payment, universalCertificates] = await Promise.all([
+      db
+        .select({
+          id: enrollments.id,
+          courseId: enrollments.courseId,
+          programType: enrollments.programType,
+          cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
+          practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
+          paymentStatus: enrollments.paymentStatus,
+        })
+        .from(enrollments)
+        .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, [...IERP_COGNITIVE_PROGRAMS])))
+        .orderBy(desc(enrollments.createdAt)),
+      db
+        .select({
+          id: ierpPhase1Evidence.id,
+          documentType: ierpPhase1Evidence.documentType,
+          fileName: ierpPhase1Evidence.fileName,
+          contentType: ierpPhase1Evidence.contentType,
+          fileSizeBytes: ierpPhase1Evidence.fileSizeBytes,
+          status: ierpPhase1Evidence.status,
+          submittedAt: ierpPhase1Evidence.submittedAt,
+          reviewedAt: ierpPhase1Evidence.reviewedAt,
+          reviewReason: ierpPhase1Evidence.reviewReason,
+        })
+        .from(ierpPhase1Evidence)
+        .where(eq(ierpPhase1Evidence.programEnrollmentId, program.id))
+        .orderBy(desc(ierpPhase1Evidence.updatedAt)),
+      getAuthoritativePhase2CompletionStatus(db, ctx.user.id),
+      getIerpPaymentAccessForUser(db, ctx.user.id).then(
+        (payment) => payment ?? getIerpPaymentAccess({ ...program, effectiveCommencementDate: null }),
+      ),
+      getPaedsResusCertificateStatusForUser(db, ctx.user.id).catch((error) => {
+        // Certificate schema rollout must not hide the underlying authoritative
+        // IERP progression state while the additive migration is propagating.
+        console.error("[ierp.getSummary] Universal certificate status unavailable:", error);
+        return [] as Awaited<ReturnType<typeof getPaedsResusCertificateStatusForUser>>;
+      }),
+    ]);
     const phase1EvidenceVerified =
       evidence.some((row) => row.documentType === "video_prework" && row.status === "verified") &&
       evidence.some((row) => row.documentType === "precourse_assessment" && row.status === "verified");
     const phase1Complete = program.phase1Status === "verified" || phase1EvidenceVerified;
     const phase3GateUnlocked = phase1Complete && phase2.phase2Complete && payment.isPaidInFull;
-    let universalCertificates: Awaited<ReturnType<typeof getPaedsResusCertificateStatusForUser>> = [];
-    try {
-      universalCertificates = await getPaedsResusCertificateStatusForUser(db, ctx.user.id);
-    } catch (error) {
-      // Certificate schema rollout must not hide the underlying authoritative
-      // IERP progression state while the additive migration is propagating.
-      console.error("[ierp.getSummary] Universal certificate status unavailable:", error);
-    }
     const phase2Certificate = universalCertificates.find((certificate) => certificate.programType === "paeds_resus_phase2") ?? null;
     const providerCertificates = universalCertificates.filter((certificate) => certificate.programType !== "paeds_resus_phase2");
 
