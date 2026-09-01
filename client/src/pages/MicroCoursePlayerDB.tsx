@@ -315,10 +315,10 @@ export default function MicroCoursePlayerDB() {
   const [offlineFirstModuleContent, setOfflineFirstModuleContent] = useState<any>(null);
   const { data: remoteFirstModuleContent, isLoading: firstModuleContentLoading } = trpc.learning.getModuleContent.useQuery(
     { moduleId: firstModuleId ?? 0 },
-    { enabled: !!firstModuleId }
+    { enabled: !!firstModuleId && firstModuleId !== currentModuleId }
   );
   const moduleContent = remoteModuleContent ?? offlineModuleContent;
-  const firstModuleContent = remoteFirstModuleContent ?? offlineFirstModuleContent;
+  const firstModuleContent = remoteFirstModuleContent ?? (firstModuleId === currentModuleId ? remoteModuleContent : null) ?? offlineFirstModuleContent;
   const isUsingOfflineModule = !remoteModuleContent && Boolean(offlineModuleContent);
 
   useEffect(() => {
