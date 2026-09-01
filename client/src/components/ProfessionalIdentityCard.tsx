@@ -80,7 +80,7 @@ export function ProfessionalIdentityCard() {
         <CardDescription>
           Cadre and specialty describe your professional identity. They help the
           platform match you to the right learning, facility, and institutional
-          workflows; they do not grant operational duty access.
+          workflows; they do not grant operational duty access. You can change any saved selection or use the clear button to restart the category, role, qualification, or specialty path if it was entered incorrectly.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

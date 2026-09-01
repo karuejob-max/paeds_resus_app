@@ -648,6 +648,7 @@ export default function CadreProgressiveSelector({
           options={categoryOptions}
           placeholder="Select Category (Staff, Intern, Student)"
           searchPlaceholder="Search category..."
+          clearable
         />
       </div>
 
@@ -673,6 +674,7 @@ export default function CadreProgressiveSelector({
                   : "Select Student Path"
             }
             searchPlaceholder="Search role..."
+            clearable
           />
         </div>
       )}
@@ -701,6 +703,7 @@ export default function CadreProgressiveSelector({
             options={getLevelOptions()}
             placeholder="Select option"
             searchPlaceholder="Search..."
+            clearable
           />
         </div>
       )}
@@ -739,6 +742,7 @@ export default function CadreProgressiveSelector({
             options={CONSULTANT_SPECIALTIES}
             placeholder="Select specialty"
             searchPlaceholder="Search specialty..."
+            clearable
           />
         </div>
       )}

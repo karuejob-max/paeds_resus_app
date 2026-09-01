@@ -81,7 +81,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
   const [reallocationReportId, setReallocationReportId] = useState<number | null>(null);
   const [reallocationDepartmentId, setReallocationDepartmentId] = useState("");
   const [reallocationReason, setReallocationReason] = useState("");
-  const [activeSection, setActiveSection] = useState<"roster" | "duties" | "product_roles" | "scopes">("roster");
+  const [activeSection, setActiveSection] = useState<"roster" | "role_map" | "duties" | "product_roles" | "scopes">("roster");
   const { data, isLoading, isFetching, refetch } = trpc.institution.getStaffMembers.useQuery({ institutionId, includeRemoved: showRetired }, {
     enabled: !!institutionId,
     staleTime: 30_000,
@@ -291,6 +291,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
         <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/20 p-1 sm:grid-cols-4" aria-label="People and roles sections">
           {([
             ["roster", "People roster"],
+            ["role_map", "Authority map"],
             ["duties", "IERS duties"],
             ["product_roles", "Product roles"],
             ["scopes", "Shared scopes"],
@@ -423,6 +424,31 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
         <p className="text-xs text-muted-foreground">Use the roster import or add-staff workflow below to add people. A responsibility role should be assigned only after the institution confirms the provider’s operational scope.</p>
       </CardContent>
     </Card>
+
+    {activeSection === "role_map" && (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" />Institutional authority map</CardTitle>
+          <CardDescription>Use the narrowest role that matches the work. Institution-wide roles govern the whole institution; Departmental Heads, ERCo staff, and Departmental CPD Coordinators remain limited to their department.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead className="border-b bg-muted/30 text-left text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="p-3">Role</th><th className="p-3">Scope</th><th className="p-3">Authority</th><th className="p-3">Assignment owner</th></tr></thead>
+              <tbody>
+                <tr className="border-b"><td className="p-3 font-medium">Institutional administrator</td><td className="p-3">Whole institution</td><td className="p-3">Manages staff roles, institutional Emergency Readiness Chair, Institutional CPD Coordinator, Departmental Heads, product roles, and shared scopes.</td><td className="p-3">Platform/institution administration</td></tr>
+                <tr className="border-b"><td className="p-3 font-medium">Institutional Emergency Readiness Chair</td><td className="p-3">Whole institution</td><td className="p-3">All IERS governance, readiness, ERCo, department-preparedness, response, evidence, and review roles.</td><td className="p-3">Institutional administrator</td></tr>
+                <tr className="border-b"><td className="p-3 font-medium">Institutional CPD Coordinator</td><td className="p-3">Whole institution</td><td className="p-3">All CPD coordination, Departmental CPD Coordinator appointments, institutional CPD scheduling, attendance, and reporting.</td><td className="p-3">Institutional administrator</td></tr>
+                <tr className="border-b"><td className="p-3 font-medium">Departmental Head</td><td className="p-3">Appointed department</td><td className="p-3">Assigns that department’s ERCo and Departmental CPD Coordinator; cannot administer another department.</td><td className="p-3">Institutional administrator</td></tr>
+                <tr className="border-b"><td className="p-3 font-medium">ERCo</td><td className="p-3">Assigned department</td><td className="p-3">Manages the department UTL staffing roster. ERCo governance remains separate from dated responder duty acceptance.</td><td className="p-3">Institutional Chair, IERS governance, or Departmental Head</td></tr>
+                <tr><td className="p-3 font-medium">Departmental CPD Coordinator</td><td className="p-3">Assigned department</td><td className="p-3">Manages the department CPD roster and department learning coordination.</td><td className="p-3">Institutional CPD Coordinator or Departmental Head</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-muted-foreground">Role assignment does not prove clinical competence, provider acceptance, or emergency dispatch availability. Those states remain separately recorded and auditable.</p>
+        </CardContent>
+      </Card>
+    )}
 
     {activeSection === "duties" && (
         <Card>

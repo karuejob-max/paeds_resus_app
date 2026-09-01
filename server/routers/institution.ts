@@ -30,6 +30,7 @@ import {
   facilityDepartments,
   institutionDepartmentResponseCoordinators,
   institutionDepartmentResponseCoordinatorEvents,
+  institutionDepartmentHeads,
   ertlWeeklyRotations,
   monthlyUtlRotations,
   institutionShiftTemplates,
@@ -71,6 +72,7 @@ import { assertInstitutionProductCapability, assertWritableProductAccess } from 
 import { asDateOnly, derivePoleRotationDepartmentId, isoWeekMonday, mondayForDate, rotationAnchorForLeadershipWeek } from "../lib/iers-pole-rotation";
 import { classifyShiftInterval } from "../lib/iers-shift-current";
 import { assertInstitutionProductRole } from "../lib/institution-product-roles";
+import { assertCanManageArea } from "../lib/institution-role-authority";
 import { assertCurrentClinicalLicence } from "../lib/professional-credential-safety";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { getCohortProgressStats } from "../lib/cohort-progress";
@@ -115,10 +117,10 @@ import {
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
-const IERS_READ_ROLES = ["iers_viewer", "iers_coordinator", "iers_governance", "iers_reviewer", "iers_responder"] as const;
-const IERS_OPERATE_ROLES = ["iers_coordinator", "iers_governance"] as const;
-const IERS_ACTION_ROLES = ["iers_coordinator", "iers_reviewer", "iers_governance"] as const;
-const IERS_DEPARTMENT_GOVERNANCE_ROLES = ["iers_coordinator", "iers_governance"] as const;
+const IERS_READ_ROLES = ["iers_chair", "iers_viewer", "iers_coordinator", "iers_governance", "iers_reviewer", "iers_responder"] as const;
+const IERS_OPERATE_ROLES = ["iers_chair", "iers_coordinator", "iers_governance"] as const;
+const IERS_ACTION_ROLES = ["iers_chair", "iers_coordinator", "iers_reviewer", "iers_governance"] as const;
+const IERS_DEPARTMENT_GOVERNANCE_ROLES = ["iers_chair", "iers_coordinator", "iers_governance"] as const;
 function resolveShiftTiming(input: {
   shiftType: "morning" | "evening" | "night";
   shiftStartTime?: string;
@@ -323,6 +325,19 @@ async function assertIersInstitutionReadAccess(
     return await assertInstitutionProductRole(db, user, institutionId, "iers", IERS_READ_ROLES);
   } catch (error) {
     if (!(error instanceof TRPCError) || error.code !== "FORBIDDEN") throw error;
+    try {
+      const heads = await db
+        .select({ departmentId: institutionDepartmentHeads.departmentId })
+        .from(institutionDepartmentHeads)
+        .where(and(
+          eq(institutionDepartmentHeads.institutionalAccountId, institutionId),
+          eq(institutionDepartmentHeads.userId, user.id),
+          eq(institutionDepartmentHeads.assignmentStatus, "active"),
+        ));
+      if (heads.length > 0) return { roleKey: "department_head" as const, departmentIds: heads.map((head) => head.departmentId) };
+    } catch (headError) {
+      if (!isMissingTableError(headError, "institutionDepartmentHeads")) throw headError;
+    }
     await assertActiveProviderDutyAccess(db, user, institutionId);
     const [assignment] = await db
       .select({ id: institutionDepartmentResponseCoordinators.id })
@@ -2595,7 +2610,12 @@ export const institutionRouter = router({
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
-      await assertIersDepartmentRotaWriteAccess(db, ctx.user, input.institutionId, input.departmentId);
+      try {
+        await assertCanManageArea(db, ctx.user, input.institutionId, "iers", input.departmentId);
+      } catch (error) {
+        if (!(error instanceof TRPCError) || error.code !== "FORBIDDEN") throw error;
+        await assertIersDepartmentRotaWriteAccess(db, ctx.user, input.institutionId, input.departmentId);
+      }
       const [department] = await db
         .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
         .from(facilityDepartments)
@@ -4080,6 +4100,11 @@ export const institutionRouter = router({
           });
         }
 
+        await assertInstitutionAccess(db, ctx.user, input.institutionId);
+        if (!(await isInstitutionAdmin(db, ctx.user.id, input.institutionId))) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only an institutional administrator can change staff roles." });
+        }
+
         // Verify staff member exists
         const staffMember = await db
           .select()
@@ -4110,6 +4135,7 @@ export const institutionRouter = router({
           message: `Role updated to ${input.newRole}`,
         };
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         console.error("Error updating staff role:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
@@ -5496,6 +5522,9 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      if (!(ctx.user.role === "admin" || await isInstitutionAdmin(db, ctx.user.id, input.institutionId))) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Institution administrator access is required to change institutional staff roles." });
+      }
 
       await db
         .update(institutionalStaffMembers)
@@ -5639,13 +5668,18 @@ export const institutionRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      await assertIersInstitutionReadAccess(db, ctx.user, input.institutionId);
+      const access = await assertIersInstitutionReadAccess(db, ctx.user, input.institutionId);
+      const departmentIds = "departmentIds" in access ? access.departmentIds : null;
 
       try {
         const rows = await db
           .select()
           .from(facilityDepartments)
-          .where(and(eq(facilityDepartments.institutionId, input.institutionId), eq(facilityDepartments.isActive, true)));
+          .where(and(
+            eq(facilityDepartments.institutionId, input.institutionId),
+            eq(facilityDepartments.isActive, true),
+            departmentIds ? inArray(facilityDepartments.id, departmentIds) : sql`1=1`,
+          ));
         return rows.map((row) => {
           const departmentName = canonicalizeDepartmentLabel(row.departmentName);
           return { ...row, departmentName, departmentSource: isPresetDepartment(departmentName) ? "preset" as const : "custom" as const };
@@ -5664,7 +5698,10 @@ export const institutionRouter = router({
           confirmedAt: sql<Date | null>`NULL`,
           confirmedByUserId: sql<number | null>`NULL`,
           createdAt: facilityDepartments.createdAt,
-        }).from(facilityDepartments).where(eq(facilityDepartments.institutionId, input.institutionId));
+        }).from(facilityDepartments).where(and(
+          eq(facilityDepartments.institutionId, input.institutionId),
+          departmentIds ? inArray(facilityDepartments.id, departmentIds) : sql`1=1`,
+        ));
         return legacyRows.map((row) => {
           const departmentName = canonicalizeDepartmentLabel(row.departmentName);
           return { ...row, departmentName, departmentSource: isPresetDepartment(departmentName) ? "preset" as const : "custom" as const };
@@ -5948,12 +5985,16 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
+      const access = await assertIersInstitutionReadAccess(db, ctx.user, input.institutionId);
+      const departmentIds = "departmentIds" in access ? access.departmentIds : null;
       try {
         return await db
           .select()
           .from(institutionDepartmentResponseCoordinators)
-          .where(eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId));
+          .where(and(
+            eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId),
+            departmentIds ? inArray(institutionDepartmentResponseCoordinators.departmentId, departmentIds) : sql`1=1`,
+          ));
       } catch (error) {
         if (isMissingTableError(error)) return [];
         throw error;
@@ -5966,10 +6007,15 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_READ_ROLES);
+      const access = await assertIersInstitutionReadAccess(db, ctx.user, input.institutionId);
+      const departmentIds = "departmentIds" in access ? access.departmentIds : null;
       try {
         const predicates = [eq(institutionDepartmentResponseCoordinatorEvents.institutionId, input.institutionId)];
-        if (input.departmentId != null) predicates.push(eq(institutionDepartmentResponseCoordinatorEvents.departmentId, input.departmentId));
+        if (departmentIds) predicates.push(inArray(institutionDepartmentResponseCoordinatorEvents.departmentId, departmentIds));
+        if (input.departmentId != null) {
+          if (departmentIds && !departmentIds.includes(input.departmentId)) return [];
+          predicates.push(eq(institutionDepartmentResponseCoordinatorEvents.departmentId, input.departmentId));
+        }
         return await db
           .select({
             id: institutionDepartmentResponseCoordinatorEvents.id,
@@ -6236,7 +6282,7 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
+      await assertCanManageArea(db, ctx.user, input.institutionId, "iers", input.departmentId);
 
       const validation = validateDepartmentErcoAssignment(input);
       if (!validation.valid) throw new TRPCError({ code: "BAD_REQUEST", message: validation.reason });
@@ -6441,7 +6487,6 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-      await assertInstitutionProductRole(db, ctx.user, input.institutionId, "iers", IERS_DEPARTMENT_GOVERNANCE_ROLES);
       const [assignment] = await db
         .select({ id: institutionDepartmentResponseCoordinators.id, departmentId: institutionDepartmentResponseCoordinators.departmentId })
         .from(institutionDepartmentResponseCoordinators)
@@ -6451,6 +6496,7 @@ export const institutionRouter = router({
         ))
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "ERCo assignment not found." });
+      await assertCanManageArea(db, ctx.user, input.institutionId, "iers", assignment.departmentId);
       await db.update(institutionDepartmentResponseCoordinators).set({ assignmentStatus: "ended", updatedAt: new Date() }).where(eq(institutionDepartmentResponseCoordinators.id, assignment.id));
       await db.insert(institutionDepartmentResponseCoordinatorEvents).values({
         institutionId: input.institutionId,
