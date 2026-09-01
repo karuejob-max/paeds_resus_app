@@ -3,6 +3,7 @@ import { isKnownProductRole, PRODUCT_ROLE_DEFINITIONS, selectMatchingProductRole
 
 describe("institution product roles", () => {
   it("keeps role definitions product-specific", () => {
+    expect(isKnownProductRole("iers", "iers_chair")).toBe(true);
     expect(isKnownProductRole("iers", "iers_coordinator")).toBe(true);
     expect(isKnownProductRole("iers", "cpd_coordinator")).toBe(false);
     expect(isKnownProductRole("cpd_portal", "cpd_reporter")).toBe(true);

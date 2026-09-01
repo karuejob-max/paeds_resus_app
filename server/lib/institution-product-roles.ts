@@ -11,6 +11,7 @@ import { isMissingTableError } from "./is-missing-db-table";
 import type { InstitutionalProductKey } from "./institution-entitlements";
 
 export type InstitutionalProductRoleKey =
+  | "iers_chair"
   | "iers_coordinator"
   | "iers_responder"
   | "iers_reviewer"
@@ -33,6 +34,7 @@ export const PRODUCT_ROLE_DEFINITIONS: Record<InstitutionalProductKey, Array<{
   description: string;
 }>> = {
   iers: [
+    { roleKey: "iers_chair", label: "Institutional Emergency Readiness Chair", description: "Owns institution-wide Emergency Readiness governance and may assign and oversee IERS roles, Departmental Heads’ emergency-preparedness responsibilities, and department ERCo appointments." },
     { roleKey: "iers_coordinator", label: "IERS Lead", description: "Leads institutional IERS setup, pole allocation, governance, activations, drills, evidence, and improvement actions. This role does not itself prove acceptance of a dated provider duty." },
     { roleKey: "iers_responder", label: "IERS response operator", description: "Acknowledges and records response activity during activations and drills when assigned and accepted for the relevant duty." },
     { roleKey: "iers_reviewer", label: "IERS reviewer", description: "Reviews evidence and verifies action closure." },

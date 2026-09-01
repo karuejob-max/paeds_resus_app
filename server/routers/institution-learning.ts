@@ -20,12 +20,13 @@ import {
 } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { assertInstitutionAccess } from "../lib/institution-access";
+import { assertInstitutionAccess, isInstitutionAdmin } from "../lib/institution-access";
 import { assertInstitutionProductCapability } from "../lib/institution-entitlements";
 import {
   assertInstitutionProductRole,
   type InstitutionalProductRoleKey,
 } from "../lib/institution-product-roles";
+import { assertCanManageArea } from "../lib/institution-role-authority";
 import {
   buildLearningReportCsv,
   LEARNING_METRIC_KEYS,
@@ -109,16 +110,6 @@ function parseDateOnly(value: string): string {
 
 function dateOnlyAsDate(value: string): Date {
   return new Date(`${parseDateOnly(value)}T00:00:00.000Z`);
-}
-
-async function isInstitutionAdmin(db: any, user: any, institutionId: number) {
-  try {
-    await assertInstitutionAccess(db, user, institutionId);
-    return true;
-  } catch (error) {
-    if (error instanceof TRPCError && error.code === "FORBIDDEN") return false;
-    throw error;
-  }
 }
 
 async function assertLearningAccess(
@@ -385,6 +376,19 @@ const targetInput = z.object({
 });
 
 export const institutionLearningRouter = router({
+  getMyAuthority: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await requireDb();
+      return assertLearningAccess(
+        db,
+        ctx.user,
+        input.institutionId,
+        ["cpd_coordinator", "cpd_education_coordinator", "cpd_reviewer", "cpd_reporter", "cpd_viewer"],
+        { allowDepartmentHead: true },
+      );
+    }),
+
   listDepartments: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive() }))
     .query(async ({ input, ctx }) => {
@@ -509,7 +513,7 @@ export const institutionLearningRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await requireDb();
-      await assertInstitutionOnly(db, ctx.user, input.institutionId);
+      await assertCanManageArea(db, ctx.user, input.institutionId, "cpd_portal", input.departmentId);
       const [department] = await db
         .select({ id: facilityDepartments.id })
         .from(facilityDepartments)
@@ -603,7 +607,16 @@ export const institutionLearningRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await requireDb();
-      await assertInstitutionOnly(db, ctx.user, input.institutionId);
+      const [assignment] = await db
+        .select({ departmentId: institutionEducationCoordinators.departmentId })
+        .from(institutionEducationCoordinators)
+        .where(and(
+          eq(institutionEducationCoordinators.id, input.assignmentId),
+          eq(institutionEducationCoordinators.institutionalAccountId, input.institutionId),
+        ))
+        .limit(1);
+      if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "Department CPD coordinator assignment not found." });
+      await assertCanManageArea(db, ctx.user, input.institutionId, "cpd_portal", assignment.departmentId);
       await db
         .update(institutionEducationCoordinators)
         .set({
