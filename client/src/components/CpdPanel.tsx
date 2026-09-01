@@ -86,6 +86,13 @@ function AttendeeDepartmentCell({ department, canonicalDepartmentName }: { depar
   );
 }
 
+export function getCurrentOpenCpdEvent<T extends { id: number; isOpen: boolean }>(events: T[]): T | null {
+  return events.reduce<T | null>(
+    (current, event) => event.isOpen && (!current || event.id > current.id) ? event : current,
+    null,
+  );
+}
+
 export default function CpdPanel({ institutionId, compact = false }: CpdPanelProps) {
   const utils = trpc.useUtils();
 
@@ -264,7 +271,9 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
 
   const events = eventsQuery.data ?? [];
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
-  const openEvent = events.find((e) => e.isOpen && e.id === selectedEventId) ?? events.find((e) => e.isOpen) ?? null;
+  // The registration QR/link must always point to the newest open session. A historical
+  // session selected for attendance review must never change the public check-in target.
+  const openEvent = getCurrentOpenCpdEvent(events);
   const effectiveEventId = selectedEventId ?? openEvent?.id ?? events[0]?.id ?? null;
   const selectedEvent = events.find((e) => e.id === effectiveEventId) ?? null;
 
