@@ -5522,6 +5522,9 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      if (!(ctx.user.role === "admin" || await isInstitutionAdmin(db, ctx.user.id, input.institutionId))) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Institution administrator access is required to change institutional staff roles." });
+      }
 
       await db
         .update(institutionalStaffMembers)
