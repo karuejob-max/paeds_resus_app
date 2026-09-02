@@ -40,6 +40,26 @@ export const GLOBAL_DEPARTMENTS: ParentDepartmentOption[] = [
     ]
   },
   {
+    name: "Emergency Medicine",
+    subs: ["Accident and Emergency / Casualty", "Triage"]
+  },
+  {
+    name: "Anaesthesia and Critical Care Support",
+    subs: ["Anaesthesia", "Pain Management"]
+  },
+  {
+    name: "Pharmacy",
+    subs: ["Inpatient Pharmacy", "Outpatient Pharmacy"]
+  },
+  {
+    name: "Laboratory",
+    subs: ["Haematology", "Microbiology", "Biochemistry", "Blood Bank"]
+  },
+  {
+    name: "Radiology and Imaging",
+    subs: ["Imaging Centre", "Ultrasound", "X-Ray"]
+  },
+  {
     name: "Clinics",
     subs: ["MCH", "ENT", "Ophthalmology"]
   },
@@ -74,6 +94,23 @@ export const CANONICAL_CLINICAL_DEPARTMENTS: ClinicalDepartmentOption[] = [
   { id: "picu", name: "PICU", category: "clinical" },
   { id: "opd", name: "Out Patient Department", category: "clinical" },
   { id: "accident_emergency", name: "Accident and Emergency / Casualty", category: "clinical" },
+  { id: "emergency_medicine", name: "Emergency Medicine", category: "clinical" },
+  { id: "triage", name: "Triage", category: "clinical" },
+  { id: "anaesthesia_support", name: "Anaesthesia and Critical Care Support", category: "support" },
+  { id: "anaesthesia", name: "Anaesthesia", category: "support" },
+  { id: "pain_management", name: "Pain Management", category: "support" },
+  { id: "pharmacy", name: "Pharmacy", category: "support" },
+  { id: "inpatient_pharmacy", name: "Inpatient Pharmacy", category: "support" },
+  { id: "outpatient_pharmacy", name: "Outpatient Pharmacy", category: "support" },
+  { id: "laboratory", name: "Laboratory", category: "diagnostic" },
+  { id: "haematology", name: "Haematology", category: "diagnostic" },
+  { id: "microbiology", name: "Microbiology", category: "diagnostic" },
+  { id: "biochemistry", name: "Biochemistry", category: "diagnostic" },
+  { id: "blood_bank", name: "Blood Bank", category: "diagnostic" },
+  { id: "radiology", name: "Radiology and Imaging", category: "diagnostic" },
+  { id: "imaging_centre", name: "Imaging Centre", category: "diagnostic" },
+  { id: "ultrasound", name: "Ultrasound", category: "diagnostic" },
+  { id: "x_ray", name: "X-Ray", category: "diagnostic" },
   { id: "clinics", name: "Clinics", category: "clinical" },
   { id: "medical_school", name: "Medical School/College", category: "support" },
   { id: "other", name: "Other", category: "other" }
