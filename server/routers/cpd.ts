@@ -9,6 +9,7 @@ import { assertInstitutionProductRole, type InstitutionalProductRoleKey } from "
 import {
   institutionalAccounts,
   cpdEvents,
+  cpdEventCoPresenters,
   cpdAttendees,
   cpdCodeRevealLogs,
   cpdAttendanceAuditEvents,
@@ -95,7 +96,51 @@ async function resolveActiveInstitutionPresenter(
     cadreOther: row.userCadreOther?.trim() || null,
     department: row.staffDepartment?.trim() || row.profileDepartment?.trim() || null,
     facilityDepartmentId: row.facilityDepartmentId ?? null,
+    isInstitutionMember: true,
   };
+}
+
+async function resolvePresenterForInstitution(
+  db: any,
+  institutionId: number,
+  userId: number,
+  overrides?: { name?: string | null; cadre?: string | null; cadreOther?: string | null; department?: string | null },
+) {
+  const member = await resolveActiveInstitutionPresenter(db, institutionId, userId);
+  if (member) return member;
+
+  const [platformUser] = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      cadre: users.cadre,
+      cadreOther: users.cadreOther,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!platformUser) return null;
+
+  return {
+    userId: platformUser.id,
+    fullName: overrides?.name?.trim() || platformUser.name?.trim() || platformUser.email?.trim() || "Paeds Resus account holder",
+    email: platformUser.email?.trim() || "",
+    cadre: overrides?.cadre?.trim() || platformUser.cadre?.trim() || null,
+    cadreOther: overrides?.cadreOther?.trim() || platformUser.cadreOther?.trim() || null,
+    department: overrides?.department?.trim() || null,
+    facilityDepartmentId: null,
+    isInstitutionMember: false,
+  };
+}
+
+export function getCpdAttendeeRole(
+  presenterUserId: number | null | undefined,
+  coPresenterUserIds: readonly number[],
+  registeringUserId: number,
+): "attendee" | "presenter" | "co_presenter" {
+  if (presenterUserId === registeringUserId) return "presenter";
+  return coPresenterUserIds.includes(registeringUserId) ? "co_presenter" : "attendee";
 }
 
 export function getCanonicalAttendeeDepartment(
@@ -389,7 +434,7 @@ export const cpdRouter = router({
         )
         .limit(10);
 
-      return userMatches.map((u) => ({
+      const memberResults = userMatches.map((u) => ({
         id: u.id,
         fullName: u.staffName || u.userName || u.staffEmail || u.userEmail || "Unknown Clinician",
         email: u.staffEmail || u.userEmail || "",
@@ -397,7 +442,38 @@ export const cpdRouter = router({
         cadreOther: u.userCadreOther || null,
         department: u.department || null,
         facilityDepartmentId: u.facilityDepartmentId ?? null,
+        isInstitutionMember: true as const,
       }));
+      if (access.departmentIds !== null) return memberResults;
+
+      const memberIds = new Set(memberResults.map(member => member.id));
+      const platformMatches = await db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          cadre: users.cadre,
+          cadreOther: users.cadreOther,
+        })
+        .from(users)
+        .where(or(
+          like(sql`LOWER(${users.name})`, q),
+          like(sql`LOWER(${users.email})`, q),
+        ))
+        .limit(10);
+      const platformResults = platformMatches
+        .filter(user => !memberIds.has(user.id))
+        .map(user => ({
+          id: user.id,
+          fullName: user.name || user.email || "Paeds Resus account holder",
+          email: user.email || "",
+          cadre: user.cadre || null,
+          cadreOther: user.cadreOther || null,
+          department: null,
+          facilityDepartmentId: null,
+          isInstitutionMember: false as const,
+        }));
+      return [...memberResults, ...platformResults].slice(0, 10);
     }),
 
   /** Admin: open a new event. Closes any currently open event for this institution first. */
@@ -424,15 +500,21 @@ export const cpdRouter = router({
       const db = await requireDb();
       await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
       await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator"]);
-      const presenter = await resolveActiveInstitutionPresenter(
+      const presenter = await resolvePresenterForInstitution(
         db,
         input.institutionId,
-        input.presenterUserId
+        input.presenterUserId,
+        {
+          name: input.presenterName,
+          cadre: input.presenterCadre,
+          cadreOther: input.presenterCadreOther,
+          department: input.presenterDepartment,
+        },
       );
       if (!presenter) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Choose the lead presenter from the active institution-member list.",
+          message: "Choose a valid Paeds Resus account as the presenter.",
         });
       }
       const now = new Date();
@@ -465,11 +547,13 @@ export const cpdRouter = router({
         actorUserId: ctx.user.id,
       });
 
-      if (presenter.department) {
-        await syncUserProfileDepartment(db, presenter.userId, presenter.department);
-      }
-      if (presenter.cadre) {
-        await syncUserCadre(db, presenter.userId, presenter.cadre, presenter.cadreOther);
+      if (presenter.isInstitutionMember) {
+        if (presenter.department) {
+          await syncUserProfileDepartment(db, presenter.userId, presenter.department);
+        }
+        if (presenter.cadre) {
+          await syncUserCadre(db, presenter.userId, presenter.cadre, presenter.cadreOther);
+        }
       }
 
       return { success: true as const, eventId };
@@ -512,17 +596,29 @@ export const cpdRouter = router({
       }
 
       const updateData: Record<string, unknown> = {};
+      let shouldSyncPresenterAccount = false;
       if (input.eventType !== undefined) updateData.eventType = input.eventType;
       if (input.presenterUserId !== undefined) {
         updateData.presenterUserId = input.presenterUserId;
         if (input.presenterUserId != null) {
-          const presenter = await resolveActiveInstitutionPresenter(db, input.institutionId, input.presenterUserId);
+          const presenter = await resolvePresenterForInstitution(
+            db,
+            input.institutionId,
+            input.presenterUserId,
+            {
+              name: input.presenterName,
+              cadre: input.presenterCadre,
+              cadreOther: input.presenterCadreOther,
+              department: input.presenterDepartment,
+            },
+          );
           if (!presenter) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: "Choose the presenter from the active institution-member directory.",
+              message: "Choose a valid Paeds Resus account as the presenter.",
             });
           }
+          shouldSyncPresenterAccount = presenter.isInstitutionMember;
           updateData.presenterName = presenter.fullName;
           updateData.presenterCadre = presenter.cadre
             ? formatEventPresenterCadre(presenter.cadre, presenter.cadreOther)
@@ -569,7 +665,7 @@ export const cpdRouter = router({
         .where(eq(cpdEvents.id, input.eventId))
         .limit(1);
 
-      if (finalEvent?.presenterUserId) {
+      if (shouldSyncPresenterAccount && finalEvent?.presenterUserId) {
         if (finalEvent.presenterDepartment) {
           await syncUserProfileDepartment(db, finalEvent.presenterUserId, finalEvent.presenterDepartment);
         }
@@ -841,6 +937,7 @@ export const cpdRouter = router({
       const openEvents = await db
         .select({
           id: cpdEvents.id,
+          presenterUserId: cpdEvents.presenterUserId,
           isOpen: cpdEvents.isOpen,
           lifecycleStatus: cpdEvents.lifecycleStatus,
           audienceScope: cpdEvents.audienceScope,
@@ -937,6 +1034,15 @@ export const cpdRouter = router({
       const attendanceType: "primary_facility" | "locum_outreach" = input.facilityRelationship === "permanent_facility"
         ? "primary_facility"
         : "locum_outreach";
+      const coPresenterRows = await db
+        .select({ userId: cpdEventCoPresenters.userId })
+        .from(cpdEventCoPresenters)
+        .where(eq(cpdEventCoPresenters.cpdEventId, event.id));
+      const roleInEvent = getCpdAttendeeRole(
+        event.presenterUserId,
+        coPresenterRows.map(row => row.userId).filter((userId): userId is number => userId != null),
+        ctx.user.id,
+      );
 
       const registrationResult = await db.insert(cpdAttendees).values({
         cpdEventId: event.id,
@@ -951,7 +1057,7 @@ export const cpdRouter = router({
         department: resolvedDepartment,
         facilityDepartmentId: resolvedFacilityDepartmentId,
         attendanceType,
-        roleInEvent: "attendee",
+        roleInEvent,
         checkInPunctuality: "on_time",
       });
 

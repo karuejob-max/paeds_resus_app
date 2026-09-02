@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import {
   CalendarPlus,
   UserPlus,
@@ -57,6 +58,15 @@ function sixMonthsFromToday() {
 }
 
 type LearningGovernanceMode = "all" | "sessions" | "people";
+type PresenterSearchPerson = {
+  id: number;
+  fullName: string;
+  email: string;
+  cadre: string | null;
+  cadreOther?: string | null;
+  department: string | null;
+  isInstitutionMember: boolean;
+};
 
 export default function InstitutionLearningGovernancePanel({
   institutionId,
@@ -77,6 +87,8 @@ export default function InstitutionLearningGovernancePanel({
   const [audienceScope, setAudienceScope] = useState("facility_wide");
   const [audienceLabel, setAudienceLabel] = useState("");
   const [presenterUserId, setPresenterUserId] = useState("");
+  const [presenterSearch, setPresenterSearch] = useState("");
+  const [presenterCache, setPresenterCache] = useState<PresenterSearchPerson[]>([]);
   const [cpdPoints, setCpdPoints] = useState("1");
   const [coPresenters, setCoPresenters] = useState<Array<{ userId: string }>>([]);
   const [targetScope, setTargetScope] = useState<
@@ -113,6 +125,27 @@ export default function InstitutionLearningGovernancePanel({
     { institutionId, departmentId: participantDepartmentId },
     { staleTime: 30_000 }
   );
+  const { data: presenterMatches = [] } = trpc.cpd.searchPresenters.useQuery(
+    { institutionId, query: presenterSearch.trim() },
+    { enabled: presenterSearch.trim().length >= 1, staleTime: 15_000 },
+  );
+  useEffect(() => {
+    if (!presenterMatches.length) return;
+    setPresenterCache(current => {
+      const merged = new Map<number, PresenterSearchPerson>(current.map(person => [person.id, person]));
+      presenterMatches.forEach(person => merged.set(person.id, person));
+      return Array.from(merged.values());
+    });
+  }, [presenterMatches]);
+  const searchablePresenters = [...presenterCache, ...presenterMatches].filter((person, index, all) => all.findIndex(candidate => candidate.id === person.id) === index);
+  const presenterOptions = searchablePresenters
+    .filter(person => person.id != null)
+    .map(person => ({
+      value: String(person.id),
+      label: `${person.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member"} · ${person.fullName} · ${person.department ?? "Department not set"} · ${person.cadre ?? "Cadre not set"} · ${person.email || "No email"}`,
+      person,
+    }));
+  const selectedPresenter = presenterOptions.find(option => option.value === presenterUserId)?.person;
   const { data: targetStaff = [] } = trpc.institutionLearning.listDepartmentStaff.useQuery(
     {
       institutionId,
@@ -150,15 +183,14 @@ export default function InstitutionLearningGovernancePanel({
     const email = person.staffEmail ?? "No email";
     return `${person.staffName} · ${department} · ${cadre} · ${email}`;
   };
-  const memberOptions = staff
-    .filter(person => person.userId != null)
-    .map(person => ({ value: String(person.userId), label: memberLabel(person) }));
-  const selectedPresenter = staff.find(
-    person => person.userId === Number(presenterUserId)
-  );
-  const coPresenterOptions = staff.filter(
-    person => person.userId !== Number(presenterUserId)
-  );
+  const coPresenterOptions = searchablePresenters
+      .filter(person => person.id !== Number(presenterUserId))
+      .filter(person => person.id != null)
+      .map(person => ({
+        value: String(person.id),
+        label: `${person.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member"} · ${person.fullName} · ${person.department ?? "Department not set"} · ${person.cadre ?? "Cadre not set"} · ${person.email || "No email"}`,
+        person,
+      }));
 
   const invalidateLearning = async () => {
     await Promise.all([
@@ -471,22 +503,23 @@ export default function InstitutionLearningGovernancePanel({
                 </select>
               </Field>
             )}
-            <Field label="Lead presenter (institution member)">
+            <Field label="Lead presenter">
               <SearchableDropdown
                 value={presenterUserId}
                 onChange={setPresenterUserId}
-                options={memberOptions}
-                placeholder="Type to search presenter"
-                searchPlaceholder="Search name, department, cadre, or email..."
-                emptyText="No active institution member found."
+                options={presenterOptions.map(({ value, label }) => ({ value, label }))}
+                onSearchChange={setPresenterSearch}
+                placeholder="Type to search any Paeds Resus account"
+                searchPlaceholder="Search name or email..."
+                emptyText="No matching Paeds Resus account found."
                 clearable
               />
               {selectedPresenter ? (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Selected: {memberLabel(selectedPresenter)}
+                  Selected: {selectedPresenter.fullName} · {selectedPresenter.isInstitutionMember ? "Institution member" : "Platform account; profile will not be changed"}
                 </p>
               ) : (
-                <p className="mt-1 text-xs text-muted-foreground">Type a name, then choose the correct department/cadre match.</p>
+                <p className="mt-1 text-xs text-muted-foreground">Institution members appear first. Platform accounts outside this institution are labelled clearly.</p>
               )}
             </Field>
             <Field label="CPD points">
@@ -540,12 +573,12 @@ export default function InstitutionLearningGovernancePanel({
                 coPresenters.map(row => Number(row.userId)).filter(Boolean)
               );
               const availableCoPresenters = coPresenterOptions.filter(
-                person =>
-                  person.userId === Number(presenter.userId) ||
-                  !selectedCoPresenterIds.has(person.userId)
+                option =>
+                  option.value === presenter.userId ||
+                  !selectedCoPresenterIds.has(Number(option.value))
               );
               const selectedCoPresenter = coPresenterOptions.find(
-                person => person.userId === Number(presenter.userId)
+                option => option.value === presenter.userId
               );
               return (
                 <div
@@ -560,17 +593,18 @@ export default function InstitutionLearningGovernancePanel({
                           rows.map((row, rowIndex) => rowIndex === index ? { userId: value } : row)
                         )
                       }
-                      options={availableCoPresenters
-                        .filter(person => person.userId != null)
-                        .map(person => ({ value: String(person.userId), label: memberLabel(person) }))}
+                      options={coPresenterOptions
+                        .filter(option => option.value === presenter.userId || !selectedCoPresenterIds.has(Number(option.value)))
+                        .map(({ value, label }) => ({ value, label }))}
+                      onSearchChange={setPresenterSearch}
                       placeholder="Type to search co-presenter"
-                      searchPlaceholder="Search name, department, cadre, or email..."
-                      emptyText="No available institution member found."
+                      searchPlaceholder="Search name or email..."
+                      emptyText="No matching Paeds Resus account found."
                       clearable
                     />
                     {selectedCoPresenter ? (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Selected: {memberLabel(selectedCoPresenter)}
+                        Selected: {selectedCoPresenter.label}
                       </p>
                     ) : null}
                   </div>
