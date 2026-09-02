@@ -37,8 +37,10 @@ export default function ProviderProfile() {
             Keep your professional identity and provider information accurate. Choose cadre and specialization once in Professional Identity, record experience and optional language context in the smaller profile section, and use Professional Credentials for one evidence-backed Licence number, jurisdiction, regulator, and AHA certificate evidence. Account security and workplace access remain separate so one field is not mistaken for another.
           </p>
           {profile?.department ? (
-            <p className="mt-2 text-sm font-medium text-primary">Current workplace department: {profile.department}</p>
-          ) : null}
+            <p className="mt-2 text-sm font-medium text-primary">Current workplace department: {profile.department}{" "}<Link href="/workplaces" className="underline">Change</Link></p>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">No workplace department set yet. <Link href="/workplaces" className="text-primary underline">Set it in Workplaces & access</Link>.</p>
+          )}
         </div>
 
         {profile && (profile.profileCompletionPercentage ?? 0) < 100 ? (
