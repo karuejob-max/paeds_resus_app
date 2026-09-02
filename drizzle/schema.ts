@@ -6808,6 +6808,48 @@ export const cpdAttendees = mysqlTable("cpdAttendees", {
   clinicalTakeaway: text("clinicalTakeaway"),
 });
 
+export const cpdEventQuizzes = mysqlTable("cpdEventQuizzes", {
+  id: int("id").autoincrement().primaryKey(),
+  cpdEventId: int("cpdEventId").notNull(),
+  passingScore: int("passingScore").default(80).notNull(),
+  isRequired: boolean("isRequired").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  eventIndex: uniqueIndex("cpd_event_quizzes_event_uq").on(table.cpdEventId),
+}));
+export type CpdEventQuiz = typeof cpdEventQuizzes.$inferSelect;
+export type InsertCpdEventQuiz = typeof cpdEventQuizzes.$inferInsert;
+
+export const cpdEventQuizQuestions = mysqlTable("cpdEventQuizQuestions", {
+  id: int("id").autoincrement().primaryKey(),
+  cpdEventQuizId: int("cpdEventQuizId").notNull(),
+  question: text("question").notNull(),
+  questionType: mysqlEnum("questionType", ["multiple_choice", "true_false"]).default("multiple_choice").notNull(),
+  options: text("options"),
+  correctAnswer: text("correctAnswer").notNull(),
+  order: int("order").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => ({
+  quizOrderIndex: index("cpd_event_quiz_questions_order_idx").on(table.cpdEventQuizId, table.order),
+}));
+export type CpdEventQuizQuestion = typeof cpdEventQuizQuestions.$inferSelect;
+export type InsertCpdEventQuizQuestion = typeof cpdEventQuizQuestions.$inferInsert;
+
+export const cpdAttendeeQuizAttempts = mysqlTable("cpdAttendeeQuizAttempts", {
+  id: int("id").autoincrement().primaryKey(),
+  cpdAttendeeId: int("cpdAttendeeId").notNull(),
+  cpdEventQuizId: int("cpdEventQuizId").notNull(),
+  score: int("score").notNull(),
+  passed: boolean("passed").notNull(),
+  answers: text("answers").notNull(),
+  submittedAt: timestamp("submittedAt").defaultNow().notNull(),
+}, table => ({
+  attendeeQuizIndex: index("cpd_attendee_quiz_attempts_attendee_quiz_idx").on(table.cpdAttendeeId, table.cpdEventQuizId),
+}));
+export type CpdAttendeeQuizAttempt = typeof cpdAttendeeQuizAttempts.$inferSelect;
+export type InsertCpdAttendeeQuizAttempt = typeof cpdAttendeeQuizAttempts.$inferInsert;
+
 export const cpdAttendanceAuditEvents = mysqlTable("cpdAttendanceAuditEvents", {
   id: int("id").autoincrement().primaryKey(),
   institutionalAccountId: int("institutionalAccountId").notNull(),

@@ -68,6 +68,20 @@ type PresenterSearchPerson = {
   isInstitutionMember: boolean;
 };
 
+type QuizDraftQuestion = {
+  question: string;
+  questionType: "multiple_choice" | "true_false";
+  options: string[];
+  correctAnswer: string;
+};
+
+const emptyQuizQuestion = (): QuizDraftQuestion => ({
+  question: "",
+  questionType: "multiple_choice",
+  options: ["", ""],
+  correctAnswer: "",
+});
+
 export default function InstitutionLearningGovernancePanel({
   institutionId,
   mode = "all",
@@ -91,6 +105,9 @@ export default function InstitutionLearningGovernancePanel({
   const [presenterCache, setPresenterCache] = useState<PresenterSearchPerson[]>([]);
   const [cpdPoints, setCpdPoints] = useState("1");
   const [coPresenters, setCoPresenters] = useState<Array<{ userId: string }>>([]);
+  const [quizEnabled, setQuizEnabled] = useState(false);
+  const [quizPassingScore, setQuizPassingScore] = useState("80");
+  const [quizQuestions, setQuizQuestions] = useState<QuizDraftQuestion[]>([emptyQuizQuestion()]);
   const [targetScope, setTargetScope] = useState<
     "facility" | "department" | "individual"
   >("facility");
@@ -237,6 +254,9 @@ export default function InstitutionLearningGovernancePanel({
       setPresenterUserId("");
       setAudienceLabel("");
       setCoPresenters([]);
+      setQuizEnabled(false);
+      setQuizPassingScore("80");
+      setQuizQuestions([emptyQuizQuestion()]);
       await Promise.all([
         invalidateLearning(),
         utils.cpd.listEvents.invalidate({ institutionId }),
@@ -245,6 +265,7 @@ export default function InstitutionLearningGovernancePanel({
     },
     onError: error => toast.error(error.message),
   });
+  const createEventQuiz = trpc.cpd.createEventQuiz.useMutation();
   const saveTarget = trpc.institutionLearning.saveTarget.useMutation({
     onSuccess: async () => {
       toast.success("Learning target saved");
@@ -261,7 +282,7 @@ export default function InstitutionLearningGovernancePanel({
     onError: error => toast.error(error.message),
   });
 
-  const submitSession = () => {
+  const submitSession = async () => {
     if (!presenterUserId) {
       toast.error("Choose a lead presenter from the active institution-member list.");
       return;
@@ -270,23 +291,52 @@ export default function InstitutionLearningGovernancePanel({
       .map(presenter => presenter.userId)
       .filter(Boolean)
       .map(userId => ({ userId: Number(userId) }));
-    createSession.mutate({
-      institutionId,
-      name: sessionName,
-      eventDate: sessionDate,
-      eventDateAt: sessionDate,
-      eventType: eventType as any,
-      audienceScope: audienceScope as any,
-      audienceLabel: audienceLabel.trim() || null,
-      facilityDepartmentId: sessionDepartmentId
-        ? Number(sessionDepartmentId)
-        : null,
-      presenterUserId: Number(presenterUserId),
-      cpdPoints: cpdPoints ? Number(cpdPoints) : null,
-      approvingCouncil: null,
-      coPresenters: selectedCoPresenters,
-    });
+    try {
+      const created = await createSession.mutateAsync({
+        institutionId,
+        name: sessionName,
+        eventDate: sessionDate,
+        eventDateAt: sessionDate,
+        eventType: eventType as any,
+        audienceScope: audienceScope as any,
+        audienceLabel: audienceLabel.trim() || null,
+        facilityDepartmentId: sessionDepartmentId
+          ? Number(sessionDepartmentId)
+          : null,
+        presenterUserId: Number(presenterUserId),
+        cpdPoints: cpdPoints ? Number(cpdPoints) : null,
+        approvingCouncil: null,
+        coPresenters: selectedCoPresenters,
+      });
+      if (quizEnabled) {
+        await createEventQuiz.mutateAsync({
+          institutionId,
+          eventId: created.eventId,
+          passingScore: Number(quizPassingScore),
+          isRequired: true,
+          questions: quizQuestions.map(question => ({
+            ...question,
+            options: question.questionType === "true_false" ? ["true", "false"] : question.options.filter(Boolean),
+          })),
+        });
+        toast.success("CPD session and required quiz created.");
+      }
+    } catch (error) {
+      toast.error((error as Error).message || "CPD session creation failed.");
+    }
   };
+  const quizIsValid = !quizEnabled || (
+    quizQuestions.length > 0 &&
+    quizQuestions.every(question =>
+      question.question.trim().length >= 3 &&
+      question.correctAnswer.trim().length > 0 &&
+      (question.questionType === "true_false"
+        ? ["true", "false"].includes(question.correctAnswer.trim().toLowerCase())
+        : question.options.filter(option => option.trim()).length >= 2 &&
+          question.options.some(option => option.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase()))
+    )
+  );
+
   const submitTarget = () => {
     saveTarget.mutate({
       institutionId,
@@ -625,6 +675,109 @@ export default function InstitutionLearningGovernancePanel({
               );
             })}
           </div>
+          <div className="space-y-4 rounded-lg border border-amber-200 bg-amber-50/30 p-4">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-medium">Session quiz (optional)</p>
+                <p className="text-xs text-muted-foreground">
+                  If enabled, attendees must pass this quiz before attendance can be verified and CPD points can count. They may retry after a failed attempt.
+                </p>
+              </div>
+              <label className="flex shrink-0 items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={quizEnabled}
+                  onChange={event => setQuizEnabled(event.target.checked)}
+                />
+                Add required quiz
+              </label>
+            </div>
+            {quizEnabled && (
+              <div className="space-y-3">
+                <Field label="Passing score (%)">
+                  <input
+                    className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={quizPassingScore}
+                    onChange={event => setQuizPassingScore(event.target.value)}
+                  />
+                </Field>
+                {quizQuestions.map((question, questionIndex) => (
+                  <div key={questionIndex} className="space-y-3 rounded-md border bg-background p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium">Question {questionIndex + 1}</p>
+                      {quizQuestions.length > 1 && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setQuizQuestions(current => current.filter((_, index) => index !== questionIndex))}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <input
+                      className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
+                      value={question.question}
+                      onChange={event => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? { ...item, question: event.target.value } : item))}
+                      placeholder="Enter the question"
+                    />
+                    <select
+                      className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
+                      value={question.questionType}
+                      onChange={event => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? {
+                        ...item,
+                        questionType: event.target.value as QuizDraftQuestion["questionType"],
+                        options: event.target.value === "true_false" ? ["true", "false"] : item.options.length >= 2 ? item.options : ["", ""],
+                        correctAnswer: event.target.value === "true_false" ? "true" : item.correctAnswer,
+                      } : item))}
+                    >
+                      <option value="multiple_choice">Multiple choice</option>
+                      <option value="true_false">True / false</option>
+                    </select>
+                    {question.questionType === "multiple_choice" && (
+                      <div className="space-y-2">
+                        {question.options.map((option, optionIndex) => (
+                          <div key={optionIndex} className="flex min-w-0 gap-2">
+                            <input
+                              className="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
+                              value={option}
+                              onChange={event => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? {
+                                ...item,
+                                options: item.options.map((value, candidateIndex) => candidateIndex === optionIndex ? event.target.value : value),
+                              } : item))}
+                              placeholder={`Answer option ${optionIndex + 1}`}
+                            />
+                            {question.options.length > 2 && (
+                              <Button type="button" size="icon" variant="ghost" onClick={() => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? { ...item, options: item.options.filter((_, candidateIndex) => candidateIndex !== optionIndex) } : item))} aria-label={`Remove answer option ${optionIndex + 1}`}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <Button type="button" size="sm" variant="outline" onClick={() => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? { ...item, options: [...item.options, ""] } : item))}>
+                          Add answer option
+                        </Button>
+                      </div>
+                    )}
+                    <input
+                      className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
+                      value={question.correctAnswer}
+                      onChange={event => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? { ...item, correctAnswer: event.target.value } : item))}
+                      placeholder={question.questionType === "true_false" ? "true or false" : "Exact correct answer"}
+                    />
+                  </div>
+                ))}
+                <Button type="button" size="sm" variant="outline" onClick={() => setQuizQuestions(current => [...current, emptyQuizQuestion()])}>
+                  Add question
+                </Button>
+                {!quizIsValid && <p className="text-xs text-amber-800">Complete every question, include at least two options, and enter the exact correct answer before creating the session.</p>}
+              </div>
+            )}
+          </div>
           <Button
             onClick={submitSession}
             disabled={
@@ -632,7 +785,9 @@ export default function InstitutionLearningGovernancePanel({
               !sessionDate ||
               !presenterUserId ||
               (audienceScope === "other_cadre" && !audienceLabel) ||
-              createSession.isPending
+              !quizIsValid ||
+              createSession.isPending ||
+              createEventQuiz.isPending
             }
           >
             <CalendarPlus className="mr-2 h-4 w-4" />
