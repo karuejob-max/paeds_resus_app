@@ -45,6 +45,29 @@ const LIFE_SUPPORT_CREDENTIAL_TYPES = [
   "external_aha_other",
 ] as const;
 
+export function calculateProviderIdentityReadiness(
+  profile: Record<string, any>,
+  licenseRequired: boolean,
+  licenseCurrent: boolean,
+) {
+  const identityFields = [
+    profile.specialization,
+    profile.yearsOfExperience,
+    profile.bio,
+    profile.languages,
+  ];
+  const requirements = [
+    ...identityFields,
+    ...(licenseRequired ? [licenseCurrent] : []),
+  ];
+  const completed = requirements.filter(value => value === true || (value !== undefined && value !== null && value !== false && value !== "" && value !== "[]")).length;
+  const completionPercentage = requirements.length === 0 ? 0 : Math.round((completed / requirements.length) * 100);
+  return {
+    completionPercentage,
+    identityComplete: identityFields.every(value => value !== undefined && value !== null && value !== "" && value !== "[]"),
+  } as const;
+}
+
 async function calculateProviderProfileReadiness(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   userId: number,
@@ -74,22 +97,14 @@ async function calculateProviderProfileReadiness(
     (LIFE_SUPPORT_CREDENTIAL_TYPES as readonly string[]).includes(credential.credentialType) && isCurrent(credential),
   );
 
-  const identityFields = [
-    profile.specialization,
-    profile.yearsOfExperience,
-    profile.bio,
-    profile.languages,
-  ];
-  const requirements = [
-    ...identityFields,
-    ...(licenseRequired ? [licenseCredential && isCurrent(licenseCredential)] : []),
-    lifeSupportCredential != null,
-  ];
-  const completed = requirements.filter(value => value === true || (value !== undefined && value !== null && value !== "" && value !== "[]")).length;
-  const completionPercentage = requirements.length === 0 ? 0 : Math.round((completed / requirements.length) * 100);
+  const identityReadiness = calculateProviderIdentityReadiness(
+    profile,
+    licenseRequired,
+    licenseCredential != null && isCurrent(licenseCredential),
+  );
   return {
-    completionPercentage,
-    identityComplete: identityFields.every(value => value !== undefined && value !== null && value !== "" && value !== "[]"),
+    completionPercentage: identityReadiness.completionPercentage,
+    identityComplete: identityReadiness.identityComplete,
     verificationComplete: !licenseRequired || (licenseCredential != null && isCurrent(licenseCredential)),
     licenseRequired,
     licenseStatus: licenseCredential == null ? "missing" : licenseCredential.status === "verified" && !isCurrent(licenseCredential) ? "expired" : licenseCredential.status,
