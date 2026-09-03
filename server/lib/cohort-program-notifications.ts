@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "../db";
 import { sendEmail } from "../email-service";
-import { courses, ierpProgramEnrollments, trainingAttendance, trainingSchedules, retrospectiveRoleClaims, users } from "../../drizzle/schema";
+import { courses, enrollments, ierpProgramEnrollments, trainingAttendance, trainingSchedules, retrospectiveRoleClaims, users } from "../../drizzle/schema";
 
 const APP_BASE = process.env.APP_BASE_URL?.replace(/\/$/, "") || "https://www.paedsresus.com";
 
