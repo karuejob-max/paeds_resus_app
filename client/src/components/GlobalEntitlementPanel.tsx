@@ -32,6 +32,8 @@ const programmeOptions = [
   { value: "acls", label: "Self-pay ACLS" },
   { value: "pals", label: "Self-pay PALS" },
   { value: "heartsaver", label: "Self-pay Heartsaver" },
+  { value: "nrp", label: "Self-pay NRP" },
+  { value: "instructor", label: "Self-pay Instructor Course" },
 ] as const;
 
 type Programme = (typeof programmeOptions)[number]["value"];
@@ -68,7 +70,7 @@ export default function GlobalEntitlementPanel() {
     enabled: programType === "self_pay",
   });
   const ahaSelfPayCoursesQuery = trpc.adminEntitlements.listAhaSelfPayCourses.useQuery(undefined, {
-    enabled: ["bls", "acls", "pals", "heartsaver"].includes(programType),
+    enabled: ["bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(programType),
   });
   const createMutation = trpc.adminEntitlements.create.useMutation({
     onSuccess: (result) => {
@@ -106,7 +108,7 @@ export default function GlobalEntitlementPanel() {
     reason.trim().length >= 10 &&
     /^\d{4}-\d{2}-\d{2}$/.test(expiresAt) &&
     Number(maxRedemptions) >= 1 &&
-    (!["self_pay", "bls", "acls", "pals", "heartsaver"].includes(programType) || selfPayCourseId.trim().length > 0);
+    (!["self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(programType) || selfPayCourseId.trim().length > 0);
   const courseOptions = programType === "self_pay"
     ? (selfPayCoursesQuery.data ?? []).map(course => ({
         courseId: course.courseId,
@@ -275,7 +277,7 @@ export default function GlobalEntitlementPanel() {
               Selected: {selectedTargetLabel}
             </p>
           </div>
-          {["self_pay", "bls", "acls", "pals", "heartsaver"].includes(programType) && (
+          {["self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(programType) && (
             <div className="space-y-2">
               <label
                 className="text-sm font-medium"

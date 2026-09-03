@@ -368,7 +368,7 @@ export const globalEntitlements = mysqlTable(
     accessCodePrefix: varchar("accessCodePrefix", { length: 12 }),
     targetUserId: int("targetUserId"),
     targetInstitutionalAccountId: int("targetInstitutionalAccountId"),
-    programType: mysqlEnum("programType", ["ierp", "nerp", "paeds_resus_ils", "self_pay", "bls", "acls", "pals", "heartsaver"]).notNull(),
+    programType: mysqlEnum("programType", ["ierp", "nerp", "paeds_resus_ils", "self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"]).notNull(),
     selfPayCourseId: varchar("selfPayCourseId", { length: 128 }),
     benefitType: mysqlEnum("benefitType", ["free", "percentage_discount"]).notNull(),
     discountPercent: int("discountPercent"),
@@ -400,7 +400,7 @@ export const globalEntitlementRedemptions = mysqlTable(
     entitlementId: int("entitlementId").notNull(),
     targetUserId: int("targetUserId"),
     targetInstitutionalAccountId: int("targetInstitutionalAccountId"),
-    programType: mysqlEnum("programType", ["ierp", "nerp", "paeds_resus_ils", "self_pay", "bls", "acls", "pals", "heartsaver"]).notNull(),
+    programType: mysqlEnum("programType", ["ierp", "nerp", "paeds_resus_ils", "self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"]).notNull(),
     resourceReference: varchar("resourceReference", { length: 128 }).notNull(),
     originalAmountKes: int("originalAmountKes").notNull(),
     discountAmountKes: int("discountAmountKes").notNull(),
@@ -2190,6 +2190,8 @@ export const courses = mysqlTable("courses", {
   level: mysqlEnum("level", ["beginner", "intermediate", "advanced"]).default(
     "beginner"
   ),
+  /** False retires a duplicate catalog row without deleting historical enrollments. */
+  isActive: boolean("isActive").default(true).notNull(),
   order: int("order").default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

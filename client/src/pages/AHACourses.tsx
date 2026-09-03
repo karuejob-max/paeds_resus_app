@@ -92,9 +92,9 @@ export default function AHACourses() {
   );
 
   const handleRedeemAccessCode = useCallback((pt: AhaProgramType, accessCode: string) => {
-    if (["bls", "acls", "pals", "heartsaver"].includes(pt)) {
+    if (["bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(pt)) {
       redeemAhaAccessCodeMutation.mutate({
-        programType: pt as "bls" | "acls" | "pals" | "heartsaver",
+        programType: pt as "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor",
         accessCode,
       });
     }

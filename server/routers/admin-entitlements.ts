@@ -27,6 +27,8 @@ const programmeLabels = {
   acls: "Self-pay ACLS",
   pals: "Self-pay PALS",
   heartsaver: "Self-pay Heartsaver",
+  nrp: "Self-pay NRP",
+  instructor: "Self-pay Instructor Course",
 } as const;
 
 export const createEntitlementInput = z
@@ -67,7 +69,7 @@ export const createEntitlementInput = z
         });
       }
     } else {
-      const shareableProgram = ["self_pay", "bls", "acls", "pals", "heartsaver"].includes(input.programType);
+      const shareableProgram = ["self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(input.programType);
       if (shareable && (!shareableProgram || targetUser || targetInstitution)) {
         ctx.addIssue({ code: "custom", path: ["shareable"], message: "Shareable codes are available only for self-pay courses and cannot target a named account." });
       }
@@ -79,14 +81,14 @@ export const createEntitlementInput = z
             "This entitlement must target one named Paeds Resus user account only.",
         });
       }
-      if (["self_pay", "bls", "acls", "pals", "heartsaver"].includes(input.programType) && !input.selfPayCourseId) {
+      if (["self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(input.programType) && !input.selfPayCourseId) {
         ctx.addIssue({
           code: "custom",
           path: ["selfPayCourseId"],
           message: "Select the self-pay course scope.",
         });
       }
-      if (!["self_pay", "bls", "acls", "pals", "heartsaver"].includes(input.programType) && input.selfPayCourseId) {
+      if (!["self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(input.programType) && input.selfPayCourseId) {
         ctx.addIssue({
           code: "custom",
           path: ["selfPayCourseId"],
@@ -138,7 +140,7 @@ export const adminEntitlementsRouter = router({
     return db
       .select({ courseId: courses.programType, title: courses.title, level: courses.level, duration: courses.duration })
       .from(courses)
-      .where(inArray(courses.programType, ["bls", "acls", "pals", "heartsaver"]))
+      .where(and(inArray(courses.programType, ["bls", "acls", "pals", "heartsaver", "nrp", "instructor"]), eq(courses.isActive, true)))
       .orderBy(asc(courses.programType), asc(courses.id));
   }),
 
@@ -150,8 +152,7 @@ export const adminEntitlementsRouter = router({
         message: "Database unavailable",
       });
     return db
-      .select({
-        courseId: microCourses.courseId,
+      .select({ courseId: microCourses.courseId,
         title: microCourses.title,
         level: microCourses.level,
         emergencyType: microCourses.emergencyType,
@@ -327,14 +328,14 @@ export const adminEntitlementsRouter = router({
         if (!selectedCourse.isPublished) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "This self-pay course is not published and cannot receive a grant." });
         }
-      } else if (["bls", "acls", "pals", "heartsaver"].includes(input.programType) && input.selfPayCourseId) {
+      } else if (["bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(input.programType) && input.selfPayCourseId) {
         if (input.selfPayCourseId !== input.programType) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "The selected AHA course does not match the entitlement programme." });
         }
         const [selectedCourse] = await db
           .select({ id: courses.id })
           .from(courses)
-          .where(eq(courses.programType, input.programType as "bls" | "acls" | "pals" | "heartsaver"))
+          .where(and(eq(courses.programType, input.programType as "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor"), eq(courses.isActive, true)))
           .limit(1);
         if (!selectedCourse) {
           throw new TRPCError({ code: "NOT_FOUND", message: "The selected AHA course is not available in the catalog." });

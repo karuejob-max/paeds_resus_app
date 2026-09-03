@@ -65,10 +65,11 @@ export async function resolveAhaCourseAnchor(
     programType === "pals"
       ? and(
           eq(courses.programType, programType),
+          eq(courses.isActive, true),
           not(like(courses.title, "%seriously ill%")),
           not(like(courses.title, "%Paediatric septic shock%"))
         )
-      : eq(courses.programType, programType);
+      : and(eq(courses.programType, programType), eq(courses.isActive, true));
 
   const rows = await db
     .select()
