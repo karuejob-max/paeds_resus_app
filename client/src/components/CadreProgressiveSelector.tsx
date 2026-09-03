@@ -244,7 +244,13 @@ export function SearchableDropdown({
         ? { value: searchQuery, onValueChange: setQuery }
         : {})}
     >
-      {!searchAlwaysVisible ? <CommandInput placeholder={searchPlaceholder} /> : null}
+      {!searchAlwaysVisible ? (
+        <CommandInput
+          placeholder={searchPlaceholder}
+          value={searchQuery}
+          onValueChange={setQuery}
+        />
+      ) : null}
       <CommandList className="max-h-[250px]">
         <CommandEmpty>{emptyText}</CommandEmpty>
         <CommandGroup>
