@@ -369,7 +369,7 @@ export const enrollmentRouter = router({
       if (await isUserEnrolled(ctx.user.id, course.id)) {
         return { success: true as const, alreadyEnrolled: true as const, message: "You already have access to this course." };
       }
-      const entitlement = await findActiveShareableEntitlement(db, input.accessCode, input.courseId);
+      const entitlement = await findActiveShareableEntitlement(db, input.accessCode, input.courseId, "self_pay", new Date(), ctx.user.email);
       if (!entitlement) throw new TRPCError({ code: "BAD_REQUEST", message: "This access code is invalid, expired, exhausted, or for a different course." });
       const enrollment = await createEnrollmentDb({ userId: ctx.user.id, microCourseId: course.id, paymentMethod: "admin-free", amountPaid: 0, entitlementId: entitlement.id, paymentStatus: "free" });
       const applied = await consumeGlobalEntitlement(db, {
@@ -411,7 +411,7 @@ export const enrollmentRouter = router({
         .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, input.programType)))
         .limit(1);
       if (existing) return { success: true as const, alreadyEnrolled: true as const, enrollmentId: existing.id, message: "You already have access to this AHA course." };
-      const entitlement = await findActiveShareableEntitlement(db, input.accessCode, input.programType, input.programType);
+      const entitlement = await findActiveShareableEntitlement(db, input.accessCode, input.programType, input.programType, new Date(), ctx.user.email);
       if (!entitlement) throw new TRPCError({ code: "BAD_REQUEST", message: "This access code is invalid, expired, exhausted, or for a different AHA course." });
       const enrollment = await createEnrollment({ userId: ctx.user.id, programType: input.programType, courseId: anchor.id, trainingDate: new Date(), paymentStatus: "completed", amountPaid: 0, createdAt: new Date(), updatedAt: new Date() });
       if (!enrollment) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Unable to create the AHA enrollment." });

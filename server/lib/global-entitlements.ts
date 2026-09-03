@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, gt, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   globalEntitlements,
@@ -207,12 +207,23 @@ export function hashAccessCode(code: string) {
     .digest("hex");
 }
 
+export function normalizeRecipientEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+export function hashRecipientEmail(email: string) {
+  return createHash("sha256")
+    .update(normalizeRecipientEmail(email), "utf8")
+    .digest("hex");
+}
+
 export async function findActiveShareableEntitlement(
   db: any,
   code: string,
   selfPayCourseId: string,
   programType: GlobalEntitlementProgramType = "self_pay",
-  now: Date = new Date()
+  now: Date = new Date(),
+  recipientEmail?: string | null
 ) {
   const [row] = await db
     .select()
@@ -225,6 +236,7 @@ export async function findActiveShareableEntitlement(
         eq(globalEntitlements.status, "active"),
         gt(globalEntitlements.expiresAt, now),
         lt(globalEntitlements.redemptionCount, globalEntitlements.maxRedemptions),
+        ...(recipientEmail ? [eq(globalEntitlements.recipientEmailHash, hashRecipientEmail(recipientEmail))] : [isNotNull(globalEntitlements.recipientEmailHash)]),
         isNull(globalEntitlements.targetUserId),
         isNull(globalEntitlements.targetInstitutionalAccountId)
       )

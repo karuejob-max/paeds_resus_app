@@ -101,6 +101,8 @@
     "db:apply-0151": "node scripts/apply-0151-self-pay-access-codes.mjs",
     "db:apply-0152": "node scripts/apply-0152-aha-self-pay-access-codes.mjs",
     "db:apply-0153": "node scripts/apply-0153-aha-catalog-cleanup.mjs",
+    "db:apply-0154": "node scripts/apply-0154-email-bound-access-codes.mjs",
+    "db:apply-0155": "node scripts/apply-0155-identity-workspace-hardening.mjs",
     "db:verify-0150": "node scripts/verify-0150-cpd-quiz-gating.mjs",
     "db:verify-0148": "node scripts/verify-0148-promotional-messaging-governance.mjs",
     "db:verify-cpr-event-link": "node scripts/verify-cpr-event-link.mjs",
