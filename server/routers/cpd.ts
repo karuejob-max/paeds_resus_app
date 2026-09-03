@@ -383,7 +383,7 @@ export const cpdRouter = router({
   searchPresenters: protectedProcedure
     .input(
       z.object({
-        query: z.string().trim().min(1).max(100),
+        query: z.string().trim().max(100).default(""),
         institutionId: z.number().int().positive().optional(),
       })
     )
@@ -396,7 +396,16 @@ export const cpdRouter = router({
         await assertInstitutionProductCapability(db, institutionId, "cpd_portal", "cpd.workspace.read");
         access = await assertCpdInstitutionAccess(db, ctx.user, institutionId);
       }
-      const q = `%${input.query.toLowerCase()}%`;
+      const normalizedQuery = input.query.trim().toLowerCase();
+      const q = `%${normalizedQuery}%`;
+      const searchCondition = normalizedQuery
+        ? or(
+            like(sql`LOWER(${users.name})`, q),
+            like(sql`LOWER(${users.email})`, q),
+            like(sql`LOWER(${institutionalStaffMembers.staffName})`, q),
+            like(sql`LOWER(${institutionalStaffMembers.staffEmail})`, q),
+          )
+        : undefined;
 
       const userMatches = await db
         .select({
@@ -425,12 +434,7 @@ export const cpdRouter = router({
           and(
             eq(institutionMemberships.institutionalAccountId, institutionId),
             eq(institutionMemberships.membershipStatus, "active"),
-            or(
-              like(sql`LOWER(${users.name})`, q),
-              like(sql`LOWER(${users.email})`, q),
-              like(sql`LOWER(${institutionalStaffMembers.staffName})`, q),
-              like(sql`LOWER(${institutionalStaffMembers.staffEmail})`, q)
-            ),
+            searchCondition,
             access.departmentIds
               ? inArray(institutionalStaffMembers.facilityDepartmentId, access.departmentIds)
               : undefined
@@ -438,7 +442,39 @@ export const cpdRouter = router({
         )
         .limit(10);
 
-      const memberResults = userMatches.map((u) => ({
+      const staffMatches = await db
+        .select({
+          id: users.id,
+          userName: users.name,
+          userEmail: users.email,
+          userCadre: users.cadre,
+          userCadreOther: users.cadreOther,
+          staffName: institutionalStaffMembers.staffName,
+          staffEmail: institutionalStaffMembers.staffEmail,
+          staffRole: institutionalStaffMembers.staffRole,
+          department: institutionalStaffMembers.department,
+          facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+        })
+        .from(institutionalStaffMembers)
+        .innerJoin(users, eq(users.id, institutionalStaffMembers.userId))
+        .where(
+          and(
+            eq(institutionalStaffMembers.institutionalAccountId, institutionId),
+            sql`${institutionalStaffMembers.removedAt} IS NULL`,
+            searchCondition,
+            access.departmentIds
+              ? inArray(institutionalStaffMembers.facilityDepartmentId, access.departmentIds)
+              : undefined,
+          ),
+        )
+        .limit(50);
+
+      const memberRows = Array.from(
+        new Map(
+          [...userMatches, ...staffMatches].map(row => [row.id, row]),
+        ).values(),
+      );
+      const memberResults = memberRows.map((u) => ({
         id: u.id,
         fullName: u.staffName || u.userName || u.staffEmail || u.userEmail || "Unknown Clinician",
         email: u.staffEmail || u.userEmail || "",
@@ -451,6 +487,8 @@ export const cpdRouter = router({
       if (access.departmentIds !== null) return memberResults;
 
       const memberIds = new Set(memberResults.map(member => member.id));
+      if (!normalizedQuery) return memberResults;
+
       const platformMatches = await db
         .select({
           id: users.id,
@@ -464,7 +502,7 @@ export const cpdRouter = router({
           like(sql`LOWER(${users.name})`, q),
           like(sql`LOWER(${users.email})`, q),
         ))
-        .limit(10);
+        .limit(50);
       const platformResults = platformMatches
         .filter(user => !memberIds.has(user.id))
         .map(user => ({
@@ -477,7 +515,7 @@ export const cpdRouter = router({
           facilityDepartmentId: null,
           isInstitutionMember: false as const,
         }));
-      return [...memberResults, ...platformResults].slice(0, 10);
+      return [...memberResults, ...platformResults].slice(0, 50);
     }),
 
   /** Admin: open a new event. Closes any currently open event for this institution first. */

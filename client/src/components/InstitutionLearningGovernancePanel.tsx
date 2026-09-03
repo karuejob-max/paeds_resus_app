@@ -144,7 +144,7 @@ export default function InstitutionLearningGovernancePanel({
   );
   const { data: presenterMatches = [] } = trpc.cpd.searchPresenters.useQuery(
     { institutionId, query: presenterSearch.trim() },
-    { enabled: presenterSearch.trim().length >= 1, staleTime: 15_000 },
+    { enabled: true, staleTime: 15_000 },
   );
   useEffect(() => {
     if (!presenterMatches.length) return;
@@ -284,7 +284,7 @@ export default function InstitutionLearningGovernancePanel({
 
   const submitSession = async () => {
     if (!presenterUserId) {
-      toast.error("Choose a lead presenter from the active institution-member list.");
+      toast.error("Choose a lead presenter from the eligible presenter list.");
       return;
     }
     const selectedCoPresenters = coPresenters
