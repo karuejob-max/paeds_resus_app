@@ -198,6 +198,8 @@ interface SearchableDropdownProps {
   searchAlwaysVisible?: boolean;
   /** Allow the selected value to be removed with Backspace/Delete or a clear button. */
   clearable?: boolean;
+  /** Notify callers as the user types in the dropdown search field. */
+  onSearchChange?: (query: string) => void;
 }
 
 export function SearchableDropdown({
@@ -209,6 +211,7 @@ export function SearchableDropdown({
   emptyText = "No option found.",
   searchAlwaysVisible = false,
   clearable = false,
+  onSearchChange,
 }: SearchableDropdownProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -223,9 +226,14 @@ export function SearchableDropdown({
     );
   }, [options, searchQuery]);
 
+  const setQuery = (query: string) => {
+    setSearchQuery(query);
+    onSearchChange?.(query);
+  };
+
   const selectOption = (optionValue: string) => {
     onChange(value === optionValue ? "" : optionValue);
-    setSearchQuery("");
+    setQuery("");
     setOpen(false);
   };
 
@@ -233,7 +241,7 @@ export function SearchableDropdown({
     <Command
       shouldFilter={searchAlwaysVisible ? false : undefined}
       {...(!searchAlwaysVisible
-        ? { value: searchQuery, onValueChange: setSearchQuery }
+        ? { value: searchQuery, onValueChange: setQuery }
         : {})}
     >
       {!searchAlwaysVisible ? <CommandInput placeholder={searchPlaceholder} /> : null}
@@ -278,12 +286,12 @@ export function SearchableDropdown({
             if (clearable && value && !searchQuery && (event.key === "Backspace" || event.key === "Delete")) {
               event.preventDefault();
               onChange("");
-              setSearchQuery("");
+              setQuery("");
               setOpen(false);
             }
           }}
           onChange={event => {
-            setSearchQuery(event.target.value);
+            setQuery(event.target.value);
             setOpen(true);
           }}
         />
@@ -325,7 +333,7 @@ export function SearchableDropdown({
             title="Clear selection"
             onClick={() => {
               onChange("");
-              setSearchQuery("");
+              setQuery("");
               setOpen(false);
             }}
           >

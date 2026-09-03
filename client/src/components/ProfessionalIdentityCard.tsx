@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -16,9 +18,11 @@ import { BriefcaseBusiness, Loader2 } from "lucide-react";
 export function ProfessionalIdentityCard() {
   const { user } = useAuth();
   const utils = trpc.useUtils();
+  const providerProfileQuery = trpc.provider.getProfile.useQuery();
   const [cadre, setCadre] = useState("");
   const [cadreOther, setCadreOther] = useState("");
   const [customOther, setCustomOther] = useState("");
+  const [specialization, setSpecialization] = useState("");
   const [message, setMessage] = useState<{
     type: "ok" | "err";
     text: string;
@@ -38,6 +42,12 @@ export function ProfessionalIdentityCard() {
     );
   }, [user]);
 
+  useEffect(() => {
+    setSpecialization(providerProfileQuery.data?.specialization ?? "");
+  }, [providerProfileQuery.data?.specialization]);
+
+  const updateProviderProfile = trpc.provider.updateProfile.useMutation();
+
   const updateProfile = trpc.auth.updateMyProfile.useMutation({
     onSuccess: async () => {
       setMessage({ type: "ok", text: "Professional identity saved." });
@@ -47,7 +57,7 @@ export function ProfessionalIdentityCard() {
     onError: error => setMessage({ type: "err", text: error.message }),
   });
 
-  const save = () => {
+  const save = async () => {
     setMessage(null);
     const finalCadreOther = [
       "Other Staff",
@@ -61,13 +71,20 @@ export function ProfessionalIdentityCard() {
     const phone = user?.phone?.trim() ?? "";
     const phoneMode = phone.startsWith("+254") ? "ke" : "intl";
     const phoneValue = phone.startsWith("+254") ? phone.slice(4) : phone;
-    updateProfile.mutate({
-      name: user?.name?.trim() || "Provider",
-      phoneMode,
-      phoneValue,
-      cadre: cadre || null,
-      cadreOther: finalCadreOther || null,
-    });
+    try {
+      await updateProfile.mutateAsync({
+        name: user?.name?.trim() || "Provider",
+        phoneMode,
+        phoneValue,
+        cadre: cadre || null,
+        cadreOther: finalCadreOther || null,
+      });
+      await updateProviderProfile.mutateAsync({ specialization: specialization.trim() });
+      setMessage({ type: "ok", text: "Professional identity saved." });
+      await utils.provider.getProfile.invalidate();
+    } catch (error) {
+      setMessage({ type: "err", text: error instanceof Error ? error.message : "Could not save professional identity." });
+    }
   };
 
   return (
@@ -107,8 +124,18 @@ export function ProfessionalIdentityCard() {
             onSubSpecialtyChange={setCadreOther}
           />
         </div>
-        <Button type="button" onClick={save} disabled={updateProfile.isPending}>
-          {updateProfile.isPending ? (
+        <div className="space-y-2 rounded-lg border bg-background/70 p-3">
+          <Label htmlFor="professional-specialization">Specialization</Label>
+          <Input
+            id="professional-specialization"
+            value={specialization}
+            onChange={(event) => setSpecialization(event.target.value)}
+            placeholder="e.g. Paediatrics, Emergency Medicine, Neonatology"
+          />
+          <p className="text-xs text-muted-foreground">Add your main clinical or professional area. This is part of profile completion and can be changed later.</p>
+        </div>
+        <Button type="button" onClick={save} disabled={updateProfile.isPending || updateProviderProfile.isPending}>
+          {updateProfile.isPending || updateProviderProfile.isPending ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : null}
           Save professional identity

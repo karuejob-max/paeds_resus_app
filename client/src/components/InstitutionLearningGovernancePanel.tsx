@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import {
   CalendarPlus,
   UserPlus,
@@ -57,6 +58,29 @@ function sixMonthsFromToday() {
 }
 
 type LearningGovernanceMode = "all" | "sessions" | "people";
+type PresenterSearchPerson = {
+  id: number;
+  fullName: string;
+  email: string;
+  cadre: string | null;
+  cadreOther?: string | null;
+  department: string | null;
+  isInstitutionMember: boolean;
+};
+
+type QuizDraftQuestion = {
+  question: string;
+  questionType: "multiple_choice" | "true_false";
+  options: string[];
+  correctAnswer: string;
+};
+
+const emptyQuizQuestion = (): QuizDraftQuestion => ({
+  question: "",
+  questionType: "multiple_choice",
+  options: ["", ""],
+  correctAnswer: "",
+});
 
 export default function InstitutionLearningGovernancePanel({
   institutionId,
@@ -77,8 +101,13 @@ export default function InstitutionLearningGovernancePanel({
   const [audienceScope, setAudienceScope] = useState("facility_wide");
   const [audienceLabel, setAudienceLabel] = useState("");
   const [presenterUserId, setPresenterUserId] = useState("");
+  const [presenterSearch, setPresenterSearch] = useState("");
+  const [presenterCache, setPresenterCache] = useState<PresenterSearchPerson[]>([]);
   const [cpdPoints, setCpdPoints] = useState("1");
   const [coPresenters, setCoPresenters] = useState<Array<{ userId: string }>>([]);
+  const [quizEnabled, setQuizEnabled] = useState(false);
+  const [quizPassingScore, setQuizPassingScore] = useState("80");
+  const [quizQuestions, setQuizQuestions] = useState<QuizDraftQuestion[]>([emptyQuizQuestion()]);
   const [targetScope, setTargetScope] = useState<
     "facility" | "department" | "individual"
   >("facility");
@@ -113,6 +142,27 @@ export default function InstitutionLearningGovernancePanel({
     { institutionId, departmentId: participantDepartmentId },
     { staleTime: 30_000 }
   );
+  const { data: presenterMatches = [] } = trpc.cpd.searchPresenters.useQuery(
+    { institutionId, query: presenterSearch.trim() },
+    { enabled: presenterSearch.trim().length >= 1, staleTime: 15_000 },
+  );
+  useEffect(() => {
+    if (!presenterMatches.length) return;
+    setPresenterCache(current => {
+      const merged = new Map<number, PresenterSearchPerson>(current.map(person => [person.id, person]));
+      presenterMatches.forEach(person => merged.set(person.id, person));
+      return Array.from(merged.values());
+    });
+  }, [presenterMatches]);
+  const searchablePresenters = [...presenterCache, ...presenterMatches].filter((person, index, all) => all.findIndex(candidate => candidate.id === person.id) === index);
+  const presenterOptions = searchablePresenters
+    .filter(person => person.id != null)
+    .map(person => ({
+      value: String(person.id),
+      label: `${person.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member"} · ${person.fullName} · ${person.department ?? "Department not set"} · ${person.cadre ?? "Cadre not set"} · ${person.email || "No email"}`,
+      person,
+    }));
+  const selectedPresenter = presenterOptions.find(option => option.value === presenterUserId)?.person;
   const { data: targetStaff = [] } = trpc.institutionLearning.listDepartmentStaff.useQuery(
     {
       institutionId,
@@ -150,15 +200,14 @@ export default function InstitutionLearningGovernancePanel({
     const email = person.staffEmail ?? "No email";
     return `${person.staffName} · ${department} · ${cadre} · ${email}`;
   };
-  const memberOptions = staff
-    .filter(person => person.userId != null)
-    .map(person => ({ value: String(person.userId), label: memberLabel(person) }));
-  const selectedPresenter = staff.find(
-    person => person.userId === Number(presenterUserId)
-  );
-  const coPresenterOptions = staff.filter(
-    person => person.userId !== Number(presenterUserId)
-  );
+  const coPresenterOptions = searchablePresenters
+      .filter(person => person.id !== Number(presenterUserId))
+      .filter(person => person.id != null)
+      .map(person => ({
+        value: String(person.id),
+        label: `${person.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member"} · ${person.fullName} · ${person.department ?? "Department not set"} · ${person.cadre ?? "Cadre not set"} · ${person.email || "No email"}`,
+        person,
+      }));
 
   const invalidateLearning = async () => {
     await Promise.all([
@@ -205,6 +254,9 @@ export default function InstitutionLearningGovernancePanel({
       setPresenterUserId("");
       setAudienceLabel("");
       setCoPresenters([]);
+      setQuizEnabled(false);
+      setQuizPassingScore("80");
+      setQuizQuestions([emptyQuizQuestion()]);
       await Promise.all([
         invalidateLearning(),
         utils.cpd.listEvents.invalidate({ institutionId }),
@@ -213,6 +265,7 @@ export default function InstitutionLearningGovernancePanel({
     },
     onError: error => toast.error(error.message),
   });
+  const createEventQuiz = trpc.cpd.createEventQuiz.useMutation();
   const saveTarget = trpc.institutionLearning.saveTarget.useMutation({
     onSuccess: async () => {
       toast.success("Learning target saved");
@@ -229,7 +282,7 @@ export default function InstitutionLearningGovernancePanel({
     onError: error => toast.error(error.message),
   });
 
-  const submitSession = () => {
+  const submitSession = async () => {
     if (!presenterUserId) {
       toast.error("Choose a lead presenter from the active institution-member list.");
       return;
@@ -238,23 +291,52 @@ export default function InstitutionLearningGovernancePanel({
       .map(presenter => presenter.userId)
       .filter(Boolean)
       .map(userId => ({ userId: Number(userId) }));
-    createSession.mutate({
-      institutionId,
-      name: sessionName,
-      eventDate: sessionDate,
-      eventDateAt: sessionDate,
-      eventType: eventType as any,
-      audienceScope: audienceScope as any,
-      audienceLabel: audienceLabel.trim() || null,
-      facilityDepartmentId: sessionDepartmentId
-        ? Number(sessionDepartmentId)
-        : null,
-      presenterUserId: Number(presenterUserId),
-      cpdPoints: cpdPoints ? Number(cpdPoints) : null,
-      approvingCouncil: null,
-      coPresenters: selectedCoPresenters,
-    });
+    try {
+      const created = await createSession.mutateAsync({
+        institutionId,
+        name: sessionName,
+        eventDate: sessionDate,
+        eventDateAt: sessionDate,
+        eventType: eventType as any,
+        audienceScope: audienceScope as any,
+        audienceLabel: audienceLabel.trim() || null,
+        facilityDepartmentId: sessionDepartmentId
+          ? Number(sessionDepartmentId)
+          : null,
+        presenterUserId: Number(presenterUserId),
+        cpdPoints: cpdPoints ? Number(cpdPoints) : null,
+        approvingCouncil: null,
+        coPresenters: selectedCoPresenters,
+      });
+      if (quizEnabled) {
+        await createEventQuiz.mutateAsync({
+          institutionId,
+          eventId: created.eventId,
+          passingScore: Number(quizPassingScore),
+          isRequired: true,
+          questions: quizQuestions.map(question => ({
+            ...question,
+            options: question.questionType === "true_false" ? ["true", "false"] : question.options.filter(Boolean),
+          })),
+        });
+        toast.success("CPD session and required quiz created.");
+      }
+    } catch (error) {
+      toast.error((error as Error).message || "CPD session creation failed.");
+    }
   };
+  const quizIsValid = !quizEnabled || (
+    quizQuestions.length > 0 &&
+    quizQuestions.every(question =>
+      question.question.trim().length >= 3 &&
+      question.correctAnswer.trim().length > 0 &&
+      (question.questionType === "true_false"
+        ? ["true", "false"].includes(question.correctAnswer.trim().toLowerCase())
+        : question.options.filter(option => option.trim()).length >= 2 &&
+          question.options.some(option => option.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase()))
+    )
+  );
+
   const submitTarget = () => {
     saveTarget.mutate({
       institutionId,
@@ -471,22 +553,23 @@ export default function InstitutionLearningGovernancePanel({
                 </select>
               </Field>
             )}
-            <Field label="Lead presenter (institution member)">
+            <Field label="Lead presenter">
               <SearchableDropdown
                 value={presenterUserId}
                 onChange={setPresenterUserId}
-                options={memberOptions}
-                placeholder="Type to search presenter"
-                searchPlaceholder="Search name, department, cadre, or email..."
-                emptyText="No active institution member found."
+                options={presenterOptions.map(({ value, label }) => ({ value, label }))}
+                onSearchChange={setPresenterSearch}
+                placeholder="Type to search any Paeds Resus account"
+                searchPlaceholder="Search name or email..."
+                emptyText="No matching Paeds Resus account found."
                 clearable
               />
               {selectedPresenter ? (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Selected: {memberLabel(selectedPresenter)}
+                  Selected: {selectedPresenter.fullName} · {selectedPresenter.isInstitutionMember ? "Institution member" : "Platform account; profile will not be changed"}
                 </p>
               ) : (
-                <p className="mt-1 text-xs text-muted-foreground">Type a name, then choose the correct department/cadre match.</p>
+                <p className="mt-1 text-xs text-muted-foreground">Institution members appear first. Platform accounts outside this institution are labelled clearly.</p>
               )}
             </Field>
             <Field label="CPD points">
@@ -540,12 +623,12 @@ export default function InstitutionLearningGovernancePanel({
                 coPresenters.map(row => Number(row.userId)).filter(Boolean)
               );
               const availableCoPresenters = coPresenterOptions.filter(
-                person =>
-                  person.userId === Number(presenter.userId) ||
-                  !selectedCoPresenterIds.has(person.userId)
+                option =>
+                  option.value === presenter.userId ||
+                  !selectedCoPresenterIds.has(Number(option.value))
               );
               const selectedCoPresenter = coPresenterOptions.find(
-                person => person.userId === Number(presenter.userId)
+                option => option.value === presenter.userId
               );
               return (
                 <div
@@ -560,17 +643,18 @@ export default function InstitutionLearningGovernancePanel({
                           rows.map((row, rowIndex) => rowIndex === index ? { userId: value } : row)
                         )
                       }
-                      options={availableCoPresenters
-                        .filter(person => person.userId != null)
-                        .map(person => ({ value: String(person.userId), label: memberLabel(person) }))}
+                      options={coPresenterOptions
+                        .filter(option => option.value === presenter.userId || !selectedCoPresenterIds.has(Number(option.value)))
+                        .map(({ value, label }) => ({ value, label }))}
+                      onSearchChange={setPresenterSearch}
                       placeholder="Type to search co-presenter"
-                      searchPlaceholder="Search name, department, cadre, or email..."
-                      emptyText="No available institution member found."
+                      searchPlaceholder="Search name or email..."
+                      emptyText="No matching Paeds Resus account found."
                       clearable
                     />
                     {selectedCoPresenter ? (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Selected: {memberLabel(selectedCoPresenter)}
+                        Selected: {selectedCoPresenter.label}
                       </p>
                     ) : null}
                   </div>
@@ -591,6 +675,109 @@ export default function InstitutionLearningGovernancePanel({
               );
             })}
           </div>
+          <div className="space-y-4 rounded-lg border border-amber-200 bg-amber-50/30 p-4">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-medium">Session quiz (optional)</p>
+                <p className="text-xs text-muted-foreground">
+                  If enabled, attendees must pass this quiz before attendance can be verified and CPD points can count. They may retry after a failed attempt.
+                </p>
+              </div>
+              <label className="flex shrink-0 items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={quizEnabled}
+                  onChange={event => setQuizEnabled(event.target.checked)}
+                />
+                Add required quiz
+              </label>
+            </div>
+            {quizEnabled && (
+              <div className="space-y-3">
+                <Field label="Passing score (%)">
+                  <input
+                    className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={quizPassingScore}
+                    onChange={event => setQuizPassingScore(event.target.value)}
+                  />
+                </Field>
+                {quizQuestions.map((question, questionIndex) => (
+                  <div key={questionIndex} className="space-y-3 rounded-md border bg-background p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium">Question {questionIndex + 1}</p>
+                      {quizQuestions.length > 1 && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setQuizQuestions(current => current.filter((_, index) => index !== questionIndex))}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <input
+                      className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
+                      value={question.question}
+                      onChange={event => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? { ...item, question: event.target.value } : item))}
+                      placeholder="Enter the question"
+                    />
+                    <select
+                      className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
+                      value={question.questionType}
+                      onChange={event => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? {
+                        ...item,
+                        questionType: event.target.value as QuizDraftQuestion["questionType"],
+                        options: event.target.value === "true_false" ? ["true", "false"] : item.options.length >= 2 ? item.options : ["", ""],
+                        correctAnswer: event.target.value === "true_false" ? "true" : item.correctAnswer,
+                      } : item))}
+                    >
+                      <option value="multiple_choice">Multiple choice</option>
+                      <option value="true_false">True / false</option>
+                    </select>
+                    {question.questionType === "multiple_choice" && (
+                      <div className="space-y-2">
+                        {question.options.map((option, optionIndex) => (
+                          <div key={optionIndex} className="flex min-w-0 gap-2">
+                            <input
+                              className="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
+                              value={option}
+                              onChange={event => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? {
+                                ...item,
+                                options: item.options.map((value, candidateIndex) => candidateIndex === optionIndex ? event.target.value : value),
+                              } : item))}
+                              placeholder={`Answer option ${optionIndex + 1}`}
+                            />
+                            {question.options.length > 2 && (
+                              <Button type="button" size="icon" variant="ghost" onClick={() => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? { ...item, options: item.options.filter((_, candidateIndex) => candidateIndex !== optionIndex) } : item))} aria-label={`Remove answer option ${optionIndex + 1}`}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <Button type="button" size="sm" variant="outline" onClick={() => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? { ...item, options: [...item.options, ""] } : item))}>
+                          Add answer option
+                        </Button>
+                      </div>
+                    )}
+                    <input
+                      className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
+                      value={question.correctAnswer}
+                      onChange={event => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? { ...item, correctAnswer: event.target.value } : item))}
+                      placeholder={question.questionType === "true_false" ? "true or false" : "Exact correct answer"}
+                    />
+                  </div>
+                ))}
+                <Button type="button" size="sm" variant="outline" onClick={() => setQuizQuestions(current => [...current, emptyQuizQuestion()])}>
+                  Add question
+                </Button>
+                {!quizIsValid && <p className="text-xs text-amber-800">Complete every question, include at least two options, and enter the exact correct answer before creating the session.</p>}
+              </div>
+            )}
+          </div>
           <Button
             onClick={submitSession}
             disabled={
@@ -598,7 +785,9 @@ export default function InstitutionLearningGovernancePanel({
               !sessionDate ||
               !presenterUserId ||
               (audienceScope === "other_cadre" && !audienceLabel) ||
-              createSession.isPending
+              !quizIsValid ||
+              createSession.isPending ||
+              createEventQuiz.isPending
             }
           >
             <CalendarPlus className="mr-2 h-4 w-4" />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CANONICAL_CLINICAL_DEPARTMENTS, GLOBAL_DEPARTMENTS, findMatchingCanonicalDepartments, normalizeDepartmentString } from "./clinical-departments";
+import { CANONICAL_CLINICAL_DEPARTMENTS, GLOBAL_DEPARTMENTS, findMatchingCanonicalDepartments, normalizeDepartmentString, parseDepartmentString } from "./clinical-departments";
 
 describe("clinical-departments matching and normalization", () => {
   describe("findMatchingCanonicalDepartments", () => {
@@ -42,6 +42,25 @@ describe("clinical-departments matching and normalization", () => {
     it("includes Theatre under Surgery in both department catalogs", () => {
       expect(GLOBAL_DEPARTMENTS.find((department) => department.name === "Surgery")?.subs).toContain("Theatre");
       expect(CANONICAL_CLINICAL_DEPARTMENTS.some((department) => department.id === "theatre" && department.name === "Theatre")).toBe(true);
+    });
+
+    it("includes common hospital departments as first-class top-level options", () => {
+      expect(GLOBAL_DEPARTMENTS.map((department) => department.name)).toEqual(expect.arrayContaining([
+        "Emergency Medicine",
+        "Anaesthesia and Critical Care Support",
+        "Pharmacy",
+        "Laboratory",
+        "Radiology and Imaging",
+      ]));
+    });
+
+    it("preserves legacy OPD emergency department values", () => {
+      expect(parseDepartmentString("Out Patient Department: Accident and Emergency / Casualty")).toEqual({
+        parent: "Out Patient Department",
+        sub: "Accident and Emergency / Casualty",
+        isCustomParent: false,
+        isCustomSub: false,
+      });
     });
   });
 

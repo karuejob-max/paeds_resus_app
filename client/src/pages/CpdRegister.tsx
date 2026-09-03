@@ -80,6 +80,88 @@ const registrationSchema = z
 
 type RegistrationValues = z.infer<typeof registrationSchema>;
 
+type CpdRegistrationQuiz = {
+  id: number;
+  passingScore: number;
+  isRequired: boolean;
+  questions: Array<{
+    id: number;
+    question: string;
+    questionType: "multiple_choice" | "true_false";
+    options: string[];
+  }>;
+  bestAttempt: { score: number; passed: boolean } | null;
+};
+
+function CpdQuizStep({
+  quiz,
+  attendeeId,
+  onPassed,
+}: {
+  quiz: CpdRegistrationQuiz;
+  attendeeId: number;
+  onPassed: () => void;
+}) {
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [result, setResult] = useState<{ score: number; passed: boolean } | null>(null);
+  const submitQuiz = trpc.cpd.submitQuizAttempt.useMutation({
+    onSuccess: response => {
+      setResult({ score: response.score, passed: response.passed });
+      if (response.passed) onPassed();
+    },
+  });
+  const answeredAll = quiz.questions.every(question => answers[String(question.id)]);
+
+  if (result?.passed) {
+    return (
+      <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-left text-sm text-emerald-900">
+        <p className="font-semibold">Quiz passed — {result.score}%</p>
+        <p className="mt-1 text-xs">Your attendance can now be checked in and sent for coordinator verification.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/60 p-4 text-left">
+      <p className="font-semibold text-amber-950">Required session quiz</p>
+      <p className="mt-1 text-xs leading-relaxed text-amber-900/80">
+        Pass with at least {quiz.passingScore}% before attendance can be verified and CPD points can count. You may retry if you do not pass.
+      </p>
+      {result && !result.passed ? (
+        <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-800">Attempt score: {result.score}%. Please review and try again.</p>
+      ) : null}
+      <div className="mt-4 space-y-4">
+        {quiz.questions.map((question, index) => (
+          <div key={question.id} className="rounded-md border bg-background p-3">
+            <p className="text-sm font-medium">{index + 1}. {question.question}</p>
+            <RadioGroup
+              value={answers[String(question.id)] ?? ""}
+              onValueChange={value => setAnswers(current => ({ ...current, [String(question.id)]: value }))}
+              className="mt-2 space-y-2"
+            >
+              {question.options.map(option => (
+                <label key={option} className="flex cursor-pointer items-center gap-2 text-sm">
+                  <RadioGroupItem value={option} />
+                  <span>{option}</span>
+                </label>
+              ))}
+            </RadioGroup>
+          </div>
+        ))}
+      </div>
+      <Button
+        type="button"
+        className="mt-4 w-full"
+        disabled={!answeredAll || submitQuiz.isPending}
+        onClick={() => submitQuiz.mutate({ attendeeId, cpdEventQuizId: quiz.id, answers })}
+      >
+        {submitQuiz.isPending ? "Scoring quiz…" : result ? "Retry quiz" : "Submit quiz"}
+      </Button>
+      {submitQuiz.error ? <p className="mt-2 text-xs text-red-700">{submitQuiz.error.message}</p> : null}
+    </div>
+  );
+}
+
 export default function CpdRegister() {
   const params = useParams();
   const institutionId = Number(params.institutionId);
@@ -89,6 +171,7 @@ export default function CpdRegister() {
   const { toast } = useToast();
   const [submitted, setSubmitted] = useState(false);
   const [checkedIn, setCheckedIn] = useState(false);
+  const [quizPassed, setQuizPassed] = useState(false);
   const { user, loading: authLoading, sessionSettled } = useAuth();
 
   const currentEventQuery = trpc.cpd.currentEvent.useQuery(
@@ -268,6 +351,9 @@ export default function CpdRegister() {
 
   const event = currentEventQuery.data?.event ?? null;
   const existingAttendee = currentEventQuery.data?.myAttendee ?? null;
+  const eventQuiz = (currentEventQuery.data?.quiz ?? null) as CpdRegistrationQuiz | null;
+  const requiredQuiz = eventQuiz?.isRequired && eventQuiz.questions.length > 0 ? eventQuiz : null;
+  const hasPassedQuiz = !requiredQuiz || quizPassed || Boolean(requiredQuiz.bestAttempt?.passed);
 
   return (
     <div className="mx-auto max-w-md px-4 py-8">
@@ -295,7 +381,13 @@ export default function CpdRegister() {
                 coordinator will verify attendance before a certificate can be issued.
               </p>
               {submitMutation.data?.attendeeId && submitMutation.data?.eventId ? (
-                checkedIn ? (
+                !hasPassedQuiz && requiredQuiz ? (
+                  <CpdQuizStep
+                    quiz={requiredQuiz}
+                    attendeeId={submitMutation.data.attendeeId}
+                    onPassed={() => setQuizPassed(true)}
+                  />
+                ) : checkedIn ? (
                   <p className="mt-4 rounded-md bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-800">
                     Check-in recorded. Your coordinator must verify attendance before CPD points or a certificate are issued.
                   </p>
@@ -362,6 +454,12 @@ export default function CpdRegister() {
                     <p className="mt-3 text-xs text-muted-foreground">Attendance has been verified. Your CPD certificate will be available after issuance.</p>
                   ) : existingAttendee.attendanceStatus === "cancelled" || existingAttendee.attendanceStatus === "excused" ? (
                     <p className="mt-3 text-xs text-muted-foreground">This attendance record is not eligible for CPD points or a certificate.</p>
+                  ) : !hasPassedQuiz && requiredQuiz ? (
+                    <CpdQuizStep
+                      quiz={requiredQuiz}
+                      attendeeId={existingAttendee.attendeeId}
+                      onPassed={() => setQuizPassed(true)}
+                    />
                   ) : (
                     <Button
                       type="button"
