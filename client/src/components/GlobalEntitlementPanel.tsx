@@ -47,6 +47,8 @@ export default function GlobalEntitlementPanel() {
   const [reason, setReason] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [maxRedemptions, setMaxRedemptions] = useState("1");
+  const [shareable, setShareable] = useState(false);
+  const [issuedCode, setIssuedCode] = useState<string | null>(null);
 
   const isInstitutionTarget = programType === "paeds_resus_ils";
   const usersQuery = trpc.adminEntitlements.searchUsers.useQuery(
@@ -63,7 +65,8 @@ export default function GlobalEntitlementPanel() {
       enabled: programType === "self_pay",
     });
   const createMutation = trpc.adminEntitlements.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (result) => {
+      setIssuedCode(result.accessCode ?? null);
       setTargetQuery("");
       setTargetUserId(null);
       setTargetInstitutionalAccountId(null);
@@ -81,9 +84,11 @@ export default function GlobalEntitlementPanel() {
   const selectedInstitution = institutionsQuery.data?.find(
     institution => institution.id === targetInstitutionalAccountId
   );
-  const targetReady = isInstitutionTarget
-    ? targetInstitutionalAccountId != null
-    : targetUserId != null;
+  const targetReady = shareable && programType === "self_pay"
+    ? true
+    : isInstitutionTarget
+      ? targetInstitutionalAccountId != null
+      : targetUserId != null;
   const discount =
     benefitType === "percentage_discount" ? Number(discountPercent) : 100;
   const validDiscount =
@@ -133,10 +138,9 @@ export default function GlobalEntitlementPanel() {
     if (!canSubmit) return;
     createMutation.mutate({
       programType,
-      targetUserId: isInstitutionTarget ? null : targetUserId,
-      targetInstitutionalAccountId: isInstitutionTarget
-        ? targetInstitutionalAccountId
-        : null,
+      targetUserId: shareable || isInstitutionTarget ? null : targetUserId,
+      targetInstitutionalAccountId:
+        shareable || !isInstitutionTarget ? null : targetInstitutionalAccountId,
       selfPayCourseId:
         programType === "self_pay" ? selfPayCourseId.trim() : null,
       benefitType,
@@ -144,6 +148,7 @@ export default function GlobalEntitlementPanel() {
       reason: reason.trim(),
       expiresAt,
       maxRedemptions: Number(maxRedemptions),
+      shareable,
     });
   };
 
@@ -280,6 +285,30 @@ export default function GlobalEntitlementPanel() {
                 Select the published catalogue course. The course ID is copied
                 into the grant automatically.
               </p>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={shareable}
+                  onChange={event => {
+                    setShareable(event.target.checked);
+                    if (event.target.checked) resetTarget();
+                  }}
+                />
+                Issue a shareable learner access code
+              </label>
+              {shareable ? (
+                <p className="text-xs leading-5 text-muted-foreground">
+                  The plaintext code is shown once after creation. Send it only
+                  to the intended learner.
+                </p>
+              ) : null}
+              {issuedCode ? (
+                <div className="rounded-md border border-green-300 bg-green-50 px-3 py-3 text-sm text-green-950">
+                  <p className="font-semibold">Access code — copy now</p>
+                  <code className="mt-1 block text-base tracking-wider">{issuedCode}</code>
+                  <p className="mt-1 text-xs">This code will not be shown again.</p>
+                </div>
+              ) : null}
               {selectedSelfPayCourse ? (
                 <div className="flex items-start justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
                   <div className="min-w-0">

@@ -363,6 +363,9 @@ export const globalEntitlements = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     grantReference: varchar("grantReference", { length: 64 }).notNull().unique(),
+    /** One-way hash of a shareable redemption code; plaintext is never persisted. */
+    accessCodeHash: varchar("accessCodeHash", { length: 64 }).unique(),
+    accessCodePrefix: varchar("accessCodePrefix", { length: 12 }),
     targetUserId: int("targetUserId"),
     targetInstitutionalAccountId: int("targetInstitutionalAccountId"),
     programType: mysqlEnum("programType", ["ierp", "nerp", "paeds_resus_ils", "self_pay"]).notNull(),
