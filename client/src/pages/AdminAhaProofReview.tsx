@@ -176,6 +176,7 @@ function IerpReviewRow({
   };
   const program = rows[0];
   const hasBoth = new Set(rows.map(row => row.documentType)).size === 2;
+  const verified = rows.length > 0 && rows.every(row => row.status === "verified");
   const rejected = rows.some(row => row.status === "rejected");
   return (
     <Card className="border-slate-200">
@@ -190,8 +191,8 @@ function IerpReviewRow({
               {program.programEnrollmentId}
             </CardDescription>
           </div>
-          <Badge variant={rejected ? "destructive" : "secondary"}>
-            {rejected ? "Rejected" : "Pending review"}
+          <Badge className={verified ? "bg-emerald-100 text-emerald-800" : undefined} variant={verified ? "default" : rejected ? "destructive" : "secondary"}>
+            {verified ? "Verified" : rejected ? "Rejected" : "Pending review"}
           </Badge>
         </div>
       </CardHeader>
@@ -222,13 +223,13 @@ function IerpReviewRow({
             Both IERP Phase 1 certificates are required before approval.
           </p>
         )}
-        <Textarea
+        {!verified && <Textarea
           value={reason}
           onChange={event => setReason(event.target.value)}
           placeholder="Review reason. Required for rejection and recommended for approval."
           maxLength={1000}
-        />
-        <div className="flex flex-wrap gap-2">
+        />}
+        {!verified && <div className="flex flex-wrap gap-2">
           <Button
             disabled={review.isPending || !hasBoth}
             onClick={() =>
@@ -254,7 +255,7 @@ function IerpReviewRow({
           >
             <XCircle className="mr-2 h-4 w-4" /> Reject with reason
           </Button>
-        </div>
+        </div>}
       </CardContent>
     </Card>
   );
@@ -277,6 +278,10 @@ export default function AdminAhaProofReview() {
       return groups;
     }, {})
   );
+  const pendingAhaRows = (queue.data ?? []).filter(row => !row.verifiedAt);
+  const verifiedAhaRows = (queue.data ?? []).filter(row => Boolean(row.verifiedAt));
+  const pendingIerpGroups = ierpGroups.filter(rows => !rows.every(row => row.status === "verified"));
+  const verifiedIerpGroups = ierpGroups.filter(rows => rows.every(row => row.status === "verified"));
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
@@ -315,12 +320,12 @@ export default function AdminAhaProofReview() {
         </p>
       )}
       <h2 className="pt-4 text-lg font-semibold">
-        NERP and independent AHA proof
+        NERP and independent AHA proof — needs review
       </h2>
       {!queue.isLoading &&
         !queue.error &&
-        (queue.data?.length ? (
-          queue.data.map(row => (
+        (pendingAhaRows.length ? (
+          pendingAhaRows.map(row => (
             <ReviewRow
               key={row.enrollmentId}
               row={row}
@@ -332,7 +337,7 @@ export default function AdminAhaProofReview() {
             No submitted certificates match this search.
           </p>
         ))}
-      <h2 className="pt-4 text-lg font-semibold">IERP Phase 1 evidence</h2>
+      <h2 className="pt-4 text-lg font-semibold">IERP Phase 1 evidence — needs review</h2>
       {ierpQueue.error && (
         <p className="rounded-md bg-red-50 p-3 text-sm text-red-800">
           {ierpQueue.error.message}
@@ -340,8 +345,8 @@ export default function AdminAhaProofReview() {
       )}
       {!ierpQueue.isLoading &&
         !ierpQueue.error &&
-        (ierpGroups.length ? (
-          ierpGroups.map(rows => (
+        (pendingIerpGroups.length ? (
+          pendingIerpGroups.map(rows => (
             <IerpReviewRow
               key={rows[0].programEnrollmentId}
               rows={rows}
@@ -350,9 +355,19 @@ export default function AdminAhaProofReview() {
           ))
         ) : (
           <p className="text-sm text-slate-600">
-            No submitted IERP Phase 1 evidence matches this search.
+            No submitted IERP Phase 1 evidence needs review.
           </p>
         ))}
+      <h2 className="pt-6 text-lg font-semibold text-emerald-800">Verified evidence</h2>
+      {!queue.isLoading && !queue.error && verifiedAhaRows.map(row => (
+        <ReviewRow key={row.enrollmentId} row={row} onRefresh={() => queue.refetch()} />
+      ))}
+      {!ierpQueue.isLoading && !ierpQueue.error && verifiedIerpGroups.map(rows => (
+        <IerpReviewRow key={rows[0].programEnrollmentId} rows={rows} onRefresh={() => ierpQueue.refetch()} />
+      ))}
+      {!queue.isLoading && !ierpQueue.isLoading && verifiedAhaRows.length === 0 && verifiedIerpGroups.length === 0 && (
+        <p className="text-sm text-slate-600">No verified evidence matches this search yet.</p>
+      )}
     </div>
   );
 }
