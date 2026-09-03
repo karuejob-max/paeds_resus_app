@@ -22,6 +22,7 @@ import {
 } from "../lib/ierp-program-state";
 import { getPaedsResusCertificateStatusForUser } from "../lib/paeds-resus-certificate-issuance";
 import { isMissingTableError } from "../lib/is-missing-db-table";
+import { notifyIerpPhase1Decision } from "../lib/cohort-program-notifications";
 import { consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
 
 function parseDateOnly(value: string) {
@@ -432,6 +433,7 @@ export const ierpRouter = router({
       }
       await db.update(ierpPhase1Evidence).set({ status: input.approve ? "verified" : "rejected", reviewedByUserId: ctx.user.id, reviewedAt: new Date(), reviewReason: input.reviewReason ?? null, updatedAt: new Date() }).where(eq(ierpPhase1Evidence.programEnrollmentId, input.programEnrollmentId));
       await db.update(ierpProgramEnrollments).set({ phase1Status: input.approve ? "verified" : "rejected", phaseStatus: input.approve ? "phase_2" : "phase_1", phase1VerifiedAt: input.approve ? new Date() : null, updatedAt: new Date() }).where(eq(ierpProgramEnrollments.id, input.programEnrollmentId));
+      void notifyIerpPhase1Decision(db, input.programEnrollmentId, input.approve ? "verified" : "rejected", input.reviewReason);
       return { success: true as const, approved: input.approve };
     }),
 

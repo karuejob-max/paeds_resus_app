@@ -596,6 +596,50 @@ export const emailTemplates: Record<string, EmailTemplate> = {
     variables: ["claimantName", "outcomeHeading", "outcomeBody", "dashboardUrl"],
   },
 
+  ahaElearningProofApproved: {
+    id: "aha-elearning-proof-approved",
+    name: "AHA eLearning proof approved",
+    subject: "AHA eLearning evidence approved — continue to Phase 2",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #1a4d4d 0%, #0d3333 100%); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 20px;">AHA evidence approved</h1>
+        </div>
+        <div style="padding: 24px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Hello {{learnerName}},</p>
+          <p>Your AHA Video Precourse Work and Precourse Self-Assessment certificates have been reviewed and approved. Your Phase 2 online simulation booking is now available, subject to any remaining programme requirements.</p>
+          <div style="text-align: center; margin: 24px 0;"><a href="{{dashboardUrl}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Continue to Phase 2</a></div>
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+        </div>
+      </div>
+    `,
+    text: `Hello {{learnerName}},\n\nYour AHA Video Precourse Work and Precourse Self-Assessment certificates have been approved. Your Phase 2 online simulation booking is now available, subject to any remaining programme requirements.\n\nContinue to Phase 2: {{dashboardUrl}}\n\nPaeds Resus Limited`,
+    variables: ["learnerName", "dashboardUrl"],
+  },
+
+  ahaElearningProofRejected: {
+    id: "aha-elearning-proof-rejected",
+    name: "AHA eLearning proof rejected",
+    subject: "Action needed: update your AHA eLearning evidence",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 20px;">Action needed on your AHA evidence</h1>
+        </div>
+        <div style="padding: 24px; background: #f9f9f9; border-radius: 0 0 8px 8px;">
+          <p>Hello {{learnerName}},</p>
+          <p>Your AHA eLearning evidence was reviewed but could not be approved yet.</p>
+          <p style="padding: 14px; background: white; border-left: 4px solid #991b1b;"><strong>Reviewer reason:</strong><br>{{rejectionReason}}</p>
+          <p>Please correct the evidence and submit both certificates again. Phase 2 booking remains locked until the replacement evidence is reviewed and approved.</p>
+          <div style="text-align: center; margin: 24px 0;"><a href="{{dashboardUrl}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Review and resubmit</a></div>
+          <p style="font-size: 12px; color: #666;">Paeds Resus Limited</p>
+        </div>
+      </div>
+    `,
+    text: `Hello {{learnerName}},\n\nYour AHA eLearning evidence was reviewed but could not be approved yet.\n\nReviewer reason: {{rejectionReason}}\n\nCorrect the evidence and submit both certificates again. Phase 2 booking remains locked until approval.\n\nReview and resubmit: {{dashboardUrl}}\n\nPaeds Resus Limited`,
+    variables: ["learnerName", "rejectionReason", "dashboardUrl"],
+  },
+
   blsCourseContentUpdated: {
     id: "bls-course-content-updated",
     name: "BLS course restructured: First Aid modules removed, affected progress reset",
