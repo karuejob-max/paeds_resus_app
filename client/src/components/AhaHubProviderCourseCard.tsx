@@ -1,9 +1,13 @@
 import { memo, type ReactNode } from "react";
+import { useState } from "react";
 import { CheckCircle2, Award } from "lucide-react";
 import type { AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AhaHubCourseCard } from "@/components/AhaHubCourseCard";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 import type { AhaHubEnrollmentRow } from "@/lib/pick-aha-hub-enrollment";
 
 type AhaHubProviderCourseCardProps = {
@@ -29,6 +33,16 @@ export const AhaHubProviderCourseCard = memo(function AhaHubProviderCourseCard({
   onViewCertificates,
 }: AhaHubProviderCourseCardProps) {
   const isEnrolled = !!enrollment;
+  const [accessCode, setAccessCode] = useState("");
+  const utils = trpc.useUtils();
+  const redeemMutation = trpc.enrollment.redeemAhaAccessCode.useMutation({
+    onSuccess: async result => {
+      toast.success("Access granted", { description: result.message });
+      setAccessCode("");
+      await utils.courses.getAhaHubDashboard.invalidate();
+    },
+    onError: error => toast.error("Access code could not be redeemed", { description: error.message }),
+  });
   const cognitiveComplete = enrollment?.cognitiveModulesComplete ?? false;
   const practicalSignedOff = enrollment?.practicalSkillsSignedOff ?? false;
   const certIssued = cognitiveComplete && practicalSignedOff;
@@ -83,9 +97,37 @@ export const AhaHubProviderCourseCard = memo(function AhaHubProviderCourseCard({
         </Button>
       )}
       {!isEnrolled && (
-        <Button size="sm" className="w-full" onClick={() => onEnroll(programType)}>
-          Start enrollment
-        </Button>
+        <>
+          <Button size="sm" className="w-full" onClick={() => onEnroll(programType)}>
+            Start enrollment
+          </Button>
+          <div className="rounded-md border border-dashed p-2">
+            <p className="mb-1 text-xs text-muted-foreground">Have a Paeds Resus access code?</p>
+            <div className="flex gap-2">
+              <Input
+                aria-label={`Access code for ${programType.toUpperCase()}`}
+                placeholder="PAEDS-XXXXXXXXXX"
+                value={accessCode}
+                onChange={event => setAccessCode(event.target.value.toUpperCase())}
+                className="h-9 text-xs"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9 shrink-0"
+                disabled={redeemMutation.isPending || accessCode.trim().length < 8}
+                onClick={() => {
+                  if (["bls", "acls", "pals", "heartsaver"].includes(programType)) {
+                    redeemMutation.mutate({ programType: programType as "bls" | "acls" | "pals" | "heartsaver", accessCode: accessCode.trim() });
+                  }
+                }}
+              >
+                {redeemMutation.isPending ? "…" : "Redeem"}
+              </Button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -10,6 +10,10 @@ export const GLOBAL_ENTITLEMENT_PROGRAM_TYPES = [
   "nerp",
   "paeds_resus_ils",
   "self_pay",
+  "bls",
+  "acls",
+  "pals",
+  "heartsaver",
 ] as const;
 export type GlobalEntitlementProgramType =
   (typeof GLOBAL_ENTITLEMENT_PROGRAM_TYPES)[number];
@@ -205,6 +209,7 @@ export async function findActiveShareableEntitlement(
   db: any,
   code: string,
   selfPayCourseId: string,
+  programType: GlobalEntitlementProgramType = "self_pay",
   now: Date = new Date()
 ) {
   const [row] = await db
@@ -213,7 +218,7 @@ export async function findActiveShareableEntitlement(
     .where(
       and(
         eq(globalEntitlements.accessCodeHash, hashAccessCode(code)),
-        eq(globalEntitlements.programType, "self_pay"),
+        eq(globalEntitlements.programType, programType),
         eq(globalEntitlements.selfPayCourseId, selfPayCourseId),
         eq(globalEntitlements.status, "active"),
         gt(globalEntitlements.expiresAt, now),
