@@ -596,6 +596,33 @@ export const emailTemplates: Record<string, EmailTemplate> = {
     variables: ["claimantName", "outcomeHeading", "outcomeBody", "dashboardUrl"],
   },
 
+  ierpInternProfileVerified: {
+    id: "ierp-intern-profile-verified",
+    name: "IERP intern profile verified",
+    subject: "Your IERP intern profile has been verified",
+    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;"><div style="background: linear-gradient(135deg, #065f46 0%, #047857 100%); color: white; padding: 24px;"><h1 style="margin: 0; font-size: 20px;">IERP profile verified</h1></div><div style="padding: 24px; background: #f9f9f9;"><p>Hello {{learnerName}},</p><p>Your IERP intern profile and deployment evidence have been reviewed and verified. You can now continue to your IERP coursework.</p><div style="text-align: center; margin: 24px 0;"><a href="{{dashboardUrl}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Open IERP</a></div><p style="font-size: 12px; color: #666;">Paeds Resus Limited</p></div></div>`,
+    text: `Hello {{learnerName}},\n\nYour IERP intern profile and deployment evidence have been reviewed and verified. You can now continue to your IERP coursework.\n\nOpen IERP: {{dashboardUrl}}\n\nPaeds Resus Limited`,
+    variables: ["learnerName", "dashboardUrl"],
+  },
+
+  ierpInternProfileRejected: {
+    id: "ierp-intern-profile-rejected",
+    name: "IERP intern profile rejected",
+    subject: "Action needed: update your IERP intern profile",
+    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;"><div style="background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%); color: white; padding: 24px;"><h1 style="margin: 0; font-size: 20px;">Action needed on your IERP profile</h1></div><div style="padding: 24px; background: #f9f9f9;"><p>Hello {{learnerName}},</p><p>Your IERP intern profile could not be approved yet.</p><p style="padding: 14px; background: white; border-left: 4px solid #991b1b;"><strong>Reviewer reason:</strong><br>{{reviewReason}}</p><p>Please correct your profile or evidence and resubmit it.</p><div style="text-align: center; margin: 24px 0;"><a href="{{dashboardUrl}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Review IERP profile</a></div><p style="font-size: 12px; color: #666;">Paeds Resus Limited</p></div></div>`,
+    text: `Hello {{learnerName}},\n\nYour IERP intern profile could not be approved yet.\n\nReviewer reason: {{reviewReason}}\n\nReview IERP profile: {{dashboardUrl}}\n\nPaeds Resus Limited`,
+    variables: ["learnerName", "reviewReason", "dashboardUrl"],
+  },
+
+  ierpInternProfileRevoked: {
+    id: "ierp-intern-profile-revoked",
+    name: "IERP intern profile verification revoked",
+    subject: "Action needed: your IERP verification was revoked",
+    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;"><div style="background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%); color: white; padding: 24px;"><h1 style="margin: 0; font-size: 20px;">IERP verification revoked</h1></div><div style="padding: 24px; background: #f9f9f9;"><p>Hello {{learnerName}},</p><p>Your IERP intern verification has been revoked and access may be paused until the issue is resolved.</p><p style="padding: 14px; background: white; border-left: 4px solid #991b1b;"><strong>Reviewer reason:</strong><br>{{reviewReason}}</p><p>Please review your profile and contact the programme team if you need help.</p><div style="text-align: center; margin: 24px 0;"><a href="{{dashboardUrl}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Review IERP profile</a></div><p style="font-size: 12px; color: #666;">Paeds Resus Limited</p></div></div>`,
+    text: `Hello {{learnerName}},\n\nYour IERP intern verification has been revoked and access may be paused until the issue is resolved.\n\nReviewer reason: {{reviewReason}}\n\nReview IERP profile: {{dashboardUrl}}\n\nPaeds Resus Limited`,
+    variables: ["learnerName", "reviewReason", "dashboardUrl"],
+  },
+
   ahaElearningProofApproved: {
     id: "aha-elearning-proof-approved",
     name: "AHA eLearning proof approved",

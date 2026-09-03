@@ -22,7 +22,7 @@ import {
 } from "../lib/ierp-program-state";
 import { getPaedsResusCertificateStatusForUser } from "../lib/paeds-resus-certificate-issuance";
 import { isMissingTableError } from "../lib/is-missing-db-table";
-import { notifyIerpPhase1Decision } from "../lib/cohort-program-notifications";
+import { notifyIerpInternProfileDecision, notifyIerpPhase1Decision } from "../lib/cohort-program-notifications";
 import { consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
 
 function parseDateOnly(value: string) {
@@ -208,6 +208,7 @@ export const ierpRouter = router({
       const [profile] = await db.select({ id: ierpInternProfiles.id }).from(ierpInternProfiles).where(eq(ierpInternProfiles.id, input.profileId)).limit(1);
       if (!profile) throw new TRPCError({ code: "NOT_FOUND", message: "Intern profile not found." });
       await db.update(ierpInternProfiles).set({ status: input.decision, verifiedByUserId: ctx.user.id, verifiedAt: new Date(), reviewReason: input.reason, updatedAt: new Date() }).where(eq(ierpInternProfiles.id, input.profileId));
+      void notifyIerpInternProfileDecision(db, input.profileId, input.decision, input.reason);
       return { success: true as const, decision: input.decision };
     }),
 

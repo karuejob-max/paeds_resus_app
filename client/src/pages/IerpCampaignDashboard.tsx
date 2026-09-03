@@ -14,6 +14,8 @@ export default function IerpCampaignDashboard() {
   const [body, setBody] = useState("");
   const [selectedInternProfileId, setSelectedInternProfileId] = useState<number | null>(null);
   const [internReviewReason, setInternReviewReason] = useState("");
+  const [revokeConfirmation, setRevokeConfirmation] = useState("");
+  const REVOKE_PHRASE = "REVOKE IERP VERIFICATION";
   const { data: safety } = trpc.ierpCampaigns.getSafetyStatus.useQuery(undefined, { retry: false });
   const { data: internProfiles, refetch: refetchInternProfiles } = trpc.ierp.listInternProfiles.useQuery(undefined, { retry: false });
   const internEvidence = trpc.ierp.getInternProfileEvidenceUrl.useQuery(
@@ -41,6 +43,7 @@ export default function IerpCampaignDashboard() {
     onSuccess: async () => {
       toast.success("Intern profile review saved.");
       setInternReviewReason("");
+      setRevokeConfirmation("");
       await refetchInternProfiles();
     },
     onError: (error) => toast.error(error.message),
@@ -64,7 +67,10 @@ export default function IerpCampaignDashboard() {
           {reviewable ? <>
             <Button size="sm" variant="outline" onClick={() => reviewInternProfile.mutate({ profileId: profile.id, decision: "verified", reason: internReviewReason.trim() || "MoH deployment/posting evidence reviewed and accepted." })} disabled={reviewInternProfile.isPending}><CheckCircle2 className="mr-1 h-4 w-4" />Verify</Button>
             <Button size="sm" variant="outline" onClick={() => reviewInternProfile.mutate({ profileId: profile.id, decision: "rejected", reason: internReviewReason.trim() || "Please correct and resubmit the intern evidence." })} disabled={reviewInternProfile.isPending}>Reject</Button>
-          </> : <span className="inline-flex items-center rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-800"><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Verified</span>}
+          </> : profile.status === "verified" ? <>
+            <span className="inline-flex items-center rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-800"><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Verified</span>
+            <Button size="sm" variant="destructive" onClick={() => reviewInternProfile.mutate({ profileId: profile.id, decision: "revoked", reason: internReviewReason.trim() || "Verification revoked by an administrator; please review your IERP profile." })} disabled={reviewInternProfile.isPending || revokeConfirmation !== REVOKE_PHRASE}>Revoke verification</Button>
+          </> : <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">{profile.status}</span>}
         </div>
       </div>
     </div>
@@ -137,7 +143,8 @@ export default function IerpCampaignDashboard() {
             {!newlyVerifiedInternProfiles.length ? <p className="text-sm text-muted-foreground">No verified IERP accounts yet.</p> : newlyVerifiedInternProfiles.map((profile) => renderInternProfile(profile, false))}
           </section>
           {rejectedInternProfiles.length ? <section className="space-y-3 border-t pt-4"><div className="flex items-center justify-between gap-3"><h3 className="font-semibold text-red-800">Rejected or revoked</h3><span className="text-xs text-muted-foreground">{rejectedInternProfiles.length}</span></div>{rejectedInternProfiles.map((profile) => renderInternProfile(profile, false))}</section> : null}
-          <Input value={internReviewReason} onChange={(event) => setInternReviewReason(event.target.value)} placeholder="Optional review reason (used for the selected action)" />
+          <Input value={internReviewReason} onChange={(event) => setInternReviewReason(event.target.value)} placeholder="Review reason (required for a correction decision)" />
+          {newlyVerifiedInternProfiles.length ? <div className="rounded-md border border-red-200 bg-red-50 p-3"><p className="text-sm font-medium text-red-900">Correct a mistaken verification</p><p className="mt-1 text-xs text-red-800">Type <strong>{REVOKE_PHRASE}</strong> before the Revoke verification button becomes active.</p><Input className="mt-2" value={revokeConfirmation} onChange={(event) => setRevokeConfirmation(event.target.value)} placeholder={REVOKE_PHRASE} aria-label="IERP revoke verification confirmation" /></div> : null}
           {internEvidence.data ? <a className="inline-block text-sm font-medium text-indigo-700 underline" href={internEvidence.data.url} target="_blank" rel="noreferrer">Open selected private letter</a> : null}
         </CardContent>
       </Card>
