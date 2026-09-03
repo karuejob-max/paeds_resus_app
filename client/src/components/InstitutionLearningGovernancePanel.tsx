@@ -563,6 +563,7 @@ export default function InstitutionLearningGovernancePanel({
                 searchPlaceholder="Search name or email..."
                 emptyText="No matching Paeds Resus account found."
                 clearable
+                searchAlwaysVisible
               />
               {selectedPresenter ? (
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -651,6 +652,7 @@ export default function InstitutionLearningGovernancePanel({
                       searchPlaceholder="Search name or email..."
                       emptyText="No matching Paeds Resus account found."
                       clearable
+                      searchAlwaysVisible
                     />
                     {selectedCoPresenter ? (
                       <p className="mt-1 text-xs text-muted-foreground">

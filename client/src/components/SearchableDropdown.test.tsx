@@ -8,7 +8,13 @@ const OPTIONS = [
   { value: "43", label: "Brian Kamau · Emergency · MO · brian@example.com" },
 ];
 
-function Harness({ onSearchChange }: { onSearchChange?: (query: string) => void }) {
+function Harness({
+  onSearchChange,
+  searchAlwaysVisible = false,
+}: {
+  onSearchChange?: (query: string) => void;
+  searchAlwaysVisible?: boolean;
+}) {
   const [value, setValue] = useState("42");
   return (
     <SearchableDropdown
@@ -18,12 +24,14 @@ function Harness({ onSearchChange }: { onSearchChange?: (query: string) => void 
       placeholder="Choose presenter"
       clearable
       onSearchChange={onSearchChange}
+      searchAlwaysVisible={searchAlwaysVisible}
     />
   );
 }
 
 describe("SearchableDropdown clearable selection", () => {
   beforeEach(() => {
+    HTMLElement.prototype.scrollIntoView = vi.fn();
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -57,6 +65,21 @@ describe("SearchableDropdown clearable selection", () => {
     expect(screen.getByRole("combobox").textContent).toContain(
       "Choose presenter"
     );
+  });
+
+  it("renders and selects multiple remote presenter results in always-visible mode", () => {
+    const onSearchChange = vi.fn();
+    render(<Harness onSearchChange={onSearchChange} searchAlwaysVisible />);
+
+    fireEvent.click(screen.getByRole("combobox"));
+    const searchInput = screen.getByPlaceholderText("Search option...");
+    expect(screen.getByRole("option", { name: /Amina Otieno/ })).toBeTruthy();
+    expect(screen.getByRole("option", { name: /Brian Kamau/ })).toBeTruthy();
+
+    fireEvent.change(searchInput, { target: { value: "Brian" } });
+    expect(onSearchChange).toHaveBeenCalledWith("Brian");
+    fireEvent.click(screen.getByRole("option", { name: /Brian Kamau/ }));
+    expect(screen.getByRole("combobox").textContent).toContain("Brian Kamau");
   });
 
   it("publishes typed search text and allows selecting a returned presenter", () => {
