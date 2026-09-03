@@ -389,7 +389,7 @@ export const enrollmentRouter = router({
 
   /** Redeem a shareable full-waiver code for an independent AHA life-support course. */
   redeemAhaAccessCode: protectedProcedure
-    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver"]), accessCode: z.string().trim().min(8).max(64) }))
+    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp", "instructor"]), accessCode: z.string().trim().min(8).max(64) }))
     .mutation(async ({ ctx, input }) => {
       assertTrainingWorkspaceOrAdmin(ctx.user);
       const db = await getDb();

@@ -14,6 +14,8 @@ export const GLOBAL_ENTITLEMENT_PROGRAM_TYPES = [
   "acls",
   "pals",
   "heartsaver",
+  "nrp",
+  "instructor",
 ] as const;
 export type GlobalEntitlementProgramType =
   (typeof GLOBAL_ENTITLEMENT_PROGRAM_TYPES)[number];
