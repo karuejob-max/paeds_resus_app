@@ -13,6 +13,7 @@ import { getDb } from "../db";
 import {
   GLOBAL_ENTITLEMENT_BENEFIT_TYPES,
   GLOBAL_ENTITLEMENT_PROGRAM_TYPES,
+  createAccessCode,
   newEntitlementReference,
 } from "../lib/global-entitlements";
 
@@ -39,10 +40,12 @@ export const createEntitlementInput = z
     reason: z.string().trim().min(10).max(500),
     expiresAt: z.string().date(),
     maxRedemptions: z.number().int().min(1).max(1000).default(1),
+    shareable: z.boolean().default(false),
   })
   .superRefine((input, ctx) => {
     const targetUser = input.targetUserId != null;
     const targetInstitution = input.targetInstitutionalAccountId != null;
+    const shareable = input.shareable === true;
     if (input.programType === "paeds_resus_ils") {
       if (!targetInstitution || targetUser) {
         ctx.addIssue({
@@ -59,7 +62,10 @@ export const createEntitlementInput = z
         });
       }
     } else {
-      if (!targetUser || targetInstitution) {
+      if (shareable && (input.programType !== "self_pay" || targetUser || targetInstitution)) {
+        ctx.addIssue({ code: "custom", path: ["shareable"], message: "Shareable codes are available only for self-pay courses and cannot target a named account." });
+      }
+      if (!shareable && (!targetUser || targetInstitution)) {
         ctx.addIssue({
           code: "custom",
           path: ["targetUserId"],
@@ -81,6 +87,13 @@ export const createEntitlementInput = z
           message: "Only self-pay entitlements may have a course scope.",
         });
       }
+    }
+    if (shareable && input.benefitType !== "free") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["benefitType"],
+        message: "Shareable learner codes must be full-waiver grants.",
+      });
     }
     if (input.benefitType === "free" && input.discountPercent != null) {
       ctx.addIssue({
@@ -307,8 +320,11 @@ export const adminEntitlementsRouter = router({
         }
       }
       const grantReference = newEntitlementReference();
+      const accessCode = input.shareable ? createAccessCode() : null;
       await db.insert(globalEntitlements).values({
         grantReference,
+        accessCodeHash: accessCode?.hash ?? null,
+        accessCodePrefix: accessCode?.prefix ?? null,
         targetUserId: input.targetUserId ?? null,
         targetInstitutionalAccountId:
           input.targetInstitutionalAccountId ?? null,
@@ -330,6 +346,7 @@ export const adminEntitlementsRouter = router({
         success: true as const,
         grantReference,
         programmeLabel: programmeLabels[input.programType],
+        accessCode: accessCode?.code ?? null,
       };
     }),
 
