@@ -1,5 +1,5 @@
 import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   globalEntitlements,
   globalEntitlementRedemptions,
@@ -187,6 +187,43 @@ export async function consumeGlobalEntitlement(
 
 export function newEntitlementReference() {
   return `ENT-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${randomUUID().slice(0, 8).toUpperCase()}`;
+}
+
+/** Generate a human-shareable code. Only its SHA-256 hash is persisted. */
+export function createAccessCode() {
+  const code = `PAEDS-${randomBytes(5).toString("hex").toUpperCase()}`;
+  return { code, hash: hashAccessCode(code), prefix: code.slice(0, 12) };
+}
+
+export function hashAccessCode(code: string) {
+  return createHash("sha256")
+    .update(code.trim().toUpperCase(), "utf8")
+    .digest("hex");
+}
+
+export async function findActiveShareableEntitlement(
+  db: any,
+  code: string,
+  selfPayCourseId: string,
+  now: Date = new Date()
+) {
+  const [row] = await db
+    .select()
+    .from(globalEntitlements)
+    .where(
+      and(
+        eq(globalEntitlements.accessCodeHash, hashAccessCode(code)),
+        eq(globalEntitlements.programType, "self_pay"),
+        eq(globalEntitlements.selfPayCourseId, selfPayCourseId),
+        eq(globalEntitlements.status, "active"),
+        gt(globalEntitlements.expiresAt, now),
+        lt(globalEntitlements.redemptionCount, globalEntitlements.maxRedemptions),
+        isNull(globalEntitlements.targetUserId),
+        isNull(globalEntitlements.targetInstitutionalAccountId)
+      )
+    )
+    .limit(1);
+  return row ?? null;
 }
 
 export function entitlementTargetLabel(input: {
