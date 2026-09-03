@@ -57,6 +57,7 @@ export default function GlobalEntitlementPanel() {
   const [issuedCode, setIssuedCode] = useState<string | null>(null);
 
   const isInstitutionTarget = programType === "paeds_resus_ils";
+  const isCourseScopedProgramme = ["self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(programType);
   const usersQuery = trpc.adminEntitlements.searchUsers.useQuery(
     { query: targetQuery.trim() },
     { enabled: !isInstitutionTarget && targetQuery.trim().length >= 2 }
@@ -92,7 +93,7 @@ export default function GlobalEntitlementPanel() {
   const selectedInstitution = institutionsQuery.data?.find(
     institution => institution.id === targetInstitutionalAccountId
   );
-  const targetReady = shareable && programType === "self_pay"
+  const targetReady = shareable && isCourseScopedProgramme
     ? true
     : isInstitutionTarget
       ? targetInstitutionalAccountId != null
@@ -163,7 +164,7 @@ export default function GlobalEntitlementPanel() {
       targetInstitutionalAccountId:
         shareable || !isInstitutionTarget ? null : targetInstitutionalAccountId,
       selfPayCourseId:
-        programType === "self_pay" ? selfPayCourseId.trim() : null,
+        isCourseScopedProgramme ? selfPayCourseId.trim() : null,
       benefitType,
       discountPercent: benefitType === "percentage_discount" ? discount : null,
       reason: reason.trim(),

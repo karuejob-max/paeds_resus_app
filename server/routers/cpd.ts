@@ -421,7 +421,13 @@ export const cpdRouter = router({
           facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
         })
         .from(institutionMemberships)
-        .innerJoin(users, eq(users.id, institutionMemberships.userId))
+        .innerJoin(
+          users,
+          or(
+            eq(users.id, institutionMemberships.userId),
+            sql`LOWER(${users.email}) = LOWER(${institutionMemberships.invitedEmail})`,
+          ),
+        )
         .leftJoin(
           institutionalStaffMembers,
           and(
@@ -456,7 +462,13 @@ export const cpdRouter = router({
           facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
         })
         .from(institutionalStaffMembers)
-        .innerJoin(users, eq(users.id, institutionalStaffMembers.userId))
+        .innerJoin(
+          users,
+          or(
+            eq(users.id, institutionalStaffMembers.userId),
+            sql`LOWER(${users.email}) = LOWER(${institutionalStaffMembers.staffEmail})`,
+          ),
+        )
         .where(
           and(
             eq(institutionalStaffMembers.institutionalAccountId, institutionId),
