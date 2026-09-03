@@ -98,6 +98,7 @@
     "db:apply-0148": "node scripts/apply-0148-promotional-messaging-governance.mjs",
     "db:apply-0149": "node scripts/apply-0149-elearning-proof-review.mjs",
     "db:apply-0150": "node scripts/apply-0150-cpd-quiz-gating.mjs",
+    "db:apply-0151": "node scripts/apply-0151-self-pay-access-codes.mjs",
     "db:verify-0150": "node scripts/verify-0150-cpd-quiz-gating.mjs",
     "db:verify-0148": "node scripts/verify-0148-promotional-messaging-governance.mjs",
     "db:verify-cpr-event-link": "node scripts/verify-cpr-event-link.mjs",

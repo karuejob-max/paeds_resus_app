@@ -3,6 +3,7 @@ import { useAuth } from '@/_core/hooks/useAuth';
 import { trpc } from '@/lib/trpc';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, BookOpen, Clock, DollarSign, Lock, CheckCircle2 } from 'lucide-react';
@@ -295,6 +296,15 @@ function EnrollmentButton({
 }) {
   const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
+  const [accessCode, setAccessCode] = useState('');
+  const redeemMutation = trpc.enrollment.redeemSelfPayAccessCode.useMutation({
+    onSuccess: async (res) => {
+      toast.success('Access granted', { description: res.message });
+      setAccessCode('');
+      await utils.courses.getUserEnrollments.invalidate();
+    },
+    onError: (e) => toast.error('Access code could not be redeemed', { description: e.message }),
+  });
   const enrollMutation = trpc.enrollment.enrollWithPayment.useMutation({
     onSuccess: async (res) => {
       if (res.success) {
@@ -342,12 +352,37 @@ function EnrollmentButton({
   }
 
   return (
-    <Button
-      onClick={handleEnroll}
-      disabled={enrollMutation.isPending}
-      className="w-full bg-blue-600 hover:bg-blue-700"
-    >
-      {enrollMutation.isPending ? '…' : isAdmin ? '✓ Get Free Access' : 'Enroll now'}
-    </Button>
+    <div className="space-y-2">
+      <Button
+        onClick={handleEnroll}
+        disabled={enrollMutation.isPending || redeemMutation.isPending}
+        className="w-full bg-blue-600 hover:bg-blue-700"
+      >
+        {enrollMutation.isPending ? '…' : isAdmin ? '✓ Get Free Access' : 'Enroll now'}
+      </Button>
+      {!isAdmin ? (
+        <div className="rounded-md border border-dashed p-2">
+          <p className="mb-1 text-xs text-muted-foreground">Have a Paeds Resus access code?</p>
+          <div className="flex gap-2">
+            <Input
+              aria-label={`Access code for ${course.title}`}
+              placeholder="PAEDS-XXXXXXXXXX"
+              value={accessCode}
+              onChange={event => setAccessCode(event.target.value.toUpperCase())}
+              className="h-9 text-xs"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 shrink-0"
+              disabled={redeemMutation.isPending || accessCode.trim().length < 8}
+              onClick={() => redeemMutation.mutate({ courseId: course.courseId, accessCode: accessCode.trim() })}
+            >
+              {redeemMutation.isPending ? '…' : 'Redeem'}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
