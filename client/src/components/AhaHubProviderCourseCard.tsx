@@ -1,9 +1,11 @@
 import { memo, type ReactNode } from "react";
+import { useState } from "react";
 import { CheckCircle2, Award } from "lucide-react";
 import type { AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AhaHubCourseCard } from "@/components/AhaHubCourseCard";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { AhaHubEnrollmentRow } from "@/lib/pick-aha-hub-enrollment";
 
 type AhaHubProviderCourseCardProps = {
@@ -14,6 +16,8 @@ type AhaHubProviderCourseCardProps = {
   onContinue: (programType: AhaProgramType, enrollmentId: number) => void;
   onEnroll: (programType: AhaProgramType) => void;
   onViewCertificates: () => void;
+  onRedeemAccessCode?: (programType: AhaProgramType, accessCode: string) => void;
+  accessCodePending?: boolean;
 };
 
 function FooterButtonSkeleton() {
@@ -27,8 +31,11 @@ export const AhaHubProviderCourseCard = memo(function AhaHubProviderCourseCard({
   onContinue,
   onEnroll,
   onViewCertificates,
+  onRedeemAccessCode,
+  accessCodePending = false,
 }: AhaHubProviderCourseCardProps) {
   const isEnrolled = !!enrollment;
+  const [accessCode, setAccessCode] = useState("");
   const cognitiveComplete = enrollment?.cognitiveModulesComplete ?? false;
   const practicalSignedOff = enrollment?.practicalSkillsSignedOff ?? false;
   const certIssued = cognitiveComplete && practicalSignedOff;
@@ -83,9 +90,33 @@ export const AhaHubProviderCourseCard = memo(function AhaHubProviderCourseCard({
         </Button>
       )}
       {!isEnrolled && (
-        <Button size="sm" className="w-full" onClick={() => onEnroll(programType)}>
-          Start enrollment
-        </Button>
+        <>
+          <Button size="sm" className="w-full" onClick={() => onEnroll(programType)}>
+            Start enrollment
+          </Button>
+          {onRedeemAccessCode && <div className="rounded-md border border-dashed p-2">
+            <p className="mb-1 text-xs text-muted-foreground">Have a Paeds Resus access code?</p>
+            <div className="flex gap-2">
+              <Input
+                aria-label={`Access code for ${programType.toUpperCase()}`}
+                placeholder="PAEDS-XXXXXXXXXX"
+                value={accessCode}
+                onChange={event => setAccessCode(event.target.value.toUpperCase())}
+                className="h-9 text-xs"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9 shrink-0"
+                disabled={accessCodePending || accessCode.trim().length < 8}
+                onClick={() => onRedeemAccessCode(programType, accessCode.trim())}
+              >
+                {accessCodePending ? "…" : "Redeem"}
+              </Button>
+            </div>
+          </div>}
+        </>
       )}
     </div>
   );

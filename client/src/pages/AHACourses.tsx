@@ -18,6 +18,14 @@ export default function AHACourses() {
   const [, setLocation] = useLocation();
   const { track } = useProviderConversionAnalytics("/aha-courses");
   const { data: ierpSummary } = trpc.ierp.getSummary.useQuery(undefined, { retry: false });
+  const utils = trpc.useUtils();
+  const redeemAhaAccessCodeMutation = trpc.enrollment.redeemAhaAccessCode.useMutation({
+    onSuccess: async result => {
+      toast.success("Access granted", { description: result.message });
+      await utils.courses.getAhaHubDashboard.invalidate();
+    },
+    onError: error => toast.error("Access code could not be redeemed", { description: error.message }),
+  });
 
   const { data: dashboard, isLoading: dashboardLoading, refetch: refetchDashboard } = trpc.courses.getAhaHubDashboard.useQuery(
     undefined,
@@ -82,6 +90,15 @@ export default function AHACourses() {
     },
     [setLocation, track]
   );
+
+  const handleRedeemAccessCode = useCallback((pt: AhaProgramType, accessCode: string) => {
+    if (["bls", "acls", "pals", "heartsaver"].includes(pt)) {
+      redeemAhaAccessCodeMutation.mutate({
+        programType: pt as "bls" | "acls" | "pals" | "heartsaver",
+        accessCode,
+      });
+    }
+  }, [redeemAhaAccessCodeMutation]);
 
   const handleContinue = useCallback(
     (pt: AhaProgramType, enrollmentId: number) => {
@@ -252,6 +269,8 @@ export default function AHACourses() {
               onContinue={handleContinue}
               onEnroll={handleEnroll}
               onViewCertificates={goToCertificates}
+              onRedeemAccessCode={handleRedeemAccessCode}
+              accessCodePending={redeemAhaAccessCodeMutation.isPending}
             />
           ))}
         </div>

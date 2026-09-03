@@ -27,7 +27,11 @@ const programmeOptions = [
     value: "paeds_resus_ils",
     label: "ILSP — Institutional Life Support Program",
   },
-  { value: "self_pay", label: "Self-pay learning course" },
+  { value: "self_pay", label: "Self-pay fellowship microcourse" },
+  { value: "bls", label: "Self-pay BLS" },
+  { value: "acls", label: "Self-pay ACLS" },
+  { value: "pals", label: "Self-pay PALS" },
+  { value: "heartsaver", label: "Self-pay Heartsaver" },
 ] as const;
 
 type Programme = (typeof programmeOptions)[number]["value"];
@@ -60,10 +64,12 @@ export default function GlobalEntitlementPanel() {
     { enabled: isInstitutionTarget && targetQuery.trim().length >= 2 }
   );
   const listQuery = trpc.adminEntitlements.list.useQuery();
-  const selfPayCoursesQuery =
-    trpc.adminEntitlements.listSelfPayCourses.useQuery(undefined, {
-      enabled: programType === "self_pay",
-    });
+  const selfPayCoursesQuery = trpc.adminEntitlements.listSelfPayCourses.useQuery(undefined, {
+    enabled: programType === "self_pay",
+  });
+  const ahaSelfPayCoursesQuery = trpc.adminEntitlements.listAhaSelfPayCourses.useQuery(undefined, {
+    enabled: ["bls", "acls", "pals", "heartsaver"].includes(programType),
+  });
   const createMutation = trpc.adminEntitlements.create.useMutation({
     onSuccess: (result) => {
       setIssuedCode(result.accessCode ?? null);
@@ -100,20 +106,33 @@ export default function GlobalEntitlementPanel() {
     reason.trim().length >= 10 &&
     /^\d{4}-\d{2}-\d{2}$/.test(expiresAt) &&
     Number(maxRedemptions) >= 1 &&
-    (programType !== "self_pay" || selfPayCourseId.trim().length > 0);
-  const selectedSelfPayCourse = selfPayCoursesQuery.data?.find(
-    course => course.courseId === selfPayCourseId
-  );
+    (!["self_pay", "bls", "acls", "pals", "heartsaver"].includes(programType) || selfPayCourseId.trim().length > 0);
+  const courseOptions = programType === "self_pay"
+    ? (selfPayCoursesQuery.data ?? []).map(course => ({
+        courseId: course.courseId,
+        title: course.title,
+        level: course.level,
+        isPublished: course.isPublished,
+        priceLabel: `KES ${Math.ceil(course.price / 100).toLocaleString()}`,
+        searchText: [course.title, course.courseId, course.emergencyType, course.level].filter(Boolean).join(" "),
+      }))
+    : (ahaSelfPayCoursesQuery.data ?? []).filter(course => course.courseId === programType).map(course => ({
+        courseId: course.courseId,
+        title: course.title,
+        level: course.level,
+        isPublished: true,
+        priceLabel: "AHA course",
+        searchText: [course.title, course.courseId, course.level].filter(Boolean).join(" "),
+      }));
+  const selectedSelfPayCourse = courseOptions.find(course => course.courseId === selfPayCourseId);
   const filteredSelfPayCourses = useMemo(() => {
     const query = selfPayCourseQuery.trim().toLowerCase();
-    const courses = selfPayCoursesQuery.data ?? [];
+    const courses = courseOptions;
     if (!query) return courses;
     return courses.filter(course =>
-      [course.title, course.courseId, course.emergencyType, course.level].some(
-        value => value.toLowerCase().includes(query)
-      )
+      course.searchText.toLowerCase().includes(query)
     );
-  }, [selfPayCourseQuery, selfPayCoursesQuery.data]);
+  }, [selfPayCourseQuery, programType, selfPayCoursesQuery.data, ahaSelfPayCoursesQuery.data]);
   const selectedTargetLabel =
     selectedInstitution?.companyName ||
     selectedUser?.name ||
@@ -256,13 +275,13 @@ export default function GlobalEntitlementPanel() {
               Selected: {selectedTargetLabel}
             </p>
           </div>
-          {programType === "self_pay" && (
+          {["self_pay", "bls", "acls", "pals", "heartsaver"].includes(programType) && (
             <div className="space-y-2">
               <label
                 className="text-sm font-medium"
                 htmlFor="global-entitlement-course"
               >
-                Self-pay course
+                {programType === "self_pay" ? "Self-pay fellowship course" : `${programType.toUpperCase()} life-support course`}
               </label>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -315,9 +334,7 @@ export default function GlobalEntitlementPanel() {
                     <p className="font-medium">{selectedSelfPayCourse.title}</p>
                     <p className="truncate text-xs text-muted-foreground">
                       {selectedSelfPayCourse.courseId} · KES{" "}
-                      {Math.ceil(
-                        selectedSelfPayCourse.price / 100
-                      ).toLocaleString()}{" "}
+                      {selectedSelfPayCourse.priceLabel} {" "}
                       · {selectedSelfPayCourse.level}
                     </p>
                   </div>
@@ -325,11 +342,11 @@ export default function GlobalEntitlementPanel() {
                 </div>
               ) : null}
               <div className="max-h-56 overflow-y-auto rounded-md border bg-background text-sm">
-                {selfPayCoursesQuery.isLoading ? (
+                {(programType === "self_pay" ? selfPayCoursesQuery.isLoading : ahaSelfPayCoursesQuery.isLoading) ? (
                   <p className="px-3 py-3 text-muted-foreground">
                     Loading self-pay catalogue…
                   </p>
-                ) : selfPayCoursesQuery.isError ? (
+                ) : (programType === "self_pay" ? selfPayCoursesQuery.isError : ahaSelfPayCoursesQuery.isError) ? (
                   <p className="px-3 py-3 text-destructive">
                     Self-pay catalogue unavailable. Refresh and try again.
                   </p>
@@ -351,8 +368,7 @@ export default function GlobalEntitlementPanel() {
                             {course.title}
                           </span>
                           <span className="block truncate text-xs text-muted-foreground">
-                            {course.courseId} · KES{" "}
-                            {Math.ceil(course.price / 100).toLocaleString()} ·{" "}
+                            {course.courseId} · {course.priceLabel} ·{" "}
                             {course.level}
                           </span>
                         </span>
