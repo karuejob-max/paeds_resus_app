@@ -17,7 +17,7 @@ import {
 import { extendResusGpsAccessAfterMicroCourseCompletion } from '../lib/resusgps-access';
 import { selectFromWaitlist, type WaitlistCandidate } from '../../shared/waitlist';
 import { getProgramIdentity } from '../../shared/program-identity';
-import { notifyBookingWaitlistPromoted, notifyPhase2RoleConfirmed, notifyRetrospectiveClaimReviewed } from '../lib/cohort-program-notifications';
+import { notifyAhaElearningProofDecision, notifyBookingWaitlistPromoted, notifyPhase2RoleConfirmed, notifyRetrospectiveClaimReviewed } from '../lib/cohort-program-notifications';
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate, markIlsCognitiveComplete } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
@@ -1531,6 +1531,7 @@ export const coursesRouter = router({
         elearningProofRejectionReason: input.decision === "rejected" ? input.reason : null,
         updatedAt: reviewedAt,
       }).where(eq(enrollments.id, row.id));
+      void notifyAhaElearningProofDecision(db, row.id, input.decision, input.reason);
       return { success: true as const, decision: input.decision };
     }),
 

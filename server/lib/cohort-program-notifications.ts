@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "../db";
 import { sendEmail } from "../email-service";
-import { courses, trainingAttendance, trainingSchedules, retrospectiveRoleClaims, users } from "../../drizzle/schema";
+import { courses, ierpProgramEnrollments, trainingAttendance, trainingSchedules, retrospectiveRoleClaims, users } from "../../drizzle/schema";
 
 const APP_BASE = process.env.APP_BASE_URL?.replace(/\/$/, "") || "https://www.paedsresus.com";
 
@@ -204,5 +204,89 @@ export async function notifyRetrospectiveClaimReviewed(db: Db, claimId: number, 
     });
   } catch (e) {
     console.error("[cohort-program-notifications] retrospective claim review", e);
+  }
+}
+
+
+/** Notify an IERP learner when Phase 1 evidence receives a reviewer decision. */
+export async function notifyIerpPhase1Decision(
+  db: Db,
+  programEnrollmentId: number,
+  decision: "verified" | "rejected",
+  rejectionReason?: string | null,
+): Promise<void> {
+  try {
+    const [row] = await db
+      .select({ userId: ierpProgramEnrollments.userId })
+      .from(ierpProgramEnrollments)
+      .where(eq(ierpProgramEnrollments.id, programEnrollmentId))
+      .limit(1);
+    if (!row) return;
+    const [learner] = await db
+      .select({ email: users.email, name: users.name })
+      .from(users)
+      .where(eq(users.id, row.userId))
+      .limit(1);
+    const emailTo = learner?.email?.trim();
+    if (!emailTo) return;
+    const learnerName = learner?.name?.trim() || "there";
+    const dashboardUrl = `${APP_BASE}/home`;
+    if (decision === "verified") {
+      await sendEmail(emailTo, "ahaElearningProofApproved", { learnerName, dashboardUrl });
+    } else {
+      await sendEmail(emailTo, "ahaElearningProofRejected", {
+        learnerName,
+        rejectionReason: rejectionReason?.trim() || "Please review and resubmit your Phase 1 evidence.",
+        dashboardUrl,
+      });
+    }
+  } catch (e) {
+    console.error("[cohort-program-notifications] IERP Phase 1 decision", e);
+  }
+}
+
+/**
+ * Notify a learner when their AHA eLearning proof receives a reviewer decision.
+ * Delivery is best-effort and never changes the access decision itself.
+ */
+export async function notifyAhaElearningProofDecision(
+  db: Db,
+  enrollmentId: number,
+  decision: "verified" | "rejected",
+  rejectionReason?: string | null,
+): Promise<void> {
+  try {
+    const [row] = await db
+      .select({ userId: enrollments.userId, programType: enrollments.programType })
+      .from(enrollments)
+      .where(eq(enrollments.id, enrollmentId))
+      .limit(1);
+    if (!row) return;
+
+    const [learner] = await db
+      .select({ email: users.email, name: users.name })
+      .from(users)
+      .where(eq(users.id, row.userId))
+      .limit(1);
+    const emailTo = learner?.email?.trim();
+    if (!emailTo) {
+      console.warn("[cohort-program-notifications] No email for AHA proof decision", row.userId);
+      return;
+    }
+
+    const learnerName = learner?.name?.trim() || "there";
+    const dashboardUrl = `${APP_BASE}/home`;
+    if (decision === "verified") {
+      await sendEmail(emailTo, "ahaElearningProofApproved", { learnerName, dashboardUrl });
+      return;
+    }
+
+    await sendEmail(emailTo, "ahaElearningProofRejected", {
+      learnerName,
+      rejectionReason: rejectionReason?.trim() || "Please review and resubmit both certificates.",
+      dashboardUrl,
+    });
+  } catch (e) {
+    console.error("[cohort-program-notifications] AHA eLearning proof decision", e);
   }
 }

@@ -1150,15 +1150,19 @@ export default function MicroCoursePlayerDB() {
         </p>
         {isAhaAccessBlocked ? (
           <div className="flex flex-wrap justify-center gap-2">
-            <Button asChild className="bg-primary text-primary-foreground">
-              <Link href={`/enroll?courseId=${encodeURIComponent(programType ?? "bls")}`}>
-                Pay for {programType === "acls" ? "ACLS" : "BLS"} independently
-              </Link>
-            </Button>
-            <Button asChild variant="outline"><Link href="/programs/nerp-acls">NERP</Link></Button>
-            <Button asChild variant="outline"><Link href="/programs/ierp">IERP</Link></Button>
-            <Button asChild variant="outline"><Link href="/training/institutional-life-support">ILSP</Link></Button>
-            <Button asChild variant="outline"><Link href="/aha-courses">View AHA pathways</Link></Button>
+            {ahaAccessErrorMessage.startsWith("IERP") ? (
+              <Button asChild className="bg-primary text-primary-foreground"><Link href="/programs/ierp/enroll">Open IERP enrollment</Link></Button>
+            ) : ahaAccessErrorMessage.startsWith("NERP") ? (
+              <Button asChild className="bg-primary text-primary-foreground"><Link href="/programs/nerp-acls">Open NERP pathway</Link></Button>
+            ) : ahaAccessErrorMessage.startsWith("ILSP") ? (
+              <Button asChild className="bg-primary text-primary-foreground"><Link href="/training/institutional-life-support">Open ILSP pathway</Link></Button>
+            ) : (
+              <Button asChild className="bg-primary text-primary-foreground">
+                <Link href={`/enroll?courseId=${encodeURIComponent(programType ?? "bls")}`}>
+                  Pay for {programType === "acls" ? "ACLS" : "BLS"} independently
+                </Link>
+              </Button>
+            )}
           </div>
         ) : (
           <Button onClick={() => navigate(coursesHubPath)}>Go Back</Button>
