@@ -371,6 +371,7 @@ export default function LearnerDashboard() {
           </Card>
         ) : selectedRole === "provider" ? (
           <div className="grid md:grid-cols-3 gap-6">
+            <ActiveAhaPathwayCard />
             <IerpProgramCard />
             {lifecycleResumeNudge && (
               <Card className="md:col-span-3 border-2 border-primary/30 bg-primary/5">
@@ -1001,6 +1002,34 @@ type IerpEvidenceDraft = {
   dataBase64: string;
 };
 
+const AHA_PATHWAY_LABELS: Record<string, string> = {
+  nerp: "NERP — Nurses Emergency Readiness Program",
+  ierp: "IERP — Intern Emergency Readiness Program",
+  ilsp: "ILSP — Institutional Life Support Pathway",
+  independent: "Self Pay — Independent AHA Pathway",
+  admin_grant: "Administrator-granted AHA access",
+};
+
+function ActiveAhaPathwayCard() {
+  const { data: access, isLoading } = trpc.courses.getAhaAccessStatus.useQuery({ programType: "bls" }, { retry: false });
+  if (isLoading || !access?.allowed || access.pathway === "ierp") return null;
+  const label = AHA_PATHWAY_LABELS[access.pathway] ?? access.pathway;
+  return (
+    <Card className="md:col-span-3 border-emerald-200 bg-emerald-50/40">
+      <CardContent className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Your active AHA pathway</p>
+          <p className="text-base font-bold text-emerald-950">{label}</p>
+          <p className="text-xs text-emerald-900">Your BLS and ACLS access is being managed through this pathway.</p>
+        </div>
+        <Button asChild size="sm" variant="outline" className="border-emerald-300 bg-white text-emerald-900">
+          <Link href="/aha-courses">Open AHA coursework</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: boolean }) {
   const { user } = useAuth();
   const [, navigate] = useLocation();
@@ -1087,6 +1116,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
 
   if (isLoading) return null;
   if (!enrollment) {
+    if (!enrollmentPage) return null;
     return (
       <Card id="ierp-entry" className="mt-6 md:col-span-3 border-indigo-200 bg-indigo-50/30">
         <CardHeader>
