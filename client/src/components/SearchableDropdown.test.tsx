@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SearchableDropdown } from "./CadreProgressiveSelector";
 
 const OPTIONS = [
@@ -8,7 +8,7 @@ const OPTIONS = [
   { value: "43", label: "Brian Kamau · Emergency · MO · brian@example.com" },
 ];
 
-function Harness() {
+function Harness({ onSearchChange }: { onSearchChange?: (query: string) => void }) {
   const [value, setValue] = useState("42");
   return (
     <SearchableDropdown
@@ -17,12 +17,26 @@ function Harness() {
       options={OPTIONS}
       placeholder="Choose presenter"
       clearable
+      onSearchChange={onSearchChange}
     />
   );
 }
 
 describe("SearchableDropdown clearable selection", () => {
-  afterEach(() => cleanup());
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+  });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
   it("clears a selected value with Backspace on the selector", () => {
     render(<Harness />);
     const selector = screen.getByRole("combobox");
@@ -43,5 +57,18 @@ describe("SearchableDropdown clearable selection", () => {
     expect(screen.getByRole("combobox").textContent).toContain(
       "Choose presenter"
     );
+  });
+
+  it("publishes typed search text and allows selecting a returned presenter", () => {
+    const onSearchChange = vi.fn();
+    render(<Harness onSearchChange={onSearchChange} />);
+
+    fireEvent.click(screen.getByRole("combobox"));
+    const searchInput = screen.getByPlaceholderText("Search option...");
+    fireEvent.change(searchInput, { target: { value: "Brian" } });
+
+    expect(onSearchChange).toHaveBeenCalledWith("Brian");
+    fireEvent.click(screen.getByText("Brian Kamau · Emergency · MO · brian@example.com"));
+    expect(screen.getByRole("combobox").textContent).toContain("Brian Kamau");
   });
 });
