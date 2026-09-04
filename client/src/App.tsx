@@ -58,6 +58,12 @@ const CareSignalNotice = lazy(() => import("./pages/legal/CareSignalNotice"));
 const CodeSignalNotice = lazy(() => import("./pages/legal/CodeSignalNotice"));
 const ClinicalIntendedUse = lazy(() => import("./pages/legal/ClinicalIntendedUse"));
 const About = lazy(() => import("./pages/About"));
+const PublicResourcesPage = lazy(() =>
+  import("./pages/PublicResources").then((module) => ({ default: module.default }))
+);
+const PublicResourceArticle = lazy(() =>
+  import("./pages/PublicResources").then((module) => ({ default: module.PublicResourceArticle }))
+);
 const PublicHome = lazy(() => import("./pages/PublicHome"));
 const TrainingHub = lazy(() => import("./pages/TrainingHub"));
 const TrainingCourseLanding = lazy(() => import("./pages/TrainingCourseLanding"));
@@ -396,6 +402,8 @@ function Router() {
           <Route path="/legal/data-request" component={DataRequest} />
           <Route path="/care-signal/appeal" component={CareSignalAppeal} />
           <Route path="/about" component={About} />
+          <Route path="/resources" component={PublicResourcesPage} />
+          <Route path="/resources/:slug">{({ slug }) => <PublicResourceArticle slug={slug} />}</Route>
           <Route path="/start">{() => <Redirect to="/" />}</Route>
           <Route path="/training/pals">{() => <TrainingCourseLanding slug="pals" />}</Route>
           <Route path="/training/acls">{() => <TrainingCourseLanding slug="acls" />}</Route>

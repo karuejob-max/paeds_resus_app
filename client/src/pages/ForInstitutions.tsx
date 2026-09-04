@@ -14,7 +14,14 @@ import Footer from "@/components/Footer";
 import { JsonLdScript } from "@/components/JsonLdScript";
 import { usePageMeta } from "@/hooks/usePageMeta";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
-import { buildJsonLdGraph, buildOrganizationJsonLd } from "@/lib/seo-schema";
+import {
+  buildFaqPageJsonLd,
+  buildJsonLdGraph,
+  buildMedicalOrganizationJsonLd,
+  buildOrganizationJsonLd,
+} from "@/lib/seo-schema";
+import { INSTITUTION_FAQ } from "@/const/publicFaq";
+import PublicFaqSection from "@/components/PublicFaqSection";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import AcronymGlossary from "@/components/AcronymGlossary";
 import InstitutionalReadinessForm from "@/components/InstitutionalReadinessForm";
@@ -72,7 +79,13 @@ export default function ForInstitutions() {
 
   return (
     <>
-      <JsonLdScript data={buildJsonLdGraph([buildOrganizationJsonLd()])} />
+      <JsonLdScript
+        data={buildJsonLdGraph([
+          buildOrganizationJsonLd(),
+          buildMedicalOrganizationJsonLd(),
+          buildFaqPageJsonLd(INSTITUTION_FAQ, "/for-institutions"),
+        ])}
+      />
       <div className="min-h-screen bg-background">
         <section className="bg-[#082f2f] text-white">
           <div className="mx-auto max-w-6xl px-4 py-16 md:py-24">
@@ -419,6 +432,9 @@ export default function ForInstitutions() {
               </Link>
             </div>
           </section>
+        </main>
+        <main className="mx-auto max-w-6xl px-4 pb-16">
+          <PublicFaqSection items={INSTITUTION_FAQ} />
         </main>
         <Footer />
       </div>

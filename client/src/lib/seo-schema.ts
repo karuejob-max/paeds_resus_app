@@ -16,6 +16,10 @@ export const PUBLIC_SEO_ROUTES = [
   "/",
   "/start",
   "/about",
+  "/resources",
+  "/resources/bls-certification-cost-kenya",
+  "/resources/hospital-emergency-readiness-checklist",
+  "/resources/paediatric-shock-recognition-first-actions",
   "/help",
   "/verify",
   "/login",
@@ -65,6 +69,51 @@ export function buildOrganizationJsonLd() {
       "https://x.com/PaedsResus",
       "https://youtube.com/@paeds_resus",
     ],
+  };
+}
+
+export type FaqSchemaItem = {
+  question: string;
+  answer: string;
+};
+
+export function buildFaqPageJsonLd(items: FaqSchemaItem[], path: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "@id": `${SITE_ORIGIN}${path}#faq`,
+    url: `${SITE_ORIGIN}${path}`,
+    mainEntity: items.map(item => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  };
+}
+
+export function buildMedicalOrganizationJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": ["MedicalOrganization", "LocalBusiness"],
+    "@id": `${SITE_ORIGIN}/#medical-organization`,
+    name: "Paeds Resus",
+    legalName: "Paeds Resus Limited",
+    url: SITE_ORIGIN,
+    logo: `${SITE_ORIGIN}/og-image.png`,
+    description:
+      "Emergency-care training and institutional readiness for all patient populations in Kenya, grounded in paediatric resuscitation science.",
+    areaServed: ["Kenya"],
+    address: {
+      "@type": "PostalAddress",
+      addressCountry: "KE",
+      addressRegion: "Central Kenya",
+    },
+    email: "paedsresus254@gmail.com",
+    telephone: "+254706781260",
+    parentOrganization: { "@id": ORGANIZATION_ID },
   };
 }
 
