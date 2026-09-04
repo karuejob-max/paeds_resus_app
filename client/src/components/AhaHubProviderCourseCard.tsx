@@ -43,7 +43,8 @@ export const AhaHubProviderCourseCard = memo(function AhaHubProviderCourseCard({
   accessCodePending = false,
 }: AhaHubProviderCourseCardProps) {
   const isEnrolled = !!enrollment;
-  const canAccess = accessDecision?.allowed ?? false;
+  // Backward-compatible default for standalone card consumers; the AHA Hub always supplies the server decision.
+  const canAccess = accessDecision ? accessDecision.allowed : true;
   const [accessCode, setAccessCode] = useState("");
   const cognitiveComplete = enrollment?.cognitiveModulesComplete ?? false;
   const practicalSignedOff = enrollment?.practicalSkillsSignedOff ?? false;
