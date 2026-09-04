@@ -116,6 +116,11 @@ export default function InstitutionWorkspace() {
   const initialWorkspaceState = getInitialWorkspaceState();
   const [activeSection, setActiveSection] = useState<WorkspaceSection>(initialWorkspaceState.section);
   const [activeIersTab, setActiveIersTab] = useState(initialWorkspaceState.iersTab);
+  const [selectedInstitutionId, setSelectedInstitutionId] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const value = Number(new URLSearchParams(window.location.search).get("institutionId"));
+    return Number.isInteger(value) && value > 0 ? value : null;
+  });
   const legacyWorkforceTab = initialWorkspaceState.workforceTab;
 
   const setSection = (section: WorkspaceSection) => {
@@ -136,10 +141,30 @@ export default function InstitutionWorkspace() {
     }
   };
 
-  const { data: myInstitution, isLoading: institutionLoading } = trpc.institutionAccountability.getMyWorkspace.useQuery(undefined, {
+  const { data: workspacePreview } = trpc.institutionAccountability.getMyWorkspace.useQuery(undefined, {
     enabled: isAuthenticated,
+    staleTime: 30_000,
   });
-  const institutionId = myInstitution?.institution?.id ?? null;
+  const availableInstitutions = workspacePreview?.institutions ?? [];
+  const resolvedInstitutionId = availableInstitutions.some(item => item.id === selectedInstitutionId)
+    ? selectedInstitutionId
+    : workspacePreview?.institution?.id ?? availableInstitutions[0]?.id ?? null;
+  const { data: myInstitution, isLoading: institutionLoading } = trpc.institutionAccountability.getMyWorkspace.useQuery(
+    resolvedInstitutionId ? { institutionId: resolvedInstitutionId } : undefined,
+    { enabled: isAuthenticated && resolvedInstitutionId != null, staleTime: 30_000 }
+  );
+  const institutionId = myInstitution?.institution?.id ?? resolvedInstitutionId;
+
+  useEffect(() => {
+    if (!availableInstitutions.length || resolvedInstitutionId == null) return;
+    if (selectedInstitutionId === resolvedInstitutionId) return;
+    setSelectedInstitutionId(resolvedInstitutionId);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("institutionId", String(resolvedInstitutionId));
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  }, [availableInstitutions, resolvedInstitutionId, selectedInstitutionId]);
 
   useEffect(() => {
     if (activeIersTab !== "workforce" || legacyWorkforceTab === "departments" || typeof window === "undefined") return;
@@ -226,6 +251,24 @@ export default function InstitutionWorkspace() {
               Institution Workspace
             </div>
             <h1 className="break-words text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{institutionName}</h1>
+            {availableInstitutions.length > 1 ? (
+              <label className="mt-3 flex max-w-md items-center gap-2 text-sm text-muted-foreground">
+                <span className="shrink-0">Switch institution</span>
+                <select
+                  className="min-w-0 rounded-md border bg-background px-3 py-2 text-foreground"
+                  value={institutionId ?? ""}
+                  onChange={event => {
+                    const nextId = Number(event.target.value);
+                    setSelectedInstitutionId(nextId);
+                    const params = new URLSearchParams(window.location.search);
+                    params.set("institutionId", String(nextId));
+                    window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+                  }}
+                >
+                  {availableInstitutions.map(item => <option key={item.id} value={item.id}>{item.companyName}</option>)}
+                </select>
+              </label>
+            ) : null}
           </div>
           <div className="flex w-full shrink-0 flex-col gap-2 md:w-auto md:flex-row">
             <Button className="w-full md:w-auto" variant="outline" onClick={() => navigate("/iers/orientation")}>

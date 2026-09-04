@@ -54,6 +54,7 @@ export default function GlobalEntitlementPanel() {
   const [expiresAt, setExpiresAt] = useState("");
   const [maxRedemptions, setMaxRedemptions] = useState("1");
   const [shareable, setShareable] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState("");
   const [issuedCode, setIssuedCode] = useState<string | null>(null);
 
   const isInstitutionTarget = programType === "paeds_resus_ils";
@@ -81,6 +82,7 @@ export default function GlobalEntitlementPanel() {
       setTargetInstitutionalAccountId(null);
       setSelfPayCourseId("");
       setSelfPayCourseQuery("");
+      setRecipientEmail("");
       setReason("");
       void listQuery.refetch();
     },
@@ -109,7 +111,8 @@ export default function GlobalEntitlementPanel() {
     reason.trim().length >= 10 &&
     /^\d{4}-\d{2}-\d{2}$/.test(expiresAt) &&
     Number(maxRedemptions) >= 1 &&
-    (!["self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(programType) || selfPayCourseId.trim().length > 0);
+    (!["self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(programType) || selfPayCourseId.trim().length > 0) &&
+    (!shareable || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail.trim()));
   const courseOptions = programType === "self_pay"
     ? (selfPayCoursesQuery.data ?? []).map(course => ({
         courseId: course.courseId,
@@ -171,6 +174,7 @@ export default function GlobalEntitlementPanel() {
       expiresAt,
       maxRedemptions: Number(maxRedemptions),
       shareable,
+      recipientEmail: shareable ? recipientEmail.trim().toLowerCase() : null,
     });
   };
 
@@ -319,10 +323,20 @@ export default function GlobalEntitlementPanel() {
                 Issue a shareable learner access code
               </label>
               {shareable ? (
-                <p className="text-xs leading-5 text-muted-foreground">
-                  The plaintext code is shown once after creation. Send it only
-                  to the intended learner.
-                </p>
+                <div className="space-y-2">
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    The code is shown once and can only be redeemed by this email address.
+                  </p>
+                  <label className="text-sm font-medium" htmlFor="global-entitlement-recipient-email">Learner email</label>
+                  <Input
+                    id="global-entitlement-recipient-email"
+                    type="email"
+                    value={recipientEmail}
+                    onChange={event => setRecipientEmail(event.target.value)}
+                    placeholder="learner@example.com"
+                    required
+                  />
+                </div>
               ) : null}
               {issuedCode ? (
                 <div className="rounded-md border border-green-300 bg-green-50 px-3 py-3 text-sm text-green-950">

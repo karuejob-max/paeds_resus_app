@@ -366,6 +366,8 @@ export const globalEntitlements = mysqlTable(
     /** One-way hash of a shareable redemption code; plaintext is never persisted. */
     accessCodeHash: varchar("accessCodeHash", { length: 64 }).unique(),
     accessCodePrefix: varchar("accessCodePrefix", { length: 12 }),
+    /** SHA-256 of the normalized recipient email for single-person shareable codes. */
+    recipientEmailHash: varchar("recipientEmailHash", { length: 64 }),
     targetUserId: int("targetUserId"),
     targetInstitutionalAccountId: int("targetInstitutionalAccountId"),
     programType: mysqlEnum("programType", ["ierp", "nerp", "paeds_resus_ils", "self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"]).notNull(),
@@ -4422,6 +4424,25 @@ export const providerProfiles = mysqlTable("providerProfiles", {
 
 export type ProviderProfile = typeof providerProfiles.$inferSelect;
 export type InsertProviderProfile = typeof providerProfiles.$inferInsert;
+
+/**
+ * Additive professional identities. The legacy users.cadre remains the primary
+ * display value for backward compatibility; this table stores additional roles.
+ */
+export const providerProfessionalRoles = mysqlTable("providerProfessionalRoles", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  cadre: varchar("cadre", { length: 128 }).notNull(),
+  cadreOther: varchar("cadreOther", { length: 128 }),
+  specialization: varchar("specialization", { length: 255 }),
+  isPrimary: boolean("isPrimary").default(false).notNull(),
+  status: mysqlEnum("status", ["active", "archived"]).default("active").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProviderProfessionalRole = typeof providerProfessionalRoles.$inferSelect;
+export type InsertProviderProfessionalRole = typeof providerProfessionalRoles.$inferInsert;
 
 // Provider Performance Metrics table
 export const providerPerformanceMetrics = mysqlTable(

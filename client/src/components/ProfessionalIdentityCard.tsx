@@ -23,6 +23,9 @@ export function ProfessionalIdentityCard() {
   const [cadreOther, setCadreOther] = useState("");
   const [customOther, setCustomOther] = useState("");
   const [specialization, setSpecialization] = useState("");
+  const [additionalRoles, setAdditionalRoles] = useState("");
+  const providerRolesQuery = trpc.provider.listProfessionalRoles.useQuery();
+  const addRoleMutation = trpc.provider.addProfessionalRole.useMutation();
   const [message, setMessage] = useState<{
     type: "ok" | "err";
     text: string;
@@ -45,6 +48,14 @@ export function ProfessionalIdentityCard() {
   useEffect(() => {
     setSpecialization(providerProfileQuery.data?.specialization ?? "");
   }, [providerProfileQuery.data?.specialization]);
+
+  useEffect(() => {
+    const secondary = (providerRolesQuery.data ?? [])
+      .filter(role => role.cadre !== cadre)
+      .map(role => role.cadreOther ? `${role.cadre}: ${role.cadreOther}` : role.cadre)
+      .join(", ");
+    setAdditionalRoles(secondary);
+  }, [providerRolesQuery.data, cadre]);
 
   const updateProviderProfile = trpc.provider.updateProfile.useMutation();
 
@@ -80,6 +91,14 @@ export function ProfessionalIdentityCard() {
         cadreOther: finalCadreOther || null,
       });
       await updateProviderProfile.mutateAsync({ specialization: specialization.trim() });
+      const existingRoles = new Set((providerRolesQuery.data ?? []).map(role => role.cadre.toLowerCase()));
+      const requestedRoles = additionalRoles.split(",").map(role => role.trim()).filter(Boolean);
+      for (const role of requestedRoles) {
+        const [roleCadre, roleOther] = role.split(/:\s*/, 2);
+        if (!roleCadre || roleCadre.toLowerCase() === cadre.trim().toLowerCase() || existingRoles.has(roleCadre.toLowerCase())) continue;
+        await addRoleMutation.mutateAsync({ cadre: roleCadre, cadreOther: roleOther?.trim() || null, specialization: specialization.trim() || null });
+      }
+      await utils.provider.listProfessionalRoles.invalidate();
       setMessage({ type: "ok", text: "Professional identity saved." });
       await utils.provider.getProfile.invalidate();
     } catch (error) {
@@ -133,6 +152,19 @@ export function ProfessionalIdentityCard() {
             placeholder="e.g. Paediatrics, Emergency Medicine, Neonatology"
           />
           <p className="text-xs text-muted-foreground">Add your main clinical or professional area. This is part of profile completion and can be changed later.</p>
+        </div>
+        <div className="space-y-2 rounded-lg border bg-background/70 p-3">
+          <Label htmlFor="professional-additional-roles">Additional roles or cadres</Label>
+          <Input
+            id="professional-additional-roles"
+            value={additionalRoles}
+            onChange={(event) => setAdditionalRoles(event.target.value)}
+            placeholder="e.g. Nurse, Facility owner"
+          />
+          <p className="text-xs text-muted-foreground">Separate roles with commas. Your current primary cadre remains unchanged; additional roles are stored separately and can support multiple professional contexts.</p>
+          {providerRolesQuery.data?.length ? (
+            <div className="flex flex-wrap gap-2">{providerRolesQuery.data.map(role => <Badge key={role.id} variant={role.cadre === cadre ? "default" : "secondary"}>{role.cadreOther ? `${role.cadre}: ${role.cadreOther}` : role.cadre}</Badge>)}</div>
+          ) : null}
         </div>
         <Button type="button" onClick={save} disabled={updateProfile.isPending || updateProviderProfile.isPending}>
           {updateProfile.isPending || updateProviderProfile.isPending ? (

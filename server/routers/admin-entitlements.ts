@@ -15,6 +15,7 @@ import {
   GLOBAL_ENTITLEMENT_BENEFIT_TYPES,
   GLOBAL_ENTITLEMENT_PROGRAM_TYPES,
   createAccessCode,
+  hashRecipientEmail,
   newEntitlementReference,
 } from "../lib/global-entitlements";
 
@@ -48,11 +49,26 @@ export const createEntitlementInput = z
     expiresAt: z.string().date(),
     maxRedemptions: z.number().int().min(1).max(1000).default(1),
     shareable: z.boolean().default(false),
+    recipientEmail: z.string().trim().email().max(320).nullable().optional(),
   })
   .superRefine((input, ctx) => {
     const targetUser = input.targetUserId != null;
     const targetInstitution = input.targetInstitutionalAccountId != null;
     const shareable = input.shareable === true;
+    if (shareable && !input.recipientEmail) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["recipientEmail"],
+        message: "Enter the one learner email address this code is for.",
+      });
+    }
+    if (!shareable && input.recipientEmail) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["recipientEmail"],
+        message: "Recipient email is only used for shareable access codes.",
+      });
+    }
     if (input.programType === "paeds_resus_ils") {
       if (!targetInstitution || targetUser) {
         ctx.addIssue({
@@ -347,6 +363,9 @@ export const adminEntitlementsRouter = router({
         grantReference,
         accessCodeHash: accessCode?.hash ?? null,
         accessCodePrefix: accessCode?.prefix ?? null,
+        recipientEmailHash: input.shareable && input.recipientEmail
+          ? hashRecipientEmail(input.recipientEmail)
+          : null,
         targetUserId: input.targetUserId ?? null,
         targetInstitutionalAccountId:
           input.targetInstitutionalAccountId ?? null,

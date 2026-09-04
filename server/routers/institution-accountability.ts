@@ -268,7 +268,9 @@ function activeAssignmentKey(
 
 export const institutionAccountabilityRouter = router({
   /** Workspace entry projection: institution admins and active linked members only. */
-  getMyWorkspace: protectedProcedure.query(async ({ ctx }) => {
+  getMyWorkspace: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive().optional() }).optional())
+    .query(async ({ ctx, input }) => {
     const db = await requireDb();
     const administeredIds = await getAdministeredInstitutionIds(
       db,
@@ -389,7 +391,9 @@ export const institutionAccountabilityRouter = router({
         )
       );
 
-    const first = institutions[0] ?? null;
+    const first = input?.institutionId != null
+      ? institutions.find(row => row.id === input.institutionId) ?? null
+      : institutions[0] ?? null;
     return {
       institution: first,
       institutions,
