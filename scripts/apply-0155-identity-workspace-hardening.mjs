@@ -1,8 +1,14 @@
+import "dotenv/config";
 import mysql from "mysql2/promise";
-import { resolveDbConfig } from "./db-connection-config.mjs";
+import { createMysqlConnection } from "./db-connection-config.mjs";
 
-const config = await resolveDbConfig();
-const connection = await mysql.createConnection(config);
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  console.error("[0155] DATABASE_URL is required.");
+  process.exit(1);
+}
+
+const connection = await createMysqlConnection(databaseUrl, mysql);
 try {
   const [emailColumns] = await connection.query("SHOW COLUMNS FROM globalEntitlements LIKE 'recipientEmailHash'");
   if (!emailColumns.length) {
