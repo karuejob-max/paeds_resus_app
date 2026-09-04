@@ -2,7 +2,7 @@ import cron, { ScheduledTask } from "node-cron";
 import { getDb } from "./db";
 import { sendPaymentReminder, sendTrainingConfirmation } from "./email";
 import { eq, and, lt } from "drizzle-orm";
-import { enrollments, payments, smsReminders } from "../drizzle/schema";
+import { enrollments, payments, smsReminders, ierpProgramEnrollments, ierpInternProfiles, inAppNotifications, users } from "../drizzle/schema";
 import { rollupAllInstitutionalAccounts } from "./institutional-analytics-rollup";
 import { runScheduledCertificateRenewalReminders } from "./certificate-renewal-cron";
 import { runScheduledFellowshipProgressSync } from "./services/fellowship-progress.service";
@@ -16,6 +16,8 @@ import {
 } from "./lib/fpkb-pattern-detector";
 import { queueRenewalNotifications } from "./lib/institution-renewal-notifications";
 import { runScheduledProfessionalCredentialReminders } from "./professional-credential-reminders";
+import { getIerpPaymentAccess } from "./lib/ierp-program-state";
+import { sendEmail } from "./email-service";
 
 function useMpesaMock(): boolean {
   const v = process.env.MPESA_USE_MOCK?.trim().toLowerCase();
@@ -52,6 +54,7 @@ export function initializeScheduler() {
 
   // Run payment reminders every day at 9 AM
   schedulePaymentReminders();
+  scheduleIerpDeadlineReminders();
 
   // Run training confirmations every day at 8 AM
   scheduleTrainingConfirmations();
@@ -339,6 +342,42 @@ function scheduleInstitutionalAnalyticsRollup() {
       console.error("[Scheduler] institutionalAnalytics rollup failed:", error);
     }
   });
+}
+
+/** Send idempotent IERP deadline reminders for the August-November deferred cohort. */
+function scheduleIerpDeadlineReminders() {
+  cron.schedule(
+    "0 7 * * *",
+    async () => {
+      try {
+        const db = await requireDb();
+        const rows = await db
+          .select({ program: ierpProgramEnrollments, profile: ierpInternProfiles, learnerName: users.name, email: users.email })
+          .from(ierpProgramEnrollments)
+          .innerJoin(ierpInternProfiles, eq(ierpInternProfiles.userId, ierpProgramEnrollments.userId))
+          .innerJoin(users, eq(users.id, ierpProgramEnrollments.userId));
+        const now = new Date();
+        for (const row of rows) {
+          const access = getIerpPaymentAccess({ ...row.program, effectiveCommencementDate: row.profile.effectiveCommencementDate }, now);
+          if (!access.deferredStartWindow || !access.paymentDeadline || access.isPaidInFull || access.balance <= 0) continue;
+          const daysRemaining = Math.ceil((access.paymentDeadline.getTime() - now.getTime()) / 86400000);
+          const window = daysRemaining <= 0 ? "deadline" : daysRemaining <= 3 ? "3_days" : daysRemaining <= 14 ? "14_days" : null;
+          if (!window) continue;
+          const title = `IERP payment deadline reminder · ${window}`;
+          const existing = await db.select({ id: inAppNotifications.id }).from(inAppNotifications).where(and(eq(inAppNotifications.userId, row.program.userId), eq(inAppNotifications.type, "ierp_payment_deadline"), eq(inAppNotifications.title, title), eq(inAppNotifications.relatedId, row.program.id))).limit(1);
+          if (existing[0]) continue;
+          const body = `Your IERP deferred payment window ends on ${access.paymentDeadline.toLocaleDateString("en-KE", { timeZone: "Africa/Nairobi" })} EAT. Remaining balance: KES ${access.balance.toLocaleString()}.`;
+          await db.insert(inAppNotifications).values({ userId: row.program.userId, type: "ierp_payment_deadline", title, body, actionUrl: "/programs/ierp", relatedId: row.program.id, read: false });
+          if (row.email?.trim()) {
+            await sendEmail(row.email.trim(), "ierpPaymentDeadlineReminder", { learnerName: row.learnerName?.trim() || "there", deadline: access.paymentDeadline.toLocaleDateString("en-KE", { timeZone: "Africa/Nairobi" }), balanceKsh: access.balance.toLocaleString(), daysLabel: window === "deadline" ? "today" : `in ${daysRemaining} days`, paymentUrl: `${process.env.APP_BASE_URL?.replace(/\/$/, "") || "https://www.paedsresus.com"}/programs/ierp` });
+          }
+        }
+      } catch (error) {
+        console.error("[Scheduler] IERP deadline reminders failed:", error);
+      }
+    },
+    { timezone: "Africa/Nairobi" },
+  );
 }
 
 /**
