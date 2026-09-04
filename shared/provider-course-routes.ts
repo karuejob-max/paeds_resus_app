@@ -38,6 +38,22 @@ export type ContinueRouteConfig = {
   ctaLabel: "Start course" | "Open learner dashboard";
 };
 
+export type AhaPathway = "ierp" | "nerp" | "ilsp" | "independent" | "admin_grant";
+
+/** Pathway learners must return to their owning programme portal. */
+export function getAhaPathwayPortalRoute(pathway: string | null | undefined): string | null {
+  switch (pathway) {
+    case "ierp":
+      return "/programs/ierp";
+    case "nerp":
+      return "/programs/nerp-acls";
+    case "ilsp":
+      return "/training/institutional-life-support";
+    default:
+      return null;
+  }
+}
+
 export function isAhaProgramSlug(courseId: string): courseId is AhaProgramType {
   return (AHA_PROGRAM_TYPES as readonly string[]).includes(courseId);
 }

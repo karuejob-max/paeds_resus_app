@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { BookOpen, ArrowLeft, ClipboardCheck, CalendarPlus, Award, FlaskConical } from "lucide-react";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
-import { getAhaContinueRoute, type AhaProgramType } from "@/lib/providerCourseRoutes";
+import { getAhaContinueRoute, getAhaPathwayPortalRoute, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AHA_COURSE_ORDER } from "@/const/aha-course-metadata";
 import { AHA_HUB_STALE_MS } from "@/const/aha-hub-query";
 import { AhaHubProviderCourseCard } from "@/components/AhaHubProviderCourseCard";
@@ -100,6 +100,11 @@ export default function AHACourses() {
     }
   }, [redeemAhaAccessCodeMutation]);
 
+  const handleOpenPathway = useCallback((pathway: string) => {
+    const destination = getAhaPathwayPortalRoute(pathway);
+    if (destination) setLocation(destination);
+  }, [setLocation]);
+
   const handleContinue = useCallback(
     (pt: AhaProgramType, enrollmentId: number) => {
       track("provider_conversion", "aha_continue_learning_clicked", {
@@ -119,9 +124,15 @@ export default function AHACourses() {
     for (const pt of AHA_COURSE_ORDER) {
       const enrol = enrollmentByProgram.get(pt);
       if (enrol && !enrol.cognitiveModulesComplete) {
+        const decision = dashboard?.accessDecisions?.[pt];
+        const pathwayDestination = decision?.allowed ? getAhaPathwayPortalRoute(decision.pathway) : null;
         return {
-          label: `Continue ${pt.toUpperCase()} cognitive modules`,
+          label: pathwayDestination ? `Open ${decision?.pathway?.toUpperCase()} portal` : `Continue ${pt.toUpperCase()} cognitive modules`,
           onClick: () => {
+            if (pathwayDestination) {
+              setLocation(pathwayDestination);
+              return;
+            }
             track("provider_conversion", "aha_continue_learning_clicked", {
               programType: pt,
               enrollmentId: enrol.id,
@@ -147,7 +158,7 @@ export default function AHACourses() {
       }
     }
     return null;
-  }, [enrollmentByProgram, enrollmentsPending, openAhaPlayer, setLocation, track]);
+  }, [dashboard?.accessDecisions, enrollmentByProgram, enrollmentsPending, openAhaPlayer, setLocation, track]);
 
   const anyEnrolled = !enrollmentsPending && enrollmentByProgram.size > 0;
   const anyCognitiveComplete =
@@ -270,6 +281,7 @@ export default function AHACourses() {
               onContinue={handleContinue}
               onEnroll={handleEnroll}
               onViewCertificates={goToCertificates}
+              onOpenPathway={handleOpenPathway}
               onRedeemAccessCode={handleRedeemAccessCode}
               accessCodePending={redeemAhaAccessCodeMutation.isPending}
             />
