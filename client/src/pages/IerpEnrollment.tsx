@@ -1,6 +1,7 @@
 import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IerpInternProfileCard } from "@/components/IerpInternProfileCard";
@@ -20,7 +21,9 @@ export default function IerpEnrollment() {
     );
   }
 
-  if (user.userType === "institutional") {
+  const { effectiveWorkspace } = useWorkspaceAccess();
+
+  if (effectiveWorkspace === "institution") {
     return (
       <div className="min-h-screen bg-muted/20 px-4 py-8 md:px-8">
         <div className="mx-auto max-w-2xl space-y-6">
