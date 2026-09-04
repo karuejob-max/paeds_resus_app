@@ -264,6 +264,7 @@ export default function AHACourses() {
             <AhaHubProviderCourseCard
               key={pt}
               programType={pt}
+              accessDecision={dashboard?.accessDecisions?.[pt]}
               enrollment={enrollmentByProgram.get(pt)}
               enrollmentPending={enrollmentsPending}
               onContinue={handleContinue}

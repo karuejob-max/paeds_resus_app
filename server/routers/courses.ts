@@ -234,15 +234,23 @@ export const coursesRouter = router({
     assertTrainingWorkspaceOrAdmin(ctx.user);
     try {
       const database = await getDb();
-      if (!database) return { programs: [], enrollments: [] };
-      const [programs, enrollments] = await Promise.all([
+      if (!database) return { programs: [], enrollments: [], accessDecisions: {} };
+      const [programs, enrollments, accessDecisionRows] = await Promise.all([
         fetchAhaHubPrograms(database),
         fetchMyAhaEnrollments(ctx.user.id),
+        Promise.all(AHA_PROGRAM_TYPES.map(async (programType) => ({
+          programType,
+          decision: await getAhaAccessDecision(database, ctx.user.id, programType),
+        }))),
       ]);
-      return { programs, enrollments };
+      return {
+        programs,
+        enrollments,
+        accessDecisions: Object.fromEntries(accessDecisionRows.map(({ programType, decision }) => [programType, decision])),
+      };
     } catch (error) {
       console.error('[courses.getAhaHubDashboard]', error);
-      return { programs: [], enrollments: [] };
+      return { programs: [], enrollments: [], accessDecisions: {} };
     }
   }),
 
