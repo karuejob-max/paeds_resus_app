@@ -16,12 +16,17 @@ import {
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { NERP_PATHWAY_ENTRY_PATH } from "@shared/nerp-pathway";
+import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
 
 export default function NerpOfferPage() {
   const { user, loading } = useAuth();
   const eligibility = trpc.nerp.getEligibility.useQuery(undefined, { enabled: !!user, retry: false });
   const enrollment = trpc.nerp.getMyEnrollment.useQuery(undefined, {
     enabled: Boolean(user && eligibility.data?.eligible === true),
+    retry: false,
+  });
+  const { data: journey } = trpc.nerp.getJourneyStatus.useQuery(undefined, {
+    enabled: Boolean(user),
     retry: false,
   });
   const canStart = eligibility.data?.eligible === true;
@@ -105,6 +110,10 @@ export default function NerpOfferPage() {
             </div>
           </div>
         </section>
+
+        {journey ? (
+          <ProgramJourneyCard title={journey.programName} subtitle="Programme progress is an orientation aid, not a clinical competence score." percentComplete={journey.percentComplete} phases={journey.phases} nextAction={journey.nextAction} />
+        ) : null}
 
         <div className="grid gap-5 md:grid-cols-3">
           <Card>

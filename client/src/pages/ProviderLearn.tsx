@@ -2,6 +2,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
+import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,11 @@ export default function ProviderLearn() {
     retry: 1,
   });
   const nerpEnrollmentQuery = trpc.nerp.getMyEnrollment.useQuery(undefined, {
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+    retry: 1,
+  });
+  const { data: nerpJourney } = trpc.nerp.getJourneyStatus.useQuery(undefined, {
     enabled: isAuthenticated,
     staleTime: 30_000,
     retry: 1,
@@ -141,7 +147,11 @@ export default function ProviderLearn() {
             <CardDescription>Our Financial Strategy 1: AHA certification pathways for providers and interns, separate from the Fellowship.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
-            {showNerpOffer ? (
+            {nerpJourney ? (
+              <div className="sm:col-span-2">
+                <ProgramJourneyCard title={nerpJourney.programName} subtitle="Programme progress is an orientation aid, not a clinical competence score." percentComplete={nerpJourney.percentComplete} phases={nerpJourney.phases} nextAction={nerpJourney.nextAction} compact />
+              </div>
+            ) : showNerpOffer ? (
               <div className="rounded-lg border border-orange-200 bg-white p-3">
                 <p className="text-sm font-semibold text-slate-900">Nurse Emergency Readiness Program (NERP)</p>
                 <p className="mt-1 text-xs leading-5 text-slate-600">Lipa Mdogo Mdogo ACLS: KES 2,500 per month for six payments, with Paeds Resus BLS included.</p>

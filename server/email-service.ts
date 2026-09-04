@@ -623,6 +623,15 @@ export const emailTemplates: Record<string, EmailTemplate> = {
     variables: ["learnerName", "reviewReason", "dashboardUrl"],
   },
 
+  ierpPaymentDeadlineReminder: {
+    id: "ierp-payment-deadline-reminder",
+    name: "IERP payment deadline reminder",
+    subject: "IERP payment deadline reminder — {{daysLabel}}",
+    html: `<p>Hello {{learnerName}},</p><p>Your IERP deferred payment window ends on <strong>{{deadline}}</strong> EAT. Your remaining balance is <strong>KES {{balanceKsh}}</strong>.</p><p>Pay the remaining balance before the deadline to keep your cognitive coursework and Phase 2 access active.</p><p><a href="{{paymentUrl}}">Open IERP payment</a></p><p>Paeds Resus Limited</p>`,
+    text: `Hello {{learnerName}},\n\nYour IERP deferred payment window ends on {{deadline}} EAT. Your remaining balance is KES {{balanceKsh}}.\n\nPay the remaining balance before the deadline to keep your cognitive coursework and Phase 2 access active.\n\nOpen IERP payment: {{paymentUrl}}\n\nPaeds Resus Limited`,
+    variables: ["learnerName", "deadline", "balanceKsh", "daysLabel", "paymentUrl"],
+  },
+
   ahaElearningProofApproved: {
     id: "aha-elearning-proof-approved",
     name: "AHA eLearning proof approved",

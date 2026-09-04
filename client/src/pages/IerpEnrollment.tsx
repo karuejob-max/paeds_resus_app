@@ -81,7 +81,7 @@ export default function IerpEnrollment() {
               profile is registered, open the BLS cognitive refresh; ACLS opens
               after BLS cognitive completion. August–November starters do not pay
               before 1 December EAT. From 1 December, the full KES 15,000 balance
-              must be paid in one payment before continuing. If evidence is
+              must be paid in one payment before continuing. The BLS refresh standardizes every learner to the current AHA guidance before ACLS; even a recent external certificate may not reflect the latest protocol updates. If evidence is
               rejected or revoked, access pauses and the reviewer’s correction
               reason is shown before you can continue.
             </p>

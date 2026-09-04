@@ -6,6 +6,7 @@ import { getOfflineSnapshot, getOfflineSnapshotFreshness, offlineStoreKeys, save
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import ProviderTodayActivationCard from "@/components/ProviderTodayActivationCard";
 import IersNotificationSetup from "@/components/IersNotificationSetup";
+import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -167,6 +168,11 @@ export default function ProviderToday() {
   }, []);
 
   const ierpEnrollmentQuery = trpc.ierp.getMyEnrollment.useQuery(undefined, {
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+    retry: 1,
+  });
+  const { data: nerpJourney } = trpc.nerp.getJourneyStatus.useQuery(undefined, {
     enabled: isAuthenticated,
     staleTime: 30_000,
     retry: 1,
@@ -392,6 +398,10 @@ export default function ProviderToday() {
         )}
 
         <IersNotificationSetup enabled={hasActiveMembership && isOnline} />
+
+        {nerpJourney ? (
+          <ProgramJourneyCard title={nerpJourney.programName} subtitle="Programme progress is an orientation aid, not a clinical competence score." percentComplete={nerpJourney.percentComplete} phases={nerpJourney.phases} nextAction={nerpJourney.nextAction} compact />
+        ) : null}
 
         <Card className="border-2 border-indigo-300 bg-indigo-50 shadow-sm">
           <CardHeader className="pb-3">
