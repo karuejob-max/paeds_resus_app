@@ -120,7 +120,10 @@ async function assertAhaCognitiveAccess(
   programType: string | null | undefined,
   pathway?: "ierp"
 ) {
-  if (!userId || !isAhaProgramType(programType)) return;
+  if (!isAhaProgramType(programType)) return;
+  if (!userId) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "Sign in and complete payment, redeem an access code, or enter through the relevant approved pathway before opening AHA course content." });
+  }
   // An active IERP enrollment owns BLS/ACLS cognitive access. Infer it here
   // for every player request, not only the first route load, so module content,
   // quizzes, and summative exams cannot fall back to standalone AHA pricing.
