@@ -446,7 +446,7 @@ export const cpdRouter = router({
               : undefined
           )
         )
-        .limit(10);
+        .limit(250);
 
       const staffMatches = await db
         .select({
@@ -479,7 +479,7 @@ export const cpdRouter = router({
               : undefined,
           ),
         )
-        .limit(50);
+        .limit(250);
 
       const memberRows = Array.from(
         new Map(
@@ -527,7 +527,7 @@ export const cpdRouter = router({
           facilityDepartmentId: null,
           isInstitutionMember: false as const,
         }));
-      return [...memberResults, ...platformResults].slice(0, 50);
+      return [...memberResults, ...platformResults].slice(0, 250);
     }),
 
   /** Admin: open a new event. Closes any currently open event for this institution first. */

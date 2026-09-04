@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { CANONICAL_CLINICAL_DEPARTMENTS } from "@/lib/clinical-departments";
 import { DepartmentSelectors } from "@/components/DepartmentSelectors";
-import CadreProgressiveSelector from "@/components/CadreProgressiveSelector";
+import CadreProgressiveSelector, { SearchableDropdown } from "@/components/CadreProgressiveSelector";
 import { StaffPerformanceRoster } from "@/components/StaffPerformanceRoster";
 import { ALL_STANDARD_SPECIALTIES } from "@/lib/cadre-taxonomy";
 import {
@@ -123,7 +123,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
   const [presenterSubSpecialty, setPresenterSubSpecialty] = useState("");
   const [presenterCustomOther, setPresenterCustomOther] = useState("");
   const [presenterDepartment, setPresenterDepartment] = useState("");
-  const [showPresenterSuggestions, setShowPresenterSuggestions] = useState(false);
+  const [presenterSearch, setPresenterSearch] = useState("");
 
   const [approvingCouncil, setApprovingCouncil] = useState("NCK");
   const [customCouncil, setCustomCouncil] = useState("");
@@ -142,7 +142,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
   const [editEventType, setEditEventType] = useState<"cne" | "cme" | "cpd_general" | "grand_rounds" | "journal_club" | "workshop">("cne");
   const [editCpdPoints, setEditCpdPoints] = useState("");
   const [editApprovingCouncil, setEditApprovingCouncil] = useState("NCK");
-  const [showEditPresenterSuggestions, setShowEditPresenterSuggestions] = useState(false);
+  const [editPresenterSearch, setEditPresenterSearch] = useState("");
 
   // Helper functions for parsing and setting presenter cadre
   const setPresenterCadreFromUser = (
@@ -260,13 +260,13 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
 
   // Search queries for autocomplete
   const presenterSearchQuery = trpc.cpd.searchPresenters.useQuery(
-    { query: presenterName, institutionId },
-    { enabled: showPresenterSuggestions && presenterName.trim().length >= 2 }
+    { query: presenterSearch.trim(), institutionId },
+    { enabled: true, staleTime: 15_000 }
   );
 
   const editPresenterSearchQuery = trpc.cpd.searchPresenters.useQuery(
-    { query: editPresenterName, institutionId },
-    { enabled: showEditPresenterSuggestions && editPresenterName.trim().length >= 2 }
+    { query: editPresenterSearch.trim(), institutionId },
+    { enabled: true, staleTime: 15_000 }
   );
 
   const events = eventsQuery.data ?? [];
@@ -344,7 +344,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
       setApprovingCouncil("NCK");
       setCustomCouncil("");
       setCpdPoints("");
-      setShowPresenterSuggestions(false);
+      setPresenterSearch("");
       void utils.cpd.listEvents.invalidate({ institutionId });
       void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
     },
@@ -355,7 +355,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
     onSuccess: () => {
       toast.success("Event presenter & details updated");
       setEditingEventId(null);
-      setShowEditPresenterSuggestions(false);
+      setEditPresenterSearch("");
       void utils.cpd.listEvents.invalidate({ institutionId });
       void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
     },
@@ -1026,7 +1026,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                                   setEditEventType((event.eventType as any) || "cne");
                                   setEditCpdPoints(event.cpdPoints || "");
                                   setEditApprovingCouncil(event.approvingCouncil || "NCK");
-                                  setShowEditPresenterSuggestions(false);
+                                  setEditPresenterSearch("");
                                 }}
                               >
                                 <Edit className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1144,49 +1144,39 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                       </div>
 
                       <div className="grid gap-3 sm:grid-cols-3">
-                        <div className="relative">
+                        <div className="min-w-0">
                           <Label className="text-xs">
-                            Presenter Name — type to search, then choose the department/cadre match {editPresenterUserId && <UserCheck className="inline h-3 w-3 text-emerald-600 ml-1" />}
+                            Presenter {editPresenterUserId && <UserCheck className="inline h-3 w-3 text-emerald-600 ml-1" />}
                           </Label>
-                          <Input
-                            className="h-8 text-xs"
-                            placeholder="Type to search..."
-                            value={editPresenterName}
-                            onChange={(e) => {
-                              setEditPresenterName(e.target.value);
-                              setEditPresenterUserId(null);
-                              setShowEditPresenterSuggestions(true);
+                          <SearchableDropdown
+                            value={editPresenterUserId == null ? "" : String(editPresenterUserId)}
+                            onChange={(value) => {
+                              const user = (editPresenterSearchQuery.data ?? []).find(candidate => String(candidate.id) === value);
+                              if (!value || !user) {
+                                setEditPresenterUserId(null);
+                                setEditPresenterName("");
+                                setEditPresenterCadre("");
+                                setEditPresenterSubSpecialty("");
+                                setEditPresenterCustomOther("");
+                                setEditPresenterDept("");
+                                return;
+                              }
+                              setEditPresenterUserId(user.id);
+                              setEditPresenterName(user.fullName);
+                              setPresenterCadreFromUser(user.cadre, user.cadreOther, true);
+                              setEditPresenterDept(user.department || "");
                             }}
-                            onFocus={() => setShowEditPresenterSuggestions(true)}
+                            options={(editPresenterSearchQuery.data ?? []).map(user => ({
+                              value: String(user.id),
+                              label: `${user.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member"} · ${user.fullName} · ${user.department || "Department not set"} · ${user.cadre || "Cadre not set"} · ${user.email || "No email"}`,
+                            }))}
+                            onSearchChange={setEditPresenterSearch}
+                            placeholder="Choose presenter"
+                            searchPlaceholder="Type name or email to search..."
+                            emptyText="No eligible Paeds Resus account found."
+                            clearable
+                            searchAlwaysVisible
                           />
-                          {showEditPresenterSuggestions && editPresenterSearchQuery.data && editPresenterSearchQuery.data.length > 0 && (
-                            <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 text-popover-foreground shadow-md max-h-48 overflow-auto">
-                              {editPresenterSearchQuery.data.map((user) => (
-                                <div
-                                  key={user.id}
-                                  className="cursor-pointer rounded-sm px-2 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground flex items-center justify-between"
-                                  onClick={() => {
-                                    setEditPresenterUserId(user.id);
-                                    setEditPresenterName(user.fullName);
-                                    setPresenterCadreFromUser(user.cadre, user.cadreOther, true);
-                                    if (user.department) setEditPresenterDept(user.department);
-                                    setShowEditPresenterSuggestions(false);
-                                  }}
-                                >
-                                  <div>
-                                    <span className="font-semibold">{user.fullName}</span>
-                                    <span className="text-muted-foreground ml-1">· {user.department || "Department not set"}</span>
-                                    <span className="text-muted-foreground ml-1">· {user.email}</span>
-                                  </div>
-                                  {user.cadre && (
-                                    <Badge variant="outline" className="text-[10px]">
-                                      {user.cadre === "Other" ? user.cadreOther || "Other" : (user.cadreOther ? `${user.cadre} - ${user.cadreOther}` : user.cadre)}
-                                    </Badge>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Presenter Cadre</Label>
@@ -1291,49 +1281,39 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
               </div>
 
               <div className="grid gap-4 sm:grid-cols-3">
-                <div className="relative">
-                          <Label htmlFor="cpd-presenter-name">
-                            Lead presenter — type a name to search institution members {presenterUserId && <UserCheck className="inline h-3.5 w-3.5 text-emerald-600 ml-1" />}
-                          </Label>
-                  <Input
-                    id="cpd-presenter-name"
-                    placeholder="Type name to search platform clinicians..."
-                    value={presenterName}
-                    onChange={(e) => {
-                      setPresenterName(e.target.value);
-                      setPresenterUserId(null);
-                      setShowPresenterSuggestions(true);
+                <div className="min-w-0">
+                  <Label htmlFor="cpd-presenter-name">
+                    Lead presenter {presenterUserId && <UserCheck className="inline h-3.5 w-3.5 text-emerald-600 ml-1" />}
+                  </Label>
+                  <SearchableDropdown
+                    value={presenterUserId == null ? "" : String(presenterUserId)}
+                    onChange={(value) => {
+                      const user = (presenterSearchQuery.data ?? []).find(candidate => String(candidate.id) === value);
+                      if (!value || !user) {
+                        setPresenterUserId(null);
+                        setPresenterName("");
+                        setPresenterCadre("");
+                        setPresenterSubSpecialty("");
+                        setPresenterCustomOther("");
+                        setPresenterDepartment("");
+                        return;
+                      }
+                      setPresenterUserId(user.id);
+                      setPresenterName(user.fullName);
+                      setPresenterCadreFromUser(user.cadre, user.cadreOther, false);
+                      setPresenterDepartment(user.department || "");
                     }}
-                    onFocus={() => setShowPresenterSuggestions(true)}
+                    options={(presenterSearchQuery.data ?? []).map(user => ({
+                      value: String(user.id),
+                      label: `${user.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member"} · ${user.fullName} · ${user.department || "Department not set"} · ${user.cadre || "Cadre not set"} · ${user.email || "No email"}`,
+                    }))}
+                    onSearchChange={setPresenterSearch}
+                    placeholder="Choose lead presenter"
+                    searchPlaceholder="Type name or email to search..."
+                    emptyText="No eligible Paeds Resus account found."
+                    clearable
+                    searchAlwaysVisible
                   />
-                  {showPresenterSuggestions && presenterSearchQuery.data && presenterSearchQuery.data.length > 0 && (
-                    <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 text-popover-foreground shadow-md max-h-48 overflow-auto">
-                      {presenterSearchQuery.data.map((user) => (
-                        <div
-                          key={user.id}
-                          className="cursor-pointer rounded-sm px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground flex items-center justify-between"
-                          onClick={() => {
-                            setPresenterUserId(user.id);
-                            setPresenterName(user.fullName);
-                            setPresenterCadreFromUser(user.cadre, user.cadreOther, false);
-                            if (user.department) setPresenterDepartment(user.department);
-                            setShowPresenterSuggestions(false);
-                          }}
-                        >
-                          <div>
-                            <span className="font-semibold">{user.fullName}</span>
-                            <span className="text-muted-foreground ml-1">· {user.department || "Department not set"}</span>
-                            <span className="text-muted-foreground ml-1">· {user.email}</span>
-                          </div>
-                          {user.cadre && (
-                            <Badge variant="outline" className="text-[10px]">
-                              {user.cadre === "Other" ? user.cadreOther || "Other" : (user.cadreOther ? `${user.cadre} - ${user.cadreOther}` : user.cadre)}
-                            </Badge>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="cpd-presenter-cadre">Lead presenter cadre</Label>
