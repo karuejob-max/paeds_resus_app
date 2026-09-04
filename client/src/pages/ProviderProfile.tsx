@@ -32,9 +32,9 @@ export default function ProviderProfile() {
     <div className="min-h-screen bg-muted/30 p-4 md:p-8">
       <div className="mx-auto max-w-5xl space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Professional profile</h1>
+          <h1 className="text-3xl font-bold text-foreground">My professional profile</h1>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Keep your professional identity and provider information accurate. Choose cadre and specialization once in Professional Identity, record experience and optional language context in the smaller profile section, and use Professional Credentials for one evidence-backed Licence number, jurisdiction, regulator, and AHA certificate evidence. Account security and workplace access remain separate so one field is not mistaken for another.
+            This personal profile is available to individual healthcare providers; you do not need to belong to a hospital or staff roster to complete it. Choose your cadre and specialization in Professional Identity, record experience and optional language context below, and use Professional Credentials for one evidence-backed Licence number, jurisdiction, regulator, and AHA certificate evidence. Institutional workplace access and dated duties are managed separately and require an approved membership plus the relevant safety checks.
           </p>
           {profile?.department ? (
             <p className="mt-2 text-sm font-medium text-primary">Current workplace department: {profile.department}{" "}<Link href="/workplaces" className="underline">Change</Link></p>
