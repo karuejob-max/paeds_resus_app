@@ -223,7 +223,7 @@ export async function findActiveShareableEntitlement(
   selfPayCourseId: string,
   programType: GlobalEntitlementProgramType = "self_pay",
   now: Date = new Date(),
-  recipientEmail?: string | null
+  recipientEmail: string | null
 ) {
   const [row] = await db
     .select()
@@ -236,7 +236,12 @@ export async function findActiveShareableEntitlement(
         eq(globalEntitlements.status, "active"),
         gt(globalEntitlements.expiresAt, now),
         lt(globalEntitlements.redemptionCount, globalEntitlements.maxRedemptions),
-        ...(recipientEmail ? [eq(globalEntitlements.recipientEmailHash, hashRecipientEmail(recipientEmail))] : [isNotNull(globalEntitlements.recipientEmailHash)]),
+        recipientEmail
+          ? or(
+              isNull(globalEntitlements.recipientEmailHash),
+              eq(globalEntitlements.recipientEmailHash, hashRecipientEmail(recipientEmail))
+            )
+          : isNull(globalEntitlements.recipientEmailHash),
         isNull(globalEntitlements.targetUserId),
         isNull(globalEntitlements.targetInstitutionalAccountId)
       )
