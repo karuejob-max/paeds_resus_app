@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, isNull, like, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   enrollments,
@@ -43,6 +43,7 @@ import {
   getNerpCredentialState,
 } from "../lib/aha-access";
 import { consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
+import { calculateProgramJourney } from "../../shared/program-journey";
 
 const PHASES = ["phase_2", "phase_3"] as const;
 const DECISIONS = ["verified", "rejected", "revoked"] as const;
@@ -382,6 +383,46 @@ export const nerpRouter = router({
     };
   }),
 
+  getJourneyStatus: protectedProcedure.query(async ({ ctx }) => {
+    const db = await requireDb();
+    const offer = await getOfferForUser(db, ctx.user.id);
+    if (!offer) return null;
+    const [links, verification] = await Promise.all([
+      db.select().from(nerpOfferCourses).where(eq(nerpOfferCourses.nerpOfferEnrollmentId, offer.id)),
+      getVerificationState(db, offer.id),
+    ]);
+    const enrollmentIds = links.map((link: any) => Number(link.enrollmentId)).filter(Boolean);
+    const childRows = enrollmentIds.length
+      ? await db.select().from(enrollments).where(inArray(enrollments.id, enrollmentIds))
+      : [];
+    const byType = new Map(childRows.map((row: any) => [row.programType, row]));
+    const bls = byType.get("bls") as any;
+    const acls = byType.get("acls") as any;
+    const paymentState = calculateNerpPaymentState({
+      amountPaidKes: Number(offer.amountPaidKes),
+      totalAmountKes: Number(offer.totalAmountKes),
+      monthlyInstallmentKes: Number(offer.monthlyInstallmentKes),
+      installmentCount: offer.installmentCount,
+    });
+    const phase2Verified = verification.phase2?.status === "verified";
+    const phase3Verified = verification.phase3?.status === "verified";
+    const ahaEvidenceVerified = !!(bls?.certificateVerified && acls?.certificateVerified) || phase2Verified;
+    const journey = calculateProgramJourney({
+      blsProgress: Number(bls?.progressPercentage ?? (bls?.cognitiveModulesComplete ? 100 : 0)) / 100,
+      aclsProgress: Number(acls?.progressPercentage ?? (acls?.cognitiveModulesComplete ? 100 : 0)) / 100,
+      ahaEvidenceVerified,
+      phase2Progress: phase2Verified ? 1 : 0,
+      paymentProgress: Number(offer.totalAmountKes) > 0 ? Number(offer.amountPaidKes) / Number(offer.totalAmountKes) : 0,
+      phase3Complete: phase3Verified || offer.status === "completed",
+      phase1Action: { label: "Open NERP coursework", destination: "/programs/nerp-acls/entry" },
+      phase2Action: { label: "Open Phase 2", destination: "/programs/nerp-acls/entry" },
+      paymentAction: { label: "Open NERP payment", destination: "/programs/nerp-acls/checkout" },
+      phase3Action: { label: "Open Phase 3", destination: "/programs/nerp-acls/entry" },
+      phase2LockedReason: "Complete BLS and ACLS cognitive learning and submit the required evidence first.",
+      phase3LockedReason: "Complete Phase 2 and the NERP programme requirements first.",
+    });
+    return { programKey: "nerp" as const, programName: "Nurse Emergency Readiness Program", ...journey };
+  }),
   createOrResumeEnrollment: protectedProcedure.mutation(async ({ ctx }) => {
     const db = await requireDb();
     const credential = await getLatestNerpCredentialForUser(db, ctx.user.id);

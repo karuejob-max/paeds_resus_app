@@ -43,6 +43,10 @@ export default function LearnerDashboard() {
   const { data: certData } = trpc.certificates.getMyCertificates.useQuery(undefined, {
     enabled: isAuthenticated,
   });
+  const { data: nerpJourney } = trpc.nerp.getJourneyStatus.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
   const utils = trpc.useUtils();
   const { track } = useProviderConversionAnalytics("/learner-dashboard");
   const syncPaedsResusCertificatesMutation = trpc.certificates.syncPaedsResusCertificates.useMutation({
@@ -374,6 +378,18 @@ export default function LearnerDashboard() {
         ) : selectedRole === "provider" ? (
           <div className="grid md:grid-cols-3 gap-6">
             <ActiveAhaPathwayCard />
+            {nerpJourney ? (
+              <div className="md:col-span-3">
+                <ProgramJourneyCard
+                  title={nerpJourney.programName}
+                  subtitle="Programme progress is an orientation aid, not a clinical competence score."
+                  percentComplete={nerpJourney.percentComplete}
+                  phases={nerpJourney.phases}
+                  nextAction={nerpJourney.nextAction}
+                  compact
+                />
+              </div>
+            ) : null}
             <IerpProgramCard />
             {lifecycleResumeNudge && (
               <Card className="md:col-span-3 border-2 border-primary/30 bg-primary/5">
