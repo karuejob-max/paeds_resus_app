@@ -23,7 +23,14 @@ import {
   formatIerpValueLine,
   formatNerpValueLine,
 } from "@/const/marketingCopy";
-import { buildJsonLdGraph, buildOrganizationJsonLd } from "@/lib/seo-schema";
+import {
+  buildFaqPageJsonLd,
+  buildJsonLdGraph,
+  buildMedicalOrganizationJsonLd,
+  buildOrganizationJsonLd,
+} from "@/lib/seo-schema";
+import { PROVIDER_FAQ } from "@/const/publicFaq";
+import PublicFaqSection from "@/components/PublicFaqSection";
 
 const INDIVIDUAL_PRODUCTS = [
   {
@@ -92,7 +99,13 @@ export default function ForProviders() {
 
   return (
     <>
-      <JsonLdScript data={buildJsonLdGraph([buildOrganizationJsonLd()])} />
+      <JsonLdScript
+        data={buildJsonLdGraph([
+          buildOrganizationJsonLd(),
+          buildMedicalOrganizationJsonLd(),
+          buildFaqPageJsonLd(PROVIDER_FAQ, "/for-providers"),
+        ])}
+      />
       <div className="min-h-screen bg-background">
         <section className="bg-[#082f2f] text-white">
           <div className="mx-auto max-w-6xl px-4 py-16 md:py-24">
@@ -311,6 +324,9 @@ export default function ForProviders() {
               </div>
             </div>
           </section>
+        </main>
+        <main className="mx-auto max-w-6xl px-4 pb-16">
+          <PublicFaqSection items={PROVIDER_FAQ} />
         </main>
         <Footer />
       </div>
