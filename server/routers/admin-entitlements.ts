@@ -86,8 +86,8 @@ export const createEntitlementInput = z
       }
     } else {
       const shareableProgram = ["self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(input.programType);
-      if (shareable && (!shareableProgram || targetUser || targetInstitution)) {
-        ctx.addIssue({ code: "custom", path: ["shareable"], message: "Shareable codes are available only for self-pay courses and cannot target a named account." });
+      if (shareable && (!shareableProgram || !targetUser || targetInstitution)) {
+        ctx.addIssue({ code: "custom", path: ["targetUserId"], message: "Select the registered learner this one-person code is for." });
       }
       if (!shareable && (!targetUser || targetInstitution)) {
         ctx.addIssue({
@@ -238,6 +238,7 @@ export const adminEntitlementsRouter = router({
       .select({
         id: globalEntitlements.id,
         grantReference: globalEntitlements.grantReference,
+        accessCodePrefix: globalEntitlements.accessCodePrefix,
         programType: globalEntitlements.programType,
         selfPayCourseId: globalEntitlements.selfPayCourseId,
         benefitType: globalEntitlements.benefitType,
@@ -297,6 +298,7 @@ export const adminEntitlementsRouter = router({
           message: "Database unavailable",
         });
       const expiresAt = new Date(`${input.expiresAt}T23:59:59.999Z`);
+      let recipientEmailForCode: string | null = input.recipientEmail?.trim().toLowerCase() ?? null;
       if (expiresAt.getTime() <= Date.now()) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -305,7 +307,7 @@ export const adminEntitlementsRouter = router({
       }
       if (input.targetUserId != null) {
         const [target] = await db
-          .select({ id: users.id })
+          .select({ id: users.id, email: users.email })
           .from(users)
           .where(eq(users.id, input.targetUserId))
           .limit(1);
@@ -314,6 +316,12 @@ export const adminEntitlementsRouter = router({
             code: "NOT_FOUND",
             message: "Target Paeds Resus account was not found.",
           });
+        if (input.shareable) {
+          if (!target.email) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "The selected learner does not have an email address and cannot receive a shareable code." });
+          }
+          recipientEmailForCode = target.email.trim().toLowerCase();
+        }
       }
       if (input.targetInstitutionalAccountId != null) {
         const [target] = await db
@@ -363,8 +371,8 @@ export const adminEntitlementsRouter = router({
         grantReference,
         accessCodeHash: accessCode?.hash ?? null,
         accessCodePrefix: accessCode?.prefix ?? null,
-        recipientEmailHash: input.shareable && input.recipientEmail
-          ? hashRecipientEmail(input.recipientEmail)
+        recipientEmailHash: input.shareable && recipientEmailForCode
+          ? hashRecipientEmail(recipientEmailForCode)
           : null,
         targetUserId: input.targetUserId ?? null,
         targetInstitutionalAccountId:

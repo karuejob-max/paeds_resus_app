@@ -1,4 +1,4 @@
-import { and, eq, gt, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   globalEntitlements,
@@ -225,6 +225,7 @@ export async function findActiveShareableEntitlement(
   now: Date = new Date(),
   recipientEmail: string | null
 ) {
+  if (!recipientEmail) return null;
   const [row] = await db
     .select()
     .from(globalEntitlements)
@@ -236,13 +237,7 @@ export async function findActiveShareableEntitlement(
         eq(globalEntitlements.status, "active"),
         gt(globalEntitlements.expiresAt, now),
         lt(globalEntitlements.redemptionCount, globalEntitlements.maxRedemptions),
-        recipientEmail
-          ? or(
-              isNull(globalEntitlements.recipientEmailHash),
-              eq(globalEntitlements.recipientEmailHash, hashRecipientEmail(recipientEmail))
-            )
-          : isNull(globalEntitlements.recipientEmailHash),
-        isNull(globalEntitlements.targetUserId),
+        eq(globalEntitlements.recipientEmailHash, hashRecipientEmail(recipientEmail)),
         isNull(globalEntitlements.targetInstitutionalAccountId)
       )
     )

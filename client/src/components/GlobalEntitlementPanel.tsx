@@ -8,6 +8,8 @@ import {
   ShieldCheck,
   UserPlus,
   XCircle,
+  Copy,
+  MessageSquareShare,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -38,6 +40,27 @@ const programmeOptions = [
 
 type Programme = (typeof programmeOptions)[number]["value"];
 
+function IssuedCodePanel({ code, learnerName, courseName }: { code: string; learnerName: string; courseName: string }) {
+  const [copied, setCopied] = useState<"code" | "message" | null>(null);
+  const learnerMessage = `Hello ${learnerName},\n\nPaeds Resus has granted you access to ${courseName}.\n\nYour access code is: ${code}\n\nHow to use it:\n1. Sign in to your Paeds Resus account using the email this code was issued to.\n2. Open the relevant course in the Paeds Resus course catalogue.\n3. Select Redeem access code and enter the code above.\n4. Follow the course instructions.\n\nThis code is for your account only and may be used once before its expiry date.`;
+  const copy = async (value: string, kind: "code" | "message") => {
+    await navigator.clipboard.writeText(value);
+    setCopied(kind);
+    window.setTimeout(() => setCopied(null), 2000);
+  };
+  return (
+    <div className="rounded-md border border-green-300 bg-green-50 px-3 py-3 text-sm text-green-950">
+      <p className="font-semibold">Access code created for {learnerName}</p>
+      <code className="mt-1 block text-base tracking-wider">{code}</code>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button type="button" size="sm" variant="outline" onClick={() => void copy(code, "code")}><Copy className="mr-1 h-4 w-4" />{copied === "code" ? "Copied" : "Copy code"}</Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => void copy(learnerMessage, "message")}><MessageSquareShare className="mr-1 h-4 w-4" />{copied === "message" ? "Message copied" : "Copy learner message"}</Button>
+      </div>
+      <p className="mt-2 text-xs">Copy now. The plaintext code will not be shown again after leaving this screen.</p>
+    </div>
+  );
+}
+
 export default function GlobalEntitlementPanel() {
   const [programType, setProgramType] = useState<Programme>("self_pay");
   const [targetQuery, setTargetQuery] = useState("");
@@ -56,6 +79,8 @@ export default function GlobalEntitlementPanel() {
   const [shareable, setShareable] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [issuedCode, setIssuedCode] = useState<string | null>(null);
+  const [issuedRecipientName, setIssuedRecipientName] = useState("");
+  const [issuedCourseName, setIssuedCourseName] = useState("");
 
   const isInstitutionTarget = programType === "paeds_resus_ils";
   const isCourseScopedProgramme = ["self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(programType);
@@ -77,6 +102,8 @@ export default function GlobalEntitlementPanel() {
   const createMutation = trpc.adminEntitlements.create.useMutation({
     onSuccess: (result) => {
       setIssuedCode(result.accessCode ?? null);
+      setIssuedRecipientName(selectedUser?.name || selectedUser?.email || "the selected learner");
+      setIssuedCourseName(selectedSelfPayCourse?.title || programmeLabel);
       setTargetQuery("");
       setTargetUserId(null);
       setTargetInstitutionalAccountId(null);
@@ -96,7 +123,7 @@ export default function GlobalEntitlementPanel() {
     institution => institution.id === targetInstitutionalAccountId
   );
   const targetReady = shareable && isCourseScopedProgramme
-    ? true
+    ? targetUserId != null && recipientEmail.trim().length > 0
     : isInstitutionTarget
       ? targetInstitutionalAccountId != null
       : targetUserId != null;
@@ -161,9 +188,10 @@ export default function GlobalEntitlementPanel() {
 
   const submit = () => {
     if (!canSubmit) return;
+    setIssuedCode(null);
     createMutation.mutate({
       programType,
-      targetUserId: shareable || isInstitutionTarget ? null : targetUserId,
+      targetUserId: isInstitutionTarget ? null : targetUserId,
       targetInstitutionalAccountId:
         shareable || !isInstitutionTarget ? null : targetInstitutionalAccountId,
       selfPayCourseId:
@@ -209,6 +237,9 @@ export default function GlobalEntitlementPanel() {
                 resetTarget();
                 setSelfPayCourseId("");
                 setSelfPayCourseQuery("");
+                setIssuedCode(null);
+                setIssuedRecipientName("");
+                setIssuedCourseName("");
               }}
               className="h-10 w-full rounded-md border bg-background px-3 text-sm"
             >
@@ -233,6 +264,8 @@ export default function GlobalEntitlementPanel() {
                 setTargetQuery(event.target.value);
                 setTargetUserId(null);
                 setTargetInstitutionalAccountId(null);
+                setRecipientEmail("");
+                setIssuedCode(null);
               }}
               placeholder={
                 isInstitutionTarget
@@ -266,7 +299,12 @@ export default function GlobalEntitlementPanel() {
                   <button
                     type="button"
                     key={user.id}
-                    onClick={() => setTargetUserId(user.id)}
+                    onClick={() => {
+                      setTargetUserId(user.id);
+                      setTargetQuery(user.name || user.email || `User #${user.id}`);
+                      setRecipientEmail(user.email || "");
+                      setIssuedCode(null);
+                    }}
                     className={`block w-full border-b px-3 py-2 text-left last:border-b-0 hover:bg-muted ${targetUserId === user.id ? "bg-muted" : ""}`}
                   >
                     <UserPlus className="mr-2 inline h-4 w-4" />
@@ -278,9 +316,9 @@ export default function GlobalEntitlementPanel() {
                 ))}
               </div>
             ) : null}
-            <p className="text-xs text-muted-foreground">
-              Selected: {selectedTargetLabel}
-            </p>
+              <div className={`rounded-md border px-3 py-2 text-xs ${targetUserId != null || targetInstitutionalAccountId != null ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-amber-300 bg-amber-50 text-amber-900"}`}>
+                {targetUserId != null || targetInstitutionalAccountId != null ? `Selected learner: ${selectedTargetLabel}${selectedUser?.email ? ` · ${selectedUser.email}` : ""}` : "No learner selected — choose a result below."}
+              </div>
           </div>
           {["self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(programType) && (
             <div className="space-y-2">
@@ -298,6 +336,7 @@ export default function GlobalEntitlementPanel() {
                   onChange={event => {
                     setSelfPayCourseQuery(event.target.value);
                     setSelfPayCourseId("");
+                    setIssuedCode(null);
                   }}
                   placeholder="Search by course title or course ID"
                   className="pl-9"
@@ -317,7 +356,8 @@ export default function GlobalEntitlementPanel() {
                   checked={shareable}
                   onChange={event => {
                     setShareable(event.target.checked);
-                    if (event.target.checked) resetTarget();
+                    setIssuedCode(null);
+                    if (!event.target.checked) setRecipientEmail("");
                   }}
                 />
                 Issue a shareable learner access code
@@ -332,18 +372,15 @@ export default function GlobalEntitlementPanel() {
                     id="global-entitlement-recipient-email"
                     type="email"
                     value={recipientEmail}
-                    onChange={event => setRecipientEmail(event.target.value)}
-                    placeholder="learner@example.com"
+                    readOnly
+                    placeholder="Select a registered learner above"
                     required
                   />
+                  <p className="text-xs text-muted-foreground">This email is automatically taken from the selected registered learner.</p>
                 </div>
               ) : null}
               {issuedCode ? (
-                <div className="rounded-md border border-green-300 bg-green-50 px-3 py-3 text-sm text-green-950">
-                  <p className="font-semibold">Access code — copy now</p>
-                  <code className="mt-1 block text-base tracking-wider">{issuedCode}</code>
-                  <p className="mt-1 text-xs">This code will not be shown again.</p>
-                </div>
+                <IssuedCodePanel code={issuedCode} learnerName={issuedRecipientName || "the selected learner"} courseName={issuedCourseName || programmeLabel} />
               ) : null}
               {selectedSelfPayCourse ? (
                 <div className="flex items-start justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
@@ -376,6 +413,7 @@ export default function GlobalEntitlementPanel() {
                       onClick={() => {
                         setSelfPayCourseId(course.courseId);
                         setSelfPayCourseQuery(course.title);
+                        setIssuedCode(null);
                       }}
                       className={`block w-full border-b px-3 py-2 text-left last:border-b-0 ${course.isPublished ? "hover:bg-muted" : "cursor-not-allowed opacity-50"} ${selfPayCourseId === course.courseId ? "bg-muted" : ""}`}
                     >
@@ -529,11 +567,11 @@ export default function GlobalEntitlementPanel() {
                 >
                   <div>
                     <p className="font-medium">{entitlement.programmeLabel}</p>
+                    {entitlement.accessCodePrefix ? <p className="font-mono text-xs text-muted-foreground">Code: {entitlement.accessCodePrefix}…</p> : null}
                     <p>
-                      {entitlement.targetInstitutionName ||
-                        entitlement.targetUserName ||
-                        entitlement.targetUserEmail ||
-                        "Named target"}{" "}
+                      <strong>For:</strong>{" "}
+                      {entitlement.targetInstitutionName || entitlement.targetUserName || entitlement.targetUserEmail || "Recipient not recorded"}
+                      {entitlement.targetUserName && entitlement.targetUserEmail ? ` · ${entitlement.targetUserEmail}` : ""}{" "}
                       ·{" "}
                       {entitlement.benefitType === "free"
                         ? "Full waiver"

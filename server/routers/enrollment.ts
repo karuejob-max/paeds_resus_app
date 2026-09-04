@@ -376,7 +376,7 @@ export const enrollmentRouter = router({
       const enrollmentId = existingEnrollment[0]?.id ?? null;
       const applied = await consumeGlobalEntitlement(db, {
         entitlementId: entitlement.id,
-        targetUserId: null,
+        targetUserId: ctx.user.id,
         targetInstitutionalAccountId: null,
         programType: "self_pay",
         selfPayCourseId: input.courseId,
@@ -420,7 +420,7 @@ export const enrollmentRouter = router({
         .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, input.programType)))
         .limit(1);
       const targetEnrollmentId = existing?.id ?? 0;
-      const applied = await consumeGlobalEntitlement(db, { entitlementId: entitlement.id, targetUserId: null, targetInstitutionalAccountId: null, programType: input.programType, selfPayCourseId: input.programType, resourceReference: `aha-enrollment-${targetEnrollmentId || "new"}-${ctx.user.id}`, originalAmountKes: 0, redeemedByUserId: ctx.user.id });
+      const applied = await consumeGlobalEntitlement(db, { entitlementId: entitlement.id, targetUserId: ctx.user.id, targetInstitutionalAccountId: null, programType: input.programType, selfPayCourseId: input.programType, resourceReference: `aha-enrollment-${targetEnrollmentId || "new"}-${ctx.user.id}`, originalAmountKes: 0, redeemedByUserId: ctx.user.id });
       if (!applied) throw new TRPCError({ code: "CONFLICT", message: "This access code has just been used or is no longer available." });
       if (existing) {
         await db.update(enrollments).set({ paymentStatus: "completed", amountPaid: 0, updatedAt: new Date() }).where(eq(enrollments.id, existing.id));
