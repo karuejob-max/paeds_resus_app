@@ -1,6 +1,7 @@
 import { and, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import {
   ahaAccessGrants,
+  globalEntitlementRedemptions,
   enrollments,
   ilsCredentialRequests,
   nerpOfferEnrollments,
@@ -122,6 +123,29 @@ export function isActiveGrant(grant: {
     (!grant.expiresAt || grant.expiresAt.getTime() > now.getTime()) &&
     (!grant.programType || grant.programType === programType)
   );
+}
+
+async function hasRedeemedGlobalAccessCode(
+  db: AhaAccessDb,
+  userId: number,
+  programType: AhaProgramType,
+): Promise<boolean> {
+  try {
+    const rows = await db
+      .select({ id: globalEntitlementRedemptions.id })
+      .from(globalEntitlementRedemptions)
+      .where(
+        and(
+          eq(globalEntitlementRedemptions.redeemedByUserId, userId),
+          eq(globalEntitlementRedemptions.programType, programType),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  } catch (error) {
+    if (isMissingTableError(error, "globalEntitlementRedemptions")) return false;
+    throw error;
+  }
 }
 
 async function hasActiveAdminGrant(
@@ -318,6 +342,10 @@ export async function getAhaAccessDecision(
 
   if (await hasActiveAdminGrant(db, userId, programType, now)) {
     return allowed("admin_grant", "Access granted by an authorised Paeds Resus administrator.");
+  }
+
+  if (await hasRedeemedGlobalAccessCode(db, userId, programType)) {
+    return allowed("admin_grant", "Access granted through a Paeds Resus access code.");
   }
 
   let ierpBlockMessage: string | null = null;
