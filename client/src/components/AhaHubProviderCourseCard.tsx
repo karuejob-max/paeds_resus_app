@@ -1,7 +1,7 @@
 import { memo, type ReactNode } from "react";
 import { useState } from "react";
 import { CheckCircle2, Award } from "lucide-react";
-import type { AhaProgramType } from "@/lib/providerCourseRoutes";
+import { getAhaPathwayPortalRoute, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AhaHubCourseCard } from "@/components/AhaHubCourseCard";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ type AhaHubProviderCourseCardProps = {
   onEnroll: (programType: AhaProgramType) => void;
   onViewCertificates: () => void;
   onRedeemAccessCode?: (programType: AhaProgramType, accessCode: string) => void;
+  onOpenPathway?: (pathway: string) => void;
   accessCodePending?: boolean;
 };
 
@@ -40,11 +41,13 @@ export const AhaHubProviderCourseCard = memo(function AhaHubProviderCourseCard({
   onEnroll,
   onViewCertificates,
   onRedeemAccessCode,
+  onOpenPathway,
   accessCodePending = false,
 }: AhaHubProviderCourseCardProps) {
   const isEnrolled = !!enrollment;
   // Backward-compatible default for standalone card consumers; the AHA Hub always supplies the server decision.
   const canAccess = accessDecision ? accessDecision.allowed : true;
+  const pathwayPortal = accessDecision?.allowed ? getAhaPathwayPortalRoute(accessDecision.pathway) : null;
   const [accessCode, setAccessCode] = useState("");
   const cognitiveComplete = enrollment?.cognitiveModulesComplete ?? false;
   const practicalSignedOff = enrollment?.practicalSkillsSignedOff ?? false;
@@ -78,13 +81,17 @@ export const AhaHubProviderCourseCard = memo(function AhaHubProviderCourseCard({
           size="sm"
           className="w-full"
           onClick={() => {
-            if (enrollment?.id) onContinue(programType, enrollment.id);
+            if (pathwayPortal && onOpenPathway) {
+              onOpenPathway(accessDecision?.pathway ?? "");
+            } else if (enrollment?.id) {
+              onContinue(programType, enrollment.id);
+            }
           }}
         >
-          {enrollment?.id ? "Start course" : "Open learner dashboard"}
+          {pathwayPortal ? "Open programme portal" : enrollment?.id ? "Start course" : "Open learner dashboard"}
         </Button>
       )}
-      {isEnrolled && canAccess && cognitiveComplete && !certIssued && (
+      {isEnrolled && canAccess && !pathwayPortal && cognitiveComplete && !certIssued && (
         <Button size="sm" variant="outline" className="w-full" onClick={onViewCertificates}>
           Download gatepass certificate
         </Button>
@@ -131,6 +138,12 @@ export const AhaHubProviderCourseCard = memo(function AhaHubProviderCourseCard({
             </div>
           </div>}
         </>
+      )}
+      {isEnrolled && canAccess && pathwayPortal && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-blue-900">
+          <p className="font-medium">Access belongs to your programme pathway</p>
+          <p className="mt-1">Continue from the dedicated programme portal so your pathway progress and permissions remain linked.</p>
+        </div>
       )}
       {!isEnrolled && (
         <>
