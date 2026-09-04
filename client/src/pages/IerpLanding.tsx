@@ -9,6 +9,9 @@ import {
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
+import { trpc } from "@/lib/trpc";
+import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
+import { calculateProgramJourney } from "@shared/program-journey";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Footer from "@/components/Footer";
@@ -49,6 +52,37 @@ export default function IerpLanding() {
   });
   const { isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
+  const summaryQuery = trpc.ierp.getSummary.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
+  const enrolled = Boolean(summaryQuery.data?.enrollmentId);
+  const bls = summaryQuery.data?.aha.find((row) => row.programType === "bls");
+  const acls = summaryQuery.data?.aha.find((row) => row.programType === "acls");
+  const phase2 = summaryQuery.data?.phase2;
+  const phase2Progress = phase2
+    ? Math.min(
+        phase2.teamLeaderCount / Math.max(1, phase2.teamLeaderRequired),
+        phase2.teamMemberSessionsTotal / Math.max(1, phase2.teamMemberSessionsRequired),
+        phase2.teamMemberRolesCovered / Math.max(1, phase2.teamMemberRolesRequired),
+      )
+    : 0;
+  const journey = summaryQuery.data
+    ? calculateProgramJourney({
+        blsProgress: bls?.cognitiveModulesComplete ? 1 : 0,
+        aclsProgress: acls?.cognitiveModulesComplete ? 1 : 0,
+        ahaEvidenceVerified: summaryQuery.data.phase1Complete,
+        phase2Progress,
+        paymentProgress: summaryQuery.data.payment.totalPaid / 15000,
+        phase3Complete: summaryQuery.data.lifecycleStatus === "completed",
+        phase1Action: { label: "Start BLS coursework", destination: "/learner-dashboard" },
+        phase2Action: { label: "Open Phase 2", destination: "/ierp" },
+        paymentAction: { label: "Open IERP payment", destination: "/programs/ierp" },
+        phase3Action: { label: "Open Phase 3", destination: "/ierp" },
+        phase2LockedReason: "Complete both cognitive courses and verify the AHA evidence certificates first.",
+        phase3LockedReason: "Complete Phase 2 and pay the full IERP programme fee first.",
+      })
+    : null;
 
   const startIerp = () => {
     if (isAuthenticated) {
@@ -60,6 +94,24 @@ export default function IerpLanding() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
+      {enrolled && journey ? (
+        <section className="border-b border-white/10 bg-slate-900 px-6 py-12 md:px-10">
+          <div className="mx-auto max-w-6xl space-y-5">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-teal-200">Welcome back</p>
+              <h1 className="mt-2 text-3xl font-semibold text-white md:text-4xl">Your IERP learning journey</h1>
+              <p className="mt-2 max-w-2xl text-slate-300">Continue from where you stopped. Programme progress is an orientation aid, not a clinical competence score.</p>
+            </div>
+            <ProgramJourneyCard
+              title="Intern Emergency Readiness Program"
+              subtitle="Your current IERP status and next available action."
+              percentComplete={journey.percentComplete}
+              phases={journey.phases}
+              nextAction={journey.nextAction}
+            />
+          </div>
+        </section>
+      ) : null}
       <section className="relative overflow-hidden border-b border-white/10 bg-[radial-gradient(circle_at_top_right,_rgba(45,212,191,0.22),_transparent_45%),linear-gradient(135deg,_#0f172a,_#172554_60%,_#0f766e)]">
         <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:py-28">
           <div>
