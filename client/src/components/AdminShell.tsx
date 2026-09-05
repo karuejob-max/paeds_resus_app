@@ -16,6 +16,7 @@ import {
   SidebarProvider,
   SidebarSeparator,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +50,7 @@ function AdminShellContent({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
   const isMobile = useIsMobile();
+  const { setOpenMobile } = useSidebar();
   const [mobileOpenLabel, setMobileOpenLabel] = useState("Menu");
 
   const activeItem = useMemo(
@@ -61,12 +63,16 @@ function AdminShellContent({ children }: { children: ReactNode }) {
 
   const navigate = (href: string, label: string) => {
     setMobileOpenLabel(label);
+    if (isMobile) setOpenMobile(false);
     setLocation(href);
   };
 
   return (
     <>
-      <Sidebar collapsible="none" className="border-r bg-sidebar">
+      <Sidebar
+        collapsible={isMobile ? "offcanvas" : "none"}
+        className="border-r bg-sidebar"
+      >
         <SidebarHeader className="border-b px-3 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
@@ -80,6 +86,13 @@ function AdminShellContent({ children }: { children: ReactNode }) {
                 Global Admin
               </p>
             </div>
+            {isMobile ? (
+              <SidebarTrigger
+                className="ml-auto h-9 w-9 shrink-0 rounded-lg"
+                aria-label="Hide admin navigation"
+                title="Hide admin navigation"
+              />
+            ) : null}
           </div>
         </SidebarHeader>
 
@@ -169,7 +182,11 @@ function AdminShellContent({ children }: { children: ReactNode }) {
       <SidebarInset>
         {isMobile ? (
           <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-            <SidebarTrigger className="h-9 w-9 rounded-lg" />
+            <SidebarTrigger
+              className="h-9 w-9 rounded-lg"
+              aria-label="Open admin navigation"
+              title="Open admin navigation"
+            />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">
                 {activeItem?.label || mobileOpenLabel}
