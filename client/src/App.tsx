@@ -14,9 +14,8 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole, type UserRole } from "@/hooks/useUserRole";
 import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
 import { buildLoginUrl, getCurrentAppPath } from "@/lib/authRedirect";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Building2, LockKeyhole, LogIn } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import { LegalReconsentGate } from "@/components/LegalReconsentGate";
 import { trpc } from "@/lib/trpc";
@@ -273,8 +272,12 @@ function Router() {
               <CodeSignal />
             </RoleGate>
           )}</Route>
-          {/* Institutional portal entry: sign in first, then open the authenticated workspace. */}
-          <Route path="/institutional-portal" component={InstitutionalPortalEntry} />
+          {/* Institutional Workspace: sign in through RoleGate, then open the persistent vertical portal navigation. */}
+          <Route path="/institutional-portal">{() => (
+            <RoleGate allowed={["institution"]}>
+              <Redirect to="/institution" />
+            </RoleGate>
+          )}</Route>
           <Route path="/institution">{() => (
             <RoleGate allowed={["institution"]}>
               <InstitutionWorkspace />
@@ -827,86 +830,6 @@ function SuspenseRouteFallback() {
   const [location] = useLocation();
   const loadingCopy = getRouteLoadingCopy(location);
   return <RouteLoadingState title={loadingCopy.title} description={loadingCopy.description} />;
-}
-
-function InstitutionalPortalEntry() {
-  const { isAuthenticated, loading } = useAuth();
-  const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    if (!loading && isAuthenticated) setLocation("/institution");
-  }, [isAuthenticated, loading, setLocation]);
-
-  if (loading || isAuthenticated) {
-    return <RouteLoadingState title="Opening institutional portal…" description="Preparing your secure workspace." />;
-  }
-
-  const signInHref = buildLoginUrl("/institutional-portal");
-
-  return (
-    <div className="min-h-[calc(100vh-5rem)] bg-slate-50/70 px-4 py-8 dark:bg-slate-950/30 sm:px-6 sm:py-12">
-      <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-start">
-        <aside aria-label="Institutional portal steps" className="rounded-2xl border bg-background p-4 shadow-sm">
-          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Building2 className="h-4 w-4 text-primary" />
-            Institutional portal
-          </div>
-          <ol className="space-y-2">
-            <li className="rounded-xl border border-primary/30 bg-primary/5 p-3" aria-current="step">
-              <div className="flex items-start gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">1</span>
-                <div>
-                  <p className="font-medium">Sign in</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Use your Paeds Resus account.</p>
-                </div>
-              </div>
-            </li>
-            <li className="rounded-xl border border-dashed p-3 text-muted-foreground">
-              <div className="flex items-start gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-semibold">2</span>
-                <div>
-                  <p className="font-medium">Choose institution</p>
-                  <p className="mt-1 text-xs">Available after sign-in.</p>
-                </div>
-              </div>
-            </li>
-            <li className="rounded-xl border border-dashed p-3 text-muted-foreground">
-              <div className="flex items-start gap-3">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-semibold">3</span>
-                <div>
-                  <p className="font-medium">Open workspace</p>
-                  <p className="mt-1 text-xs">Access the vertical portal navigation.</p>
-                </div>
-              </div>
-            </li>
-          </ol>
-        </aside>
-
-        <Card className="max-w-2xl">
-          <CardHeader>
-            <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <LogIn className="h-5 w-5" />
-            </div>
-            <CardTitle className="text-2xl">Sign in to your institution portal</CardTitle>
-            <CardDescription>
-              Sign in first. After authentication, you will select your institution and enter the focused vertical workspace navigation.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button asChild className="w-full sm:w-auto">
-              <a href={signInHref}>
-                Sign in to continue <ArrowRight className="ml-2 h-4 w-4" />
-              </a>
-            </Button>
-            <div className="flex items-start gap-2 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
-              <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>Your institution data and workspace pages remain protected behind account and institution access checks.</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
 }
 
 function RoleGate({ allowed, children }: { allowed: UserRole[]; children: ReactNode }) {
