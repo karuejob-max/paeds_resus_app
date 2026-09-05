@@ -182,12 +182,12 @@ export function calculateBLSScore(
   const criticalPenalty = (missingCritical.length / criticalIds.length) * 40;
   const finalScore = Math.max(0, Math.round(baseScore - criticalPenalty));
   
-  const passed = finalScore >= 50 && missingCritical.length === 0;
+  const passed = finalScore >= 70 && missingCritical.length === 0;
   
   const feedbackMessages = [];
   if (missingCritical.length > 0) {
     feedbackMessages.push(`Missing critical steps: ${missingCritical.map(id => scenario.interventions[id].description).join(", ")}.`);
-  } else if (finalScore < 50) {
+  } else if (finalScore < 70) {
     feedbackMessages.push("BLS requires strict adherence to the life-saving sequence. Review the algorithm.");
   } else {
     feedbackMessages.push("Great job! You followed the BLS sequence correctly.");

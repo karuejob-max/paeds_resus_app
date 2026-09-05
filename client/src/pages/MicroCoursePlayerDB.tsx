@@ -1630,7 +1630,7 @@ export default function MicroCoursePlayerDB() {
                   }
                 });
               } else {
-                toast.error(`Simulation failed with score ${score}%. You need 50% to pass.`);
+                toast.error(`Simulation not passed with score ${score}%. You need at least 70% to continue. Review the correct order and retry the simulation.`);
               }
             }}
             onClose={() => {
