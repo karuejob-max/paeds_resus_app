@@ -170,21 +170,25 @@ export default function ProviderToday() {
   const ierpEnrollmentQuery = trpc.ierp.getMyEnrollment.useQuery(undefined, {
     enabled: isAuthenticated,
     staleTime: 30_000,
+    refetchInterval: 30_000,
     retry: 1,
   });
   const { data: nerpJourney } = trpc.nerp.getJourneyStatus.useQuery(undefined, {
     enabled: isAuthenticated,
     staleTime: 30_000,
+    refetchInterval: 30_000,
     retry: 1,
   });
   const ierpSummaryQuery = trpc.ierp.getSummary.useQuery(undefined, {
     enabled: isAuthenticated && Boolean(ierpEnrollmentQuery.data),
     staleTime: 30_000,
+    refetchInterval: 30_000,
     retry: 1,
   });
   const ierpDashboardAccessQuery = trpc.ierp.getDashboardAccess.useQuery(undefined, {
     enabled: isAuthenticated && Boolean(ierpEnrollmentQuery.data),
     staleTime: 30_000,
+    refetchInterval: 30_000,
     retry: 1,
   });
 

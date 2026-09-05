@@ -23,10 +23,12 @@ export default function NerpOfferPage() {
   const eligibility = trpc.nerp.getEligibility.useQuery(undefined, { enabled: !!user, retry: false });
   const enrollment = trpc.nerp.getMyEnrollment.useQuery(undefined, {
     enabled: Boolean(user && eligibility.data?.eligible === true),
+    refetchInterval: 30_000,
     retry: false,
   });
   const { data: journey } = trpc.nerp.getJourneyStatus.useQuery(undefined, {
     enabled: Boolean(user),
+    refetchInterval: 30_000,
     retry: false,
   });
   const canStart = eligibility.data?.eligible === true;
