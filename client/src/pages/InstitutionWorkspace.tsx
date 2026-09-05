@@ -13,6 +13,8 @@ import {
   ArrowRight,
   Building2,
   BookOpen,
+  ChevronDown,
+  ChevronRight,
   ClipboardCheck,
   CreditCard,
   GraduationCap,
@@ -24,6 +26,7 @@ import {
   ShieldCheck,
   Users,
   Wrench,
+  type LucideIcon,
 } from "lucide-react";
 import { IersActivationPanel } from "@/components/IersActivationPanel";
 import { IersDrillPanel } from "@/components/IersDrillPanel";
@@ -69,10 +72,11 @@ const PRODUCT_LABELS = {
 
 type ProductKey = keyof typeof PRODUCT_LABELS;
 type WorkspaceSection = "overview" | "iers" | "learning" | "accountability" | "administration" | "connected";
+type LearningNavigationTab = "overview" | "competency" | "cpd" | "intelligence" | "governance";
 type ProductStatus = "trial" | "active" | "grace" | "past_due" | "expired" | "suspended" | "cancelled" | "legacy_unclassified" | "not_subscribed" | "available";
 
-function getInitialWorkspaceState(): { section: WorkspaceSection; iersTab: string; workforceTab: IersWorkforceTab } {
-  if (typeof window === "undefined") return { section: "overview", iersTab: "command", workforceTab: "departments" };
+function getInitialWorkspaceState(): { section: WorkspaceSection; iersTab: string; workforceTab: IersWorkforceTab; learningTab: LearningNavigationTab } {
+  if (typeof window === "undefined") return { section: "overview", iersTab: "command", workforceTab: "departments", learningTab: "overview" };
   const params = new URLSearchParams(window.location.search);
   const requested = params.get("section");
   const section: WorkspaceSection = requested === "cpd_portal" ? "learning" : requested === "learning" || requested === "iers" || requested === "accountability" || requested === "administration" || requested === "connected" ? requested : "overview";
@@ -80,7 +84,9 @@ function getInitialWorkspaceState(): { section: WorkspaceSection; iersTab: strin
   const workforceTab: IersWorkforceTab = requestedWorkforceTab === "erco" || requestedWorkforceTab === "roster" || requestedWorkforceTab === "equipment" ? requestedWorkforceTab : "departments";
   const requestedIersTab = params.get("iersTab") || "command";
   const iersTab = resolveIersTab(requestedIersTab, workforceTab);
-  return { section, iersTab, workforceTab };
+  const requestedLearningTab = params.get("learningTab");
+  const learningTab: LearningNavigationTab = requestedLearningTab === "competency" || requestedLearningTab === "cpd" || requestedLearningTab === "intelligence" || requestedLearningTab === "governance" ? requestedLearningTab : "overview";
+  return { section, iersTab, workforceTab, learningTab };
 }
 
 function canUseProduct(status: ProductStatus | undefined): boolean {
@@ -116,6 +122,8 @@ export default function InstitutionWorkspace() {
   const initialWorkspaceState = getInitialWorkspaceState();
   const [activeSection, setActiveSection] = useState<WorkspaceSection>(initialWorkspaceState.section);
   const [activeIersTab, setActiveIersTab] = useState(initialWorkspaceState.iersTab);
+  const [activeLearningTab, setActiveLearningTab] = useState<LearningNavigationTab>(initialWorkspaceState.learningTab);
+  const [expandedPortalSection, setExpandedPortalSection] = useState<WorkspaceSection | null>(initialWorkspaceState.section);
   const [selectedInstitutionId, setSelectedInstitutionId] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     const value = Number(new URLSearchParams(window.location.search).get("institutionId"));
@@ -125,6 +133,7 @@ export default function InstitutionWorkspace() {
 
   const setSection = (section: WorkspaceSection) => {
     setActiveSection(section);
+    setExpandedPortalSection(section);
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       params.set("section", section);
@@ -137,6 +146,16 @@ export default function InstitutionWorkspace() {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       params.set("iersTab", tab);
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  };
+
+  const setLearningTab = (tab: LearningNavigationTab) => {
+    setActiveLearningTab(tab);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("section", "learning");
+      params.set("learningTab", tab);
       window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
     }
   };
@@ -318,14 +337,31 @@ export default function InstitutionWorkspace() {
         </div>
 
         <Tabs value={visibleSection} onValueChange={(value) => setSection(value as WorkspaceSection)} className="min-w-0">
-          <TabsList className="mb-6 grid h-auto w-full grid-cols-1 gap-1 p-1 min-[380px]:grid-cols-2 sm:grid-cols-5">
-            <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="overview"><LayoutDashboard className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Home</span></TabsTrigger>
-            <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="iers"><HeartPulse className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Readiness</span></TabsTrigger>
-            <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="learning"><ClipboardCheck className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Learning</span></TabsTrigger>
-            {canViewAccountability ? <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="accountability"><ShieldCheck className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Accountability</span></TabsTrigger> : null}
-            {isInstitutionAdmin ? <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="administration"><Settings2 className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Administration</span></TabsTrigger> : null}
-            {isInstitutionAdmin ? <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-xs leading-tight sm:text-sm" value="connected"><Wrench className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" /><span>Connected</span></TabsTrigger> : null}
-          </TabsList>
+          <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] lg:items-start">
+            <InstitutionPortalNavigation
+              activeSection={visibleSection}
+              expandedSection={expandedPortalSection}
+              activeIersTab={activeIersTab}
+              activeLearningTab={activeLearningTab}
+              iersEnabled={iersEnabled}
+              cpdEnabled={cpdEnabled}
+              canViewAccountability={canViewAccountability}
+              isInstitutionAdmin={isInstitutionAdmin}
+              onToggleSection={section => setExpandedPortalSection(current => current === section ? null : section)}
+              onSelectSection={setSection}
+              onSelectIersTab={setIersTab}
+              onSelectLearningTab={setLearningTab}
+              onOpenExternal={href => navigate(href)}
+            />
+            <div className="min-w-0">
+              <TabsList className="sr-only">
+                <TabsTrigger value="overview">Home</TabsTrigger>
+                <TabsTrigger value="iers">Readiness</TabsTrigger>
+                <TabsTrigger value="learning">Learning</TabsTrigger>
+                <TabsTrigger value="accountability">Accountability</TabsTrigger>
+                <TabsTrigger value="administration">Administration</TabsTrigger>
+                <TabsTrigger value="connected">Connected</TabsTrigger>
+              </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
               <InstitutionHomePanel
@@ -390,7 +426,7 @@ export default function InstitutionWorkspace() {
           </TabsContent>
 
           <TabsContent value="learning">
-            {iersEnabled || cpdEnabled ?             <InstitutionLearningOperationsPanel institutionId={institutionId} iersEnabled={iersEnabled} cpdEnabled={cpdEnabled} isInstitutionAdmin={isInstitutionAdmin} onOpenReadiness={() => { setSection("iers"); setIersTab("report"); }} /> : <ProductLockedState product="Learning" status={productStatus.cpd_portal} onAdministration={() => setActiveSection("administration")} />}
+            {iersEnabled || cpdEnabled ?             <InstitutionLearningOperationsPanel institutionId={institutionId} iersEnabled={iersEnabled} cpdEnabled={cpdEnabled} isInstitutionAdmin={isInstitutionAdmin} controlledActiveTab={activeLearningTab} onLearningTabChange={setLearningTab} onOpenReadiness={() => { setSection("iers"); setIersTab("report"); }} /> : <ProductLockedState product="Learning" status={productStatus.cpd_portal} onAdministration={() => setSection("administration")} />}
           </TabsContent>
 
           {canViewAccountability ? <TabsContent value="accountability" className="space-y-6">
@@ -402,12 +438,188 @@ export default function InstitutionWorkspace() {
             <InstitutionAdministrationPanel institutionId={institutionId} institution={adminInstitutionDetails?.institution ?? { id: institutionId ?? 0, companyName: institutionName, contactPhone: null, contactEmail: "", staffCount: null }} />
           </TabsContent> : null}
 
-          <TabsContent value="connected" className="space-y-6">
-            <InstitutionConnectedServicesPanel institutionId={institutionId} />
-          </TabsContent>
+              <TabsContent value="connected" className="space-y-6">
+                <InstitutionConnectedServicesPanel institutionId={institutionId} />
+              </TabsContent>
+            </div>
+          </div>
         </Tabs>
       </div>
     </div>
+  );
+}
+
+type PortalNavChild =
+  | { label: string; value: string; kind: "iers" | "learning" }
+  | { label: string; href: string; kind: "external" };
+
+type PortalNavSection = {
+  value: WorkspaceSection;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  children?: PortalNavChild[];
+};
+
+function InstitutionPortalNavigation({
+  activeSection,
+  expandedSection,
+  activeIersTab,
+  activeLearningTab,
+  iersEnabled,
+  cpdEnabled,
+  canViewAccountability,
+  isInstitutionAdmin,
+  onToggleSection,
+  onSelectSection,
+  onSelectIersTab,
+  onSelectLearningTab,
+  onOpenExternal,
+}: {
+  activeSection: WorkspaceSection;
+  expandedSection: WorkspaceSection | null;
+  activeIersTab: string;
+  activeLearningTab: LearningNavigationTab;
+  iersEnabled: boolean;
+  cpdEnabled: boolean;
+  canViewAccountability: boolean;
+  isInstitutionAdmin: boolean;
+  onToggleSection: (section: WorkspaceSection) => void;
+  onSelectSection: (section: WorkspaceSection) => void;
+  onSelectIersTab: (tab: string) => void;
+  onSelectLearningTab: (tab: LearningNavigationTab) => void;
+  onOpenExternal: (href: string) => void;
+}) {
+  const sections: PortalNavSection[] = [
+    {
+      value: "overview",
+      label: "Home",
+      description: "Workspace overview and product status",
+      icon: LayoutDashboard,
+      children: [
+        { label: "IERS guide", href: "/iers/orientation", kind: "external" },
+        { label: "Learning guide", href: "/learning/guide", kind: "external" },
+      ],
+    },
+    {
+      value: "iers",
+      label: "Readiness",
+      description: "Institutional emergency readiness operations",
+      icon: HeartPulse,
+      children: iersEnabled
+        ? [
+            { label: "Command centre", value: "command", kind: "iers" },
+            { label: "Evidence & actions", value: "evidence", kind: "iers" },
+            { label: "Drills & debriefs", value: "drills", kind: "iers" },
+            { label: "Team & shift setup", value: "workforce", kind: "iers" },
+            { label: "Equipment", value: "equipment", kind: "iers" },
+            { label: "Implementation plan", value: "plan", kind: "iers" },
+            { label: "Executive snapshot", value: "report", kind: "iers" },
+          ]
+        : undefined,
+    },
+    {
+      value: "learning",
+      label: "Learning",
+      description: "Cohorts, CPD, competency, and workforce insight",
+      icon: ClipboardCheck,
+      children: [
+        { label: "Learning overview", value: "overview", kind: "learning" },
+        ...(iersEnabled
+          ? [{ label: "Cohorts & competency", value: "competency", kind: "learning" as const }]
+          : []),
+        ...(cpdEnabled
+          ? [
+              { label: "CPD sessions", value: "cpd", kind: "learning" as const },
+              { label: "Reports & insights", value: "intelligence", kind: "learning" as const },
+              { label: "People & targets", value: "governance", kind: "learning" as const },
+            ]
+          : []),
+        { label: "Institutional Life Support", href: "/training/institutional-life-support", kind: "external" },
+      ],
+    },
+    ...(canViewAccountability
+      ? [{ value: "accountability" as const, label: "Accountability", description: "Shared responsibility and evidence", icon: ShieldCheck }]
+      : []),
+    ...(isInstitutionAdmin
+      ? [
+          { value: "administration" as const, label: "Administration", description: "People, roles, products, and recovery", icon: Settings2 },
+          { value: "connected" as const, label: "Connected services", description: "Integrations and connected systems", icon: Wrench },
+        ]
+      : []),
+  ];
+
+  return (
+    <aside
+      aria-label="Institution workspace navigation"
+      className="min-w-0 rounded-xl border bg-background/95 p-2 shadow-sm lg:sticky lg:top-4"
+    >
+      <div className="px-3 pb-2 pt-1">
+        <p className="text-sm font-semibold">Workspace navigation</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">Open any institutional page from one place.</p>
+      </div>
+      <div className="max-h-[55vh] space-y-1 overflow-y-auto overscroll-contain pr-1 lg:max-h-[calc(100vh-14rem)]">
+        {sections.map(section => {
+          const SectionIcon = section.icon;
+          const isExpanded = expandedSection === section.value;
+          const isActive = activeSection === section.value;
+          const sectionId = `institution-portal-section-${section.value}`;
+          return (
+            <div key={section.value}>
+              <button
+                type="button"
+                aria-expanded={isExpanded}
+                aria-controls={sectionId}
+                onClick={() => {
+                  if (activeSection !== section.value) onSelectSection(section.value);
+                  onToggleSection(section.value);
+                }}
+                className={`flex min-h-12 w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isActive ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}
+              >
+                <SectionIcon className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{section.label}</span>
+                  <span className="block truncate text-[11px] text-muted-foreground">{section.description}</span>
+                </span>
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                )}
+              </button>
+              {isExpanded && section.children?.length ? (
+                <div id={sectionId} className="ml-3 mt-1 max-h-[40vh] overflow-y-auto overscroll-contain border-l pl-2">
+                  <div className="space-y-1">
+                    {section.children.map(child => {
+                      const isChildActive = child.kind === "iers"
+                        ? activeSection === "iers" && activeIersTab === child.value
+                        : child.kind === "learning"
+                          ? activeSection === "learning" && activeLearningTab === child.value
+                          : false;
+                      return (
+                        <button
+                          key={child.kind === "external" ? child.href : `${child.kind}-${child.value}`}
+                          type="button"
+                          onClick={() => {
+                            onSelectSection(section.value);
+                            if (child.kind === "iers") onSelectIersTab(child.value);
+                            else if (child.kind === "learning") onSelectLearningTab(child.value as LearningNavigationTab);
+                            else if (child.kind === "external") onOpenExternal(child.href);
+                          }}
+                          className={`flex min-h-10 w-full items-center rounded-md px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isChildActive ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                        >
+                          <span className="min-w-0 truncate">{child.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </aside>
   );
 }
 

@@ -549,3 +549,10 @@ Department-scoped nurse pickers are the default for ERCo, ERTL, UTL, and other h
 Provider IERS dashboards show the next actionable UTL/ERTL duty first and keep the full rota behind an explicit expand action. Exact hours appear in both views. ERTL department selection remains server-derived from pole order and anchor; only the named provider is explicitly nominated and accepted.
 
 Before production use, register migration `0118` in the guarded sequence, deploy the code, obtain explicit confirmation for the production schema write, run `pnpm run db:apply-iers` exactly once, and then run strict `pnpm run db:verify-iers`. Use an isolated localhost MariaDB fixture for exact-time, bulk-assignment, provider-summary, authorization, and acceptance tests. Never use patient data or a live emergency for this validation.
+
+
+### Mobile portal navigation standard (2026-09-05)
+
+For dense operational portals, do not place every destination as a permanently expanded horizontal or vertical list on small screens. Use a single, scrollable navigation surface with clear section headers. Show only section headers initially; expand one section at a time to reveal its sub-pages, mark the active section, and close the navigation sheet after a destination is selected. If an expanded section contains many destinations, bound the sub-page region and allow it to scroll internally so it cannot cover or visually merge with later sections. Keep desktop navigation behavior unchanged unless the product requirement explicitly calls for a desktop redesign.
+
+The Institutional Workspace follows this pattern: the portal navigation must provide a single entry surface for Overview, Readiness, Learning, Accountability, Administration, Connected Services, and any nested operational destinations that are available to the signed-in user. Navigation labels must remain readable, route state must remain URL-addressable, gated destinations must remain visibly gated rather than silently disappearing, and no navigation treatment may obscure the active content pane.
