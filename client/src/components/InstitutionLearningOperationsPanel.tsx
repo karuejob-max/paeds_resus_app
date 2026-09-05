@@ -53,14 +53,18 @@ export default function InstitutionLearningOperationsPanel({
   cpdEnabled,
   onOpenReadiness,
   isInstitutionAdmin = false,
+  controlledActiveTab,
+  onLearningTabChange,
 }: {
   institutionId: number;
   iersEnabled: boolean;
   cpdEnabled: boolean;
   onOpenReadiness?: () => void;
   isInstitutionAdmin?: boolean;
+  controlledActiveTab?: LearningTab;
+  onLearningTabChange?: (tab: LearningTab) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<LearningTab>(() => {
+  const [internalActiveTab, setInternalActiveTab] = useState<LearningTab>(() => {
     const requested = getInitialLearningTab();
     if (requested === "competency" && !iersEnabled) {
       return cpdEnabled ? "cpd" : "overview";
@@ -74,8 +78,11 @@ export default function InstitutionLearningOperationsPanel({
     return requested;
   });
 
+  const activeTab = controlledActiveTab ?? internalActiveTab;
+
   const setLearningTab = (tab: LearningTab) => {
-    setActiveTab(tab);
+    setInternalActiveTab(tab);
+    onLearningTabChange?.(tab);
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       params.set("section", "learning");
