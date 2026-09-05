@@ -237,12 +237,12 @@ Do not claim that IERS alone reduces mortality or guarantees successful resuscit
 
 **Headline:** Turn staff learning into a trusted institutional record.  
 **Body:** ICPD gives hospitals one clear way to organise professional-development sessions, verify attendance, track targets, issue certificates from verified records, and produce leadership reports across departments.  
-**Price:** **KES 200,000 per year**  
+**Price:** **KES 1,000 / 900 / 800 per staff per year**, based on verified total facility staff; facilities with 501+ staff receive an individual quote.
 **CTA:** **Start your ICPD programme**
 
 ### Short institutional message
 
-> **ICPD — Institutional Continuous Professional Development, KES 200,000 per year.** Bring staff learning into one accountable system: scheduled sessions, verified attendance, development targets, certificates, and leadership reporting.
+> **ICPD — Institutional Continuous Professional Development, priced at KES 1,000, KES 900, or KES 800 per staff per year according to verified facility size.** Bring staff learning into one accountable system: scheduled sessions, verified attendance, development targets, certificates, and leadership reporting.
 
 ### Education and HR message
 
@@ -331,7 +331,7 @@ Never say that ICPD proves a provider is ready for an emergency, competent at th
 | BLS | “KES 10,000 per person; KES 7,500 per person for cohorts of 7+” |
 | ACLS | “KES 20,000 per person; KES 17,500 per person for cohorts of 7+” |
 | IERS | “KES 200,000 per year” with scope, implementation, and renewal boundaries stated in the proposal |
-| ICPD | “KES 200,000 per year” with staff scope, departments, support, reporting, and exclusions stated in the proposal |
+| ICPD | “KES 1,000 / 900 / 800 per staff per year, based on verified total facility staff; 501+ quoted individually” with staff scope, departments, support, reporting, and exclusions stated in the proposal |
 | NERP, IERP, ILSP | “Request the current cohort offer” or “Quoted by cohort and scope” until pricing is formally approved |
 | AHA credential | State the exact pathway, practical requirements, official credential scope, and included/excluded fees |
 | Institutional offer | Present training, IERS, and ICPD as separate components even when sold together |
