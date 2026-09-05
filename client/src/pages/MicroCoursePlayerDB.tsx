@@ -808,6 +808,7 @@ export default function MicroCoursePlayerDB() {
     if (!showSummativeExam || !shuffledSummative || !base) return base;
     return {
       ...base,
+      id: examState?.summativeQuizId ?? base.id,
       passingScore: shuffledSummative.passPercent,
       questions: shuffledSummative.questions.map((q) => ({
         id: q.id,
@@ -815,7 +816,7 @@ export default function MicroCoursePlayerDB() {
         options: q.options,
       })),
     };
-  }, [quizzes, showSummativeExam, shuffledSummative]);
+  }, [quizzes, showSummativeExam, shuffledSummative, examState?.summativeQuizId]);
   const activeQuiz = showDiagnosticQuiz
     ? diagnosticQuiz
     : showSummativeExam
@@ -1014,9 +1015,14 @@ export default function MicroCoursePlayerDB() {
       if (userAnswer === correctAnswer) correct++;
     });
     const score = Math.round((correct / quiz.questions.length) * 100);
+    const submissionQuizId = showSummativeExam ? examState?.summativeQuizId : quiz.id;
+    if (!submissionQuizId) {
+      toast.error("The summative quiz is still loading. Please wait a moment and try again.");
+      return;
+    }
     submitQuizMutation.mutate({
       enrollmentId,
-      quizId: quiz.id,
+      quizId: submissionQuizId,
       answers: quiz.questions.map((q: any, idx: number) => ({
         questionId: q.id,
         answer: quizAnswers[q.id] ?? quizAnswers[idx] ?? "",
