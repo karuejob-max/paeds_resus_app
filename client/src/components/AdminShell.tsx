@@ -161,7 +161,10 @@ function AdminShellContent({ children }: { children: ReactNode }) {
                     )}
                   </button>
                   {isExpanded ? (
-                    <div id={groupId} className="mt-1 border-l border-sidebar-border pl-2">
+                    <div
+                      id={groupId}
+                      className="mt-1 max-h-[40vh] overflow-y-auto overscroll-contain border-l border-sidebar-border pl-2 pr-1"
+                    >
                       <AdminSidebarMenu
                         group={group}
                         location={location}
