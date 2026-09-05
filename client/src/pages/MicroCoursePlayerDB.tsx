@@ -2143,26 +2143,26 @@ function SummativeQuizView({
       </div>
       <CardContent className="p-10 text-center space-y-8">
         <div className="flex justify-center gap-8">
-          <div className="text-center bg-muted/40 rounded-2xl p-5 min-w-[100px]">
+          <div className="text-center bg-slate-100 dark:bg-slate-800 rounded-2xl p-5 min-w-[100px]">
             <p className="text-4xl font-black text-emerald-600">✓</p>
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">All Modules</p>
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest mt-1">All Modules</p>
           </div>
-          <div className="text-center bg-muted/40 rounded-2xl p-5 min-w-[100px]">
+          <div className="text-center bg-slate-100 dark:bg-slate-800 rounded-2xl p-5 min-w-[100px]">
             <p className="text-4xl font-black text-emerald-600">✓</p>
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Final Exam</p>
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest mt-1">Final Exam</p>
           </div>
-          <div className="text-center bg-muted/40 rounded-2xl p-5 min-w-[100px]">
+          <div className="text-center bg-slate-100 dark:bg-slate-800 rounded-2xl p-5 min-w-[100px]">
             <p className="text-4xl font-black text-foreground">{completedLabel}</p>
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Completed</p>
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest mt-1">Completed</p>
           </div>
         </div>
         
-        <div className="p-6 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+        <div className="p-6 bg-emerald-50 dark:bg-emerald-950/70 rounded-2xl border border-emerald-200 dark:border-emerald-800">
           <GraduationCap className="w-10 h-10 text-emerald-600 mx-auto mb-3" />
-          <h4 className="font-bold text-foreground text-lg mb-2">
+          <h4 className="font-bold text-emerald-950 dark:text-emerald-50 text-lg mb-2">
             Paeds Resus {course.title} Certificate Ready
           </h4>
-          <p className="text-sm text-muted-foreground leading-relaxed">
+          <p className="text-sm text-emerald-900 dark:text-emerald-100 leading-relaxed">
             Your Paeds Resus {course.title} Certificate will be issued and available for download immediately.
           </p>
         </div>
