@@ -28,6 +28,7 @@ import {
   examKindFromQuizTitle,
   dedupeQuizRowsByStem,
   shuffleQuestionsDisplayOptions,
+  shouldResumeSummativeCheckpoint,
 } from "@shared/microcourse-exam-policy";
 import { resolveFellowshipCourseFromCandidates } from "@shared/resolve-fellowship-course";
 import {
@@ -501,6 +502,27 @@ export default function MicroCoursePlayerDB() {
   useEffect(() => {
     if (hasResumed) return;
     if (resumeQuery.data == null) return;
+    if (isAhaCourse && examState == null) return;
+    // A failed AHA summative attempt is a checkpoint. Resume directly at the
+    // exam instead of reopening the last incomplete module or capstone.
+    if (
+      isAhaCourse &&
+      examState &&
+      shouldResumeSummativeCheckpoint({
+        attempts: examState.summativeAttempts,
+        score: examState.summativeScore,
+      })
+    ) {
+      const finalModuleIndex = Math.max(0, (courseDetails?.modules?.length ?? 1) - 1);
+      setCurrentModuleIndex(finalModuleIndex);
+      setMaxReachedModuleIndex(finalModuleIndex);
+      setShowFormativeQuiz(false);
+      setShowCapstoneSim(false);
+      setShowCertificateReady(false);
+      setShowSummativeExam(true);
+      setHasResumed(true);
+      return;
+    }
     const { resumeIndex, allCompleted } = resumeQuery.data as { resumeIndex: number; totalModules: number; allCompleted?: boolean };
     // Skip the resume jump when the course is fully completed — review mode
     // always begins at module 1 (index 0) so the user can read from the start.
@@ -513,7 +535,7 @@ export default function MicroCoursePlayerDB() {
       setMaxReachedModuleIndex(Infinity);
     }
     setHasResumed(true);
-  }, [resumeQuery.data, hasResumed]);
+  }, [resumeQuery.data, hasResumed, examState, isAhaCourse, courseDetails?.modules?.length]);
 
   // ── Mutations ──────────────────────────────────────────────────────────────
   const utils = trpc.useUtils();
