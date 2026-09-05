@@ -346,6 +346,11 @@ export default function ProviderToday() {
 
   const ierpSummary = ierpSummaryQuery.data;
   const ierpDashboardAccess = ierpDashboardAccessQuery.data;
+  const normalizedCadre = (user.cadre ?? "").trim().toLowerCase();
+  const isInternCadre = normalizedCadre.includes("intern");
+  const isNurseCadre = normalizedCadre.includes("nurs");
+  const showIerpCard = Boolean(ierpEnrollmentQuery.data) || isInternCadre;
+  const showNerpCard = Boolean(nerpJourney) || isNurseCadre;
   const ierpBlsEnrollment = ierpDashboardAccess?.bls ?? ierpSummary?.aha.find((entry) => entry.programType === "bls");
   const ierpCoursePath = ierpBlsEnrollment
     ? `${getProviderCourseDestination("bls", ierpBlsEnrollment.id, "/learner-dashboard", ierpBlsEnrollment.courseId ?? undefined)}&pathway=ierp`
@@ -399,11 +404,24 @@ export default function ProviderToday() {
 
         <IersNotificationSetup enabled={hasActiveMembership && isOnline} />
 
-        {nerpJourney ? (
-          <ProgramJourneyCard title={nerpJourney.programName} subtitle="Programme progress is an orientation aid, not a clinical competence score." percentComplete={nerpJourney.percentComplete} phases={nerpJourney.phases} nextAction={nerpJourney.nextAction} compact />
+        {showNerpCard ? (
+          nerpJourney ? (
+            <ProgramJourneyCard title={nerpJourney.programName} subtitle="Programme progress is an orientation aid, not a clinical competence score." percentComplete={nerpJourney.percentComplete} phases={nerpJourney.phases} nextAction={nerpJourney.nextAction} compact />
+          ) : (
+            <Card className="border-2 border-emerald-300 bg-emerald-50 shadow-sm">
+              <CardHeader className="pb-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Nurse Emergency Readiness</p>
+                <CardTitle className="text-lg text-emerald-950">Start your NERP pathway</CardTitle>
+                <CardDescription className="text-emerald-900/75">A structured BLS and ACLS pathway for nurses, with progress shown here after enrollment.</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <Button type="button" className="bg-emerald-700 text-white hover:bg-emerald-800" onClick={() => setLocation("/programs/nerp")}>Open NERP <ArrowRight className="ml-2 h-4 w-4" /></Button>
+              </CardContent>
+            </Card>
+          )
         ) : null}
 
-        <Card className="border-2 border-indigo-300 bg-indigo-50 shadow-sm">
+        {showIerpCard ? <Card className="border-2 border-indigo-300 bg-indigo-50 shadow-sm">
           <CardHeader className="pb-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Intern Emergency Readiness</p>
             <CardTitle className="text-lg text-indigo-950">IERP coursework</CardTitle>
@@ -440,7 +458,7 @@ export default function ProviderToday() {
               </Button>
             )}
           </CardContent>
-        </Card>
+        </Card> : null}
 
         <ProviderTodayActivationCard
           currentTeam={currentTeam ? { teamId: currentTeam.teamId, institutionId: currentTeam.institutionId, poleName: currentTeam.poleName } : null}

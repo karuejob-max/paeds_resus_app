@@ -541,3 +541,16 @@ export function canAttemptSummative(params: {
 export function summativePassed(score: number | null | undefined): boolean {
   return (score ?? 0) >= MICROCOURSE_SUMMATIVE_PASS_PERCENT;
 }
+
+/**
+ * A failed summative attempt is a resume checkpoint, not a signal to restart
+ * the final cognitive module or capstone simulation. A learner may resume the
+ * exam when it is retryable now or when the cooldown/max-attempt state is being
+ * displayed by the player.
+ */
+export function shouldResumeSummativeCheckpoint(params: {
+  attempts: number;
+  score: number | null | undefined;
+}): boolean {
+  return params.attempts > 0 && !summativePassed(params.score);
+}
