@@ -442,3 +442,5 @@ Full gap analysis done 2026-07-12 against the five constitutional docs (North St
 - Result: **successful** — `recipientEmailHash already exists`, `providerProfessionalRoles already exists`, and `Identity and workspace hardening migration applied successfully.`
 - The TLS `DEP0123` message was a Node.js deprecation warning; it did not prevent the migration from completing.
 - Live entitlement smoke testing remains pending: issue a code for a selected registered learner, confirm recipient history, redeem with the matching email, and confirm a different email is rejected.
+
+| 2026-09-05 | Manus | **Global Admin mobile navigation fix:** Updated `AdminShell` so mobile uses the shared off-canvas sidebar sheet instead of an always-visible fixed sidebar. Added explicit open/hide controls, automatically closes navigation after a tab selection, and preserves the selected tab content in the main pane. Verified with `pnpm run check`, targeted admin-navigation tests, `pnpm run build`, and `git diff --check`. Merged via PR [#793](https://github.com/karuejob-max/paeds_resus_app/pull/793), merge commit `394bee86de7048fb643e46e3a0f016c435314df4`. |
