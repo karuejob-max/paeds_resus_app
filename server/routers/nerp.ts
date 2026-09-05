@@ -408,8 +408,15 @@ export const nerpRouter = router({
     const phase3Verified = verification.phase3?.status === "verified";
     const ahaEvidenceVerified = !!(bls?.certificateVerified && acls?.certificateVerified) || phase2Verified;
     const journey = calculateProgramJourney({
-      blsProgress: Number(bls?.progressPercentage ?? (bls?.cognitiveModulesComplete ? 100 : 0)) / 100,
-      aclsProgress: Number(acls?.progressPercentage ?? (acls?.cognitiveModulesComplete ? 100 : 0)) / 100,
+      // The completion flag is authoritative. A legacy progressPercentage can
+      // remain below 100 until its next background sync, which must not keep
+      // ACLS or the next programme phase looking locked after completion.
+      blsProgress: bls?.cognitiveModulesComplete
+        ? 1
+        : Number(bls?.progressPercentage ?? 0) / 100,
+      aclsProgress: acls?.cognitiveModulesComplete
+        ? 1
+        : Number(acls?.progressPercentage ?? 0) / 100,
       ahaEvidenceVerified,
       phase2Progress: phase2Verified ? 1 : 0,
       paymentProgress: Number(offer.totalAmountKes) > 0 ? Number(offer.amountPaidKes) / Number(offer.totalAmountKes) : 0,

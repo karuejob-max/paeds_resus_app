@@ -539,6 +539,30 @@ export default function MicroCoursePlayerDB() {
 
   // ── Mutations ──────────────────────────────────────────────────────────────
   const utils = trpc.useUtils();
+
+  // Cognitive completion changes both the enrollment row and programme-level
+  // gates. Refresh every learner-facing progress surface so the next course or
+  // phase becomes available without requiring a manual page reload.
+  const invalidateProgrammeProgress = () => {
+    void Promise.all([
+      utils.courses.getUserEnrollments.invalidate(),
+      utils.courses.getMyAhaEnrollments.invalidate(),
+      utils.courses.getAhaAccessStatus.invalidate(),
+      utils.courses.getPhase2CompletionStatus.invalidate(),
+      utils.courses.getPhaseSummary.invalidate(),
+      utils.ierp.getMyEnrollment.invalidate(),
+      utils.ierp.getSummary.invalidate(),
+      utils.ierp.getDashboardAccess.invalidate(),
+      utils.nerp.getMyEnrollment.invalidate(),
+      utils.nerp.getJourneyStatus.invalidate(),
+      utils.nerp.getPathwayEntry.invalidate(),
+      utils.institutionalLifeSupport.getMyEnrollment.invalidate(),
+      utils.dashboards.getSummary.invalidate(),
+      utils.fellowship.getProgress.invalidate(),
+      utils.certificates.getMyCertificates.invalidate(),
+    ]);
+  };
+
   const ensureMicroEnrollment = trpc.courses.ensureMicroCourseEnrollment.useMutation({
     onSuccess: (result) => {
       if (result.success) {
@@ -569,8 +593,7 @@ export default function MicroCoursePlayerDB() {
         toast.success(`Cognitive certificate issued! #${data.certificateNumber}`);
       }
       if (data.success) {
-        void utils.certificates.getMyCertificates.invalidate();
-        void utils.fellowship.getProgress.invalidate();
+        invalidateProgrammeProgress();
         trackProductActivity.mutate({
           eventType: "micro_course",
           eventName: "AHA cognitive pathway completed",
@@ -591,8 +614,7 @@ export default function MicroCoursePlayerDB() {
       if (data.success) {
         if (data.certificateNumber) setIssuedCertNumber(data.certificateNumber);
         toast.success(data.certificateIssued ? "Paeds Resus competency certificate issued." : "Knowledge checks complete. Your practical assessment is the next step.");
-        void utils.courses.getUserEnrollments.invalidate();
-        void utils.certificates.getMyCertificates.invalidate();
+        invalidateProgrammeProgress();
         trackProductActivity.mutate({
           eventType: "micro_course",
           eventName: "Paeds Resus Institutional Life Support cognitive pathway completed",
@@ -614,9 +636,7 @@ export default function MicroCoursePlayerDB() {
         } else {
           toast.success("Course completed!");
         }
-        void utils.courses.getUserEnrollments.invalidate();
-        void utils.certificates.getMyCertificates.invalidate();
-        void utils.fellowship.getProgress.invalidate();
+        invalidateProgrammeProgress();
         trackProductActivity.mutate({
           eventType: "micro_course",
           eventName: "Micro-course completed",

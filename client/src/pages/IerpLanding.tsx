@@ -54,6 +54,7 @@ export default function IerpLanding() {
   const [, navigate] = useLocation();
   const summaryQuery = trpc.ierp.getSummary.useQuery(undefined, {
     enabled: isAuthenticated,
+    refetchInterval: 30_000,
     retry: false,
   });
   const enrolled = Boolean(summaryQuery.data?.enrollmentId);

@@ -1051,9 +1051,13 @@ function ActiveAhaPathwayCard() {
 export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: boolean }) {
   const { user } = useAuth();
   const [, navigate] = useLocation();
-  const { data: enrollment, isLoading } = trpc.ierp.getMyEnrollment.useQuery(undefined, { retry: false });
+  const { data: enrollment, isLoading } = trpc.ierp.getMyEnrollment.useQuery(undefined, {
+    refetchInterval: 30_000,
+    retry: false,
+  });
   const { data: summary, isLoading: summaryLoading, isError: summaryError } = trpc.ierp.getSummary.useQuery(undefined, {
     enabled: !!enrollment,
+    refetchInterval: 30_000,
     retry: false,
   });
   const { data: ierpLedger } = trpc.ierp.getPaymentLedger.useQuery(undefined, {
@@ -1074,6 +1078,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
       await Promise.all([
         utils.ierp.getMyEnrollment.invalidate(),
         utils.ierp.getSummary.invalidate(),
+        utils.ierp.getDashboardAccess.invalidate(),
       ]);
     },
     onError: (error) => toast.error(error.message || "Could not start IERP"),
@@ -1085,6 +1090,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
       await Promise.all([
         utils.ierp.getPaymentLedger.invalidate(),
         utils.ierp.getSummary.invalidate(),
+        utils.ierp.getDashboardAccess.invalidate(),
       ]);
     },
     onError: (error) => toast.error(error.message || "Could not initiate IERP payment"),
@@ -1093,7 +1099,10 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
     onSuccess: async () => {
       toast.success("Both Phase 1 documents were submitted privately for review.");
       setPhase1Files({ video_prework: null, precourse_assessment: null });
-      await utils.ierp.getSummary.invalidate();
+      await Promise.all([
+        utils.ierp.getSummary.invalidate(),
+        utils.ierp.getDashboardAccess.invalidate(),
+      ]);
     },
     onError: (error) => toast.error(error.message || "Could not submit Phase 1 evidence"),
   });
@@ -1642,7 +1651,9 @@ const PHASE2_ROLE_ORDER = [
 ];
 
 function Phase2CompletionProgress() {
-  const { data, isLoading } = trpc.courses.getPhase2CompletionStatus.useQuery();
+  const { data, isLoading } = trpc.courses.getPhase2CompletionStatus.useQuery(undefined, {
+    refetchInterval: 30_000,
+  });
   if (isLoading || !data) return null;
 
   const pct = Math.round(
@@ -1686,6 +1697,7 @@ function Phase2CompletionProgress() {
 
 function Phase2BookingCard() {
   const sessionsQuery = trpc.courses.listPhase2Sessions.useQuery({});
+  const utils = trpc.useUtils();
   const [bookingScheduleId, setBookingScheduleId] = useState<number | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [claimingScheduleId, setClaimingScheduleId] = useState<number | null>(null);
@@ -1697,7 +1709,12 @@ function Phase2BookingCard() {
       toast.success("Booked! You'll see this under My Bookings.");
       setBookingScheduleId(null);
       setSelectedRole("");
-      void sessionsQuery.refetch();
+      void Promise.all([
+        sessionsQuery.refetch(),
+        utils.courses.getPhase2CompletionStatus.invalidate(),
+        utils.ierp.getSummary.invalidate(),
+        utils.nerp.getJourneyStatus.invalidate(),
+      ]);
     },
     onError: (err) => toast.error(err.message),
   });
@@ -1852,7 +1869,9 @@ function Phase2BookingCard() {
 
 function ProgressAndLedgerCard() {
   const { data: phase } = trpc.courses.getPhaseSummary.useQuery();
-  const { data: phase2 } = trpc.courses.getPhase2CompletionStatus.useQuery();
+  const { data: phase2 } = trpc.courses.getPhase2CompletionStatus.useQuery(undefined, {
+    refetchInterval: 30_000,
+  });
   const { data: ledger, isLoading: ledgerLoading } = trpc.payments.getMyUnifiedPaymentLedger.useQuery();
 
   // Phase 1: done once past phase_1. Phase 2: from getPhase2CompletionStatus.
