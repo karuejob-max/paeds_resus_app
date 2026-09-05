@@ -176,7 +176,9 @@ The model: Paeds Resus designs and delivers structured CPD events — simulation
 
 The CPD Portal is the institutional measurement and reporting layer for existing clinical and non-clinical continuing professional development activity. It tracks attendance, participation, targets, evidence, and leadership reports. The client institution owns the underlying CPD content and attendance approval; Paeds Resus provides the portal, tracking, visibility, and reporting layer.
 
-**Canonical volume pricing:** KES 800 per staff per year is a discounted CPD Portal fee for facilities with **301–500 total staff**. It is not the default rate for every institution and it does not automatically extend beyond the 500-staff tier.
+**Pricing decision (2026-09-05):** The prior flat KES 200,000-per-year standard is retired for the CPD Portal / ICPD institutional subscription. The canonical model is now a per-total-staff annual fee, discounted by verified facility size: KES 1,000, KES 900, or KES 800 per staff per year. This is the approved staff-count pricing model for the institutional professional-development portal. It does **not** replace the separate IERS/ERS readiness package, which remains scope-based and must be quoted with its implementation, renewal, and deliverable boundaries.
+
+**Canonical volume pricing:** KES 800 per staff per year is the discounted CPD Portal fee for facilities with **301–500 total staff**. It is not the default rate for every institution and it does not automatically extend beyond the 500-staff tier.
 
 | Verified total facility staff | CPD Portal price per staff / year | Commercial interpretation |
 |---:|---:|---|
