@@ -101,9 +101,15 @@ function AdminShellContent({ children }: { children: ReactNode }) {
             const GroupIcon = group.icon;
             return (
               <SidebarGroup key={group.label} className="px-2 py-1">
-                <SidebarGroupLabel className="min-w-0 gap-2 overflow-hidden px-2 text-[11px] font-semibold uppercase tracking-wide leading-4 text-sidebar-foreground/60">
-                  <GroupIcon className="h-3.5 w-3.5 shrink-0" />
-                  <span className="min-w-0 truncate">{group.label}</span>
+                <SidebarGroupLabel
+                  className={`min-w-0 gap-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/60 ${isMobile ? "h-auto min-h-8 items-start py-1 leading-5" : "overflow-hidden leading-4"}`}
+                >
+                  <GroupIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span
+                    className={`min-w-0 ${isMobile ? "whitespace-normal break-words leading-5" : "truncate"}`}
+                  >
+                    {group.label}
+                  </span>
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
@@ -116,10 +122,12 @@ function AdminShellContent({ children }: { children: ReactNode }) {
                             isActive={isActive}
                             onClick={() => navigate(item.href, item.label)}
                             tooltip={item.label}
-                            className={`h-10 min-w-0 overflow-hidden font-normal ${item.badge ? "pr-12" : ""}`}
+                            className={`min-w-0 overflow-hidden font-normal ${isMobile ? "h-auto min-h-10 items-start py-2" : "h-10"} ${item.badge ? "pr-12" : ""}`}
                           >
-                            <ItemIcon className="h-4 w-4 shrink-0" />
-                            <span className="min-w-0 flex-1 truncate">
+                            <ItemIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                            <span
+                              className={`min-w-0 flex-1 ${isMobile ? "!overflow-visible !text-clip !whitespace-normal break-words leading-5" : "truncate"}`}
+                            >
                               {item.label}
                             </span>
                           </SidebarMenuButton>
