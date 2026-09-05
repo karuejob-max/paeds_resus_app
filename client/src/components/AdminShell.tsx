@@ -96,11 +96,14 @@ function AdminShellContent({ children }: { children: ReactNode }) {
           </div>
         </SidebarHeader>
 
-        <SidebarContent className="gap-0 py-2">
+        <SidebarContent className={`py-2 ${isMobile ? "gap-3" : "gap-0"}`}>
           {adminNavigationGroups.map(group => {
             const GroupIcon = group.icon;
             return (
-              <SidebarGroup key={group.label} className="px-2 py-1">
+              <SidebarGroup
+                key={group.label}
+                className={`px-2 ${isMobile ? "gap-1 py-2" : "py-1"}`}
+              >
                 <SidebarGroupLabel
                   className={`min-w-0 gap-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/60 ${isMobile ? "h-auto min-h-8 items-start py-1 leading-5" : "overflow-hidden leading-4"}`}
                 >
@@ -111,13 +114,16 @@ function AdminShellContent({ children }: { children: ReactNode }) {
                     {group.label}
                   </span>
                 </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
+                <SidebarGroupContent className={isMobile ? "mt-1" : undefined}>
+                  <SidebarMenu className={isMobile ? "gap-2" : undefined}>
                     {group.items.map(item => {
                       const ItemIcon = item.icon;
                       const isActive = isAdminRouteActive(location, item.href);
                       return (
-                        <SidebarMenuItem key={item.href}>
+                        <SidebarMenuItem
+                          key={item.href}
+                          className={isMobile ? "pb-1" : undefined}
+                        >
                           <SidebarMenuButton
                             isActive={isActive}
                             onClick={() => navigate(item.href, item.label)}
