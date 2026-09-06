@@ -44,6 +44,7 @@ import InstitutionConnectedServicesPanel from "@/components/InstitutionConnected
 import InstitutionLearningOperationsPanel from "@/components/InstitutionLearningOperationsPanel";
 import InstitutionHomePanel from "@/components/InstitutionHomePanel";
 import { InstitutionAccountabilityPanel } from "@/components/InstitutionAccountabilityPanel";
+import { InstitutionalQualityBillingPanel } from "@/components/InstitutionalQualityBillingPanel";
 import { IersWorkforceTab, resolveIersTab, workforceAnchor } from "@/lib/institution-readiness-navigation";
 
 const PRODUCT_LABELS = {
@@ -418,7 +419,7 @@ export default function InstitutionWorkspace() {
                   </section>
                 </TabsContent>
                 <TabsContent value="plan"><IersImplementationPlanPanel institutionId={institutionId} /></TabsContent>
-                <TabsContent value="report" className="space-y-6"><IersAdaptiveLearningPanel institutionId={institutionId} /><IersExecutiveReportPanel institutionId={institutionId} onOpenEvidence={() => setIersTab("evidence")} /></TabsContent>
+                <TabsContent value="report" className="space-y-6"><InstitutionalQualityBillingPanel institutionId={institutionId} canManageBilling={isInstitutionAdmin} /><IersAdaptiveLearningPanel institutionId={institutionId} /><IersExecutiveReportPanel institutionId={institutionId} onOpenEvidence={() => setIersTab("evidence")} /></TabsContent>
               </Tabs>
             ) : (
               <ProductLockedState product="IERS" status={productStatus.iers} onAdministration={() => setActiveSection("administration")} />
@@ -434,6 +435,7 @@ export default function InstitutionWorkspace() {
           </TabsContent> : null}
 
           {isInstitutionAdmin ? <TabsContent value="administration" className="space-y-6">
+            <InstitutionalQualityBillingPanel institutionId={institutionId} canManageBilling />
             <AdministrationSummary institutionId={institutionId} catalog={catalog ?? []} />
             <InstitutionAdministrationPanel institutionId={institutionId} institution={adminInstitutionDetails?.institution ?? { id: institutionId ?? 0, companyName: institutionName, contactPhone: null, contactEmail: "", staffCount: null }} />
           </TabsContent> : null}

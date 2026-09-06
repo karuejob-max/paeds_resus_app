@@ -2676,6 +2676,21 @@ export const institutionProductSubscriptions = mysqlTable(
     expiresAt: timestamp("expiresAt"),
     graceEndsAt: timestamp("graceEndsAt"),
     cancelledAt: timestamp("cancelledAt"),
+    facilityLevel: mysqlEnum("facilityLevel", ["level_4", "level_5", "level_6"]),
+    verifiedStaffCount: int("verifiedStaffCount"),
+    pricingTier: mysqlEnum("pricingTier", ["founding_partner", "standard"]).default("standard").notNull(),
+    dataSharingStatus: mysqlEnum("dataSharingStatus", ["consented", "consented_anonymous", "private_mode", "lapsed"]).default("private_mode").notNull(),
+    dataSharingConsentedAt: timestamp("dataSharingConsentedAt"),
+    dataSharingLapsedAt: timestamp("dataSharingLapsedAt"),
+    foundingPartnerStartedAt: timestamp("foundingPartnerStartedAt"),
+    foundingPartnerEndsAt: timestamp("foundingPartnerEndsAt"),
+    commitmentTermYears: int("commitmentTermYears").default(1).notNull(),
+    lastStaffCountAttestationAt: timestamp("lastStaffCountAttestationAt"),
+    autoRenewEnabled: boolean("autoRenewEnabled").default(false).notNull(),
+    renewalApprovalRequired: boolean("renewalApprovalRequired").default(true).notNull(),
+    participationCureEndsAt: timestamp("participationCureEndsAt"),
+    participationLastEvaluatedAt: timestamp("participationLastEvaluatedAt"),
+    participationLastStatus: mysqlEnum("participationLastStatus", ["met", "not_met", "exempt", "pending_review"]),
     source: mysqlEnum("source", [
       "contract",
       "quotation",
@@ -9638,3 +9653,231 @@ export type PromotionalPreferenceAuditEvent =
   typeof promotionalPreferenceAuditEvents.$inferSelect;
 export type InsertPromotionalPreferenceAuditEvent =
   typeof promotionalPreferenceAuditEvents.$inferInsert;
+
+
+/**
+ * Canonical institutional quality-improvement report. Care Signal, Code Signal,
+ * and future report sources map into this workflow without copying patient
+ * identifiers into the institutional layer.
+ */
+export const institutionalQiReports = mysqlTable(
+  "institutionalQiReports",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    facilityDepartmentId: int("facilityDepartmentId"),
+    reportType: mysqlEnum("reportType", ["safety_event", "improvement_project"]).notNull(),
+    sourceType: mysqlEnum("sourceType", ["manual", "care_signal", "code_signal"]).default("manual").notNull(),
+    sourceId: int("sourceId"),
+    title: varchar("title", { length: 255 }).notNull(),
+    eventDate: timestamp("eventDate"),
+    careArea: varchar("careArea", { length: 128 }),
+    ageGroup: varchar("ageGroup", { length: 64 }),
+    harmOccurred: boolean("harmOccurred").default(false).notNull(),
+    severity: mysqlEnum("severity", ["low", "moderate", "severe", "critical"]).default("low").notNull(),
+    problemStatement: text("problemStatement").notNull(),
+    expectedProcess: text("expectedProcess"),
+    observedGap: text("observedGap"),
+    contributingFactors: json("contributingFactors"),
+    baselineMeasure: decimal("baselineMeasure", { precision: 12, scale: 4 }),
+    numerator: int("numerator"),
+    denominator: int("denominator"),
+    dataSource: varchar("dataSource", { length: 255 }),
+    targetMeasure: decimal("targetMeasure", { precision: 12, scale: 4 }),
+    confidentialityLevel: mysqlEnum("confidentialityLevel", ["institution_only", "aggregate_only", "restricted"]).default("institution_only").notNull(),
+    status: mysqlEnum("status", ["draft", "submitted", "triaged", "action_planned", "in_progress", "effectiveness_review", "closed", "reopened"]).default("draft").notNull(),
+    reporterUserId: int("reporterUserId"),
+    reviewerUserId: int("reviewerUserId"),
+    submittedAt: timestamp("submittedAt"),
+    closedAt: timestamp("closedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    institutionStatusIdx: index("institutionalQiReports_institution_status_idx").on(table.institutionalAccountId, table.status),
+    sourceIdx: index("institutionalQiReports_source_idx").on(table.sourceType, table.sourceId),
+    closedAtIdx: index("institutionalQiReports_closed_at_idx").on(table.institutionalAccountId, table.closedAt),
+  })
+);
+export type InstitutionalQiReport = typeof institutionalQiReports.$inferSelect;
+export type InsertInstitutionalQiReport = typeof institutionalQiReports.$inferInsert;
+
+export const institutionalQiActions = mysqlTable(
+  "institutionalQiActions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    reportId: int("reportId").notNull(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    actionText: text("actionText").notNull(),
+    ownerUserId: int("ownerUserId"),
+    dueAt: timestamp("dueAt"),
+    priority: mysqlEnum("priority", ["low", "medium", "high", "urgent"]).default("medium").notNull(),
+    status: mysqlEnum("status", ["open", "in_progress", "completed", "cancelled"]).default("open").notNull(),
+    evidenceUrl: text("evidenceUrl"),
+    completedAt: timestamp("completedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    reportIdx: index("institutionalQiActions_report_idx").on(table.reportId),
+    institutionStatusIdx: index("institutionalQiActions_institution_status_idx").on(table.institutionalAccountId, table.status),
+  })
+);
+export type InstitutionalQiAction = typeof institutionalQiActions.$inferSelect;
+export type InsertInstitutionalQiAction = typeof institutionalQiActions.$inferInsert;
+
+export const institutionalQiEffectivenessReviews = mysqlTable(
+  "institutionalQiEffectivenessReviews",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    reportId: int("reportId").notNull(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    reviewerUserId: int("reviewerUserId").notNull(),
+    reviewDate: timestamp("reviewDate").defaultNow().notNull(),
+    outcome: mysqlEnum("outcome", ["effective", "partially_effective", "not_effective", "insufficient_evidence"]).notNull(),
+    followUpRequired: boolean("followUpRequired").default(false).notNull(),
+    evidenceSummary: text("evidenceSummary").notNull(),
+    measureValue: decimal("measureValue", { precision: 12, scale: 4 }),
+    notes: text("notes"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    reportIdx: index("institutionalQiEffectivenessReviews_report_idx").on(table.reportId),
+    institutionDateIdx: index("institutionalQiEffectivenessReviews_institution_date_idx").on(table.institutionalAccountId, table.reviewDate),
+  })
+);
+export type InstitutionalQiEffectivenessReview = typeof institutionalQiEffectivenessReviews.$inferSelect;
+export type InsertInstitutionalQiEffectivenessReview = typeof institutionalQiEffectivenessReviews.$inferInsert;
+
+export const institutionalQiParticipationSnapshots = mysqlTable(
+  "institutionalQiParticipationSnapshots",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    quarterStart: timestamp("quarterStart").notNull(),
+    quarterEnd: timestamp("quarterEnd").notNull(),
+    facilityLevel: varchar("facilityLevel", { length: 32 }),
+    requiredClosedEffectiveReports: int("requiredClosedEffectiveReports").default(1).notNull(),
+    closedEffectiveReports: int("closedEffectiveReports").default(0).notNull(),
+    careSignalReports: int("careSignalReports").default(0).notNull(),
+    codeSignalReports: int("codeSignalReports").default(0).notNull(),
+    participationStatus: mysqlEnum("participationStatus", ["met", "not_met", "exempt", "pending_review"]).default("pending_review").notNull(),
+    calculatedAt: timestamp("calculatedAt").defaultNow().notNull(),
+  },
+  table => ({
+    institutionQuarterIdx: uniqueIndex("institutionalQiParticipationSnapshots_institution_quarter_uq").on(table.institutionalAccountId, table.quarterStart),
+  })
+);
+export type InstitutionalQiParticipationSnapshot = typeof institutionalQiParticipationSnapshots.$inferSelect;
+export type InsertInstitutionalQiParticipationSnapshot = typeof institutionalQiParticipationSnapshots.$inferInsert;
+
+/** Versioned USD reference rates used to produce local-currency invoice snapshots. */
+export const institutionalExchangeRates = mysqlTable(
+  "institutionalExchangeRates",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    currencyCode: varchar("currencyCode", { length: 3 }).notNull(),
+    kesPerUsd: decimal("kesPerUsd", { precision: 14, scale: 6 }).notNull(),
+    effectiveFrom: timestamp("effectiveFrom").notNull(),
+    effectiveTo: timestamp("effectiveTo"),
+    source: varchar("source", { length: 255 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    currencyEffectiveIdx: index("institutionalExchangeRates_currency_effective_idx").on(table.currencyCode, table.effectiveFrom),
+  })
+);
+export type InstitutionalExchangeRate = typeof institutionalExchangeRates.$inferSelect;
+export type InsertInstitutionalExchangeRate = typeof institutionalExchangeRates.$inferInsert;
+
+export const institutionalSubscriptionInvoices = mysqlTable(
+  "institutionalSubscriptionInvoices",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    productId: int("productId").notNull(),
+    subscriptionId: int("subscriptionId"),
+    invoiceNumber: varchar("invoiceNumber", { length: 64 }).notNull(),
+    baseAmountUsdCents: int("baseAmountUsdCents").notNull(),
+    amountCents: int("amountCents").notNull(),
+    currency: varchar("currency", { length: 3 }).default("KES").notNull(),
+    fxRateKesPerUsd: decimal("fxRateKesPerUsd", { precision: 14, scale: 6 }),
+    status: mysqlEnum("status", ["draft", "issued", "payment_pending", "paid", "void", "overdue", "cancelled"]).default("draft").notNull(),
+    issuedAt: timestamp("issuedAt"),
+    dueAt: timestamp("dueAt"),
+    paidAt: timestamp("paidAt"),
+    renewalForSubscriptionId: int("renewalForSubscriptionId"),
+    metadata: json("metadata"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    invoiceNumberUq: uniqueIndex("institutionalSubscriptionInvoices_number_uq").on(table.invoiceNumber),
+    institutionStatusIdx: index("institutionalSubscriptionInvoices_institution_status_idx").on(table.institutionalAccountId, table.status),
+    dueIdx: index("institutionalSubscriptionInvoices_due_idx").on(table.status, table.dueAt),
+  })
+);
+export type InstitutionalSubscriptionInvoice = typeof institutionalSubscriptionInvoices.$inferSelect;
+export type InsertInstitutionalSubscriptionInvoice = typeof institutionalSubscriptionInvoices.$inferInsert;
+
+export const institutionalPaymentProviderEvents = mysqlTable(
+  "institutionalPaymentProviderEvents",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    provider: varchar("provider", { length: 64 }).notNull(),
+    providerEventId: varchar("providerEventId", { length: 255 }).notNull(),
+    eventType: varchar("eventType", { length: 128 }).notNull(),
+    invoiceId: int("invoiceId"),
+    paymentId: int("paymentId"),
+    status: mysqlEnum("status", ["received", "processed", "ignored", "failed"]).default("received").notNull(),
+    payload: json("payload").notNull(),
+    receivedAt: timestamp("receivedAt").defaultNow().notNull(),
+    processedAt: timestamp("processedAt"),
+    errorMessage: text("errorMessage"),
+  },
+  table => ({
+    providerEventUq: uniqueIndex("institutionalPaymentProviderEvents_provider_event_uq").on(table.provider, table.providerEventId),
+    invoiceIdx: index("institutionalPaymentProviderEvents_invoice_idx").on(table.invoiceId),
+  })
+);
+export type InstitutionalPaymentProviderEvent = typeof institutionalPaymentProviderEvents.$inferSelect;
+export type InsertInstitutionalPaymentProviderEvent = typeof institutionalPaymentProviderEvents.$inferInsert;
+
+export const institutionalPricingAuditEvents = mysqlTable(
+  "institutionalPricingAuditEvents",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    subscriptionId: int("subscriptionId"),
+    eventType: varchar("eventType", { length: 64 }).notNull(),
+    actorUserId: int("actorUserId"),
+    previousValue: json("previousValue"),
+    currentValue: json("currentValue").notNull(),
+    reason: text("reason").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    institutionCreatedIdx: index("institutionalPricingAuditEvents_institution_created_idx").on(table.institutionalAccountId, table.createdAt),
+  })
+);
+export type InstitutionalPricingAuditEvent = typeof institutionalPricingAuditEvents.$inferSelect;
+export type InsertInstitutionalPricingAuditEvent = typeof institutionalPricingAuditEvents.$inferInsert;
+
+// Pricing/consent inputs are nullable for legacy subscriptions and required for new quotes.
+export const institutionSubscriptionPricingFields = {
+  facilityLevel: mysqlEnum("facilityLevel", ["level_4", "level_5", "level_6"]),
+  verifiedStaffCount: int("verifiedStaffCount"),
+  pricingTier: mysqlEnum("pricingTier", ["founding_partner", "standard"]).default("standard").notNull(),
+  dataSharingStatus: mysqlEnum("dataSharingStatus", ["consented", "consented_anonymous", "private_mode", "lapsed"]).default("private_mode").notNull(),
+  dataSharingConsentedAt: timestamp("dataSharingConsentedAt"),
+  dataSharingLapsedAt: timestamp("dataSharingLapsedAt"),
+  foundingPartnerStartedAt: timestamp("foundingPartnerStartedAt"),
+  foundingPartnerEndsAt: timestamp("foundingPartnerEndsAt"),
+  commitmentTermYears: int("commitmentTermYears").default(1).notNull(),
+  lastStaffCountAttestationAt: timestamp("lastStaffCountAttestationAt"),
+  autoRenewEnabled: boolean("autoRenewEnabled").default(false).notNull(),
+  renewalApprovalRequired: boolean("renewalApprovalRequired").default(true).notNull(),
+};
+
+// The fields above are exported for the migration generator; they are also added
+// by migration 0156 to the existing institutionProductSubscriptions table.
