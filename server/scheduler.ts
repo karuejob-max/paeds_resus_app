@@ -90,6 +90,9 @@ export function initializeScheduler() {
   // Institutional Portal: deterministic renewal reminders with per-channel dedupe.
   scheduleInstitutionalRenewalNotifications();
 
+  // Institutional QI: evaluate closed-and-verified participation quality and apply the 30-day cure/lapse policy.
+  scheduleInstitutionalQiParticipation();
+
   // Professional credentials: 3/2/1-month and weekly-overdue reminders.
   scheduleProfessionalCredentialReminders();
 
@@ -153,6 +156,25 @@ function scheduleProfessionalCredentialReminders() {
 }
 
 /** Institutional renewal reminders; delivery remains provider- and preference-gated. */
+function scheduleInstitutionalQiParticipation() {
+  cron.schedule(
+    "15 5 * * *",
+    async () => {
+      try {
+        const db = await requireDb();
+        const { evaluateInstitutionalQiParticipation } = await import("./lib/institutional-qi-participation");
+        const result = await evaluateInstitutionalQiParticipation(db);
+        if (result.evaluated > 0) {
+          console.log(`[Scheduler] institutional QI participation: evaluated=${result.evaluated} met=${result.met} curesStarted=${result.curesStarted} lapsed=${result.lapsed}`);
+        }
+      } catch (error) {
+        console.error("[Scheduler] institutional QI participation failed:", error);
+      }
+    },
+    { timezone: "Africa/Nairobi" }
+  );
+}
+
 function scheduleInstitutionalRenewalNotifications() {
   cron.schedule(
     "30 5 * * *",

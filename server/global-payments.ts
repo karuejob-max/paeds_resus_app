@@ -51,6 +51,18 @@ export interface PaymentCompliance {
 
 // Payment Providers by Region
 export const PAYMENT_PROVIDERS: Record<string, PaymentProvider> = {
+  pesapal_ke: {
+    id: "pesapal_ke",
+    name: "Pesapal Kenya",
+    country: "Kenya",
+    currency: "KES",
+    paymentMethods: ["mobile_money", "card", "invoice", "payment_link"],
+    minAmount: 10,
+    maxAmount: 10000000,
+    fee: 0,
+    settlementTime: "Provider terms",
+    status: "active",
+  },
   mpesa_ke: {
     id: "mpesa_ke",
     name: "M-Pesa Kenya",
@@ -128,7 +140,7 @@ export const PAYMENT_PROVIDERS: Record<string, PaymentProvider> = {
 // Currency Exchange Rates
 export const CURRENCY_RATES: Record<string, number> = {
   "KES/USD": 0.0077,
-  "USD/KES": 130,
+  "USD/KES": 129.45,
   "UGX/USD": 0.00027,
   "USD/UGX": 3700,
   "TZS/USD": 0.00039,
@@ -187,8 +199,11 @@ export function processInternationalPayment(
   paymentMethod: string,
   targetCurrency: string = "KES"
 ): InternationalPayment {
-  const provider = PAYMENT_PROVIDERS[`${paymentMethod}_${currency.toLowerCase()}`] ||
-    PAYMENT_PROVIDERS["stripe_global"];
+  const provider = currency.toUpperCase() === "KES"
+    ? paymentMethod === "card" || paymentMethod === "invoice" || paymentMethod === "payment_link"
+      ? PAYMENT_PROVIDERS["pesapal_ke"]
+      : PAYMENT_PROVIDERS["mpesa_ke"]
+    : PAYMENT_PROVIDERS[`${paymentMethod}_${currency.toLowerCase()}`] || PAYMENT_PROVIDERS["stripe_global"];
 
   const exchangeRate = convertCurrency(1, currency, targetCurrency);
   const convertedAmount = Math.round(amount * exchangeRate);
