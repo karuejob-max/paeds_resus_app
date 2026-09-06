@@ -3,7 +3,6 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { getOfflineSnapshot, getOfflineSnapshotFreshness, offlineStoreKeys, saveOfflineSnapshot, type OfflineSnapshotFreshness } from "@/lib/offline/platformOfflineStore";
-import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import ProviderTodayActivationCard from "@/components/ProviderTodayActivationCard";
 import IersNotificationSetup from "@/components/IersNotificationSetup";
 import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
@@ -177,13 +176,8 @@ export default function ProviderToday() {
     staleTime: 30_000,
     retry: 1,
   });
-  const ierpSummaryQuery = trpc.ierp.getSummary.useQuery(undefined, {
-    enabled: isAuthenticated && Boolean(ierpEnrollmentQuery.data),
-    staleTime: 30_000,
-    retry: 1,
-  });
-  const ierpDashboardAccessQuery = trpc.ierp.getDashboardAccess.useQuery(undefined, {
-    enabled: isAuthenticated && Boolean(ierpEnrollmentQuery.data),
+  const { data: ierpJourney } = trpc.ierp.getJourneyStatus.useQuery(undefined, {
+    enabled: isAuthenticated,
     staleTime: 30_000,
     retry: 1,
   });
@@ -344,14 +338,6 @@ export default function ProviderToday() {
         nextErtl,
       });
 
-  const ierpSummary = ierpSummaryQuery.data;
-  const ierpDashboardAccess = ierpDashboardAccessQuery.data;
-  const ierpBlsEnrollment = ierpDashboardAccess?.bls ?? ierpSummary?.aha.find((entry) => entry.programType === "bls");
-  const ierpCoursePath = ierpBlsEnrollment
-    ? `${getProviderCourseDestination("bls", ierpBlsEnrollment.id, "/learner-dashboard", ierpBlsEnrollment.courseId ?? undefined)}&pathway=ierp`
-    : null;
-  const ierpAccessLocked = ierpDashboardAccess?.payment.cognitiveAccessLocked ?? false;
-
   const isRefreshing =
     membershipsQuery.isFetching ||
     activationsQuery.isFetching ||
@@ -403,44 +389,22 @@ export default function ProviderToday() {
           <ProgramJourneyCard title={nerpJourney.programName} subtitle="Programme progress is an orientation aid, not a clinical competence score." percentComplete={nerpJourney.percentComplete} phases={nerpJourney.phases} nextAction={nerpJourney.nextAction} compact />
         ) : null}
 
-        <Card className="border-2 border-indigo-300 bg-indigo-50 shadow-sm">
-          <CardHeader className="pb-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Intern Emergency Readiness</p>
-            <CardTitle className="text-lg text-indigo-950">IERP coursework</CardTitle>
-            <CardDescription className="text-indigo-900/75">
-              Your quickest route to the intern BLS refresh. BLS comes first; ACLS opens after BLS cognitive completion.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {!ierpEnrollmentQuery.data ? (
-              <Button type="button" className="bg-indigo-700 text-white hover:bg-indigo-800" onClick={() => setLocation("/programs/ierp/enroll")}>
-                Open IERP enrollment <ArrowRight className="ml-2 h-4 w-4" />
+        {ierpJourney ? (
+          <ProgramJourneyCard title={ierpJourney.programName} subtitle="Programme progress is an orientation aid, not a clinical competence score." percentComplete={ierpJourney.percentComplete} phases={ierpJourney.phases} nextAction={ierpJourney.nextAction} compact />
+        ) : !ierpEnrollmentQuery.data ? (
+          <Card className="border-slate-200 bg-white shadow-sm">
+            <CardHeader className="pb-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">Intern pathway</p>
+              <CardTitle className="text-lg text-slate-950">Intern Emergency Readiness Program</CardTitle>
+              <CardDescription className="text-slate-600">A staged route from BLS and ACLS learning to team simulation and hands-on assessment.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <Button type="button" className="bg-slate-950 text-white hover:bg-slate-800" onClick={() => setLocation("/programs/ierp/enroll")}>
+                Check eligibility and start <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-            ) : ierpDashboardAccessQuery.isLoading ? (
-              <p className="flex items-center gap-2 text-sm text-indigo-900"><Loader2 className="h-4 w-4 animate-spin" /> Checking your IERP learning access…</p>
-            ) : ierpDashboardAccessQuery.isError ? (
-              <div className="space-y-2">
-                <p className="text-sm text-indigo-950">IERP learning access could not be checked. Refresh this page to retry; your course access has not been changed.</p>
-                <Button type="button" variant="outline" onClick={() => void ierpDashboardAccessQuery.refetch()}>Retry IERP access check</Button>
-              </div>
-            ) : ierpAccessLocked ? (
-              <div className="space-y-2">
-                <p className="text-sm text-indigo-950">IERP learning is currently payment-locked. Open the programme page to complete the required payment.</p>
-                <Button type="button" className="bg-indigo-700 text-white hover:bg-indigo-800" onClick={() => setLocation("/programs/ierp/enroll")}>
-                  Open IERP payment <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            ) : ierpCoursePath ? (
-              <Button type="button" className="bg-indigo-700 text-white hover:bg-indigo-800" onClick={() => setLocation(ierpCoursePath)}>
-                Start BLS coursework <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            ) : (
-              <Button type="button" className="bg-indigo-700 text-white hover:bg-indigo-800" onClick={() => setLocation("/programs/ierp/enroll")}>
-                Open IERP programme <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <ProviderTodayActivationCard
           currentTeam={currentTeam ? { teamId: currentTeam.teamId, institutionId: currentTeam.institutionId, poleName: currentTeam.poleName } : null}
