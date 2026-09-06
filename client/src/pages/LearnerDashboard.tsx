@@ -26,9 +26,7 @@ import { toast } from "sonner";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
-import { IerpJourneyCard } from "@/components/IerpJourneyCard";
 import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
-import { calculateProgramJourney } from "@shared/program-journey";
 
 function daysUntilExpiry(expiryDate: string | Date | null | undefined): number | null {
   if (!expiryDate) return null;
@@ -1057,6 +1055,10 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
     enabled: !!enrollment,
     retry: false,
   });
+  const { data: journey } = trpc.ierp.getJourneyStatus.useQuery(undefined, {
+    enabled: !!enrollment,
+    retry: false,
+  });
   const { data: ierpLedger } = trpc.ierp.getPaymentLedger.useQuery(undefined, {
     enabled: !!enrollment,
     retry: false,
@@ -1175,27 +1177,6 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
   const phase3Unlocked = !!summary?.phase3GateUnlocked;
   const blsEnrollment = summary?.aha.find((row) => row.programType === "bls");
   const aclsEnrollment = summary?.aha.find((row) => row.programType === "acls");
-  const phase2Progress = summary?.phase2
-    ? Math.min(
-        summary.phase2.teamLeaderCount / Math.max(1, summary.phase2.teamLeaderRequired),
-        summary.phase2.teamMemberSessionsTotal / Math.max(1, summary.phase2.teamMemberSessionsRequired),
-        summary.phase2.teamMemberRolesCovered / Math.max(1, summary.phase2.teamMemberRolesRequired),
-      )
-    : 0;
-  const journey = calculateProgramJourney({
-    blsProgress: blsEnrollment?.cognitiveModulesComplete ? 1 : 0,
-    aclsProgress: aclsEnrollment?.cognitiveModulesComplete ? 1 : 0,
-    ahaEvidenceVerified: phase1Done,
-    phase2Progress,
-    paymentProgress: ierpLedger ? ierpLedger.totalPaidKsh / Math.max(1, ierpLedger.feeKsh) : 0,
-    phase3Complete: enrollment.lifecycleStatus === "completed",
-    phase1Action: { label: "Start BLS coursework", destination: `${getProviderCourseDestination("bls", blsEnrollment?.id, "/learner-dashboard", blsEnrollment?.courseId ?? undefined)}&pathway=ierp` },
-    phase2Action: { label: "Open Phase 2", destination: "/ierp" },
-    paymentAction: { label: "Open IERP payment", destination: "/programs/ierp" },
-    phase3Action: { label: "Open Phase 3", destination: "/ierp" },
-    phase2LockedReason: "Complete both cognitive courses and verify the AHA evidence certificates first.",
-    phase3LockedReason: "Complete Phase 2 and pay the full IERP programme fee first.",
-  });
 
   return (
     <Card id="ierp-program" className="mt-6 md:col-span-3 border-slate-200 bg-slate-50/50">
@@ -1220,13 +1201,17 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
             <p className="mt-1 text-xs">{internReviewReason || "Your intern evidence was not approved. Review your Intern Profile and submit corrected evidence before continuing."}</p>
           </div>
         ) : null}
-        <IerpJourneyCard
-          title="IERP learning journey"
-          subtitle="Programme progress is an orientation aid, not a clinical competence score."
-          percentComplete={journey.percentComplete}
-          phases={journey.phases}
-          nextAction={journey.nextAction}
-        />
+        {journey ? (
+          <ProgramJourneyCard
+            title="IERP learning journey"
+            subtitle="Programme progress is an orientation aid, not a clinical competence score."
+            percentComplete={journey.percentComplete}
+            phases={journey.phases}
+            nextAction={journey.nextAction}
+          />
+        ) : (
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">Refreshing your IERP progress…</div>
+        )}
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>

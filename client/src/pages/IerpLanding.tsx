@@ -12,8 +12,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { IerpJourneyCard } from "@/components/IerpJourneyCard";
-import { calculateProgramJourney } from "@shared/program-journey";
+import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Footer from "@/components/Footer";
@@ -78,37 +77,11 @@ export default function IerpLanding() {
   });
   const { isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
-  const summaryQuery = trpc.ierp.getSummary.useQuery(undefined, {
+  const { data: journey } = trpc.ierp.getJourneyStatus.useQuery(undefined, {
     enabled: isAuthenticated,
     retry: false,
   });
-  const enrolled = Boolean(summaryQuery.data?.enrollmentId);
-  const bls = summaryQuery.data?.aha.find((row) => row.programType === "bls");
-  const acls = summaryQuery.data?.aha.find((row) => row.programType === "acls");
-  const phase2 = summaryQuery.data?.phase2;
-  const phase2Progress = phase2
-    ? Math.min(
-        phase2.teamLeaderCount / Math.max(1, phase2.teamLeaderRequired),
-        phase2.teamMemberSessionsTotal / Math.max(1, phase2.teamMemberSessionsRequired),
-        phase2.teamMemberRolesCovered / Math.max(1, phase2.teamMemberRolesRequired),
-      )
-    : 0;
-  const journey = summaryQuery.data
-    ? calculateProgramJourney({
-        blsProgress: bls?.cognitiveModulesComplete ? 1 : 0,
-        aclsProgress: acls?.cognitiveModulesComplete ? 1 : 0,
-        ahaEvidenceVerified: summaryQuery.data.phase1Complete,
-        phase2Progress,
-        paymentProgress: summaryQuery.data.payment.totalPaid / IERP_FULL_PRICE,
-        phase3Complete: summaryQuery.data.lifecycleStatus === "completed",
-        phase1Action: { label: "Start BLS cognitive learning", destination: "/learner-dashboard" },
-        phase2Action: { label: "Continue to online simulations", destination: "/ierp" },
-        paymentAction: { label: "Review programme payment", destination: "/programs/ierp" },
-        phase3Action: { label: "Open hands-on assessment", destination: "/ierp" },
-        phase2LockedReason: "Complete BLS, ACLS, and submit the required AHA certificates first.",
-        phase3LockedReason: "Complete online simulations and the full programme payment first.",
-      })
-    : null;
+  const enrolled = Boolean(journey);
 
   const startIerp = () => {
     if (isAuthenticated) {
@@ -141,7 +114,7 @@ export default function IerpLanding() {
               </div>
               <p className="text-xs text-slate-500">Programme progress is an orientation aid, not a clinical competence score.</p>
             </div>
-            <IerpJourneyCard
+            <ProgramJourneyCard
               title="Intern Emergency Readiness Program"
               subtitle="Your current learning stage and next available action."
               percentComplete={journey.percentComplete}

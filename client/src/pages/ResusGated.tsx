@@ -13,12 +13,6 @@ import ResusGPS from "./ResusGPS";
 import ProviderIersActivationCaseContext from "@/components/ProviderIersActivationCaseContext";
 import { AlertCircle, ArrowLeft, RefreshCcw, Siren } from "lucide-react";
 
-function mapUserTypeToRole(userType: string | null | undefined): UserRole {
-  if (userType === "institutional") return "institution";
-  if (userType === "individual") return "provider";
-  return null;
-}
-
 function getRoleHomePath(role: UserRole): string {
   if (role === "institution") return "/institution";
   return "/home";

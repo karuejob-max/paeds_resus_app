@@ -8,6 +8,8 @@ import { getMpesaService } from "../services/mpesa";
 import { getDb } from "../db";
 import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import { normalizeKenyanPhoneNumber } from "../../shared/kenyan-phone";
+import { calculateProgramJourney } from "../../shared/program-journey";
+import { getProviderCourseDestination } from "../../shared/provider-course-routes";
 import {
   getAuthoritativePhase2CompletionStatus,
   getIerpEnrollment,
@@ -539,6 +541,73 @@ export const ierpRouter = router({
       payment: payment ?? getIerpPaymentAccess({ ...program, effectiveCommencementDate: null }),
       bls: ahaRows[0] ?? null,
     };
+  }),
+
+  /**
+   * Lightweight programme journey used by Home, Learn, and the IERP portal.
+   * This is intentionally separate from the heavier learner summary so every
+   * surface reads the same authoritative progression calculation.
+   */
+  getJourneyStatus: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    const program = await getIerpEnrollment(db, ctx.user.id);
+    if (!program) return null;
+
+    const [ahaRows, evidence, phase2, payment] = await Promise.all([
+      db
+        .select({
+          id: enrollments.id,
+          courseId: enrollments.courseId,
+          programType: enrollments.programType,
+          cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
+        })
+        .from(enrollments)
+        .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, [...IERP_COGNITIVE_PROGRAMS])))
+        .orderBy(desc(enrollments.createdAt)),
+      db
+        .select({ documentType: ierpPhase1Evidence.documentType, status: ierpPhase1Evidence.status })
+        .from(ierpPhase1Evidence)
+        .where(eq(ierpPhase1Evidence.programEnrollmentId, program.id)),
+      getAuthoritativePhase2CompletionStatus(db, ctx.user.id),
+      getIerpPaymentAccessForUser(db, ctx.user.id).then(
+        (current) => current ?? getIerpPaymentAccess({ ...program, effectiveCommencementDate: null }),
+      ),
+    ]);
+
+    const byType = new Map<string, (typeof ahaRows)[number]>();
+    for (const row of ahaRows) {
+      if (!byType.has(row.programType)) byType.set(row.programType, row);
+    }
+    const bls = byType.get("bls");
+    const acls = byType.get("acls");
+    const ahaEvidenceVerified =
+      evidence.some((row) => row.documentType === "video_prework" && row.status === "verified") &&
+      evidence.some((row) => row.documentType === "precourse_assessment" && row.status === "verified");
+    const journey = calculateProgramJourney({
+      blsProgress: bls?.cognitiveModulesComplete ? 1 : 0,
+      aclsProgress: acls?.cognitiveModulesComplete ? 1 : 0,
+      ahaEvidenceVerified,
+      phase2Progress: Math.min(
+        phase2.teamLeaderCount / Math.max(1, phase2.teamLeaderRequired),
+        phase2.teamMemberSessionsTotal / Math.max(1, phase2.teamMemberSessionsRequired),
+        phase2.teamMemberRolesCovered / Math.max(1, phase2.teamMemberRolesRequired),
+      ),
+      paymentProgress: payment.requiredFeeKes > 0 ? payment.paid / payment.requiredFeeKes : 0,
+      phase3Complete: program.lifecycleStatus === "completed",
+      phase1Action: {
+        label: "Start BLS coursework",
+        destination: `${getProviderCourseDestination("bls", bls?.id, "/learner-dashboard", bls?.courseId ?? undefined)}&pathway=ierp`,
+      },
+      phase2Action: { label: "Open Phase 2", destination: "/ierp" },
+      paymentAction: { label: "Open IERP payment", destination: "/programs/ierp" },
+      phase3Action: { label: "Open Phase 3", destination: "/ierp" },
+      paymentLockedReason: payment.cognitiveAccessLocked ? `Complete the full KES ${payment.requiredFeeKes.toLocaleString()} programme payment before continuing.` : undefined,
+      phase2LockedReason: "Complete both cognitive courses and verify the AHA evidence certificates first.",
+      phase3LockedReason: "Complete Phase 2 and pay the full IERP programme fee first.",
+    });
+
+    return { programKey: "ierp" as const, programName: "Intern Emergency Readiness Program", ...journey };
   }),
 
   /**
