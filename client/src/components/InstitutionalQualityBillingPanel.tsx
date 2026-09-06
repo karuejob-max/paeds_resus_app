@@ -13,9 +13,12 @@ export function InstitutionalQualityBillingPanel({ institutionId, canManageBilli
   const [problemStatement, setProblemStatement] = useState("");
   const [careArea, setCareArea] = useState("");
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const utils = trpc.useUtils();
   const reports = trpc.institutionalQi.listReports.useQuery({ institutionalAccountId: institutionId, limit: 50 });
   const invoices = trpc.institutionalBilling.listInvoices.useQuery({ institutionalAccountId: institutionId, limit: 10 }, { enabled: canManageBilling });
+  const launchOverview = trpc.institutionalBilling.getLaunchOverview.useQuery({ institutionalAccountId: institutionId, product: "iers" }, { enabled: canManageBilling });
+  const retentionPolicy = trpc.institutionalQi.getRetentionPolicy.useQuery({ institutionalAccountId: institutionId }, { enabled: canManageBilling });
   const createReport = trpc.institutionalQi.createReport.useMutation({
     onSuccess: async () => {
       setTitle(""); setProblemStatement(""); setCareArea("");
@@ -24,6 +27,21 @@ export function InstitutionalQualityBillingPanel({ institutionId, canManageBilli
     },
     onError: error => toast.error(error.message),
     onSettled: () => setSaving(false),
+  });
+
+  const exportReports = trpc.institutionalQi.requestExport.useMutation({
+    onSuccess: result => {
+      const blob = new Blob([JSON.stringify(result.rows, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `paeds-resus-qi-export-${result.exportId}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${result.rowCount} report${result.rowCount === 1 ? "" : "s"}.`);
+    },
+    onError: error => toast.error(error.message),
+    onSettled: () => setExporting(false),
   });
 
   const submitReport = (status: "draft" | "submitted") => {
@@ -60,10 +78,32 @@ export function InstitutionalQualityBillingPanel({ institutionId, canManageBilli
             {reports.isLoading ? <p className="text-sm text-muted-foreground">Loading reports…</p> : reports.data?.length ? reports.data.map(report => <div key={report.id} className="rounded-lg border p-3"><div className="flex flex-wrap items-start justify-between gap-2"><p className="font-medium">{report.title}</p><Badge variant="outline">{report.status.replaceAll("_", " ")}</Badge></div><p className="mt-1 text-xs text-muted-foreground">{report.reportType.replaceAll("_", " ")} · {report.careArea || "Care area not set"}</p></div>) : <p className="text-sm text-muted-foreground">No reports yet. Start with a safety event or improvement project.</p>}
           </CardContent>
         </Card>
-        {canManageBilling ? <Card>
-          <CardHeader><CardTitle className="text-base">Institution billing</CardTitle><CardDescription>Annual invoice-first renewal. Card autopay is optional; M-Pesa and bank transfer remain invoice-led.</CardDescription></CardHeader>
-          <CardContent className="space-y-3">{invoices.isLoading ? <p className="text-sm text-muted-foreground">Loading invoices…</p> : invoices.data?.length ? invoices.data.map(invoice => <div key={invoice.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"><div><p className="font-medium">{invoice.invoiceNumber}</p><p className="text-xs text-muted-foreground">{invoice.currency} {(invoice.amountCents / 100).toLocaleString()} · {invoice.status}</p></div><Badge variant={invoice.status === "paid" ? "default" : "outline"}>{invoice.status.replaceAll("_", " ")}</Badge></div>) : <p className="text-sm text-muted-foreground">No institutional invoices have been issued.</p>}</CardContent>
-        </Card> : null}
+        {canManageBilling ? <>
+          <Card>
+            <CardHeader><CardTitle className="text-base">Institution billing</CardTitle><CardDescription>Annual invoice-first renewal. Card autopay is optional; M-Pesa and bank transfer remain invoice-led.</CardDescription></CardHeader>
+            <CardContent className="space-y-3">{invoices.isLoading ? <p className="text-sm text-muted-foreground">Loading invoices…</p> : invoices.data?.length ? invoices.data.map(invoice => <div key={invoice.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"><div><p className="font-medium">{invoice.invoiceNumber}</p><p className="text-xs text-muted-foreground">{invoice.currency} {(invoice.amountCents / 100).toLocaleString()} · {invoice.status} · reconciliation {invoice.reconciliationStatus}</p></div><Badge variant={invoice.status === "paid" ? "default" : "outline"}>{invoice.status.replaceAll("_", " ")}</Badge></div>) : <p className="text-sm text-muted-foreground">No institutional invoices have been issued.</p>}</CardContent>
+          </Card>
+                    <Card>
+            <CardHeader><CardTitle className="text-base">QI governance</CardTitle><CardDescription>Exports are recorded and expire after 24 hours. Aggregate exports exclude narrative fields.</CardDescription></CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <p><span className="font-medium">Retention:</span> {retentionPolicy.data && "configured" in retentionPolicy.data && retentionPolicy.data.configured === false ? "Not configured — default 7-year review window" : `${retentionPolicy.data?.retentionDays ?? 2555} days`}</p>
+              <div className="flex flex-col gap-2 sm:flex-row"><Button variant="outline" disabled={exporting} onClick={() => { setExporting(true); exportReports.mutate({ institutionalAccountId: institutionId, format: "json", confidentialityScope: "institution_only", limit: 500 }); }}>{exporting ? "Preparing export…" : "Export institution QI data"}</Button><Button variant="outline" disabled={exporting} onClick={() => { setExporting(true); exportReports.mutate({ institutionalAccountId: institutionId, format: "json", confidentialityScope: "aggregate_only", limit: 500 }); }}>Export aggregate QI data</Button></div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-base">Launch readiness</CardTitle>
+<CardDescription>Operational checks for consent, payment configuration, webhooks, and reconciliation.</CardDescription></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {launchOverview.isLoading ? <p className="text-muted-foreground">Loading launch status…</p> : launchOverview.data ? <>
+                <p><span className="font-medium">Consent:</span> {launchOverview.data.launchGates.consentConfigured ? "Configured" : "Needs configuration"}</p>
+                <p><span className="font-medium">Payment provider:</span> {launchOverview.data.launchGates.paymentProviderConfigured ? "Configured" : "Credentials pending"}</p>
+                <p><span className="font-medium">Webhook secret:</span> {launchOverview.data.launchGates.webhookSecretConfigured ? "Configured" : "Secret pending"}</p>
+                <p><span className="font-medium">Reconciliation:</span> {launchOverview.data.launchGates.reconciliationReady ? "No unreconciled attempts" : "Finance review required"}</p>
+                {launchOverview.data.attempts.length ? <div className="mt-3 space-y-2"><p className="font-medium">Recent payment attempts</p>{launchOverview.data.attempts.slice(0, 5).map(attempt => <div key={attempt.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-xs"><span>{attempt.provider} · {attempt.paymentMethod} · {attempt.status}</span><Badge variant={attempt.reconciliationStatus === "matched" ? "default" : "outline"}>{attempt.reconciliationStatus}</Badge></div>)}</div> : <p className="text-muted-foreground">No payment attempts recorded.</p>}
+              </> : <p className="text-muted-foreground">Launch status is unavailable.</p>}
+            </CardContent>
+          </Card>
+        </> : null}
       </div>
     </div>
   );

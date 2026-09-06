@@ -9806,6 +9806,19 @@ export const institutionalSubscriptionInvoices = mysqlTable(
     issuedAt: timestamp("issuedAt"),
     dueAt: timestamp("dueAt"),
     paidAt: timestamp("paidAt"),
+    provider: varchar("provider", { length: 64 }),
+    providerPaymentReference: varchar("providerPaymentReference", { length: 255 }),
+    paymentMethod: mysqlEnum("paymentMethod", ["mpesa", "bank_transfer", "card"]),
+    paymentAttemptCount: int("paymentAttemptCount").default(0).notNull(),
+    lastPaymentAttemptAt: timestamp("lastPaymentAttemptAt"),
+    settledAt: timestamp("settledAt"),
+    reconciliationStatus: mysqlEnum("reconciliationStatus", ["unreconciled", "matched", "mismatch", "refunded", "disputed"]).default("unreconciled").notNull(),
+    reconciliationNote: text("reconciliationNote"),
+    refundedAmountCents: int("refundedAmountCents").default(0).notNull(),
+    refundedAt: timestamp("refundedAt"),
+    refundReason: text("refundReason"),
+    voidedAt: timestamp("voidedAt"),
+    voidReason: text("voidReason"),
     renewalForSubscriptionId: int("renewalForSubscriptionId"),
     metadata: json("metadata"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -9830,6 +9843,10 @@ export const institutionalPaymentProviderEvents = mysqlTable(
     invoiceId: int("invoiceId"),
     paymentId: int("paymentId"),
     status: mysqlEnum("status", ["received", "processed", "ignored", "failed"]).default("received").notNull(),
+    signatureVerified: boolean("signatureVerified").default(false).notNull(),
+    signatureAlgorithm: varchar("signatureAlgorithm", { length: 32 }),
+    processingAttempts: int("processingAttempts").default(0).notNull(),
+    lastAttemptAt: timestamp("lastAttemptAt"),
     payload: json("payload").notNull(),
     receivedAt: timestamp("receivedAt").defaultNow().notNull(),
     processedAt: timestamp("processedAt"),
@@ -9842,6 +9859,75 @@ export const institutionalPaymentProviderEvents = mysqlTable(
 );
 export type InstitutionalPaymentProviderEvent = typeof institutionalPaymentProviderEvents.$inferSelect;
 export type InsertInstitutionalPaymentProviderEvent = typeof institutionalPaymentProviderEvents.$inferInsert;
+
+export const institutionalPaymentAttempts = mysqlTable(
+  "institutionalPaymentAttempts",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    invoiceId: int("invoiceId").notNull(),
+    provider: varchar("provider", { length: 64 }).notNull(),
+    paymentMethod: mysqlEnum("paymentMethod", ["mpesa", "bank_transfer", "card"]).notNull(),
+    idempotencyKey: varchar("idempotencyKey", { length: 255 }).notNull(),
+    providerPaymentReference: varchar("providerPaymentReference", { length: 255 }),
+    amountCents: int("amountCents").notNull(),
+    currency: varchar("currency", { length: 3 }).notNull(),
+    status: mysqlEnum("status", ["created", "pending", "succeeded", "failed", "refunded", "disputed"]).default("created").notNull(),
+    failureReason: text("failureReason"),
+    reconciliationStatus: mysqlEnum("reconciliationStatus", ["unreconciled", "matched", "mismatch", "refunded", "disputed"]).default("unreconciled").notNull(),
+    reconciliationNote: text("reconciliationNote"),
+    initiatedAt: timestamp("initiatedAt").defaultNow().notNull(),
+    settledAt: timestamp("settledAt"),
+    refundedAt: timestamp("refundedAt"),
+    metadata: json("metadata"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    idempotencyUq: uniqueIndex("institutionalPaymentAttempts_idempotency_uq").on(table.idempotencyKey),
+    invoiceIdx: index("institutionalPaymentAttempts_invoice_idx").on(table.invoiceId),
+    reconciliationIdx: index("institutionalPaymentAttempts_reconciliation_idx").on(table.reconciliationStatus, table.createdAt),
+  })
+);
+export type InstitutionalPaymentAttempt = typeof institutionalPaymentAttempts.$inferSelect;
+export type InsertInstitutionalPaymentAttempt = typeof institutionalPaymentAttempts.$inferInsert;
+
+export const institutionalQiExportRequests = mysqlTable(
+  "institutionalQiExportRequests",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    requestedByUserId: int("requestedByUserId").notNull(),
+    format: mysqlEnum("format", ["json", "csv"]).default("json").notNull(),
+    confidentialityScope: mysqlEnum("confidentialityScope", ["institution_only", "aggregate_only"]).default("institution_only").notNull(),
+    status: mysqlEnum("status", ["requested", "completed", "failed", "expired"]).default("requested").notNull(),
+    filters: json("filters"),
+    rowCount: int("rowCount").default(0).notNull(),
+    expiresAt: timestamp("expiresAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    completedAt: timestamp("completedAt"),
+  },
+  table => ({ institutionCreatedIdx: index("institutionalQiExportRequests_institution_created_idx").on(table.institutionalAccountId, table.createdAt) })
+);
+export type InstitutionalQiExportRequest = typeof institutionalQiExportRequests.$inferSelect;
+export type InsertInstitutionalQiExportRequest = typeof institutionalQiExportRequests.$inferInsert;
+
+export const institutionalQiRetentionPolicies = mysqlTable(
+  "institutionalQiRetentionPolicies",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    retentionDays: int("retentionDays").default(2555).notNull(),
+    autoDeleteEnabled: boolean("autoDeleteEnabled").default(false).notNull(),
+    approvedByUserId: int("approvedByUserId").notNull(),
+    lastReviewedAt: timestamp("lastReviewedAt").defaultNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({ institutionUnique: uniqueIndex("institutionalQiRetentionPolicies_institution_uq").on(table.institutionalAccountId) })
+);
+export type InstitutionalQiRetentionPolicy = typeof institutionalQiRetentionPolicies.$inferSelect;
+export type InsertInstitutionalQiRetentionPolicy = typeof institutionalQiRetentionPolicies.$inferInsert;
 
 export const institutionalPricingAuditEvents = mysqlTable(
   "institutionalPricingAuditEvents",

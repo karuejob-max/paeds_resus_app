@@ -5,6 +5,7 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import {
   institutionalPaymentProviderEvents,
+  institutionalPaymentAttempts,
   institutionalPricingAuditEvents,
   institutionalSubscriptionInvoices,
   institutionProductSubscriptions,
@@ -88,7 +89,7 @@ export const institutionalBillingRouter = router({
     }),
 
   createPaymentIntent: protectedProcedure
-    .input(z.object({ institutionalAccountId: z.number().int().positive(), invoiceId: z.number().int().positive(), paymentMethod: z.enum(["mpesa", "bank_transfer", "card"]), autoRenewRequested: z.boolean().default(false) }))
+    .input(z.object({ institutionalAccountId: z.number().int().positive(), invoiceId: z.number().int().positive(), paymentMethod: z.enum(["mpesa", "bank_transfer", "card"]), autoRenewRequested: z.boolean().default(false), idempotencyKey: z.string().trim().min(8).max(255).optional() }))
     .mutation(async ({ ctx, input }) => {
       const db = await dbOrThrow();
       const [invoice] = await db.select().from(institutionalSubscriptionInvoices).where(and(eq(institutionalSubscriptionInvoices.id, input.invoiceId), eq(institutionalSubscriptionInvoices.institutionalAccountId, input.institutionalAccountId))).limit(1);
@@ -96,9 +97,64 @@ export const institutionalBillingRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionalAccountId);
       const provider = paymentProviderFor(input.paymentMethod);
       const policy = renewalPolicyFor(input.paymentMethod, input.autoRenewRequested);
-      await db.update(institutionalSubscriptionInvoices).set({ status: "payment_pending", updatedAt: new Date() }).where(eq(institutionalSubscriptionInvoices.id, invoice.id));
+      const idempotencyKey = input.idempotencyKey ?? `invoice:${invoice.id}:${input.paymentMethod}:${invoice.paymentAttemptCount ?? 0}`;
+      const [existingAttempt] = await db.select().from(institutionalPaymentAttempts).where(eq(institutionalPaymentAttempts.idempotencyKey, idempotencyKey)).limit(1);
+      if (existingAttempt) return { invoiceId: invoice.id, provider, paymentMethod: input.paymentMethod, ...policy, amountCents: invoice.amountCents, currency: invoice.currency, paymentAttemptId: existingAttempt.id, checkout: createInstitutionalCheckoutAction({ invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber, amountCents: invoice.amountCents, currency: invoice.currency, customerEmail: ctx.user.email ?? "", paymentMethod: input.paymentMethod }) };
+      const now = new Date();
+      const [attempt] = await db.insert(institutionalPaymentAttempts).values({ institutionalAccountId: input.institutionalAccountId, invoiceId: invoice.id, provider, paymentMethod: input.paymentMethod, idempotencyKey, amountCents: invoice.amountCents, currency: invoice.currency, status: "pending", initiatedAt: now }).$returningId();
+      await db.update(institutionalSubscriptionInvoices).set({ status: "payment_pending", provider, paymentMethod: input.paymentMethod, paymentAttemptCount: (invoice.paymentAttemptCount ?? 0) + 1, lastPaymentAttemptAt: now, updatedAt: now }).where(eq(institutionalSubscriptionInvoices.id, invoice.id));
       const checkout = createInstitutionalCheckoutAction({ invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber, amountCents: invoice.amountCents, currency: invoice.currency, customerEmail: ctx.user.email ?? "", paymentMethod: input.paymentMethod });
-      return { invoiceId: invoice.id, provider, paymentMethod: input.paymentMethod, ...policy, amountCents: invoice.amountCents, currency: invoice.currency, checkout };
+      return { invoiceId: invoice.id, provider, paymentMethod: input.paymentMethod, ...policy, amountCents: invoice.amountCents, currency: invoice.currency, paymentAttemptId: attempt.id, checkout };
+    }),
+
+  listPaymentAttempts: protectedProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive(), invoiceId: z.number().int().positive().optional(), limit: z.number().int().min(1).max(100).default(50) }))
+    .query(async ({ ctx, input }) => {
+      const db = await dbOrThrow();
+      await assertInstitutionAccess(db, ctx.user, input.institutionalAccountId);
+      const conditions = [eq(institutionalPaymentAttempts.institutionalAccountId, input.institutionalAccountId)];
+      if (input.invoiceId) conditions.push(eq(institutionalPaymentAttempts.invoiceId, input.invoiceId));
+      return db.select().from(institutionalPaymentAttempts).where(and(...conditions)).orderBy(desc(institutionalPaymentAttempts.createdAt)).limit(input.limit);
+    }),
+
+  reconcilePaymentAttempt: protectedProcedure
+    .input(z.object({ attemptId: z.number().int().positive(), reconciliationStatus: z.enum(["matched", "mismatch", "refunded", "disputed"]), providerPaymentReference: z.string().trim().max(255).optional(), note: z.string().trim().min(3).max(2000) }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Only the platform billing administrator may reconcile payments." });
+      const db = await dbOrThrow();
+      const [attempt] = await db.select().from(institutionalPaymentAttempts).where(eq(institutionalPaymentAttempts.id, input.attemptId)).limit(1);
+      if (!attempt) throw new TRPCError({ code: "NOT_FOUND", message: "Payment attempt not found." });
+      const now = new Date();
+      await db.update(institutionalPaymentAttempts).set({ reconciliationStatus: input.reconciliationStatus, reconciliationNote: input.note, providerPaymentReference: input.providerPaymentReference ?? attempt.providerPaymentReference, updatedAt: now }).where(eq(institutionalPaymentAttempts.id, attempt.id));
+      await db.update(institutionalSubscriptionInvoices).set({ reconciliationStatus: input.reconciliationStatus, reconciliationNote: input.note, providerPaymentReference: input.providerPaymentReference ?? undefined, updatedAt: now }).where(eq(institutionalSubscriptionInvoices.id, attempt.invoiceId));
+      return { success: true, attemptId: attempt.id, reconciliationStatus: input.reconciliationStatus };
+    }),
+
+  recordRefund: protectedProcedure
+    .input(z.object({ invoiceId: z.number().int().positive(), amountCents: z.number().int().positive(), reason: z.string().trim().min(3).max(2000) }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Only the platform billing administrator may record refunds." });
+      const db = await dbOrThrow();
+      const [invoice] = await db.select().from(institutionalSubscriptionInvoices).where(eq(institutionalSubscriptionInvoices.id, input.invoiceId)).limit(1);
+      if (!invoice) throw new TRPCError({ code: "NOT_FOUND", message: "Invoice not found." });
+      const alreadyRefunded = invoice.refundedAmountCents ?? 0;
+      if (alreadyRefunded + input.amountCents > invoice.amountCents) throw new TRPCError({ code: "BAD_REQUEST", message: "Refund exceeds the invoice amount." });
+      const now = new Date();
+      const fullyRefunded = alreadyRefunded + input.amountCents === invoice.amountCents;
+      await db.update(institutionalSubscriptionInvoices).set({ refundedAmountCents: alreadyRefunded + input.amountCents, refundedAt: now, refundReason: input.reason, reconciliationStatus: "refunded", status: fullyRefunded ? "cancelled" : invoice.status, updatedAt: now }).where(eq(institutionalSubscriptionInvoices.id, invoice.id));
+      return { success: true, invoiceId: invoice.id, refundedAmountCents: alreadyRefunded + input.amountCents, fullyRefunded };
+    }),
+
+  getLaunchOverview: protectedProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive(), product: productSchema }))
+    .query(async ({ ctx, input }) => {
+      const db = await dbOrThrow();
+      await assertBillingAdmin(db, ctx.user, input.institutionalAccountId, input.product);
+      const productId = await getProductId(db, input.product);
+      const [subscription] = await db.select().from(institutionProductSubscriptions).where(and(eq(institutionProductSubscriptions.institutionalAccountId, input.institutionalAccountId), eq(institutionProductSubscriptions.productId, productId))).limit(1);
+      const invoices = await db.select().from(institutionalSubscriptionInvoices).where(and(eq(institutionalSubscriptionInvoices.institutionalAccountId, input.institutionalAccountId), eq(institutionalSubscriptionInvoices.productId, productId))).orderBy(desc(institutionalSubscriptionInvoices.createdAt)).limit(20);
+      const attempts = await db.select().from(institutionalPaymentAttempts).where(eq(institutionalPaymentAttempts.institutionalAccountId, input.institutionalAccountId)).orderBy(desc(institutionalPaymentAttempts.createdAt)).limit(20);
+      return { subscription: subscription ?? null, invoices, attempts, launchGates: { consentConfigured: Boolean(subscription?.dataSharingStatus), paymentProviderConfigured: Boolean(process.env.PESAPAL_CONSUMER_KEY || process.env.MPESA_CONSUMER_KEY), webhookSecretConfigured: Boolean(process.env.INSTITUTIONAL_PAYMENT_WEBHOOK_SECRET), reconciliationReady: attempts.every(attempt => attempt.reconciliationStatus !== "unreconciled") } };
     }),
 
   recordProviderEvent: protectedProcedure
