@@ -2,6 +2,8 @@ import {
   ArrowRight,
   CheckCircle2,
   ClipboardCheck,
+  CreditCard,
+  FileCheck2,
   GraduationCap,
   ShieldCheck,
   Users,
@@ -10,7 +12,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
+import { IerpJourneyCard } from "@/components/IerpJourneyCard";
 import { calculateProgramJourney } from "@shared/program-journey";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,22 +24,46 @@ import { IERP_FULL_PRICE, formatKes } from "@/const/marketingCopy";
 const phases = [
   {
     number: "01",
-    title: "Cognitive foundation",
-    description:
-      "Complete the platform cognitive sequence, then submit the two private AHA evidence documents for review.",
+    title: "Build your foundation",
+    technicalTitle: "Phase 1 · Cognitive learning",
+    description: "Complete BLS first, then continue to ACLS and submit the two required AHA completion certificates.",
     icon: ClipboardCheck,
   },
   {
     number: "02",
-    title: "Online simulations",
-    description:
-      "Build reliable team habits through confirmed Team Leader sessions and all six named Team Member roles.",
+    title: "Practise as a team",
+    technicalTitle: "Phase 2 · Online simulations",
+    description: "Complete confirmed team-leader and team-member roles in guided online simulations.",
     icon: Users,
   },
   {
     number: "03",
-    title: "Hands-on assessment",
-    description: `Progress to a practical assessment only after the Phase 1 and authoritative Phase 2 gates are satisfied and the full ${formatKes(IERP_FULL_PRICE)} programme fee is paid.`,
+    title: "Demonstrate readiness",
+    technicalTitle: "Phase 3 · Hands-on assessment",
+    description: `Progress to the practical assessment after the Phase 1, Phase 2, and full ${formatKes(IERP_FULL_PRICE)} programme requirements are satisfied.`,
+    icon: ShieldCheck,
+  },
+];
+
+const outcomeTiles = [
+  {
+    title: "Learn",
+    description: "Build a reliable BLS-to-ACLS cognitive foundation for paediatric emergencies.",
+    icon: GraduationCap,
+  },
+  {
+    title: "Prove",
+    description: "Submit the two private AHA certificates that confirm your external pre-course work.",
+    icon: FileCheck2,
+  },
+  {
+    title: "Rehearse",
+    description: "Practise named team roles and communication habits through online simulations.",
+    icon: Users,
+  },
+  {
+    title: "Demonstrate",
+    description: "Move to hands-on assessment when the programme gates are satisfied.",
     icon: ShieldCheck,
   },
 ];
@@ -47,7 +73,7 @@ export default function IerpLanding() {
   usePageMeta({
     title: "IERP — Intern Emergency Readiness Program | Paeds Resus",
     description:
-      "A staged emergency readiness pathway for healthcare interns with required identity and deployment evidence: cognitive foundation, online simulations, and hands-on assessment.",
+      "A clear, staged emergency readiness pathway for healthcare interns: BLS, ACLS, evidence, online simulations, and hands-on assessment.",
     path: "/programs/ierp",
   });
   const { isAuthenticated } = useAuth();
@@ -73,14 +99,14 @@ export default function IerpLanding() {
         aclsProgress: acls?.cognitiveModulesComplete ? 1 : 0,
         ahaEvidenceVerified: summaryQuery.data.phase1Complete,
         phase2Progress,
-        paymentProgress: summaryQuery.data.payment.totalPaid / 15000,
+        paymentProgress: summaryQuery.data.payment.totalPaid / IERP_FULL_PRICE,
         phase3Complete: summaryQuery.data.lifecycleStatus === "completed",
-        phase1Action: { label: "Start BLS coursework", destination: "/learner-dashboard" },
-        phase2Action: { label: "Open Phase 2", destination: "/ierp" },
-        paymentAction: { label: "Open IERP payment", destination: "/programs/ierp" },
-        phase3Action: { label: "Open Phase 3", destination: "/ierp" },
-        phase2LockedReason: "Complete both cognitive courses and verify the AHA evidence certificates first.",
-        phase3LockedReason: "Complete Phase 2 and pay the full IERP programme fee first.",
+        phase1Action: { label: "Start BLS cognitive learning", destination: "/learner-dashboard" },
+        phase2Action: { label: "Continue to online simulations", destination: "/ierp" },
+        paymentAction: { label: "Review programme payment", destination: "/programs/ierp" },
+        phase3Action: { label: "Open hands-on assessment", destination: "/ierp" },
+        phase2LockedReason: "Complete BLS, ACLS, and submit the required AHA certificates first.",
+        phase3LockedReason: "Complete online simulations and the full programme payment first.",
       })
     : null;
 
@@ -92,19 +118,32 @@ export default function IerpLanding() {
     }
   };
 
+  const primaryAction = enrolled && journey?.nextAction ? journey.nextAction : null;
+  const primaryLabel = primaryAction?.label ?? "Check eligibility and start";
+  const runPrimaryAction = () => {
+    if (primaryAction) {
+      navigate(primaryAction.destination);
+    } else {
+      startIerp();
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-950">
       {enrolled && journey ? (
-        <section className="border-b border-white/10 bg-slate-900 px-6 py-12 md:px-10">
+        <section className="border-b border-slate-200 bg-slate-100 px-4 py-8 sm:px-6 md:px-10 md:py-10">
           <div className="mx-auto max-w-6xl space-y-5">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-teal-200">Welcome back</p>
-              <h1 className="mt-2 text-3xl font-semibold text-white md:text-4xl">Your IERP learning journey</h1>
-              <p className="mt-2 max-w-2xl text-slate-300">Continue from where you stopped. Programme progress is an orientation aid, not a clinical competence score.</p>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">Welcome back</p>
+                <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">Your IERP journey</h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">One current step, one safe next action, and a clear route to readiness.</p>
+              </div>
+              <p className="text-xs text-slate-500">Programme progress is an orientation aid, not a clinical competence score.</p>
             </div>
-            <ProgramJourneyCard
+            <IerpJourneyCard
               title="Intern Emergency Readiness Program"
-              subtitle="Your current IERP status and next available action."
+              subtitle="Your current learning stage and next available action."
               percentComplete={journey.percentComplete}
               phases={journey.phases}
               nextAction={journey.nextAction}
@@ -112,191 +151,176 @@ export default function IerpLanding() {
           </div>
         </section>
       ) : null}
-      <section className="relative overflow-hidden border-b border-white/10 bg-[radial-gradient(circle_at_top_right,_rgba(45,212,191,0.22),_transparent_45%),linear-gradient(135deg,_#0f172a,_#172554_60%,_#0f766e)]">
-        <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:py-28">
-          <div>
-            <p className="mb-5 text-xs font-semibold uppercase tracking-[0.28em] text-teal-200">
-              Paeds Resus training pathway
-            </p>
-            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-6xl">
-              Start your emergency readiness journey as an intern.
-            </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-200">
-              The <strong>Intern Emergency Readiness Program</strong> helps
-              interns practise the knowledge, roles, communication, and
-              reassessment habits that make paediatric emergencies safer under
-              pressure.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button
-                size="lg"
-                className="bg-amber-400 text-slate-950 hover:bg-amber-300"
-                onClick={startIerp}
-              >
-                Start IERP <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-white/30 bg-transparent text-white hover:bg-white/10"
-                onClick={() =>
-                  document
-                    .getElementById("how-it-works")
-                    ?.scrollIntoView({ behavior: "smooth" })
-                }
-              >
-                See how it works
-              </Button>
+
+      <main>
+        <section className="border-b border-slate-200 bg-white px-4 py-12 sm:px-6 md:px-10 md:py-20">
+          <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <div>
+              <p className="mb-4 text-xs font-semibold uppercase tracking-[0.22em] text-teal-700">Paeds Resus · Intern pathway</p>
+              <h2 className="max-w-3xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl md:text-6xl">
+                Build readiness for paediatric emergencies during internship.
+              </h2>
+              <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+                IERP takes you from BLS and ACLS learning to team-based simulation and hands-on assessment in one visible route.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Button size="lg" className="bg-slate-950 text-white hover:bg-slate-800" onClick={runPrimaryAction}>
+                  {primaryLabel}
+                  <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+                  onClick={() => document.getElementById("journey")?.scrollIntoView({ behavior: "smooth" })}
+                >
+                  See the 3-step journey
+                </Button>
+              </div>
+              <p className="mt-4 max-w-xl text-sm leading-6 text-slate-500">
+                Start with your individual intern profile, official letter reference number, commencement date, and MoH deployment/posting letter.
+              </p>
             </div>
-            <p className="mt-4 text-xs text-slate-300">
-              Start with your individual Intern profile: choose your
-              designation, enter your official letter reference number and
-              commencement date, and upload your MoH deployment/posting letter.
-            </p>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-amber-100">
-              The complete programme fee is {formatKes(IERP_FULL_PRICE)} for AHA
-              ACLS plus Paeds Resus BLS. August–November starters may begin
-              Phase 1 and Phase 2 before payment; from December onward, full
-              payment is required before cognitive access and further Phase 2
-              access.
-            </p>
+
+            <Card className="border-slate-200 bg-slate-50 shadow-[0_24px_60px_-35px_rgba(15,23,42,0.5)]">
+              <CardHeader className="border-b border-slate-200 pb-5">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-2xl bg-teal-700 p-3 text-white">
+                    <GraduationCap className="h-6 w-6" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">At a glance</p>
+                    <CardTitle className="mt-1 text-xl text-slate-950">A guided route, not a content library</CardTitle>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-5 pt-5">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    ["For", "Healthcare interns"],
+                    ["Route", "BLS → ACLS → simulation"],
+                    ["Fee", `${formatKes(IERP_FULL_PRICE)} total`],
+                    ["First step", "Individual profile"],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">{label}</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-xl border border-teal-200 bg-teal-50 p-4">
+                  <p className="text-sm font-semibold text-teal-950">Payment timing is account-specific.</p>
+                  <p className="mt-1 text-sm leading-6 text-teal-900">Your account will show whether you may begin the early stages before payment or must pay the full fee first.</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-          <div className="rounded-3xl border border-white/15 bg-white/10 p-6 shadow-2xl backdrop-blur-sm">
-            <div className="flex items-center gap-3 border-b border-white/15 pb-5">
-              <div className="rounded-2xl bg-teal-300/20 p-3">
-                <GraduationCap className="h-7 w-7 text-teal-200" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-teal-100">
-                  IERP at a glance
-                </p>
-                <p className="text-xs text-slate-300">
-                  A staged, evidence-led pathway
-                </p>
-              </div>
+        </section>
+
+        <section className="border-b border-slate-200 bg-slate-50 px-4 py-12 sm:px-6 md:px-10 md:py-16">
+          <div className="mx-auto max-w-6xl">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">What you will complete</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">Learn, prove, rehearse, demonstrate.</h2>
+              <p className="mt-4 text-base leading-7 text-slate-600">Each part of IERP has a clear purpose and a visible handoff to the next.</p>
             </div>
-            <div className="space-y-4 pt-5 text-sm text-slate-200">
-              {[
-                "Your programme record belongs to your individual Intern profile, not to an institutional roster.",
-                "Phase 2 progress is based on confirmed named roles, not generic attendance counts.",
-                `Phase 3 remains a separate hands-on assessment gate and requires the full ${formatKes(IERP_FULL_PRICE)} payment.`,
-                "August–November starters have a temporary Phase 1–2 payment deferral; December onward requires full payment first.",
-                "Your IERP activity does not grant IERS institutional permissions.",
-              ].map(item => (
-                <p key={item} className="flex gap-3">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-teal-300" />
-                  {item}
-                </p>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {outcomeTiles.map(({ title, description, icon: Icon }) => (
+                <Card key={title} className="border-slate-200 bg-white shadow-sm">
+                  <CardContent className="p-5">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                      <Icon className="h-5 w-5" aria-hidden="true" />
+                    </div>
+                    <h3 className="mt-4 text-lg font-semibold text-slate-950">{title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section
-        id="how-it-works"
-        className="bg-slate-50 px-6 py-20 text-slate-950"
-      >
-        <div className="mx-auto max-w-6xl">
-          <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-teal-700">
-              A dependable sequence
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-              Learn, rehearse, then demonstrate.
-            </h2>
-            <p className="mt-4 text-slate-600">
-              IERP keeps the learner journey explicit. Each phase explains what
-              is complete, what is pending, and what must happen next.
-            </p>
+        <section id="journey" className="bg-white px-4 py-12 sm:px-6 md:px-10 md:py-16">
+          <div className="mx-auto max-w-6xl">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">The route</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">Three stages. One clear direction.</h2>
+              <p className="mt-4 text-base leading-7 text-slate-600">Start with knowledge, practise as a team, then demonstrate readiness in person.</p>
+            </div>
+            <div className="mt-9 grid gap-4 lg:grid-cols-3">
+              {phases.map(({ number, title, technicalTitle, description, icon: Icon }, index) => (
+                <div key={number} className="relative">
+                  {index < phases.length - 1 ? <div className="absolute right-[-1rem] top-12 hidden h-px w-8 bg-slate-200 lg:block" aria-hidden="true" /> : null}
+                  <Card className="h-full border-slate-200 bg-slate-50 shadow-none">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <span className="text-4xl font-semibold text-slate-200">{number}</span>
+                        <div className="rounded-xl bg-white p-2.5 text-teal-700 shadow-sm">
+                          <Icon className="h-5 w-5" aria-hidden="true" />
+                        </div>
+                      </div>
+                      <p className="pt-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-teal-700">{technicalTitle}</p>
+                      <CardTitle className="text-xl text-slate-950">{title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm leading-6 text-slate-600">{description}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="mt-10 grid gap-5 lg:grid-cols-3">
-            {phases.map(({ number, title, description, icon: Icon }) => (
-              <Card
-                key={number}
-                className="border-slate-200 bg-white shadow-sm"
-              >
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <span className="text-4xl font-semibold text-slate-200">
-                      {number}
-                    </span>
-                    <Icon className="h-6 w-6 text-teal-700" />
+        </section>
+
+        <section className="border-y border-slate-200 bg-slate-50 px-4 py-12 sm:px-6 md:px-10 md:py-16">
+          <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">How payment works</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">Transparent requirements, shown at the right time.</h2>
+              <p className="mt-4 leading-7 text-slate-600">The full programme fee is {formatKes(IERP_FULL_PRICE)}. Your account shows the payment timing that applies to your internship start window.</p>
+            </div>
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  ["01", "See your account rule", "Know whether early access is available before payment."],
+                  ["02", "Track your balance", "Use the payment ledger to see paid amount and balance."],
+                  ["03", "Clear the final gate", "The full programme requirement must be satisfied before hands-on assessment."],
+                ].map(([number, title, description]) => (
+                  <div key={number} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-2xl font-semibold text-slate-200">{number}</p>
+                    <h3 className="mt-2 text-sm font-semibold text-slate-950">{title}</h3>
+                    <p className="mt-2 text-xs leading-5 text-slate-600">{description}</p>
                   </div>
-                  <CardTitle className="text-xl">{title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm leading-6 text-slate-600">
-                    {description}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-white px-6 py-20 text-slate-950">
-        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-2 lg:items-start">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-teal-700">
-              Designed for real hospitals
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight">
-              Useful when resources, time, and certainty are limited.
-            </h2>
-            <p className="mt-4 leading-7 text-slate-600">
-              The programme is built around practical readiness: clear
-              responsibilities, closed-loop communication, deliberate
-              reassessment, and a visible route to the next safe action.
-            </p>
-            <p className="mt-4 leading-7 text-slate-600">
-              <strong>Payment timing is explicit:</strong> the{" "}
-              {formatKes(IERP_FULL_PRICE)} fee is paid in full before Phase 3
-              for every learner. Only August–November starters may use the
-              cognitive and online-simulation stages before payment;
-              December–July starters must complete payment before starting
-              cognitive coursework.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              "Clear next steps",
-              "Role-specific simulation",
-              "Private evidence review",
-              "Recoverable payment ledger",
-            ].map(item => (
-              <div
-                key={item}
-                className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-800"
-              >
-                <CheckCircle2 className="mb-3 h-5 w-5 text-teal-700" />
-                {item}
+                ))}
               </div>
-            ))}
+              <details className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+                <summary className="cursor-pointer font-semibold text-slate-950">Programme boundaries</summary>
+                <p className="mt-2 max-w-3xl leading-6">IERP is an individual learning record for interns. It does not create institutional roster membership or grant IERS permissions. Institutional access and learner access remain separate safeguards.</p>
+              </details>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="bg-teal-800 px-6 py-16 text-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold">Ready to begin?</h2>
-            <p className="mt-2 text-teal-100">
-              Create your IERP record. August–November starters can begin the
-              first two phases before payment; later starters pay{" "}
-              {formatKes(IERP_FULL_PRICE)} first.
-            </p>
+        <section className="bg-slate-950 px-4 py-12 text-white sm:px-6 md:px-10 md:py-16">
+          <div className="mx-auto flex max-w-6xl flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-300">Your first step</p>
+              <h2 className="mt-2 text-2xl font-semibold sm:text-3xl">Start with your individual intern profile.</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">We will show you the correct access and payment route for your account.</p>
+            </div>
+            <Button size="lg" className="bg-white text-slate-950 hover:bg-slate-100" onClick={runPrimaryAction}>
+              {primaryLabel}
+              <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+            </Button>
           </div>
-          <Button
-            size="lg"
-            className="bg-white text-teal-900 hover:bg-teal-50"
-            onClick={startIerp}
-          >
-            Start IERP <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </div>
-      </section>
+        </section>
+      </main>
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-3 shadow-[0_-12px_30px_-20px_rgba(15,23,42,0.5)] backdrop-blur md:hidden">
+        <Button className="w-full bg-slate-950 text-white hover:bg-slate-800" onClick={runPrimaryAction}>
+          {primaryLabel}
+          <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+        </Button>
+      </div>
       <Footer />
     </div>
   );
