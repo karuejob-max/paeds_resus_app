@@ -28,6 +28,7 @@ import { registerCpdRoutes } from "../cpd/routes";
 import { registerInstitutionalReadinessRoutes } from "../routers/institutional-readiness-download";
 import { registerNerpCampaignRoutes } from "../nerp-campaign-routes";
 import { registerPromotionalCampaignRoutes } from "../promotional-campaign-routes";
+import { handleInstitutionalPaymentWebhook } from "../webhooks/institutional-payment";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -56,6 +57,8 @@ async function startServer() {
     app.set("trust proxy", true);
   }
   registerCanonicalDomainRedirect(app);
+  // Provider webhook: raw body is required for HMAC verification and is registered before the global JSON parser.
+  app.post("/api/payments/institutional/webhook", express.raw({ type: "application/json", limit: "2mb" }), (req, res) => handleInstitutionalPaymentWebhook(req, res));
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));

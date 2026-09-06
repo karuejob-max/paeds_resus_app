@@ -93,6 +93,9 @@ export function initializeScheduler() {
   // Institutional QI: evaluate closed-and-verified participation quality and apply the 30-day cure/lapse policy.
   scheduleInstitutionalQiParticipation();
 
+  // Institutional billing: mark due invoices overdue and surface unreconciled attempts for finance review.
+  scheduleInstitutionalPaymentOperations();
+
   // Professional credentials: 3/2/1-month and weekly-overdue reminders.
   scheduleProfessionalCredentialReminders();
 
@@ -169,6 +172,23 @@ function scheduleInstitutionalQiParticipation() {
         }
       } catch (error) {
         console.error("[Scheduler] institutional QI participation failed:", error);
+      }
+    },
+    { timezone: "Africa/Nairobi" }
+  );
+}
+
+function scheduleInstitutionalPaymentOperations() {
+  cron.schedule(
+    "45 5 * * *",
+    async () => {
+      try {
+        const db = await requireDb();
+        const { runInstitutionalPaymentOperations } = await import("./lib/institutional-payment-operations");
+        const result = await runInstitutionalPaymentOperations(db);
+        if (result.overdueMarked > 0 || result.financeReviewRequired > 0) console.log(`[Scheduler] institutional billing operations: overdue=${result.overdueMarked} financeReview=${result.financeReviewRequired}`);
+      } catch (error) {
+        console.error("[Scheduler] institutional billing operations failed:", error);
       }
     },
     { timezone: "Africa/Nairobi" }

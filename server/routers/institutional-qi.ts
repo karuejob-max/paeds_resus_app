@@ -10,6 +10,8 @@ import {
   institutionalQiEffectivenessReviews,
   institutionalQiParticipationSnapshots,
   institutionalQiReports,
+  institutionalQiExportRequests,
+  institutionalQiRetentionPolicies,
 } from "../../drizzle/schema";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { assertInstitutionProductRole } from "../lib/institution-product-roles";
@@ -170,6 +172,39 @@ export const institutionalQiRouter = router({
       const closedEffectiveReports = Number(closed?.count ?? 0);
       const required = participationRequirement(input.facilityLevel as FacilityLevel);
       return { quarterStart: start, quarterEnd: end, requiredClosedEffectiveReports: required, closedEffectiveReports, careSignalReports: Number(care?.count ?? 0), codeSignalReports: Number(code?.count ?? 0), participationStatus: closedEffectiveReports >= required ? "met" as const : "not_met" as const };
+    }),
+
+  requestExport: protectedProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive(), format: z.enum(["json", "csv"]).default("json"), confidentialityScope: z.enum(["institution_only", "aggregate_only"]).default("institution_only"), status: z.enum(reportStatuses).optional(), limit: z.number().int().min(1).max(500).default(200) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await dbOrThrow();
+      await assertInstitutionAccess(db, ctx.user, input.institutionalAccountId);
+      const predicates = [eq(institutionalQiReports.institutionalAccountId, input.institutionalAccountId)];
+      if (input.status) predicates.push(eq(institutionalQiReports.status, input.status));
+      const reports = await db.select().from(institutionalQiReports).where(and(...predicates)).orderBy(desc(institutionalQiReports.updatedAt)).limit(input.limit);
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const [exportRequest] = await db.insert(institutionalQiExportRequests).values({ institutionalAccountId: input.institutionalAccountId, requestedByUserId: ctx.user.id, format: input.format, confidentialityScope: input.confidentialityScope, status: "completed", filters: { status: input.status ?? null, limit: input.limit }, rowCount: reports.length, expiresAt, completedAt: now }).$returningId();
+      const rows = input.confidentialityScope === "aggregate_only" ? reports.map(report => ({ id: report.id, reportType: report.reportType, status: report.status, severity: report.severity, careArea: report.careArea, eventDate: report.eventDate, closedAt: report.closedAt })) : reports;
+      return { exportId: exportRequest.id, format: input.format, expiresAt, rowCount: rows.length, rows };
+    }),
+
+  getRetentionPolicy: protectedProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await dbOrThrow();
+      await assertInstitutionAccess(db, ctx.user, input.institutionalAccountId);
+      const [policy] = await db.select().from(institutionalQiRetentionPolicies).where(eq(institutionalQiRetentionPolicies.institutionalAccountId, input.institutionalAccountId)).limit(1);
+      return policy ?? { institutionalAccountId: input.institutionalAccountId, retentionDays: 2555, autoDeleteEnabled: false, configured: false };
+    }),
+
+  setRetentionPolicy: protectedProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive(), retentionDays: z.number().int().min(30).max(3650), autoDeleteEnabled: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await dbOrThrow();
+      await assertReviewer(db, ctx.user, input.institutionalAccountId);
+      await db.insert(institutionalQiRetentionPolicies).values({ institutionalAccountId: input.institutionalAccountId, retentionDays: input.retentionDays, autoDeleteEnabled: input.autoDeleteEnabled, approvedByUserId: ctx.user.id }).onDuplicateKeyUpdate({ set: { retentionDays: input.retentionDays, autoDeleteEnabled: input.autoDeleteEnabled, approvedByUserId: ctx.user.id, lastReviewedAt: new Date(), updatedAt: new Date() } });
+      return { success: true, retentionDays: input.retentionDays, autoDeleteEnabled: input.autoDeleteEnabled };
     }),
 
   saveParticipationSnapshot: protectedProcedure
