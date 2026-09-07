@@ -119,7 +119,7 @@ async function assertLearningAccess(
   requiredRoles: readonly InstitutionalProductRoleKey[],
   options?: { allowDepartmentHead?: boolean }
 ) {
-  if (await isInstitutionAdmin(db, user, institutionId))
+  if (await isInstitutionAdmin(db, user.id, institutionId))
     return {
       roleKey: "institution_admin" as const,
       departmentIds: null as number[] | null,
@@ -193,7 +193,7 @@ async function assertInstitutionOnly(
   user: any,
   institutionId: number
 ) {
-  if (!(await isInstitutionAdmin(db, user, institutionId))) {
+  if (!(await isInstitutionAdmin(db, user.id, institutionId))) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Institution administrator access is required for this action.",
