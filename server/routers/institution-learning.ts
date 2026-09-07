@@ -837,7 +837,7 @@ export const institutionLearningRouter = router({
         }
       }
       const now = new Date();
-      const result = await db.insert(cpdEvents).values({
+      const [result] = await db.insert(cpdEvents).values({
         institutionalAccountId: input.institutionId,
         name: input.name,
         eventDate: input.eventDate,
@@ -858,7 +858,7 @@ export const institutionLearningRouter = router({
         cpdPoints: input.cpdPoints == null ? null : String(input.cpdPoints),
         approvingCouncil: input.approvingCouncil ?? null,
       });
-      const eventId = (result as unknown as { insertId: number }).insertId;
+      const eventId = Number((result as unknown as { insertId: number }).insertId);
       await db.insert(cpdEventAuditEvents).values({
         institutionalAccountId: input.institutionId,
         cpdEventId: eventId,

@@ -387,7 +387,7 @@ export async function reconcileInstitutionalStaffMember(
     await db.update(institutionalStaffMembers).set(values).where(eq(institutionalStaffMembers.id, existing.id));
     return { staffMemberId: existing.id, facilityLinkStatus, membershipStatus: membership?.membershipStatus ?? null };
   }
-  const result = await db.insert(institutionalStaffMembers).values(values);
+  const [result] = await db.insert(institutionalStaffMembers).values(values);
   return { staffMemberId: Number((result as unknown as { insertId: number }).insertId), facilityLinkStatus, membershipStatus: membership?.membershipStatus ?? null };
 }
 
@@ -506,7 +506,7 @@ export async function applyCpdFacilityRelationship(
       };
     }
   } else {
-    const inserted = await db.insert(institutionMemberships).values({
+    const [inserted] = await db.insert(institutionMemberships).values({
       institutionalAccountId: input.institutionalAccountId,
       userId: input.userId,
       invitedEmail: email,
@@ -516,7 +516,7 @@ export async function applyCpdFacilityRelationship(
       invitedByUserId: null,
       acceptedAt: now,
     });
-    membershipId = Number((inserted as unknown as { insertId: number }).insertId);
+    membershipId = inserted.insertId;
   }
 
   await db
