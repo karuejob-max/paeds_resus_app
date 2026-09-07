@@ -91,6 +91,17 @@ export function ProfessionalIdentityCard() {
         cadreOther: finalCadreOther || null,
       });
       await updateProviderProfile.mutateAsync({ specialization: specialization.trim() });
+      await utils.provider.getProfile.invalidate();
+      setMessage({ type: "ok", text: "Professional identity saved." });
+    } catch (error) {
+      setMessage({
+        type: "err",
+        text: error instanceof Error ? error.message : "Could not save professional identity.",
+      });
+      return;
+    }
+
+    try {
       const existingRoles = new Set((providerRolesQuery.data ?? []).map(role => role.cadre.toLowerCase()));
       const requestedRoles = additionalRoles.split(",").map(role => role.trim()).filter(Boolean);
       for (const role of requestedRoles) {
@@ -99,10 +110,11 @@ export function ProfessionalIdentityCard() {
         await addRoleMutation.mutateAsync({ cadre: roleCadre, cadreOther: roleOther?.trim() || null, specialization: specialization.trim() || null });
       }
       await utils.provider.listProfessionalRoles.invalidate();
-      setMessage({ type: "ok", text: "Professional identity saved." });
-      await utils.provider.getProfile.invalidate();
     } catch (error) {
-      setMessage({ type: "err", text: error instanceof Error ? error.message : "Could not save professional identity." });
+      setMessage({
+        type: "err",
+        text: `Professional identity saved, but additional roles could not be saved: ${error instanceof Error ? error.message : "Unknown error."}`,
+      });
     }
   };
 
@@ -166,8 +178,8 @@ export function ProfessionalIdentityCard() {
             <div className="flex flex-wrap gap-2">{providerRolesQuery.data.map(role => <Badge key={role.id} variant={role.cadre === cadre ? "default" : "secondary"}>{role.cadreOther ? `${role.cadre}: ${role.cadreOther}` : role.cadre}</Badge>)}</div>
           ) : null}
         </div>
-        <Button type="button" onClick={save} disabled={updateProfile.isPending || updateProviderProfile.isPending}>
-          {updateProfile.isPending || updateProviderProfile.isPending ? (
+        <Button type="button" onClick={save} disabled={updateProfile.isPending || updateProviderProfile.isPending || addRoleMutation.isPending}>
+          {updateProfile.isPending || updateProviderProfile.isPending || addRoleMutation.isPending ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : null}
           Save professional identity
