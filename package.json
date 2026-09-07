@@ -106,6 +106,7 @@
     "db:apply-0156": "node scripts/apply-0156-institutional-qi-pricing-billing.mjs",
     "db:verify-0156": "node scripts/verify-0156-institutional-qi-pricing-billing.mjs",
     "db:apply-0157": "node scripts/apply-0157-institutional-payment-operations.mjs",
+    "db:apply-0158": "node scripts/apply-0158-provider-professional-roles.mjs",
     "db:verify-0157": "node scripts/verify-0157-institutional-payment-operations.mjs",
     "db:verify-0150": "node scripts/verify-0150-cpd-quiz-gating.mjs",
     "db:verify-0148": "node scripts/verify-0148-promotional-messaging-governance.mjs",
