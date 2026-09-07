@@ -572,7 +572,7 @@ export const cpdRouter = router({
         });
       }
       const now = new Date();
-      const result = await db.insert(cpdEvents).values({
+      const [result] = await db.insert(cpdEvents).values({
         institutionalAccountId: input.institutionId,
         name: input.name,
         eventDate: input.eventDate,
@@ -589,7 +589,7 @@ export const cpdRouter = router({
         scheduledStartTime: input.scheduledStartTime ?? null,
         scheduledEndTime: input.scheduledEndTime ?? null,
       });
-      const eventId = (result as unknown as { insertId: number }).insertId;
+      const eventId = result.insertId;
       await db.insert(cpdEventAuditEvents).values({
         institutionalAccountId: input.institutionId,
         cpdEventId: eventId,
@@ -1054,8 +1054,8 @@ export const cpdRouter = router({
         await db.update(cpdEventQuizzes).set({ passingScore: input.passingScore, isRequired: input.isRequired, updatedAt: new Date() }).where(eq(cpdEventQuizzes.id, quizId));
         await db.delete(cpdEventQuizQuestions).where(eq(cpdEventQuizQuestions.cpdEventQuizId, quizId));
       } else {
-        const result = await db.insert(cpdEventQuizzes).values({ cpdEventId: input.eventId, passingScore: input.passingScore, isRequired: input.isRequired });
-        quizId = Number((result as unknown as { insertId: number }).insertId);
+        const [result] = await db.insert(cpdEventQuizzes).values({ cpdEventId: input.eventId, passingScore: input.passingScore, isRequired: input.isRequired });
+        quizId = result.insertId;
       }
       await db.insert(cpdEventQuizQuestions).values(normalizedQuestions.map((question, index) => ({
         cpdEventQuizId: quizId as number,
@@ -1259,7 +1259,7 @@ export const cpdRouter = router({
         ctx.user.id,
       );
 
-      const registrationResult = await db.insert(cpdAttendees).values({
+      const [registrationResult] = await db.insert(cpdAttendees).values({
         cpdEventId: event.id,
         institutionalAccountId: input.institutionId,
         userId: ctx.user.id,
@@ -1309,7 +1309,7 @@ export const cpdRouter = router({
 
       return {
         success: true as const,
-        attendeeId: Number((registrationResult as unknown as { insertId: number }).insertId),
+        attendeeId: registrationResult.insertId,
         eventId: event.id,
         attendanceType,
         facilityRelationship: input.facilityRelationship,
