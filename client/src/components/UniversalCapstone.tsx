@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { AlertCircle, CheckCircle2, GripVertical } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowUp, CheckCircle2, GripVertical } from "lucide-react";
 import { ACLS_CAPSTONE_SCENARIOS, calculateACLSScore } from "../lib/resus/acls-capstone";
 import { BLS_CAPSTONE_SCENARIOS, calculateBLSScore } from "../lib/resus/bls-capstone";
 import { NRP_CAPSTONE_SCENARIOS, calculateNRPScore } from "../lib/resus/nrp-capstone";
@@ -58,6 +58,26 @@ export function UniversalCapstone({ programType, onComplete, onClose }: Universa
     }
   };
 
+  const handleAddIntervention = (id: string) => {
+    if (!userOrder.includes(id)) {
+      setUserOrder((currentOrder) => [...currentOrder, id]);
+    }
+  };
+
+  const handleMoveIntervention = (index: number, direction: -1 | 1) => {
+    setUserOrder((currentOrder) => {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= currentOrder.length) return currentOrder;
+      const nextOrder = [...currentOrder];
+      [nextOrder[index], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[index]];
+      return nextOrder;
+    });
+  };
+
+  const handleRemoveIntervention = (id: string) => {
+    setUserOrder((currentOrder) => currentOrder.filter((item) => item !== id));
+  };
+
   const handleSubmitPhase = () => {
     const result = (config.scorer as any)(currentPhase, userOrder);
     const updatedScores = { ...phaseScores, [currentPhase]: result.score };
@@ -100,42 +120,78 @@ export function UniversalCapstone({ programType, onComplete, onClose }: Universa
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Available Interventions</h3>
+            <h3 className="text-lg font-semibold mb-2">Available Interventions</h3>
+            <p className="text-sm text-muted-foreground mb-4">Tap an option to add it. On a larger screen, you can also drag it into your order.</p>
             <div className="space-y-2">
               {availableInterventions
                 .filter((i: any) => !userOrder.includes(i.id))
                 .map((i: any) => (
-                  <div key={i.id} draggable onDragStart={(e) => handleDragStart(e, i.id)}
-                    className="p-3 bg-slate-100 dark:bg-slate-700 rounded-lg cursor-move hover:bg-slate-200 dark:hover:bg-slate-600 flex items-start gap-2">
-                    <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium">{i.description}</p>
-                      {i.critical && <p className="text-xs text-red-600 font-semibold mt-1">⚠️ Critical</p>}
-                    </div>
-                  </div>
+                  <button
+                    key={i.id}
+                    type="button"
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, i.id)}
+                    onClick={() => handleAddIntervention(i.id)}
+                    className="w-full text-left p-3 bg-slate-100 dark:bg-slate-700 rounded-lg cursor-pointer sm:cursor-move hover:bg-slate-200 dark:hover:bg-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary flex items-start gap-2"
+                    aria-label={`Add ${i.description} to your order`}
+                  >
+                    <GripVertical className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" aria-hidden="true" />
+                    <span>
+                      <span className="block text-sm font-medium">{i.description}</span>
+                      {i.critical && <span className="block text-xs text-red-600 font-semibold mt-1">⚠️ Critical</span>}
+                    </span>
+                  </button>
                 ))}
             </div>
           </Card>
 
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Your Order</h3>
+            <h3 className="text-lg font-semibold mb-2">Your Order</h3>
+            <p className="text-sm text-muted-foreground mb-4">Use the arrows to arrange the priority order. You can remove and re-add any option before submitting.</p>
             <div className="space-y-2 min-h-[200px] p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border-2 border-dashed border-slate-300"
               onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, userOrder.length)}>
               {userOrder.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">Drag interventions here</p>
+                <p className="text-sm text-muted-foreground text-center py-8">Tap an intervention to add it here, or drag one on desktop.</p>
               ) : (
                 userOrder.map((id, index) => {
                   const i = scenario.interventions[id];
                   return (
                     <div key={id} className={`p-3 ${config.theme} rounded-lg text-white flex items-start justify-between gap-2`}>
-                      <div className="flex items-start gap-2">
+                      <div className="flex items-start gap-2 min-w-0">
                         <span className="font-bold text-lg min-w-[24px]">{index + 1}.</span>
                         <div>
                           <p className="font-medium">{i.description}</p>
                           {i.critical && <p className="text-xs text-white/80 mt-1">Critical intervention</p>}
                         </div>
                       </div>
-                      <button onClick={() => setUserOrder(userOrder.filter(item => item !== id))} className="text-white hover:text-white/80">✕</button>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleMoveIntervention(index, -1)}
+                          disabled={index === 0}
+                          className="rounded p-1 text-white hover:bg-white/20 disabled:opacity-40 disabled:hover:bg-transparent"
+                          aria-label={`Move ${i.description} up`}
+                        >
+                          <ArrowUp className="w-4 h-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMoveIntervention(index, 1)}
+                          disabled={index === userOrder.length - 1}
+                          className="rounded p-1 text-white hover:bg-white/20 disabled:opacity-40 disabled:hover:bg-transparent"
+                          aria-label={`Move ${i.description} down`}
+                        >
+                          <ArrowDown className="w-4 h-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveIntervention(id)}
+                          className="rounded p-1 text-white hover:bg-white/20"
+                          aria-label={`Remove ${i.description} from your order`}
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </div>
                   );
                 })
