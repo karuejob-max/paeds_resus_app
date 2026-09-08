@@ -238,12 +238,7 @@ export function SearchableDropdown({
   };
 
   const optionList = (
-    <Command
-      shouldFilter={searchAlwaysVisible ? false : undefined}
-      {...(!searchAlwaysVisible
-        ? { value: searchQuery, onValueChange: setQuery }
-        : {})}
-    >
+    <Command shouldFilter={searchAlwaysVisible ? false : undefined}>
       {!searchAlwaysVisible ? (
         <CommandInput
           placeholder={searchPlaceholder}
