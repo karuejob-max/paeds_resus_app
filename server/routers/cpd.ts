@@ -2,7 +2,7 @@ import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq, and, desc, asc, or, like, sql, inArray } from "drizzle-orm";
-import { getDb } from "../db";
+import { createAuditLog, getDb } from "../db";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { assertInstitutionProductCapability } from "../lib/institution-entitlements";
 import { assertInstitutionProductRole, type InstitutionalProductRoleKey } from "../lib/institution-product-roles";
@@ -2291,8 +2291,8 @@ export const cpdRouter = router({
     }),
 
   /**
-   * Compatibility adapter: the former irreversible delete action now archives the event.
-   * Registrations, attendance, certificates, and audit records are preserved.
+   * Admin: delete an incorrectly created attendee-free session, or archive a
+   * session with registrations while preserving its records.
    */
   deleteEvent: protectedProcedure
     .input(
@@ -2301,7 +2301,7 @@ export const cpdRouter = router({
         eventId: z.number().int().positive(),
         /** Must exactly match the event's name (trimmed, case-insensitive). */
         confirmName: z.string().trim().min(1).max(256),
-        /** Kept for old clients; it is no longer used to permit data deletion. */
+        /** Required for attendee-bearing sessions; prevents accidental archive. */
         confirmAttendeesPhrase: z.string().trim().optional(),
         reason: z.string().trim().min(3).max(500).optional(),
       })
@@ -2311,24 +2311,16 @@ export const cpdRouter = router({
       await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
       await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator"]);
 
-      // 1. Verify the event belongs to this institution.
       const [event] = await db
-        .select({ id: cpdEvents.id, name: cpdEvents.name, lifecycleStatus: cpdEvents.lifecycleStatus })
+        .select({ id: cpdEvents.id, name: cpdEvents.name, lifecycleStatus: cpdEvents.lifecycleStatus, isOpen: cpdEvents.isOpen })
         .from(cpdEvents)
-        .where(
-          and(
-            eq(cpdEvents.id, input.eventId),
-            eq(cpdEvents.institutionalAccountId, input.institutionId)
-          )
-        )
+        .where(and(
+          eq(cpdEvents.id, input.eventId),
+          eq(cpdEvents.institutionalAccountId, input.institutionId),
+        ))
         .limit(1);
+      if (!event) throw new TRPCError({ code: "NOT_FOUND", message: "Event not found for this institution." });
 
-      if (!event) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Event not found for this institution." });
-      }
-
-      // Confirm the typed name still matches to prevent acting on the wrong row.
-      // The historical attendee phrase is intentionally ignored: deletion is no longer possible.
       if (input.confirmName.trim().toLowerCase() !== event.name.trim().toLowerCase()) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -2336,19 +2328,74 @@ export const cpdRouter = router({
         });
       }
 
-      const reason = input.reason?.trim() || "Legacy delete action converted to archive";
-      await db.update(cpdEvents).set({ isOpen: false, lifecycleStatus: "archived", closedAt: new Date() }).where(eq(cpdEvents.id, input.eventId));
-      await db.insert(cpdEventAuditEvents).values({
-        institutionalAccountId: input.institutionId,
-        cpdEventId: input.eventId,
-        action: "archived",
-        previousStatus: event.lifecycleStatus,
-        nextStatus: "archived",
-        reason,
-        actorUserId: ctx.user.id,
-      });
+      const [attendeeSummary] = await db
+        .select({ count: sql<number>`COUNT(${cpdAttendees.id})`.mapWith(Number) })
+        .from(cpdAttendees)
+        .where(and(
+          eq(cpdAttendees.cpdEventId, input.eventId),
+          eq(cpdAttendees.institutionalAccountId, input.institutionId),
+        ));
+      const attendeeCount = attendeeSummary?.count ?? 0;
 
-      return { success: true as const, archived: true as const };
+      if (attendeeCount > 0) {
+        const expectedPhrase = `archive session with ${attendeeCount} attendees`;
+        if (input.confirmAttendeesPhrase?.trim().toLowerCase() !== expectedPhrase) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `This session has ${attendeeCount} attendee(s). Type ${expectedPhrase.toUpperCase()} to archive it while preserving records.`,
+          });
+        }
+        const reason = input.reason?.trim() || "Session archive requested from legacy delete control";
+        await db.update(cpdEvents).set({ isOpen: false, lifecycleStatus: "archived", closedAt: new Date() }).where(eq(cpdEvents.id, input.eventId));
+        await db.insert(cpdEventAuditEvents).values({
+          institutionalAccountId: input.institutionId,
+          cpdEventId: input.eventId,
+          action: "archived",
+          previousStatus: event.lifecycleStatus,
+          nextStatus: "archived",
+          reason,
+          actorUserId: ctx.user.id,
+        });
+        return { success: true as const, deleted: false as const, archived: true as const };
+      }
+
+      if (event.isOpen || event.lifecycleStatus === "open" || event.lifecycleStatus === "attendance_review") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Close the open CPD session before deleting it." });
+      }
+
+      const reason = input.reason?.trim() || "Incorrectly created CPD session removed by institution administrator";
+      await db.transaction(async tx => {
+        const quizzes = await tx
+          .select({ id: cpdEventQuizzes.id })
+          .from(cpdEventQuizzes)
+          .where(eq(cpdEventQuizzes.cpdEventId, input.eventId));
+        const quizIds = quizzes.map(quiz => quiz.id);
+        if (quizIds.length > 0) {
+          await tx.delete(cpdEventQuizQuestions).where(inArray(cpdEventQuizQuestions.cpdEventQuizId, quizIds));
+          await tx.delete(cpdEventQuizzes).where(inArray(cpdEventQuizzes.id, quizIds));
+        }
+        await tx.delete(cpdEventCoPresenters).where(eq(cpdEventCoPresenters.cpdEventId, input.eventId));
+        await tx.delete(cpdCodeRevealLogs).where(eq(cpdCodeRevealLogs.cpdEventId, input.eventId));
+        await tx.delete(cpdExportAuditLogs).where(and(
+          eq(cpdExportAuditLogs.institutionalAccountId, input.institutionId),
+          eq(cpdExportAuditLogs.eventId, input.eventId),
+        ));
+        await tx.delete(cpdEventAuditEvents).where(and(
+          eq(cpdEventAuditEvents.institutionalAccountId, input.institutionId),
+          eq(cpdEventAuditEvents.cpdEventId, input.eventId),
+        ));
+        await tx.delete(cpdEvents).where(and(
+          eq(cpdEvents.id, input.eventId),
+          eq(cpdEvents.institutionalAccountId, input.institutionId),
+        ));
+      });
+      await createAuditLog({
+        userId: ctx.user.id,
+        action: "CPD_EVENT_DELETED",
+        details: { institutionId: input.institutionId, eventId: input.eventId, eventName: event.name, reason, attendeeCount },
+        timestamp: new Date(),
+      });
+      return { success: true as const, deleted: true as const, archived: false as const };
     }),
 });
 
