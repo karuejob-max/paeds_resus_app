@@ -381,15 +381,15 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
   });
 
   const deleteEventMutation = trpc.cpd.deleteEvent.useMutation({
-    onSuccess: () => {
-      toast.success("CPD event archived; records were preserved.");
+    onSuccess: (result) => {
+      toast.success(result.deleted ? "CPD session deleted." : "CPD event archived; records were preserved.");
       setDeleteTargetEvent(null);
       setDeleteConfirmInput("");
       setDeleteConfirmAttendeesInput("");
       void utils.cpd.listEvents.invalidate({ institutionId });
       void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
     },
-    onError: (err) => toast.error(err.message || "Failed to archive event"),
+    onError: (err) => toast.error(err.message || "Failed to delete or archive event"),
   });
 
   const voidEventMutation = trpc.cpd.voidEvent.useMutation({
@@ -1062,12 +1062,12 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                                   <Ban className="h-3.5 w-3.5" />
                                 </Button>
                               )}
-                              {/* Archive button — preserves attendees, certificates, and audit history */}
-                              {!event.isOpen && (
+                              {/* Delete attendee-free mistakes; archive sessions with registrations. */}
+                              {!event.isOpen && !["archived", "voided", "cancelled"].includes(event.lifecycleStatus ?? "") && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  title="Archive CPD session (records preserved)"
+                                  title={(event as any).attendeeCount > 0 ? "Archive CPD session (records preserved)" : "Delete CPD session (no attendees)"}
                                   className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                   onClick={() => {
                                     setDeleteTargetEvent({
@@ -1080,7 +1080,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                                     setDeleteConfirmAttendeesInput("");
                                   }}
                                 >
-                                  <Ban className="h-3.5 w-3.5" />
+                                  {(event as any).attendeeCount > 0 ? <Ban className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
                                 </Button>
                               )}
                             </div>
@@ -1676,13 +1676,13 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <Ban className="h-5 w-5" />
-              Archive CPD Session
+              {deleteTargetEvent?.attendeeCount ? <Ban className="h-5 w-5" /> : <Trash2 className="h-5 w-5" />}
+              {deleteTargetEvent?.attendeeCount ? "Archive CPD Session" : "Delete CPD Session"}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm">
                 <p>
-                  You are about to archive:{" "}
+                  You are about to {deleteTargetEvent?.attendeeCount ? "archive" : "permanently delete"}:{" "}
                   <strong>{deleteTargetEvent?.name}</strong>.
                 </p>
 
@@ -1697,9 +1697,9 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                   </div>
                 ) : (
                   <div className="rounded-md border border-border bg-muted/30 p-3 text-muted-foreground">
-                    <p className="font-semibold text-foreground">This session will be archived.</p>
+                    <p className="font-semibold text-foreground">This session has no registered attendees and will be permanently deleted.</p>
                     <p className="text-xs mt-1">
-                      Session records, codes, and logs will be preserved for audit and reporting.
+                      This action is intended for incorrectly created sessions and cannot be undone. Type the exact event name to continue.
                     </p>
                   </div>
                 )}
@@ -1765,10 +1765,12 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
             >
               {deleteEventMutation.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
+              ) : deleteTargetEvent?.attendeeCount ? (
                 <Ban className="mr-2 h-4 w-4" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
               )}
-              Archive session
+              {deleteTargetEvent?.attendeeCount ? "Archive session" : "Delete session permanently"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
