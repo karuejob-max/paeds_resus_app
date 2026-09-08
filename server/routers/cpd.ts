@@ -30,6 +30,7 @@ import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { applyCpdFacilityRelationship, autoLinkCpdFacilitiesForUser } from "../services/facility-registry.service";
 import { canRegisterForEvent, canReviewAttendanceTransition, countsAsVerifiedAttendance, isAudienceEligible } from "../lib/cpd-contract";
 import { bestCpdQuizAttemptPassed, scoreCpdQuiz, type CpdQuizAnswer } from "../lib/cpd-quiz";
+import { getCpdPresenterSearchScope } from "../lib/cpd-presenter-search";
 
 /** Shared cadre validator for input validation, matching the cpdAttendees.cadre column. */
 const cadreEnum = z.string().trim().min(1, "Please select or specify your cadre").max(128);
@@ -496,10 +497,9 @@ export const cpdRouter = router({
         facilityDepartmentId: u.facilityDepartmentId ?? null,
         isInstitutionMember: true as const,
       }));
-      if (access.departmentIds !== null) return memberResults;
+      if (getCpdPresenterSearchScope(access.departmentIds) === "department") return memberResults;
 
       const memberIds = new Set(memberResults.map(member => member.id));
-      if (!normalizedQuery) return memberResults;
 
       const platformMatches = await db
         .select({
