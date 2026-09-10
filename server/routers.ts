@@ -26,6 +26,7 @@ import { trackEvent } from "./services/analytics.service";
 import { enrollmentRouter } from "./routers/enrollment";
 import { instructorRouter } from "./routers/instructor";
 import { certificateRouter } from "./routers/certificates";
+import { completionRecordsRouter } from "./routers/completion-records";
 import { smsRouter } from "./routers/sms";
 import { aiLearningRouter } from "./routers/ai-learning";
 import { notificationsRouter } from "./routers/notifications";
@@ -448,6 +449,7 @@ export const appRouter = router({
   enrollment: enrollmentRouter,
   instructor: instructorRouter,
   certificates: certificateRouter,
+  completionRecords: completionRecordsRouter,
   sms: smsRouter,
   aiLearning: aiLearningRouter,
   notifications: notificationsRouter,

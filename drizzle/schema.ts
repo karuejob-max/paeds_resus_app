@@ -724,6 +724,50 @@ export const certificates = mysqlTable("certificates", {
 export type Certificate = typeof certificates.$inferSelect;
 export type InsertCertificate = typeof certificates.$inferInsert;
 
+/**
+ * Authoritative record for Phase 2 and Phase 3 completion documented by an
+ * approved Paeds Resus administrator or lead instructor, including training
+ * completed outside the platform. Cognitive completion remains a hard
+ * prerequisite for any verified record and final provider certificate.
+ */
+export const externalTrainingCompletions = mysqlTable(
+  "externalTrainingCompletions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    recordKey: varchar("recordKey", { length: 255 }).notNull().unique(),
+    userId: int("userId").notNull(),
+    enrollmentId: int("enrollmentId"),
+    pathway: mysqlEnum("pathway", ["ierp", "nerp", "open_enrolment", "ilsp"]).notNull(),
+    courseProgramType: mysqlEnum("courseProgramType", ["bls", "acls", "pals", "nrp", "heartsaver", "paeds_resus_ils"]).notNull(),
+    phase2Completed: boolean("phase2Completed").default(false).notNull(),
+    phase2CompletedAt: timestamp("phase2CompletedAt"),
+    phase3Completed: boolean("phase3Completed").default(false).notNull(),
+    phase3CompletedAt: timestamp("phase3CompletedAt"),
+    evidenceReference: text("evidenceReference"),
+    notes: text("notes"),
+    recordedByUserId: int("recordedByUserId").notNull(),
+    recordedByName: varchar("recordedByName", { length: 255 }),
+    recordedAt: timestamp("recordedAt").defaultNow().notNull(),
+    revokedAt: timestamp("revokedAt"),
+    revokedByUserId: int("revokedByUserId"),
+    revocationReason: text("revocationReason"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    userCoursePathwayUq: uniqueIndex("external_training_completions_user_course_pathway_uq").on(
+      table.userId,
+      table.courseProgramType,
+      table.pathway,
+    ),
+    userIdx: index("external_training_completions_user_idx").on(table.userId),
+    courseIdx: index("external_training_completions_course_idx").on(table.courseProgramType),
+  }),
+);
+
+export type ExternalTrainingCompletion = typeof externalTrainingCompletions.$inferSelect;
+export type InsertExternalTrainingCompletion = typeof externalTrainingCompletions.$inferInsert;
+
 /** One pre-download feedback row per user per certificate (before PDF download). */
 export const certificateDownloadFeedback = mysqlTable(
   "certificateDownloadFeedback",

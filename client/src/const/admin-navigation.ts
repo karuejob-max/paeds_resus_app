@@ -188,6 +188,13 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
         risk: "review",
       },
       {
+        label: "Final completion records",
+        href: "/admin/completion-records",
+        description: "Record verified off-platform Phase 2 and Phase 3 completion and issue final proof.",
+        icon: ClipboardCheck,
+        risk: "review",
+      },
+      {
         label: "IERP campaigns",
         href: "/admin/ierp-campaigns",
         description: "Manage governed IERP campaign operations.",

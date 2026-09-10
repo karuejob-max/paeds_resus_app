@@ -26,6 +26,11 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
     staleTime: 30_000,
     retry: 1,
   });
+  const completionRecordsQuery = trpc.completionRecords.getMyStatus.useQuery(undefined, {
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+    retry: 1,
+  });
   const cpdQuery = trpc.cpd.myCertificates.useQuery(undefined, {
     enabled: isAuthenticated,
     staleTime: 30_000,
@@ -49,6 +54,7 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
   }
 
   const certificates = certificatesQuery.data?.certificates ?? [];
+  const completionRecords = completionRecordsQuery.data ?? [];
   const cpdRecords = cpdQuery.data?.records ?? [];
   const activeMemberships = (membershipsQuery.data ?? []).filter((membership) => membership.membershipStatus === "active");
   const triggerBrowserDownload = (pdfBase64: string, filename: string) => {
@@ -143,6 +149,14 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
               </div>
             ) : <p className="text-sm text-slate-500">No AHA or Fellowship certificates are recorded yet.</p>}
             <Button type="button" variant="outline" className="w-full justify-between" onClick={() => setLocation("/certificates")}>View all certificates <ArrowRightIcon /></Button>
+          </CardContent>
+        </Card>
+
+        <Card className="border-teal-200 bg-white">
+          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Award className="h-5 w-5 text-teal-700" />Final Life Support proof</CardTitle><CardDescription>When an administrator or approved lead instructor records your off-platform Phase 2 and Phase 3 completion, your final Paeds Resus certificate appears here and in My Certificates.</CardDescription></CardHeader>
+          <CardContent className="space-y-3">
+            {completionRecords.length > 0 ? completionRecords.map((record) => <div key={record.id} className="rounded-lg border border-teal-100 bg-teal-50/50 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-medium text-slate-900">{record.courseProgramType.toUpperCase()} · {record.pathway.toUpperCase()}</p><Badge variant="outline" className={record.phase3Completed ? "border-emerald-200 text-emerald-800" : record.phase2Completed ? "border-amber-200 text-amber-800" : "border-slate-200 text-slate-700"}>{record.phase3Completed ? "Final proof recorded" : record.phase2Completed ? "Phase 2 recorded" : "Record in progress"}</Badge></div><p className="mt-1 text-xs text-slate-600">{record.phase3Completed ? "Your final proof certificate should be available in the certificate list." : record.phase2Completed ? "Phase 3 completion is still required before the final proof certificate can be issued." : "Your completion record is awaiting Phase 2 and Phase 3 documentation."}</p>{record.recordedByName ? <p className="mt-2 text-xs text-slate-500">Recorded by {record.recordedByName}</p> : null}</div>) : <p className="text-sm text-slate-500">No externally recorded Phase 2 or Phase 3 completion is linked to your account yet.</p>}
+            <Button type="button" variant="outline" className="w-full justify-between" onClick={() => setLocation("/certificates")}>Open certificate list <ArrowRightIcon /></Button>
           </CardContent>
         </Card>
 
