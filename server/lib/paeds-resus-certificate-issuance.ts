@@ -1,8 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import {
   certificates,
   enrollments,
+  externalTrainingCompletions,
   ierpProgramEnrollments,
   nerpOfferEnrollments,
   nerpOfferExternalVerifications,
@@ -29,7 +30,8 @@ export type PaedsResusCertificateIssueResult = {
 
 type CertificateProgramType =
   | typeof PAEDS_RESUS_PHASE2_CERTIFICATE_TYPE
-  | PaedsResusProviderCertificateType;
+  | PaedsResusProviderCertificateType
+  | "paeds_resus_ils";
 
 type Db = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
@@ -229,7 +231,18 @@ export async function ensurePhase2CompletionCertificateForUser(
 ): Promise<PaedsResusCertificateIssueResult> {
   const sharedPhase2 = await getAuthoritativePhase2CompletionStatus(db, userId);
   const nerpPhases = await getNerpVerifiedPhases(db, userId);
-  if (!sharedPhase2.phase2Complete && !nerpPhases.phase2Verified) {
+  const [externalPhase2] = await db
+    .select({ id: externalTrainingCompletions.id })
+    .from(externalTrainingCompletions)
+    .where(
+      and(
+        eq(externalTrainingCompletions.userId, userId),
+        eq(externalTrainingCompletions.phase2Completed, true),
+        isNull(externalTrainingCompletions.revokedAt),
+      ),
+    )
+    .limit(1);
+  if (!sharedPhase2.phase2Complete && !nerpPhases.phase2Verified && !externalPhase2) {
     return { issued: false, reason: "phase2_incomplete" };
   }
 
@@ -303,8 +316,23 @@ export async function ensurePaedsResusProviderCertificateForEnrollment(
   const nerpPhases = options.allowExternalNerpVerification
     ? await getNerpVerifiedPhases(db, enrollment.userId)
     : null;
+  const [externalPhases] = await db
+    .select({
+      phase2Completed: externalTrainingCompletions.phase2Completed,
+      phase3Completed: externalTrainingCompletions.phase3Completed,
+    })
+    .from(externalTrainingCompletions)
+    .where(
+      and(
+        eq(externalTrainingCompletions.userId, enrollment.userId),
+        eq(externalTrainingCompletions.courseProgramType, enrollment.programType as any),
+        isNull(externalTrainingCompletions.revokedAt),
+      ),
+    )
+    .limit(1);
   const isExternallyComplete =
-    Boolean(nerpPhases?.phase2Verified && nerpPhases.phase3Verified);
+    Boolean(nerpPhases?.phase2Verified && nerpPhases.phase3Verified) ||
+    Boolean(externalPhases?.phase2Completed && externalPhases?.phase3Completed);
   if (!isLocallyComplete && !isExternallyComplete) {
     return { issued: false, reason: "provider_requirements_incomplete" };
   }
@@ -317,6 +345,47 @@ export async function ensurePaedsResusProviderCertificateForEnrollment(
     programType: enrollment.programType as keyof typeof PROVIDER_CERTIFICATE_BY_AHA_PROGRAM,
     trainingDate: enrollment.trainingDate,
     issueDate,
+  });
+}
+
+export async function ensureIlsCertificateForEnrollment(
+  db: Db,
+  enrollmentId: number,
+): Promise<PaedsResusCertificateIssueResult> {
+  const [enrollment] = await db
+    .select({
+      id: enrollments.id,
+      userId: enrollments.userId,
+      programType: enrollments.programType,
+      trainingDate: enrollments.trainingDate,
+      cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
+      practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
+    })
+    .from(enrollments)
+    .where(eq(enrollments.id, enrollmentId))
+    .limit(1);
+  if (!enrollment || enrollment.programType !== "paeds_resus_ils") {
+    return { issued: false, reason: "not_ils_enrollment" };
+  }
+  if (!enrollment.cognitiveModulesComplete || !enrollment.practicalSkillsSignedOff) {
+    return { issued: false, reason: "provider_requirements_incomplete" };
+  }
+  const [existing] = await db
+    .select({ id: certificates.id, certificateNumber: certificates.certificateNumber })
+    .from(certificates)
+    .where(and(eq(certificates.enrollmentId, enrollment.id), eq(certificates.programType, "paeds_resus_ils")))
+    .limit(1);
+  if (existing) {
+    return { issued: true, alreadyIssued: true, certificateId: existing.id, certificateNumber: existing.certificateNumber ?? undefined };
+  }
+  const readinessPathway = await getReadinessPathway(db, enrollment.userId);
+  return insertUniversalCertificate(db, {
+    userId: enrollment.userId,
+    enrollmentId: enrollment.id,
+    readinessPathway,
+    programType: "paeds_resus_ils",
+    sourceKey: `paeds-resus:paeds_resus_ils:enrollment:${enrollment.id}`,
+    trainingDate: enrollment.trainingDate,
   });
 }
 
@@ -376,6 +445,7 @@ export async function getPaedsResusCertificateStatusForUser(
           "paeds_resus_acls_provider",
           "paeds_resus_pals_provider",
           "paeds_resus_nrp_provider",
+          "paeds_resus_ils",
         ])
       )
     )

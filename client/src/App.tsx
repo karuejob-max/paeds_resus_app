@@ -142,6 +142,7 @@ const NerpPathwayEntry = lazy(() => import("./pages/NerpPathwayEntry"));
 const NerpCheckout = lazy(() => import("./pages/NerpCheckout"));
 const AdminNerpVerification = lazy(() => import("./pages/AdminNerpVerification"));
 const AdminAhaProofReview = lazy(() => import("./pages/AdminAhaProofReview"));
+const AdminCompletionRecords = lazy(() => import("./pages/AdminCompletionRecords"));
 const AdminNerpCampaign = lazy(() => import("./pages/AdminNerpCampaign"));
 const AdminPromotionalMessaging = lazy(() => import("./pages/AdminPromotionalMessaging"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
@@ -376,6 +377,11 @@ function Router() {
               <AdminAhaProofReview />
             </AdminGate>
           )}</Route>
+          <Route path="/admin/completion-records">{() => (
+            <AdminGate>
+              <AdminCompletionRecords />
+            </AdminGate>
+          )}</Route>
           <Route path="/admin/nerp-campaign">{() => (
             <AdminGate>
               <AdminNerpCampaign />
@@ -603,6 +609,11 @@ function Router() {
           <Route path="/instructor-portal">{() => (
             <RoleGate allowed={["provider"]}>
               <InstructorPortal />
+            </RoleGate>
+          )}</Route>
+          <Route path="/completion-records">{() => (
+            <RoleGate allowed={["provider"]}>
+              <AdminCompletionRecords />
             </RoleGate>
           )}</Route>
           <Route path="/institutional-onboarding">{() => (
