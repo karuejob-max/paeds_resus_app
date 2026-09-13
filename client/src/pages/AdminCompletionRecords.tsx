@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,7 @@ const PROGRAM_LABELS: Record<string, string> = {
 
 export default function AdminCompletionRecords() {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [pathway, setPathway] = useState<"ierp" | "nerp" | "open_enrolment" | "ilsp">("open_enrolment");
   const [phase2Completed, setPhase2Completed] = useState(false);
@@ -35,8 +36,13 @@ export default function AdminCompletionRecords() {
   const [phase3Date, setPhase3Date] = useState("");
   const [evidenceReference, setEvidenceReference] = useState("");
   const [notes, setNotes] = useState("");
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timeout);
+  }, [search]);
+
   const candidatesQuery = trpc.completionRecords.listCandidates.useQuery(
-    { search: search.trim() || undefined },
+    { search: debouncedSearch || undefined },
     { staleTime: 15_000, retry: 1 },
   );
   const recordMutation = trpc.completionRecords.record.useMutation({
@@ -99,10 +105,10 @@ export default function AdminCompletionRecords() {
               <div className="relative pt-2"><Search className="absolute left-3 top-4 h-4 w-4 text-slate-400" /><Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name or email" /></div>
             </CardHeader>
             <CardContent className="space-y-2">
-              {candidatesQuery.isLoading ? <div className="flex items-center justify-center py-10 text-sm text-slate-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading learners…</div> : candidatesQuery.data?.length ? candidatesQuery.data.map((row) => {
+              {candidatesQuery.isLoading || (candidatesQuery.isFetching && !candidatesQuery.data) ? <div className="flex items-center justify-center py-10 text-sm text-slate-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading eligible learners…</div> : candidatesQuery.error ? <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">Learner search could not be completed. Refresh the page and try again.</div> : candidatesQuery.data?.length ? candidatesQuery.data.map((row) => {
                 const selectedRow = row.enrollmentId === selectedId;
                 return <button key={`${row.enrollmentId}-${row.userId}`} type="button" onClick={() => selectCandidate(row)} className={`w-full rounded-lg border p-3 text-left transition ${selectedRow ? "border-teal-500 bg-teal-50" : "border-slate-200 bg-white hover:border-teal-300"}`}><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-medium text-slate-900">{row.userName || "Unnamed learner"}</p><p className="text-xs text-slate-500">{row.userEmail || "No email"} · {PROGRAM_LABELS[row.courseProgramType] || row.courseProgramType}</p></div><Badge variant="outline" className={row.cognitiveModulesComplete ? "border-emerald-200 text-emerald-800" : "border-red-200 text-red-800"}>{row.cognitiveModulesComplete ? "Cognitive complete" : "Cognitive incomplete"}</Badge></div>{row.recordId ? <p className="mt-2 text-xs text-slate-600">Existing record: {row.phase3Completed ? "Phase 3 recorded" : row.phase2Completed ? "Phase 2 recorded" : "not complete"}{row.recordedByName ? ` · ${row.recordedByName}` : ""}</p> : <p className="mt-2 text-xs text-slate-500">No external completion record yet</p>}</button>;
-              }) : <p className="py-8 text-sm text-slate-500">No matching eligible enrollments found.</p>}
+              }) : <p className="py-8 text-sm text-slate-500">No eligible cognitive-complete Life Support enrollment matched this search.</p>}
             </CardContent>
           </Card>
 
