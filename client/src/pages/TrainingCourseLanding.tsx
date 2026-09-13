@@ -20,7 +20,9 @@ import {
   type TrainingLandingConfig,
 } from "@/lib/training-landing-content";
 import {
+  buildBreadcrumbListJsonLd,
   buildCourseJsonLd,
+  buildFaqPageJsonLd,
   buildJsonLdGraph,
   buildOrganizationJsonLd,
 } from "@/lib/seo-schema";
@@ -52,6 +54,12 @@ export default function TrainingCourseLanding({ slug }: Props) {
       duration: config.duration,
       priceKes: price,
     }),
+    buildFaqPageJsonLd(config.faqs, config.path),
+    buildBreadcrumbListJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Training", path: "/training" },
+      { name: config.courseCode, path: config.path },
+    ]),
   ]);
 
   const enrollPath = getLoginUrl(`/enroll?courseId=${slug}`);
@@ -112,6 +120,30 @@ export default function TrainingCourseLanding({ slug }: Props) {
             </section>
           ))}
 
+          {slug === "bls" && (
+            <Card className="border-brand-teal/30 bg-brand-teal/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Request the next practical BLS session</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  Complete the online enrollment pathway first, then contact Paeds Resus to confirm the next available
+                  hands-on skills date and location for an individual learner or organised cohort in Kenya.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <a href="https://wa.me/254706781260?text=I%20would%20like%20to%20ask%20about%20BLS%20training%20in%20Kenya%20and%20the%20next%20practical%20session.">
+                    <Button variant="outline" className="border-brand-teal text-brand-teal hover:bg-brand-teal/10">
+                      Ask about the next session
+                    </Button>
+                  </a>
+                  <Link href="/for-institutions#quote">
+                    <Button variant="ghost">Request an institutional cohort</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <section aria-labelledby="faq-heading">
             <h2 id="faq-heading" className="text-xl font-bold mb-4">
               Frequently asked questions
@@ -159,6 +191,13 @@ export default function TrainingCourseLanding({ slug }: Props) {
                 AHA courses hub
               </Button>
             </Link>
+            {slug === "bls" && (
+              <Link href="/resources/bls-certification-cost-kenya">
+                <Button variant="ghost" size="sm">
+                  BLS cost guide
+                </Button>
+              </Link>
+            )}
             <Link href="/verify">
               <Button variant="ghost" size="sm">
                 Verify certificate
