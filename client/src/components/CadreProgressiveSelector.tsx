@@ -246,7 +246,7 @@ export function SearchableDropdown({
           onValueChange={setQuery}
         />
       ) : null}
-      <CommandList className="max-h-[250px]">
+      <CommandList className="max-h-[min(50vh,320px)] overflow-y-auto overscroll-contain">
         <CommandEmpty>{emptyText}</CommandEmpty>
         <CommandGroup>
           {filteredOptions.map(opt => (
@@ -256,12 +256,12 @@ export function SearchableDropdown({
               onSelect={() => selectOption(opt.value)}
             >
               <Check
-                className={cn(
-                  "mr-2 h-4 w-4",
-                  value === opt.value ? "opacity-100" : "opacity-0"
-                )}
+              className={cn(
+                "mr-2 mt-0.5 h-4 w-4 shrink-0",
+                value === opt.value ? "opacity-100" : "opacity-0"
+              )}
               />
-              {opt.label}
+              <span className="min-w-0 whitespace-normal break-words text-left leading-snug">{opt.label}</span>
             </CommandItem>
           ))}
         </CommandGroup>
@@ -271,34 +271,44 @@ export function SearchableDropdown({
 
   return (
     <div className={cn(
-      "space-y-2",
+      "relative space-y-2",
       searchAlwaysVisible && "rounded-md border border-input bg-background p-2",
     )}>
       {searchAlwaysVisible ? (
-        <Input
-          value={searchQuery}
-          placeholder={searchPlaceholder}
-          aria-label={searchPlaceholder}
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          onFocus={() => setOpen(true)}
-          onKeyDown={event => {
+        <div
+          role="combobox"
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          className="min-w-0"
+          onClick={() => setOpen(true)}
+        >
+          <Input
+            value={searchQuery}
+            placeholder={searchPlaceholder}
+            aria-label={searchPlaceholder}
+            aria-autocomplete="list"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            onFocus={() => setOpen(true)}
+            onKeyDown={event => {
             if (clearable && value && !searchQuery && (event.key === "Backspace" || event.key === "Delete")) {
               event.preventDefault();
               onChange("");
               setQuery("");
-              setOpen(false);
+              setOpen(true);
             }
           }}
-          onChange={event => {
-            setQuery(event.target.value);
-            setOpen(true);
-          }}
-        />
+            onChange={event => {
+              setQuery(event.target.value);
+              setOpen(true);
+            }}
+          />
+          <span className="sr-only">{selectedOption?.label ?? "No presenter selected"}</span>
+        </div>
       ) : null}
       <div className="flex min-w-0 gap-2">
-        <Popover open={open} onOpenChange={setOpen}>
+        {searchAlwaysVisible ? null : <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
@@ -312,7 +322,7 @@ export function SearchableDropdown({
                   setOpen(false);
                 }
               }}
-              className="min-w-0 flex-1 justify-between font-normal bg-background border-input hover:bg-accent hover:text-accent-foreground text-left"
+              className="min-w-0 flex-1 justify-between font-normal bg-background border-input hover:bg-accent hover:text-accent-foreground text-left min-h-11"
             >
               <span className="min-w-0 truncate">{selectedOption ? selectedOption.label : placeholder}</span>
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -324,7 +334,19 @@ export function SearchableDropdown({
           >
             {optionList}
           </PopoverContent>
-        </Popover>
+        </Popover>}
+        {searchAlwaysVisible ? (
+          <div
+            className={cn(
+              "absolute z-50 mt-1 w-full overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md",
+              !open && "hidden",
+            )}
+            role="listbox"
+            aria-label="Presenter search results"
+          >
+            {optionList}
+          </div>
+        ) : null}
         {clearable && value ? (
           <Button
             type="button"
