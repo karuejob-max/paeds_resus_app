@@ -49,29 +49,33 @@ export default function TrainingHub() {
             {Object.values(TRAINING_LANDING_CONFIGS).map((course) => {
               const price = getTrainingPrice(course.slug);
               return (
-              <Card key={course.slug} className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <CardTitle className="text-lg">{course.courseCode}</CardTitle>
-                  <CardDescription>
-                    {course.subtitle.slice(0, 100)}…
-                    <AhaCourseDurationLines programType={course.slug} className="mt-2" />
-                    {price != null && price > 0 && (
-                      <span className="block mt-2 font-medium text-foreground">
-                        From {formatPrice(price)}
-                      </span>
-                    )}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Link href={course.path}>
-                    <Button variant="outline" className="w-full gap-2">
-                      View {course.courseCode} details
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            );
+                <Card key={course.slug} className="hover:shadow-md transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="text-lg">
+                      {course.slug === "bls" ? "BLS training in Kenya" : course.courseCode}
+                    </CardTitle>
+                    <CardDescription>
+                      {course.slug === "bls"
+                        ? "AHA-aligned Basic Life Support training for healthcare providers, with online learning and practical sign-off."
+                        : `${course.subtitle.slice(0, 100)}…`}
+                      <AhaCourseDurationLines programType={course.slug} className="mt-2" />
+                      {price != null && price > 0 && (
+                        <span className="block mt-2 font-medium text-foreground">
+                          From {formatPrice(price)}
+                        </span>
+                      )}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Link href={course.path}>
+                      <Button variant="outline" className="w-full gap-2">
+                        {course.slug === "bls" ? "View BLS training details" : `View ${course.courseCode} details`}
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              );
             })}
           </div>
 
