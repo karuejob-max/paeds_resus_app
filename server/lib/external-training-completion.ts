@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import {
   certificates,
   enrollments,
@@ -53,11 +53,18 @@ async function getTargetEnrollment(
       userId: enrollments.userId,
       programType: enrollments.programType,
       trainingDate: enrollments.trainingDate,
-      cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
+      cognitiveModulesComplete: sql<boolean>`CASE WHEN ${enrollments.cognitiveModulesComplete} = 1 OR ${certificates.id} IS NOT NULL THEN 1 ELSE 0 END`,
       practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
       practicalSignedOffAt: enrollments.practicalSignedOffAt,
     })
     .from(enrollments)
+    .leftJoin(
+      certificates,
+      and(
+        eq(certificates.enrollmentId, enrollments.id),
+        eq(certificates.programType, input.courseProgramType as any),
+      ),
+    )
     .where(
       input.enrollmentId
         ? and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, input.userId))
@@ -77,7 +84,7 @@ export async function listExternalCompletionCandidates(db: Db, search?: string) 
       userEmail: users.email,
       enrollmentId: enrollments.id,
       courseProgramType: enrollments.programType,
-      cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
+      cognitiveModulesComplete: sql<boolean>`CASE WHEN ${enrollments.cognitiveModulesComplete} = 1 OR ${certificates.id} IS NOT NULL THEN 1 ELSE 0 END`,
       practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
       trainingDate: enrollments.trainingDate,
       recordId: externalTrainingCompletions.id,
@@ -95,6 +102,13 @@ export async function listExternalCompletionCandidates(db: Db, search?: string) 
     .from(enrollments)
     .innerJoin(users, eq(users.id, enrollments.userId))
     .leftJoin(
+      certificates,
+      and(
+        eq(certificates.enrollmentId, enrollments.id),
+        eq(certificates.programType, enrollments.programType as any),
+      ),
+    )
+    .leftJoin(
       externalTrainingCompletions,
       and(
         eq(externalTrainingCompletions.userId, enrollments.userId),
@@ -104,7 +118,7 @@ export async function listExternalCompletionCandidates(db: Db, search?: string) 
     .where(
       and(
         inArray(enrollments.programType, EXTERNAL_COMPLETION_PROGRAMS as any),
-        eq(enrollments.cognitiveModulesComplete, true),
+        or(eq(enrollments.cognitiveModulesComplete, true), isNotNull(certificates.id)),
         term
           ? or(
               sql`${users.name} LIKE ${`%${term}%`}`,
