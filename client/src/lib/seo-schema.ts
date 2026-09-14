@@ -18,6 +18,7 @@ export const PUBLIC_SEO_ROUTES = [
   "/about",
   "/resources",
   "/resources/bls-certification-cost-kenya",
+  "/resources/acls-course-cost-kenya",
   "/resources/hospital-emergency-readiness-checklist",
   "/resources/paediatric-shock-recognition-first-actions",
   "/help",

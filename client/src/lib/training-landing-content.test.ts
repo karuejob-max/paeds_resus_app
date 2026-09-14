@@ -20,13 +20,23 @@ describe("getTrainingPrice", () => {
   });
 });
 
-describe("BLS local-intent content", () => {
-  it("covers Kenya, Nairobi, practical-session expectations, and approved pricing", () => {
+describe("local-intent training content", () => {
+  it("covers Kenya, Nairobi, practical-session expectations, and approved BLS pricing", () => {
     const config = TRAINING_LANDING_CONFIGS.bls;
     const text = [config.title, config.metaDescription, config.subtitle, ...config.sections.flatMap((section) => section.paragraphs), ...config.faqs.flatMap((faq) => [faq.question, faq.answer])].join(" ");
     expect(text).toContain("BLS training in Kenya");
     expect(text).toContain("Nairobi");
     expect(text).toContain("KES 10,000 per person; KES 7,500 per person for cohorts of 7 or more");
+    expect(text).toContain("confirmed during booking");
+  });
+
+  it("covers Kenya, Nairobi, practical megacode expectations, and approved ACLS pricing", () => {
+    const config = TRAINING_LANDING_CONFIGS.acls;
+    const text = [config.title, config.metaDescription, config.subtitle, ...config.sections.flatMap((section) => section.paragraphs), ...config.faqs.flatMap((faq) => [faq.question, faq.answer])].join(" ");
+    expect(text).toContain("ACLS training in Kenya");
+    expect(text).toContain("Nairobi");
+    expect(text).toContain("KES 20,000 per person; KES 17,500 per person for cohorts of 7 or more");
+    expect(text).toContain("megacode");
     expect(text).toContain("confirmed during booking");
   });
 });

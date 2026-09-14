@@ -109,8 +109,11 @@ describe("buildJsonLdGraph", () => {
 });
 
 describe("PUBLIC_SEO_ROUTES", () => {
-  it("includes training and stakeholder paths", () => {
+  it("includes all core training and authority paths", () => {
+    expect(PUBLIC_SEO_ROUTES).toContain("/training/bls");
+    expect(PUBLIC_SEO_ROUTES).toContain("/training/acls");
     expect(PUBLIC_SEO_ROUTES).toContain("/training/pals");
+    expect(PUBLIC_SEO_ROUTES).toContain("/resources/acls-course-cost-kenya");
     expect(PUBLIC_SEO_ROUTES).toContain("/for-providers");
     expect(PUBLIC_SEO_ROUTES).toContain("/aha-courses");
   });

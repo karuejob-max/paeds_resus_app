@@ -115,6 +115,12 @@ export default function PublicHome() {
               >
                 BLS training in Kenya
               </Link>
+              <Link
+                href="/training/acls"
+                className="underline underline-offset-4 hover:text-white"
+              >
+                ACLS training in Kenya
+              </Link>
             </div>
           </div>
         </section>

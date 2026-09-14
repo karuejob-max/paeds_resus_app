@@ -52,12 +52,18 @@ export default function TrainingHub() {
                 <Card key={course.slug} className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <CardTitle className="text-lg">
-                      {course.slug === "bls" ? "BLS training in Kenya" : course.courseCode}
+                      {course.slug === "bls"
+                        ? "BLS training in Kenya"
+                        : course.slug === "acls"
+                          ? "ACLS training in Kenya"
+                          : course.courseCode}
                     </CardTitle>
                     <CardDescription>
                       {course.slug === "bls"
                         ? "AHA-aligned Basic Life Support training for healthcare providers, with online learning and practical sign-off."
-                        : `${course.subtitle.slice(0, 100)}…`}
+                        : course.slug === "acls"
+                          ? "AHA-aligned Advanced Cardiovascular Life Support training for clinicians, with online learning and practical megacode sign-off."
+                          : `${course.subtitle.slice(0, 100)}…`}
                       <AhaCourseDurationLines programType={course.slug} className="mt-2" />
                       {price != null && price > 0 && (
                         <span className="block mt-2 font-medium text-foreground">
@@ -69,7 +75,11 @@ export default function TrainingHub() {
                   <CardContent>
                     <Link href={course.path}>
                       <Button variant="outline" className="w-full gap-2">
-                        {course.slug === "bls" ? "View BLS training details" : `View ${course.courseCode} details`}
+                        {course.slug === "bls"
+                          ? "View BLS training details"
+                          : course.slug === "acls"
+                            ? "View ACLS training details"
+                            : `View ${course.courseCode} details`}
                         <ArrowRight className="h-4 w-4" />
                       </Button>
                     </Link>
