@@ -188,6 +188,19 @@ export function buildCourseJsonLd(input: CourseSchemaInput) {
   return course;
 }
 
+export function buildBreadcrumbListJsonLd(items: { name: string; path: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: `${SITE_ORIGIN}${item.path}`,
+    })),
+  };
+}
+
 export function buildJsonLdGraph(items: Record<string, unknown>[]) {
   return {
     "@context": "https://schema.org",
