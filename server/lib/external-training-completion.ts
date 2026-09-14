@@ -105,14 +105,14 @@ export async function listExternalCompletionCandidates(db: Db, search?: string) 
       certificates,
       and(
         eq(certificates.enrollmentId, enrollments.id),
-        eq(certificates.programType, enrollments.programType as any),
+        sql`${certificates.programType} COLLATE utf8mb4_unicode_ci = ${enrollments.programType} COLLATE utf8mb4_unicode_ci`,
       ),
     )
     .leftJoin(
       externalTrainingCompletions,
       and(
         eq(externalTrainingCompletions.userId, enrollments.userId),
-        eq(externalTrainingCompletions.courseProgramType, enrollments.programType as any),
+        sql`${externalTrainingCompletions.courseProgramType} COLLATE utf8mb4_unicode_ci = ${enrollments.programType} COLLATE utf8mb4_unicode_ci`,
       ),
     )
     .where(
