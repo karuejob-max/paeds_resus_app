@@ -17,8 +17,46 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { NERP_PATHWAY_ENTRY_PATH } from "@shared/nerp-pathway";
 import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
+import { JsonLdScript } from "@/components/JsonLdScript";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { useScrollToTop } from "@/hooks/useScrollToTop";
+import { buildBreadcrumbListJsonLd, buildJsonLdGraph, buildOrganizationJsonLd } from "@/lib/seo-schema";
 
 export default function NerpOfferPage() {
+  useScrollToTop();
+  usePageMeta({
+    title: "NERP Kenya — Nursing Emergency Readiness Program | Paeds Resus",
+    description:
+      "NERP is Paeds Resus's staged nursing emergency-readiness pathway in Kenya: six monthly KES 2,500 payments, BLS-first learning, ACLS progression, and verified professional eligibility.",
+    path: "/programs/nerp-acls",
+  });
+  const jsonLd = buildJsonLdGraph([
+    buildOrganizationJsonLd(),
+    {
+      "@context": "https://schema.org",
+      "@type": "Course",
+      name: "NERP — Nursing Emergency Readiness Program",
+      description:
+        "A staged nursing emergency-readiness pathway in Kenya combining BLS-first learning, ACLS progression, evidence, and programme guidance.",
+      url: "https://www.paedsresus.com/programs/nerp-acls",
+      courseCode: "NERP",
+      provider: { "@id": "https://www.paedsresus.com/#organization" },
+      inLanguage: "en",
+      educationalLevel: "Professional",
+      hasCourseInstance: { "@type": "CourseInstance", courseMode: "blended", location: { "@type": "Place", name: "Kenya" } },
+      offers: {
+        "@type": "Offer",
+        price: 15000,
+        priceCurrency: "KES",
+        url: "https://www.paedsresus.com/programs/nerp-acls",
+      },
+    },
+    buildBreadcrumbListJsonLd([
+      { name: "Home", path: "/" },
+      { name: "For providers", path: "/for-providers" },
+      { name: "NERP", path: "/programs/nerp-acls" },
+    ]),
+  ]);
   const { user, loading } = useAuth();
   const eligibility = trpc.nerp.getEligibility.useQuery(undefined, { enabled: !!user, retry: false });
   const enrollment = trpc.nerp.getMyEnrollment.useQuery(undefined, {
@@ -47,7 +85,9 @@ export default function NerpOfferPage() {
         : "/provider-profile";
 
   return (
-    <div className="min-h-screen bg-muted/20 px-4 py-10 md:px-8">
+    <>
+      <JsonLdScript data={jsonLd} />
+      <div className="min-h-screen bg-muted/20 px-4 py-10 md:px-8">
       <div className="mx-auto max-w-5xl space-y-8">
         <section className="rounded-3xl border border-brand-orange/20 bg-gradient-to-br from-brand-surface via-background to-orange-50/40 p-6 shadow-sm md:p-10">
           <div className="max-w-3xl space-y-5">
@@ -193,6 +233,7 @@ export default function NerpOfferPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

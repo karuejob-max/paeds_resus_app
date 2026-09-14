@@ -63,6 +63,11 @@ export default function TrainingCourseLanding({ slug }: Props) {
   ]);
 
   const enrollPath = getLoginUrl(`/enroll?courseId=${slug}`);
+  const hasLocalSessionIntent = slug === "bls" || slug === "acls";
+  const courseLabel = slug.toUpperCase();
+  const whatsappMessage = encodeURIComponent(
+    `I would like to ask about ${courseLabel} training in Kenya and the next practical session.`,
+  );
 
   return (
     <>
@@ -120,18 +125,18 @@ export default function TrainingCourseLanding({ slug }: Props) {
             </section>
           ))}
 
-          {slug === "bls" && (
+          {hasLocalSessionIntent && (
             <Card className="border-brand-teal/30 bg-brand-teal/5">
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Request the next practical BLS session</CardTitle>
+                <CardTitle className="text-lg">Request the next practical {courseLabel} session</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
                 <p>
                   Complete the online enrollment pathway first, then contact Paeds Resus to confirm the next available
-                  hands-on skills date and location for an individual learner or organised cohort in Kenya.
+                  hands-on {courseLabel === "ACLS" ? "megacode" : "skills"} date and location for an individual learner or organised cohort in Kenya.
                 </p>
                 <div className="flex flex-wrap gap-3">
-                  <a href="https://wa.me/254706781260?text=I%20would%20like%20to%20ask%20about%20BLS%20training%20in%20Kenya%20and%20the%20next%20practical%20session.">
+                  <a href={`https://wa.me/254706781260?text=${whatsappMessage}`}>
                     <Button variant="outline" className="border-brand-teal text-brand-teal hover:bg-brand-teal/10">
                       Ask about the next session
                     </Button>
@@ -192,9 +197,23 @@ export default function TrainingCourseLanding({ slug }: Props) {
               </Button>
             </Link>
             {slug === "bls" && (
-              <Link href="/resources/bls-certification-cost-kenya">
+              <>
+                <Link href="/resources/bls-certification-cost-kenya">
+                  <Button variant="ghost" size="sm">
+                    BLS cost guide
+                  </Button>
+                </Link>
+                <Link href="/training/acls">
+                  <Button variant="ghost" size="sm">
+                    ACLS pathway
+                  </Button>
+                </Link>
+              </>
+            )}
+            {slug === "acls" && (
+              <Link href="/training/bls">
                 <Button variant="ghost" size="sm">
-                  BLS cost guide
+                  BLS foundation pathway
                 </Button>
               </Link>
             )}

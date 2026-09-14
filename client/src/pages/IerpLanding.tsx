@@ -20,6 +20,8 @@ import Footer from "@/components/Footer";
 import { usePageMeta } from "@/hooks/usePageMeta";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { IERP_FULL_PRICE, formatKes } from "@/const/marketingCopy";
+import { JsonLdScript } from "@/components/JsonLdScript";
+import { buildBreadcrumbListJsonLd, buildJsonLdGraph, buildOrganizationJsonLd } from "@/lib/seo-schema";
 
 const phases = [
   {
@@ -71,11 +73,38 @@ const outcomeTiles = [
 export default function IerpLanding() {
   useScrollToTop();
   usePageMeta({
-    title: "IERP — Intern Emergency Readiness Program | Paeds Resus",
+    title: "IERP Kenya — Intern Emergency Readiness Program | Paeds Resus",
     description:
-      "A clear, staged emergency readiness pathway for healthcare interns: BLS, ACLS, evidence, online simulations, and hands-on assessment.",
+      "IERP is Paeds Resus's individual intern emergency-readiness pathway in Kenya: BLS, ACLS, evidence, online simulations, hands-on assessment, and a KES 15,000 programme fee.",
     path: "/programs/ierp",
   });
+  const jsonLd = buildJsonLdGraph([
+    buildOrganizationJsonLd(),
+    {
+      "@context": "https://schema.org",
+      "@type": "Course",
+      name: "IERP — Intern Emergency Readiness Program",
+      description:
+        "A staged individual emergency-readiness pathway for healthcare interns in Kenya combining BLS, ACLS, evidence, online simulations, and hands-on assessment.",
+      url: "https://www.paedsresus.com/programs/ierp",
+      courseCode: "IERP",
+      provider: { "@id": "https://www.paedsresus.com/#organization" },
+      inLanguage: "en",
+      educationalLevel: "Professional",
+      hasCourseInstance: { "@type": "CourseInstance", courseMode: "blended", location: { "@type": "Place", name: "Kenya" } },
+      offers: {
+        "@type": "Offer",
+        price: IERP_FULL_PRICE,
+        priceCurrency: "KES",
+        url: "https://www.paedsresus.com/programs/ierp",
+      },
+    },
+    buildBreadcrumbListJsonLd([
+      { name: "Home", path: "/" },
+      { name: "For providers", path: "/for-providers" },
+      { name: "IERP", path: "/programs/ierp" },
+    ]),
+  ]);
   const { isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const summaryQuery = trpc.ierp.getSummary.useQuery(undefined, {
@@ -129,7 +158,9 @@ export default function IerpLanding() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950">
+    <>
+      <JsonLdScript data={jsonLd} />
+      <div className="min-h-screen bg-slate-50 pb-24 text-slate-950">
       {enrolled && journey ? (
         <section className="border-b border-slate-200 bg-slate-100 px-4 py-8 sm:px-6 md:px-10 md:py-10">
           <div className="mx-auto max-w-6xl space-y-5">
@@ -322,6 +353,7 @@ export default function IerpLanding() {
         </Button>
       </div>
       <Footer />
-    </div>
+      </div>
+    </>
   );
 }

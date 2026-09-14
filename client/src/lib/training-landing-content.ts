@@ -4,7 +4,13 @@ import {
   formatCognitiveCourseworkDuration,
 } from "@/const/aha-course-metadata";
 import { getIndividualCoursePrice } from "@/const/pricing";
-import { BLS_COHORT_PRICE, BLS_PRICE, formatCohortLine } from "@/const/marketingCopy";
+import {
+  ACLS_COHORT_PRICE,
+  ACLS_PRICE,
+  BLS_COHORT_PRICE,
+  BLS_PRICE,
+  formatCohortLine,
+} from "@/const/marketingCopy";
 
 export type TrainingFaq = { question: string; answer: string };
 
@@ -95,16 +101,23 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
   acls: {
     slug: "acls",
     path: "/training/acls",
-    title: "ACLS Course Kenya — Advanced Cardiovascular Life Support | Paeds Resus",
+    title: "ACLS Training in Kenya — AHA-Aligned Certification | Paeds Resus",
     metaDescription:
-      "AHA-aligned ACLS (Advanced Cardiovascular Life Support) course in Kenya. Enroll with Paeds Resus Limited for blended training with online modules and hands-on certification.",
-    h1: "ACLS Course in Kenya — Advanced Cardiovascular Life Support",
+      "ACLS training in Kenya for healthcare providers: AHA-aligned blended learning, online cognitive modules, practical megacode sign-off, and cohort pricing from Paeds Resus.",
+    h1: "ACLS Training in Kenya — Advanced Cardiovascular Life Support",
     subtitle:
-      "Master cardiac arrest algorithms, arrhythmia management, and team dynamics with AHA-aligned ACLS from Paeds Resus Limited.",
+      "A structured ACLS training pathway for clinicians in Kenya, with online learning and a confirmed hands-on megacode session.",
     courseCode: "ACLS",
     duration: ahaDurationIsoHours("acls"),
     priceCourseId: "acls",
-    keywords: ["ACLS course Kenya", "advanced cardiovascular life support", "ACLS training Nairobi", "cardiac arrest training"],
+    keywords: [
+      "ACLS training Kenya",
+      "ACLS course Kenya",
+      "ACLS training Nairobi",
+      "AHA ACLS Kenya",
+      "advanced cardiovascular life support Kenya",
+      "cardiac arrest training Kenya",
+    ],
     sections: [
       {
         heading: "ACLS for clinicians who respond to cardiac emergencies",
@@ -122,6 +135,20 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
         ],
       },
       {
+        heading: "ACLS training in Kenya and Nairobi",
+        paragraphs: [
+          "Paeds Resus is based in Kenya and supports individual clinicians and institutional teams across the country. If you are searching for ACLS training in Nairobi or another Kenyan county, begin the online pathway and request the next practical megacode session; the confirmed date and location are shared during booking based on cohort and instructor scheduling.",
+          "Online cognitive completion is not the same as full ACLS certification. Plan for the separate instructor-led practical assessment so you can demonstrate team leadership, defibrillation, and algorithm performance under supervision.",
+        ],
+      },
+      {
+        heading: "ACLS course price and cohort options",
+        paragraphs: [
+          `${formatCohortLine(ACLS_PRICE, ACLS_COHORT_PRICE)}. Individual clinicians can start online; hospitals and organised teams can request an institutional cohort pathway and practical-session plan.`,
+          "Confirm practical-session arrangements, certification wording, and any employer or licensing requirements before payment.",
+        ],
+      },
+      {
         heading: "Institutional and team enrollment",
         paragraphs: [
           "Hospitals and training organisations can enroll staff cohorts with institutional pricing and track completion through the Paeds Resus institutional portal. This supports emergency readiness systems — not just seat sales — so leadership can see who is certified and who needs renewal.",
@@ -133,9 +160,14 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
     ],
     faqs: [
       {
-        question: "How much does ACLS cost in Kenya through Paeds Resus?",
+        question: "How much does ACLS training cost in Kenya?",
         answer:
-          "Individual ACLS pricing is listed on this page when available. Institutional cohorts may receive volume discounts — contact us through the institutional page for a quote.",
+          `${formatCohortLine(ACLS_PRICE, ACLS_COHORT_PRICE)}. Contact Paeds Resus for an institutional cohort pathway and practical-session details.`,
+      },
+      {
+        question: "Is ACLS training available in Nairobi?",
+        answer:
+          "Providers searching for ACLS training in Nairobi can start the Paeds Resus Kenya enrollment pathway online. Practical-session dates and locations are confirmed during booking based on the active cohort and instructor schedule; contact Paeds Resus if you are organising a team cohort.",
       },
       {
         question: "Is ACLS AHA-certified through Paeds Resus?",
@@ -147,9 +179,9 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
           "BLS competence is assumed. If you need BLS certification, enroll in our BLS track first or concurrently as your schedule allows.",
       },
       {
-        question: "Can I book a practical session online?",
+        question: "Can I book an ACLS practical session online?",
         answer:
-          "After completing cognitive modules, sign in and use the AHA courses hub to book or register for an upcoming hands-on session.",
+          "After completing cognitive modules, sign in and use the AHA courses hub to request or register for an upcoming hands-on megacode session. The date and location are confirmed during booking.",
       },
     ],
   },

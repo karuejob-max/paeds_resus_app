@@ -24,6 +24,21 @@ export const PUBLIC_RESOURCES: PublicResource[] = [
     ],
   },
   {
+    slug: "acls-course-cost-kenya",
+    title: "What to check before choosing ACLS training in Kenya",
+    summary:
+      "A practical guide to comparing ACLS course scope, blended delivery, practical megacode assessment, pricing, and renewal expectations before you book.",
+    audience: "Providers",
+    question: "What should I compare when choosing ACLS training in Kenya?",
+    publishedAt: "2026-09-14",
+    body: [
+      "Start by confirming who the ACLS pathway is designed for. ACLS supports healthcare providers who respond to adult cardiac arrest, peri-arrest arrhythmias, acute coronary syndromes, stroke, and organised resuscitation-team events. Paediatric teams should also check whether they need PALS for child-specific emergencies and whether their employer requires both tracks.",
+      "Then check the delivery sequence. A credible blended pathway should distinguish online cognitive learning from the instructor-led practical megacode session. Ask what must be completed before the practical assessment, what evidence is issued at each stage, how the final certificate is described, and how you can verify the record later.",
+      "Paeds Resus lists ACLS at KES 20,000 per person, with KES 17,500 per person for cohorts of 7 or more. Confirm the practical-session date and location during booking, because the online modules are not a substitute for hands-on sign-off.",
+      "Finally, check the pathway against your employer, licensing body, facility protocol, and renewal requirements. Course content supports readiness; it does not replace local clinical governance, senior supervision, or emergency-care protocols.",
+    ],
+  },
+  {
     slug: "hospital-emergency-readiness-checklist",
     title: "A hospital emergency-readiness checklist for leadership teams",
     summary:
