@@ -190,7 +190,7 @@ function getLeafValue(category: string, role: string, rnLevel: string, rnSub: st
 interface SearchableDropdownProps {
   value: string;
   onChange: (val: string) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; description?: string; searchText?: string }[];
   placeholder?: string;
   searchPlaceholder?: string;
   emptyText?: string;
@@ -222,7 +222,9 @@ export function SearchableDropdown({
     return options.filter(
       option =>
         option.label.toLowerCase().includes(query) ||
-        option.value.toLowerCase().includes(query),
+        option.value.toLowerCase().includes(query) ||
+        option.description?.toLowerCase().includes(query) ||
+        option.searchText?.toLowerCase().includes(query),
     );
   }, [options, searchQuery]);
 
@@ -261,7 +263,10 @@ export function SearchableDropdown({
                 value === opt.value ? "opacity-100" : "opacity-0"
               )}
               />
-              <span className="min-w-0 whitespace-normal break-words text-left leading-snug">{opt.label}</span>
+              <span className="min-w-0 text-left">
+                <span className="block truncate font-medium">{opt.label}</span>
+                {opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}
+              </span>
             </CommandItem>
           ))}
         </CommandGroup>
