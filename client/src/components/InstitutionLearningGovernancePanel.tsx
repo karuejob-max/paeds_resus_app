@@ -161,9 +161,10 @@ export default function InstitutionLearningGovernancePanel({
       value: String(person.id),
       label: person.fullName,
       description: [
-        person.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member",
-        person.cadre ?? "Cadre not set",
+        person.email ?? "Email not set",
         person.department ?? "Department not set",
+        person.cadre ?? "Cadre not set",
+        person.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member",
       ].join(" · "),
       searchText: [person.fullName, person.email, person.cadre, person.department].filter(Boolean).join(" "),
       person,
@@ -214,9 +215,10 @@ export default function InstitutionLearningGovernancePanel({
         value: String(person.id),
         label: person.fullName,
         description: [
-          person.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member",
-          person.cadre ?? "Cadre not set",
+          person.email ?? "Email not set",
           person.department ?? "Department not set",
+          person.cadre ?? "Cadre not set",
+          person.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member",
         ].join(" · "),
         searchText: [person.fullName, person.email, person.cadre, person.department].filter(Boolean).join(" "),
         person,
@@ -586,8 +588,13 @@ export default function InstitutionLearningGovernancePanel({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate font-medium">Presenter set: {selectedPresenter.fullName}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {[selectedPresenter.cadre ?? selectedPresenter.cadreOther ?? "Cadre not set", selectedPresenter.department ?? "Department not set"].join(" · ")}
+                      <p className="break-words text-xs leading-snug text-muted-foreground">
+                        {[
+                          selectedPresenter.email ?? "Email not set",
+                          selectedPresenter.department ?? "Department not set",
+                          selectedPresenter.cadre ?? selectedPresenter.cadreOther ?? "Cadre not set",
+                          selectedPresenter.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member",
+                        ].join(" · ")}
                       </p>
                     </div>
                     <span className="shrink-0 text-xs text-emerald-700">Selected</span>

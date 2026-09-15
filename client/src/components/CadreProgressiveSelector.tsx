@@ -265,7 +265,7 @@ export function SearchableDropdown({
               />
               <span className="min-w-0 text-left">
                 <span className="block truncate font-medium">{opt.label}</span>
-                {opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}
+                {opt.description ? <span className="block break-words text-xs leading-snug text-muted-foreground">{opt.description}</span> : null}
               </span>
             </CommandItem>
           ))}
@@ -287,6 +287,13 @@ export function SearchableDropdown({
           className="min-w-0"
           onClick={() => setOpen(true)}
         >
+          {selectedOption ? (
+            <div className="mb-2 rounded-md border border-emerald-200 bg-emerald-50/70 px-2.5 py-2 text-left dark:border-emerald-900/60 dark:bg-emerald-950/30" aria-live="polite">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Presenter selected</p>
+              <p className="truncate text-sm font-medium text-emerald-950 dark:text-emerald-100">{selectedOption.label}</p>
+              {selectedOption.description ? <p className="break-words text-xs leading-snug text-emerald-800/80 dark:text-emerald-200/80">{selectedOption.description}</p> : null}
+            </div>
+          ) : null}
           <Input
             value={searchQuery}
             placeholder={searchPlaceholder}
