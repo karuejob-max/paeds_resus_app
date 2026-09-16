@@ -32,12 +32,12 @@ ICPD must not be presented as proof of emergency readiness, bedside competence, 
 | **AHA ACLS** | A blended Advanced Cardiovascular Life Support pathway for providers managing adult and broader cardiovascular emergencies, with clear prerequisite and practical gates | Individual providers, clinical departments, institutions | **KES 20,000 per person**; **KES 17,500 per person for cohorts of 7+** |
 | **NERP** | Nurses Emergency Readiness Program: a structured nurse-specific readiness pathway with learning, simulations, practical progression, and governed evidence | Nurses and nurse leaders | **Price to be confirmed in the commercial offer** |
 | **IERP** | Interns Emergency Readiness Program: a profile-first pathway for interns covering learning, role-based simulations, practical progression, and evidence gates | Medical interns | **Price to be confirmed in the commercial offer**; current internal reference is KES 15,000 for the IERP BLS + ACLS pathway |
-| **ILSP** | Institutional Life Support Program: institution-paid, cohort-scoped life-support training with roster, delivery, readiness, and practical-assessment controls | Hospitals and health facilities | **Price to be confirmed by cohort scope and proposal** |
-| **IERS** | Institutional Emergency Readiness System: a hospital-wide operating layer for emergency-response governance, activation, readiness evidence, improvement actions, aggregate reporting, and the ResusGPS bedside-guidance product | CEOs, medical directors, nursing leadership, county and facility teams | **KES 200,000 per year** |
-| **ICPD** | Institutional Continuous Professional Development: a managed institutional service for recording, verifying, tracking, and reporting staff professional-development activity | Hospitals, education departments, HR, nursing education, medical education, quality teams | **KES 200,000 per year** |
+| **ILSP** | Institutional Life Support Program: institution-paid, cohort-scoped life-support training with roster, delivery, readiness, and practical-assessment controls | Hospitals and health facilities | **KES 7,000 per staff member** |
+| **IERS** | Institutional Emergency Readiness System: a hospital-wide operating layer for emergency-response governance, activation, readiness evidence, improvement actions, aggregate reporting, and the ResusGPS bedside-guidance product | CEOs, medical directors, nursing leadership, county and facility teams | **From KES 200,000/year, tiered by facility level** |
+| **ICPD** | Institutional Continuous Professional Development: a managed institutional service for recording, verifying, tracking, and reporting staff professional-development activity | Hospitals, education departments, HR, nursing education, medical education, quality teams | **KES 1,000 / 900 / 800 per staff per year; custom quote for 501+** |
 | **Paeds Resus Fellowship** | A unified online pathway of condition-specific paediatric emergency micro-courses that builds breadth, pattern recognition, and a Paeds Resus Fellow identity | Healthcare providers who care for sick children | Course-level pricing applies; confirm catalogue price before publishing |
 
-**Portfolio hierarchy:** The individual-provider portfolio comprises **AHA BLS, AHA ACLS, NERP, IERP, and the Paeds Resus Fellowship**. The institutional portfolio comprises **ILSP, IERS, and ICPD**. **ResusGPS is a product within IERS**, alongside the Care Signal improvement layer; it is not a separate top-level product. The requested BLS, ACLS, IERS, and ICPD prices are treated as the current marketing anchors. NERP, IERP, and ILSP should not receive invented prices in public copy until the commercial offer is confirmed. The current IERP internal reference is recorded for sales and proposal preparation, not as a final public price approval.
+**Portfolio hierarchy:** The individual-provider portfolio comprises **AHA BLS, AHA ACLS, NERP, IERP, and the Paeds Resus Fellowship**. The institutional portfolio comprises **ILSP, IERS, and ICPD**. **ResusGPS is a product within IERS**, alongside the Care Signal improvement layer; it is not a separate top-level product. The requested BLS, ACLS, IERS, ICPD, and ILSP prices are treated as the current marketing anchors. NERP and IERP should not receive invented prices in public copy until their commercial offers are confirmed. The current IERP internal reference is recorded for sales and proposal preparation, not as a final public price approval.
 
 ---
 
@@ -181,12 +181,16 @@ Do not confuse IERP with IERS. **IERP is the intern training pathway; IERS is th
 
 **Headline:** Build one life-support standard across the facility.  
 **Body:** ILSP helps hospitals organise institution-paid life-support training around a defined cohort, agreed delivery plan, readiness requirements, practical assessment, and accountable completion evidence.  
-**Price:** **Quoted by cohort and scope**  
+**Price:** **KES 7,000 per staff member**
 **CTA:** **Plan an institutional cohort**
+
+### Short institutional message
+
+> **ILSP — KES 7,000 per staff member.** Institution-paid life-support training with roster control, learning, delivery, readiness coordination, practical assessment, and Paeds Resus certification. The institution may absorb the cost or use an approved recovery arrangement such as payroll deduction.
 
 ### WhatsApp message
 
-> **ILSP — Institutional Life Support Program.** A managed facility cohort for life-support learning, delivery, practical assessment, and completion evidence. We scope the programme around your staff list, departments, schedule, and readiness priorities. Contact us for an institutional quotation.
+> **ILSP — Institutional Life Support Program.** A managed, institution-paid facility cohort for life-support learning, delivery, practical assessment, and completion evidence, scoped around your staff list, departments, and schedule. Priced at **KES 7,000 per staff member**. Institutions can absorb the cost or recover it through options such as payroll deduction. Contact us to plan your institutional cohort.
 
 ### Institutional sales message
 
@@ -208,16 +212,27 @@ ILSP is institution-paid and cohort-scoped. Do not market it as individual free 
 
 **Headline:** Make emergency readiness visible, owned, and improvable.  
 **Body:** IERS helps hospitals organise emergency-response roles, readiness checks, activation evidence, equipment gaps, drills, corrective actions, and leadership review in one governed operating system.  
-**Price:** **KES 200,000 per year**  
+**Price:** **From KES 200,000/year, tiered by facility level**
 **CTA:** **Book an emergency-readiness conversation**
 
 ### Executive message
 
-> **IERS — KES 200,000 per year.** Move from emergency policies that sit on a shelf to a working readiness system. IERS connects team activation, role clarity, equipment readiness, drills, evidence review, corrective actions, and leadership reporting, with paediatric priority framing.
+> **IERS — from KES 200,000/year, tiered by facility level.** Move from emergency policies that sit on a shelf to a working readiness system. IERS connects team activation, role clarity, equipment readiness, drills, evidence review, corrective actions, and leadership reporting, with paediatric priority framing.
 
 ### Institutional sales message
 
-> Most facilities do not need another isolated certificate campaign. They need to know which teams are covered, which roles are accepted, whether critical equipment is ready, how quickly the response begins, which gaps remain open, and who owns the fix. IERS provides the operating layer for that work at **KES 200,000 per year**.
+> Most facilities do not need another isolated certificate campaign. They need to know which teams are covered, which roles are accepted, whether critical equipment is ready, how quickly the response begins, which gaps remain open, and who owns the fix. IERS provides the operating layer for that work at a facility-level price starting from **KES 200,000/year**.
+
+### Facility-level pricing
+
+| Facility level | Annual IERS price |
+|---|---:|
+| Level 4 — Primary care / sub-county hospital | **KES 200,000** |
+| Level 5 — Secondary care / county referral | **KES 350,000** |
+| Level 6 — Tertiary / national referral | **KES 600,000** |
+| Quaternary / highly specialised | **From KES 900,000; custom quote** |
+
+These are first-pass planning anchors and may be revisited as client evidence accumulates. The facility classification captured during institutional onboarding is the pricing axis. The final quote must use the verified facility level.
 
 ### Guardrail
 

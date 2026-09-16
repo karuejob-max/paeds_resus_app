@@ -34,12 +34,12 @@ The Kiirua proposal uses the following planning assumptions, subject to HR verif
 
 | Component | Planning basis | Year-one price |
 |---|---|---:|
-| BLS/ACLS competency training | Approximately 200 clinical staff at KES 10,000 per learner | KES 2,000,000 |
-| Institutional Emergency Readiness System activation | Fixed deliverable-based institutional activation price | KES 200,000 |
-| CPD Portal | Approximately 500 total staff at the 301–500 tier: KES 800 per staff per year | KES 400,000 |
-| **Year-one programme total** | Subject to HR-verified headcount and final scope | **KES 2,600,000** |
+| ILSP competency training | Approximately 200 staff at the approved automatic ILSP rate of KES 7,000 per staff member | **KES 1,400,000** |
+| Institutional Emergency Readiness System activation | Facility-level price: Level 4 KES 200,000; Level 5 KES 350,000; Level 6 KES 600,000; Quaternary from KES 900,000 custom quote | **To be confirmed by verified facility level** |
+| ICPD | Approximately 500 total staff at the 301–500 tier: KES 800 per staff per year | **KES 400,000** |
+| **Year-one programme total** | Subject to HR-verified headcount, verified facility level, cohort scope, and final statement of work | **From KES 2,000,000 at Level 4; Level 5 planning total KES 2,150,000** |
 
-The proposal deliberately replaces the earlier “10% of training investment” description for IERS with a fixed deliverable-based price. The IERS is a productised institutional capability, not a percentage surcharge.
+The proposal uses a facility-level IERS price rather than a percentage surcharge. The IERS is a productised institutional capability, not a percentage add-on. The original KES 2,600,000 planning anchor assumed approximately 200 staff at KES 10,000 each plus KES 200,000 IERS and KES 400,000 ICPD; it must be recalculated using the approved ILSP KES 7,000 rate and Kiirua’s verified facility level.
 
 ### 3.1 Milestone payment structure
 
@@ -47,16 +47,16 @@ The preferred payment structure matches payment to visible delivery:
 
 | Milestone | Trigger | Amount |
 |---|---|---:|
-| Contract and mobilisation | Signed agreement, HR-verified headcount, named hospital leads, account-provisioning readiness | KES 1,100,000 |
-| Cohort activation | First agreed training cohort activated, training calendar agreed, IERS role map approved | KES 900,000 |
-| Completion and first report | Training completion/assessment report, IERS activation review, first CPD leadership report | KES 600,000 |
-| **Total year one** | Subject to final statement of work | **KES 2,600,000** |
+| Contract and mobilisation | Signed agreement, HR-verified headcount, named hospital leads, account-provisioning readiness | **To be recalculated from final scope** |
+| Cohort activation | First agreed training cohort activated, training calendar agreed, IERS role map approved | **To be recalculated from final scope** |
+| Completion and first report | Training completion/assessment report, IERS activation review, first ICPD leadership report | **To be recalculated from final scope** |
+| **Total year one** | Subject to final statement of work and verified facility level | **To be recalculated from final scope** |
 
 Do not revert automatically to a large unconditional upfront payment. If Kiirua requires a different procurement calendar, document an equivalent milestone schedule without changing the agreed scope or total price.
 
 ## 4. CPD Portal volume pricing — canonical rule
 
-**KES 800 per staff per year is a discounted CPD Portal fee for facilities with 301–500 total staff.** It is not the default price for every institution and it is not a general discount that agents may apply outside the defined tier.
+**KES 800 per staff per year is the approved ICPD fee for facilities with 301–500 total staff.** It is not the default price for every institution and it is not a general discount that agents may apply outside the defined tier.
 
 The CPD Portal is a hospital-wide measurement and reporting layer. It tracks attendance, participation, targets, evidence, and leadership reports across existing clinical and non-clinical CPD activity. The hospital owns the underlying CPD content and approves attendance; Paeds Resus provides the portal, tracking, visibility, and reporting layer.
 
@@ -102,9 +102,9 @@ The institutional offer has three connected but separately defined components:
 
 | Component | Purpose | Must be stated in the scope |
 |---|---|---|
-| Competency training | Build a verified clinical cohort through online learning, facilitated training, simulations, assessment, remediation, and credential records | Cohort size, sessions, assessment, skills validation, remediation, certificate type, and AHA pathway if applicable |
-| IERS activation | Create a distributed, role-defined, measurable emergency-response system | Baseline, unit map, UTL/ERTL rotation, response roles, event review, dashboard access, support, and review schedule |
-| CPD Portal | Measure existing institutional CPD activity | Headcount, admin access, attendance/evidence capture, targets, reports, support, and what is excluded |
+| ILSP competency training | Build a verified institutional cohort through learning, facilitated delivery, practical assessment, remediation where required, and Paeds Resus certification evidence | Cohort size, staff list, sessions, assessment, skills validation, certificate type, and any official AHA pathway |
+| IERS activation | Create a distributed, role-defined, measurable emergency-response system | Verified facility level, baseline, unit map, UTL/ERTL rotation, response roles, event review, dashboard access, support, and review schedule |
+| ICPD | Measure existing institutional CPD activity | Verified total staff, admin access, attendance/evidence capture, targets, reports, support, and exclusions |
 
 The standard rollout is 0–15 days mobilisation and baseline, 16–45 days first cohort and readiness configuration, 46–75 days scale and simulation, and 76–90 days review and activation. Final dates depend on Kiirua or the client providing staff registers, nominated leads, approved schedules, clinical governance input, and access dependencies.
 
