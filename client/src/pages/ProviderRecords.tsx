@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -112,6 +112,36 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [feedbackState, setFeedbackState] = useState<FeedbackState>(null);
   const downloadCertificate = trpc.certificates.download.useMutation();
+  const syncPaedsResusCertificates = trpc.certificates.syncPaedsResusCertificates.useMutation();
+  const syncAttemptedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || certificatesQuery.isLoading || phaseStatusQuery.isLoading || completionStatusQuery.isLoading || syncAttemptedRef.current) return;
+    const completedCoursesMissingPhase3 = LIFE_SUPPORT_COURSES.some((course) => {
+      const hasLedgerPhase3 = (completionStatusQuery.data ?? []).some(
+        (record) => record.courseProgramType === course.key && record.phase3Completed && !record.revokedAt,
+      );
+      const hasFinalProviderCertificate = (certificatesQuery.data?.certificates ?? []).some(
+        (certificate) => certificate.programType === `paeds_resus_${course.key}_provider`,
+      );
+      const hasPhase3Certificate = (phaseStatusQuery.data ?? []).some(
+        (certificate) => certificate.programType === `paeds_resus_${course.key}_phase3`,
+      );
+      return (hasLedgerPhase3 || hasFinalProviderCertificate) && !hasPhase3Certificate;
+    });
+    if (!completedCoursesMissingPhase3) return;
+    syncAttemptedRef.current = true;
+    syncPaedsResusCertificates.mutate(undefined, {
+      onSuccess: () => {
+        void phaseStatusQuery.refetch();
+        void certificatesQuery.refetch();
+      },
+      onError: (error) => {
+        syncAttemptedRef.current = false;
+        console.error("Life Support certificate projection sync failed:", error);
+      },
+    });
+  }, [certificatesQuery.data, certificatesQuery.isLoading, certificatesQuery.refetch, completionStatusQuery.data, completionStatusQuery.isLoading, isAuthenticated, phaseStatusQuery.data, phaseStatusQuery.isLoading, phaseStatusQuery.refetch, syncPaedsResusCertificates]);
 
   if (loading || !user) {
     return (

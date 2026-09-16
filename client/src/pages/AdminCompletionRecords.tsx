@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +37,7 @@ export default function AdminCompletionRecords() {
   const [phase3Date, setPhase3Date] = useState("");
   const [evidenceReference, setEvidenceReference] = useState("");
   const [notes, setNotes] = useState("");
+  const detailCardRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => window.clearTimeout(timeout);
@@ -63,6 +64,11 @@ export default function AdminCompletionRecords() {
   const selected = useMemo(() => candidatesQuery.data?.find((row) => row.enrollmentId === selectedId) ?? null, [candidatesQuery.data, selectedId]);
   const selectedPathway = selected ? getLifeSupportPathway(selected.courseProgramType) : null;
   const selectedPhase2Applicable = selected ? requiresLifeSupportPhase(selected.courseProgramType, "phase2") : false;
+
+  useEffect(() => {
+    if (!selectedId || typeof window === "undefined" || window.matchMedia("(min-width: 1024px)").matches) return;
+    window.requestAnimationFrame(() => detailCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [selectedId]);
 
   const selectCandidate = (row: NonNullable<typeof candidatesQuery.data>[number]) => {
     setSelectedId(row.enrollmentId);
@@ -102,14 +108,14 @@ export default function AdminCompletionRecords() {
           <a href="/admin/reports" className="mt-3 inline-flex text-sm font-semibold text-teal-700 underline-offset-4 hover:underline">Open Reports & insights enrollment ledger for payment and cohort-wide progress →</a>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-          <Card className="border-slate-200 bg-white">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.8fr)] lg:items-start">
+          <Card className="border-slate-200 bg-white lg:max-h-[calc(100vh-9rem)] lg:overflow-hidden">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Search className="h-5 w-5 text-teal-700" />Find a learner</CardTitle>
               <CardDescription>Search by name or email. Only enrolled Life Support courses with cognitive completion are eligible for final proof.</CardDescription>
               <div className="relative pt-2"><Search className="absolute left-3 top-4 h-4 w-4 text-slate-400" /><Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name or email" /></div>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-2 lg:min-h-0 lg:overflow-y-auto">
               {candidatesQuery.error && !candidatesQuery.data ? <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">Learner search could not be completed. Refresh the page and try again.</div> : candidatesQuery.data === undefined ? <div className="flex items-center justify-center py-10 text-sm text-slate-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading eligible learners…</div> : candidatesQuery.data.length ? candidatesQuery.data.map((row) => {
                 const selectedRow = row.enrollmentId === selectedId;
                 return <button key={`${row.enrollmentId}-${row.userId}`} type="button" onClick={() => selectCandidate(row)} className={`w-full rounded-lg border p-3 text-left transition ${selectedRow ? "border-teal-500 bg-teal-50" : "border-slate-200 bg-white hover:border-teal-300"}`}><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-medium text-slate-900">{row.userName || "Unnamed learner"}</p><p className="text-xs text-slate-500">{row.userEmail || "No email"} · {PROGRAM_LABELS[row.courseProgramType] || row.courseProgramType}</p></div><Badge variant="outline" className={row.cognitiveModulesComplete ? "border-emerald-200 text-emerald-800" : "border-red-200 text-red-800"}>{row.cognitiveModulesComplete ? "Cognitive complete" : "Cognitive incomplete"}</Badge></div>{row.recordId ? <p className="mt-2 text-xs text-slate-600">Existing record: {row.phase3Completed ? "Phase 3 recorded" : row.phase2Completed ? "Phase 2 recorded" : "not complete"}{row.recordedByName ? ` · ${row.recordedByName}` : ""}</p> : <p className="mt-2 text-xs text-slate-500">No external completion record yet</p>}</button>;
@@ -117,6 +123,7 @@ export default function AdminCompletionRecords() {
             </CardContent>
           </Card>
 
+          <div ref={detailCardRef} className="lg:sticky lg:top-4">
           <Card className="border-teal-200 bg-white">
             <CardHeader><CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-teal-700" />Record learning completion</CardTitle><CardDescription>{selected ? `${selected.userName || "Learner"} · ${PROGRAM_LABELS[selected.courseProgramType] || selected.courseProgramType}` : "Select a learner to begin."}</CardDescription></CardHeader>
             <CardContent className="space-y-4">
@@ -130,6 +137,7 @@ export default function AdminCompletionRecords() {
               </>}
             </CardContent>
           </Card>
+          </div>
         </div>
       </div>
     </div>
