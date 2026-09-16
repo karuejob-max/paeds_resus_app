@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ArrowLeft, Award, BookOpen, Building2, CheckCircle2, Clock3, Download, FileText, GraduationCap, Loader2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
-import { LIFE_SUPPORT_COURSES, getLifeSupportProgressRecordLabel, type LifeSupportCourseKey } from "@shared/life-support-pathways";
+import { getLifeSupportCognitiveProgramType, isLifeSupportCertificateProgramType, LIFE_SUPPORT_COURSES, getLifeSupportProgressRecordLabel, type LifeSupportCourseKey } from "@shared/life-support-pathways";
 
 function daysUntil(value: Date | string | null | undefined) {
   if (!value) return null;
@@ -182,7 +182,7 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
     const days = daysUntil(certificate.expiryDate);
     return days !== null && days <= 90;
   });
-  const ahaCertificates = certificates.filter((certificate) => ["bls", "acls", "pals", "nrp", "heartsaver", "instructor"].includes(certificate.programType));
+  const ahaCertificates = certificates.filter((certificate) => isLifeSupportCertificateProgramType(certificate.programType));
   const fellowshipCertificates = certificates.filter((certificate) => ["fellowship", "fellowship_diploma"].includes(certificate.programType));
 
   return (
@@ -234,7 +234,7 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
                   {LIFE_SUPPORT_COURSES.map((course) => <button key={course.key} type="button" role="tab" aria-selected={selectedCourse === course.key} onClick={() => setSelectedCourse(course.key)} className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${selectedCourse === course.key ? "border-emerald-700 bg-emerald-700 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300"}`}>{course.label}</button>)}
                 </div>
                 {(() => {
-                  const cognitiveCertificate = certificates.find((certificate) => certificate.programType === selectedCourse);
+                  const cognitiveCertificate = certificates.find((certificate) => certificate.programType === getLifeSupportCognitiveProgramType(selectedCourse));
                   const finalCertificate = certificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_provider`);
                   const providerStatus = providerCertificates.get(`paeds_resus_${selectedCourse}_provider`);
                   const phase3Complete = Boolean(selectedCompletion?.phase3Completed || phase3Certificate || finalCertificate || providerStatus);

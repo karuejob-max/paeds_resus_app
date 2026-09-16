@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  getLifeSupportCognitiveProgramType,
   getLifeSupportRequiredPhases,
+  isLifeSupportCertificateProgramType,
   getLifeSupportPathway,
   requiresLifeSupportPhase,
 } from "./life-support-pathways";
@@ -18,6 +20,19 @@ describe("Life Support pathway definitions", () => {
     expect(requiresLifeSupportPhase("pals", "phase2")).toBe(true);
     expect(requiresLifeSupportPhase("nrp", "phase2")).toBe(true);
     expect(getLifeSupportPathway("acls")?.phases.map((phase) => phase.applicable)).toEqual([true, true, true, true]);
+  });
+
+  it("maps cognitive completion to the stored certificate program type", () => {
+    expect(getLifeSupportCognitiveProgramType("bls")).toBe("bls_cognitive");
+    expect(getLifeSupportCognitiveProgramType("acls")).toBe("acls_cognitive");
+    expect(getLifeSupportCognitiveProgramType("instructor")).toBe("instructor");
+  });
+
+  it("classifies supporting and final Life Support certificates together", () => {
+    expect(isLifeSupportCertificateProgramType("bls_cognitive")).toBe(true);
+    expect(isLifeSupportCertificateProgramType("paeds_resus_bls_phase3")).toBe(true);
+    expect(isLifeSupportCertificateProgramType("paeds_resus_acls_provider")).toBe(true);
+    expect(isLifeSupportCertificateProgramType("fellowship_diploma")).toBe(false);
   });
 
   it("marks supporting records as non-final and the final record as the credential", () => {
