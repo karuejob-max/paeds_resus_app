@@ -687,8 +687,8 @@ export default function InstitutionLearningGovernancePanel({
                     />
                     {selectedCoPresenter ? (
                       <div className="mt-2 rounded-md border bg-muted/30 px-3 py-2 text-sm">
-                        <p className="truncate font-medium">Co-presenter set: {selectedCoPresenter.person.fullName}</p>
-                        <p className="truncate text-xs text-muted-foreground">{selectedCoPresenter.description}</p>
+                        <p className="break-words font-medium leading-snug">Co-presenter set: {selectedCoPresenter.person.fullName}</p>
+                        <p className="break-words text-xs leading-snug text-muted-foreground">{selectedCoPresenter.description}</p>
                       </div>
                     ) : null}
                   </div>

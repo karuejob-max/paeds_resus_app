@@ -264,7 +264,7 @@ export function SearchableDropdown({
               )}
               />
               <span className="min-w-0 text-left">
-                <span className="block truncate font-medium">{opt.label}</span>
+                <span className="block break-words font-medium leading-snug">{opt.label}</span>
                 {opt.description ? <span className="block break-words text-xs leading-snug text-muted-foreground">{opt.description}</span> : null}
               </span>
             </CommandItem>
