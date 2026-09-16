@@ -759,7 +759,24 @@ export async function markAhaCognitiveComplete(
   console.log(
     `[Certificates] AHA cognitive complete marked for enrollment ${enrollmentId}`
   );
-  // Attempt to issue certificate — will succeed only if practical is also signed off
+
+  // Phase 1 is a supporting cognitive gatepass, separate from the final
+  // provider certificate. The save function is idempotent, so recovery and
+  // repeated completion calls cannot create duplicate gatepasses.
+  const userRows = await db
+    .select({ name: users.name })
+    .from(users)
+    .where(eq(users.id, enrollment.userId))
+    .limit(1);
+  await saveAhaCognitiveCertificate(
+    enrollmentId,
+    enrollment.userId,
+    userRows[0]?.name ?? "Participant",
+    enrollment.programType as "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor"
+  );
+
+  // Attempt to issue the final provider certificate — it will succeed only
+  // if practical skills have also been signed off.
   await issueCertificateForEnrollmentIfEligible(enrollmentId);
 }
 
