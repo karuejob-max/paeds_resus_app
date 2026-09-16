@@ -304,38 +304,7 @@ export function InstitutionAdministrationOverview({
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Administration lanes</CardTitle>
-            <CardDescription>
-              Open the lane that owns the decision. Product work stays separate
-              from emergency bedside operations.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
-            <LaneButton
-              title="Institution & people"
-              detail="Identity, roster, roles, links, departments, and staff import."
-              onClick={() => onNavigate("institution")}
-            />
-            <LaneButton
-              title="Products & billing"
-              detail="IERS/CPD access, renewal, contracts, and payment history."
-              onClick={() => onNavigate("billing")}
-            />
-            <LaneButton
-              title="Programme operations"
-              detail="IERS, CPD, and institution-paid ILS operating handoffs."
-              onClick={() => onNavigate("program_operations")}
-            />
-            <LaneButton
-              title="Data & support"
-              detail="Exports, retention, recovery, notifications, and support requests."
-              onClick={() => onNavigate("data_support")}
-            />
-          </CardContent>
-        </Card>
+      <div className="grid gap-6">
         <Card>
           <CardHeader>
             <CardTitle>Latest ILS cohort orders</CardTitle>
@@ -429,33 +398,6 @@ function MetricCard({
         <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
       </CardContent>
     </Card>
-  );
-}
-
-function LaneButton({
-  title,
-  detail,
-  onClick,
-}: {
-  title: string;
-  detail: string;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      className="h-auto justify-start p-4 text-left"
-      onClick={onClick}
-    >
-      <span>
-        <span className="block font-semibold">{title}</span>
-        <span className="mt-1 block text-xs font-normal text-muted-foreground">
-          {detail}
-        </span>
-      </span>
-      <ArrowRight className="ml-auto h-4 w-4 shrink-0" />
-    </Button>
   );
 }
 
