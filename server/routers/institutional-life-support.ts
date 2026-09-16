@@ -49,7 +49,11 @@ import {
   PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES,
   PAEDS_RESUS_ILS_AHA_FULL_TRAINING_PRICES_KES,
   PAEDS_RESUS_ILS_BASE_PRICE_KES,
+  PAEDS_RESUS_ILS_AUTOMATIC_DISCOUNT_PERCENT,
+  PAEDS_RESUS_ILS_INSTITUTIONAL_PRICE_KES,
   PAEDS_RESUS_ILS_CREDENTIALING_WINDOW_DAYS,
+  getIlsInstitutionalPriceKes,
+  getIlsCheckoutPriceKes,
   PAEDS_RESUS_ILS_DELIVERY_MODEL,
   PAEDS_RESUS_ILS_PROGRAM_TYPE,
   canCancelPendingIlsEnrollment,
@@ -165,7 +169,9 @@ export const institutionalLifeSupportRouter = router({
       },
       deliveryModel: PAEDS_RESUS_ILS_DELIVERY_MODEL,
       pricing: {
-        providerPriceKes: PAEDS_RESUS_ILS_BASE_PRICE_KES,
+        listPriceKes: PAEDS_RESUS_ILS_BASE_PRICE_KES,
+        providerPriceKes: PAEDS_RESUS_ILS_INSTITUTIONAL_PRICE_KES,
+        automaticDiscountPercent: PAEDS_RESUS_ILS_AUTOMATIC_DISCOUNT_PERCENT,
         credentialingWindowDays: PAEDS_RESUS_ILS_CREDENTIALING_WINDOW_DAYS,
         ahaAddOnPricesKes: PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES,
         ahaFullTrainingPricesKes: PAEDS_RESUS_ILS_AHA_FULL_TRAINING_PRICES_KES,
@@ -1919,9 +1925,26 @@ export const institutionalLifeSupportRouter = router({
       for (const userId of userIds) await assertExistingAccount(db, userId);
       const providerCount = selected.length;
       const originalTotalAmountKes = providerCount * PAEDS_RESUS_ILS_BASE_PRICE_KES;
+      const automaticInstitutionalTotalKes = getIlsInstitutionalPriceKes(providerCount);
       const institutionEntitlement = await findActiveGlobalEntitlement(db, { programType: "paeds_resus_ils", institutionalAccountId: input.institutionId });
-      const entitlementPrice = institutionEntitlement ? calculateEntitlementPrice(originalTotalAmountKes, institutionEntitlement.benefitType, institutionEntitlement.discountPercent) : null;
-      const totalAmountKes = entitlementPrice?.effectiveAmountKes ?? originalTotalAmountKes;
+      // The 30% institutional rate is automatic. A manual entitlement may still
+      // grant a full waiver, but percentage discounts must not stack on top of it.
+      const entitlementPrice =
+        institutionEntitlement?.benefitType === "free"
+          ? calculateEntitlementPrice(
+              automaticInstitutionalTotalKes,
+              institutionEntitlement.benefitType,
+              institutionEntitlement.discountPercent
+            )
+          : null;
+      const totalAmountKes = getIlsCheckoutPriceKes(
+        providerCount,
+        institutionEntitlement?.benefitType
+      );
+      const appliedEntitlement =
+        institutionEntitlement?.benefitType === "free"
+          ? institutionEntitlement
+          : null;
       const reservation = await db
         .update(ilsDeliverySessions)
         .set({
@@ -1951,10 +1974,11 @@ export const institutionalLifeSupportRouter = router({
         institutionalAccountId: input.institutionId,
         programType: PAEDS_RESUS_ILS_PROGRAM_TYPE,
         providerCount,
-        amountPerProviderKes: totalAmountKes === 0 ? 0 : Math.ceil(totalAmountKes / providerCount),
+        amountPerProviderKes:
+          totalAmountKes === 0 ? 0 : Math.ceil(totalAmountKes / providerCount),
         totalAmountKes,
         originalTotalAmountKes,
-        entitlementId: institutionEntitlement?.id ?? null,
+        entitlementId: appliedEntitlement?.id ?? null,
         trainingDate: input.trainingDate,
         paymentStatus: "pending",
         orderStatus: "payment_pending",
@@ -2047,9 +2071,9 @@ export const institutionalLifeSupportRouter = router({
         });
       }
       const firstEnrollmentId = enrollmentIds[0];
-      if (institutionEntitlement && entitlementPrice) {
+      if (appliedEntitlement && entitlementPrice) {
         const applied = await consumeGlobalEntitlement(db, {
-          entitlementId: institutionEntitlement.id,
+          entitlementId: appliedEntitlement.id,
           targetInstitutionalAccountId: input.institutionId,
           programType: "paeds_resus_ils",
           resourceReference: `ils-order-${orderId}`,
@@ -2063,7 +2087,7 @@ export const institutionalLifeSupportRouter = router({
         userId: ctx.user.id,
         amount: centsFromKes(totalAmountKes),
         paymentMethod: totalAmountKes === 0 ? "entitlement" : "mpesa",
-        transactionId: totalAmountKes === 0 && institutionEntitlement ? `ENTITLEMENT-${institutionEntitlement.grantReference}` : null,
+          transactionId: totalAmountKes === 0 && appliedEntitlement ? `ENTITLEMENT-${appliedEntitlement.grantReference}` : null,
         institutionalTrainingOrderId: orderId,
         status: totalAmountKes === 0 ? "completed" : "pending",
       });
@@ -2140,7 +2164,9 @@ export const institutionalLifeSupportRouter = router({
         providerCount,
         totalAmountKes,
         originalTotalAmountKes,
-        discounted: Boolean(institutionEntitlement),
+        discounted: totalAmountKes < originalTotalAmountKes,
+        automaticDiscountPercent: PAEDS_RESUS_ILS_AUTOMATIC_DISCOUNT_PERCENT,
+        entitlementApplied: Boolean(appliedEntitlement),
       };
     }),
 
