@@ -1200,6 +1200,13 @@ export const learningRouter = router({
       }
 
       if (examKind === "summative" && passed) {
+        // AHA summative completion is the Phase 1 boundary. The shared helper
+        // verifies all required modules, marks the enrollment complete, and
+        // issues the idempotent cognitive gatepass. Non-AHA paths retain their
+        // existing final-certificate behavior.
+        if (!isMicro) {
+          await markAhaCognitiveComplete(input.enrollmentId);
+        }
         await issueCertificateForEnrollmentIfEligible(input.enrollmentId);
       }
 
