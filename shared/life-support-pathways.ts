@@ -113,3 +113,21 @@ export function getLifeSupportProgressRecordLabel(course: string, phase: LifeSup
 export function getLifeSupportCourseLabel(course: string): string {
   return getLifeSupportPathway(course)?.label ?? course.toUpperCase();
 }
+
+/**
+ * Certificate program type written by the AHA cognitive completion flow.
+ * Instructor is the legacy exception: its cognitive record uses `instructor`
+ * rather than an `instructor_cognitive` enum value.
+ */
+export function getLifeSupportCognitiveProgramType(course: LifeSupportCourseKey): string {
+  return course === "instructor" ? "instructor" : `${course}_cognitive`;
+}
+
+const LIFE_SUPPORT_COURSE_KEYS = "bls|acls|pals|nrp|heartsaver|instructor";
+
+export function isLifeSupportCertificateProgramType(programType: string): boolean {
+  if (["bls", "acls", "pals", "nrp", "heartsaver", "instructor"].includes(programType)) return true;
+  if (/^(bls|acls|pals|nrp|heartsaver)_cognitive$/.test(programType)) return true;
+  if (new RegExp(`^paeds_resus_(${LIFE_SUPPORT_COURSE_KEYS})_(phase2|phase3|provider)$`).test(programType)) return true;
+  return programType === "paeds_resus_phase2";
+}
