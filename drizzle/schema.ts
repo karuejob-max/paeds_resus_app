@@ -7610,6 +7610,8 @@ export const facilityDepartments = mysqlTable(
     institutionId: int("institution_id").notNull(),
     poleId: int("pole_id"),
     departmentName: varchar("department_name", { length: 128 }).notNull(),
+    /** Optional canonical parent department for unambiguous hierarchies such as Surgery → Theatre. */
+    parentDepartmentId: int("parent_department_id"),
     isActive: boolean("is_active").default(true).notNull(),
     /** Explicit account-admin decision: only these confirmed active departments require an IERS pole. */
     requiresPole: boolean("requires_pole").default(false).notNull(),
