@@ -1305,7 +1305,14 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                     }}
                     options={(presenterSearchQuery.data ?? []).map(user => ({
                       value: String(user.id),
-                      label: `${user.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member"} · ${user.fullName} · ${user.department || "Department not set"} · ${user.cadre || "Cadre not set"} · ${user.email || "No email"}`,
+                      label: user.fullName,
+                      description: [
+                        user.email || "No email",
+                        user.department || "Department not set",
+                        user.cadre || "Cadre not set",
+                        user.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member",
+                      ].join(" · "),
+                      searchText: [user.fullName, user.email, user.department, user.cadre].filter(Boolean).join(" "),
                     }))}
                     onSearchChange={setPresenterSearch}
                     placeholder="Choose lead presenter"
