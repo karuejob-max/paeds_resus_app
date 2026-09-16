@@ -453,14 +453,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
                       </TableCell>
                       <TableCell><Badge variant="outline" className="capitalize">{member.staffRole.replaceAll("_", " ")}</Badge></TableCell>
                       <TableCell className="text-sm text-muted-foreground">{member.department || "Not assigned"}</TableCell>
-                      <TableCell>
-                        <Select value={currentRole} onValueChange={value => updateRole.mutate({ institutionId, staffMemberId: member.id, governanceRole: value as GovernanceRole ,
-                              })} disabled={isRemoved || updateRole.isPending}>
-                          <SelectTrigger className="w-[190px]"><SelectValue /></SelectTrigger>
-                          <SelectContent>{GOVERNANCE_ROLES.map(([value, label]) => (
-                                <SelectItem key={value} value={value}>{label}</SelectItem>))}</SelectContent>
-                        </Select>
-                      </TableCell>
+                      <TableCell><Badge variant="outline">Assigned from Role assignments</Badge></TableCell>
                       <TableCell><Badge variant={isRemoved ? "destructive" : member.facilityLinkStatus === "linked" ? "default" : "secondary"}>{isRemoved ? "Retired · access ended" : member.facilityLinkStatus === "linked" ? "Linked" : (member.facilityLinkStatus ?? "Roster only")}</Badge></TableCell>
                       <TableCell>
                         {isRemoved ? (member.userId ? (
@@ -491,8 +484,8 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
             <table className="w-full min-w-[720px] text-sm">
               <thead className="border-b bg-muted/30 text-left text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="p-3">Role</th><th className="p-3">Scope</th><th className="p-3">Authority</th><th className="p-3">Assignment owner</th></tr></thead>
               <tbody>
-                <tr className="border-b"><td className="p-3 font-medium">Institutional administrator</td><td className="p-3">Whole institution</td><td className="p-3">Manages staff roles, institutional Emergency Readiness Chair, Institutional CPD Coordinator, Departmental Heads, product roles, and shared scopes.</td><td className="p-3">Platform/institution administration</td></tr>
-                <tr className="border-b"><td className="p-3 font-medium">Institutional Emergency Readiness Chair</td><td className="p-3">Whole institution</td><td className="p-3">All IERS governance, readiness, ERCo, department-preparedness, response, evidence, and review roles.</td><td className="p-3">Institutional administrator</td></tr>
+                <tr className="border-b"><td className="p-3 font-medium">Institutional administrator</td><td className="p-3">Whole institution</td><td className="p-3">Manages staff roles, institutional Emergency Response Coordinator, Institutional CPD Coordinator, Departmental Heads, product roles, and shared scopes.</td><td className="p-3">Platform/institution administration</td></tr>
+                <tr className="border-b"><td className="p-3 font-medium">Institutional Emergency Response Coordinator</td><td className="p-3">Whole institution</td><td className="p-3">All IERS governance, readiness, ERCo, department-preparedness, response, evidence, and review roles.</td><td className="p-3">Institutional administrator</td></tr>
                 <tr className="border-b"><td className="p-3 font-medium">Institutional CPD Coordinator</td><td className="p-3">Whole institution</td><td className="p-3">All CPD coordination, Departmental CPD Coordinator appointments, institutional CPD scheduling, attendance, and reporting.</td><td className="p-3">Institutional administrator</td></tr>
                 <tr className="border-b"><td className="p-3 font-medium">Departmental Head</td><td className="p-3">Appointed department</td><td className="p-3">Assigns that department’s ERCo and Departmental CPD Coordinator; cannot administer another department.</td><td className="p-3">Institutional administrator</td></tr>
                 <tr className="border-b"><td className="p-3 font-medium">ERCo</td><td className="p-3">Assigned department</td><td className="p-3">Manages the department UTL staffing roster. ERCo governance remains separate from dated responder duty acceptance.</td><td className="p-3">Institutional Chair, IERS governance, or Departmental Head</td></tr>
