@@ -105,6 +105,13 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
         icon: Stethoscope,
         risk: "operational",
       },
+      {
+        label: "Life Support completion ledger",
+        href: "/admin/completion-records",
+        description: "Review course progress, record authorized off-platform phases, and issue supporting or final completion records.",
+        icon: ClipboardCheck,
+        risk: "review",
+      },
     ],
   },
   {
@@ -184,13 +191,6 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
         label: "AHA proof review",
         href: "/admin/aha-proof-review",
         description: "Review private AHA Video Prework and Self-Assessment certificates.",
-        icon: ClipboardCheck,
-        risk: "review",
-      },
-      {
-        label: "Final completion records",
-        href: "/admin/completion-records",
-        description: "Record verified off-platform Phase 2 and Phase 3 completion and issue final proof.",
         icon: ClipboardCheck,
         risk: "review",
       },

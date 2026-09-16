@@ -6,9 +6,9 @@ import {
 } from "./paeds-resus-certificates";
 
 describe("Paeds Resus universal certificate labels", () => {
-  it("labels the Phase 2 certificate as an online simulation completion proof", () => {
+  it("labels the Phase 2 certificate as a simulation training and evaluation gatepass", () => {
     expect(getCertificateDisplayLabel("paeds_resus_phase2")).toBe(
-      "Paeds Resus Phase 2 — Online Simulations"
+      "Paeds Resus Phase 2 — Simulation Training and Evaluation"
     );
   });
 

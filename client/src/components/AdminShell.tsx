@@ -80,6 +80,7 @@ function AdminShellContent({ children }: { children: ReactNode }) {
       )?.label ?? null,
     [location]
   );
+  const [desktopExpandedGroup, setDesktopExpandedGroup] = useState<string | null>(activeGroupLabel);
   const [mobileExpandedGroup, setMobileExpandedGroup] = useState<string | null>(
     activeGroupLabel
   );
@@ -87,6 +88,9 @@ function AdminShellContent({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isMobile && activeGroupLabel) {
       setMobileExpandedGroup(activeGroupLabel);
+    }
+    if (!isMobile && activeGroupLabel) {
+      setDesktopExpandedGroup(activeGroupLabel);
     }
   }, [activeGroupLabel, isMobile]);
 
@@ -99,7 +103,7 @@ function AdminShellContent({ children }: { children: ReactNode }) {
   return (
     <>
       <Sidebar
-        collapsible={isMobile ? "offcanvas" : "none"}
+        collapsible={isMobile ? "offcanvas" : "icon"}
         className="border-r bg-sidebar"
       >
         <SidebarHeader className="border-b px-3 py-4">
@@ -115,13 +119,11 @@ function AdminShellContent({ children }: { children: ReactNode }) {
                 Global Admin
               </p>
             </div>
-            {isMobile ? (
-              <SidebarTrigger
-                className="ml-auto h-9 w-9 shrink-0 rounded-lg"
-                aria-label="Hide admin navigation"
-                title="Hide admin navigation"
-              />
-            ) : null}
+            <SidebarTrigger
+              className="ml-auto h-9 w-9 shrink-0 rounded-lg"
+              aria-label="Toggle admin navigation"
+              title="Toggle admin navigation"
+            />
           </div>
         </SidebarHeader>
 
@@ -181,19 +183,24 @@ function AdminShellContent({ children }: { children: ReactNode }) {
           <SidebarContent className="gap-0 py-2">
             {adminNavigationGroups.map(group => {
               const GroupIcon = group.icon;
+              const isExpanded = desktopExpandedGroup === group.label;
+              const isActiveGroup = activeGroupLabel === group.label;
+              const groupId = `desktop-admin-group-${group.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
               return (
                 <SidebarGroup key={group.label} className="px-2 py-1">
-                  <SidebarGroupLabel className="min-w-0 gap-2 overflow-hidden px-2 text-[11px] font-semibold uppercase tracking-wide leading-4 text-sidebar-foreground/60">
+                  <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    aria-controls={groupId}
+                    onClick={() => setDesktopExpandedGroup(isExpanded ? null : group.label)}
+                    className="flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left text-[11px] font-semibold uppercase tracking-wide leading-4 text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                  >
                     <GroupIcon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="min-w-0 truncate">{group.label}</span>
-                  </SidebarGroupLabel>
-                  <SidebarGroupContent>
-                    <AdminSidebarMenu
-                      group={group}
-                      location={location}
-                      onNavigate={navigate}
-                    />
-                  </SidebarGroupContent>
+                    <span className="min-w-0 flex-1 truncate">{group.label}</span>
+                    {isActiveGroup ? <span aria-label="Current section" className="h-2 w-2 shrink-0 rounded-full bg-sidebar-primary" /> : null}
+                    {isExpanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+                  </button>
+                  {isExpanded ? <SidebarGroupContent id={groupId}><AdminSidebarMenu group={group} location={location} onNavigate={navigate} /></SidebarGroupContent> : null}
                 </SidebarGroup>
               );
             })}

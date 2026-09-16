@@ -7,10 +7,11 @@ import {
 } from "../../drizzle/schema";
 import { getDb } from "../db";
 import {
-  ensurePhase2CompletionCertificateForUser,
+  ensureCoursePhaseCertificateForEnrollment,
   ensurePaedsResusProviderCertificateForEnrollment,
   ensureIlsCertificateForEnrollment,
 } from "./paeds-resus-certificate-issuance";
+import { requiresLifeSupportPhase } from "../../shared/life-support-pathways";
 
 export const EXTERNAL_COMPLETION_PROGRAMS = [
   "bls",
@@ -34,11 +35,16 @@ export function canRecordExternalCompletion(user: {
 }
 
 export function validateExternalCompletionInput(input: {
+  courseProgramType: ExternalCompletionProgram;
   phase2Completed: boolean;
   phase3Completed: boolean;
 }) {
-  if (input.phase3Completed && !input.phase2Completed) {
-    return "Phase 2 must be recorded before Phase 3.";
+  const phase2Applicable = requiresLifeSupportPhase(input.courseProgramType, "phase2");
+  if (!phase2Applicable && input.phase2Completed) {
+    return "Phase 2 is not applicable to this course.";
+  }
+  if (input.phase3Completed && phase2Applicable && !input.phase2Completed) {
+    return "Phase 2 must be recorded before Phase 3 for this course.";
   }
   return null;
 }
@@ -170,8 +176,8 @@ export async function recordExternalTrainingCompletion(
     enrollmentId: enrollment.id,
     pathway: input.pathway,
     courseProgramType: input.courseProgramType,
-    phase2Completed: input.phase2Completed,
-    phase2CompletedAt: input.phase2Completed ? input.phase2CompletedAt ?? now : null,
+    phase2Completed: requiresLifeSupportPhase(input.courseProgramType, "phase2") && input.phase2Completed,
+    phase2CompletedAt: requiresLifeSupportPhase(input.courseProgramType, "phase2") && input.phase2Completed ? input.phase2CompletedAt ?? now : null,
     phase3Completed: input.phase3Completed,
     phase3CompletedAt: input.phase3Completed ? input.phase3CompletedAt ?? now : null,
     evidenceReference: input.evidenceReference?.trim() || null,
@@ -206,8 +212,15 @@ export async function recordExternalTrainingCompletion(
     }).where(eq(enrollments.id, enrollment.id));
   }
 
-  const phase2Certificate = input.phase2Completed
-    ? await ensurePhase2CompletionCertificateForUser(db, input.userId)
+  const phase2Certificate = input.phase2Completed && requiresLifeSupportPhase(input.courseProgramType, "phase2")
+    ? await ensureCoursePhaseCertificateForEnrollment(db, {
+        enrollmentId: enrollment.id,
+        userId: input.userId,
+        programType: input.courseProgramType as "acls" | "pals" | "nrp" | "instructor",
+        phase: "phase2",
+        trainingDate: enrollment.trainingDate,
+        issueDate: input.phase2CompletedAt ?? now,
+      })
     : null;
   const finalCertificate = input.phase3Completed
     ? enrollment.programType === "paeds_resus_ils"

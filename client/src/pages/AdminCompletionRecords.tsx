@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Search, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { getLifeSupportPathway, requiresLifeSupportPhase } from "@shared/life-support-pathways";
 
 const PATHWAYS = [
   ["ierp", "IERP — Intern Emergency Readiness"],
@@ -60,20 +61,23 @@ export default function AdminCompletionRecords() {
     onError: (error) => toast.error(error.message),
   });
   const selected = useMemo(() => candidatesQuery.data?.find((row) => row.enrollmentId === selectedId) ?? null, [candidatesQuery.data, selectedId]);
+  const selectedPathway = selected ? getLifeSupportPathway(selected.courseProgramType) : null;
+  const selectedPhase2Applicable = selected ? requiresLifeSupportPhase(selected.courseProgramType, "phase2") : false;
 
   const selectCandidate = (row: NonNullable<typeof candidatesQuery.data>[number]) => {
     setSelectedId(row.enrollmentId);
-    setPhase2Completed(Boolean(row.phase2Completed));
+    setPhase2Completed(Boolean(row.phase2Completed) && requiresLifeSupportPhase(row.courseProgramType, "phase2"));
     setPhase3Completed(Boolean(row.phase3Completed));
     if (row.courseProgramType === "paeds_resus_ils") setPathway("ilsp");
   };
 
   const submit = () => {
     if (!selected) return;
-    if (phase3Completed && !phase2Completed) {
-      toast.error("Record Phase 2 before Phase 3.");
+    if (phase3Completed && selectedPhase2Applicable && !phase2Completed) {
+      toast.error("Record Phase 2 before Phase 3 for this course.");
       return;
     }
+    if (!selectedPhase2Applicable) setPhase2Completed(false);
     recordMutation.mutate({
       userId: selected.userId,
       enrollmentId: selected.enrollmentId,
@@ -93,8 +97,9 @@ export default function AdminCompletionRecords() {
       <div className="mx-auto max-w-6xl space-y-5">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">Training records</p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-950">Final proof of completion</h1>
-          <p className="mt-1 max-w-3xl text-sm text-slate-600">Record Phase 2 and Phase 3 completed outside the platform for a learner who has already completed the cognitive coursework. This produces an auditable final proof certificate; it does not grant course access or bypass payment and entitlement rules.</p>
+          <h1 className="mt-1 text-2xl font-bold text-slate-950">Life Support completion ledger</h1>
+          <p className="mt-1 max-w-3xl text-sm text-slate-600">Review course progress and payment status, then record authorized off-platform Phase 2 or Phase 3 completion for a learner who has completed the cognitive coursework. Phase requirements are course-specific; this does not grant course access or bypass payment and entitlement rules.</p>
+          <a href="/admin/reports" className="mt-3 inline-flex text-sm font-semibold text-teal-700 underline-offset-4 hover:underline">Open Reports & insights enrollment ledger for payment and cohort-wide progress →</a>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
@@ -113,15 +118,15 @@ export default function AdminCompletionRecords() {
           </Card>
 
           <Card className="border-teal-200 bg-white">
-            <CardHeader><CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-teal-700" />Record completion</CardTitle><CardDescription>{selected ? `${selected.userName || "Learner"} · ${PROGRAM_LABELS[selected.courseProgramType] || selected.courseProgramType}` : "Select a learner to begin."}</CardDescription></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-teal-700" />Record learning completion</CardTitle><CardDescription>{selected ? `${selected.userName || "Learner"} · ${PROGRAM_LABELS[selected.courseProgramType] || selected.courseProgramType}` : "Select a learner to begin."}</CardDescription></CardHeader>
             <CardContent className="space-y-4">
               {!selected ? <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">Select an eligible learner from the list. The platform will reject the record if cognitive completion is not present.</div> : <>
                 <div className="space-y-2"><Label htmlFor="completion-pathway">Pathway</Label><select id="completion-pathway" value={pathway} onChange={(event) => setPathway(event.target.value as typeof pathway)} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">{PATHWAYS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
-                <div className="space-y-3 rounded-lg border border-slate-200 p-3"><p className="text-sm font-medium text-slate-900">Verified phases</p><label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={phase2Completed} onChange={(event) => setPhase2Completed(event.target.checked)} />Phase 2 completed</label><Input type="date" value={phase2Date} onChange={(event) => setPhase2Date(event.target.value)} aria-label="Phase 2 completion date" /><label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={phase3Completed} onChange={(event) => { setPhase3Completed(event.target.checked); if (event.target.checked) setPhase2Completed(true); }} />Phase 3 completed</label><Input type="date" value={phase3Date} onChange={(event) => setPhase3Date(event.target.value)} aria-label="Phase 3 completion date" /></div>
+                <div className="space-y-3 rounded-lg border border-slate-200 p-3"><p className="text-sm font-medium text-slate-900">Verified phases</p>{selectedPhase2Applicable ? <><label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={phase2Completed} onChange={(event) => setPhase2Completed(event.target.checked)} />Phase 2 · Simulation training and evaluation completed</label><Input type="date" value={phase2Date} onChange={(event) => setPhase2Date(event.target.value)} aria-label="Phase 2 completion date" /></> : <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">Phase 2 is not applicable to {selectedPathway?.label ?? "this course"}. Do not record it.</p>}<label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={phase3Completed} onChange={(event) => setPhase3Completed(event.target.checked)} />Phase 3 · Practical skills evaluation completed</label><Input type="date" value={phase3Date} onChange={(event) => setPhase3Date(event.target.value)} aria-label="Phase 3 completion date" /></div>
                 <div className="space-y-2"><Label htmlFor="evidence-reference">Evidence reference</Label><Input id="evidence-reference" value={evidenceReference} onChange={(event) => setEvidenceReference(event.target.value)} placeholder="Register, certificate, session ID, or file reference" /></div>
                 <div className="space-y-2"><Label htmlFor="completion-notes">Record note</Label><Textarea id="completion-notes" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Where and how the phases were completed" rows={4} /></div>
-                <Button type="button" className="w-full bg-teal-700 hover:bg-teal-800" disabled={recordMutation.isPending || !phase2Completed} onClick={submit}>{recordMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : "Save completion and check certificate"}</Button>
-                <p className="text-xs leading-5 text-slate-500">A final certificate is issued only when Phase 2 and Phase 3 are both recorded. Cognitive completion is always required.</p>
+                <Button type="button" className="w-full bg-teal-700 hover:bg-teal-800" disabled={recordMutation.isPending || !phase3Completed || (selectedPhase2Applicable && !phase2Completed)} onClick={submit}>{recordMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : "Save completion and check certificate"}</Button>
+                <p className="text-xs leading-5 text-slate-500">The final provider certificate is issued only when every required phase for this course is recorded. Cognitive completion is always required. Phase 2 and Phase 3 records remain supporting evidence until the final provider certificate is issued.</p>
               </>}
             </CardContent>
           </Card>

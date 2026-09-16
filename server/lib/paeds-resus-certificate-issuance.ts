@@ -14,10 +14,13 @@ import { getDb } from "../db";
 import { computeCertificateExpiryDate } from "./certificate-expiry";
 import {
   PAEDS_RESUS_PHASE2_CERTIFICATE_TYPE,
+  PAEDS_RESUS_PHASE2_CERTIFICATE_TYPES,
+  PAEDS_RESUS_PHASE3_CERTIFICATE_TYPES,
   type PaedsResusProviderCertificateType,
   type ReadinessPathway,
 } from "../../shared/paeds-resus-certificates";
 import { getAuthoritativePhase2CompletionStatus } from "./ierp-program-state";
+import { requiresLifeSupportPhase } from "../../shared/life-support-pathways";
 
 export type PaedsResusCertificateIssueResult = {
   issued: boolean;
@@ -30,6 +33,8 @@ export type PaedsResusCertificateIssueResult = {
 
 type CertificateProgramType =
   | typeof PAEDS_RESUS_PHASE2_CERTIFICATE_TYPE
+  | (typeof PAEDS_RESUS_PHASE2_CERTIFICATE_TYPES)[number]
+  | (typeof PAEDS_RESUS_PHASE3_CERTIFICATE_TYPES)[number]
   | PaedsResusProviderCertificateType
   | "paeds_resus_ils";
 
@@ -48,6 +53,22 @@ const PROVIDER_CERTIFICATE_BY_AHA_PROGRAM: Record<
 const PROVIDER_AHA_PROGRAMS = Object.keys(
   PROVIDER_CERTIFICATE_BY_AHA_PROGRAM
 ) as Array<keyof typeof PROVIDER_CERTIFICATE_BY_AHA_PROGRAM>;
+
+const PHASE2_CERTIFICATE_BY_PROGRAM = {
+  acls: "paeds_resus_acls_phase2",
+  pals: "paeds_resus_pals_phase2",
+  nrp: "paeds_resus_nrp_phase2",
+  instructor: "paeds_resus_instructor_phase2",
+} as const;
+
+const PHASE3_CERTIFICATE_BY_PROGRAM = {
+  bls: "paeds_resus_bls_phase3",
+  acls: "paeds_resus_acls_phase3",
+  pals: "paeds_resus_pals_phase3",
+  nrp: "paeds_resus_nrp_phase3",
+  heartsaver: "paeds_resus_heartsaver_phase3",
+  instructor: "paeds_resus_instructor_phase3",
+} as const;
 
 function generateCertificateNumber(): string {
   return `PRES-${Date.now().toString(36).toUpperCase()}-${randomBytes(5)
@@ -266,6 +287,34 @@ export async function ensurePhase2CompletionCertificateForUser(
   });
 }
 
+export async function ensureCoursePhaseCertificateForEnrollment(
+  db: Db,
+  input: {
+    enrollmentId: number;
+    userId: number;
+    programType: keyof typeof PHASE2_CERTIFICATE_BY_PROGRAM | keyof typeof PHASE3_CERTIFICATE_BY_PROGRAM;
+    phase: "phase2" | "phase3";
+    trainingDate: Date;
+    issueDate: Date;
+  },
+): Promise<PaedsResusCertificateIssueResult> {
+  const certificateType = input.phase === "phase2"
+    ? PHASE2_CERTIFICATE_BY_PROGRAM[input.programType as keyof typeof PHASE2_CERTIFICATE_BY_PROGRAM]
+    : PHASE3_CERTIFICATE_BY_PROGRAM[input.programType as keyof typeof PHASE3_CERTIFICATE_BY_PROGRAM];
+  if (!certificateType) return { issued: false, reason: "phase_not_applicable" };
+  const readinessPathway = await getReadinessPathway(db, input.userId);
+  return insertUniversalCertificate(db, {
+    userId: input.userId,
+    readinessPathway,
+    programType: certificateType,
+    enrollmentId: input.enrollmentId,
+    sourceKey: `paeds-resus:${certificateType}:enrollment:${input.enrollmentId}`,
+    trainingDate: input.trainingDate,
+    issueDate: input.issueDate,
+    expiryDate: null,
+  });
+}
+
 async function ensureProviderCertificateForEnrollment(
   db: Db,
   input: {
@@ -337,15 +386,24 @@ export async function ensurePaedsResusProviderCertificateForEnrollment(
       ),
     )
     .limit(1);
+  const requiresPhase2 = requiresLifeSupportPhase(enrollment.programType, "phase2");
   const isExternallyComplete =
-    Boolean(nerpPhases?.phase2Verified && nerpPhases.phase3Verified) ||
-    Boolean(externalPhases?.phase2Completed && externalPhases?.phase3Completed);
+    Boolean(nerpPhases?.phase3Verified && (!requiresPhase2 || nerpPhases.phase2Verified)) ||
+    Boolean(externalPhases?.phase3Completed && (!requiresPhase2 || externalPhases.phase2Completed));
   if (!isLocallyComplete && !isExternallyComplete) {
     return { issued: false, reason: "provider_requirements_incomplete" };
   }
 
   const issueDate =
     enrollment.practicalSignedOffAt ?? nerpPhases?.phase3CompletedAt ?? new Date();
+  await ensureCoursePhaseCertificateForEnrollment(db, {
+    enrollmentId: enrollment.id,
+    userId: enrollment.userId,
+    programType: enrollment.programType as keyof typeof PHASE3_CERTIFICATE_BY_PROGRAM,
+    phase: "phase3",
+    trainingDate: enrollment.trainingDate,
+    issueDate,
+  });
   return ensureProviderCertificateForEnrollment(db, {
     enrollmentId: enrollment.id,
     userId: enrollment.userId,
@@ -448,6 +506,16 @@ export async function getPaedsResusCertificateStatusForUser(
         eq(certificates.userId, userId),
         inArray(certificates.programType, [
           "paeds_resus_phase2",
+          "paeds_resus_acls_phase2",
+          "paeds_resus_pals_phase2",
+          "paeds_resus_nrp_phase2",
+          "paeds_resus_instructor_phase2",
+          "paeds_resus_bls_phase3",
+          "paeds_resus_acls_phase3",
+          "paeds_resus_pals_phase3",
+          "paeds_resus_nrp_phase3",
+          "paeds_resus_heartsaver_phase3",
+          "paeds_resus_instructor_phase3",
           "paeds_resus_bls_provider",
           "paeds_resus_acls_provider",
           "paeds_resus_pals_provider",

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ArrowLeft, Award, BookOpen, Building2, CheckCircle2, Clock3, Download, FileText, GraduationCap, Loader2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
+import { LIFE_SUPPORT_COURSES, getLifeSupportProgressRecordLabel, type LifeSupportCourseKey } from "@shared/life-support-pathways";
 
 function daysUntil(value: Date | string | null | undefined) {
   if (!value) return null;
@@ -23,7 +24,8 @@ type PhaseRowProps = {
   label: string;
   description: string;
   complete: boolean;
-  certificate?: (typeof certificatesPlaceholder)[number];
+  applicable?: boolean;
+  certificate?: { id: number; certificateNumber: string | null };
   onDownload?: () => void;
   downloading?: boolean;
 };
@@ -58,16 +60,16 @@ function StatusBadge({ complete, label }: { complete: boolean; label?: string })
   );
 }
 
-function PhaseRow({ label, description, complete, certificate, onDownload, downloading }: PhaseRowProps) {
+function PhaseRow({ label, description, complete, applicable = true, certificate, onDownload, downloading }: PhaseRowProps) {
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className={`flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between ${applicable ? "border-slate-200 bg-white" : "border-dashed border-slate-200 bg-slate-50"}`}>
       <div className="min-w-0">
         <p className="text-sm font-semibold text-slate-900">{label}</p>
         <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <StatusBadge complete={complete} />
-        {certificate?.certificateNumber && onDownload ? (
+        {applicable ? <StatusBadge complete={complete} /> : <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-500">Not applicable</Badge>}
+        {applicable && certificate?.certificateNumber && onDownload ? (
           <Button type="button" size="sm" variant="outline" disabled={downloading} onClick={onDownload}>
             <Download className="mr-1.5 h-4 w-4" /> {downloading ? "Preparing…" : "Download"}
           </Button>
@@ -90,6 +92,11 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
     staleTime: 30_000,
     retry: 1,
   });
+  const completionStatusQuery = trpc.completionRecords.getMyStatus.useQuery(undefined, {
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+    retry: 1,
+  });
   const cpdQuery = trpc.cpd.myCertificates.useQuery(undefined, {
     enabled: isAuthenticated,
     staleTime: 30_000,
@@ -101,6 +108,7 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
     retry: 1,
   });
   const [activeTab, setActiveTab] = useState<RecordsTab>("aha");
+  const [selectedCourse, setSelectedCourse] = useState<LifeSupportCourseKey>("bls");
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [feedbackState, setFeedbackState] = useState<FeedbackState>(null);
   const downloadCertificate = trpc.certificates.download.useMutation();
@@ -115,9 +123,13 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
 
   const certificates = certificatesQuery.data?.certificates ?? [];
   const phaseCertificates = phaseStatusQuery.data ?? [];
+  const completionRecords = completionStatusQuery.data ?? [];
   const cpdRecords = cpdQuery.data?.records ?? [];
   const activeMemberships = (membershipsQuery.data ?? []).filter((membership) => membership.membershipStatus === "active");
-  const phase2Certificate = phaseCertificates.find((certificate) => certificate.programType === "paeds_resus_phase2");
+  const selectedPathway = LIFE_SUPPORT_COURSES.find((course) => course.key === selectedCourse) ?? LIFE_SUPPORT_COURSES[0];
+  const selectedCompletion = completionRecords.find((record) => record.courseProgramType === selectedCourse && !record.revokedAt);
+  const phase2Certificate = phaseCertificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_phase2`);
+  const phase3Certificate = phaseCertificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_phase3`);
   const providerCertificates = new Map<string, (typeof phaseCertificates)[number]>(phaseCertificates.filter((certificate) => certificate.programType.endsWith("_provider")).map((certificate) => [certificate.programType, certificate]));
   const triggerBrowserDownload = (pdfBase64: string, filename: string) => {
     try {
@@ -196,14 +208,14 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
 
         {expiringCertificates.length > 0 && (
           <Card className="border-amber-200 bg-amber-50/70">
-            <CardHeader className="pb-3"><CardTitle className="text-base text-amber-950">Certificate attention</CardTitle><CardDescription className="text-amber-900/75">One or more certificates expire within 90 days or have expired. Review the AHA tab before booking a renewal.</CardDescription></CardHeader>
-            <CardContent><Button type="button" variant="outline" onClick={() => { setActiveTab("aha"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Review AHA records <Award className="ml-2 h-4 w-4" /></Button></CardContent>
+            <CardHeader className="pb-3"><CardTitle className="text-base text-amber-950">Certificate attention</CardTitle><CardDescription className="text-amber-900/75">One or more certificates expire within 90 days or have expired. Review the Life Support records tab before booking a renewal.</CardDescription></CardHeader>
+            <CardContent><Button type="button" variant="outline" onClick={() => { setActiveTab("aha"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Review Life Support records <Award className="ml-2 h-4 w-4" /></Button></CardContent>
           </Card>
         )}
 
         <div role="tablist" aria-label="My records categories" className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
           {([
-            { id: "aha", label: "My AHA records", icon: Award, description: "Courses and phases" },
+            { id: "aha", label: "My Life Support records", icon: Award, description: "Courses and phases" },
             { id: "cpd", label: "My CPD records", icon: FileText, description: "Sessions and points" },
             { id: "fellowship", label: "My Fellowship records", icon: GraduationCap, description: "Courses and diploma" },
           ] as const).map((tab) => {
@@ -216,26 +228,20 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
         {activeTab === "aha" && (
           <section role="tabpanel" aria-label="My AHA records" className="space-y-4">
             <Card className="border-emerald-200 bg-white">
-              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Award className="h-5 w-5 text-emerald-700" />AHA course records</CardTitle><CardDescription>Each course is organized as a learner journey: Cognitive, Online Simulations, Phase 3, and the final course certificate.</CardDescription></CardHeader>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Award className="h-5 w-5 text-emerald-700" />Life Support course records</CardTitle><CardDescription>Choose a course to see its actual pathway. Supporting gatepass records are separate from the final provider certificate.</CardDescription></CardHeader>
               <CardContent className="space-y-4">
-                {AHA_COURSES.map((course) => {
-                  const cognitiveCertificate = certificates.find((certificate) => certificate.programType === course.key);
-                  const finalCertificate = certificates.find((certificate) => certificate.programType === `paeds_resus_${course.key}_provider`);
-                  const providerStatus = providerCertificates.get(`paeds_resus_${course.key}_provider`);
-                  const phase3Complete = Boolean(finalCertificate || providerStatus);
+                <div className="flex flex-wrap gap-2" role="tablist" aria-label="Life Support course records">
+                  {LIFE_SUPPORT_COURSES.map((course) => <button key={course.key} type="button" role="tab" aria-selected={selectedCourse === course.key} onClick={() => setSelectedCourse(course.key)} className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${selectedCourse === course.key ? "border-emerald-700 bg-emerald-700 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300"}`}>{course.label}</button>)}
+                </div>
+                {(() => {
+                  const cognitiveCertificate = certificates.find((certificate) => certificate.programType === selectedCourse);
+                  const finalCertificate = certificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_provider`);
+                  const providerStatus = providerCertificates.get(`paeds_resus_${selectedCourse}_provider`);
+                  const phase3Complete = Boolean(selectedCompletion?.phase3Completed || phase3Certificate || finalCertificate || providerStatus);
                   const finalRecord = finalCertificate ?? (providerStatus ? certificates.find((certificate) => certificate.certificateNumber === providerStatus.certificateNumber) : undefined);
-                  return (
-                    <div key={course.key} className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-                      <div className="mb-3 flex items-start justify-between gap-3"><div><h3 className="text-base font-bold text-slate-950">{course.label}</h3><p className="text-xs text-slate-500">{course.subtitle}</p></div><Badge variant="outline" className="border-emerald-200 bg-white text-emerald-800">{phase3Complete ? "Final proof recorded" : cognitiveCertificate ? "Cognitive complete" : "In progress"}</Badge></div>
-                      <div className="space-y-2">
-                        <PhaseRow label="Phase 1 · Cognitive" description="AHA cognitive coursework and assessment." complete={Boolean(cognitiveCertificate || phase3Complete)} certificate={cognitiveCertificate} downloading={downloadingId === cognitiveCertificate?.id} onDownload={cognitiveCertificate ? () => handleDownload(cognitiveCertificate) : undefined} />
-                        <PhaseRow label="Phase 2 · Online simulations" description={phase2Certificate ? "Shared Phase 2 completion record is on file for this pathway." : "Online simulation completion has not been recorded yet."} complete={Boolean(phase2Certificate || phase3Complete)} />
-                        <PhaseRow label="Phase 3 · Practical completion" description="Hands-on or approved external completion record." complete={phase3Complete} />
-                        <PhaseRow label={`Final ${course.label} certificate`} description={finalRecord ? "Your final provider certificate is available for download." : "Issued after the required cognitive, Phase 2, and Phase 3 requirements are recorded."} complete={Boolean(finalRecord)} certificate={finalRecord} downloading={downloadingId === finalRecord?.id} onDownload={finalRecord ? () => handleDownload(finalRecord) : undefined} />
-                      </div>
-                    </div>
-                  );
-                })}
+                  const phase1Complete = Boolean(cognitiveCertificate || finalRecord);
+                  return <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4"><div className="mb-3 flex items-start justify-between gap-3"><div><h3 className="text-base font-bold text-slate-950">{selectedPathway.label}</h3><p className="text-xs text-slate-500">{selectedPathway.subtitle}</p></div><Badge variant="outline" className="border-emerald-200 bg-white text-emerald-800">{finalRecord ? "Primary credential issued" : phase3Complete ? "Practical skills complete" : phase1Complete ? "Cognitive complete" : "In progress"}</Badge></div><div className="space-y-2">{selectedPathway.phases.map((phase) => { const certificate = phase.key === "phase1" ? cognitiveCertificate : phase.key === "phase2" ? phase2Certificate : phase.key === "phase3" ? phase3Certificate : finalRecord; const complete = phase.key === "phase1" ? phase1Complete : phase.key === "phase2" ? Boolean(selectedCompletion?.phase2Completed || phase2Certificate) : phase.key === "phase3" ? phase3Complete : Boolean(finalRecord); return <PhaseRow key={phase.key} label={phase.key === "phase1" || phase.key === "phase2" || phase.key === "phase3" ? getLifeSupportProgressRecordLabel(selectedCourse, phase.key) : phase.label} description={phase.description} applicable={phase.applicable} complete={complete} certificate={certificate} downloading={downloadingId === certificate?.id} onDownload={certificate ? () => handleDownload(certificate as (typeof certificates)[number]) : undefined} />; })}</div>{finalRecord ? <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-900">Primary credential: use the final provider certificate for employment or professional verification. Earlier phase records are supporting pathway evidence only.</p> : null}</div>;
+                })()}
               </CardContent>
             </Card>
             <Card className="border-slate-200 bg-white"><CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-slate-900">Need the full certificate list?</p><p className="text-xs text-slate-500">Open the existing certificate library for verification and downloads.</p></div><Button type="button" variant="outline" onClick={() => setLocation("/certificates")}>Open certificate library <span className="ml-2">→</span></Button></CardContent></Card>
