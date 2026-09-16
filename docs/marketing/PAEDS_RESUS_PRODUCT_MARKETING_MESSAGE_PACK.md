@@ -345,7 +345,7 @@ Never say that ICPD proves a provider is ready for an emergency, competent at th
 | Cohort threshold | “Cohorts of **7 or more**” rather than “more than 6” in customer-facing copy |
 | BLS | “KES 10,000 per person; KES 7,500 per person for cohorts of 7+” |
 | ACLS | “KES 20,000 per person; KES 17,500 per person for cohorts of 7+” |
-| IERS | “KES 200,000 per year” with scope, implementation, and renewal boundaries stated in the proposal |
+| IERS | “From KES 200,000/year, tiered by facility level” with scope, implementation, and renewal boundaries stated in the proposal |
 | ICPD | “KES 1,000 / 900 / 800 per staff per year, based on verified total facility staff; 501+ quoted individually” with staff scope, departments, support, reporting, and exclusions stated in the proposal |
 | NERP, IERP, ILSP | “Request the current cohort offer” or “Quoted by cohort and scope” until pricing is formally approved |
 | AHA credential | State the exact pathway, practical requirements, official credential scope, and included/excluded fees |
