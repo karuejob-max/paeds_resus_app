@@ -1314,6 +1314,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                     onChange={(value) => {
                       const user = (presenterSearchQuery.data ?? []).find(candidate => String(candidate.id) === value);
                       if (!value || !user) {
+                        setPresenterSearch("");
                         setPresenterUserId(null);
                         setPresenterName("");
                         setPresenterCadre("");
@@ -1322,6 +1323,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                         setPresenterDepartment("");
                         return;
                       }
+                      setPresenterSearch("");
                       setPresenterUserId(user.id);
                       setPresenterName(user.fullName);
                       setPresenterCadreFromUser(user.cadre, user.cadreOther, false);
