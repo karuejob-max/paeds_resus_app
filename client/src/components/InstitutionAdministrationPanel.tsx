@@ -39,9 +39,9 @@ function getInitialAdministrationTab(): AdministrationTab {
 }
 
 function getInitialPeopleTab(): PeopleTab {
-  if (typeof window === "undefined") return "institution";
+  if (typeof window === "undefined") return "people_access";
   const value = new URLSearchParams(window.location.search).get("peopleTab");
-  return ["people_access", "departments", "access_links", "staff_import"].includes(value ?? "") ? value as PeopleTab : "institution";
+  return ["people_access", "departments", "access_links", "staff_import"].includes(value ?? "") ? value as PeopleTab : "people_access";
 }
 
 function getInitialBillingTab(): "access" | "renewal" | "contracts" {
@@ -120,7 +120,7 @@ export function InstitutionAdministrationPanel({ institutionId, institution, con
             <Tabs value={peopleTab} onValueChange={(value) => setPeopleSection(value as PeopleTab)}>
               <TabsList className="grid h-auto min-w-0 w-full grid-cols-1 gap-1 min-[420px]:grid-cols-2 sm:grid-cols-5">
                 <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="institution"><Building2 className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Institution</TabsTrigger>
-                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="people_access"><Users className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />People & roles</TabsTrigger>
+                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="people_access"><Users className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Role assignments</TabsTrigger>
                 <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="departments"><FileText className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Departments & CPD</TabsTrigger>
                 <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="access_links"><ShieldCheck className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Access & links</TabsTrigger>
                 <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="staff_import"><Users className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Staff import</TabsTrigger>

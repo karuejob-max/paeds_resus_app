@@ -72,7 +72,7 @@ import { assertInstitutionProductCapability, assertWritableProductAccess } from 
 import { asDateOnly, derivePoleRotationDepartmentId, isoWeekMonday, mondayForDate, rotationAnchorForLeadershipWeek } from "../lib/iers-pole-rotation";
 import { classifyShiftInterval } from "../lib/iers-shift-current";
 import { assertInstitutionProductRole } from "../lib/institution-product-roles";
-import { assertCanManageArea } from "../lib/institution-role-authority";
+import { assertCanManageArea, assertCanManageDepartmentHead } from "../lib/institution-role-authority";
 import { assertCurrentClinicalLicence } from "../lib/professional-credential-safety";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { getCohortProgressStats } from "../lib/cohort-progress";
@@ -4838,6 +4838,41 @@ export const institutionRouter = router({
         .orderBy(desc(institutionalActionLogs.createdAt));
     }),
 
+  resolveDepartmentMismatch: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      mismatchReportId: z.number().int().positive(),
+      resolution: z.enum(["already_corrected", "target_inactive", "not_applicable"]),
+      reason: z.string().trim().min(10).max(1000),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const [report] = await db
+        .select({ id: institutionalActionLogs.id, notes: institutionalActionLogs.notes })
+        .from(institutionalActionLogs)
+        .where(and(
+          eq(institutionalActionLogs.id, input.mismatchReportId),
+          eq(institutionalActionLogs.institutionalAccountId, input.institutionId),
+          eq(institutionalActionLogs.status, "open"),
+          like(institutionalActionLogs.systemChange, "DEPARTMENT_MISMATCH_REVIEW:%"),
+        ))
+        .limit(1);
+      if (!report) throw new TRPCError({ code: "NOT_FOUND", message: "Open department mismatch report not found." });
+      await db.update(institutionalActionLogs).set({
+        status: "completed",
+        updatedAt: new Date(),
+        notes: JSON.stringify({
+          previousNotes: report.notes,
+          resolution: input.resolution,
+          resolutionReason: input.reason.trim(),
+          resolvedByUserId: ctx.user.id,
+        }),
+      }).where(eq(institutionalActionLogs.id, report.id));
+      return { success: true as const, resolution: input.resolution };
+    }),
+
   reportDepartmentMismatch: protectedProcedure
     .input(z.object({
       institutionId: z.number().int().positive(),
@@ -5663,6 +5698,23 @@ export const institutionRouter = router({
       }
     }),
 
+  assignDepartmentHead: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), departmentId: z.number().int().positive(), userId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await assertCanManageDepartmentHead(db, ctx.user, input.institutionId);
+      const [department] = await db.select({ id: facilityDepartments.id }).from(facilityDepartments).where(and(eq(facilityDepartments.id, input.departmentId), eq(facilityDepartments.institutionId, input.institutionId), eq(facilityDepartments.isActive, true))).limit(1);
+      if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "Active department not found in this institution." });
+      const [staff] = await db.select({ userId: institutionalStaffMembers.userId, facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId, facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus }).from(institutionalStaffMembers).where(and(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId), eq(institutionalStaffMembers.userId, input.userId), eq(institutionalStaffMembers.facilityDepartmentId, input.departmentId), eq(institutionalStaffMembers.facilityLinkStatus, "linked"))).limit(1);
+      if (!staff?.userId) throw new TRPCError({ code: "BAD_REQUEST", message: "Select an active linked staff member assigned to this department." });
+      await db.transaction(async tx => {
+        await tx.update(institutionDepartmentHeads).set({ assignmentStatus: "ended", endedAt: new Date(), updatedAt: new Date() }).where(and(eq(institutionDepartmentHeads.institutionalAccountId, input.institutionId), eq(institutionDepartmentHeads.departmentId, input.departmentId), eq(institutionDepartmentHeads.assignmentStatus, "active")));
+        await tx.insert(institutionDepartmentHeads).values({ institutionalAccountId: input.institutionId, departmentId: input.departmentId, userId: input.userId, assignmentStatus: "active", activeAssignmentKey: `${input.institutionId}:${input.departmentId}`, assignedByUserId: ctx.user.id });
+      });
+      return { success: true as const };
+    }),
+
   getFacilityDepartments: protectedProcedure
     .input(z.object({ institutionId: z.number() }))
     .query(async ({ ctx, input }) => {
@@ -5691,6 +5743,7 @@ export const institutionRouter = router({
           id: facilityDepartments.id,
           institutionId: facilityDepartments.institutionId,
           poleId: facilityDepartments.poleId,
+          parentDepartmentId: sql<number | null>`NULL`,
           departmentName: facilityDepartments.departmentName,
           requiresPole: sql<boolean>`FALSE`,
           poleSequence: sql<number | null>`NULL`,
