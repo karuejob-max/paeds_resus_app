@@ -229,8 +229,11 @@ export async function ensurePhase2CompletionCertificateForUser(
   db: Db,
   userId: number
 ): Promise<PaedsResusCertificateIssueResult> {
-  const sharedPhase2 = await getAuthoritativePhase2CompletionStatus(db, userId);
-  const nerpPhases = await getNerpVerifiedPhases(db, userId);
+  // An authorized external completion record is already sufficient Phase 2
+  // proof for this issuance path. Check it first so certificate issuance does
+  // not depend on the optional retrospective-role lookup. The record is only
+  // created after recordExternalTrainingCompletion verifies course-specific
+  // cognitive completion and recorder authorization.
   const [externalPhase2] = await db
     .select({ id: externalTrainingCompletions.id })
     .from(externalTrainingCompletions)
@@ -242,7 +245,11 @@ export async function ensurePhase2CompletionCertificateForUser(
       ),
     )
     .limit(1);
-  if (!sharedPhase2.phase2Complete && !nerpPhases.phase2Verified && !externalPhase2) {
+  const nerpPhases = await getNerpVerifiedPhases(db, userId);
+  const sharedPhase2 = externalPhase2
+    ? null
+    : await getAuthoritativePhase2CompletionStatus(db, userId);
+  if (!sharedPhase2?.phase2Complete && !nerpPhases.phase2Verified && !externalPhase2) {
     return { issued: false, reason: "phase2_incomplete" };
   }
 
