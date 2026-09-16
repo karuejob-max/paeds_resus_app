@@ -55,6 +55,7 @@ export default function InstitutionLearningOperationsPanel({
   isInstitutionAdmin = false,
   controlledActiveTab,
   onLearningTabChange,
+  hideNavigation = false,
 }: {
   institutionId: number;
   iersEnabled: boolean;
@@ -63,6 +64,7 @@ export default function InstitutionLearningOperationsPanel({
   isInstitutionAdmin?: boolean;
   controlledActiveTab?: LearningTab;
   onLearningTabChange?: (tab: LearningTab) => void;
+  hideNavigation?: boolean;
 }) {
   const [internalActiveTab, setInternalActiveTab] = useState<LearningTab>(() => {
     const requested = getInitialLearningTab();
@@ -153,7 +155,7 @@ export default function InstitutionLearningOperationsPanel({
         value={activeTab}
         onValueChange={value => setLearningTab(value as LearningTab)}
       >
-        <TabsList className="sticky top-2 z-20 grid h-auto min-w-0 w-full grid-cols-1 gap-1 bg-background/95 p-1 shadow-sm backdrop-blur min-[420px]:grid-cols-2 sm:grid-cols-5 sm:static sm:bg-transparent sm:p-0 sm:shadow-none">
+        {!hideNavigation && <TabsList className="sticky top-2 z-20 grid h-auto min-w-0 w-full grid-cols-1 gap-1 bg-background/95 p-1 shadow-sm backdrop-blur min-[420px]:grid-cols-2 sm:grid-cols-5 sm:static sm:bg-transparent sm:p-0 sm:shadow-none">
           <TabsTrigger value="overview" className="min-h-10 min-w-0 whitespace-normal px-2 text-center text-xs leading-tight sm:text-sm">
             <BookOpenCheck className="mr-2 hidden h-4 w-4 sm:block" />
             Learning overview
@@ -189,134 +191,22 @@ export default function InstitutionLearningOperationsPanel({
               People & targets
             </TabsTrigger>
           )}
-        </TabsList>
+        </TabsList>}
 
         <TabsContent value="overview" className="mt-6 space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            {iersEnabled && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <UsersRound className="h-5 w-5 text-blue-700" />
-                  <CardTitle className="text-base">Set up a cohort</CardTitle>
-                  <CardDescription>
-                    Enrol staff and assign an institutional learning activity.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    variant="outline"
-                    onClick={() => setLearningTab("competency")}
-                  >
-                    Open cohorts & competency
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-            {iersEnabled && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CalendarDays className="h-5 w-5 text-emerald-700" />
-                  <CardTitle className="text-base">
-                    Schedule competency
-                  </CardTitle>
-                  <CardDescription>
-                    Plan sessions, attendance, and readiness competency
-                    evidence.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    variant="outline"
-                    onClick={() => setLearningTab("competency")}
-                  >
-                    Open institutional competency
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-            <Card>
-              <CardHeader>
-                <GraduationCap className="h-5 w-5 text-blue-700" />
-                <CardTitle className="text-base">Institutional Life Support Training</CardTitle>
-                <CardDescription>
-                  Enrol linked provider accounts at KES 10,000 each. Completion issues a Paeds Resus certificate; AHA credentialing is a separate, time-limited request.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  variant="outline"
-                  onClick={() => window.location.assign("/training/institutional-life-support")}
-                >
-                  Open Institutional Life Support
-                </Button>
-              </CardContent>
-            </Card>
-            {cpdEnabled && (
-              <Card>
-                <CardHeader>
-                  <Award className="h-5 w-5 text-violet-700" />
-                  <CardTitle className="text-base">
-                    Manage CPD records
-                  </CardTitle>
-                  <CardDescription>
-                    Run professional-development sessions and issue records.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    variant="outline"
-                    onClick={() => setLearningTab("cpd")}
-                  >
-                    Open CPD Portal
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-            {cpdEnabled && (
-              <Card>
-                <CardHeader>
-                  <FileBarChart2 className="h-5 w-5 text-blue-700" />
-                  <CardTitle className="text-base">
-                    See learning intelligence
-                  </CardTitle>
-                  <CardDescription>
-                    Compare departments and people to learning targets, then
-                    download stakeholder reports.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    variant="outline"
-                    onClick={() => setLearningTab("intelligence")}
-                  >
-                    Open intelligence
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-            {cpdEnabled && (
-              <Card>
-                <CardHeader>
-                  <UserRoundCheck className="h-5 w-5 text-emerald-700" />
-                  <CardTitle className="text-base">
-                    Set coordinators and targets
-                  </CardTitle>
-                  <CardDescription>
-                    Give each department a coordinator and define facility,
-                    department, or individual expectations.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    variant="outline"
-                    onClick={() => setLearningTab("governance")}
-                  >
-                    Open governance
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          <Card className="border-blue-200 bg-blue-50/40 dark:border-blue-900 dark:bg-blue-950/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Learning operations at a glance</CardTitle>
+              <CardDescription>
+                Use the left navigation to move directly to cohorts, CPD sessions, reports, targets, or the Institutional Life Support programme. This page stays focused on the learning journey instead of repeating every destination as a launcher.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 text-sm sm:grid-cols-3">
+              <div><p className="font-semibold">Cohorts & competency</p><p className="text-muted-foreground">Enrol, schedule, verify attendance, and review evidence.</p></div>
+              <div><p className="font-semibold">CPD & workforce</p><p className="text-muted-foreground">Run sessions, monitor targets, and compare departments.</p></div>
+              <div><p className="font-semibold">Records & follow-up</p><p className="text-muted-foreground">Keep completion evidence and next actions visible without changing individual clinical records.</p></div>
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle className="text-base">

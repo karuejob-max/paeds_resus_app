@@ -42,6 +42,9 @@ Work is **NOT done** until:
 - **Production Seeding Confirmed:** For any new course or content, the production database **MUST** be seeded and verified (e.g., via `verify-fellowship-seed.ts` or a targeted check script).
 - **[WORK_STATUS.md](docs/WORK_STATUS.md)** updated with PR link + merge commit + **Production Verify Output**.
 - Verification recorded: `pnpm run check`, `test:unit`, `build`, or a targeted verify script.
+- **Mandatory post-implementation audit completed:** compare the original task requirements and planned changes against the actual implementation, verify every intended issue was addressed, confirm no working behavior was regressed, and record any remaining gaps or assumptions.
+- **Mandatory pre-merge account verification completed when the task changes learner/admin workflows:** use the authenticated test account or an explicitly documented equivalent to exercise the affected workflow before merge; record the routes, roles, states, and result.
+- **Mandatory re-audit after account verification:** repeat the requirement-to-implementation audit after the final fixes and before opening or merging the protected PR. A task is not complete if the first fix passes tests but the original user-visible issue remains unverified.
 
 **Forbidden Done:** local-only, sandbox-only (especially **Manus**), plan-only, branch never merged, WORK_STATUS claim without PR, **code merged but production schema not migrated**, **code merged but production DB not seeded/verified**.
 

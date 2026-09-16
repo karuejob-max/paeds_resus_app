@@ -56,7 +56,7 @@ function getInitialDataSupportTab(): "data" | "support" | "notifications" {
   return value === "support" || value === "notifications" ? value : "data";
 }
 
-export function InstitutionAdministrationPanel({ institutionId, institution }: { institutionId: number; institution: InstitutionRecord }) {
+export function InstitutionAdministrationPanel({ institutionId, institution, controlledActiveTab, onAdministrationTabChange, hideNavigation = false }: { institutionId: number; institution: InstitutionRecord; controlledActiveTab?: AdministrationTab; onAdministrationTabChange?: (tab: AdministrationTab) => void; hideNavigation?: boolean }) {
   const [tab, setTab] = useState<AdministrationTab>(getInitialAdministrationTab);
   const [peopleTab, setPeopleTab] = useState<PeopleTab>(getInitialPeopleTab);
   const [billingTab, setBillingTab] = useState<"access" | "renewal" | "contracts">(getInitialBillingTab);
@@ -64,6 +64,7 @@ export function InstitutionAdministrationPanel({ institutionId, institution }: {
 
   const setAdministrationTab = (nextTab: AdministrationTab) => {
     setTab(nextTab);
+    onAdministrationTabChange?.(nextTab);
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       params.set("section", "administration");
@@ -96,14 +97,14 @@ export function InstitutionAdministrationPanel({ institutionId, institution }: {
   };
 
   return (
-    <Tabs value={tab} onValueChange={(value) => setAdministrationTab(value as AdministrationTab)} className="min-w-0 space-y-6">
-      <TabsList className="grid h-auto min-w-0 w-full grid-cols-1 gap-1 min-[420px]:grid-cols-2 sm:grid-cols-5">
+    <Tabs value={controlledActiveTab ?? tab} onValueChange={(value) => setAdministrationTab(value as AdministrationTab)} className="min-w-0 space-y-6">
+      {!hideNavigation && <TabsList className="grid h-auto min-w-0 w-full grid-cols-1 gap-1 min-[420px]:grid-cols-2 sm:grid-cols-5">
         <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="overview"><ShieldCheck className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Overview</TabsTrigger>
         <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="institution"><Users className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />People & access</TabsTrigger>
         <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="billing"><CreditCard className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Products & billing</TabsTrigger>
         <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="program_operations"><GraduationCap className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Programme operations</TabsTrigger>
         <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="data_support"><LifeBuoy className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Data & support</TabsTrigger>
-      </TabsList>
+      </TabsList>}
 
       <TabsContent value="overview" className="min-w-0 space-y-6">
         <InstitutionAdministrationOverview institutionId={institutionId} onNavigate={setAdministrationTab} />
