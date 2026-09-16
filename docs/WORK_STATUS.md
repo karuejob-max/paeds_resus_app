@@ -496,3 +496,12 @@ Full gap analysis done 2026-07-12 against the five constitutional docs (North St
 - Authenticated self-service CPD check-in now records `attendance_verified` with an audit event and timestamp, treating platform-captured check-in as system-verified attendance. Existing coordinator/reviewer transitions and quiz safeguards remain in place for manual review.
 - **Validation:** focused presenter, CPD, and institutional-learning tests passed; typecheck passed; production build passed; `git diff --check` passed; PR #852 protected CI gate passed.
 - **Not yet verified:** deployed mobile/desktop smoke test with a real account, including presenter search ordering and immediate selection visibility. External NCK/WCEA uploads remain outside this automatic path and should continue to be treated as self-reported until a separate evidence-review workflow is implemented.
+
+## Bulk CPD Attendance Approval — 2026-09-16
+
+- **Implementation:** PR #855 merged; `origin/main` now contains the guarded `bulkVerifyAttendance` procedure and coordinator UI.
+- Coordinators, education coordinators, and reviewers can select up to 200 eligible attendance records, provide an explicit batch reason, and verify them together.
+- Each record is independently checked for institution membership, department scope, terminal status, and required-quiz completion. Successful records receive `attendance_verified` plus an audit event; already-terminal or quiz-failing records are skipped or returned as explicit exceptions for individual review.
+- The CPD panel provides select-all-eligible behavior, per-record checkboxes, a required reason, a clear batch action, and visible exception details.
+- **Validation:** typecheck passed; focused CPD and institutional-learning tests passed 30/30; production build passed; `git diff --check` passed; PR #855 protected CI gate passed.
+- **Pending:** deployed institutional smoke test with a coordinator account, including a mixed batch containing verified, quiz-failing, terminal, and department-out-of-scope records.
