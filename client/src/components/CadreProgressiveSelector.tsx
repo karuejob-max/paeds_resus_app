@@ -216,6 +216,13 @@ export function SearchableDropdown({
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const selectedOption = options.find((opt) => opt.value === value);
+
+  useEffect(() => {
+    if (value) {
+      setSearchQuery("");
+      setOpen(false);
+    }
+  }, [value]);
   const filteredOptions = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return options;

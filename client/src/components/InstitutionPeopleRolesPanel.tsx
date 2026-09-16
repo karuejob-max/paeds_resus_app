@@ -445,6 +445,18 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
               </tbody>
             </table>
           </div>
+          <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-950/20">
+            <p className="font-medium text-sm text-blue-950 dark:text-blue-100">Where to assign each role</p>
+            <p className="mt-1 text-xs text-blue-900/80 dark:text-blue-200/80">The platform keeps institutional administration, product permissions, and department appointments separate so a broad role cannot accidentally grant wider access.</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <Button type="button" variant="outline" size="sm" onClick={() => setActiveSection("product_roles")}>Assign IERS / CPD product roles</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setActiveSection("scopes")}>Assign shared account scopes</Button>
+              <Button type="button" variant="outline" size="sm" asChild><a href="?section=administration&adminTab=institution&peopleTab=access_links">Assign institutional administrator</a></Button>
+              <Button type="button" variant="outline" size="sm" asChild><a href="?section=iers&iersTab=command">Assign ERCo / IERS department appointments</a></Button>
+              <Button type="button" variant="outline" size="sm" asChild><a href="?section=learning&learningTab=governance">Assign Departmental CPD Coordinator</a></Button>
+              <Button type="button" variant="outline" size="sm" asChild><a href="?section=administration&adminTab=institution&peopleTab=departments">Set department membership and scope</a></Button>
+            </div>
+          </div>
           <p className="text-xs text-muted-foreground">Role assignment does not prove clinical competence, provider acceptance, or emergency dispatch availability. Those states remain separately recorded and auditable.</p>
         </CardContent>
       </Card>
