@@ -2247,6 +2247,93 @@ export const cpdRouter = router({
       return { success: true as const, attendanceStatus: input.attendanceStatus, eventClosed };
     }),
 
+  /** Admin: verify multiple attendance records with the same safeguards as reviewAttendance. */
+  bulkVerifyAttendance: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      attendeeIds: z.array(z.number().int().positive()).min(1).max(200),
+      reason: z.string().trim().min(3).max(500),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.attendance.operate");
+      const access = await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator", "cpd_education_coordinator", "cpd_reviewer"]);
+      const uniqueIds = Array.from(new Set(input.attendeeIds));
+      const rows = await db
+        .select({
+          attendeeId: cpdAttendees.id,
+          eventId: cpdAttendees.cpdEventId,
+          institutionalAccountId: cpdAttendees.institutionalAccountId,
+          facilityDepartmentId: cpdAttendees.facilityDepartmentId,
+          previousStatus: cpdAttendees.attendanceStatus,
+        })
+        .from(cpdAttendees)
+        .where(and(
+          eq(cpdAttendees.institutionalAccountId, input.institutionId),
+          inArray(cpdAttendees.id, uniqueIds),
+        ));
+      const rowById = new Map(rows.map(row => [row.attendeeId, row]));
+      const succeeded: number[] = [];
+      const skipped: Array<{ attendeeId: number; reason: string }> = [];
+      const failed: Array<{ attendeeId: number; reason: string }> = [];
+
+      for (const attendeeId of uniqueIds) {
+        const row = rowById.get(attendeeId);
+        if (!row) {
+          failed.push({ attendeeId, reason: "Attendance record not found in this institution." });
+          continue;
+        }
+        if (row.previousStatus === "attendance_verified") {
+          skipped.push({ attendeeId, reason: "Already verified." });
+          continue;
+        }
+        if (["excused", "cancelled"].includes(row.previousStatus)) {
+          skipped.push({ attendeeId, reason: `Terminal status: ${row.previousStatus}.` });
+          continue;
+        }
+        if (access.departmentIds && (row.facilityDepartmentId == null || !access.departmentIds.includes(row.facilityDepartmentId))) {
+          failed.push({ attendeeId, reason: "Outside your assigned department scope." });
+          continue;
+        }
+        const [requiredQuiz] = await db
+          .select({ id: cpdEventQuizzes.id, passingScore: cpdEventQuizzes.passingScore })
+          .from(cpdEventQuizzes)
+          .where(and(eq(cpdEventQuizzes.cpdEventId, row.eventId), eq(cpdEventQuizzes.isRequired, true)))
+          .limit(1);
+        if (requiredQuiz) {
+          const attempts = await db
+            .select({ score: cpdAttendeeQuizAttempts.score, passed: cpdAttendeeQuizAttempts.passed })
+            .from(cpdAttendeeQuizAttempts)
+            .where(and(
+              eq(cpdAttendeeQuizAttempts.cpdAttendeeId, attendeeId),
+              eq(cpdAttendeeQuizAttempts.cpdEventQuizId, requiredQuiz.id),
+            ));
+          if (!bestCpdQuizAttemptPassed(attempts, requiredQuiz.passingScore)) {
+            failed.push({ attendeeId, reason: `Required quiz not passed (${requiredQuiz.passingScore}% required).` });
+            continue;
+          }
+        }
+        const now = new Date();
+        await db.update(cpdAttendees).set({
+          attendanceStatus: "attendance_verified",
+          attendanceVerifiedAt: now,
+          attendanceVerifiedByUserId: ctx.user.id,
+          attendanceReviewReason: input.reason,
+        }).where(eq(cpdAttendees.id, attendeeId));
+        await db.insert(cpdAttendanceAuditEvents).values({
+          institutionalAccountId: row.institutionalAccountId,
+          cpdEventId: row.eventId,
+          cpdAttendeeId: attendeeId,
+          previousStatus: row.previousStatus,
+          nextStatus: "attendance_verified",
+          reason: `Bulk attendance verification: ${input.reason}`,
+          actorUserId: ctx.user.id,
+        });
+        succeeded.push(attendeeId);
+      }
+      return { success: true as const, succeeded, skipped, failed };
+    }),
+
   /** Admin: archive a session without deleting registrations, attendance, or certificates. */
   archiveEvent: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive(), eventId: z.number().int().positive(), reason: z.string().trim().min(3).max(500) }))

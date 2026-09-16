@@ -5,6 +5,8 @@ import SignaturePad from "@/components/SignaturePad";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -300,6 +302,13 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
   const [deleteTargetEvent, setDeleteTargetEvent] = useState<{ id: number; name: string; isOpen: boolean; attendeeCount: number } | null>(null);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
   const [deleteConfirmAttendeesInput, setDeleteConfirmAttendeesInput] = useState("");
+  const [selectedAttendanceIds, setSelectedAttendanceIds] = useState<number[]>([]);
+  const [bulkVerificationReason, setBulkVerificationReason] = useState("Platform attendance roster reviewed by CPD Coordinator");
+  const [bulkVerificationResult, setBulkVerificationResult] = useState<{
+    succeeded: number[];
+    skipped: Array<{ attendeeId: number; reason: string }>;
+    failed: Array<{ attendeeId: number; reason: string }>;
+  } | null>(null);
 
   useEffect(() => {
     if (selectedEvent) {
@@ -368,6 +377,21 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
       void utils.cpd.listEvents.invalidate({ institutionId });
       void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
     },
+  });
+
+  const bulkVerifyAttendanceMutation = trpc.cpd.bulkVerifyAttendance.useMutation({
+    onSuccess: (result) => {
+      setBulkVerificationResult(result);
+      const messages = [`Verified ${result.succeeded.length} attendance record(s).`];
+      if (result.skipped.length) messages.push(`Skipped ${result.skipped.length}.`);
+      if (result.failed.length) messages.push(`${result.failed.length} require individual review.`);
+      toast.success(messages.join(" "));
+      setSelectedAttendanceIds([]);
+      void utils.cpd.listAttendees.invalidate({ institutionId, eventId: effectiveEventId ?? undefined });
+      void utils.cpd.listEvents.invalidate({ institutionId });
+      void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
+    },
+    onError: (err) => toast.error(err.message || "Bulk verification failed"),
   });
 
   const reviewAttendanceMutation = trpc.cpd.reviewAttendance.useMutation({
@@ -1588,9 +1612,53 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
               ) : attendees.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No registrations for this event yet.</p>
               ) : (
-                <Table>
+                <>
+                  <div className="mb-4 rounded-lg border bg-muted/20 p-3 space-y-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Bulk attendance approval</p>
+                        <p className="text-xs text-muted-foreground">Select registered or checked-in attendees. Existing safeguards still apply per record; exceptions are returned for individual review.</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={selectedAttendanceIds.length === 0 || bulkVerificationReason.trim().length < 3 || bulkVerifyAttendanceMutation.isPending}
+                        onClick={() => bulkVerifyAttendanceMutation.mutate({
+                          institutionId,
+                          attendeeIds: selectedAttendanceIds,
+                          reason: bulkVerificationReason.trim(),
+                        })}
+                      >
+                        {bulkVerifyAttendanceMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                        Verify {selectedAttendanceIds.length || "selected"}
+                      </Button>
+                  </div>
+                  {bulkVerificationResult && (bulkVerificationResult.failed.length > 0 || bulkVerificationResult.skipped.length > 0) ? (
+                    <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+                      <p className="font-medium">Batch exceptions</p>
+                      {[...bulkVerificationResult.failed, ...bulkVerificationResult.skipped].map(item => (
+                        <p key={`${item.attendeeId}-${item.reason}`}>Record {item.attendeeId}: {item.reason}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                  <Textarea
+                      value={bulkVerificationReason}
+                      onChange={event => setBulkVerificationReason(event.target.value)}
+                      rows={2}
+                      maxLength={500}
+                      aria-label="Bulk verification reason"
+                      placeholder="Reason for this batch verification"
+                    />
+                  </div>
+                  <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          aria-label="Select all eligible attendees"
+                          checked={attendees.some(a => !["attendance_verified", "excused", "cancelled"].includes(a.attendanceStatus)) && attendees.filter(a => !["attendance_verified", "excused", "cancelled"].includes(a.attendanceStatus)).every(a => selectedAttendanceIds.includes(a.id))}
+                          onCheckedChange={checked => setSelectedAttendanceIds(checked ? attendees.filter(a => !["attendance_verified", "excused", "cancelled"].includes(a.attendanceStatus)).map(a => a.id) : [])}
+                        />
+                      </TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Cadre</TableHead>
                       <TableHead>Department</TableHead>
@@ -1602,6 +1670,14 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                   <TableBody>
                     {attendees.map((a) => (
                       <TableRow key={a.id}>
+                        <TableCell>
+                          <Checkbox
+                            aria-label={`Select ${a.fullName}`}
+                            disabled={["attendance_verified", "excused", "cancelled"].includes(a.attendanceStatus)}
+                            checked={selectedAttendanceIds.includes(a.id)}
+                            onCheckedChange={checked => setSelectedAttendanceIds(current => checked ? [...new Set([...current, a.id])] : current.filter(id => id !== a.id))}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">{a.fullName}</TableCell>
                         <TableCell>
                           {a.cadre === "Other" ? a.cadreOther || "Other" : a.cadre}
@@ -1663,6 +1739,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                     ))}
                   </TableBody>
                 </Table>
+                </>
               )}
             </CardContent>
           </Card>
