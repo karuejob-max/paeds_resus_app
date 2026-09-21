@@ -4,6 +4,7 @@ import { z } from "zod";
 import { resusGpsClinicalEvents, institutionMemberships, iersActivationEvents, iersActivationResponders } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
+import { defaultResusGpsProvenance } from "../lib/event-provenance";
 
 const eventTypeSchema = z.enum([
   "phase_change",
@@ -127,6 +128,7 @@ export const resusEventRouter = router({
       }
 
       try {
+        const provenance = defaultResusGpsProvenance(input.activationEventId !== undefined);
         await db.insert(resusGpsClinicalEvents).values({
           localEventId: input.localEventId,
           sessionId: input.sessionId,
@@ -135,7 +137,10 @@ export const resusEventRouter = router({
           eventType: input.eventType,
           letter: input.letter ?? null,
           detail: sanitizeEventDetail(input.detail),
-          eventData: sanitizeEventData(input.eventData),
+          eventData: sanitizeEventData({
+            ...(input.eventData ?? {}),
+            _serverProvenance: provenance,
+          }),
           eventTimestamp: input.eventTimestamp,
           createdAt: new Date(),
         });

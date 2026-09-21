@@ -31,7 +31,8 @@ export interface LifeSupportPackResult {
 export function resolveLifeSupportPack(
   ageMonths: number,
   puberty?: boolean,
-  setting?: ResusSetting
+  setting?: ResusSetting,
+  adultContentEnabled = false,
 ): LifeSupportPackResult {
   if (!Number.isFinite(ageMonths) || ageMonths < 0) {
     throw new Error('A valid non-negative patient age is required to select a life-support pathway.');
@@ -48,6 +49,10 @@ export function resolveLifeSupportPack(
       ageBand: 'newborn_delivery_room',
       contentVersion: '2025 AHA/AAP reference',
     };
+  }
+
+  if ((puberty === true || ageMonths >= PUBERTY_AGE_MONTHS) && !adultContentEnabled) {
+    throw new Error('Adult ACLS content requires explicit governed adult-content enablement; age alone cannot select ACLS.');
   }
 
   if (puberty === true || ageMonths >= PUBERTY_AGE_MONTHS) {

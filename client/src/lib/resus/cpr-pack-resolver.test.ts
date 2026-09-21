@@ -19,12 +19,12 @@ describe('resolveLifeSupportPack', () => {
   });
 
   it('returns ACLS when puberty flagged', () => {
-    const r = resolveLifeSupportPack(60, true);
+    const r = resolveLifeSupportPack(60, true, 'hospital', true);
     expect(r.pack).toBe('ACLS');
   });
 
   it('returns ACLS at or above 12 years', () => {
-    const r = resolveLifeSupportPack(144);
+    const r = resolveLifeSupportPack(144, false, 'hospital', true);
     expect(r.pack).toBe('ACLS');
   });
 
@@ -37,5 +37,9 @@ describe('resolveLifeSupportPack', () => {
   it('rejects invalid ages instead of silently selecting a pathway', () => {
     expect(() => resolveLifeSupportPack(Number.NaN)).toThrow(/valid non-negative patient age/i);
     expect(() => resolveLifeSupportPack(-1)).toThrow(/valid non-negative patient age/i);
+  });
+
+  it('blocks adult ACLS unless explicitly enabled', () => {
+    expect(() => resolveLifeSupportPack(144, false, 'hospital')).toThrow(/adult-content/i);
   });
 });

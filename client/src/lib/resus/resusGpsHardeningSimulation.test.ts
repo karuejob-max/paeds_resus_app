@@ -18,7 +18,7 @@ describe("ResusGPS synthetic/manikin hardening matrix", () => {
     expect(resolveLifeSupportPack(0, false, "hospital").pack).toBe("PALS");
     expect(resolveLifeSupportPack(0, false, "delivery_room").pack).toBe("NRP");
     expect(() => resolveLifeSupportPack(24, false, "delivery_room")).toThrow(/newborn under 1 month/i);
-    expect(resolveLifeSupportPack(216, false, "hospital").pack).toBe("ACLS");
+    expect(resolveLifeSupportPack(216, false, "hospital", true).pack).toBe("ACLS");
   });
 
   it("reroutes a confirmed absent pulse into the cardiac-arrest branch", () => {
