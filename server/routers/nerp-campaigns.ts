@@ -420,6 +420,12 @@ export const nerpCampaignsRouter = router({
             replyTo:
               process.env.SES_REPLY_TO_EMAIL?.trim() ||
               "paedsresus254@gmail.com",
+            configurationSetName:
+              process.env.SES_NERP_CONFIGURATION_SET?.trim() || undefined,
+            tags: {
+              campaign_key: campaign.campaignKey,
+              recipient_id: String(recipient.id),
+            },
           });
           if (result.success) {
             await db
