@@ -17,6 +17,8 @@ If you are about to take any action in this repository — writing code, reviewi
 
 **[docs/AGENT_OPERATIONS_PLAYBOOK.md](docs/AGENT_OPERATIONS_PLAYBOOK.md)** — step-by-step runbooks: protected-branch PR/merge (`gh`), production fellowship seed (chunked batches, verify script, Render Shell), ETIMEDOUT recovery, honest multitask status. Cross-links [AGENT_AUTONOMY.md](docs/AGENT_AUTONOMY.md); does not replace it.
 
+**[docs/PLATFORM_CURRENT_STATE.md](docs/PLATFORM_CURRENT_STATE.md)** — current product map, institutional readiness/QI/pricing/billing state, Kiirua commercial position, payment launch boundary, known gaps, and documentation index. Read this after `WORK_STATUS.md` when joining the repository.
+
 
 
 ### Production deploy & database migrations (Manus + all agents)
