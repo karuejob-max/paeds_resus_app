@@ -2,12 +2,11 @@
  * resus.tsx — ResusGPS tab (idle state)
  *
  * Shows the "Start New Case" button and any active/paused case resume option.
- * Tapping "Start New Case" navigates to the active ResusGPS screen.
+ * The unfinished native active-case screen is quarantined; clinical work must use the governed web flow.
  * Designed for one-handed use — large tap targets, high contrast.
  */
 
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Zap, Clock, AlertTriangle, ChevronRight } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
@@ -16,7 +15,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const PERSISTED_SESSION_KEY = 'resus_active_session_v1';
 
 export default function ResusIdleScreen() {
-  const router = useRouter();
   const [persistedSession, setPersistedSession] = useState<{
     phase: string;
     weight: number | null;
@@ -42,11 +40,11 @@ export default function ResusIdleScreen() {
   }, []);
 
   const handleStartNewCase = () => {
-    router.push('/resus/active');
+    Alert.alert('Use governed ResusGPS', 'The native active-care screen is intentionally unavailable until the shared clinical engine is ported and validated. Open the supervised web ResusGPS route instead.');
   };
 
   const handleResumeCase = () => {
-    router.push('/resus/active?resume=true');
+    Alert.alert('Resume unavailable here', 'This mobile route cannot safely resume an active clinical case. Use the governed web ResusGPS route with your clinical team.');
   };
 
   const handleDiscardAndStart = () => {
@@ -61,7 +59,7 @@ export default function ResusIdleScreen() {
           onPress: async () => {
             await AsyncStorage.removeItem(PERSISTED_SESSION_KEY);
             setPersistedSession(null);
-            router.push('/resus/active');
+            Alert.alert('New case unavailable here', 'The native active-care screen is quarantined. Use the governed web ResusGPS route instead.');
           },
         },
       ]

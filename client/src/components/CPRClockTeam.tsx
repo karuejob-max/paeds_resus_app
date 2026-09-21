@@ -52,6 +52,8 @@ interface Props {
   lifeSupportPack?: LifeSupportPackResult;
   /** Notify the parent when the server CPR session exists so an IERS link can be created. */
   onSessionReady?: (cprSessionId: number) => void;
+  /** Controlled by CPRClockUnified; state remains mounted while the parent shows pause. */
+  paused?: boolean;
   useSharedState?: boolean;
 }
 
@@ -508,13 +510,13 @@ export function CPRClockTeam({
       'switch to medications': () => handleRoleChange('medications'),
       'switch to recorder': () => handleRoleChange('recorder'),
       'switch to observer': () => handleRoleChange('observer'),
-      'give epinephrine': giveEpinephrine,
-      'give epi': giveEpinephrine,
-      'give amiodarone': giveAmiodarone,
-      'deliver shock': deliverShock,
-      'shock now': deliverShock,
-      'rosc achieved': achieveROSC,
-      'return of circulation': achieveROSC,
+      'give epinephrine': () => speak('Use the visible medication control. Voice cannot record medication administration.'),
+      'give epi': () => speak('Use the visible medication control. Voice cannot record medication administration.'),
+      'give amiodarone': () => speak('Use the visible medication control. Voice cannot record medication administration.'),
+      'deliver shock': () => speak('Use the visible rhythm and shock controls. Voice cannot deliver a shock.'),
+      'shock now': () => speak('Use the visible rhythm and shock controls. Voice cannot deliver a shock.'),
+      'rosc achieved': () => speak('Use the visible ROSC confirmation. Voice cannot confirm ROSC.'),
+      'return of circulation': () => speak('Use the visible ROSC confirmation. Voice cannot confirm ROSC.'),
     },
     continuous: true,
   });

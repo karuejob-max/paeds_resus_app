@@ -3,19 +3,21 @@
  * Switches modes without losing session continuity or patient context.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CPRClockStreamlined } from './CPRClockStreamlined';
 import { CPRClockTeam } from './CPRClockTeam';
 import { Button } from '@/components/ui/button';
 import { Users, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { CprClockSharedProvider } from '@/components/cpr/CprClockSharedContext';
+import { useCprClockShared } from '@/components/cpr/CprClockSharedContext';
 import type { LifeSupportPackResult } from '@/lib/resus/cpr-pack-resolver';
 
 interface Props {
   patientWeight: number;
   patientAgeMonths?: number;
   onClose: () => void;
+  onResume?: () => void;
   /** Parent ResusGPS case key for local CPR recovery; not a patient identifier. */
   caseKey?: string;
   /** Canonical IERS activation identifier; opaque operational linkage only. */
@@ -32,10 +34,12 @@ interface Props {
   onSessionReady?: (cprSessionId: number) => void;
   /** Open the parent completion/debrief path after a deliberate terminal outcome. */
   onCodeComplete?: (cprSessionId: number | undefined, outcome: 'mortality' | 'transferred' | 'unknown') => void;
-  /** The integrated emergency flow uses one CPR surface; standalone callers may keep mode switching. */
+  /** Team mode is opt-in only after separate clinical review; the safe default is one Solo surface. */
   allowModeSwitch?: boolean;
   /** The integrated flow owns demographics in ResusGPS. */
   allowPatientInfoEdit?: boolean;
+  /** Keep CPR state mounted while showing a deliberate non-terminal pause surface. */
+  paused?: boolean;
 }
 
 function CPRClockUnifiedInner({
@@ -44,6 +48,7 @@ function CPRClockUnifiedInner({
   caseKey,
   activationEventId,
   onClose,
+  onResume,
   externalElapsed,
   externalRunning,
   autoStart,
@@ -51,10 +56,16 @@ function CPRClockUnifiedInner({
   onROSC,
   onSessionReady,
   onCodeComplete,
-  allowModeSwitch = true,
+  allowModeSwitch = false,
   allowPatientInfoEdit = true,
+  paused = false,
 }: Props) {
+  const shared = useCprClockShared();
   const [mode, setMode] = useState<'solo' | 'team'>('solo');
+
+  useEffect(() => {
+    if (paused) shared?.setIsRunning(false);
+  }, [paused, shared]);
 
   const commonProps = {
     patientWeight,
@@ -70,18 +81,31 @@ function CPRClockUnifiedInner({
     onSessionReady,
     onCodeComplete,
     allowPatientInfoEdit,
+    paused,
     useSharedState: true as const,
   };
 
   return (
     <div className="relative h-full flex flex-col min-h-[80vh]">
+      {paused && (
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/95 p-4" role="dialog" aria-modal="true" aria-labelledby="cpr-paused-title">
+          <div className="w-full max-w-md rounded-xl border border-amber-400/70 bg-slate-950 p-6 text-white shadow-2xl">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-300">CPR-GPS paused</p>
+            <h2 id="cpr-paused-title" className="mt-2 text-xl font-bold">Active arrest state preserved</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-200">The arrest timer, cycle, medication history, and team state are preserved. This is not a safe or completed state.</p>
+            <Button onClick={() => { onResume?.(); shared?.setIsRunning(true); }} className="mt-5 min-h-12 w-full bg-red-600 text-base font-bold hover:bg-red-700" aria-label="Resume CPR-GPS">
+              Resume CPR-GPS
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="absolute top-4 left-4 right-4 z-50 flex items-center justify-between gap-2 flex-wrap">
         {lifeSupportPack && !autoStart && (
           <Badge variant="outline" className="bg-background/80 backdrop-blur text-xs">
             {lifeSupportPack.pack}: {lifeSupportPack.label}
           </Badge>
         )}
-        {allowModeSwitch && (
+        {allowModeSwitch && !paused && (
           <Button
             variant="outline"
             size="sm"
