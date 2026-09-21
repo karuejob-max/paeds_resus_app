@@ -1,7 +1,7 @@
 # Paeds Resus Platform — Current State & Agent Handoff
 
 **Last updated:** 2026-09-21  
-**Canonical code state:** `origin/main` at merge commit `6c586d31` (PR [#867](https://github.com/karuejob-max/paeds_resus_app/pull/867))  
+**Canonical code state:** `origin/main` at merge commit `0406f4fa` (documentation merge PR [#869](https://github.com/karuejob-max/paeds_resus_app/pull/869)); institutional implementation merge: `6c586d31` (PR [#867](https://github.com/karuejob-max/paeds_resus_app/pull/867))  
 **Audience:** New engineering agents, maintainers, clinical/operations collaborators, and reviewers.
 
 ## What the platform is
@@ -89,4 +89,3 @@ Use `docs/KIIRUA_CLIENT_BRIEFING.md` as the client-facing briefing and `docs/INS
 - `docs/marketing/PAEDS_RESUS_PRODUCT_MARKETING_MESSAGE_PACK.md` — canonical marketing wording and pricing display rules.
 - `shared/institutional-pricing.ts` — executable pricing source of truth.
 - `server/webhooks/institutional-payment.ts` — signed institutional webhook boundary.
-
