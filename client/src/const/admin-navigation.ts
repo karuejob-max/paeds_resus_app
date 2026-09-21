@@ -174,6 +174,13 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
         risk: "operational",
       },
       {
+        label: "Institutional payments",
+        href: "/admin/institutional-payments",
+        description: "Record verified bank-transfer or card settlement for institutional orders.",
+        icon: WalletCards,
+        risk: "operational",
+      },
+      {
         label: "M-Pesa webhook log",
         href: "/admin/mpesa-webhooks",
         description: "Inspect payment callback events and signature outcomes.",

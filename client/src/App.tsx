@@ -40,6 +40,7 @@ const AdminHub = lazy(() => import("./pages/AdminHub"));
 const AdminAccessGrants = lazy(() => import("./pages/AdminAccessGrants"));
 const AdminReports = lazy(() => import("./pages/AdminReports"));
 const AdminMpesaReconciliation = lazy(() => import("./pages/AdminMpesaReconciliation"));
+const AdminInstitutionalPayments = lazy(() => import("./pages/AdminInstitutionalPayments"));
 const AdminOps = lazy(() => import("./pages/AdminOps"));
 const AdminMpesaWebhooks = lazy(() => import("./pages/AdminMpesaWebhooks"));
 const AdminFacilityCareSignal = lazy(() => import("./pages/AdminFacilityCareSignal"));
@@ -315,6 +316,11 @@ function Router() {
           <Route path="/admin/mpesa-reconciliation">{() => (
             <AdminGate>
               <AdminMpesaReconciliation />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin/institutional-payments">{() => (
+            <AdminGate>
+              <AdminInstitutionalPayments />
             </AdminGate>
           )}</Route>
           <Route path="/admin/ops">{() => (

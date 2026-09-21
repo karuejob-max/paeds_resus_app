@@ -8,7 +8,7 @@
 
 Paeds Resus should not present itself to Kiirua as a provider of bulk BLS/ACLS certificates. The stronger and more accurate proposition is:
 
-> **Paeds Resus helps a hospital build a working, measurable paediatric emergency-readiness system, supported by role-based training, bedside guidance, quality-improvement reporting, and institutional visibility.**
+> **Paeds Resus helps a hospital build a working, measurable emergency-readiness system, supported by role-based training, bedside guidance, quality-improvement reporting, and institutional visibility. Paediatric competency is a core strength within that hospital-wide system.**
 
 The offer has three connected components: **Institutional Emergency Readiness**, **competency training**, and the **CPD Portal**. Each component should remain separately defined in the proposal and statement of work. The client should understand how they reinforce one another without being confused into thinking that one product automatically includes every other service.
 
@@ -19,7 +19,7 @@ The Kiirua planning model must use the approved **ILSP rate of KES 7,000 per sta
 | Offer | What Kiirua would be buying | Practical client outcome |
 |---|---|---|
 | **Institutional Emergency Readiness System (IERS/ERS)** | Hospital-wide emergency-response design, defined roles, emergency team/roster model, readiness baseline, equipment/process review, activation workflow, dashboards, and review cadence. | The hospital has a clearer and more measurable response system instead of isolated staff training. |
-| **ResusGPS** | Structured paediatric emergency guidance for time-critical bedside decision-making, including emergency flows and reassessment support. | Providers have a consistent support tool during paediatric emergencies, within appropriate professional and local-protocol boundaries. |
+| **ResusGPS** | Structured bedside emergency guidance for time-critical decision-making, including paediatric emergency flows and reassessment support. | Providers have a consistent support tool during emergencies, within appropriate professional and local-protocol boundaries. |
 | **Competency training** | Role- and gap-based BLS, ACLS, PALS, NRP, and related training pathways where contracted. | A defined cohort receives learning, facilitated training, assessment, skills validation, remediation where required, and credential records. |
 | **Paeds Resus Institutional Life Support Training** | Paeds Resus competency-based institutional training at the agreed provider/cycle price, without implying an official AHA card. | Kiirua can train providers through a Paeds Resus pathway and track completion and competency evidence. |
 | **Official AHA pathway** | AHA-aligned or official AHA training only where the exact course, provider requirements, official fees, and credential pathway are expressly contracted. | Kiirua receives the specific AHA credential only when that pathway has been separately confirmed and delivered under the applicable rules. |
@@ -89,7 +89,7 @@ These are not reasons to hide the offer. They are the gates that must be complet
 
 > “We are not proposing certificates in isolation. We are proposing a hospital emergency-readiness programme: we map the response system, define roles, train the people who need the competencies, give teams bedside support, capture improvement signals, and give hospital leadership measurable visibility.”
 
-> “The first step is not to sell the maximum number of seats. It is to confirm your staffing reality, existing emergency-response process, current training coverage, equipment readiness, and the departments where paediatric emergencies create the greatest risk.”
+> “The first step is not to sell the maximum number of seats. It is to confirm your staffing reality, existing emergency-response process, current training coverage, equipment readiness, and the departments where emergencies create the greatest risk.”
 
 > “The platform is ready to support the institutional workflow. We will configure the final payment and governance controls with you before live collection and before the first formal reporting cycle.”
 
