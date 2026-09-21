@@ -373,6 +373,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   const [dismissedReassessmentIds, setDismissedReassessmentIds] = useState<Set<string>>(() => new Set());
   const [showEventLog, setShowEventLog] = useState(false);
   const [showCPRClock, setShowCPRClock] = useState(false);
+  const [cprPaused, setCprPaused] = useState(false);
   const [cprDebriefSessionId, setCprDebriefSessionId] = useState<number | null>(null);
   const [showCprDebrief, setShowCprDebrief] = useState(false);
   const cprEventLinkMutation = trpc.cprEventLink.linkSession.useMutation();
@@ -564,6 +565,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     setNumberInput('');
     setNumberInput2('');
     if (answer === 'cardiac_arrest') {
+      setCprPaused(false);
       setShowCPRClock(true);
       if (!timer.running) timer.start();
       analytics.trackCardiacArrestTriggered();
@@ -704,6 +706,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     if (!timer.running) {
       timer.start();
     }
+    setCprPaused(false);
     setShowCPRClock(true);
     analytics.trackCardiacArrestTriggered();
   };
@@ -751,6 +754,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     });
     timer.stop();
     setShowCPRClock(false);
+    setCprPaused(false);
     // Track ROSC achieved
     analytics.trackROSCachieved();
   };
@@ -763,6 +767,17 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     setSession(prev => pushToUndoStack(prev, `CPR code completed: ${outcome}`));
     timer.stop();
     setShowCPRClock(false);
+    setCprPaused(false);
+  };
+
+  const pauseCprGps = () => {
+    timer.stop();
+    setCprPaused(true);
+  };
+
+  const resumeCprGps = () => {
+    setCprPaused(false);
+    timer.start();
   };
 
   const handleUpdatePatientInfo = () => {
@@ -1607,7 +1622,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
           </Card>
         ) : session.phase === 'CARDIAC_ARREST' && showCPRClock && lifeSupportPack?.pack === 'NRP' && cprDemographicsReady ? (
           <NeonatalResuscitationFlow birthWeightGrams={Math.round(weight! * 1000)} onClose={() => setShowCPRClock(false)} />
-        ) : session.phase === 'CARDIAC_ARREST' && showCPRClock && cprDemographicsReady ? (
+        ) : session.phase === 'CARDIAC_ARREST' && (showCPRClock || cprPaused) && cprDemographicsReady ? (
             <CPRClockUnified
             patientWeight={weight!}
             activationEventId={activationEventId}
@@ -1622,15 +1637,9 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
             onROSC={handleROSC}
             allowModeSwitch={false}
             allowPatientInfoEdit={false}
-            onClose={() => setShowCPRClock(false)}
-          />
-        ) : session.phase === 'CARDIAC_ARREST' ? (
-          <CardiacArrestScreen
-            session={session}
-            weight={weight}
-            timer={timer}
-            onComplete={handleCompleteIntervention}
-            onROSC={handleROSC}
+            paused={cprPaused}
+            onResume={resumeCprGps}
+            onClose={pauseCprGps}
           />
         ) : null}
 
@@ -3079,110 +3088,6 @@ function InterventionScreen({
           <ChevronRight className="h-4 w-4 ml-2" />
         </Button>
       </div>
-    </div>
-  );
-}
-
-// ─── Cardiac Arrest Screen ──────────────────────────────────
-
-function CardiacArrestScreen({
-  session,
-  weight,
-  timer,
-  onComplete,
-  onROSC,
-}: {
-  session: ResusSession;
-  weight: number | null;
-  timer: ReturnType<typeof useTimer>;
-  onComplete: (id: string) => void;
-  onROSC: () => void;
-}) {
-  const cycleProgress = ((timer.elapsed % 120) / 120) * 100;
-  const arrestThreat = session.threats.find(t => t.id === 'cardiac_arrest');
-
-  return (
-    <div className="py-6">
-      {/* CPR Timer */}
-      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center mb-6">
-        <h2 className="text-2xl font-bold text-red-400 mb-1">CARDIAC ARREST</h2>
-        <p className="text-sm text-red-300/80 mb-4">Push Hard &bull; Push Fast &bull; Minimize Interruptions</p>
-        
-        <div className="text-6xl font-mono font-bold text-foreground mb-2">
-          {formatTime(timer.elapsed)}
-        </div>
-        
-        <div className="flex items-center justify-center gap-4 mb-4">
-          <Badge variant="outline" className="text-sm border-red-500/30 text-red-400">
-            CPR Cycle: {Math.floor(timer.elapsed / 120) + 1}
-          </Badge>
-          <Badge variant="outline" className="text-sm border-amber-500/30 text-amber-400">
-            {120 - (timer.elapsed % 120)}s to rhythm check
-          </Badge>
-        </div>
-
-        <Progress value={cycleProgress} className="h-2 mb-4" />
-
-        {cycleProgress > 85 && (
-          <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-3 mb-4 animate-pulse">
-            <p className="text-amber-300 font-bold">PREPARE FOR RHYTHM CHECK</p>
-          </div>
-        )}
-      </div>
-
-      {/* Interventions */}
-      {arrestThreat && (
-        <div className="space-y-3 mb-6">
-          {arrestThreat.interventions.map(intervention => (
-            <Card key={intervention.id} className={`bg-card ${intervention.status === 'completed' ? 'opacity-50' : 'border-red-500/20'}`}>
-              <CardContent className="pt-3 pb-3">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5">
-                    {intervention.status === 'completed' ? (
-                      <CheckCircle2 className="h-5 w-5 text-green-400" />
-                    ) : (
-                      <Circle className="h-5 w-5 text-red-400" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground text-sm">{intervention.action}</p>
-                    {intervention.dose && (
-                      <>
-                        <p className="text-sm text-primary mt-1">{calcDose(intervention.dose, weight)}</p>
-                        <InterventionDoseRationale
-                          action={intervention.action}
-                          dose={intervention.dose}
-                          weight={weight}
-                          patientAge={session.patientAge}
-                          className="mt-2 pt-2 border-t border-border/50"
-                        />
-                      </>
-                    )}
-                    {intervention.detail && (
-                      <p className="text-xs text-muted-foreground mt-1">{intervention.detail}</p>
-                    )}
-                  </div>
-                  {intervention.status !== 'completed' && (
-                    <Button size="sm" variant="outline" onClick={() => onComplete(intervention.id)}>
-                      Done
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* ROSC Button */}
-      <Button
-        size="lg"
-        className="w-full py-6 bg-green-600 hover:bg-green-700 text-white text-lg font-bold"
-        onClick={onROSC}
-      >
-        <Heart className="h-5 w-5 mr-2" />
-        ROSC ACHIEVED
-      </Button>
     </div>
   );
 }

@@ -100,6 +100,8 @@ interface Props {
   onSessionReady?: (cprSessionId: number) => void;
   /** The integrated flow owns demographics in ResusGPS; standalone mode may edit them locally. */
   allowPatientInfoEdit?: boolean;
+  /** Controlled by CPRClockUnified; state remains mounted while the parent shows pause. */
+  paused?: boolean;
   useSharedState?: boolean;
 }
 
@@ -1187,16 +1189,18 @@ export function CPRClockStreamlined({
       'manage airway': () => {
         if (memberId) updateRole.mutate({ memberId, role: 'airway' });
       },
-      'give epi': () => giveEpinephrine(),
-      epinephrine: () => giveEpinephrine(),
+      'give epi': () => setShowEpinephrinePrompt(true),
+      epinephrine: () => setShowEpinephrinePrompt(true),
       shock: () => {
-        if (phase === 'shock_ready') deliverShock();
+        if (phase === 'shock_ready') setShowChargePrompt(true);
+        else speak('Use the visible rhythm and shock controls. Voice cannot deliver a shock.');
       },
       defibrillate: () => {
-        if (phase === 'shock_ready') deliverShock();
+        if (phase === 'shock_ready') setShowChargePrompt(true);
+        else speak('Use the visible rhythm and shock controls. Voice cannot deliver a shock.');
       },
-      rosc: () => achieveROSC(),
-      'pulse back': () => achieveROSC(),
+      rosc: () => setShowRoscConfirm(true),
+      'pulse back': () => setShowRoscConfirm(true),
     },
   });
 
