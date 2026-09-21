@@ -1,6 +1,7 @@
-import { and, eq, gt, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import {
   ahaAccessGrants,
+  globalEntitlementRedemptions,
   enrollments,
   ilsCredentialRequests,
   nerpOfferEnrollments,
@@ -10,6 +11,8 @@ import {
 import { getDb } from "../db";
 import {
   getIerpInternProfile,
+  getIerpInternProfileAccessMessage,
+  getIerpInternProfileState,
   getIerpPaymentAccessForUser,
   isIerpInternProfileReady,
 } from "./ierp-program-state";
@@ -70,6 +73,46 @@ export function isCurrentNckLicence(credential: {
   return !credential.expiresAt || credential.expiresAt.getTime() > now.getTime();
 }
 
+export type NerpCredentialState =
+  | "missing"
+  | "needs_update"
+  | "pending_review"
+  | "verified"
+  | "expired"
+  | "rejected"
+  | "revoked";
+
+export function getNerpCredentialState(
+  credential: {
+    issuer?: string | null;
+    jurisdiction?: string | null;
+    credentialNumber?: string | null;
+    expiresAt?: Date | null;
+    evidenceKey?: string | null;
+    status?: string | null;
+  } | null | undefined,
+  now: Date = new Date(),
+): NerpCredentialState {
+  if (!credential) return "missing";
+  if (credential.status === "rejected") return "rejected";
+  if (credential.status === "revoked") return "revoked";
+  const identity = `${credential.issuer ?? ""} ${credential.jurisdiction ?? ""}`.toLowerCase();
+  const isNck = identity.includes("nck") || identity.includes("nursing council of kenya");
+  if (!isNck || !credential.credentialNumber?.trim() || !credential.evidenceKey) {
+    return "needs_update";
+  }
+  if (credential.expiresAt && credential.expiresAt.getTime() <= now.getTime()) {
+    return "expired";
+  }
+  if (credential.status === "pending") return "pending_review";
+  if (credential.status === "verified") return "verified";
+  return "needs_update";
+}
+
+export function canStartNerpWithCredential(state: NerpCredentialState): boolean {
+  return state === "pending_review" || state === "verified";
+}
+
 export function isActiveGrant(grant: {
   programType?: string | null;
   revokedAt?: Date | null;
@@ -80,6 +123,29 @@ export function isActiveGrant(grant: {
     (!grant.expiresAt || grant.expiresAt.getTime() > now.getTime()) &&
     (!grant.programType || grant.programType === programType)
   );
+}
+
+async function hasRedeemedGlobalAccessCode(
+  db: AhaAccessDb,
+  userId: number,
+  programType: AhaProgramType,
+): Promise<boolean> {
+  try {
+    const rows = await db
+      .select({ id: globalEntitlementRedemptions.id })
+      .from(globalEntitlementRedemptions)
+      .where(
+        and(
+          eq(globalEntitlementRedemptions.redeemedByUserId, userId),
+          eq(globalEntitlementRedemptions.programType, programType),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  } catch (error) {
+    if (isMissingTableError(error, "globalEntitlementRedemptions")) return false;
+    throw error;
+  }
 }
 
 async function hasActiveAdminGrant(
@@ -150,6 +216,45 @@ async function hasNerpPathway(db: AhaAccessDb, userId: number): Promise<boolean>
   return rows.some((row) => hasConfirmedNerpPayment(row));
 }
 
+async function getNerpCredentialStateForAccess(
+  db: AhaAccessDb,
+  userId: number,
+  now: Date,
+): Promise<NerpCredentialState> {
+  const rows = await db
+    .select({
+      issuer: professionalCredentials.issuer,
+      jurisdiction: professionalCredentials.jurisdiction,
+      credentialNumber: professionalCredentials.credentialNumber,
+      expiresAt: professionalCredentials.expiresAt,
+      evidenceKey: professionalCredentials.evidenceKey,
+      status: professionalCredentials.status,
+    })
+    .from(professionalCredentials)
+    .where(
+      and(
+        eq(professionalCredentials.userId, userId),
+        eq(professionalCredentials.credentialType, "regulatory_license"),
+      ),
+    )
+    .orderBy(desc(professionalCredentials.updatedAt))
+    .limit(1);
+  return getNerpCredentialState(rows[0], now);
+}
+
+function nerpAccessBlockMessage(state: NerpCredentialState): string {
+  if (state === "rejected") {
+    return "Your submitted NCK licence was rejected. Review Professional Credentials for the specific reason and correction required.";
+  }
+  if (state === "revoked") {
+    return "Your NCK licence is revoked. Review Professional Credentials before continuing.";
+  }
+  if (state === "expired") {
+    return "Your NCK licence is expired. Update Professional Credentials before continuing.";
+  }
+  return "Submit complete Nursing Council of Kenya licence evidence and a licence number before continuing NERP.";
+}
+
 async function hasIlspPathway(
   db: AhaAccessDb,
   userId: number,
@@ -168,6 +273,16 @@ async function hasIlspPathway(
     )
     .limit(1);
   return rows.length > 0;
+}
+
+async function hasCompletedBlsCognitive(db: AhaAccessDb, userId: number): Promise<boolean> {
+  const rows = await db
+    .select({ cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
+    .from(enrollments)
+    .where(and(eq(enrollments.userId, userId), eq(enrollments.programType, "bls"), eq(enrollments.enrollmentStatus, "active")))
+    .orderBy(desc(enrollments.createdAt))
+    .limit(1);
+  return !!rows[0]?.cognitiveModulesComplete;
 }
 
 async function hasIndependentPayment(
@@ -219,8 +334,18 @@ export async function getAhaAccessDecision(
     return blocked("This course is not an AHA programme supported by the access gate.");
   }
 
+  // Previous BLS certification never bypasses the platform BLS refresh.
+  // ACLS learners must complete the current BLS cognitive modules first.
+  if (programType === "acls" && !(await hasCompletedBlsCognitive(db, userId))) {
+    return blocked("Complete the BLS cognitive refresh on this platform before starting ACLS.");
+  }
+
   if (await hasActiveAdminGrant(db, userId, programType, now)) {
     return allowed("admin_grant", "Access granted by an authorised Paeds Resus administrator.");
+  }
+
+  if (await hasRedeemedGlobalAccessCode(db, userId, programType)) {
+    return allowed("admin_grant", "Access granted through a Paeds Resus access code.");
   }
 
   let ierpBlockMessage: string | null = null;
@@ -228,18 +353,37 @@ export async function getAhaAccessDecision(
     const ierpPayment = await getIerpPaymentAccessForUser(db, userId);
     if (ierpPayment) {
       const internProfile = await getIerpInternProfile(db, userId);
-      if (!isIerpInternProfileReady(internProfile)) {
-        ierpBlockMessage = "Complete your Intern profile and submit your MoH deployment/posting letter before accessing IERP.";
+      const internProfileState = getIerpInternProfileState(internProfile);
+      if (internProfileState === "rejected" || internProfileState === "revoked") {
+        ierpBlockMessage = getIerpInternProfileAccessMessage(internProfile);
+      } else if (!isIerpInternProfileReady(internProfile)) {
+        ierpBlockMessage = getIerpInternProfileAccessMessage(internProfile);
       } else if (!ierpPayment.cognitiveAccessLocked) {
-        return allowed("ierp", "Access granted through the IERP pathway.");
+        return allowed(
+          "ierp",
+          internProfileState === "pending_review"
+            ? "Access granted through IERP while intern evidence is under review."
+            : "Access granted through the IERP pathway.",
+        );
       } else {
         ierpBlockMessage = "IERP cognitive access is locked until the full KES 15,000 programme fee is paid.";
       }
     }
   }
 
-  if ((await hasNerpPathway(db, userId)) && (await hasVerifiedNckLicence(db, userId, now))) {
-    return allowed("nerp", "Access granted through the NERP pathway.");
+  if (await hasNerpPathway(db, userId)) {
+    const nerpCredentialState = await getNerpCredentialStateForAccess(db, userId, now);
+    if (canStartNerpWithCredential(nerpCredentialState)) {
+      return allowed(
+        "nerp",
+        nerpCredentialState === "pending_review"
+          ? "Access granted through NERP while NCK evidence is under review."
+          : "Access granted through the NERP pathway.",
+      );
+    }
+    if (nerpCredentialState === "rejected" || nerpCredentialState === "revoked" || nerpCredentialState === "expired") {
+      return blocked(nerpAccessBlockMessage(nerpCredentialState));
+    }
   }
 
   if (await hasIlspPathway(db, userId, programType)) {

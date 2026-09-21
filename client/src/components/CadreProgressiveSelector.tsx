@@ -11,7 +11,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CadreProgressiveSelectorProps {
@@ -190,12 +190,16 @@ function getLeafValue(category: string, role: string, rnLevel: string, rnSub: st
 interface SearchableDropdownProps {
   value: string;
   onChange: (val: string) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; description?: string; searchText?: string }[];
   placeholder?: string;
   searchPlaceholder?: string;
   emptyText?: string;
   /** Keep a type-ahead field visible alongside the scrollable option list. */
   searchAlwaysVisible?: boolean;
+  /** Allow the selected value to be removed with Backspace/Delete or a clear button. */
+  clearable?: boolean;
+  /** Notify callers as the user types in the dropdown search field. */
+  onSearchChange?: (query: string) => void;
 }
 
 export function SearchableDropdown({
@@ -206,35 +210,52 @@ export function SearchableDropdown({
   searchPlaceholder = "Search option...",
   emptyText = "No option found.",
   searchAlwaysVisible = false,
+  clearable = false,
+  onSearchChange,
 }: SearchableDropdownProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const selectedOption = options.find((opt) => opt.value === value);
+
+  useEffect(() => {
+    if (value) {
+      setSearchQuery("");
+      setOpen(false);
+    }
+  }, [value]);
   const filteredOptions = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return options;
     return options.filter(
       option =>
         option.label.toLowerCase().includes(query) ||
-        option.value.toLowerCase().includes(query),
+        option.value.toLowerCase().includes(query) ||
+        option.description?.toLowerCase().includes(query) ||
+        option.searchText?.toLowerCase().includes(query),
     );
   }, [options, searchQuery]);
 
+  const setQuery = (query: string) => {
+    setSearchQuery(query);
+    onSearchChange?.(query);
+  };
+
   const selectOption = (optionValue: string) => {
     onChange(value === optionValue ? "" : optionValue);
-    setSearchQuery("");
+    setQuery("");
     setOpen(false);
   };
 
   const optionList = (
-    <Command
-      shouldFilter={searchAlwaysVisible ? false : undefined}
-      {...(!searchAlwaysVisible
-        ? { value: searchQuery, onValueChange: setSearchQuery }
-        : {})}
-    >
-      {!searchAlwaysVisible ? <CommandInput placeholder={searchPlaceholder} /> : null}
-      <CommandList className="max-h-[250px]">
+    <Command shouldFilter={searchAlwaysVisible ? false : undefined}>
+      {!searchAlwaysVisible ? (
+        <CommandInput
+          placeholder={searchPlaceholder}
+          value={searchQuery}
+          onValueChange={setQuery}
+        />
+      ) : null}
+      <CommandList className="max-h-[min(50vh,320px)] overflow-y-auto overscroll-contain">
         <CommandEmpty>{emptyText}</CommandEmpty>
         <CommandGroup>
           {filteredOptions.map(opt => (
@@ -244,12 +265,15 @@ export function SearchableDropdown({
               onSelect={() => selectOption(opt.value)}
             >
               <Check
-                className={cn(
-                  "mr-2 h-4 w-4",
-                  value === opt.value ? "opacity-100" : "opacity-0"
-                )}
+              className={cn(
+                "mr-2 mt-0.5 h-4 w-4 shrink-0",
+                value === opt.value ? "opacity-100" : "opacity-0"
+              )}
               />
-              {opt.label}
+              <span className="min-w-0 text-left">
+                <span className="block break-words font-medium leading-snug">{opt.label}</span>
+                {opt.description ? <span className="block break-words text-xs leading-snug text-muted-foreground">{opt.description}</span> : null}
+              </span>
             </CommandItem>
           ))}
         </CommandGroup>
@@ -259,43 +283,106 @@ export function SearchableDropdown({
 
   return (
     <div className={cn(
-      "space-y-2",
+      "relative space-y-2",
       searchAlwaysVisible && "rounded-md border border-input bg-background p-2",
     )}>
       {searchAlwaysVisible ? (
-        <Input
-          value={searchQuery}
-          placeholder={searchPlaceholder}
-          aria-label={searchPlaceholder}
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          onFocus={() => setOpen(true)}
-          onChange={event => {
-            setSearchQuery(event.target.value);
-            setOpen(true);
-          }}
-        />
-      ) : null}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="w-full justify-between font-normal bg-background border-input hover:bg-accent hover:text-accent-foreground text-left"
-          >
-            <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          className="w-[var(--radix-popover-trigger-width)] p-0"
-          align="start"
+        <div
+          role="combobox"
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          className="min-w-0"
+          onClick={() => setOpen(true)}
         >
-          {optionList}
-        </PopoverContent>
-      </Popover>
+          {selectedOption ? (
+            <div className="mb-2 rounded-md border border-emerald-200 bg-emerald-50/70 px-2.5 py-2 text-left dark:border-emerald-900/60 dark:bg-emerald-950/30" aria-live="polite">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Presenter selected</p>
+              <p className="truncate text-sm font-medium text-emerald-950 dark:text-emerald-100">{selectedOption.label}</p>
+              {selectedOption.description ? <p className="break-words text-xs leading-snug text-emerald-800/80 dark:text-emerald-200/80">{selectedOption.description}</p> : null}
+            </div>
+          ) : null}
+          <Input
+            value={searchQuery}
+            placeholder={searchPlaceholder}
+            aria-label={searchPlaceholder}
+            aria-autocomplete="list"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            onFocus={() => setOpen(true)}
+            onKeyDown={event => {
+            if (clearable && value && !searchQuery && (event.key === "Backspace" || event.key === "Delete")) {
+              event.preventDefault();
+              onChange("");
+              setQuery("");
+              setOpen(true);
+            }
+          }}
+            onChange={event => {
+              setQuery(event.target.value);
+              setOpen(true);
+            }}
+          />
+          <span className="sr-only">{selectedOption?.label ?? "No presenter selected"}</span>
+        </div>
+      ) : null}
+      <div className="flex min-w-0 gap-2">
+        {searchAlwaysVisible ? null : <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              onKeyDown={event => {
+                if (clearable && value && (event.key === "Backspace" || event.key === "Delete")) {
+                  event.preventDefault();
+                  onChange("");
+                  setSearchQuery("");
+                  setOpen(false);
+                }
+              }}
+              className="min-w-0 flex-1 justify-between font-normal bg-background border-input hover:bg-accent hover:text-accent-foreground text-left min-h-11"
+            >
+              <span className="min-w-0 truncate">{selectedOption ? selectedOption.label : placeholder}</span>
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] p-0"
+            align="start"
+          >
+            {optionList}
+          </PopoverContent>
+        </Popover>}
+        {searchAlwaysVisible ? (
+          <div
+            className={cn(
+              "absolute z-50 mt-1 w-full overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md",
+              !open && "hidden",
+            )}
+            role="listbox"
+            aria-label="Presenter search results"
+          >
+            {optionList}
+          </div>
+        ) : null}
+        {clearable && value ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Clear selection"
+            title="Clear selection"
+            onClick={() => {
+              onChange("");
+              setQuery("");
+              setOpen(false);
+            }}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        ) : null}
+      </div>
       {searchAlwaysVisible ? (
         <p className="text-xs text-muted-foreground">
           Type a few letters to narrow the list, or open the selector and scroll.
@@ -611,6 +698,7 @@ export default function CadreProgressiveSelector({
           options={categoryOptions}
           placeholder="Select Category (Staff, Intern, Student)"
           searchPlaceholder="Search category..."
+          clearable
         />
       </div>
 
@@ -636,6 +724,7 @@ export default function CadreProgressiveSelector({
                   : "Select Student Path"
             }
             searchPlaceholder="Search role..."
+            clearable
           />
         </div>
       )}
@@ -664,6 +753,7 @@ export default function CadreProgressiveSelector({
             options={getLevelOptions()}
             placeholder="Select option"
             searchPlaceholder="Search..."
+            clearable
           />
         </div>
       )}
@@ -702,6 +792,7 @@ export default function CadreProgressiveSelector({
             options={CONSULTANT_SPECIALTIES}
             placeholder="Select specialty"
             searchPlaceholder="Search specialty..."
+            clearable
           />
         </div>
       )}

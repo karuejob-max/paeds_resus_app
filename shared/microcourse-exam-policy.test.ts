@@ -18,6 +18,7 @@ import {
   rephraseFormativeStemForSummative,
   stripExamMetaHints,
   summativePassed,
+  shouldResumeSummativeCheckpoint,
   uniqueFormativeQuestions,
 } from "./microcourse-exam-policy";
 import { encodeQuizCorrectAnswerForStorage, gradeQuizAnswerAgainstStored } from "./quiz-answer-contract";
@@ -72,6 +73,13 @@ describe("microcourse-exam-policy", () => {
   it("enforces summative pass at 80%", () => {
     expect(summativePassed(79)).toBe(false);
     expect(summativePassed(80)).toBe(true);
+  });
+
+  it("preserves a failed summative attempt as a resume checkpoint", () => {
+    expect(shouldResumeSummativeCheckpoint({ attempts: 1, score: 0 })).toBe(true);
+    expect(shouldResumeSummativeCheckpoint({ attempts: 1, score: 79 })).toBe(true);
+    expect(shouldResumeSummativeCheckpoint({ attempts: 1, score: 80 })).toBe(false);
+    expect(shouldResumeSummativeCheckpoint({ attempts: 0, score: 0 })).toBe(false);
   });
 
   it("blocks summative retry within 24h", () => {

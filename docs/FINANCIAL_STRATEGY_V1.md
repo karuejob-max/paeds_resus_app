@@ -143,7 +143,7 @@ The Hospital Emergency Readiness System (ERS) is Paeds Resus's primary instituti
 | Institutional Dashboard Access | Real-time view of Care Signal reporting rate, ResusGPS adoption, training coverage, and gap closure progress for facility leadership. |
 | Annual Review | 12-month reassessment against the readiness standard. Gap trend analysis. Benchmark comparison against similar facilities. Recommendations for year two. |
 
-Pricing model: the ERS package is priced per facility per year. The baseline implementation has a one-time setup fee. Annual review is a recurring subscription. Pricing is tiered by facility level: Level 4 (sub-county hospital), Level 5 (county referral), Level 6 (national referral) each at different price points reflecting the institutional budget reality and the scale of the implementation.
+Pricing model: the ERS package is priced per facility per year. The baseline implementation has a one-time setup fee. Annual review is a recurring subscription. The approved first-pass planning anchors are **KES 200,000/year for Level 4**, **KES 350,000/year for Level 5**, **KES 600,000/year for Level 6**, and **from KES 900,000 for Quaternary facilities as a custom-quote anchor**. These figures are deliberately reviewable as client evidence accumulates; final quotes use the verified facility classification.
 
 The ERS package is designed so that a facility purchasing it cannot purchase a placebo therapy. The reporting rate target, the training coverage threshold, and the annual review cycle ensure that the package either changes the system or the gap is made visible. This is what differentiates it from a seat-count training purchase.
 
@@ -176,7 +176,9 @@ The model: Paeds Resus designs and delivers structured CPD events — simulation
 
 The CPD Portal is the institutional measurement and reporting layer for existing clinical and non-clinical continuing professional development activity. It tracks attendance, participation, targets, evidence, and leadership reports. The client institution owns the underlying CPD content and attendance approval; Paeds Resus provides the portal, tracking, visibility, and reporting layer.
 
-**Canonical volume pricing:** KES 800 per staff per year is a discounted CPD Portal fee for facilities with **301–500 total staff**. It is not the default rate for every institution and it does not automatically extend beyond the 500-staff tier.
+**Pricing decision (2026-09-05):** The prior flat KES 200,000-per-year standard is retired for the CPD Portal / ICPD institutional subscription. The canonical model is now a per-total-staff annual fee, discounted by verified facility size: KES 1,000, KES 900, or KES 800 per staff per year. This is the approved staff-count pricing model for the institutional professional-development portal. It does **not** replace the separate IERS/ERS readiness package, which remains scope-based and must be quoted with its implementation, renewal, and deliverable boundaries.
+
+**Canonical volume pricing:** KES 800 per staff per year is the discounted CPD Portal fee for facilities with **301–500 total staff**. It is not the default rate for every institution and it does not automatically extend beyond the 500-staff tier.
 
 | Verified total facility staff | CPD Portal price per staff / year | Commercial interpretation |
 |---:|---:|---|
@@ -187,11 +189,15 @@ The CPD Portal is the institutional measurement and reporting layer for existing
 
 Rules: use the HR-verified total facility headcount, not only the clinical training cohort; a facility with exactly 500 staff remains in the 301–500 tier; and a facility with 501 or more staff moves to negotiated pricing. CPD Portal fees are separate from BLS/ACLS/PALS/NRP training, IERS activation, official AHA fees, travel, venue, catering, content development, and other out-of-scope services. The CPD Portal must not be described as a full learning-management system unless additional curriculum, accreditation, assessment-authoring, or content-delivery work is separately scoped and priced.
 
-### 4.5  Kiirua Institutional Proposal — Commercial Case Record
+### 4.5  ILSP Institutional Pricing
+
+The Institutional Life Support Program is an institution-paid facility cohort. The list price is KES 10,000 per provider, but the approved automatic institutional rate is **KES 7,000 per staff member for every ILSP checkout**. Manual percentage entitlements do not stack with this automatic reduction; a manual full-waiver entitlement may still reduce an eligible order to zero.
+
+### 4.6  Kiirua Institutional Proposal — Commercial Case Record
 
 The revised St. Theresa Mission Hospital – Kiirua proposal is archived at [`docs/proposals/Kiirua_Institutional_Proposal_Revised.pdf`](./proposals/Kiirua_Institutional_Proposal_Revised.pdf) and indexed in [`INSTITUTIONAL_PRICING_AND_KIIRUA_PROPOSAL.md`](./INSTITUTIONAL_PRICING_AND_KIIRUA_PROPOSAL.md). It is the reference example for applying the ERS-first institutional model to a named hospital opportunity.
 
-The planning case is approximately 200 clinical staff for BLS/ACLS competency training, approximately 500 total staff for CPD Portal access at the 301–500 rate, and a fixed deliverable-based IERS activation fee. The year-one planning total is KES 2,600,000, subject to HR verification and a signed statement of work. The preferred payment schedule links KES 1,100,000 to contract and mobilisation, KES 900,000 to cohort activation, and KES 600,000 to completion and the first leadership report.
+The planning case is approximately 200 ILSP providers at the approved automatic **KES 7,000 per staff member** rate, approximately 500 total staff for ICPD access at the 301–500 rate, and IERS activation priced by verified facility level. The recalculated planning total is **from KES 2,000,000 at Level 4**, approximately **KES 2,150,000 at Level 5**, or approximately **KES 2,400,000 at Level 6**, subject to HR verification and a signed statement of work. Milestone amounts must be recalculated from the final scope rather than copied from the retired KES 2,600,000 anchor.
 
 The proposal is not a universal price card. Future institutional proposals must preserve the certification distinction, exact deliverables, acceptance evidence, process KPIs, data-governance terms, scope boundaries, and milestone-payment logic before reusing the Kiirua structure.
 

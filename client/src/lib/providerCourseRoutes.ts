@@ -1,6 +1,7 @@
 export {
   AHA_PROGRAM_TYPES,
   getAhaContinueRoute,
+  getAhaPathwayPortalRoute,
   getProviderCourseDestination,
   isAhaProgramSlug,
   type AhaProgramType,

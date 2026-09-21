@@ -25,7 +25,7 @@ import {
 import { isAhaProgramType } from "../../shared/training-product-taxonomy";
 import { isPaidEnrollmentStatus } from "../../shared/payment-success";
 import { getAhaAccessDecision } from "../lib/aha-access";
-import { calculateEntitlementPrice, consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
+import { calculateEntitlementPrice, consumeGlobalEntitlement, findActiveGlobalEntitlement, findActiveShareableEntitlement } from "../lib/global-entitlements";
 import {
   INTUBATION_SAMPLE_MICRO_COURSE_ID,
   ensureIntubationSampleCourseCatalog,
@@ -346,6 +346,89 @@ export const enrollmentRouter = router({
         status: "completed",
         message: "Payment verified successfully",
       };
+    }),
+
+  /** Redeem a shareable, course-scoped admin access code without initiating M-Pesa. */
+  redeemSelfPayAccessCode: protectedProcedure
+    .input(z.object({ courseId: z.string().trim().min(1), accessCode: z.string().trim().min(8).max(64) }))
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const { ensureMicroCoursesCatalog } = await import("../lib/micro-course-catalog");
+      await ensureMicroCoursesCatalog();
+      const { getCourseDetails, isUserEnrolled, createEnrollment: createEnrollmentDb } = await import("../db-enrollment");
+      const course = await getCourseDetails(input.courseId);
+      if (!course) throw new TRPCError({ code: "NOT_FOUND", message: "Self-pay course not found" });
+      if (course.prerequisiteId) {
+        const { hasCompletedMicroCourse } = await import("../db-enrollment");
+        if (!(await hasCompletedMicroCourse(ctx.user.id, course.prerequisiteId))) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Complete the foundational course before redeeming access to this advanced course." });
+        }
+      }
+      const entitlement = await findActiveShareableEntitlement(db, input.accessCode, input.courseId, "self_pay", new Date(), ctx.user.email);
+      if (!entitlement) throw new TRPCError({ code: "BAD_REQUEST", message: "This access code is invalid, expired, exhausted, or for a different course." });
+      const existingEnrollment = await db
+        .select({ id: microCourseEnrollments.id })
+        .from(microCourseEnrollments)
+        .where(and(eq(microCourseEnrollments.userId, ctx.user.id), eq(microCourseEnrollments.microCourseId, course.id)))
+        .limit(1);
+      const enrollmentId = existingEnrollment[0]?.id ?? null;
+      const applied = await consumeGlobalEntitlement(db, {
+        entitlementId: entitlement.id,
+        targetUserId: ctx.user.id,
+        targetInstitutionalAccountId: null,
+        programType: "self_pay",
+        selfPayCourseId: input.courseId,
+        resourceReference: `micro-course-enrollment-${enrollmentId ?? "new"}-${ctx.user.id}`,
+        originalAmountKes: Math.ceil(course.price / 100),
+        redeemedByUserId: ctx.user.id,
+      });
+      if (!applied) throw new TRPCError({ code: "CONFLICT", message: "This access code has just been used or is no longer available." });
+      if (enrollmentId != null) {
+        await db.update(microCourseEnrollments).set({ paymentStatus: "free", paymentMethod: "admin-free", entitlementId: entitlement.id, amountPaid: 0, updatedAt: new Date() }).where(eq(microCourseEnrollments.id, enrollmentId));
+        return { success: true as const, alreadyEnrolled: true as const, enrollmentId, message: "Access granted. Your existing enrollment is now unlocked." };
+      }
+      const enrollment = await createEnrollmentDb({ userId: ctx.user.id, microCourseId: course.id, paymentMethod: "admin-free", amountPaid: 0, entitlementId: entitlement.id, paymentStatus: "free" });
+      await trackMicroCourseEnrollWithPayment({ userId: ctx.user.id, courseIdSlug: input.courseId, microCourseId: course.id, enrollmentId: enrollment.insertId, paymentMethod: "admin-free", amountPaid: 0 });
+      return { success: true as const, alreadyEnrolled: false as const, enrollmentId: enrollment.insertId, message: "Access granted. You can start the course now." };
+    }),
+
+  /** Redeem a shareable full-waiver code for an independent AHA life-support course. */
+  redeemAhaAccessCode: protectedProcedure
+    .input(z.object({ programType: z.enum(["bls", "acls", "pals", "heartsaver", "nrp", "instructor"]), accessCode: z.string().trim().min(8).max(64) }))
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const anchor = await resolveAhaCourseAnchor(db, input.programType as AhaAnchorProgramType);
+      if (!anchor) throw new TRPCError({ code: "NOT_FOUND", message: "This AHA course is not available in the catalog." });
+      if (input.programType === "acls" || input.programType === "pals") {
+        const [bls] = await db.select({ cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
+          .from(enrollments)
+          .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, "bls")))
+          .orderBy(desc(enrollments.updatedAt))
+          .limit(1);
+        if (!bls?.cognitiveModulesComplete) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Complete the BLS cognitive course before accessing this AHA course." });
+        }
+      }
+      const entitlement = await findActiveShareableEntitlement(db, input.accessCode, input.programType, input.programType, new Date(), ctx.user.email);
+      if (!entitlement) throw new TRPCError({ code: "BAD_REQUEST", message: "This access code is invalid, expired, exhausted, or for a different AHA course." });
+      const [existing] = await db.select({ id: enrollments.id })
+        .from(enrollments)
+        .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, input.programType)))
+        .limit(1);
+      const targetEnrollmentId = existing?.id ?? 0;
+      const applied = await consumeGlobalEntitlement(db, { entitlementId: entitlement.id, targetUserId: ctx.user.id, targetInstitutionalAccountId: null, programType: input.programType, selfPayCourseId: input.programType, resourceReference: `aha-enrollment-${targetEnrollmentId || "new"}-${ctx.user.id}`, originalAmountKes: 0, redeemedByUserId: ctx.user.id });
+      if (!applied) throw new TRPCError({ code: "CONFLICT", message: "This access code has just been used or is no longer available." });
+      if (existing) {
+        await db.update(enrollments).set({ paymentStatus: "completed", amountPaid: 0, updatedAt: new Date() }).where(eq(enrollments.id, existing.id));
+        return { success: true as const, alreadyEnrolled: true as const, enrollmentId: existing.id, message: "Access granted. Your existing AHA enrollment is now unlocked." };
+      }
+      const enrollment = await createEnrollment({ userId: ctx.user.id, programType: input.programType, courseId: anchor.id, trainingDate: new Date(), paymentStatus: "completed", amountPaid: 0, createdAt: new Date(), updatedAt: new Date() });
+      if (!enrollment) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Unable to create the AHA enrollment." });
+      return { success: true as const, alreadyEnrolled: false as const, enrollmentId: enrollment.id, message: "Access granted. You can start the AHA course now." };
     }),
 
   // NEW: Enroll with payment (M-Pesa, admin free, or promo code)

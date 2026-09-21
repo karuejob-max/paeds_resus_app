@@ -61,10 +61,38 @@ export async function getIerpInternProfile(db: IerpDb, userId: number) {
 }
 
 /** A submitted profile is enough to register; rejected/revoked profiles are fail-closed. */
+export type IerpInternProfileState = "missing" | "pending_review" | "verified" | "rejected" | "revoked";
+
+export function getIerpInternProfileState(profile: { status?: string | null } | null | undefined): IerpInternProfileState {
+  if (!profile) return "missing";
+  if (profile.status === "pending") return "pending_review";
+  if (profile.status === "verified") return "verified";
+  if (profile.status === "rejected") return "rejected";
+  if (profile.status === "revoked") return "revoked";
+  return "missing";
+}
+
 export function isIerpInternProfileReady<T extends { status?: string | null }>(
   profile: T | null | undefined
 ): profile is T & { status: "pending" | "verified" } {
-  return profile?.status === "pending" || profile?.status === "verified";
+  const state = getIerpInternProfileState(profile);
+  return state === "pending_review" || state === "verified";
+}
+
+export function getIerpInternProfileAccessMessage(
+  profile: { status?: string | null; reviewReason?: string | null } | null | undefined,
+): string | null {
+  const state = getIerpInternProfileState(profile);
+  if (state === "rejected") {
+    return `Your IERP intern evidence was rejected${profile?.reviewReason?.trim() ? `: ${profile.reviewReason.trim()}` : ". Review your Intern Profile and submit corrected evidence."}`;
+  }
+  if (state === "revoked") {
+    return `Your IERP intern eligibility was revoked${profile?.reviewReason?.trim() ? `: ${profile.reviewReason.trim()}` : ". Contact the programme team before continuing."}`;
+  }
+  if (state === "missing") {
+    return "Complete your Intern profile and submit your MoH deployment/posting letter before continuing IERP.";
+  }
+  return null;
 }
 
 /** The deterministic named-role calculation used by every IERP Phase 2 gate. */
@@ -175,8 +203,11 @@ export function getIerpPaymentAccess(
   const paid = Math.max(0, Number(enrollment.totalPaidAmount ?? 0));
   const balance = Math.max(0, requiredFeeKes - paid);
   const isPaidInFull = enrollment.paymentStatus === "not_required" || paid >= requiredFeeKes;
-  const paymentStartAt = enrollment.effectiveCommencementDate ?? enrollment.enrolledAt;
-  const enrolledAt = paymentStartAt ? new Date(paymentStartAt) : null;
+  // The programme specification defines the payment window from the IERP
+  // enrolment timestamp. The intern profile commencement date is retained for
+  // eligibility/audit purposes, but must not move an active cohort into a
+  // different payment year or create a false December lock.
+  const enrolledAt = enrollment.enrolledAt ? new Date(enrollment.enrolledAt) : null;
   const startCalendar = enrolledAt ? eastAfricaCalendar(enrolledAt) : null;
   const deferredStartWindow = !!startCalendar &&
     startCalendar.month >= IERP_DEFERRED_START_MONTH &&

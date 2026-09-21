@@ -5,10 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { BookOpen, ArrowLeft, ClipboardCheck, CalendarPlus, Award, FlaskConical } from "lucide-react";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
-import { getAhaContinueRoute, type AhaProgramType } from "@/lib/providerCourseRoutes";
+import { getAhaContinueRoute, getAhaPathwayPortalRoute, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AHA_COURSE_ORDER } from "@/const/aha-course-metadata";
 import { AHA_HUB_STALE_MS } from "@/const/aha-hub-query";
 import { AhaHubProviderCourseCard } from "@/components/AhaHubProviderCourseCard";
+import { AclsElearningProofCard } from "@/components/AclsElearningProofCard";
 import { AssessmentPolicyBanner } from "@/components/AssessmentPolicyBanner";
 import { buildAhaHubEnrollmentMap } from "@/lib/pick-aha-hub-enrollment";
 import { toast } from "sonner";
@@ -16,6 +17,15 @@ import { toast } from "sonner";
 export default function AHACourses() {
   const [, setLocation] = useLocation();
   const { track } = useProviderConversionAnalytics("/aha-courses");
+  const { data: ierpSummary } = trpc.ierp.getSummary.useQuery(undefined, { retry: false });
+  const utils = trpc.useUtils();
+  const redeemAhaAccessCodeMutation = trpc.enrollment.redeemAhaAccessCode.useMutation({
+    onSuccess: async result => {
+      toast.success("Access granted", { description: result.message });
+      await utils.courses.getAhaHubDashboard.invalidate();
+    },
+    onError: error => toast.error("Access code could not be redeemed", { description: error.message }),
+  });
 
   const { data: dashboard, isLoading: dashboardLoading, refetch: refetchDashboard } = trpc.courses.getAhaHubDashboard.useQuery(
     undefined,
@@ -81,6 +91,20 @@ export default function AHACourses() {
     [setLocation, track]
   );
 
+  const handleRedeemAccessCode = useCallback((pt: AhaProgramType, accessCode: string) => {
+    if (["bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(pt)) {
+      redeemAhaAccessCodeMutation.mutate({
+        programType: pt as "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor",
+        accessCode,
+      });
+    }
+  }, [redeemAhaAccessCodeMutation]);
+
+  const handleOpenPathway = useCallback((pathway: string) => {
+    const destination = getAhaPathwayPortalRoute(pathway);
+    if (destination) setLocation(destination);
+  }, [setLocation]);
+
   const handleContinue = useCallback(
     (pt: AhaProgramType, enrollmentId: number) => {
       track("provider_conversion", "aha_continue_learning_clicked", {
@@ -100,9 +124,15 @@ export default function AHACourses() {
     for (const pt of AHA_COURSE_ORDER) {
       const enrol = enrollmentByProgram.get(pt);
       if (enrol && !enrol.cognitiveModulesComplete) {
+        const decision = dashboard?.accessDecisions?.[pt];
+        const pathwayDestination = decision?.allowed ? getAhaPathwayPortalRoute(decision.pathway) : null;
         return {
-          label: `Continue ${pt.toUpperCase()} cognitive modules`,
+          label: pathwayDestination ? `Open ${decision?.pathway?.toUpperCase()} portal` : `Continue ${pt.toUpperCase()} cognitive modules`,
           onClick: () => {
+            if (pathwayDestination) {
+              setLocation(pathwayDestination);
+              return;
+            }
             track("provider_conversion", "aha_continue_learning_clicked", {
               programType: pt,
               enrollmentId: enrol.id,
@@ -128,12 +158,13 @@ export default function AHACourses() {
       }
     }
     return null;
-  }, [enrollmentByProgram, enrollmentsPending, openAhaPlayer, setLocation, track]);
+  }, [dashboard?.accessDecisions, enrollmentByProgram, enrollmentsPending, openAhaPlayer, setLocation, track]);
 
   const anyEnrolled = !enrollmentsPending && enrollmentByProgram.size > 0;
   const anyCognitiveComplete =
     !enrollmentsPending &&
     [...enrollmentByProgram.values()].some((e) => e.cognitiveModulesComplete);
+  const aclsCognitiveComplete = enrollmentByProgram.get("acls")?.cognitiveModulesComplete ?? false;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
@@ -212,6 +243,8 @@ export default function AHACourses() {
           </Card>
         )}
 
+        {aclsCognitiveComplete && !ierpSummary && <AclsElearningProofCard />}
+
         {anyCognitiveComplete && (
           <Card className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800">
             <CardContent className="pt-4 pb-4 flex items-center gap-3">
@@ -242,11 +275,15 @@ export default function AHACourses() {
             <AhaHubProviderCourseCard
               key={pt}
               programType={pt}
+              accessDecision={dashboard?.accessDecisions?.[pt]}
               enrollment={enrollmentByProgram.get(pt)}
               enrollmentPending={enrollmentsPending}
               onContinue={handleContinue}
               onEnroll={handleEnroll}
               onViewCertificates={goToCertificates}
+              onOpenPathway={handleOpenPathway}
+              onRedeemAccessCode={handleRedeemAccessCode}
+              accessCodePending={redeemAhaAccessCodeMutation.isPending}
             />
           ))}
         </div>
@@ -271,8 +308,7 @@ export default function AHACourses() {
               <div>
                 <p className="font-semibold text-foreground">Ready to complete your practical skills?</p>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Find and register for an upcoming hands-on session near you. Bring your gatepass certificate. Your
-                  instructor will sign off your skills to release the full AHA certificate.
+                  After ACLS cognitive completion, complete the AHA Video Precourse Work and pass the Precourse Self-Assessment at elearning.heart.org, then upload both certificates. Phase 2 booking opens after both certificates are submitted; practical sign-off follows later.
                 </p>
               </div>
               <Button

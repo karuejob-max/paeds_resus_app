@@ -1,6 +1,7 @@
 import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { IerpInternProfileCard } from "@/components/IerpInternProfileCard";
@@ -20,7 +21,9 @@ export default function IerpEnrollment() {
     );
   }
 
-  if (user.userType === "institutional") {
+  const { effectiveWorkspace } = useWorkspaceAccess();
+
+  if (effectiveWorkspace === "institution") {
     return (
       <div className="min-h-screen bg-muted/20 px-4 py-8 md:px-8">
         <div className="mx-auto max-w-2xl space-y-6">
@@ -74,12 +77,16 @@ export default function IerpEnrollment() {
         <div className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-950">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-indigo-700" />
           <div>
-            <p className="font-semibold">Intern evidence is required</p>
+              <p className="font-semibold">Verification → Payment → Learning</p>
             <p className="mt-1">
               Submit your MoH deployment/posting letter, official internship
-              letter reference number, and effective commencement date.
-              August–November starters may access Phases 1–2 before 1 December;
-              December–July starters must pay in full before cognitive access.
+              letter reference number, and effective commencement date. After your
+              profile is registered, open the BLS cognitive refresh; ACLS opens
+              after BLS cognitive completion. August–November starters do not pay
+              before 1 December EAT. From 1 December, the full KES 15,000 balance
+              must be paid in one payment before continuing. The BLS refresh standardizes every learner to the current AHA guidance before ACLS; even a recent external certificate may not reflect the latest protocol updates. If evidence is
+              rejected or revoked, access pauses and the reviewer’s correction
+              reason is shown before you can continue.
             </p>
           </div>
         </div>

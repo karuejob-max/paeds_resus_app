@@ -11,6 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,10 +40,11 @@ const kes = (amount: number) => `KES ${amount.toLocaleString()}`;
 export default function InstitutionalLifeSupport() {
   const { user, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
-  const isInstitutionUser = user?.userType === "institutional";
+  const { effectiveWorkspace, hasInstitutionAccess } = useWorkspaceAccess();
+  const isInstitutionUser = effectiveWorkspace === "institution";
   const institutionQuery = trpc.institution.getMyInstitution.useQuery(
     undefined,
-    { enabled: isAuthenticated && isInstitutionUser }
+    { enabled: isAuthenticated && hasInstitutionAccess }
   );
   const catalogQuery = trpc.institutionalLifeSupport.getCatalog.useQuery(
     undefined,

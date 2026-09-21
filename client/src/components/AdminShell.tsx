@@ -16,6 +16,7 @@ import {
   SidebarProvider,
   SidebarSeparator,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,9 +29,22 @@ import { useIsMobile } from "@/hooks/useMobile";
 import {
   adminNavigationGroups,
   isAdminRouteActive,
+  type AdminNavigationGroup,
 } from "@/const/admin-navigation";
-import { ArrowLeftRight, LogOut, ShieldCheck } from "lucide-react";
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  ArrowLeftRight,
+  ChevronDown,
+  ChevronRight,
+  LogOut,
+  ShieldCheck,
+} from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { useLocation } from "wouter";
 
 export default function AdminShell({ children }: { children: ReactNode }) {
@@ -49,6 +63,7 @@ function AdminShellContent({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const [location, setLocation] = useLocation();
   const isMobile = useIsMobile();
+  const { setOpenMobile } = useSidebar();
   const [mobileOpenLabel, setMobileOpenLabel] = useState("Menu");
 
   const activeItem = useMemo(
@@ -58,15 +73,39 @@ function AdminShellContent({ children }: { children: ReactNode }) {
         .find(item => isAdminRouteActive(location, item.href)),
     [location]
   );
+  const activeGroupLabel = useMemo(
+    () =>
+      adminNavigationGroups.find(group =>
+        group.items.some(item => isAdminRouteActive(location, item.href))
+      )?.label ?? null,
+    [location]
+  );
+  const [desktopExpandedGroup, setDesktopExpandedGroup] = useState<string | null>(activeGroupLabel);
+  const [mobileExpandedGroup, setMobileExpandedGroup] = useState<string | null>(
+    activeGroupLabel
+  );
+
+  useEffect(() => {
+    if (isMobile && activeGroupLabel) {
+      setMobileExpandedGroup(activeGroupLabel);
+    }
+    if (!isMobile && activeGroupLabel) {
+      setDesktopExpandedGroup(activeGroupLabel);
+    }
+  }, [activeGroupLabel, isMobile]);
 
   const navigate = (href: string, label: string) => {
     setMobileOpenLabel(label);
+    if (isMobile) setOpenMobile(false);
     setLocation(href);
   };
 
   return (
     <>
-      <Sidebar collapsible="none" className="border-r bg-sidebar">
+      <Sidebar
+        collapsible={isMobile ? "offcanvas" : "icon"}
+        className="border-r bg-sidebar"
+      >
         <SidebarHeader className="border-b px-3 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
@@ -80,48 +119,93 @@ function AdminShellContent({ children }: { children: ReactNode }) {
                 Global Admin
               </p>
             </div>
+            <SidebarTrigger
+              className="ml-auto h-9 w-9 shrink-0 rounded-lg"
+              aria-label="Toggle admin navigation"
+              title="Toggle admin navigation"
+            />
           </div>
         </SidebarHeader>
 
-        <SidebarContent className="gap-0 py-2">
-          {adminNavigationGroups.map(group => {
-            const GroupIcon = group.icon;
-            return (
-              <SidebarGroup key={group.label} className="px-2 py-1">
-                <SidebarGroupLabel className="min-w-0 gap-2 overflow-hidden px-2 text-[11px] font-semibold uppercase tracking-wide leading-4 text-sidebar-foreground/60">
-                  <GroupIcon className="h-3.5 w-3.5 shrink-0" />
-                  <span className="min-w-0 truncate">{group.label}</span>
-                </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {group.items.map(item => {
-                      const ItemIcon = item.icon;
-                      const isActive = isAdminRouteActive(location, item.href);
-                      return (
-                        <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton
-                            isActive={isActive}
-                            onClick={() => navigate(item.href, item.label)}
-                            tooltip={item.label}
-                            className={`h-10 min-w-0 overflow-hidden font-normal ${item.badge ? "pr-12" : ""}`}
-                          >
-                            <ItemIcon className="h-4 w-4 shrink-0" />
-                            <span className="min-w-0 flex-1 truncate">
-                              {item.label}
-                            </span>
-                          </SidebarMenuButton>
-                          {item.badge ? (
-                            <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
-                          ) : null}
-                        </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            );
-          })}
-        </SidebarContent>
+        {isMobile ? (
+          <SidebarContent className="gap-1 overflow-y-auto py-2">
+            {adminNavigationGroups.map(group => {
+              const GroupIcon = group.icon;
+              const isExpanded = mobileExpandedGroup === group.label;
+              const isActiveGroup = activeGroupLabel === group.label;
+              const groupId = `mobile-admin-group-${group.label
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "-")}`;
+
+              return (
+                <SidebarGroup key={group.label} className="px-2 py-1">
+                  <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    aria-controls={groupId}
+                    onClick={() =>
+                      setMobileExpandedGroup(isExpanded ? null : group.label)
+                    }
+                    className="flex min-h-11 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                  >
+                    <GroupIcon className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">{group.label}</span>
+                    {isActiveGroup ? (
+                      <span
+                        aria-label="Current section"
+                        className="h-2 w-2 shrink-0 rounded-full bg-sidebar-primary"
+                      />
+                    ) : null}
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    )}
+                  </button>
+                  {isExpanded ? (
+                    <div
+                      id={groupId}
+                      className="mt-1 max-h-[40vh] overflow-y-auto overscroll-contain border-l border-sidebar-border pl-2 pr-1"
+                    >
+                      <AdminSidebarMenu
+                        group={group}
+                        location={location}
+                        onNavigate={navigate}
+                        mobile
+                      />
+                    </div>
+                  ) : null}
+                </SidebarGroup>
+              );
+            })}
+          </SidebarContent>
+        ) : (
+          <SidebarContent className="gap-0 py-2">
+            {adminNavigationGroups.map(group => {
+              const GroupIcon = group.icon;
+              const isExpanded = desktopExpandedGroup === group.label;
+              const isActiveGroup = activeGroupLabel === group.label;
+              const groupId = `desktop-admin-group-${group.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+              return (
+                <SidebarGroup key={group.label} className="px-2 py-1">
+                  <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    aria-controls={groupId}
+                    onClick={() => setDesktopExpandedGroup(isExpanded ? null : group.label)}
+                    className="flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left text-[11px] font-semibold uppercase tracking-wide leading-4 text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                  >
+                    <GroupIcon className="h-3.5 w-3.5 shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">{group.label}</span>
+                    {isActiveGroup ? <span aria-label="Current section" className="h-2 w-2 shrink-0 rounded-full bg-sidebar-primary" /> : null}
+                    {isExpanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+                  </button>
+                  {isExpanded ? <SidebarGroupContent id={groupId}><AdminSidebarMenu group={group} location={location} onNavigate={navigate} /></SidebarGroupContent> : null}
+                </SidebarGroup>
+              );
+            })}
+          </SidebarContent>
+        )}
 
         <SidebarSeparator />
         <SidebarFooter className="gap-2 p-3">
@@ -169,7 +253,11 @@ function AdminShellContent({ children }: { children: ReactNode }) {
       <SidebarInset>
         {isMobile ? (
           <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-            <SidebarTrigger className="h-9 w-9 rounded-lg" />
+            <SidebarTrigger
+              className="h-9 w-9 rounded-lg"
+              aria-label="Open admin navigation"
+              title="Open admin navigation"
+            />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">
                 {activeItem?.label || mobileOpenLabel}
@@ -185,5 +273,45 @@ function AdminShellContent({ children }: { children: ReactNode }) {
         </main>
       </SidebarInset>
     </>
+  );
+}
+
+function AdminSidebarMenu({
+  group,
+  location,
+  onNavigate,
+  mobile = false,
+}: {
+  group: AdminNavigationGroup;
+  location: string;
+  onNavigate: (href: string, label: string) => void;
+  mobile?: boolean;
+}) {
+  return (
+    <SidebarMenu className={mobile ? "gap-1" : undefined}>
+      {group.items.map(item => {
+        const ItemIcon = item.icon;
+        const isActive = isAdminRouteActive(location, item.href);
+        return (
+          <SidebarMenuItem
+            key={item.href}
+            className={mobile ? "py-0.5" : undefined}
+          >
+            <SidebarMenuButton
+              isActive={isActive}
+              onClick={() => onNavigate(item.href, item.label)}
+              tooltip={item.label}
+              className={`h-10 min-w-0 font-normal ${mobile ? "px-3" : ""} ${item.badge ? "pr-12" : ""}`}
+            >
+              <ItemIcon className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+            </SidebarMenuButton>
+            {item.badge ? (
+              <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
+            ) : null}
+          </SidebarMenuItem>
+        );
+      })}
+    </SidebarMenu>
   );
 }

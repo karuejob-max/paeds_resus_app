@@ -1,10 +1,11 @@
 /** Canonical public site origin (www subdomain). */
 export const SITE_ORIGIN = "https://www.paedsresus.com";
 
-export const DEFAULT_PAGE_TITLE = "Paeds Resus — Paediatric emergency care platform";
+export const DEFAULT_PAGE_TITLE =
+  "Paeds Resus — Emergency Care Training & Institutional Readiness (Kenya)";
 
 export const DEFAULT_PAGE_DESCRIPTION =
-  "Paeds Resus — paediatric emergency platform for Kenya & East Africa: AHA-aligned BLS, ACLS, PALS training, ResusGPS bedside guidance, Care Signal QI, Safe-Truth for families, and hospital readiness. Always follow your facility protocol.";
+  "Paeds Resus provides emergency care training for individual healthcare providers and institutional readiness products for hospitals in Kenya: AHA-aligned BLS, ACLS, PALS, NRP, NERP, IERP, ILSP, IERS with ResusGPS and Care Signal, and ICPD. Always follow local clinical protocols.";
 
 export const OG_IMAGE_PATH = "/og-image.png";
 export const OG_IMAGE_WIDTH = 1200;
@@ -21,7 +22,9 @@ export function setNamedMeta(name: string, content: string) {
 }
 
 export function setPropertyMeta(property: string, content: string) {
-  let el = document.querySelector<HTMLMetaElement>(`meta[property="${property}"]`);
+  let el = document.querySelector<HTMLMetaElement>(
+    `meta[property="${property}"]`
+  );
   if (!el) {
     el = document.createElement("meta");
     el.setAttribute("property", property);

@@ -33,16 +33,16 @@ const rolePaths = [
     external: false,
   },
   {
-    title: "Parents & caregivers",
-    description: "Parent Safe-Truth resources and family-facing learning — separate from provider tools.",
+    title: "Family & caregivers",
+    description: "Family & Caregiver Safe-Truth resources and family-facing learning — separate from provider tools.",
     href: "/parent-safe-truth",
     icon: Heart,
-    cta: "For parents",
+    cta: "For family & caregivers",
     external: false,
   },
   {
     title: "Hospitals & institutions",
-    description: "Paediatric emergency readiness systems, staff training, and hospital admin tools.",
+    description: "Emergency-care readiness systems, staff training, and hospital admin tools.",
     href: "/institutional",
     icon: Building2,
     cta: "For institutions",
@@ -53,9 +53,9 @@ const rolePaths = [
 export default function Start() {
   useScrollToTop();
   usePageMeta({
-    title: "Paeds Resus — Paediatric emergency care platform",
+    title: "Paeds Resus — Emergency Care Training and Readiness in Kenya",
     description:
-      "Choose your path: ResusGPS bedside guidance for providers, AHA-aligned training, Parent Safe-Truth for families, or institutional readiness tools for hospitals in Kenya and LMICs.",
+      "Choose your path: individual emergency-care training, institutional readiness, or Family & Caregiver Safe-Truth in Kenya.",
     path: "/start",
   });
 
@@ -72,7 +72,7 @@ export default function Start() {
             Pick your path — ResusGPS is one product, not the whole platform.
           </p>
           <p className="text-sm text-muted-foreground max-w-lg mx-auto mt-4">
-            Trusted by paediatric emergency teams across Kenya — fellowship pathway, ResusGPS clinical support,
+            Trusted by emergency-care teams across Kenya — Fellowship, ResusGPS clinical support,
             Care Signal QI reporting, and hospital readiness in one place.
           </p>
         </div>

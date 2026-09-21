@@ -7,6 +7,7 @@ import {
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { isAhaProgramType, assertAhaAccess } from "../lib/aha-access";
+import { getIerpInternProfile, getIerpInternProfileAccessMessage, getIerpPaymentAccessForUser, isIerpInternProfileReady } from "../lib/ierp-program-state";
 import { eq, and, desc } from "drizzle-orm";
 import { invokeLLM } from "../_core/llm";
 import {
@@ -116,9 +117,28 @@ async function getProgramTypeForQuiz(
 async function assertAhaCognitiveAccess(
   db: any,
   userId: number | undefined,
-  programType: string | null | undefined
+  programType: string | null | undefined,
+  pathway?: "ierp"
 ) {
-  if (!userId || !isAhaProgramType(programType)) return;
+  if (!isAhaProgramType(programType)) return;
+  if (!userId) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "Sign in and complete payment, redeem an access code, or enter through the relevant approved pathway before opening AHA course content." });
+  }
+  // An active IERP enrollment owns BLS/ACLS cognitive access. Infer it here
+  // for every player request, not only the first route load, so module content,
+  // quizzes, and summative exams cannot fall back to standalone AHA pricing.
+  const ierpPayment = await getIerpPaymentAccessForUser(db, userId);
+  if (ierpPayment && (programType === "bls" || programType === "acls" || pathway === "ierp")) {
+    const profile = await getIerpInternProfile(db, userId);
+    const profileMessage = getIerpInternProfileAccessMessage(profile);
+    if (!isIerpInternProfileReady(profile) || profileMessage) {
+      throw new TRPCError({ code: "FORBIDDEN", message: profileMessage ?? "Complete your IERP Intern Profile before starting coursework." });
+    }
+    if (ierpPayment.cognitiveAccessLocked) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "IERP cognitive access is locked until the full KES 15,000 programme fee is paid. August–November interns may continue before 1 December EAT." });
+    }
+    return;
+  }
   await assertAhaAccess(db, userId, programType);
 }
 
@@ -318,6 +338,7 @@ export const learningRouter = router({
             "paeds_resus_ils",
           ])
           .optional(),
+        pathway: z.enum(["ierp"]).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -379,7 +400,7 @@ export const learningRouter = router({
       }
 
       const pt = courseRow.programType as string;
-      await assertAhaCognitiveAccess(db, ctx.user?.id, pt);
+      await assertAhaCognitiveAccess(db, ctx.user?.id, pt, input.pathway);
       if (pt === "paeds_resus_ils") {
         if (!ctx.user?.id) {
           throw new TRPCError({
@@ -408,18 +429,28 @@ export const learningRouter = router({
         }
       }
       let blsCatalogStale = false;
+      let blsModuleCount = 0;
       if (pt === "bls" && SEEDED_COURSES.has(pt)) {
         const blsModuleRows = await (db as any)
           .select({ order: modules.order, title: modules.title })
           .from(modules)
           .where(eq(modules.courseId, courseRow.id))
           .orderBy(modules.order);
+        blsModuleCount = blsModuleRows.length;
         blsCatalogStale = isBlsCatalogShapeStale(blsModuleRows);
       }
 
       if (pt && (!SEEDED_COURSES.has(pt) || blsCatalogStale)) {
         if (pt === "bls") {
-          await synchronizeBlsCatalog(db);
+          if (blsCatalogStale && blsModuleCount > 0) {
+            // Existing learner content is usable; do not make first paint wait
+            // for a full catalog repair. Repair asynchronously for next load.
+            void synchronizeBlsCatalog(db).catch(error =>
+              console.error("[learning.getCourseDetails] BLS background sync:", error)
+            );
+          } else {
+            await synchronizeBlsCatalog(db);
+          }
         } else if (pt === "acls") {
           await ensureAclsCatalog(db);
         } else if (pt === "heartsaver") {
@@ -1169,6 +1200,13 @@ export const learningRouter = router({
       }
 
       if (examKind === "summative" && passed) {
+        // AHA summative completion is the Phase 1 boundary. The shared helper
+        // verifies all required modules, marks the enrollment complete, and
+        // issues the idempotent cognitive gatepass. Non-AHA paths retain their
+        // existing final-certificate behavior.
+        if (!isMicro) {
+          await markAhaCognitiveComplete(input.enrollmentId);
+        }
         await issueCertificateForEnrollmentIfEligible(input.enrollmentId);
       }
 

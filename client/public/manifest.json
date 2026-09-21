@@ -1,7 +1,7 @@
 {
-  "name": "Paeds Resus — Paediatric emergency care platform",
+  "name": "Paeds Resus — Emergency Care Training & Institutional Readiness (Kenya)",
   "short_name": "Paeds Resus",
-  "description": "Integrated paediatric emergency care platform: Fellowship training, ResusGPS bedside guidance, institutional tools, Care Signal, and Safe-Truth. Offline-capable where supported.",
+  "description": "Emergency care training and institutional readiness in Kenya, including individual provider pathways, IERS with ResusGPS and Care Signal, ICPD, and Family & Caregiver Safe-Truth.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -26,9 +26,11 @@ export default function Header() {
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
   const [learnDropdownOpen, setLearnDropdownOpen] = useState(false);
+  const [safetyDropdownOpen, setSafetyDropdownOpen] = useState(false);
   const accountDropdownRef = useRef<HTMLDivElement>(null);
   const roleDropdownRef = useRef<HTMLDivElement>(null);
   const learnDropdownRef = useRef<HTMLDivElement>(null);
+  const safetyDropdownRef = useRef<HTMLDivElement>(null);
   const [, setLocation] = useLocation();
   const prefetchAhaHub = usePrefetchAhaHub();
 
@@ -50,31 +52,34 @@ export default function Header() {
       if (learnDropdownRef.current && !learnDropdownRef.current.contains(event.target as Node)) {
         setLearnDropdownOpen(false);
       }
+      if (safetyDropdownRef.current && !safetyDropdownRef.current.contains(event.target as Node)) {
+        setSafetyDropdownOpen(false);
+      }
     };
 
-    if (accountDropdownOpen || roleDropdownOpen || learnDropdownOpen) {
+    if (accountDropdownOpen || roleDropdownOpen || learnDropdownOpen || safetyDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [accountDropdownOpen, roleDropdownOpen, learnDropdownOpen]);
+  }, [accountDropdownOpen, roleDropdownOpen, learnDropdownOpen, safetyDropdownOpen]);
 
   // Get navigation based on role — Dashboard first so provider/parent/institution can get home
   const getNavigation = () => {
     const r = effectiveRole;
     if (r === "provider") {
-      const items: { label: string; href: string; icon: string; group?: "learn" }[] = [
+      const items: { label: string; href: string; icon: string; group?: "learn" | "safety" }[] = [
+        { label: "Today", href: "/home", icon: "🏠" },
         RESUS_GPS_NAV,
-        { label: "Dashboard", href: "/home", icon: "🏠" },
         // Elevated to top-level (not grouped) — Care Signal is safety-critical
         // incident reporting, not a course; it shouldn't compete for attention
         // inside a "Learn" bucket the way Fellowship/AHA/CNE do.
-        { label: "Care Signal", href: "/care-signal", icon: "🚨" },
+        { label: "Care Signal", href: "/care-signal", icon: "🚨", group: "safety" },
         // Code Signal (2026-08-07): paired directly next to Care Signal, same
         // elevated top-level treatment, distinct icon — North Star v2.0 §5.4's
         // "must never be labelled ambiguously" rule (already applied to
         // Safe-Truth vs Care Signal below) applies here too. Keeping them
         // adjacent, not scattered, is what actually prevents mix-ups.
-        { label: "Code Signal", href: "/code-signal", icon: "🫀" },
+        { label: "Code Signal", href: "/code-signal", icon: "🫀", group: "safety" },
         // Financial Strategy 1: life-support offers are discoverable before
         // the Fellowship in the Learn surface and dropdown.
         { label: "NERP", href: "/programs/nerp-acls", icon: "🩺", group: "learn" },
@@ -92,25 +97,23 @@ export default function Header() {
     }
     if (r === "institution") {
       return [
-        { label: "Dashboard", href: "/institution", icon: "📊" },
-        { label: "Learning guide", href: "/learning/guide", icon: "🧭" },
+        { label: "Workspace", href: "/institution", icon: "📊" },
+        { label: "Learning guide", href: "/learning/guide", icon: "🧭", group: "learn" },
       ];
     }
     return [];
   };
 
   const baseNav = getNavigation();
-  const navigation =
-    isAuthenticated && (user as { role?: string })?.role === "admin"
-      ? [...baseNav, { label: "Admin", href: "/admin", icon: "🛡️" }]
-      : baseNav;
+  const navigation = baseNav;
   // Desktop-only split: everything NOT in the "learn" group renders as its own
   // top-level link; "learn" items collapse into one "Learn" dropdown so the
   // desktop row doesn't grow a new flat item every time a course type is added.
   // Mobile keeps rendering `navigation` as one flat list either way (below) —
   // this split only affects the `hidden lg:flex` row's layout, not what's
   // reachable on a phone.
-  const primaryNavItems = navigation.filter((item) => item.group !== "learn");
+  const primaryNavItems = navigation.filter((item) => !item.group);
+  const safetyNavItems = navigation.filter((item) => item.group === "safety");
   const learnNavItems = navigation.filter((item) => item.group === "learn");
 
   const roleOptions = workspaceOptions.map(option => ({
@@ -131,6 +134,7 @@ export default function Header() {
         setAccountDropdownOpen(false);
         setMobileMenuOpen(false);
         setLearnDropdownOpen(false);
+        setSafetyDropdownOpen(false);
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -163,24 +167,7 @@ export default function Header() {
                 <span className="font-bold text-base text-foreground tracking-tight sm:hidden">PR</span>
               </div>
             </Link>
-            <div className="hidden sm:block">
-              <ThemeToggle />
-            </div>
           </div>
-
-          {/* Role Pill — mobile always-visible indicator (taps to open hamburger menu) */}
-          {isAuthenticated && effectiveRole && (
-            <button
-              type="button"
-              className="md:hidden flex min-w-0 max-w-[7.5rem] items-center gap-1.5 overflow-hidden rounded-full border border-border bg-accent/50 px-2 py-1 text-xs font-medium text-foreground transition hover:bg-accent flex-shrink-0"
-              onClick={() => setMobileMenuOpen(true)}
-              aria-label={`Current role: ${effectiveRole}. Tap to switch.`}
-            >
-              {effectiveRole === 'provider' && <Stethoscope className="w-3.5 h-3.5" />}
-              {effectiveRole === 'institution' && <Briefcase className="w-3.5 h-3.5" />}
-              <span className="truncate capitalize">{effectiveRole ? roleDisplayLabel[effectiveRole] : ""}</span>
-            </button>
-          )}
 
           {/* Role Selector - Persistent and Prominent (desktop) */}
           {isAuthenticated && effectiveRole && (
@@ -239,13 +226,13 @@ export default function Header() {
 
           {/* Desktop Navigation - Only Essential Items */}
           <nav className="hidden lg:flex items-center gap-1 flex-1 ml-4" aria-label="Main navigation">
-            {/* Always visible regardless of auth state or role — someone who logged in for one
-                specific course (CNE, an AHA cert) should still be able to see we're more than that. */}
-            <Link href="/about">
+            {/* Keep public orientation visible to anonymous visitors; authenticated users get
+                operational priorities first and can still reach About through search/footer. */}
+            {!isAuthenticated && <Link href="/about">
               <span className="px-3 py-2 text-foreground/90 hover:text-primary hover:bg-accent transition cursor-pointer text-sm font-medium rounded-lg">
                 About
               </span>
-            </Link>
+            </Link>}
             {primaryNavItems.map((link) => (
               <Link key={link.href} href={link.href}>
                 <span
@@ -257,6 +244,31 @@ export default function Header() {
                 </span>
               </Link>
             ))}
+            {safetyNavItems.length > 0 && (
+              <div className="relative" ref={safetyDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setSafetyDropdownOpen(!safetyDropdownOpen)}
+                  aria-haspopup="true"
+                  aria-expanded={safetyDropdownOpen}
+                  className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-foreground/90 transition hover:bg-accent hover:text-primary"
+                >
+                  Safety &amp; reporting
+                  <ChevronDown className={`h-4 w-4 transition ${safetyDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+                {safetyDropdownOpen && (
+                  <div className="absolute left-0 z-10 mt-2 w-56 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg" role="menu" aria-label="Safety and reporting">
+                    {safetyNavItems.map((link) => (
+                      <Link key={link.href} href={link.href}>
+                        <span className="block cursor-pointer rounded px-3 py-2 text-sm text-foreground transition hover:bg-accent" onClick={() => setSafetyDropdownOpen(false)}>
+                          {link.label}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {learnNavItems.length > 0 && (
               <div className="relative" ref={learnDropdownRef}>
                 <button
@@ -321,17 +333,15 @@ export default function Header() {
             </nav>
           )}
 
-          {/* Right Section: Search + Notifications + Account */}
+          {/* Global actions: alerts, search, appearance, account, and one mobile menu */}
           <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-2">
+            {isAuthenticated && <NotificationBell />}
             <GlobalSearch />
-            {/* Notifications */}
-            {isAuthenticated && (
-              <NotificationBell />
-            )}
+            <ThemeToggle />
 
             {/* Auth Section */}
             {isAuthenticated ? (
-              <div className="relative" ref={accountDropdownRef}>
+              <div className="relative hidden md:block" ref={accountDropdownRef}>
                 <button
                   type="button"
                   onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
@@ -517,11 +527,7 @@ export default function Header() {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <nav className="lg:hidden mt-4 space-y-1 pb-4 border-t border-border pt-4" aria-label="Mobile navigation">
-            <div className="flex items-center justify-between px-3 pb-3 mb-2 border-b border-border">
-              <span className="text-xs font-semibold text-muted-foreground">Appearance</span>
-              <ThemeToggle />
-            </div>
+          <nav className="lg:hidden mt-2 space-y-1 border-t border-border pb-4 pt-3" aria-label="Mobile navigation">
             {/* Always visible regardless of auth state or role — same reasoning as the desktop
                 About link above. */}
             <Link href="/about" onClick={() => setMobileMenuOpen(false)}>
@@ -566,7 +572,7 @@ export default function Header() {
             {/* Mobile Role Selector */}
             {isAuthenticated && effectiveRole && (
               <div className="px-3 py-2 mb-3 border-b border-border pb-3">
-                        <p className="text-xs font-semibold text-muted-foreground mb-2">Switch workspace:</p>
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Workspace</p>
                 <div className="space-y-1">
                   {roleOptions.map((option) => (
                     <button
@@ -590,6 +596,52 @@ export default function Header() {
               </div>
             )}
 
+            {isAuthenticated && (
+              <div className="px-3 py-2 mb-3 border-b border-border pb-3">
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Account</p>
+                <p className="truncate px-3 pb-2 text-sm font-medium text-foreground">{user?.name}</p>
+                <div className="space-y-1">
+                  <Link href="/records" onClick={() => setMobileMenuOpen(false)}>
+                    <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">My records</span>
+                  </Link>
+                  {effectiveRole === "provider" && (
+                    <>
+                      <Link href="/provider-profile" onClick={() => setMobileMenuOpen(false)}>
+                        <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">Professional profile</span>
+                      </Link>
+                      <Link href="/workplaces" onClick={() => setMobileMenuOpen(false)}>
+                        <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">Workplaces &amp; access</span>
+                      </Link>
+                      <Link href="/performance-dashboard" onClick={() => setMobileMenuOpen(false)}>
+                        <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">My performance</span>
+                      </Link>
+                    </>
+                  )}
+                  <Link href="/account" onClick={() => setMobileMenuOpen(false)}>
+                    <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">Account &amp; security</span>
+                  </Link>
+                  <Link href="/account/notifications" onClick={() => setMobileMenuOpen(false)}>
+                    <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">Notification preferences</span>
+                  </Link>
+                  {(user as { role?: string })?.role === "admin" && (
+                    <Link href="/admin" onClick={() => setMobileMenuOpen(false)}>
+                      <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">Platform admin</span>
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full rounded px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
+                  >
+                    Log out
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Mobile Navigation Links — same primary/learn split as the desktop row above,
                 rendered as a labeled section instead of a dropdown (no room for a popover
                 inside an already-scrolling mobile menu). Care Signal's own prominence comes
@@ -606,6 +658,21 @@ export default function Header() {
                 </span>
               </Link>
             ))}
+            {safetyNavItems.length > 0 && (
+              <div className="px-3 pt-3 mt-1 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground mb-1">Safety &amp; reporting</p>
+                {safetyNavItems.map((link) => (
+                  <Link key={link.href} href={link.href}>
+                    <span
+                      className="block cursor-pointer rounded px-3 py-2 text-sm font-medium text-foreground/90 transition hover:bg-accent hover:text-primary"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      {link.label}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
             {learnNavItems.length > 0 && (
               <div className="px-3 pt-3 mt-1 border-t border-border">
                 <p className="text-xs font-semibold text-muted-foreground mb-1">Learn</p>

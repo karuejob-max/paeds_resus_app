@@ -42,6 +42,9 @@ Work is **NOT done** until:
 - **Production Seeding Confirmed:** For any new course or content, the production database **MUST** be seeded and verified (e.g., via `verify-fellowship-seed.ts` or a targeted check script).
 - **[WORK_STATUS.md](docs/WORK_STATUS.md)** updated with PR link + merge commit + **Production Verify Output**.
 - Verification recorded: `pnpm run check`, `test:unit`, `build`, or a targeted verify script.
+- **Mandatory post-implementation audit completed:** compare the original task requirements and planned changes against the actual implementation, verify every intended issue was addressed, confirm no working behavior was regressed, and record any remaining gaps or assumptions.
+- **Mandatory pre-merge account verification completed when the task changes learner/admin workflows:** use the authenticated test account or an explicitly documented equivalent to exercise the affected workflow before merge; record the routes, roles, states, and result.
+- **Mandatory re-audit after account verification:** repeat the requirement-to-implementation audit after the final fixes and before opening or merging the protected PR. A task is not complete if the first fix passes tests but the original user-visible issue remains unverified.
 
 **Forbidden Done:** local-only, sandbox-only (especially **Manus**), plan-only, branch never merged, WORK_STATUS claim without PR, **code merged but production schema not migrated**, **code merged but production DB not seeded/verified**.
 
@@ -549,3 +552,10 @@ Department-scoped nurse pickers are the default for ERCo, ERTL, UTL, and other h
 Provider IERS dashboards show the next actionable UTL/ERTL duty first and keep the full rota behind an explicit expand action. Exact hours appear in both views. ERTL department selection remains server-derived from pole order and anchor; only the named provider is explicitly nominated and accepted.
 
 Before production use, register migration `0118` in the guarded sequence, deploy the code, obtain explicit confirmation for the production schema write, run `pnpm run db:apply-iers` exactly once, and then run strict `pnpm run db:verify-iers`. Use an isolated localhost MariaDB fixture for exact-time, bulk-assignment, provider-summary, authorization, and acceptance tests. Never use patient data or a live emergency for this validation.
+
+
+### Mobile portal navigation standard (2026-09-05)
+
+For dense operational portals, do not place every destination as a permanently expanded horizontal or vertical list on small screens. Use a single, scrollable navigation surface with clear section headers. Show only section headers initially; expand one section at a time to reveal its sub-pages, mark the active section, and close the navigation sheet after a destination is selected. If an expanded section contains many destinations, bound the sub-page region and allow it to scroll internally so it cannot cover or visually merge with later sections. Keep desktop navigation behavior unchanged unless the product requirement explicitly calls for a desktop redesign.
+
+The Institutional Workspace follows this pattern: the portal navigation must provide a single entry surface for Overview, Readiness, Learning, Accountability, Administration, Connected Services, and any nested operational destinations that are available to the signed-in user. Navigation labels must remain readable, route state must remain URL-addressable, gated destinations must remain visibly gated rather than silently disappearing, and no navigation treatment may obscure the active content pane.

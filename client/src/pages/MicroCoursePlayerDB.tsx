@@ -28,6 +28,7 @@ import {
   examKindFromQuizTitle,
   dedupeQuizRowsByStem,
   shuffleQuestionsDisplayOptions,
+  shouldResumeSummativeCheckpoint,
 } from "@shared/microcourse-exam-policy";
 import { resolveFellowshipCourseFromCandidates } from "@shared/resolve-fellowship-course";
 import {
@@ -99,6 +100,9 @@ export default function MicroCoursePlayerDB() {
     return null;
   }, [search]);
   const programType = programFromQuery ?? ahaProgramFromSlug ?? ilsProgramFromSlug;
+  const requestedPathway = useMemo(() => {
+    return new URLSearchParams(search).get("pathway") === "ierp" ? "ierp" as const : undefined;
+  }, [search]);
   const isIlsCourse = programType === PAEDS_RESUS_ILS_PROGRAM_TYPE;
   const isAhaCourse = numericCourseId !== null || programType !== null;
   const isInstructor = slug === "instructor";
@@ -225,18 +229,10 @@ export default function MicroCoursePlayerDB() {
       {
         courseId: numericCourseId ?? 0,
         programType: programType ?? undefined,
+        pathway: requestedPathway,
       },
       { enabled: isAhaCourse && !!programType }
     );
-
-  // Replace legacy hardcoded ids (/micro-course/1) with the real catalog id
-  useEffect(() => {
-    if (!ahaCourseDetails?.id || !programType || numericCourseId === null) return;
-    if (numericCourseId === ahaCourseDetails.id) return;
-    const qs = new URLSearchParams(search);
-    qs.set("programType", programType);
-    navigate(`/micro-course/${ahaCourseDetails.id}?${qs.toString()}`, { replace: true });
-  }, [ahaCourseDetails?.id, programType, numericCourseId, search, navigate]);
 
   // Unified dbCourse: either fellowship or AHA
   const dbCourse = useMemo(() => {
@@ -320,10 +316,10 @@ export default function MicroCoursePlayerDB() {
   const [offlineFirstModuleContent, setOfflineFirstModuleContent] = useState<any>(null);
   const { data: remoteFirstModuleContent, isLoading: firstModuleContentLoading } = trpc.learning.getModuleContent.useQuery(
     { moduleId: firstModuleId ?? 0 },
-    { enabled: !!firstModuleId }
+    { enabled: !!firstModuleId && firstModuleId !== currentModuleId }
   );
   const moduleContent = remoteModuleContent ?? offlineModuleContent;
-  const firstModuleContent = remoteFirstModuleContent ?? offlineFirstModuleContent;
+  const firstModuleContent = remoteFirstModuleContent ?? (firstModuleId === currentModuleId ? remoteModuleContent : null) ?? offlineFirstModuleContent;
   const isUsingOfflineModule = !remoteModuleContent && Boolean(offlineModuleContent);
 
   useEffect(() => {
@@ -506,6 +502,27 @@ export default function MicroCoursePlayerDB() {
   useEffect(() => {
     if (hasResumed) return;
     if (resumeQuery.data == null) return;
+    if (isAhaCourse && examState == null) return;
+    // A failed AHA summative attempt is a checkpoint. Resume directly at the
+    // exam instead of reopening the last incomplete module or capstone.
+    if (
+      isAhaCourse &&
+      examState &&
+      shouldResumeSummativeCheckpoint({
+        attempts: examState.summativeAttempts,
+        score: examState.summativeScore,
+      })
+    ) {
+      const finalModuleIndex = Math.max(0, (courseDetails?.modules?.length ?? 1) - 1);
+      setCurrentModuleIndex(finalModuleIndex);
+      setMaxReachedModuleIndex(finalModuleIndex);
+      setShowFormativeQuiz(false);
+      setShowCapstoneSim(false);
+      setShowCertificateReady(false);
+      setShowSummativeExam(true);
+      setHasResumed(true);
+      return;
+    }
     const { resumeIndex, allCompleted } = resumeQuery.data as { resumeIndex: number; totalModules: number; allCompleted?: boolean };
     // Skip the resume jump when the course is fully completed — review mode
     // always begins at module 1 (index 0) so the user can read from the start.
@@ -518,7 +535,7 @@ export default function MicroCoursePlayerDB() {
       setMaxReachedModuleIndex(Infinity);
     }
     setHasResumed(true);
-  }, [resumeQuery.data, hasResumed]);
+  }, [resumeQuery.data, hasResumed, examState, isAhaCourse, courseDetails?.modules?.length]);
 
   // ── Mutations ──────────────────────────────────────────────────────────────
   const utils = trpc.useUtils();
@@ -791,6 +808,7 @@ export default function MicroCoursePlayerDB() {
     if (!showSummativeExam || !shuffledSummative || !base) return base;
     return {
       ...base,
+      id: examState?.summativeQuizId ?? base.id,
       passingScore: shuffledSummative.passPercent,
       questions: shuffledSummative.questions.map((q) => ({
         id: q.id,
@@ -798,7 +816,7 @@ export default function MicroCoursePlayerDB() {
         options: q.options,
       })),
     };
-  }, [quizzes, showSummativeExam, shuffledSummative]);
+  }, [quizzes, showSummativeExam, shuffledSummative, examState?.summativeQuizId]);
   const activeQuiz = showDiagnosticQuiz
     ? diagnosticQuiz
     : showSummativeExam
@@ -997,9 +1015,14 @@ export default function MicroCoursePlayerDB() {
       if (userAnswer === correctAnswer) correct++;
     });
     const score = Math.round((correct / quiz.questions.length) * 100);
+    const submissionQuizId = showSummativeExam ? examState?.summativeQuizId : quiz.id;
+    if (!submissionQuizId) {
+      toast.error("The summative quiz is still loading. Please wait a moment and try again.");
+      return;
+    }
     submitQuizMutation.mutate({
       enrollmentId,
-      quizId: quiz.id,
+      quizId: submissionQuizId,
       answers: quiz.questions.map((q: any, idx: number) => ({
         questionId: q.id,
         answer: quizAnswers[q.id] ?? quizAnswers[idx] ?? "",
@@ -1107,12 +1130,12 @@ export default function MicroCoursePlayerDB() {
   const isLoading = isAhaCourse
     ? ahaDetailsLoading
     : (catalogLoading || coursesLoading || detailsLoading);
-  const isAhaPathwayLocked = isAhaCourse && Boolean(
-    (ahaDetailsError as any)?.data?.code === "FORBIDDEN" ||
-    ahaDetailsError?.message?.includes("Choose NERP") ||
-    ahaDetailsError?.message?.includes("IERP cognitive access") ||
-    ahaDetailsError?.message?.includes("Complete your Intern profile")
+  const ahaAccessErrorMessage = ahaDetailsError?.message?.trim() ?? "";
+  const isAhaPathwayMissing = isAhaCourse && Boolean(
+    ahaAccessErrorMessage.startsWith("Choose NERP") ||
+    ahaAccessErrorMessage.startsWith("Choose an approved")
   );
+  const isAhaAccessBlocked = isAhaCourse && Boolean(ahaDetailsHasError && ahaAccessErrorMessage);
 
   if (isLoading) {
     return (
@@ -1143,22 +1166,31 @@ export default function MicroCoursePlayerDB() {
     return (
       <div className="min-h-screen bg-background p-4 flex flex-col items-center justify-center text-center">
         <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-        <h2 className="text-xl font-bold mb-2">{isAhaPathwayLocked ? "AHA pathway required" : "Content Not Found"}</h2>
+        <h2 className="text-xl font-bold mb-2">{isAhaPathwayMissing ? "AHA pathway required" : isAhaAccessBlocked ? `${programType?.toUpperCase() ?? "AHA"} access paused` : "Content Not Found"}</h2>
         <p className="text-muted-foreground mb-6 max-w-md">
-          {isAhaPathwayLocked
-            ? ahaDetailsError?.message ?? "Choose an approved AHA pathway before accessing or continuing this course."
+          {isAhaAccessBlocked
+            ? ahaDetailsError?.message ?? "Access is paused. Review the pathway requirements before continuing this course."
             : isAhaCourse && !ahaDetailsLoading && (ahaDetailsHasError || !ahaCourseDetails)
               ? isIlsCourse
                 ? "This Institutional Life Support programme could not be loaded. Please return to the programme page and try again."
                 : "This AHA course could not be loaded. Please refresh the page or return to AHA Courses and try again."
               : "This course is not yet available in the interactive format."}
         </p>
-        {isAhaPathwayLocked ? (
+        {isAhaAccessBlocked ? (
           <div className="flex flex-wrap justify-center gap-2">
-            <Button asChild variant="outline"><Link href="/programs/nerp-acls">NERP</Link></Button>
-            <Button asChild variant="outline"><Link href="/programs/ierp">IERP</Link></Button>
-            <Button asChild variant="outline"><Link href="/training/institutional-life-support">ILSP</Link></Button>
-            <Button asChild><Link href="/aha-courses">Independent AHA Pathway</Link></Button>
+            {ahaAccessErrorMessage.startsWith("IERP") ? (
+              <Button asChild className="bg-primary text-primary-foreground"><Link href="/programs/ierp/enroll">Open IERP enrollment</Link></Button>
+            ) : ahaAccessErrorMessage.startsWith("NERP") ? (
+              <Button asChild className="bg-primary text-primary-foreground"><Link href="/programs/nerp-acls">Open NERP pathway</Link></Button>
+            ) : ahaAccessErrorMessage.startsWith("ILSP") ? (
+              <Button asChild className="bg-primary text-primary-foreground"><Link href="/training/institutional-life-support">Open ILSP pathway</Link></Button>
+            ) : (
+              <Button asChild className="bg-primary text-primary-foreground">
+                <Link href={`/enroll?courseId=${encodeURIComponent(programType ?? "bls")}`}>
+                  Pay for {programType === "acls" ? "ACLS" : "BLS"} independently
+                </Link>
+              </Button>
+            )}
           </div>
         ) : (
           <Button onClick={() => navigate(coursesHubPath)}>Go Back</Button>
@@ -2111,26 +2143,26 @@ function SummativeQuizView({
       </div>
       <CardContent className="p-10 text-center space-y-8">
         <div className="flex justify-center gap-8">
-          <div className="text-center bg-muted/40 rounded-2xl p-5 min-w-[100px]">
+          <div className="text-center bg-slate-100 dark:bg-slate-800 rounded-2xl p-5 min-w-[100px]">
             <p className="text-4xl font-black text-emerald-600">✓</p>
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">All Modules</p>
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest mt-1">All Modules</p>
           </div>
-          <div className="text-center bg-muted/40 rounded-2xl p-5 min-w-[100px]">
+          <div className="text-center bg-slate-100 dark:bg-slate-800 rounded-2xl p-5 min-w-[100px]">
             <p className="text-4xl font-black text-emerald-600">✓</p>
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Final Exam</p>
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest mt-1">Final Exam</p>
           </div>
-          <div className="text-center bg-muted/40 rounded-2xl p-5 min-w-[100px]">
+          <div className="text-center bg-slate-100 dark:bg-slate-800 rounded-2xl p-5 min-w-[100px]">
             <p className="text-4xl font-black text-foreground">{completedLabel}</p>
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Completed</p>
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest mt-1">Completed</p>
           </div>
         </div>
         
-        <div className="p-6 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+        <div className="p-6 bg-emerald-50 dark:bg-emerald-950/70 rounded-2xl border border-emerald-200 dark:border-emerald-800">
           <GraduationCap className="w-10 h-10 text-emerald-600 mx-auto mb-3" />
-          <h4 className="font-bold text-foreground text-lg mb-2">
+          <h4 className="font-bold text-emerald-950 dark:text-emerald-50 text-lg mb-2">
             Paeds Resus {course.title} Certificate Ready
           </h4>
-          <p className="text-sm text-muted-foreground leading-relaxed">
+          <p className="text-sm text-emerald-900 dark:text-emerald-100 leading-relaxed">
             Your Paeds Resus {course.title} Certificate will be issued and available for download immediately.
           </p>
         </div>

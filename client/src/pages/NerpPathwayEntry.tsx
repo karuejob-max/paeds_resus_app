@@ -13,6 +13,7 @@ import {
 import { trpc } from "@/lib/trpc";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import { getNerpNextStep } from "@shared/nerp-pathway";
+import { AclsElearningProofCard } from "@/components/AclsElearningProofCard";
 import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function NerpPathwayEntry() {
@@ -34,15 +35,17 @@ export default function NerpPathwayEntry() {
   }
 
   if (pathway.isError || !pathway.data) {
-    const verificationRequired = pathway.error?.message?.toLowerCase().includes("verified nursing council");
+    const errorMessage = pathway.error?.message ?? "";
+    const lowerMessage = errorMessage.toLowerCase();
+    const credentialReviewRequired = /rejected|revoked|expired|submit complete|licence evidence/.test(lowerMessage);
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
         <Card className="border-amber-200">
           <CardHeader>
-            <CardTitle>{verificationRequired ? "NERP verification required" : "Complete your NERP setup"}</CardTitle>
+            <CardTitle>{credentialReviewRequired ? "Review your NCK licence submission" : "Complete your NERP setup"}</CardTitle>
             <CardDescription>
-              {verificationRequired
-                ? "Your payment and coursework link will appear after your NCK evidence is verified."
+              {credentialReviewRequired
+                ? "Update the Professional Credentials record using the reason below, then resubmit it for review."
                 : "We could not open your NERP learning path yet."}
             </CardDescription>
           </CardHeader>
@@ -53,13 +56,13 @@ export default function NerpPathwayEntry() {
                   "Please update your professional profile or contact Paeds Resus support, then try again."}
               </AlertDescription>
             </Alert>
-            {verificationRequired ? (
+            {credentialReviewRequired ? (
               <p className="text-sm leading-6 text-muted-foreground">
-                Uploading a licence is the submission step; an authorised verifier must still confirm the Nursing Council of Kenya licence and licence number before NERP enrollment and the first M-Pesa instalment can begin.
+                NERP access is paused for this account until the credential issue is corrected. Pending review does not pause access; rejection, revocation, expiry, or incomplete evidence does.
               </p>
             ) : null}
             <div className="flex flex-wrap gap-2">
-              {verificationRequired ? (
+              {credentialReviewRequired ? (
                 <Button asChild variant="cta">
                   <Link href="/provider-profile">Review Professional Credentials</Link>
                 </Button>
@@ -76,14 +79,15 @@ export default function NerpPathwayEntry() {
 
   const { offer, paymentState, bls, acls } = pathway.data;
   const paymentComplete = paymentState.status === "completed";
+  const paymentConfirmed = paymentComplete || paymentState.amountPaidKes > 0;
   const blsComplete = bls.cognitiveModulesComplete;
   const nextStep = getNerpNextStep({
-    paymentComplete,
+    paymentConfirmed,
     blsCognitiveComplete: blsComplete,
   });
   const nextLearningHref = blsComplete
-    ? getProviderCourseDestination("acls", acls.enrollmentId)
-    : getProviderCourseDestination("bls", bls.enrollmentId);
+    ? getProviderCourseDestination("acls", acls.enrollmentId, "/learner-dashboard", acls.courseId ?? undefined)
+    : getProviderCourseDestination("bls", bls.enrollmentId, "/learner-dashboard", bls.courseId ?? undefined);
   const nextLearningLabel = nextStep === "acls_cognitive"
     ? "Continue to ACLS cognitive learning"
     : "Start BLS cognitive learning";
@@ -108,24 +112,32 @@ export default function NerpPathwayEntry() {
         <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/30">
           <LockKeyhole className="h-4 w-4 text-blue-700" />
           <AlertDescription className="text-blue-950 dark:text-blue-100">
-            Your professional licence must be verified before NERP enrollment.
-            Payment and certification remain subject to the programme rules and
-            instructor requirements.
+            Submitted NCK evidence allows you to begin the NERP payment and
+            coursework flow while review is pending. If the submission is later
+            rejected, revoked, expired, or found incomplete, access is paused and
+            the correction reason is shown in Professional Credentials. Payment
+            and certification remain subject to the programme rules and instructor
+            requirements.
           </AlertDescription>
         </Alert>
+
+        {acls.cognitiveModulesComplete ? <AclsElearningProofCard compact /> : null}
 
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <CardTitle>One linked pathway</CardTitle>
-                <CardDescription>
-                  BLS cognitive prerequisite → ACLS cognitive learning → required
-                  practical and certification steps.
-                </CardDescription>
+                  <CardDescription>
+                    BLS cognitive refresh → ACLS cognitive learning → AHA Video Prework and Passed Precourse Self-Assessment → Phase 2 booking.
+                  </CardDescription>
               </div>
-              <Badge variant={paymentComplete ? "default" : "outline"}>
-                {paymentComplete ? "Payment complete" : "Payment setup required"}
+              <Badge variant={paymentConfirmed ? "default" : "outline"}>
+                {paymentComplete
+                  ? "Payment complete"
+                  : paymentConfirmed
+                    ? "First payment confirmed"
+                    : "First payment required"}
               </Badge>
             </div>
           </CardHeader>
@@ -160,10 +172,10 @@ export default function NerpPathwayEntry() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              {!paymentComplete ? (
+              {!paymentConfirmed ? (
                 <Button asChild variant="cta">
                   <Link href="/programs/nerp-acls/enroll">
-                    Open NERP payment plan
+                    Make your first NERP payment
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
@@ -182,15 +194,15 @@ export default function NerpPathwayEntry() {
               </Button>
             </div>
 
-            {!paymentComplete ? (
+            {!paymentConfirmed ? (
               <p className="text-sm text-muted-foreground">
-                After payment setup, return here. The page will still send you
-                to BLS first unless your BLS cognitive record is already complete.
+                Make the first KES 2,500 instalment to unlock BLS cognitive learning.
+                Later instalments remain visible in your payment ledger.
               </p>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Current pathway offer: {offer.offerKey}. The course player will
-                use the linked enrollment record for progress and certification.
+                Current pathway offer: {offer.offerKey}. Your confirmed first payment
+                unlocks the linked BLS record; ACLS follows after BLS cognitive completion.
               </p>
             )}
           </CardContent>

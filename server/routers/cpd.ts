@@ -1,15 +1,19 @@
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, and, desc, or, like, sql, inArray } from "drizzle-orm";
-import { getDb } from "../db";
+import { eq, and, desc, asc, or, like, sql, inArray } from "drizzle-orm";
+import { createAuditLog, getDb } from "../db";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { assertInstitutionProductCapability } from "../lib/institution-entitlements";
 import { assertInstitutionProductRole, type InstitutionalProductRoleKey } from "../lib/institution-product-roles";
 import {
   institutionalAccounts,
   cpdEvents,
+  cpdEventCoPresenters,
   cpdAttendees,
+  cpdEventQuizzes,
+  cpdEventQuizQuestions,
+  cpdAttendeeQuizAttempts,
   cpdCodeRevealLogs,
   cpdAttendanceAuditEvents,
   cpdEventAuditEvents,
@@ -25,6 +29,8 @@ import { canonicalizeDepartmentLabel, departmentLabelsMatch } from "../../shared
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { applyCpdFacilityRelationship, autoLinkCpdFacilitiesForUser } from "../services/facility-registry.service";
 import { canRegisterForEvent, canReviewAttendanceTransition, countsAsVerifiedAttendance, isAudienceEligible } from "../lib/cpd-contract";
+import { bestCpdQuizAttemptPassed, scoreCpdQuiz, type CpdQuizAnswer } from "../lib/cpd-quiz";
+import { getCpdPresenterSearchScope } from "../lib/cpd-presenter-search";
 
 /** Shared cadre validator for input validation, matching the cpdAttendees.cadre column. */
 const cadreEnum = z.string().trim().min(1, "Please select or specify your cadre").max(128);
@@ -95,7 +101,51 @@ async function resolveActiveInstitutionPresenter(
     cadreOther: row.userCadreOther?.trim() || null,
     department: row.staffDepartment?.trim() || row.profileDepartment?.trim() || null,
     facilityDepartmentId: row.facilityDepartmentId ?? null,
+    isInstitutionMember: true,
   };
+}
+
+async function resolvePresenterForInstitution(
+  db: any,
+  institutionId: number,
+  userId: number,
+  overrides?: { name?: string | null; cadre?: string | null; cadreOther?: string | null; department?: string | null },
+) {
+  const member = await resolveActiveInstitutionPresenter(db, institutionId, userId);
+  if (member) return member;
+
+  const [platformUser] = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      cadre: users.cadre,
+      cadreOther: users.cadreOther,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!platformUser) return null;
+
+  return {
+    userId: platformUser.id,
+    fullName: overrides?.name?.trim() || platformUser.name?.trim() || platformUser.email?.trim() || "Paeds Resus account holder",
+    email: platformUser.email?.trim() || "",
+    cadre: overrides?.cadre?.trim() || platformUser.cadre?.trim() || null,
+    cadreOther: overrides?.cadreOther?.trim() || platformUser.cadreOther?.trim() || null,
+    department: overrides?.department?.trim() || null,
+    facilityDepartmentId: null,
+    isInstitutionMember: false,
+  };
+}
+
+export function getCpdAttendeeRole(
+  presenterUserId: number | null | undefined,
+  coPresenterUserIds: readonly number[],
+  registeringUserId: number,
+): "attendee" | "presenter" | "co_presenter" {
+  if (presenterUserId === registeringUserId) return "presenter";
+  return coPresenterUserIds.includes(registeringUserId) ? "co_presenter" : "attendee";
 }
 
 export function getCanonicalAttendeeDepartment(
@@ -334,7 +384,7 @@ export const cpdRouter = router({
   searchPresenters: protectedProcedure
     .input(
       z.object({
-        query: z.string().trim().min(1).max(100),
+        query: z.string().trim().max(100).default(""),
         institutionId: z.number().int().positive().optional(),
       })
     )
@@ -347,7 +397,16 @@ export const cpdRouter = router({
         await assertInstitutionProductCapability(db, institutionId, "cpd_portal", "cpd.workspace.read");
         access = await assertCpdInstitutionAccess(db, ctx.user, institutionId);
       }
-      const q = `%${input.query.toLowerCase()}%`;
+      const normalizedQuery = input.query.trim().toLowerCase();
+      const q = `%${normalizedQuery}%`;
+      const searchCondition = normalizedQuery
+        ? or(
+            like(sql`LOWER(${users.name})`, q),
+            like(sql`LOWER(${users.email})`, q),
+            like(sql`LOWER(${institutionalStaffMembers.staffName})`, q),
+            like(sql`LOWER(${institutionalStaffMembers.staffEmail})`, q),
+          )
+        : undefined;
 
       const userMatches = await db
         .select({
@@ -363,7 +422,13 @@ export const cpdRouter = router({
           facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
         })
         .from(institutionMemberships)
-        .innerJoin(users, eq(users.id, institutionMemberships.userId))
+        .innerJoin(
+          users,
+          or(
+            eq(users.id, institutionMemberships.userId),
+            sql`LOWER(${users.email}) = LOWER(${institutionMemberships.invitedEmail})`,
+          ),
+        )
         .leftJoin(
           institutionalStaffMembers,
           and(
@@ -376,20 +441,53 @@ export const cpdRouter = router({
           and(
             eq(institutionMemberships.institutionalAccountId, institutionId),
             eq(institutionMemberships.membershipStatus, "active"),
-            or(
-              like(sql`LOWER(${users.name})`, q),
-              like(sql`LOWER(${users.email})`, q),
-              like(sql`LOWER(${institutionalStaffMembers.staffName})`, q),
-              like(sql`LOWER(${institutionalStaffMembers.staffEmail})`, q)
-            ),
+            searchCondition,
             access.departmentIds
               ? inArray(institutionalStaffMembers.facilityDepartmentId, access.departmentIds)
               : undefined
           )
         )
-        .limit(10);
+        .limit(250);
 
-      return userMatches.map((u) => ({
+      const staffMatches = await db
+        .select({
+          id: users.id,
+          userName: users.name,
+          userEmail: users.email,
+          userCadre: users.cadre,
+          userCadreOther: users.cadreOther,
+          staffName: institutionalStaffMembers.staffName,
+          staffEmail: institutionalStaffMembers.staffEmail,
+          staffRole: institutionalStaffMembers.staffRole,
+          department: institutionalStaffMembers.department,
+          facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+        })
+        .from(institutionalStaffMembers)
+        .innerJoin(
+          users,
+          or(
+            eq(users.id, institutionalStaffMembers.userId),
+            sql`LOWER(${users.email}) = LOWER(${institutionalStaffMembers.staffEmail})`,
+          ),
+        )
+        .where(
+          and(
+            eq(institutionalStaffMembers.institutionalAccountId, institutionId),
+            sql`${institutionalStaffMembers.removedAt} IS NULL`,
+            searchCondition,
+            access.departmentIds
+              ? inArray(institutionalStaffMembers.facilityDepartmentId, access.departmentIds)
+              : undefined,
+          ),
+        )
+        .limit(250);
+
+      const memberRows = Array.from(
+        new Map(
+          [...userMatches, ...staffMatches].map(row => [row.id, row]),
+        ).values(),
+      );
+      const memberResults = memberRows.map((u) => ({
         id: u.id,
         fullName: u.staffName || u.userName || u.staffEmail || u.userEmail || "Unknown Clinician",
         email: u.staffEmail || u.userEmail || "",
@@ -397,7 +495,39 @@ export const cpdRouter = router({
         cadreOther: u.userCadreOther || null,
         department: u.department || null,
         facilityDepartmentId: u.facilityDepartmentId ?? null,
+        isInstitutionMember: true as const,
       }));
+      if (getCpdPresenterSearchScope(access.departmentIds) === "department") return memberResults;
+
+      const memberIds = new Set(memberResults.map(member => member.id));
+
+      const platformMatches = await db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          cadre: users.cadre,
+          cadreOther: users.cadreOther,
+        })
+        .from(users)
+        .where(or(
+          like(sql`LOWER(${users.name})`, q),
+          like(sql`LOWER(${users.email})`, q),
+        ))
+        .limit(50);
+      const platformResults = platformMatches
+        .filter(user => !memberIds.has(user.id))
+        .map(user => ({
+          id: user.id,
+          fullName: user.name || user.email || "Paeds Resus account holder",
+          email: user.email || "",
+          cadre: user.cadre || null,
+          cadreOther: user.cadreOther || null,
+          department: null,
+          facilityDepartmentId: null,
+          isInstitutionMember: false as const,
+        }));
+      return [...memberResults, ...platformResults].slice(0, 250);
     }),
 
   /** Admin: open a new event. Closes any currently open event for this institution first. */
@@ -424,19 +554,25 @@ export const cpdRouter = router({
       const db = await requireDb();
       await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
       await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator"]);
-      const presenter = await resolveActiveInstitutionPresenter(
+      const presenter = await resolvePresenterForInstitution(
         db,
         input.institutionId,
-        input.presenterUserId
+        input.presenterUserId,
+        {
+          name: input.presenterName,
+          cadre: input.presenterCadre,
+          cadreOther: input.presenterCadreOther,
+          department: input.presenterDepartment,
+        },
       );
       if (!presenter) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Choose the lead presenter from the active institution-member list.",
+          message: "Choose a valid Paeds Resus account as the presenter.",
         });
       }
       const now = new Date();
-      const result = await db.insert(cpdEvents).values({
+      const [result] = await db.insert(cpdEvents).values({
         institutionalAccountId: input.institutionId,
         name: input.name,
         eventDate: input.eventDate,
@@ -453,7 +589,7 @@ export const cpdRouter = router({
         scheduledStartTime: input.scheduledStartTime ?? null,
         scheduledEndTime: input.scheduledEndTime ?? null,
       });
-      const eventId = (result as unknown as { insertId: number }).insertId;
+      const eventId = result.insertId;
       await db.insert(cpdEventAuditEvents).values({
         institutionalAccountId: input.institutionId,
         cpdEventId: eventId,
@@ -465,11 +601,13 @@ export const cpdRouter = router({
         actorUserId: ctx.user.id,
       });
 
-      if (presenter.department) {
-        await syncUserProfileDepartment(db, presenter.userId, presenter.department);
-      }
-      if (presenter.cadre) {
-        await syncUserCadre(db, presenter.userId, presenter.cadre, presenter.cadreOther);
+      if (presenter.isInstitutionMember) {
+        if (presenter.department) {
+          await syncUserProfileDepartment(db, presenter.userId, presenter.department);
+        }
+        if (presenter.cadre) {
+          await syncUserCadre(db, presenter.userId, presenter.cadre, presenter.cadreOther);
+        }
       }
 
       return { success: true as const, eventId };
@@ -512,17 +650,29 @@ export const cpdRouter = router({
       }
 
       const updateData: Record<string, unknown> = {};
+      let shouldSyncPresenterAccount = false;
       if (input.eventType !== undefined) updateData.eventType = input.eventType;
       if (input.presenterUserId !== undefined) {
         updateData.presenterUserId = input.presenterUserId;
         if (input.presenterUserId != null) {
-          const presenter = await resolveActiveInstitutionPresenter(db, input.institutionId, input.presenterUserId);
+          const presenter = await resolvePresenterForInstitution(
+            db,
+            input.institutionId,
+            input.presenterUserId,
+            {
+              name: input.presenterName,
+              cadre: input.presenterCadre,
+              cadreOther: input.presenterCadreOther,
+              department: input.presenterDepartment,
+            },
+          );
           if (!presenter) {
             throw new TRPCError({
               code: "BAD_REQUEST",
-              message: "Choose the presenter from the active institution-member directory.",
+              message: "Choose a valid Paeds Resus account as the presenter.",
             });
           }
+          shouldSyncPresenterAccount = presenter.isInstitutionMember;
           updateData.presenterName = presenter.fullName;
           updateData.presenterCadre = presenter.cadre
             ? formatEventPresenterCadre(presenter.cadre, presenter.cadreOther)
@@ -569,7 +719,7 @@ export const cpdRouter = router({
         .where(eq(cpdEvents.id, input.eventId))
         .limit(1);
 
-      if (finalEvent?.presenterUserId) {
+      if (shouldSyncPresenterAccount && finalEvent?.presenterUserId) {
         if (finalEvent.presenterDepartment) {
           await syncUserProfileDepartment(db, finalEvent.presenterUserId, finalEvent.presenterDepartment);
         }
@@ -783,6 +933,61 @@ export const cpdRouter = router({
         if (attendee) myAttendee = attendee;
       }
 
+      const [eventQuiz] = await db
+        .select({
+          id: cpdEventQuizzes.id,
+          passingScore: cpdEventQuizzes.passingScore,
+          isRequired: cpdEventQuizzes.isRequired,
+        })
+        .from(cpdEventQuizzes)
+        .where(eq(cpdEventQuizzes.cpdEventId, event.id))
+        .limit(1);
+      let quiz: {
+        id: number;
+        passingScore: number;
+        isRequired: boolean;
+        questions: Array<{ id: number; question: string; questionType: "multiple_choice" | "true_false"; options: string[] }>;
+        bestAttempt: { score: number; passed: boolean } | null;
+      } | null = null;
+      if (eventQuiz) {
+        const questionRows = await db
+          .select({
+            id: cpdEventQuizQuestions.id,
+            question: cpdEventQuizQuestions.question,
+            questionType: cpdEventQuizQuestions.questionType,
+            options: cpdEventQuizQuestions.options,
+          })
+          .from(cpdEventQuizQuestions)
+          .where(eq(cpdEventQuizQuestions.cpdEventQuizId, eventQuiz.id))
+          .orderBy(asc(cpdEventQuizQuestions.order), asc(cpdEventQuizQuestions.id));
+        const attemptRows = myAttendee
+          ? await db
+              .select({ score: cpdAttendeeQuizAttempts.score, passed: cpdAttendeeQuizAttempts.passed })
+              .from(cpdAttendeeQuizAttempts)
+              .where(and(
+                eq(cpdAttendeeQuizAttempts.cpdAttendeeId, myAttendee.attendeeId),
+                eq(cpdAttendeeQuizAttempts.cpdEventQuizId, eventQuiz.id),
+              ))
+              .orderBy(desc(cpdAttendeeQuizAttempts.score), desc(cpdAttendeeQuizAttempts.id))
+          : [];
+        quiz = {
+          id: eventQuiz.id,
+          passingScore: eventQuiz.passingScore,
+          isRequired: eventQuiz.isRequired,
+          questions: questionRows.map(row => {
+            let options: string[] = [];
+            try {
+              const parsed = row.options ? JSON.parse(row.options) : [];
+              if (Array.isArray(parsed)) options = parsed.map(value => String(value));
+            } catch {
+              options = [];
+            }
+            return { id: row.id, question: row.question, questionType: row.questionType, options };
+          }),
+          bestAttempt: attemptRows[0] ?? null,
+        };
+      }
+
       return {
         event: {
           id: event.id,
@@ -799,7 +1004,113 @@ export const cpdRouter = router({
         userFacilityDepartmentId,
         registrationDepartments,
         myAttendee,
+        quiz,
       };
+    }),
+
+  createEventQuiz: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      eventId: z.number().int().positive(),
+      passingScore: z.number().int().min(1).max(100).default(80),
+      isRequired: z.boolean().default(true),
+      questions: z.array(z.object({
+        question: z.string().trim().min(3).max(2000),
+        questionType: z.enum(["multiple_choice", "true_false"]),
+        options: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
+        correctAnswer: z.string().trim().min(1).max(500),
+      })).min(1).max(50),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
+      const access = await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator"]);
+      const [event] = await db
+        .select({ id: cpdEvents.id, facilityDepartmentId: cpdEvents.facilityDepartmentId })
+        .from(cpdEvents)
+        .where(and(eq(cpdEvents.id, input.eventId), eq(cpdEvents.institutionalAccountId, input.institutionId)))
+        .limit(1);
+      if (!event) throw new TRPCError({ code: "NOT_FOUND", message: "CPD event not found." });
+      if (access.departmentIds && (event.facilityDepartmentId == null || !access.departmentIds.includes(event.facilityDepartmentId))) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You can author quizzes only for your assigned department(s)." });
+      }
+      const normalizedQuestions = input.questions.map((question, index) => {
+        const options = question.questionType === "true_false" ? ["true", "false"] : Array.from(new Set(question.options));
+        if (question.questionType === "multiple_choice" && options.length < 2) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `Question ${index + 1} needs at least two answer options.` });
+        }
+        if (!options.some(option => option.toLowerCase() === question.correctAnswer.toLowerCase())) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `Question ${index + 1} must include its correct answer in the options.` });
+        }
+        return { ...question, options, correctAnswer: question.correctAnswer.trim() };
+      });
+      const [existingQuiz] = await db
+        .select({ id: cpdEventQuizzes.id })
+        .from(cpdEventQuizzes)
+        .where(eq(cpdEventQuizzes.cpdEventId, input.eventId))
+        .limit(1);
+      let quizId = existingQuiz?.id;
+      if (quizId) {
+        await db.update(cpdEventQuizzes).set({ passingScore: input.passingScore, isRequired: input.isRequired, updatedAt: new Date() }).where(eq(cpdEventQuizzes.id, quizId));
+        await db.delete(cpdEventQuizQuestions).where(eq(cpdEventQuizQuestions.cpdEventQuizId, quizId));
+      } else {
+        const [result] = await db.insert(cpdEventQuizzes).values({ cpdEventId: input.eventId, passingScore: input.passingScore, isRequired: input.isRequired });
+        quizId = result.insertId;
+      }
+      await db.insert(cpdEventQuizQuestions).values(normalizedQuestions.map((question, index) => ({
+        cpdEventQuizId: quizId as number,
+        question: question.question,
+        questionType: question.questionType,
+        options: JSON.stringify(question.options),
+        correctAnswer: question.correctAnswer,
+        order: index,
+      })));
+      return { success: true as const, quizId };
+    }),
+
+  submitQuizAttempt: protectedProcedure
+    .input(z.object({
+      attendeeId: z.number().int().positive(),
+      cpdEventQuizId: z.number().int().positive(),
+      answers: z.record(z.string(), z.union([z.string(), z.number()])),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      const [row] = await db
+        .select({
+          attendeeId: cpdAttendees.id,
+          eventId: cpdAttendees.cpdEventId,
+          userId: cpdAttendees.userId,
+          email: cpdAttendees.email,
+          quizId: cpdEventQuizzes.id,
+          passingScore: cpdEventQuizzes.passingScore,
+        })
+        .from(cpdAttendees)
+        .innerJoin(cpdEventQuizzes, eq(cpdEventQuizzes.cpdEventId, cpdAttendees.cpdEventId))
+        .where(and(
+          eq(cpdAttendees.id, input.attendeeId),
+          eq(cpdEventQuizzes.id, input.cpdEventQuizId),
+        ))
+        .limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Quiz or attendance registration not found." });
+      const signedInEmail = (ctx.user.email ?? "").trim().toLowerCase();
+      if (row.userId !== ctx.user.id && (!signedInEmail || row.email.trim().toLowerCase() !== signedInEmail)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You can submit only your own CPD quiz attempt." });
+      }
+      const questions = await db
+        .select({ id: cpdEventQuizQuestions.id, questionType: cpdEventQuizQuestions.questionType, correctAnswer: cpdEventQuizQuestions.correctAnswer })
+        .from(cpdEventQuizQuestions)
+        .where(eq(cpdEventQuizQuestions.cpdEventQuizId, row.quizId))
+        .orderBy(asc(cpdEventQuizQuestions.order), asc(cpdEventQuizQuestions.id));
+      const result = scoreCpdQuiz(questions, input.answers as Record<string, CpdQuizAnswer>, row.passingScore);
+      await db.insert(cpdAttendeeQuizAttempts).values({
+        cpdAttendeeId: row.attendeeId,
+        cpdEventQuizId: row.quizId,
+        score: result.score,
+        passed: result.passed,
+        answers: JSON.stringify(input.answers),
+      });
+      return result;
     }),
 
   /** Submit a CPD registration. Validates the event is open, matches the visitor session, and dedupes by email + event. */
@@ -841,6 +1152,7 @@ export const cpdRouter = router({
       const openEvents = await db
         .select({
           id: cpdEvents.id,
+          presenterUserId: cpdEvents.presenterUserId,
           isOpen: cpdEvents.isOpen,
           lifecycleStatus: cpdEvents.lifecycleStatus,
           audienceScope: cpdEvents.audienceScope,
@@ -937,8 +1249,17 @@ export const cpdRouter = router({
       const attendanceType: "primary_facility" | "locum_outreach" = input.facilityRelationship === "permanent_facility"
         ? "primary_facility"
         : "locum_outreach";
+      const coPresenterRows = await db
+        .select({ userId: cpdEventCoPresenters.userId })
+        .from(cpdEventCoPresenters)
+        .where(eq(cpdEventCoPresenters.cpdEventId, event.id));
+      const roleInEvent = getCpdAttendeeRole(
+        event.presenterUserId,
+        coPresenterRows.map(row => row.userId).filter((userId): userId is number => userId != null),
+        ctx.user.id,
+      );
 
-      const registrationResult = await db.insert(cpdAttendees).values({
+      const [registrationResult] = await db.insert(cpdAttendees).values({
         cpdEventId: event.id,
         institutionalAccountId: input.institutionId,
         userId: ctx.user.id,
@@ -951,7 +1272,7 @@ export const cpdRouter = router({
         department: resolvedDepartment,
         facilityDepartmentId: resolvedFacilityDepartmentId,
         attendanceType,
-        roleInEvent: "attendee",
+        roleInEvent,
         checkInPunctuality: "on_time",
       });
 
@@ -966,8 +1287,11 @@ export const cpdRouter = router({
           .where(eq(users.id, ctx.user.id));
       }
 
-      // Auto-populate user's profile department from registration
-      await syncUserProfileDepartment(db, ctx.user.id, resolvedDepartment);
+      // A locum/outreach registration belongs in facility history only; it must not
+      // overwrite the user's permanent profile department.
+      if (input.facilityRelationship === "permanent_facility") {
+        await syncUserProfileDepartment(db, ctx.user.id, resolvedDepartment);
+      }
 
       const facilityLink = await applyCpdFacilityRelationship(db, {
         institutionalAccountId: input.institutionId,
@@ -985,7 +1309,7 @@ export const cpdRouter = router({
 
       return {
         success: true as const,
-        attendeeId: Number((registrationResult as unknown as { insertId: number }).insertId),
+        attendeeId: registrationResult.insertId,
         eventId: event.id,
         attendanceType,
         facilityRelationship: input.facilityRelationship,
@@ -1787,20 +2111,24 @@ export const cpdRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "This CPD event is no longer open for check-in." });
       }
       if (row.attendanceStatus === "attendance_verified") return { success: true as const, attendanceStatus: row.attendanceStatus };
+      const now = new Date();
       await db.update(cpdAttendees).set({
-        attendanceStatus: "checked_in",
-        checkedInAt: new Date(),
+        attendanceStatus: "attendance_verified",
+        checkedInAt: now,
+        attendanceVerifiedAt: now,
+        attendanceVerifiedByUserId: ctx.user.id,
+        attendanceReviewReason: "System verified through authenticated self-service event check-in",
       }).where(eq(cpdAttendees.id, input.attendeeId));
       await db.insert(cpdAttendanceAuditEvents).values({
         institutionalAccountId: row.institutionalAccountId,
         cpdEventId: row.eventId,
         cpdAttendeeId: row.attendeeId,
         previousStatus: row.attendanceStatus,
-        nextStatus: "checked_in",
-        reason: "Self-service event check-in",
+        nextStatus: "attendance_verified",
+        reason: "System verified through authenticated self-service event check-in",
         actorUserId: ctx.user.id,
       });
-      return { success: true as const, attendanceStatus: "checked_in" as const };
+      return { success: true as const, attendanceStatus: "attendance_verified" as const };
     }),
 
   /** Admin/reviewer: review one attendance record; verified is the only countable state. */
@@ -1839,6 +2167,28 @@ export const cpdRouter = router({
           code: "CONFLICT",
           message: "This attendance record is already in a terminal state and cannot be reversed.",
         });
+      }
+      if (input.attendanceStatus === "attendance_verified") {
+        const [requiredQuiz] = await db
+          .select({ id: cpdEventQuizzes.id, passingScore: cpdEventQuizzes.passingScore })
+          .from(cpdEventQuizzes)
+          .where(and(eq(cpdEventQuizzes.cpdEventId, row.eventId), eq(cpdEventQuizzes.isRequired, true)))
+          .limit(1);
+        if (requiredQuiz) {
+          const attempts = await db
+            .select({ score: cpdAttendeeQuizAttempts.score, passed: cpdAttendeeQuizAttempts.passed })
+            .from(cpdAttendeeQuizAttempts)
+            .where(and(
+              eq(cpdAttendeeQuizAttempts.cpdAttendeeId, input.attendeeId),
+              eq(cpdAttendeeQuizAttempts.cpdEventQuizId, requiredQuiz.id),
+            ));
+          if (!bestCpdQuizAttemptPassed(attempts, requiredQuiz.passingScore)) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: `This session requires a passing quiz score (${requiredQuiz.passingScore}%) before attendance can be verified.`,
+            });
+          }
+        }
       }
       const now = new Date();
       const updateData: Record<string, unknown> = {
@@ -1897,6 +2247,93 @@ export const cpdRouter = router({
       return { success: true as const, attendanceStatus: input.attendanceStatus, eventClosed };
     }),
 
+  /** Admin: verify multiple attendance records with the same safeguards as reviewAttendance. */
+  bulkVerifyAttendance: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      attendeeIds: z.array(z.number().int().positive()).min(1).max(200),
+      reason: z.string().trim().min(3).max(500),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.attendance.operate");
+      const access = await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator", "cpd_education_coordinator", "cpd_reviewer"]);
+      const uniqueIds = Array.from(new Set(input.attendeeIds));
+      const rows = await db
+        .select({
+          attendeeId: cpdAttendees.id,
+          eventId: cpdAttendees.cpdEventId,
+          institutionalAccountId: cpdAttendees.institutionalAccountId,
+          facilityDepartmentId: cpdAttendees.facilityDepartmentId,
+          previousStatus: cpdAttendees.attendanceStatus,
+        })
+        .from(cpdAttendees)
+        .where(and(
+          eq(cpdAttendees.institutionalAccountId, input.institutionId),
+          inArray(cpdAttendees.id, uniqueIds),
+        ));
+      const rowById = new Map(rows.map(row => [row.attendeeId, row]));
+      const succeeded: number[] = [];
+      const skipped: Array<{ attendeeId: number; reason: string }> = [];
+      const failed: Array<{ attendeeId: number; reason: string }> = [];
+
+      for (const attendeeId of uniqueIds) {
+        const row = rowById.get(attendeeId);
+        if (!row) {
+          failed.push({ attendeeId, reason: "Attendance record not found in this institution." });
+          continue;
+        }
+        if (row.previousStatus === "attendance_verified") {
+          skipped.push({ attendeeId, reason: "Already verified." });
+          continue;
+        }
+        if (["excused", "cancelled"].includes(row.previousStatus)) {
+          skipped.push({ attendeeId, reason: `Terminal status: ${row.previousStatus}.` });
+          continue;
+        }
+        if (access.departmentIds && (row.facilityDepartmentId == null || !access.departmentIds.includes(row.facilityDepartmentId))) {
+          failed.push({ attendeeId, reason: "Outside your assigned department scope." });
+          continue;
+        }
+        const [requiredQuiz] = await db
+          .select({ id: cpdEventQuizzes.id, passingScore: cpdEventQuizzes.passingScore })
+          .from(cpdEventQuizzes)
+          .where(and(eq(cpdEventQuizzes.cpdEventId, row.eventId), eq(cpdEventQuizzes.isRequired, true)))
+          .limit(1);
+        if (requiredQuiz) {
+          const attempts = await db
+            .select({ score: cpdAttendeeQuizAttempts.score, passed: cpdAttendeeQuizAttempts.passed })
+            .from(cpdAttendeeQuizAttempts)
+            .where(and(
+              eq(cpdAttendeeQuizAttempts.cpdAttendeeId, attendeeId),
+              eq(cpdAttendeeQuizAttempts.cpdEventQuizId, requiredQuiz.id),
+            ));
+          if (!bestCpdQuizAttemptPassed(attempts, requiredQuiz.passingScore)) {
+            failed.push({ attendeeId, reason: `Required quiz not passed (${requiredQuiz.passingScore}% required).` });
+            continue;
+          }
+        }
+        const now = new Date();
+        await db.update(cpdAttendees).set({
+          attendanceStatus: "attendance_verified",
+          attendanceVerifiedAt: now,
+          attendanceVerifiedByUserId: ctx.user.id,
+          attendanceReviewReason: input.reason,
+        }).where(eq(cpdAttendees.id, attendeeId));
+        await db.insert(cpdAttendanceAuditEvents).values({
+          institutionalAccountId: row.institutionalAccountId,
+          cpdEventId: row.eventId,
+          cpdAttendeeId: attendeeId,
+          previousStatus: row.previousStatus,
+          nextStatus: "attendance_verified",
+          reason: `Bulk attendance verification: ${input.reason}`,
+          actorUserId: ctx.user.id,
+        });
+        succeeded.push(attendeeId);
+      }
+      return { success: true as const, succeeded, skipped, failed };
+    }),
+
   /** Admin: archive a session without deleting registrations, attendance, or certificates. */
   archiveEvent: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive(), eventId: z.number().int().positive(), reason: z.string().trim().min(3).max(500) }))
@@ -1945,8 +2382,8 @@ export const cpdRouter = router({
     }),
 
   /**
-   * Compatibility adapter: the former irreversible delete action now archives the event.
-   * Registrations, attendance, certificates, and audit records are preserved.
+   * Admin: delete an incorrectly created attendee-free session, or archive a
+   * session with registrations while preserving its records.
    */
   deleteEvent: protectedProcedure
     .input(
@@ -1955,7 +2392,7 @@ export const cpdRouter = router({
         eventId: z.number().int().positive(),
         /** Must exactly match the event's name (trimmed, case-insensitive). */
         confirmName: z.string().trim().min(1).max(256),
-        /** Kept for old clients; it is no longer used to permit data deletion. */
+        /** Required for attendee-bearing sessions; prevents accidental archive. */
         confirmAttendeesPhrase: z.string().trim().optional(),
         reason: z.string().trim().min(3).max(500).optional(),
       })
@@ -1965,24 +2402,16 @@ export const cpdRouter = router({
       await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
       await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator"]);
 
-      // 1. Verify the event belongs to this institution.
       const [event] = await db
-        .select({ id: cpdEvents.id, name: cpdEvents.name, lifecycleStatus: cpdEvents.lifecycleStatus })
+        .select({ id: cpdEvents.id, name: cpdEvents.name, lifecycleStatus: cpdEvents.lifecycleStatus, isOpen: cpdEvents.isOpen })
         .from(cpdEvents)
-        .where(
-          and(
-            eq(cpdEvents.id, input.eventId),
-            eq(cpdEvents.institutionalAccountId, input.institutionId)
-          )
-        )
+        .where(and(
+          eq(cpdEvents.id, input.eventId),
+          eq(cpdEvents.institutionalAccountId, input.institutionId),
+        ))
         .limit(1);
+      if (!event) throw new TRPCError({ code: "NOT_FOUND", message: "Event not found for this institution." });
 
-      if (!event) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Event not found for this institution." });
-      }
-
-      // Confirm the typed name still matches to prevent acting on the wrong row.
-      // The historical attendee phrase is intentionally ignored: deletion is no longer possible.
       if (input.confirmName.trim().toLowerCase() !== event.name.trim().toLowerCase()) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -1990,19 +2419,74 @@ export const cpdRouter = router({
         });
       }
 
-      const reason = input.reason?.trim() || "Legacy delete action converted to archive";
-      await db.update(cpdEvents).set({ isOpen: false, lifecycleStatus: "archived", closedAt: new Date() }).where(eq(cpdEvents.id, input.eventId));
-      await db.insert(cpdEventAuditEvents).values({
-        institutionalAccountId: input.institutionId,
-        cpdEventId: input.eventId,
-        action: "archived",
-        previousStatus: event.lifecycleStatus,
-        nextStatus: "archived",
-        reason,
-        actorUserId: ctx.user.id,
-      });
+      const [attendeeSummary] = await db
+        .select({ count: sql<number>`COUNT(${cpdAttendees.id})`.mapWith(Number) })
+        .from(cpdAttendees)
+        .where(and(
+          eq(cpdAttendees.cpdEventId, input.eventId),
+          eq(cpdAttendees.institutionalAccountId, input.institutionId),
+        ));
+      const attendeeCount = attendeeSummary?.count ?? 0;
 
-      return { success: true as const, archived: true as const };
+      if (attendeeCount > 0) {
+        const expectedPhrase = `archive session with ${attendeeCount} attendees`;
+        if (input.confirmAttendeesPhrase?.trim().toLowerCase() !== expectedPhrase) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `This session has ${attendeeCount} attendee(s). Type ${expectedPhrase.toUpperCase()} to archive it while preserving records.`,
+          });
+        }
+        const reason = input.reason?.trim() || "Session archive requested from legacy delete control";
+        await db.update(cpdEvents).set({ isOpen: false, lifecycleStatus: "archived", closedAt: new Date() }).where(eq(cpdEvents.id, input.eventId));
+        await db.insert(cpdEventAuditEvents).values({
+          institutionalAccountId: input.institutionId,
+          cpdEventId: input.eventId,
+          action: "archived",
+          previousStatus: event.lifecycleStatus,
+          nextStatus: "archived",
+          reason,
+          actorUserId: ctx.user.id,
+        });
+        return { success: true as const, deleted: false as const, archived: true as const };
+      }
+
+      if (event.isOpen || event.lifecycleStatus === "open" || event.lifecycleStatus === "attendance_review") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Close the open CPD session before deleting it." });
+      }
+
+      const reason = input.reason?.trim() || "Incorrectly created CPD session removed by institution administrator";
+      await db.transaction(async tx => {
+        const quizzes = await tx
+          .select({ id: cpdEventQuizzes.id })
+          .from(cpdEventQuizzes)
+          .where(eq(cpdEventQuizzes.cpdEventId, input.eventId));
+        const quizIds = quizzes.map(quiz => quiz.id);
+        if (quizIds.length > 0) {
+          await tx.delete(cpdEventQuizQuestions).where(inArray(cpdEventQuizQuestions.cpdEventQuizId, quizIds));
+          await tx.delete(cpdEventQuizzes).where(inArray(cpdEventQuizzes.id, quizIds));
+        }
+        await tx.delete(cpdEventCoPresenters).where(eq(cpdEventCoPresenters.cpdEventId, input.eventId));
+        await tx.delete(cpdCodeRevealLogs).where(eq(cpdCodeRevealLogs.cpdEventId, input.eventId));
+        await tx.delete(cpdExportAuditLogs).where(and(
+          eq(cpdExportAuditLogs.institutionalAccountId, input.institutionId),
+          eq(cpdExportAuditLogs.eventId, input.eventId),
+        ));
+        await tx.delete(cpdEventAuditEvents).where(and(
+          eq(cpdEventAuditEvents.institutionalAccountId, input.institutionId),
+          eq(cpdEventAuditEvents.cpdEventId, input.eventId),
+        ));
+        await tx.delete(cpdEvents).where(and(
+          eq(cpdEvents.id, input.eventId),
+          eq(cpdEvents.institutionalAccountId, input.institutionId),
+        ));
+      });
+      await createAuditLog({
+        userId: ctx.user.id,
+        action: "CPD_EVENT_DELETED",
+        details: { institutionId: input.institutionId, eventId: input.eventId, eventName: event.name, reason, attendeeCount },
+        timestamp: new Date(),
+      });
+      return { success: true as const, deleted: true as const, archived: false as const };
     }),
 });
 

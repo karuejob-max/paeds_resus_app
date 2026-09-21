@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import {
   CalendarPlus,
   UserPlus,
@@ -57,6 +58,29 @@ function sixMonthsFromToday() {
 }
 
 type LearningGovernanceMode = "all" | "sessions" | "people";
+type PresenterSearchPerson = {
+  id: number;
+  fullName: string;
+  email: string;
+  cadre: string | null;
+  cadreOther?: string | null;
+  department: string | null;
+  isInstitutionMember: boolean;
+};
+
+type QuizDraftQuestion = {
+  question: string;
+  questionType: "multiple_choice" | "true_false";
+  options: string[];
+  correctAnswer: string;
+};
+
+const emptyQuizQuestion = (): QuizDraftQuestion => ({
+  question: "",
+  questionType: "multiple_choice",
+  options: ["", ""],
+  correctAnswer: "",
+});
 
 export default function InstitutionLearningGovernancePanel({
   institutionId,
@@ -77,8 +101,13 @@ export default function InstitutionLearningGovernancePanel({
   const [audienceScope, setAudienceScope] = useState("facility_wide");
   const [audienceLabel, setAudienceLabel] = useState("");
   const [presenterUserId, setPresenterUserId] = useState("");
+  const [presenterSearch, setPresenterSearch] = useState("");
+  const [presenterCache, setPresenterCache] = useState<PresenterSearchPerson[]>([]);
   const [cpdPoints, setCpdPoints] = useState("1");
-  const [coPresenters, setCoPresenters] = useState([{ userId: "" }]);
+  const [coPresenters, setCoPresenters] = useState<Array<{ userId: string }>>([]);
+  const [quizEnabled, setQuizEnabled] = useState(false);
+  const [quizPassingScore, setQuizPassingScore] = useState("80");
+  const [quizQuestions, setQuizQuestions] = useState<QuizDraftQuestion[]>([emptyQuizQuestion()]);
   const [targetScope, setTargetScope] = useState<
     "facility" | "department" | "individual"
   >("facility");
@@ -96,6 +125,11 @@ export default function InstitutionLearningGovernancePanel({
   const [courseProgramType, setCourseProgramType] = useState("");
   const [coursePhase, setCoursePhase] = useState("");
   const utils = trpc.useUtils();
+  const { data: learningAuthority } = trpc.institutionLearning.getMyAuthority.useQuery(
+    { institutionId },
+    { staleTime: 30_000 },
+  );
+  const canManageCoordinatorAssignments = isInstitutionAdmin || learningAuthority?.roleKey === "institution_admin" || learningAuthority?.roleKey === "cpd_coordinator" || learningAuthority?.roleKey === "cpd_department_head";
   const { data: departments = [] } =
     trpc.institutionLearning.listDepartments.useQuery(
       { institutionId },
@@ -108,6 +142,35 @@ export default function InstitutionLearningGovernancePanel({
     { institutionId, departmentId: participantDepartmentId },
     { staleTime: 30_000 }
   );
+  const { data: presenterMatches = [] } = trpc.cpd.searchPresenters.useQuery(
+    { institutionId, query: presenterSearch.trim() },
+    { enabled: true, staleTime: 15_000 },
+  );
+  useEffect(() => {
+    if (!presenterMatches.length) return;
+    setPresenterCache(current => {
+      const merged = new Map<number, PresenterSearchPerson>(current.map(person => [person.id, person]));
+      presenterMatches.forEach(person => merged.set(person.id, person));
+      return Array.from(merged.values());
+    });
+  }, [presenterMatches]);
+  const searchablePresenters = [...presenterCache, ...presenterMatches].filter((person, index, all) => all.findIndex(candidate => candidate.id === person.id) === index);
+  const presenterOptions = searchablePresenters
+    .filter(person => person.id != null)
+    .map(person => ({
+      value: String(person.id),
+      label: person.fullName,
+      description: [
+        person.email ?? "Email not set",
+        person.department ?? "Department not set",
+        person.cadre ?? "Cadre not set",
+        person.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member",
+      ].join(" · "),
+      searchText: [person.fullName, person.email, person.cadre, person.department].filter(Boolean).join(" "),
+      person,
+    }));
+  const selectedPresenter = presenterOptions.find(option => option.value === presenterUserId)?.person;
+  const selectedPresenterOption = presenterOptions.find(option => option.value === presenterUserId);
   const { data: targetStaff = [] } = trpc.institutionLearning.listDepartmentStaff.useQuery(
     {
       institutionId,
@@ -145,15 +208,21 @@ export default function InstitutionLearningGovernancePanel({
     const email = person.staffEmail ?? "No email";
     return `${person.staffName} · ${department} · ${cadre} · ${email}`;
   };
-  const memberOptions = staff
-    .filter(person => person.userId != null)
-    .map(person => ({ value: String(person.userId), label: memberLabel(person) }));
-  const selectedPresenter = staff.find(
-    person => person.userId === Number(presenterUserId)
-  );
-  const coPresenterOptions = staff.filter(
-    person => person.userId !== Number(presenterUserId)
-  );
+  const coPresenterOptions = searchablePresenters
+      .filter(person => person.id !== Number(presenterUserId))
+      .filter(person => person.id != null)
+      .map(person => ({
+        value: String(person.id),
+        label: person.fullName,
+        description: [
+          person.email ?? "Email not set",
+          person.department ?? "Department not set",
+          person.cadre ?? "Cadre not set",
+          person.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member",
+        ].join(" · "),
+        searchText: [person.fullName, person.email, person.cadre, person.department].filter(Boolean).join(" "),
+        person,
+      }));
 
   const invalidateLearning = async () => {
     await Promise.all([
@@ -195,15 +264,23 @@ export default function InstitutionLearningGovernancePanel({
     });
   const createSession = trpc.institutionLearning.createSession.useMutation({
     onSuccess: async () => {
-      toast.success("CPD session created");
+      toast.success("CPD session created. Registration QR code and link are ready below.");
       setSessionName("");
       setPresenterUserId("");
       setAudienceLabel("");
-      setCoPresenters([{ userId: "" }]);
-      await invalidateLearning();
+      setCoPresenters([]);
+      setQuizEnabled(false);
+      setQuizPassingScore("80");
+      setQuizQuestions([emptyQuizQuestion()]);
+      await Promise.all([
+        invalidateLearning(),
+        utils.cpd.listEvents.invalidate({ institutionId }),
+        utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId }),
+      ]);
     },
     onError: error => toast.error(error.message),
   });
+  const createEventQuiz = trpc.cpd.createEventQuiz.useMutation();
   const saveTarget = trpc.institutionLearning.saveTarget.useMutation({
     onSuccess: async () => {
       toast.success("Learning target saved");
@@ -220,32 +297,64 @@ export default function InstitutionLearningGovernancePanel({
     onError: error => toast.error(error.message),
   });
 
-  const submitSession = () => {
+  const submitSession = async () => {
     if (!presenterUserId) {
-      toast.error("Choose a lead presenter from the active institution-member list.");
+      toast.error("Choose a lead presenter from the eligible presenter list.");
       return;
     }
     const selectedCoPresenters = coPresenters
       .map(presenter => presenter.userId)
       .filter(Boolean)
       .map(userId => ({ userId: Number(userId) }));
-    createSession.mutate({
-      institutionId,
-      name: sessionName,
-      eventDate: sessionDate,
-      eventDateAt: sessionDate,
-      eventType: eventType as any,
-      audienceScope: audienceScope as any,
-      audienceLabel: audienceLabel.trim() || null,
-      facilityDepartmentId: sessionDepartmentId
-        ? Number(sessionDepartmentId)
-        : null,
-      presenterUserId: Number(presenterUserId),
-      cpdPoints: cpdPoints ? Number(cpdPoints) : null,
-      approvingCouncil: null,
-      coPresenters: selectedCoPresenters,
-    });
+    try {
+      const created = await createSession.mutateAsync({
+        institutionId,
+        name: sessionName,
+        eventDate: sessionDate,
+        eventDateAt: sessionDate,
+        eventType: eventType as any,
+        audienceScope: audienceScope as any,
+        audienceLabel: audienceLabel.trim() || null,
+        facilityDepartmentId: sessionDepartmentId
+          ? Number(sessionDepartmentId)
+          : null,
+        presenterUserId: Number(presenterUserId),
+        presenterName: selectedPresenter?.fullName ?? null,
+        presenterCadre: selectedPresenter?.cadre ?? selectedPresenter?.cadreOther ?? null,
+        presenterDepartment: selectedPresenter?.department ?? null,
+        cpdPoints: cpdPoints ? Number(cpdPoints) : null,
+        approvingCouncil: null,
+        coPresenters: selectedCoPresenters,
+      });
+      if (quizEnabled) {
+        await createEventQuiz.mutateAsync({
+          institutionId,
+          eventId: created.eventId,
+          passingScore: Number(quizPassingScore),
+          isRequired: true,
+          questions: quizQuestions.map(question => ({
+            ...question,
+            options: question.questionType === "true_false" ? ["true", "false"] : question.options.filter(Boolean),
+          })),
+        });
+        toast.success("CPD session and required quiz created.");
+      }
+    } catch (error) {
+      toast.error((error as Error).message || "CPD session creation failed.");
+    }
   };
+  const quizIsValid = !quizEnabled || (
+    quizQuestions.length > 0 &&
+    quizQuestions.every(question =>
+      question.question.trim().length >= 3 &&
+      question.correctAnswer.trim().length > 0 &&
+      (question.questionType === "true_false"
+        ? ["true", "false"].includes(question.correctAnswer.trim().toLowerCase())
+        : question.options.filter(option => option.trim()).length >= 2 &&
+          question.options.some(option => option.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase()))
+    )
+  );
+
   const submitTarget = () => {
     saveTarget.mutate({
       institutionId,
@@ -265,7 +374,7 @@ export default function InstitutionLearningGovernancePanel({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       {mode !== "sessions" && (
       <Card className="border-violet-200 bg-violet-50/30 dark:border-violet-900 dark:bg-violet-950/20">
         <CardHeader>
@@ -274,16 +383,17 @@ export default function InstitutionLearningGovernancePanel({
             Education Coordinators by department
           </CardTitle>
           <CardDescription>
-            Assign a coordinator from each department. They can create and
-            coordinate learning in their department, while institutional
-            administrators retain the all-facility view.
+            Assign a coordinator from each department. Institutional CPD
+            Coordinators can manage all departments; Departmental Heads can
+            manage only their own department. All-facility visibility remains
+            with institutional administrators and the Institutional CPD Coordinator.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isInstitutionAdmin ? (
+          {canManageCoordinatorAssignments ? (
               <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
             <select
-              className="h-10 rounded-md border bg-background px-3 text-sm"
+              className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
               value={selectedDepartmentId}
               onChange={event => setSelectedDepartmentId(event.target.value)}
             >
@@ -295,7 +405,7 @@ export default function InstitutionLearningGovernancePanel({
               ))}
             </select>
             <select
-              className="h-10 rounded-md border bg-background px-3 text-sm"
+              className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
               value={selectedCoordinatorUserId}
               onChange={event =>
                 setSelectedCoordinatorUserId(event.target.value)
@@ -328,7 +438,7 @@ export default function InstitutionLearningGovernancePanel({
               <UserPlus className="mr-2 h-4 w-4" />
               Assign
             </Button>
-          </div> ) : ( <p className="text-sm text-muted-foreground">Coordinator assignments are managed by institutional administrators. You only see coordinators for your assigned department(s).</p>)}
+            </div> ) : ( <p className="text-sm text-muted-foreground">Coordinator assignments are managed by the Institutional CPD Coordinator, Departmental Head for the relevant department, or an institutional administrator. You only see coordinators for your permitted department(s).</p>)}
           <div className="grid gap-2 md:grid-cols-2">
             {coordinators
               .filter(row => row.assignmentStatus === "active")
@@ -346,19 +456,21 @@ export default function InstitutionLearningGovernancePanel({
                       {row.email ?? "No email"}
                     </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      endCoordinator.mutate({
-                        institutionId,
-                        assignmentId: row.id,
-                      })
-                    }
-                    disabled={endCoordinator.isPending}
-                  >
-                    End assignment
-                  </Button>
+                  {canManageCoordinatorAssignments && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        endCoordinator.mutate({
+                          institutionId,
+                          assignmentId: row.id,
+                        })
+                      }
+                      disabled={endCoordinator.isPending}
+                    >
+                      End assignment
+                    </Button>
+                  )}
                 </div>
               ))}
           </div>
@@ -376,14 +488,15 @@ export default function InstitutionLearningGovernancePanel({
           <CardDescription>
             Classify the audience at creation time so facility-wide, nursing
             CNE, clinical, M&M, and other-cadre learning can be analysed
-            separately. Co-presenters are stored as presenters, not attendees.
+            separately. Add one or more presenters; co-presenters are stored as
+            presenters, not attendees.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid min-w-0 gap-3 md:grid-cols-2">
             <Field label="Session title">
               <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={sessionName}
                 onChange={event => setSessionName(event.target.value)}
                 placeholder="e.g. Paediatric sepsis recognition"
@@ -391,7 +504,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Date">
               <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 type="date"
                 value={sessionDate}
                 onChange={event => setSessionDate(event.target.value)}
@@ -399,7 +512,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Session type">
               <select
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={eventType}
                 onChange={event => setEventType(event.target.value)}
               >
@@ -415,7 +528,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Audience">
               <select
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={audienceScope}
                 onChange={event => setAudienceScope(event.target.value)}
               >
@@ -430,7 +543,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Department (optional for facility sessions)">
               <select
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={sessionDepartmentId}
                 onChange={event => setSessionDepartmentId(event.target.value)}
               >
@@ -445,7 +558,7 @@ export default function InstitutionLearningGovernancePanel({
             {audienceScope === "other_cadre" && (
               <Field label="Audience cadre">
                 <select
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                   value={audienceLabel}
                   onChange={event => setAudienceLabel(event.target.value)}
                 >
@@ -458,26 +571,42 @@ export default function InstitutionLearningGovernancePanel({
                 </select>
               </Field>
             )}
-            <Field label="Lead presenter (institution member)">
+            <Field label="Lead presenter">
               <SearchableDropdown
                 value={presenterUserId}
                 onChange={setPresenterUserId}
-                options={memberOptions}
-                placeholder="Type to search presenter"
-                searchPlaceholder="Search name, department, cadre, or email..."
-                emptyText="No active institution member found."
+                options={presenterOptions.map(({ value, label, description, searchText }) => ({ value, label, description, searchText }))}
+                onSearchChange={setPresenterSearch}
+                placeholder="Type to search any Paeds Resus account"
+                searchPlaceholder="Search name or email..."
+                emptyText="No matching Paeds Resus account found."
+                clearable
+                searchAlwaysVisible
               />
               {selectedPresenter ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Selected: {memberLabel(selectedPresenter)}
-                </p>
+                <div className="mt-2 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">Presenter set: {selectedPresenter.fullName}</p>
+                      <p className="break-words text-xs leading-snug text-muted-foreground">
+                        {[
+                          selectedPresenter.email ?? "Email not set",
+                          selectedPresenter.department ?? "Department not set",
+                          selectedPresenter.cadre ?? selectedPresenter.cadreOther ?? "Cadre not set",
+                          selectedPresenter.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member",
+                        ].join(" · ")}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-xs text-emerald-700">Selected</span>
+                  </div>
+                </div>
               ) : (
-                <p className="mt-1 text-xs text-muted-foreground">Type a name, then choose the correct department/cadre match.</p>
+                <p className="mt-2 text-xs text-muted-foreground">Choose a presenter; the selected name, cadre, and department will be saved with this CPD session.</p>
               )}
             </Field>
             <Field label="CPD points">
               <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 type="number"
                 min="0"
                 step="0.5"
@@ -487,11 +616,13 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
           </div>
           <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Co-presenters</p>
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-medium">Co-presenters (optional)</p>
                 <p className="text-xs text-muted-foreground">
-                  Add up to six. They do not inflate attendance counts.
+                  Add up to six additional presenters. Leave this section empty
+                  for a single-presenter session; co-presenters do not inflate
+                  attendance counts.
                 </p>
               </div>
               <Button
@@ -508,27 +639,33 @@ export default function InstitutionLearningGovernancePanel({
                       : rows
                   )
                 }
+                className="w-full shrink-0 sm:w-auto"
                 disabled={coPresenters.length >= 6}
               >
                 Add co-presenter
               </Button>
             </div>
+            {coPresenters.length === 0 ? (
+              <p className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+                No co-presenter added. This session can be created with the lead presenter alone.
+              </p>
+            ) : null}
             {coPresenters.map((presenter, index) => {
               const selectedCoPresenterIds = new Set(
                 coPresenters.map(row => Number(row.userId)).filter(Boolean)
               );
               const availableCoPresenters = coPresenterOptions.filter(
-                person =>
-                  person.userId === Number(presenter.userId) ||
-                  !selectedCoPresenterIds.has(person.userId)
+                option =>
+                  option.value === presenter.userId ||
+                  !selectedCoPresenterIds.has(Number(option.value))
               );
               const selectedCoPresenter = coPresenterOptions.find(
-                person => person.userId === Number(presenter.userId)
+                option => option.value === presenter.userId
               );
               return (
                 <div
                   key={index}
-                  className="grid gap-2 md:grid-cols-[1fr_auto]"
+                  className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_auto]"
                 >
                   <div>
                     <SearchableDropdown
@@ -538,17 +675,21 @@ export default function InstitutionLearningGovernancePanel({
                           rows.map((row, rowIndex) => rowIndex === index ? { userId: value } : row)
                         )
                       }
-                      options={availableCoPresenters
-                        .filter(person => person.userId != null)
-                        .map(person => ({ value: String(person.userId), label: memberLabel(person) }))}
+                      options={coPresenterOptions
+                        .filter(option => option.value === presenter.userId || !selectedCoPresenterIds.has(Number(option.value)))
+                        .map(({ value, label, description, searchText }) => ({ value, label, description, searchText }))}
+                      onSearchChange={setPresenterSearch}
                       placeholder="Type to search co-presenter"
-                      searchPlaceholder="Search name, department, cadre, or email..."
-                      emptyText="No available institution member found."
+                      searchPlaceholder="Search name or email..."
+                      emptyText="No matching Paeds Resus account found."
+                      clearable
+                      searchAlwaysVisible
                     />
                     {selectedCoPresenter ? (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Selected: {memberLabel(selectedCoPresenter)}
-                      </p>
+                      <div className="mt-2 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                        <p className="break-words font-medium leading-snug">Co-presenter set: {selectedCoPresenter.person.fullName}</p>
+                        <p className="break-words text-xs leading-snug text-muted-foreground">{selectedCoPresenter.description}</p>
+                      </div>
                     ) : null}
                   </div>
                   <Button
@@ -557,9 +698,7 @@ export default function InstitutionLearningGovernancePanel({
                     variant="ghost"
                     onClick={() =>
                       setCoPresenters(rows =>
-                        rows.length === 1
-                          ? [{ userId: "" }]
-                          : rows.filter((_, rowIndex) => rowIndex !== index)
+                        rows.filter((_, rowIndex) => rowIndex !== index)
                       )
                     }
                     aria-label="Remove co-presenter"
@@ -570,6 +709,109 @@ export default function InstitutionLearningGovernancePanel({
               );
             })}
           </div>
+          <div className="space-y-4 rounded-lg border border-amber-200 bg-amber-50/30 p-4">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-medium">Session quiz (optional)</p>
+                <p className="text-xs text-muted-foreground">
+                  If enabled, attendees must pass this quiz before attendance can be verified and CPD points can count. They may retry after a failed attempt.
+                </p>
+              </div>
+              <label className="flex shrink-0 items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={quizEnabled}
+                  onChange={event => setQuizEnabled(event.target.checked)}
+                />
+                Add required quiz
+              </label>
+            </div>
+            {quizEnabled && (
+              <div className="space-y-3">
+                <Field label="Passing score (%)">
+                  <input
+                    className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={quizPassingScore}
+                    onChange={event => setQuizPassingScore(event.target.value)}
+                  />
+                </Field>
+                {quizQuestions.map((question, questionIndex) => (
+                  <div key={questionIndex} className="space-y-3 rounded-md border bg-background p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium">Question {questionIndex + 1}</p>
+                      {quizQuestions.length > 1 && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setQuizQuestions(current => current.filter((_, index) => index !== questionIndex))}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <input
+                      className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
+                      value={question.question}
+                      onChange={event => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? { ...item, question: event.target.value } : item))}
+                      placeholder="Enter the question"
+                    />
+                    <select
+                      className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
+                      value={question.questionType}
+                      onChange={event => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? {
+                        ...item,
+                        questionType: event.target.value as QuizDraftQuestion["questionType"],
+                        options: event.target.value === "true_false" ? ["true", "false"] : item.options.length >= 2 ? item.options : ["", ""],
+                        correctAnswer: event.target.value === "true_false" ? "true" : item.correctAnswer,
+                      } : item))}
+                    >
+                      <option value="multiple_choice">Multiple choice</option>
+                      <option value="true_false">True / false</option>
+                    </select>
+                    {question.questionType === "multiple_choice" && (
+                      <div className="space-y-2">
+                        {question.options.map((option, optionIndex) => (
+                          <div key={optionIndex} className="flex min-w-0 gap-2">
+                            <input
+                              className="h-10 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
+                              value={option}
+                              onChange={event => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? {
+                                ...item,
+                                options: item.options.map((value, candidateIndex) => candidateIndex === optionIndex ? event.target.value : value),
+                              } : item))}
+                              placeholder={`Answer option ${optionIndex + 1}`}
+                            />
+                            {question.options.length > 2 && (
+                              <Button type="button" size="icon" variant="ghost" onClick={() => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? { ...item, options: item.options.filter((_, candidateIndex) => candidateIndex !== optionIndex) } : item))} aria-label={`Remove answer option ${optionIndex + 1}`}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <Button type="button" size="sm" variant="outline" onClick={() => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? { ...item, options: [...item.options, ""] } : item))}>
+                          Add answer option
+                        </Button>
+                      </div>
+                    )}
+                    <input
+                      className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
+                      value={question.correctAnswer}
+                      onChange={event => setQuizQuestions(current => current.map((item, index) => index === questionIndex ? { ...item, correctAnswer: event.target.value } : item))}
+                      placeholder={question.questionType === "true_false" ? "true or false" : "Exact correct answer"}
+                    />
+                  </div>
+                ))}
+                <Button type="button" size="sm" variant="outline" onClick={() => setQuizQuestions(current => [...current, emptyQuizQuestion()])}>
+                  Add question
+                </Button>
+                {!quizIsValid && <p className="text-xs text-amber-800">Complete every question, include at least two options, and enter the exact correct answer before creating the session.</p>}
+              </div>
+            )}
+          </div>
           <Button
             onClick={submitSession}
             disabled={
@@ -577,7 +819,9 @@ export default function InstitutionLearningGovernancePanel({
               !sessionDate ||
               !presenterUserId ||
               (audienceScope === "other_cadre" && !audienceLabel) ||
-              createSession.isPending
+              !quizIsValid ||
+              createSession.isPending ||
+              createEventQuiz.isPending
             }
           >
             <CalendarPlus className="mr-2 h-4 w-4" />
@@ -604,7 +848,7 @@ export default function InstitutionLearningGovernancePanel({
           <div className="grid gap-3 md:grid-cols-3">
             <Field label="Target scope">
               <select
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={targetScope}
                 onChange={event =>
                   setTargetScope(event.target.value as typeof targetScope)
@@ -618,7 +862,7 @@ export default function InstitutionLearningGovernancePanel({
             {targetScope === "department" && (
               <Field label="Department">
                 <select
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                   value={targetDepartmentId}
                   onChange={event => setTargetDepartmentId(event.target.value)}
                 >
@@ -635,7 +879,7 @@ export default function InstitutionLearningGovernancePanel({
               <>
                 <Field label="Filter staff by department">
                   <select
-                    className="h-10 rounded-md border bg-background px-3 text-sm"
+                    className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                     value={targetDepartmentId}
                     onChange={event => {
                       setTargetDepartmentId(event.target.value);
@@ -652,7 +896,7 @@ export default function InstitutionLearningGovernancePanel({
                 </Field>
                 <Field label="Individual">
                   <select
-                    className="h-10 rounded-md border bg-background px-3 text-sm"
+                    className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                     value={targetUserId}
                     onChange={event => setTargetUserId(event.target.value)}
                   >
@@ -671,7 +915,7 @@ export default function InstitutionLearningGovernancePanel({
             )}
             <Field label="Metric">
               <select
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={metricKey}
                 onChange={event =>
                   setMetricKey(event.target.value as typeof metricKey)
@@ -686,7 +930,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Period">
               <select
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={periodType}
                 onChange={event =>
                   setPeriodType(event.target.value as typeof periodType)
@@ -699,7 +943,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Start">
               <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 type="date"
                 value={periodStart}
                 onChange={event => setPeriodStart(event.target.value)}
@@ -707,7 +951,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="End">
               <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 type="date"
                 value={periodEnd}
                 onChange={event => setPeriodEnd(event.target.value)}
@@ -715,7 +959,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Target value">
               <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 type="number"
                 min="0"
                 step="1"
@@ -725,7 +969,7 @@ export default function InstitutionLearningGovernancePanel({
             </Field>
             <Field label="Revision reason (optional)">
               <input
-                className="h-10 rounded-md border bg-background px-3 text-sm"
+                className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                 value={targetRevisionReason}
                 onChange={event => setTargetRevisionReason(event.target.value)}
                 placeholder="Why is this target changing?"
@@ -735,7 +979,7 @@ export default function InstitutionLearningGovernancePanel({
               metricKey === "course_phase_completion") && (
               <Field label="Course">
                 <select
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                   value={courseProgramType}
                   onChange={event => setCourseProgramType(event.target.value)}
                 >
@@ -751,7 +995,7 @@ export default function InstitutionLearningGovernancePanel({
             {metricKey === "course_phase_completion" && (
               <Field label="Phase">
                 <select
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                  className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
                   value={coursePhase}
                   onChange={event => setCoursePhase(event.target.value)}
                 >
@@ -777,7 +1021,7 @@ export default function InstitutionLearningGovernancePanel({
             {saveTarget.isPending ? "Saving…" : "Save target"}
           </Button>
           {targets.length > 0 && (
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="max-w-full overflow-x-auto rounded-lg border">
               <table className="w-full min-w-[720px] text-sm">
                 <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
@@ -838,7 +1082,7 @@ export default function InstitutionLearningGovernancePanel({
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="space-y-1.5 text-sm">
+    <label className="min-w-0 space-y-1.5 text-sm">
       <span className="block text-xs font-medium text-muted-foreground">
         {label}
       </span>

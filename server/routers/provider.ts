@@ -3,6 +3,7 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import {
   providerProfiles,
+  providerProfessionalRoles,
   providerPerformanceMetrics,
   users,
   cpdAttendees,
@@ -45,6 +46,29 @@ const LIFE_SUPPORT_CREDENTIAL_TYPES = [
   "external_aha_other",
 ] as const;
 
+export function calculateProviderIdentityReadiness(
+  profile: Record<string, any>,
+  licenseRequired: boolean,
+  licenseCurrent: boolean,
+) {
+  const identityFields = [
+    profile.specialization,
+    profile.yearsOfExperience,
+    profile.bio,
+    profile.languages,
+  ];
+  const requirements = [
+    ...identityFields,
+    ...(licenseRequired ? [licenseCurrent] : []),
+  ];
+  const completed = requirements.filter(value => value === true || (value !== undefined && value !== null && value !== false && value !== "" && value !== "[]")).length;
+  const completionPercentage = requirements.length === 0 ? 0 : Math.round((completed / requirements.length) * 100);
+  return {
+    completionPercentage,
+    identityComplete: identityFields.every(value => value !== undefined && value !== null && value !== "" && value !== "[]"),
+  } as const;
+}
+
 async function calculateProviderProfileReadiness(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   userId: number,
@@ -74,22 +98,14 @@ async function calculateProviderProfileReadiness(
     (LIFE_SUPPORT_CREDENTIAL_TYPES as readonly string[]).includes(credential.credentialType) && isCurrent(credential),
   );
 
-  const identityFields = [
-    profile.specialization,
-    profile.yearsOfExperience,
-    profile.bio,
-    profile.languages,
-  ];
-  const requirements = [
-    ...identityFields,
-    ...(licenseRequired ? [licenseCredential && isCurrent(licenseCredential)] : []),
-    lifeSupportCredential != null,
-  ];
-  const completed = requirements.filter(value => value === true || (value !== undefined && value !== null && value !== "" && value !== "[]")).length;
-  const completionPercentage = requirements.length === 0 ? 0 : Math.round((completed / requirements.length) * 100);
+  const identityReadiness = calculateProviderIdentityReadiness(
+    profile,
+    licenseRequired,
+    licenseCredential != null && isCurrent(licenseCredential),
+  );
   return {
-    completionPercentage,
-    identityComplete: identityFields.every(value => value !== undefined && value !== null && value !== "" && value !== "[]"),
+    completionPercentage: identityReadiness.completionPercentage,
+    identityComplete: identityReadiness.identityComplete,
     verificationComplete: !licenseRequired || (licenseCredential != null && isCurrent(licenseCredential)),
     licenseRequired,
     licenseStatus: licenseCredential == null ? "missing" : licenseCredential.status === "verified" && !isCurrent(licenseCredential) ? "expired" : licenseCredential.status,
@@ -181,6 +197,49 @@ async function getProviderFacilityHistory(
 }
 
 export const providerRouter = router({
+  listProfessionalRoles: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database connection failed");
+    return db.select().from(providerProfessionalRoles)
+      .where(and(eq(providerProfessionalRoles.userId, ctx.user.id), eq(providerProfessionalRoles.status, "active")))
+      .orderBy(desc(providerProfessionalRoles.isPrimary), desc(providerProfessionalRoles.updatedAt));
+  }),
+
+  addProfessionalRole: protectedProcedure
+    .input(z.object({
+      cadre: z.string().trim().min(1).max(128),
+      cadreOther: z.string().trim().max(128).nullable().optional(),
+      specialization: z.string().trim().max(255).nullable().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database connection failed");
+      const [existing] = await db.select({ id: providerProfessionalRoles.id })
+        .from(providerProfessionalRoles)
+        .where(and(eq(providerProfessionalRoles.userId, ctx.user.id), eq(providerProfessionalRoles.cadre, input.cadre), eq(providerProfessionalRoles.status, "active")))
+        .limit(1);
+      if (existing) return { success: true as const, roleId: existing.id, alreadyExists: true as const };
+      const [created] = await db.insert(providerProfessionalRoles).values({
+        userId: ctx.user.id,
+        cadre: input.cadre,
+        cadreOther: input.cadreOther ?? null,
+        specialization: input.specialization ?? null,
+        isPrimary: false,
+        status: "active",
+      });
+      return { success: true as const, roleId: created.insertId, alreadyExists: false as const };
+    }),
+
+  archiveProfessionalRole: protectedProcedure
+    .input(z.object({ roleId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database connection failed");
+      await db.update(providerProfessionalRoles).set({ status: "archived", updatedAt: new Date() })
+        .where(and(eq(providerProfessionalRoles.id, input.roleId), eq(providerProfessionalRoles.userId, ctx.user.id)));
+      return { success: true as const };
+    }),
+
   // Get or create provider profile
   getProfile: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();

@@ -26,6 +26,7 @@ import { trackEvent } from "./services/analytics.service";
 import { enrollmentRouter } from "./routers/enrollment";
 import { instructorRouter } from "./routers/instructor";
 import { certificateRouter } from "./routers/certificates";
+import { completionRecordsRouter } from "./routers/completion-records";
 import { smsRouter } from "./routers/sms";
 import { aiLearningRouter } from "./routers/ai-learning";
 import { notificationsRouter } from "./routers/notifications";
@@ -85,6 +86,8 @@ import { cpdRouter } from "./routers/cpd";
 import { institutionLearningRouter } from "./routers/institution-learning";
 import { institutionAccountabilityRouter } from "./routers/institution-accountability";
 import { institutionProductsRouter } from "./routers/institution-products";
+import { institutionalQiRouter } from "./routers/institutional-qi";
+import { institutionalBillingRouter } from "./routers/institutional-billing";
 import { institutionalNotificationsRouter } from "./routers/institutional-notifications";
 import { institutionalLifeSupportRouter } from "./routers/institutional-life-support";
 import { productionSecurityRouter } from "./routers/production-security";
@@ -446,6 +449,7 @@ export const appRouter = router({
   enrollment: enrollmentRouter,
   instructor: instructorRouter,
   certificates: certificateRouter,
+  completionRecords: completionRecordsRouter,
   sms: smsRouter,
   aiLearning: aiLearningRouter,
   notifications: notificationsRouter,
@@ -517,6 +521,8 @@ export const appRouter = router({
   referrals: referralsRouter,
   institution: institutionRouter,
   institutionProducts: institutionProductsRouter,
+  institutionalQi: institutionalQiRouter,
+  institutionalBilling: institutionalBillingRouter,
   institutionalLifeSupport: institutionalLifeSupportRouter,
   institutionAdmins: institutionAdminsRouter,
   institutionRecovery: institutionRecoveryRouter,

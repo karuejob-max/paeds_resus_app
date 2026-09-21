@@ -39,6 +39,7 @@ import { assertInstitutionProductRole, isKnownProductRole, PRODUCT_ROLE_DEFINITI
 import { queueRenewalNotifications } from "../lib/institution-renewal-notifications";
 import { getMpesaService } from "../services/mpesa";
 import { assertInstitutionAccountScope, INSTITUTION_ACCOUNT_SCOPE_DEFINITIONS, isKnownInstitutionAccountScope, type InstitutionAccountScopeKey, type InstitutionAccountScopeStatus } from "../lib/institution-account-scopes";
+import { assertCanManageProductRoles } from "../lib/institution-role-authority";
 
 const PRODUCT_KEYS: InstitutionalProductKey[] = ["iers", "cpd_portal", "connected_services"];
 const LIFECYCLE_PRODUCT_KEYS = ["iers", "cpd_portal"] as const;
@@ -391,7 +392,16 @@ export const institutionProductsRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+      if (input.productKey) {
+        const productKey = validProductKey(input.productKey);
+        if (productKey === "iers" || productKey === "cpd_portal") {
+          await assertCanManageProductRoles(db, ctx.user, input.institutionId, productKey);
+        } else {
+          await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+        }
+      } else {
+        await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+      }
       try {
         const predicates = [eq(institutionProductRoles.institutionalAccountId, input.institutionId)];
         if (input.productKey) {
@@ -427,7 +437,7 @@ export const institutionProductsRouter = router({
       }
     }),
 
-  /** Institution administrator: grant or reactivate one product role. */
+  /** Authorized institutional product-role owner: grant or reactivate one product role in the permitted product area. */
   grantProductRole: protectedProcedure
     .input(z.object({
       institutionId: z.number().int().positive(),
@@ -439,8 +449,12 @@ export const institutionProductsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
       const productKey = validProductKey(input.productKey);
+      if (productKey !== "iers" && productKey !== "cpd_portal") {
+        await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+      } else {
+        await assertCanManageProductRoles(db, ctx.user, input.institutionId, productKey);
+      }
       if (!isKnownProductRole(productKey, input.roleKey)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: `Role ${input.roleKey} is not valid for ${productKey}.` });
       }
@@ -482,13 +496,13 @@ export const institutionProductsRouter = router({
         capabilityKey: `${productKey}.role.${input.roleKey}`,
         decision: "override",
         userId: ctx.user.id,
-        reason: "Product role granted or reactivated by institution administrator.",
+        reason: "Product role granted or reactivated by an authorized institutional product-role owner.",
         metadata: JSON.stringify({ invitedEmail, userId: input.userId ?? null, roleKey: input.roleKey }),
       });
       return { success: true as const, productKey, roleKey: input.roleKey as InstitutionalProductRoleKey, invitedEmail };
     }),
 
-  /** Institution administrator: suspend or end a product role without deleting its audit history. */
+  /** Authorized institutional product-role owner: suspend or end a product role without deleting its audit history. */
   setProductRoleStatus: protectedProcedure
     .input(z.object({
       institutionId: z.number().int().positive(),
@@ -499,13 +513,23 @@ export const institutionProductsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-      await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
       const [role] = await db
         .select({ id: institutionProductRoles.id, productId: institutionProductRoles.productId, roleKey: institutionProductRoles.roleKey })
         .from(institutionProductRoles)
         .where(and(eq(institutionProductRoles.id, input.roleId), eq(institutionProductRoles.institutionalAccountId, input.institutionId)))
         .limit(1);
       if (!role) throw new TRPCError({ code: "NOT_FOUND", message: "Product role not found." });
+      const [product] = await db
+        .select({ productKey: institutionalProducts.productKey })
+        .from(institutionalProducts)
+        .where(eq(institutionalProducts.id, role.productId))
+        .limit(1);
+      if (!product) throw new TRPCError({ code: "NOT_FOUND", message: "Institutional product is not registered." });
+      if (product.productKey === "iers" || product.productKey === "cpd_portal") {
+        await assertCanManageProductRoles(db, ctx.user, input.institutionId, product.productKey);
+      } else {
+        await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+      }
 
       await db.update(institutionProductRoles).set({
         roleStatus: input.roleStatus as InstitutionalProductRoleStatus,

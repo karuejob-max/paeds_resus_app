@@ -228,6 +228,11 @@ export function InstitutionDepartmentReconciliationPanel({ institutionId }: { in
           <Input value={newDepartmentReason} onChange={(event) => setNewDepartmentReason(event.target.value)} placeholder="Why is this department being added?" maxLength={1000} />
           <Button className="w-full sm:w-auto" onClick={addCanonicalDepartment} disabled={addDepartmentMutation.isPending}><PlusCircle className="mr-2 h-4 w-4" />{addDepartmentMutation.isPending ? "Adding…" : "Add department"}</Button>
           <p className="text-xs text-muted-foreground">This action does not rewrite historic CPD labels. Use the reconciliation cards below when you want to link those older rows to the new canonical identity.</p>
+          <div className="rounded-md border border-blue-500/20 bg-blue-500/5 p-3 text-sm">
+            <p className="font-medium">Need to rename or review the full local structure?</p>
+            <p className="mt-1 text-xs text-muted-foreground">Use the Readiness department setup editor to rename existing local rows, add another department, and separately decide which departments require an IERS pole. Surgery → Theatre is available from the shared catalog.</p>
+            <Button asChild variant="outline" size="sm" className="mt-3 w-full sm:w-auto"><a href="/institution?section=iers&iersTab=command">Open department structure editor</a></Button>
+          </div>
         </CardContent>
       </Card>
 

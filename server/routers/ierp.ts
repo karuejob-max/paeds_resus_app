@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sum } from "drizzle-orm";
+import { and, desc, eq, inArray, sum, like, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
@@ -11,6 +11,7 @@ import { normalizeKenyanPhoneNumber } from "../../shared/kenyan-phone";
 import {
   getAuthoritativePhase2CompletionStatus,
   getIerpEnrollment,
+  getIerpInternProfileAccessMessage,
   getIerpInternProfile,
   getIerpPaymentAccess,
   getIerpPaymentAccessForUser,
@@ -21,6 +22,7 @@ import {
 } from "../lib/ierp-program-state";
 import { getPaedsResusCertificateStatusForUser } from "../lib/paeds-resus-certificate-issuance";
 import { isMissingTableError } from "../lib/is-missing-db-table";
+import { notifyIerpInternProfileDecision, notifyIerpPhase1Decision } from "../lib/cohort-program-notifications";
 import { consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
 
 function parseDateOnly(value: string) {
@@ -155,6 +157,39 @@ export const ierpRouter = router({
     }));
   }),
 
+  listPhase1EvidenceForReview: adminProcedure
+    .input(z.object({ search: z.string().trim().max(120).optional(), limit: z.number().int().min(1).max(200).default(100) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const search = input.search ? `%${input.search}%` : undefined;
+      const rows = await db
+        .select({
+          programEnrollmentId: ierpPhase1Evidence.programEnrollmentId,
+          evidenceId: ierpPhase1Evidence.id,
+          documentType: ierpPhase1Evidence.documentType,
+          fileName: ierpPhase1Evidence.fileName,
+          status: ierpPhase1Evidence.status,
+          submittedAt: ierpPhase1Evidence.submittedAt,
+          reviewedAt: ierpPhase1Evidence.reviewedAt,
+          reviewReason: ierpPhase1Evidence.reviewReason,
+          userId: ierpPhase1Evidence.userId,
+          userName: users.name,
+          userEmail: users.email,
+          phase1Status: ierpProgramEnrollments.phase1Status,
+        })
+        .from(ierpPhase1Evidence)
+        .innerJoin(ierpProgramEnrollments, eq(ierpProgramEnrollments.id, ierpPhase1Evidence.programEnrollmentId))
+        .innerJoin(users, eq(users.id, ierpPhase1Evidence.userId))
+        .where(and(
+          sql`${ierpPhase1Evidence.status} IN ('submitted', 'rejected')`,
+          search ? or(like(users.name, search), like(users.email, search)) : undefined,
+        ))
+        .orderBy(desc(ierpPhase1Evidence.submittedAt))
+        .limit(input.limit);
+      return rows;
+    }),
+
   getInternProfileEvidenceUrl: adminProcedure
     .input(z.object({ profileId: z.number().int().positive() }))
     .query(async ({ input }) => {
@@ -173,6 +208,7 @@ export const ierpRouter = router({
       const [profile] = await db.select({ id: ierpInternProfiles.id }).from(ierpInternProfiles).where(eq(ierpInternProfiles.id, input.profileId)).limit(1);
       if (!profile) throw new TRPCError({ code: "NOT_FOUND", message: "Intern profile not found." });
       await db.update(ierpInternProfiles).set({ status: input.decision, verifiedByUserId: ctx.user.id, verifiedAt: new Date(), reviewReason: input.reason, updatedAt: new Date() }).where(eq(ierpInternProfiles.id, input.profileId));
+      void notifyIerpInternProfileDecision(db, input.profileId, input.decision, input.reason);
       return { success: true as const, decision: input.decision };
     }),
 
@@ -195,11 +231,12 @@ export const ierpRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
 
       const internProfile = await getIerpInternProfile(db, ctx.user.id);
+      const profileAccessMessage = getIerpInternProfileAccessMessage(internProfile);
+      if (profileAccessMessage) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: profileAccessMessage });
+      }
       if (!isIerpInternProfileReady(internProfile)) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: "Complete your Intern profile and submit your MoH deployment/posting letter before starting IERP.",
-        });
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Complete your Intern profile and submit your MoH deployment/posting letter before starting IERP." });
       }
       if (internProfile.designation !== input.designation) {
         throw new TRPCError({
@@ -302,6 +339,10 @@ export const ierpRouter = router({
       const program = await getIerpEnrollment(db, ctx.user.id);
       if (!program) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Start IERP before submitting Phase 1 evidence." });
       const internProfile = await getIerpInternProfile(db, ctx.user.id);
+      const profileAccessMessage = getIerpInternProfileAccessMessage(internProfile);
+      if (profileAccessMessage) {
+        throw new TRPCError({ code: "FORBIDDEN", message: profileAccessMessage });
+      }
       if (!isIerpInternProfileReady(internProfile)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Complete your Intern profile and submit your MoH deployment/posting letter before accessing IERP coursework." });
       }
@@ -393,6 +434,7 @@ export const ierpRouter = router({
       }
       await db.update(ierpPhase1Evidence).set({ status: input.approve ? "verified" : "rejected", reviewedByUserId: ctx.user.id, reviewedAt: new Date(), reviewReason: input.reviewReason ?? null, updatedAt: new Date() }).where(eq(ierpPhase1Evidence.programEnrollmentId, input.programEnrollmentId));
       await db.update(ierpProgramEnrollments).set({ phase1Status: input.approve ? "verified" : "rejected", phaseStatus: input.approve ? "phase_2" : "phase_1", phase1VerifiedAt: input.approve ? new Date() : null, updatedAt: new Date() }).where(eq(ierpProgramEnrollments.id, input.programEnrollmentId));
+      void notifyIerpPhase1Decision(db, input.programEnrollmentId, input.approve ? "verified" : "rejected", input.reviewReason);
       return { success: true as const, approved: input.approve };
     }),
 
@@ -423,10 +465,22 @@ export const ierpRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       const program = await getIerpEnrollment(db, ctx.user.id);
       if (!program) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Start IERP before making a programme payment." });
+      const internProfile = await getIerpInternProfile(db, ctx.user.id);
+      const profileAccessMessage = getIerpInternProfileAccessMessage(internProfile);
+      if (profileAccessMessage) {
+        throw new TRPCError({ code: "FORBIDDEN", message: profileAccessMessage });
+      }
+      if (!isIerpInternProfileReady(internProfile)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Complete your Intern profile and submit your MoH deployment/posting letter before making an IERP payment." });
+      }
       const paidRows = await db.select({ total: sum(ierpPayments.amountKsh) }).from(ierpPayments).where(and(eq(ierpPayments.programEnrollmentId, program.id), eq(ierpPayments.status, "completed")));
       const totalPaid = Number(paidRows[0]?.total ?? 0);
       const effectiveFeeKes = program.effectiveFeeKes ?? IERP_TOTAL_FEE_KES;
       const remaining = Math.max(0, effectiveFeeKes - totalPaid);
+      const paymentAccess = getIerpPaymentAccess({
+        ...program,
+        effectiveCommencementDate: internProfile.effectiveCommencementDate,
+      });
       if (remaining <= 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "The IERP programme is already fully paid." });
       }
@@ -464,6 +518,29 @@ export const ierpRouter = router({
       return { success: true as const, checkoutRequestId, message: response.CustomerMessage ?? "Confirm the M-Pesa prompt on your phone." };
     }),
 
+  /** Lightweight dashboard CTA state; avoids loading Phase 2 and certificate data. */
+  getDashboardAccess: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    const program = await getIerpEnrollment(db, ctx.user.id);
+    if (!program) return null;
+    const [ahaRows, payment] = await Promise.all([
+      db
+        .select({ id: enrollments.id, courseId: enrollments.courseId, programType: enrollments.programType, cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
+        .from(enrollments)
+        .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, "bls")))
+        .orderBy(desc(enrollments.createdAt))
+        .limit(1),
+      getIerpPaymentAccessForUser(db, ctx.user.id),
+    ]);
+    return {
+      enrollmentId: program.id,
+      lifecycleStatus: program.lifecycleStatus,
+      payment: payment ?? getIerpPaymentAccess({ ...program, effectiveCommencementDate: null }),
+      bls: ahaRows[0] ?? null,
+    };
+  }),
+
   /**
    * Authoritative IERP learner summary. Phase 2 is calculated from confirmed
    * named roles and approved claims; it never uses the legacy generic counts.
@@ -474,51 +551,50 @@ export const ierpRouter = router({
     const program = await getIerpEnrollment(db, ctx.user.id);
     if (!program) return null;
 
-    const ahaRows = await db
-      .select({
-        id: enrollments.id,
-        programType: enrollments.programType,
-        cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
-        practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
-        paymentStatus: enrollments.paymentStatus,
-      })
-      .from(enrollments)
-      .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, [...IERP_COGNITIVE_PROGRAMS])))
-      .orderBy(desc(enrollments.createdAt));
-
-    const evidence = await db
-      .select({
-        id: ierpPhase1Evidence.id,
-        documentType: ierpPhase1Evidence.documentType,
-        fileName: ierpPhase1Evidence.fileName,
-        contentType: ierpPhase1Evidence.contentType,
-        fileSizeBytes: ierpPhase1Evidence.fileSizeBytes,
-        status: ierpPhase1Evidence.status,
-        submittedAt: ierpPhase1Evidence.submittedAt,
-        reviewedAt: ierpPhase1Evidence.reviewedAt,
-        reviewReason: ierpPhase1Evidence.reviewReason,
-      })
-      .from(ierpPhase1Evidence)
-      .where(eq(ierpPhase1Evidence.programEnrollmentId, program.id))
-      .orderBy(desc(ierpPhase1Evidence.updatedAt));
-
-    const phase2 = await getAuthoritativePhase2CompletionStatus(db, ctx.user.id);
-    const payment =
-      (await getIerpPaymentAccessForUser(db, ctx.user.id)) ??
-      getIerpPaymentAccess({ ...program, effectiveCommencementDate: null });
+    const [ahaRows, evidence, phase2, payment, universalCertificates] = await Promise.all([
+      db
+        .select({
+          id: enrollments.id,
+          courseId: enrollments.courseId,
+          programType: enrollments.programType,
+          cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
+          practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
+          paymentStatus: enrollments.paymentStatus,
+        })
+        .from(enrollments)
+        .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, [...IERP_COGNITIVE_PROGRAMS])))
+        .orderBy(desc(enrollments.createdAt)),
+      db
+        .select({
+          id: ierpPhase1Evidence.id,
+          documentType: ierpPhase1Evidence.documentType,
+          fileName: ierpPhase1Evidence.fileName,
+          contentType: ierpPhase1Evidence.contentType,
+          fileSizeBytes: ierpPhase1Evidence.fileSizeBytes,
+          status: ierpPhase1Evidence.status,
+          submittedAt: ierpPhase1Evidence.submittedAt,
+          reviewedAt: ierpPhase1Evidence.reviewedAt,
+          reviewReason: ierpPhase1Evidence.reviewReason,
+        })
+        .from(ierpPhase1Evidence)
+        .where(eq(ierpPhase1Evidence.programEnrollmentId, program.id))
+        .orderBy(desc(ierpPhase1Evidence.updatedAt)),
+      getAuthoritativePhase2CompletionStatus(db, ctx.user.id),
+      getIerpPaymentAccessForUser(db, ctx.user.id).then(
+        (payment) => payment ?? getIerpPaymentAccess({ ...program, effectiveCommencementDate: null }),
+      ),
+      getPaedsResusCertificateStatusForUser(db, ctx.user.id).catch((error) => {
+        // Certificate schema rollout must not hide the underlying authoritative
+        // IERP progression state while the additive migration is propagating.
+        console.error("[ierp.getSummary] Universal certificate status unavailable:", error);
+        return [] as Awaited<ReturnType<typeof getPaedsResusCertificateStatusForUser>>;
+      }),
+    ]);
     const phase1EvidenceVerified =
       evidence.some((row) => row.documentType === "video_prework" && row.status === "verified") &&
       evidence.some((row) => row.documentType === "precourse_assessment" && row.status === "verified");
     const phase1Complete = program.phase1Status === "verified" || phase1EvidenceVerified;
     const phase3GateUnlocked = phase1Complete && phase2.phase2Complete && payment.isPaidInFull;
-    let universalCertificates: Awaited<ReturnType<typeof getPaedsResusCertificateStatusForUser>> = [];
-    try {
-      universalCertificates = await getPaedsResusCertificateStatusForUser(db, ctx.user.id);
-    } catch (error) {
-      // Certificate schema rollout must not hide the underlying authoritative
-      // IERP progression state while the additive migration is propagating.
-      console.error("[ierp.getSummary] Universal certificate status unavailable:", error);
-    }
     const phase2Certificate = universalCertificates.find((certificate) => certificate.programType === "paeds_resus_phase2") ?? null;
     const providerCertificates = universalCertificates.filter((certificate) => certificate.programType !== "paeds_resus_phase2");
 

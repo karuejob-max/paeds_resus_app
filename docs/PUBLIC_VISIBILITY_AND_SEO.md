@@ -22,6 +22,7 @@ Ensure providers, trainees, parents, and institutions **find Paeds Resus** when 
 | Public AHA overview | `/aha-courses` (anonymous); provider hub when signed in |
 | Sitemap | `client/public/sitemap.xml` |
 | JSON-LD helpers | `client/src/lib/seo-schema.ts` |
+| AI-readable product guide | `client/public/llms.txt` |
 | Meta tags | `usePageMeta` + `client/index.html` defaults |
 | Payment conversion thank-you | `/payment/success` — `noindex`; Google Ads conversion URL (auth + paid enrollment required) |
 
@@ -49,8 +50,9 @@ Paste the conversion URL in Google Ads → Goals → Conversions → Website →
 2. Submit sitemap: `https://www.paedsresus.com/sitemap.xml`
 3. Request indexing for high-intent URLs after each deploy:
    - `/`
+   - `/about`, `/for-providers`, `/for-institutions`
    - `/training/pals`, `/training/acls`, `/training/bls`
-   - `/for-providers`, `/for-institutions`
+   - `/programs/nerp-acls`, `/programs/ierp`, `/fellowship`, `/institutional`
 4. Monitor **Performance** → queries containing: `PALS Kenya`, `ACLS course`, `paediatric resuscitation`, `Paeds Resus`.
 5. Fix **Coverage** issues (404s, redirect chains) within one sprint.
 
@@ -90,13 +92,18 @@ Paste the conversion URL in Google Ads → Goals → Conversions → Website →
 - Pages use **semantic HTML** (`<article>`, `<section>`, `<h1>`–`<h2>`, FAQ accordions).
 - Visible text answers natural questions (e.g. “Where to do PALS in Kenya?”) — not image-only marketing.
 - `Organization` and `Course` JSON-LD on key pages.
+- `client/public/llms.txt` states the canonical organisation, product hierarchy, public URLs, pricing anchors, and claims boundaries in plain text for AI/search discovery.
 
 ### 6. Brand discipline (PSOT §1)
 
-- **Paeds Resus** = organisation / platform  
-- **Paeds Resus Limited** = training legal entity on course pages  
-- **ResusGPS** = bedside product only  
-- **AHA-aligned** — not “AHA-certified” unless counsel approves exact wording  
+- **Paeds Resus** = organisation / platform
+- **Paeds Resus Limited** = training legal entity on course pages
+- **Individual products** = AHA BLS, AHA ACLS, NERP, IERP, and Paeds Resus Fellowship
+- **Institutional products** = ILSP, IERS, and ICPD
+- **ResusGPS** = bedside-guidance product within IERS
+- **Care Signal** = improvement layer within IERS
+- **ICPD** = Institutional Continuous Professional Development
+- **AHA-aligned** — not “AHA-certified” unless counsel approves exact wording
 
 ---
 

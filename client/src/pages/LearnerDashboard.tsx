@@ -26,6 +26,9 @@ import { toast } from "sonner";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
+import { IerpJourneyCard } from "@/components/IerpJourneyCard";
+import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
+import { calculateProgramJourney } from "@shared/program-journey";
 
 function daysUntilExpiry(expiryDate: string | Date | null | undefined): number | null {
   if (!expiryDate) return null;
@@ -40,6 +43,10 @@ export default function LearnerDashboard() {
   const [, navigate] = useLocation();
   const { data: certData } = trpc.certificates.getMyCertificates.useQuery(undefined, {
     enabled: isAuthenticated,
+  });
+  const { data: nerpJourney } = trpc.nerp.getJourneyStatus.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
   });
   const utils = trpc.useUtils();
   const { track } = useProviderConversionAnalytics("/learner-dashboard");
@@ -371,6 +378,20 @@ export default function LearnerDashboard() {
           </Card>
         ) : selectedRole === "provider" ? (
           <div className="grid md:grid-cols-3 gap-6">
+            <ActiveAhaPathwayCard />
+            {nerpJourney ? (
+              <div className="md:col-span-3">
+                <ProgramJourneyCard
+                  title={nerpJourney.programName}
+                  subtitle="Programme progress is an orientation aid, not a clinical competence score."
+                  percentComplete={nerpJourney.percentComplete}
+                  phases={nerpJourney.phases}
+                  nextAction={nerpJourney.nextAction}
+                  compact
+                />
+              </div>
+            ) : null}
+            <IerpProgramCard />
             {lifecycleResumeNudge && (
               <Card className="md:col-span-3 border-2 border-primary/30 bg-primary/5">
                 <CardHeader>
@@ -588,7 +609,6 @@ export default function LearnerDashboard() {
               </CardContent>
             </Card>
 
-            <IerpProgramCard />
             <ProgressAndLedgerCard />
 
             <ProgramIdentityBadge />
@@ -1001,6 +1021,34 @@ type IerpEvidenceDraft = {
   dataBase64: string;
 };
 
+const AHA_PATHWAY_LABELS: Record<string, string> = {
+  nerp: "NERP — Nurses Emergency Readiness Program",
+  ierp: "IERP — Intern Emergency Readiness Program",
+  ilsp: "ILSP — Institutional Life Support Pathway",
+  independent: "Self Pay — Independent AHA Pathway",
+  admin_grant: "Administrator-granted AHA access",
+};
+
+function ActiveAhaPathwayCard() {
+  const { data: access, isLoading } = trpc.courses.getAhaAccessStatus.useQuery({ programType: "bls" }, { retry: false });
+  if (isLoading || !access?.allowed || access.pathway === "ierp") return null;
+  const label = AHA_PATHWAY_LABELS[access.pathway] ?? access.pathway;
+  return (
+    <Card className="md:col-span-3 border-emerald-200 bg-emerald-50/40">
+      <CardContent className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Your active AHA pathway</p>
+          <p className="text-base font-bold text-emerald-950">{label}</p>
+          <p className="text-xs text-emerald-900">Your BLS and ACLS access is being managed through this pathway.</p>
+        </div>
+        <Button asChild size="sm" variant="outline" className="border-emerald-300 bg-white text-emerald-900">
+          <Link href="/aha-courses">Open AHA coursework</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: boolean }) {
   const { user } = useAuth();
   const [, navigate] = useLocation();
@@ -1023,7 +1071,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
     onSuccess: async (result) => {
       toast.success(result.cognitiveAccessLocked
         ? "Your IERP enrolment is ready. Complete the full KES 15,000 payment before starting cognitive learning."
-        : "Your IERP enrolment is ready. Start with Phase 1 cognitive learning.");
+        : "Your IERP enrolment is ready. Continue to Phase 1 while your intern evidence review continues.");
       await Promise.all([
         utils.ierp.getMyEnrollment.invalidate(),
         utils.ierp.getSummary.invalidate(),
@@ -1087,6 +1135,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
 
   if (isLoading) return null;
   if (!enrollment) {
+    if (!enrollmentPage) return null;
     return (
       <Card id="ierp-entry" className="mt-6 md:col-span-3 border-indigo-200 bg-indigo-50/30">
         <CardHeader>
@@ -1101,14 +1150,14 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
           </p>
           {enrollmentPage ? (
             <Button
-              className="bg-indigo-700 text-white hover:bg-indigo-800"
+              className="bg-slate-950 text-white hover:bg-slate-800"
               disabled={!designation || startMutation.isPending || !internProfile || internProfile.status === "rejected" || internProfile.status === "revoked"}
               onClick={() => designation && startMutation.mutate({ designation })}
             >
               {startMutation.isPending ? "Starting…" : "Create IERP programme record"}
             </Button>
           ) : (
-            <Button className="bg-indigo-700 text-white hover:bg-indigo-800" onClick={() => navigate("/programs/ierp/enroll")}>
+            <Button className="bg-slate-950 text-white hover:bg-slate-800" onClick={() => navigate("/programs/ierp/enroll")}>
               Open IERP enrollment
             </Button>
           )}
@@ -1117,62 +1166,114 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
     );
   }
 
+  const internReviewBlocked = internProfile?.status === "rejected" || internProfile?.status === "revoked";
+  const internReviewPending = internProfile?.status === "pending";
+  const internReviewReason = internProfile?.reviewReason?.trim();
   const phase1Done = !!summary?.phase1Complete;
   const phase2Done = !!summary?.phase2.phase2Complete;
   const phase2CertificateIssued = !!summary?.phase2Certificate;
   const phase3Unlocked = !!summary?.phase3GateUnlocked;
-  const phase3Detail = summaryLoading
-    ? "Checking Phases 1 and 2…"
-    : summaryError
-      ? "Progress unavailable — refresh to retry"
-      : phase3Unlocked
-        ? summary?.providerCertificates?.length
-          ? "Unlocked · provider certificate issued"
-          : "Unlocked"
-        : !phase1Done || !phase2Done
-          ? "Locked until Phases 1 and 2 are complete"
-          : "Locked until the full KES 15,000 is paid";
-  const phaseStatus = [
-    {
-      label: "Phase 1 — Cognitive foundation",
-      done: phase1Done,
-      detail: summaryLoading ? "Checking progress…" : summaryError ? "Progress unavailable" : summary?.phase1Status ?? "Not started",
-    },
-    {
-      label: "Phase 2 — Online simulations",
-      done: phase2Done,
-      detail: summaryLoading
-        ? "Checking progress…"
-        : summaryError
-          ? "Progress unavailable"
-          : summary
-            ? `Team Leader ${summary.phase2.teamLeaderCount}/${summary.phase2.teamLeaderRequired} · Named roles ${summary.phase2.teamMemberRolesCovered}/${summary.phase2.teamMemberRolesRequired}${phase2CertificateIssued ? " · Certificate issued" : phase2Done ? " · Certificate pending sync" : ""}`
-            : "Not started",
-    },
-    { label: "Phase 3 — Hands-on assessment", done: false, detail: phase3Detail },
-  ];
+  const blsEnrollment = summary?.aha.find((row) => row.programType === "bls");
+  const aclsEnrollment = summary?.aha.find((row) => row.programType === "acls");
+  const phase2Progress = summary?.phase2
+    ? Math.min(
+        summary.phase2.teamLeaderCount / Math.max(1, summary.phase2.teamLeaderRequired),
+        summary.phase2.teamMemberSessionsTotal / Math.max(1, summary.phase2.teamMemberSessionsRequired),
+        summary.phase2.teamMemberRolesCovered / Math.max(1, summary.phase2.teamMemberRolesRequired),
+      )
+    : 0;
+  const journey = calculateProgramJourney({
+    blsProgress: blsEnrollment?.cognitiveModulesComplete ? 1 : 0,
+    aclsProgress: aclsEnrollment?.cognitiveModulesComplete ? 1 : 0,
+    ahaEvidenceVerified: phase1Done,
+    phase2Progress,
+    paymentProgress: ierpLedger ? ierpLedger.totalPaidKsh / Math.max(1, ierpLedger.feeKsh) : 0,
+    phase3Complete: enrollment.lifecycleStatus === "completed",
+    phase1Action: { label: "Start BLS coursework", destination: `${getProviderCourseDestination("bls", blsEnrollment?.id, "/learner-dashboard", blsEnrollment?.courseId ?? undefined)}&pathway=ierp` },
+    phase2Action: { label: "Open Phase 2", destination: "/ierp" },
+    paymentAction: { label: "Open IERP payment", destination: "/programs/ierp" },
+    phase3Action: { label: "Open Phase 3", destination: "/ierp" },
+    phase2LockedReason: "Complete both cognitive courses and verify the AHA evidence certificates first.",
+    phase3LockedReason: "Complete Phase 2 and pay the full IERP programme fee first.",
+  });
 
   return (
-    <Card id="ierp-program" className="mt-6 md:col-span-3 border-indigo-200 bg-indigo-50/20">
+    <Card id="ierp-program" className="mt-6 md:col-span-3 border-slate-200 bg-slate-50/50">
       <CardHeader>
-        <CardTitle className="flex flex-wrap items-center gap-2 text-indigo-950">
-          <GraduationCap className="h-5 w-5 text-indigo-700" />
+        <CardTitle className="flex flex-wrap items-center gap-2 text-slate-950">
+          <GraduationCap className="h-5 w-5 text-teal-700" />
           IERP — Intern Emergency Readiness Program
           <Badge variant="secondary">{enrollment.designation}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-slate-700">Your IERP training record is independent of IERS facility membership. Confirmed named simulation roles and approved retrospective claims are the source of Phase 2 progress. The programme fee is KES 15,000 in total; complete the full balance before Phase 3, and from December onward before cognitive coursework and further Phase 2 access.</p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          {phaseStatus.map((phase) => (
-            <div key={phase.label} className={`rounded-lg border p-3 text-xs ${phase.done ? "border-green-200 bg-green-50 text-green-800" : "border-slate-200 bg-white text-slate-600"}`}>
-              <p className="font-semibold">{phase.label}</p>
-              <p className="mt-1 capitalize">{phase.detail}</p>
+        <p className="text-sm leading-6 text-slate-600">Your IERP record belongs to your individual intern profile. Follow the route from cognitive learning to evidence, online simulations, and hands-on assessment. Confirmed named simulation roles determine Phase 2 progress; the full programme balance is required before Phase 3.</p>
+        {internReviewPending ? (
+          <div className="rounded-xl border border-teal-200 bg-teal-50 p-3 text-sm text-teal-950">
+            <p className="font-semibold">Your intern evidence is under review</p>
+            <p className="mt-1 text-xs leading-5">Your MoH deployment/posting letter was submitted. You can continue to the next available learning step; if a correction is needed, the reason will appear here.</p>
+          </div>
+        ) : null}
+        {internReviewBlocked ? (
+          <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-950">
+            <p className="font-semibold">IERP access paused — correction required</p>
+            <p className="mt-1 text-xs">{internReviewReason || "Your intern evidence was not approved. Review your Intern Profile and submit corrected evidence before continuing."}</p>
+          </div>
+        ) : null}
+        <IerpJourneyCard
+          title="IERP learning journey"
+          subtitle="Programme progress is an orientation aid, not a clinical competence score."
+          percentComplete={journey.percentComplete}
+          phases={journey.phases}
+          nextAction={journey.nextAction}
+        />
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">Current learning task</p>
+              <h3 className="mt-1 text-xl font-semibold text-slate-950">
+                {!blsEnrollment?.cognitiveModulesComplete ? "Start BLS cognitive learning" : !aclsEnrollment?.cognitiveModulesComplete ? "Continue with ACLS cognitive learning" : !phase1Done ? "Submit your two AHA certificates" : !phase2Done ? "Continue to online simulations" : "Review your hands-on assessment"}
+              </h3>
             </div>
-          ))}
+            <Badge className="border-slate-200 bg-slate-50 text-slate-700" variant="outline">
+              {summaryLoading ? "Checking status" : summaryError ? "Status unavailable" : "Ready for your next step"}
+            </Badge>
+          </div>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+            {!blsEnrollment?.cognitiveModulesComplete
+              ? "BLS comes first. Complete the cognitive refresh here, then ACLS will become available automatically. A previous BLS certificate does not replace this refresh."
+              : !aclsEnrollment?.cognitiveModulesComplete
+                ? "Your BLS cognitive learning is complete. Continue with ACLS from the same learning route."
+                : !phase1Done
+                  ? "Your cognitive learning is complete. Upload the Video Prework Completion Certificate and Passed Precourse Self-Assessment Certificate to open online simulations."
+                  : !phase2Done
+                    ? "Your evidence route is ready. Complete the confirmed team roles required for Phase 2."
+                    : phase3Unlocked
+                      ? "Your programme gates are satisfied. Review the available hands-on assessment action."
+                      : "Phase 3 becomes available after Phase 2 and the full programme payment are complete."}
+          </p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {internReviewBlocked || !!summary?.payment.cognitiveAccessLocked ? (
+              <Button size="sm" className="bg-slate-950 text-white" disabled>Learning access paused — review status</Button>
+            ) : !blsEnrollment?.cognitiveModulesComplete ? (
+              <Button asChild size="sm" className="bg-slate-950 text-white hover:bg-slate-800">
+                <Link href={`${getProviderCourseDestination("bls", blsEnrollment?.id, "/learner-dashboard", blsEnrollment?.courseId ?? undefined)}&pathway=ierp`}>Start BLS cognitive learning</Link>
+              </Button>
+            ) : !aclsEnrollment?.cognitiveModulesComplete ? (
+              <Button asChild size="sm" className="bg-slate-950 text-white hover:bg-slate-800">
+                <Link href={`${getProviderCourseDestination("acls", aclsEnrollment?.id, "/learner-dashboard", aclsEnrollment?.courseId ?? undefined)}&pathway=ierp`}>Continue ACLS cognitive learning</Link>
+              </Button>
+            ) : null}
+            {!blsEnrollment?.cognitiveModulesComplete ? (
+              <Button size="sm" variant="outline" disabled className="border-slate-200 text-slate-500">ACLS unlocks after BLS</Button>
+            ) : aclsEnrollment?.cognitiveModulesComplete && !phase1Done ? (
+              <Button size="sm" variant="outline" onClick={() => document.getElementById("ierp-phase1-evidence")?.scrollIntoView({ behavior: "smooth" })}>Upload AHA certificates</Button>
+            ) : null}
+          </div>
+          {summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? <p className="mt-3 text-xs font-medium text-emerald-700">You may continue during the current deferred window. You can also pay early from the payment section below.</p> : null}
         </div>
-        <div className="rounded-lg border border-indigo-100 bg-white p-3 space-y-2">
-          <p className="text-sm font-semibold text-indigo-950">Completion certificates</p>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+          <p className="text-sm font-semibold text-slate-950">Completion certificates</p>
           <p className="text-xs text-slate-600">
             {phase2CertificateIssued
               ? "Your Paeds Resus Phase 2 — Online Simulations certificate is ready and confirms eligibility for Phase 3."
@@ -1186,9 +1287,9 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
             </p>
           ) : null}
         </div>
-        <div className="rounded-lg border border-indigo-100 bg-white p-3 space-y-3">
+        <div id="ierp-phase1-evidence" className="rounded-lg border border-slate-200 bg-white p-3 space-y-3">
           <div>
-            <p className="text-sm font-semibold text-indigo-950">Phase 1 evidence</p>
+            <p className="text-sm font-semibold text-slate-950">AHA certificates for online simulations</p>
             <p className="text-xs text-slate-600">After the platform BLS and ACLS, PALS, or NRP cognitive modules are complete, upload the two certificates here. Files are private and reviewer-controlled; do not paste a public Drive link.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -1199,10 +1300,10 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
               const existing = summary?.phase1Evidence.find((row) => row.documentType === documentType);
               const selected = phase1Files[documentType];
               return (
-                <label key={documentType} className="cursor-pointer rounded border border-dashed border-indigo-200 p-3 text-xs text-slate-700 hover:bg-indigo-50">
+                <label key={documentType} className="cursor-pointer rounded border border-dashed border-slate-300 p-3 text-xs text-slate-700 hover:border-teal-300 hover:bg-teal-50/50">
                   <span className="block font-medium">{label}</span>
                   <span className="mt-1 block text-slate-500">{selected?.fileName ?? existing?.fileName ?? "Choose PDF, JPG, or PNG"}</span>
-                  <span className="mt-1 block font-semibold capitalize text-indigo-700">{existing?.status ?? "not submitted"}</span>
+                  <span className="mt-1 block font-semibold capitalize text-teal-700">{existing?.status ?? "not submitted"}</span>
                   <input className="sr-only" type="file" accept="application/pdf,image/jpeg,image/png" onChange={(event) => handlePhase1File(documentType, event.target.files?.[0])} />
                 </label>
               );
@@ -1211,7 +1312,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
           <Button
             size="sm"
             variant="outline"
-            disabled={!phase1Files.video_prework || !phase1Files.precourse_assessment || evidenceMutation.isPending}
+            disabled={internReviewBlocked || !phase1Files.video_prework || !phase1Files.precourse_assessment || evidenceMutation.isPending}
             onClick={() => {
               const video = phase1Files.video_prework;
               const assessment = phase1Files.precourse_assessment;
@@ -1232,9 +1333,9 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
           {summary?.payment.cognitiveAccessLocked && <span className="font-semibold text-red-700">Cognitive coursework and Phase 2 access are locked until the full KES 15,000 balance is paid.</span>}
         </div>
         {ierpLedger && ierpLedger.balanceKsh > 0 && (
-          <div className="rounded-lg border border-indigo-100 bg-white p-3 space-y-2">
-            <p className="text-xs font-semibold text-indigo-950">Complete IERP payment</p>
-            <p className="text-xs text-slate-600">IERP is not a Lipa Mdogo Mdogo plan. Pay the remaining balance of KES {ierpLedger.balanceKsh.toLocaleString()} in one payment to unlock any payment-gated coursework and Phase 3.</p>
+          <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+            <p className="text-xs font-semibold text-slate-950">{summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? "Pay IERP early (optional)" : "Complete IERP payment"}</p>
+            <p className="text-xs text-slate-600">{summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? `Not required yet — you are covered until 1 December EAT. Pay now if you would rather clear the KES ${ierpLedger.balanceKsh.toLocaleString()} balance early.` : `From 1 December EAT, IERP requires the remaining balance of KES ${ierpLedger.balanceKsh.toLocaleString()} in one payment. No instalment plan is used for IERP.`}</p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 aria-label="IERP M-Pesa phone number"
@@ -1245,8 +1346,8 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
               />
               <Button
                 size="sm"
-                className="bg-indigo-700 text-white hover:bg-indigo-800"
-                disabled={paymentMutation.isPending || !canonicalPaymentPhone}
+                className="bg-slate-950 text-white hover:bg-slate-800"
+                disabled={internReviewBlocked || paymentMutation.isPending || !canonicalPaymentPhone}
                 onClick={() => canonicalPaymentPhone && paymentMutation.mutate({ amountKsh: ierpLedger.balanceKsh, phase: "general", phoneNumber: canonicalPaymentPhone })}
               >
                 {paymentMutation.isPending ? "Sending…" : `Pay KES ${ierpLedger.balanceKsh.toLocaleString()}`}

@@ -203,7 +203,7 @@ export default function CpdClaimDialog({
               <li>
                 Log into the{" "}
                 <a
-                  href="https://osp.nckenya.com/"
+                  href="https://osp.nckenya.go.ke/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline inline-flex items-center font-semibold"
@@ -225,6 +225,36 @@ export default function CpdClaimDialog({
               </li>
             </ol>
           </div>
+
+          <details className="rounded-lg border border-blue-200 bg-blue-50/40 p-4 text-sm text-slate-700">
+            <summary className="cursor-pointer list-none font-semibold text-slate-900 marker:hidden">
+              How to claim CPD points for a live event or webinar through the NCK Portal
+            </summary>
+            <div className="mt-3 space-y-4">
+              <p className="text-xs text-slate-600">
+                Use this workflow when claiming points for a live Paeds Resus event or webinar through the NCK Online Services Portal and WCEA education portal.
+              </p>
+              <ol className="list-decimal space-y-2 pl-5 text-xs leading-relaxed">
+                <li>Open Google Chrome and go to <a href="https://osp.nckenya.go.ke/" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline">osp.nckenya.go.ke <ExternalLink className="inline h-3 w-3" /></a>, the NCK Online Services Portal.</li>
+                <li>Select the NCK Portal and sign in with your NCK username and password.</li>
+                <li>Click the red <span className="font-semibold">View Courses</span> icon to open the WCEA portal. If you see the NCK logo after signing in, click that logo.</li>
+                <li>Open the menu using the three horizontal lines at the top right, then select <span className="font-semibold">Live events</span>.</li>
+                <li>Enter the four-character secret code provided during the webinar or sent to your personal email, select <span className="font-semibold">Validate</span>, and then select <span className="font-semibold">Save</span>.</li>
+                <li>Complete the evaluation form that appears before claiming the CPD points.</li>
+                <li>Open the menu, select <span className="font-semibold">Certificates</span>, and export your CPD summary report.</li>
+                <li>Return to the initial NCK page and open <span className="font-semibold">CPD</span> to access the downloads.</li>
+                <li>Select the blue <span className="font-semibold">Self-Reporting Tool</span>, then select the green <span className="font-semibold">Self-Reporting</span> button.</li>
+                <li>Under <span className="font-semibold">Event Category</span>, select <span className="font-semibold">Accredited online CPD activities/programs</span> (the second-last option).</li>
+                <li>Under <span className="font-semibold">Event attended</span>, select <span className="font-semibold">Online or Webinar or Conference</span>.</li>
+                <li>Enter the event location, such as <span className="font-semibold">KNH</span> or <span className="font-semibold">Virtual</span>, and enter the date you attended the online CME.</li>
+                <li>Upload the CPD summary report exported earlier as evidence, then select <span className="font-semibold">Submit for verification</span>.</li>
+                <li>After successful submission, the application should show <span className="font-semibold">Application created successfully</span> and <span className="font-semibold">CPD claim submitted successfully</span>. The event will appear in your Education Tracker through the WCEA menu.</li>
+              </ol>
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                NCK processing may take up to 48 working hours before the CPD points appear.
+              </div>
+            </div>
+          </details>
 
           {/* Reveal Code Panel */}
           <div className="border border-slate-200 rounded-lg p-4 bg-slate-50 flex flex-col items-center justify-center min-h-[140px]">

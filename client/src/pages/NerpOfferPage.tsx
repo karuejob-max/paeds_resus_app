@@ -16,26 +16,78 @@ import {
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { NERP_PATHWAY_ENTRY_PATH } from "@shared/nerp-pathway";
+import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
+import { JsonLdScript } from "@/components/JsonLdScript";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { useScrollToTop } from "@/hooks/useScrollToTop";
+import { buildBreadcrumbListJsonLd, buildJsonLdGraph, buildOrganizationJsonLd } from "@/lib/seo-schema";
 
 export default function NerpOfferPage() {
+  useScrollToTop();
+  usePageMeta({
+    title: "NERP Kenya — Nursing Emergency Readiness Program | Paeds Resus",
+    description:
+      "NERP is Paeds Resus's staged nursing emergency-readiness pathway in Kenya: six monthly KES 2,500 payments, BLS-first learning, ACLS progression, and verified professional eligibility.",
+    path: "/programs/nerp-acls",
+  });
+  const jsonLd = buildJsonLdGraph([
+    buildOrganizationJsonLd(),
+    {
+      "@context": "https://schema.org",
+      "@type": "Course",
+      name: "NERP — Nursing Emergency Readiness Program",
+      description:
+        "A staged nursing emergency-readiness pathway in Kenya combining BLS-first learning, ACLS progression, evidence, and programme guidance.",
+      url: "https://www.paedsresus.com/programs/nerp-acls",
+      courseCode: "NERP",
+      provider: { "@id": "https://www.paedsresus.com/#organization" },
+      inLanguage: "en",
+      educationalLevel: "Professional",
+      hasCourseInstance: { "@type": "CourseInstance", courseMode: "blended", location: { "@type": "Place", name: "Kenya" } },
+      offers: {
+        "@type": "Offer",
+        price: 15000,
+        priceCurrency: "KES",
+        url: "https://www.paedsresus.com/programs/nerp-acls",
+      },
+    },
+    buildBreadcrumbListJsonLd([
+      { name: "Home", path: "/" },
+      { name: "For providers", path: "/for-providers" },
+      { name: "NERP", path: "/programs/nerp-acls" },
+    ]),
+  ]);
   const { user, loading } = useAuth();
   const eligibility = trpc.nerp.getEligibility.useQuery(undefined, { enabled: !!user, retry: false });
   const enrollment = trpc.nerp.getMyEnrollment.useQuery(undefined, {
     enabled: Boolean(user && eligibility.data?.eligible === true),
     retry: false,
   });
-  const canStart = !user || eligibility.data?.eligible === true;
+  const { data: journey } = trpc.nerp.getJourneyStatus.useQuery(undefined, {
+    enabled: Boolean(user),
+    retry: false,
+  });
+  const canStart = eligibility.data?.eligible === true;
   const paymentComplete = enrollment.data?.paymentState?.status === "completed";
+  const paymentConfirmed = Boolean(
+    enrollment.data?.paymentState &&
+      (paymentComplete || enrollment.data.paymentState.amountPaidKes > 0)
+  );
+  const verificationPending = eligibility.data?.state === "pending_review";
   const nextHref = !user
     ? `/login?redirect=${encodeURIComponent(NERP_PATHWAY_ENTRY_PATH)}`
-    : !canStart
-      ? "/provider-profile"
-      : paymentComplete
+    : canStart
+      ? paymentConfirmed
         ? NERP_PATHWAY_ENTRY_PATH
-        : "/programs/nerp-acls/enroll";
+        : "/programs/nerp-acls/enroll"
+      : verificationPending
+        ? NERP_PATHWAY_ENTRY_PATH
+        : "/provider-profile";
 
   return (
-    <div className="min-h-screen bg-muted/20 px-4 py-10 md:px-8">
+    <>
+      <JsonLdScript data={jsonLd} />
+      <div className="min-h-screen bg-muted/20 px-4 py-10 md:px-8">
       <div className="mx-auto max-w-5xl space-y-8">
         <section className="rounded-3xl border border-brand-orange/20 bg-gradient-to-br from-brand-surface via-background to-orange-50/40 p-6 shadow-sm md:p-10">
           <div className="max-w-3xl space-y-5">
@@ -56,25 +108,40 @@ export default function NerpOfferPage() {
                   {!user
                     ? "Sign in to continue"
                     : !canStart
-                      ? "Complete provider profile first"
-                      : paymentComplete
+                      ? verificationPending
+                        ? "View verification status"
+                        : "Complete professional credentials"
+                      : paymentConfirmed
                         ? "Continue to learning"
                         : "Make your first NERP payment"}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg" disabled={loading || (!!user && (eligibility.isLoading || enrollment.isLoading))}>
-                <Link href={nextHref}>{paymentComplete ? "Check your next learning step" : "View payment and learning steps"}</Link>
+                <Link href={nextHref}>
+                  {paymentConfirmed ? "Check your next learning step" : "View first payment and learning steps"}
+                </Link>
               </Button>
               {user && eligibility.data && !eligibility.data.eligible && (
                 <p className="max-w-xl text-sm text-muted-foreground">
-                  NERP is for verified nurses. Submit your Nursing Council of Kenya licence number and evidence in your provider profile; payment and coursework become available after an authorised verifier confirms the licence.
-                  {" "}<Link href="/provider-profile" className="font-medium text-primary underline">Open provider profile</Link>
+                  {"NERP is for nurses with a complete Nursing Council of Kenya licence submission. Submit the licence number and evidence in Professional Credentials before starting."}
+                  {" "}<Link href="/provider-profile" className="font-medium text-primary underline">Open professional credentials</Link>
                 </p>
               )}
-              {user && eligibility.data?.eligible && enrollment.data?.offer && !paymentComplete && (
+              {user && verificationPending && (
                 <p className="max-w-xl text-sm text-muted-foreground">
-                  Your NERP offer is ready. Continue to the checkout to make the next KES 2,500 instalment and then open the linked BLS-first learning path.
+                  Your NCK evidence is under review. You may start the NERP payment now; after the first confirmed KES 2,500 instalment, BLS cognitive coursework becomes available. If the submission is rejected or revoked, access pauses and the specific reason will be shown for correction.
+                  {" "}<Link href={NERP_PATHWAY_ENTRY_PATH} className="font-medium text-primary underline">View NERP next step</Link>
+                </p>
+              )}
+              {user && eligibility.data?.eligible && enrollment.data?.offer && !paymentConfirmed && (
+                <p className="max-w-xl text-sm text-muted-foreground">
+                  Your NERP offer is ready. Make the first KES 2,500 instalment to unlock the linked BLS-first learning path.
+                </p>
+              )}
+              {user && eligibility.data?.eligible && enrollment.data?.offer && paymentConfirmed && !paymentComplete && (
+                <p className="max-w-xl text-sm text-muted-foreground">
+                  Your first NERP payment is confirmed. Continue to BLS cognitive learning now; the next KES 2,500 instalment remains available in your payment ledger.
                 </p>
               )}
               <p className="text-sm text-muted-foreground">
@@ -83,6 +150,10 @@ export default function NerpOfferPage() {
             </div>
           </div>
         </section>
+
+        {journey ? (
+          <ProgramJourneyCard title={journey.programName} subtitle="Programme progress is an orientation aid, not a clinical competence score." percentComplete={journey.percentComplete} phases={journey.phases} nextAction={journey.nextAction} />
+        ) : null}
 
         <div className="grid gap-5 md:grid-cols-3">
           <Card>
@@ -162,6 +233,7 @@ export default function NerpOfferPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

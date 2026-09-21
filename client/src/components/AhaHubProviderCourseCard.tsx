@@ -1,19 +1,31 @@
 import { memo, type ReactNode } from "react";
+import { useState } from "react";
 import { CheckCircle2, Award } from "lucide-react";
-import type { AhaProgramType } from "@/lib/providerCourseRoutes";
+import { getAhaPathwayPortalRoute, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AhaHubCourseCard } from "@/components/AhaHubCourseCard";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { AhaHubEnrollmentRow } from "@/lib/pick-aha-hub-enrollment";
+
+type AhaAccessDecision = {
+  allowed: boolean;
+  pathway: string | null;
+  message: string;
+};
 
 type AhaHubProviderCourseCardProps = {
   programType: AhaProgramType;
+  accessDecision?: AhaAccessDecision;
   enrollment?: AhaHubEnrollmentRow;
   /** True while enrollment/progress is still loading — show stable placeholders in middle/footer. */
   enrollmentPending?: boolean;
   onContinue: (programType: AhaProgramType, enrollmentId: number) => void;
   onEnroll: (programType: AhaProgramType) => void;
   onViewCertificates: () => void;
+  onRedeemAccessCode?: (programType: AhaProgramType, accessCode: string) => void;
+  onOpenPathway?: (pathway: string) => void;
+  accessCodePending?: boolean;
 };
 
 function FooterButtonSkeleton() {
@@ -22,13 +34,21 @@ function FooterButtonSkeleton() {
 
 export const AhaHubProviderCourseCard = memo(function AhaHubProviderCourseCard({
   programType,
+  accessDecision,
   enrollment,
   enrollmentPending = false,
   onContinue,
   onEnroll,
   onViewCertificates,
+  onRedeemAccessCode,
+  onOpenPathway,
+  accessCodePending = false,
 }: AhaHubProviderCourseCardProps) {
   const isEnrolled = !!enrollment;
+  // Backward-compatible default for standalone card consumers; the AHA Hub always supplies the server decision.
+  const canAccess = accessDecision ? accessDecision.allowed : true;
+  const pathwayPortal = accessDecision?.allowed ? getAhaPathwayPortalRoute(accessDecision.pathway) : null;
+  const [accessCode, setAccessCode] = useState("");
   const cognitiveComplete = enrollment?.cognitiveModulesComplete ?? false;
   const practicalSignedOff = enrollment?.practicalSkillsSignedOff ?? false;
   const certIssued = cognitiveComplete && practicalSignedOff;
@@ -56,23 +76,27 @@ export const AhaHubProviderCourseCard = memo(function AhaHubProviderCourseCard({
     <FooterButtonSkeleton />
   ) : (
     <div className="space-y-2">
-      {isEnrolled && !certIssued && (
+      {isEnrolled && canAccess && !certIssued && (
         <Button
           size="sm"
           className="w-full"
           onClick={() => {
-            if (enrollment?.id) onContinue(programType, enrollment.id);
+            if (pathwayPortal && onOpenPathway) {
+              onOpenPathway(accessDecision?.pathway ?? "");
+            } else if (enrollment?.id) {
+              onContinue(programType, enrollment.id);
+            }
           }}
         >
-          {enrollment?.id ? "Start course" : "Open learner dashboard"}
+          {pathwayPortal ? "Open programme portal" : enrollment?.id ? "Start course" : "Open learner dashboard"}
         </Button>
       )}
-      {isEnrolled && cognitiveComplete && !certIssued && (
+      {isEnrolled && canAccess && !pathwayPortal && cognitiveComplete && !certIssued && (
         <Button size="sm" variant="outline" className="w-full" onClick={onViewCertificates}>
           Download gatepass certificate
         </Button>
       )}
-      {isEnrolled && certIssued && (
+      {isEnrolled && canAccess && certIssued && (
         <Button
           size="sm"
           variant="outline"
@@ -82,10 +106,58 @@ export const AhaHubProviderCourseCard = memo(function AhaHubProviderCourseCard({
           View full certificate
         </Button>
       )}
+      {isEnrolled && !canAccess && (
+        <>
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+            <p className="font-medium">Course access is locked</p>
+            <p className="mt-1">This legacy enrollment does not provide current self-pay access. Complete payment or redeem an access code. NERP, IERP, and ILSP learners should use their dedicated portal.</p>
+          </div>
+          <Button size="sm" className="w-full" onClick={() => onEnroll(programType)}>
+            Unlock with payment
+          </Button>
+          {onRedeemAccessCode && <div className="rounded-md border border-dashed p-2">
+            <p className="mb-1 text-xs text-muted-foreground">Have a Paeds Resus access code?</p>
+            <div className="flex gap-2">
+              <Input
+                aria-label={`Access code for ${programType.toUpperCase()}`}
+                placeholder="PAEDS-XXXXXXXXXX"
+                value={accessCode}
+                onChange={event => setAccessCode(event.target.value.toUpperCase())}
+                className="h-9 text-xs"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-9 shrink-0"
+                disabled={accessCodePending || accessCode.trim().length < 8}
+                onClick={() => onRedeemAccessCode(programType, accessCode.trim())}
+              >
+                {accessCodePending ? "…" : "Redeem"}
+              </Button>
+            </div>
+          </div>}
+        </>
+      )}
+      {isEnrolled && canAccess && pathwayPortal && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-blue-900">
+          <p className="font-medium">Access belongs to your programme pathway</p>
+          <p className="mt-1">Continue from the dedicated programme portal so your pathway progress and permissions remain linked.</p>
+        </div>
+      )}
       {!isEnrolled && (
-        <Button size="sm" className="w-full" onClick={() => onEnroll(programType)}>
-          Start enrollment
-        </Button>
+        <>
+          <Button size="sm" className="w-full" onClick={() => onEnroll(programType)}>
+            Start enrollment
+          </Button>
+          {onRedeemAccessCode && <div className="rounded-md border border-dashed p-2">
+            <p className="mb-1 text-xs text-muted-foreground">Have a Paeds Resus access code?</p>
+            <div className="flex gap-2">
+              <Input aria-label={`Access code for ${programType.toUpperCase()}`} placeholder="PAEDS-XXXXXXXXXX" value={accessCode} onChange={event => setAccessCode(event.target.value.toUpperCase())} className="h-9 text-xs" />
+              <Button type="button" size="sm" variant="outline" className="h-9 shrink-0" disabled={accessCodePending || accessCode.trim().length < 8} onClick={() => onRedeemAccessCode(programType, accessCode.trim())}>{accessCodePending ? "…" : "Redeem"}</Button>
+            </div>
+          </div>}
+        </>
       )}
     </div>
   );

@@ -3,7 +3,11 @@ import {
   PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES,
   PAEDS_RESUS_ILS_AHA_FULL_TRAINING_PRICES_KES,
   PAEDS_RESUS_ILS_BASE_PRICE_KES,
+  PAEDS_RESUS_ILS_AUTOMATIC_DISCOUNT_PERCENT,
+  PAEDS_RESUS_ILS_INSTITUTIONAL_PRICE_KES,
   PAEDS_RESUS_ILS_CREDENTIALING_WINDOW_DAYS,
+  getIlsInstitutionalPriceKes,
+  getIlsCheckoutPriceKes,
   PAEDS_RESUS_ILS_DELIVERY_MODEL,
   canCancelPendingIlsEnrollment,
   getAhaCredentialingPriceKes,
@@ -21,6 +25,12 @@ describe("Institutional Life Support business rules", () => {
 
   it("keeps the published provider and AHA prices", () => {
     expect(PAEDS_RESUS_ILS_BASE_PRICE_KES).toBe(10_000);
+    expect(PAEDS_RESUS_ILS_AUTOMATIC_DISCOUNT_PERCENT).toBe(30);
+    expect(PAEDS_RESUS_ILS_INSTITUTIONAL_PRICE_KES).toBe(7_000);
+    expect(getIlsInstitutionalPriceKes(3)).toBe(21_000);
+    expect(getIlsInstitutionalPriceKes(0)).toBe(0);
+    expect(getIlsCheckoutPriceKes(2, "percentage_discount")).toBe(14_000);
+    expect(getIlsCheckoutPriceKes(2, "free")).toBe(0);
     expect(PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES).toEqual({
       bls: 7_500,
       acls: 10_000,

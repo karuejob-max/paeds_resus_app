@@ -1,11 +1,12 @@
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
 import { z } from "zod";
 import {
   globalEntitlements,
   globalEntitlementRedemptions,
   institutionalAccounts,
   microCourses,
+  courses,
   users,
 } from "../../drizzle/schema";
 import { adminProcedure, router } from "../_core/trpc";
@@ -13,6 +14,8 @@ import { getDb } from "../db";
 import {
   GLOBAL_ENTITLEMENT_BENEFIT_TYPES,
   GLOBAL_ENTITLEMENT_PROGRAM_TYPES,
+  createAccessCode,
+  hashRecipientEmail,
   newEntitlementReference,
 } from "../lib/global-entitlements";
 
@@ -20,7 +23,13 @@ const programmeLabels = {
   ierp: "IERP — Intern Emergency Readiness Program",
   nerp: "NERP — Nurses Emergency Readiness Program",
   paeds_resus_ils: "ILSP — Institutional Life Support Program",
-  self_pay: "Self-pay learning course",
+  self_pay: "Self-pay fellowship microcourse",
+  bls: "Self-pay BLS",
+  acls: "Self-pay ACLS",
+  pals: "Self-pay PALS",
+  heartsaver: "Self-pay Heartsaver",
+  nrp: "Self-pay NRP",
+  instructor: "Self-pay Instructor Course",
 } as const;
 
 export const createEntitlementInput = z
@@ -39,10 +48,27 @@ export const createEntitlementInput = z
     reason: z.string().trim().min(10).max(500),
     expiresAt: z.string().date(),
     maxRedemptions: z.number().int().min(1).max(1000).default(1),
+    shareable: z.boolean().default(false),
+    recipientEmail: z.string().trim().email().max(320).nullable().optional(),
   })
   .superRefine((input, ctx) => {
     const targetUser = input.targetUserId != null;
     const targetInstitution = input.targetInstitutionalAccountId != null;
+    const shareable = input.shareable === true;
+    if (shareable && !input.recipientEmail) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["recipientEmail"],
+        message: "Enter the one learner email address this code is for.",
+      });
+    }
+    if (!shareable && input.recipientEmail) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["recipientEmail"],
+        message: "Recipient email is only used for shareable access codes.",
+      });
+    }
     if (input.programType === "paeds_resus_ils") {
       if (!targetInstitution || targetUser) {
         ctx.addIssue({
@@ -59,7 +85,11 @@ export const createEntitlementInput = z
         });
       }
     } else {
-      if (!targetUser || targetInstitution) {
+      const shareableProgram = ["self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(input.programType);
+      if (shareable && (!shareableProgram || !targetUser || targetInstitution)) {
+        ctx.addIssue({ code: "custom", path: ["targetUserId"], message: "Select the registered learner this one-person code is for." });
+      }
+      if (!shareable && (!targetUser || targetInstitution)) {
         ctx.addIssue({
           code: "custom",
           path: ["targetUserId"],
@@ -67,20 +97,27 @@ export const createEntitlementInput = z
             "This entitlement must target one named Paeds Resus user account only.",
         });
       }
-      if (input.programType === "self_pay" && !input.selfPayCourseId) {
+      if (["self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(input.programType) && !input.selfPayCourseId) {
         ctx.addIssue({
           code: "custom",
           path: ["selfPayCourseId"],
           message: "Select the self-pay course scope.",
         });
       }
-      if (input.programType !== "self_pay" && input.selfPayCourseId) {
+      if (!["self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(input.programType) && input.selfPayCourseId) {
         ctx.addIssue({
           code: "custom",
           path: ["selfPayCourseId"],
           message: "Only self-pay entitlements may have a course scope.",
         });
       }
+    }
+    if (shareable && input.benefitType !== "free") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["benefitType"],
+        message: "Shareable learner codes must be full-waiver grants.",
+      });
     }
     if (input.benefitType === "free" && input.discountPercent != null) {
       ctx.addIssue({
@@ -113,6 +150,16 @@ export const adminEntitlementsRouter = router({
    * Authoritative self-pay catalog for the Global Admin course picker.
    * Keep the slug visible so an issued entitlement remains auditable.
    */
+  listAhaSelfPayCourses: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    return db
+      .select({ courseId: courses.programType, title: courses.title, level: courses.level, duration: courses.duration })
+      .from(courses)
+      .where(and(inArray(courses.programType, ["bls", "acls", "pals", "heartsaver", "nrp", "instructor"]), eq(courses.isActive, true)))
+      .orderBy(asc(courses.programType), asc(courses.id));
+  }),
+
   listSelfPayCourses: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db)
@@ -121,8 +168,7 @@ export const adminEntitlementsRouter = router({
         message: "Database unavailable",
       });
     return db
-      .select({
-        courseId: microCourses.courseId,
+      .select({ courseId: microCourses.courseId,
         title: microCourses.title,
         level: microCourses.level,
         emergencyType: microCourses.emergencyType,
@@ -192,6 +238,7 @@ export const adminEntitlementsRouter = router({
       .select({
         id: globalEntitlements.id,
         grantReference: globalEntitlements.grantReference,
+        accessCodePrefix: globalEntitlements.accessCodePrefix,
         programType: globalEntitlements.programType,
         selfPayCourseId: globalEntitlements.selfPayCourseId,
         benefitType: globalEntitlements.benefitType,
@@ -251,6 +298,7 @@ export const adminEntitlementsRouter = router({
           message: "Database unavailable",
         });
       const expiresAt = new Date(`${input.expiresAt}T23:59:59.999Z`);
+      let recipientEmailForCode: string | null = input.recipientEmail?.trim().toLowerCase() ?? null;
       if (expiresAt.getTime() <= Date.now()) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -259,7 +307,7 @@ export const adminEntitlementsRouter = router({
       }
       if (input.targetUserId != null) {
         const [target] = await db
-          .select({ id: users.id })
+          .select({ id: users.id, email: users.email })
           .from(users)
           .where(eq(users.id, input.targetUserId))
           .limit(1);
@@ -268,6 +316,12 @@ export const adminEntitlementsRouter = router({
             code: "NOT_FOUND",
             message: "Target Paeds Resus account was not found.",
           });
+        if (input.shareable) {
+          if (!target.email) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "The selected learner does not have an email address and cannot receive a shareable code." });
+          }
+          recipientEmailForCode = target.email.trim().toLowerCase();
+        }
       }
       if (input.targetInstitutionalAccountId != null) {
         const [target] = await db
@@ -293,22 +347,33 @@ export const adminEntitlementsRouter = router({
           .where(eq(microCourses.courseId, input.selfPayCourseId))
           .limit(1);
         if (!selectedCourse) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Self-pay course was not found in the catalog.",
-          });
+          throw new TRPCError({ code: "NOT_FOUND", message: "Self-pay fellowship course was not found in the catalog." });
         }
         if (!selectedCourse.isPublished) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message:
-              "This self-pay course is not published and cannot receive a grant.",
-          });
+          throw new TRPCError({ code: "BAD_REQUEST", message: "This self-pay course is not published and cannot receive a grant." });
+        }
+      } else if (["bls", "acls", "pals", "heartsaver", "nrp", "instructor"].includes(input.programType) && input.selfPayCourseId) {
+        if (input.selfPayCourseId !== input.programType) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "The selected AHA course does not match the entitlement programme." });
+        }
+        const [selectedCourse] = await db
+          .select({ id: courses.id })
+          .from(courses)
+          .where(and(eq(courses.programType, input.programType as "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor"), eq(courses.isActive, true)))
+          .limit(1);
+        if (!selectedCourse) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "The selected AHA course is not available in the catalog." });
         }
       }
       const grantReference = newEntitlementReference();
+      const accessCode = input.shareable ? createAccessCode() : null;
       await db.insert(globalEntitlements).values({
         grantReference,
+        accessCodeHash: accessCode?.hash ?? null,
+        accessCodePrefix: accessCode?.prefix ?? null,
+        recipientEmailHash: input.shareable && recipientEmailForCode
+          ? hashRecipientEmail(recipientEmailForCode)
+          : null,
         targetUserId: input.targetUserId ?? null,
         targetInstitutionalAccountId:
           input.targetInstitutionalAccountId ?? null,
@@ -330,6 +395,7 @@ export const adminEntitlementsRouter = router({
         success: true as const,
         grantReference,
         programmeLabel: programmeLabels[input.programType],
+        accessCode: accessCode?.code ?? null,
       };
     }),
 

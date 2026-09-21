@@ -8,19 +8,19 @@ describe("NERP pathway progression", () => {
 
   it("requires payment before learning", () => {
     expect(
-      getNerpNextStep({ paymentComplete: false, blsCognitiveComplete: false })
+      getNerpNextStep({ paymentConfirmed: false, blsCognitiveComplete: false })
     ).toBe("payment");
   });
 
-  it("starts BLS cognitive when payment is complete but BLS is incomplete", () => {
+  it("starts BLS cognitive after the first confirmed payment even when the pathway is not fully paid", () => {
     expect(
-      getNerpNextStep({ paymentComplete: true, blsCognitiveComplete: false })
+      getNerpNextStep({ paymentConfirmed: true, blsCognitiveComplete: false })
     ).toBe("bls_cognitive");
   });
 
   it("allows ACLS cognitive only after BLS cognitive completion", () => {
     expect(
-      getNerpNextStep({ paymentComplete: true, blsCognitiveComplete: true })
+      getNerpNextStep({ paymentConfirmed: true, blsCognitiveComplete: true })
     ).toBe("acls_cognitive");
   });
 });

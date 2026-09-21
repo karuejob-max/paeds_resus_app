@@ -20,12 +20,13 @@ import {
 } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { assertInstitutionAccess } from "../lib/institution-access";
+import { assertInstitutionAccess, isInstitutionAdmin } from "../lib/institution-access";
 import { assertInstitutionProductCapability } from "../lib/institution-entitlements";
 import {
   assertInstitutionProductRole,
   type InstitutionalProductRoleKey,
 } from "../lib/institution-product-roles";
+import { assertCanManageArea } from "../lib/institution-role-authority";
 import {
   buildLearningReportCsv,
   LEARNING_METRIC_KEYS,
@@ -111,16 +112,6 @@ function dateOnlyAsDate(value: string): Date {
   return new Date(`${parseDateOnly(value)}T00:00:00.000Z`);
 }
 
-async function isInstitutionAdmin(db: any, user: any, institutionId: number) {
-  try {
-    await assertInstitutionAccess(db, user, institutionId);
-    return true;
-  } catch (error) {
-    if (error instanceof TRPCError && error.code === "FORBIDDEN") return false;
-    throw error;
-  }
-}
-
 async function assertLearningAccess(
   db: any,
   user: any,
@@ -128,7 +119,7 @@ async function assertLearningAccess(
   requiredRoles: readonly InstitutionalProductRoleKey[],
   options?: { allowDepartmentHead?: boolean }
 ) {
-  if (await isInstitutionAdmin(db, user, institutionId))
+  if (await isInstitutionAdmin(db, user.id, institutionId))
     return {
       roleKey: "institution_admin" as const,
       departmentIds: null as number[] | null,
@@ -202,7 +193,7 @@ async function assertInstitutionOnly(
   user: any,
   institutionId: number
 ) {
-  if (!(await isInstitutionAdmin(db, user, institutionId))) {
+  if (!(await isInstitutionAdmin(db, user.id, institutionId))) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Institution administrator access is required for this action.",
@@ -244,6 +235,36 @@ type LearningMemberDirectoryRow = {
  * leaking arbitrary platform users and tolerates older records whose canonical
  * facilityDepartmentId was not populated yet.
  */
+type LearningPresenterResolution = LearningMemberDirectoryRow & {
+  isInstitutionMember: boolean;
+};
+
+async function resolvePlatformPresenter(
+  db: any,
+  userId: number,
+  overrides?: { name?: string | null; cadre?: string | null; department?: string | null },
+): Promise<LearningPresenterResolution | null> {
+  const [user] = await db
+    .select({ id: users.id, name: users.name, email: users.email, cadre: users.cadre, cadreOther: users.cadreOther })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!user) return null;
+  return {
+    id: -user.id,
+    userId: user.id,
+    staffName: overrides?.name?.trim() || user.name?.trim() || user.email?.trim() || "Paeds Resus account holder",
+    staffEmail: user.email?.trim() || "",
+    staffPhone: null,
+    staffRole: user.cadre?.trim() || "other",
+    department: overrides?.department?.trim() || null,
+    facilityDepartmentId: null,
+    cadre: overrides?.cadre?.trim() || user.cadre?.trim() || null,
+    cadreOther: user.cadreOther?.trim() || null,
+    isInstitutionMember: false,
+  };
+}
+
 async function loadInstitutionMemberDirectory(
   db: any,
   institutionId: number,
@@ -385,6 +406,19 @@ const targetInput = z.object({
 });
 
 export const institutionLearningRouter = router({
+  getMyAuthority: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await requireDb();
+      return assertLearningAccess(
+        db,
+        ctx.user,
+        input.institutionId,
+        ["cpd_coordinator", "cpd_education_coordinator", "cpd_reviewer", "cpd_reporter", "cpd_viewer"],
+        { allowDepartmentHead: true },
+      );
+    }),
+
   listDepartments: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive() }))
     .query(async ({ input, ctx }) => {
@@ -509,7 +543,7 @@ export const institutionLearningRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await requireDb();
-      await assertInstitutionOnly(db, ctx.user, input.institutionId);
+      await assertCanManageArea(db, ctx.user, input.institutionId, "cpd_portal", input.departmentId);
       const [department] = await db
         .select({ id: facilityDepartments.id })
         .from(facilityDepartments)
@@ -603,7 +637,16 @@ export const institutionLearningRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const db = await requireDb();
-      await assertInstitutionOnly(db, ctx.user, input.institutionId);
+      const [assignment] = await db
+        .select({ departmentId: institutionEducationCoordinators.departmentId })
+        .from(institutionEducationCoordinators)
+        .where(and(
+          eq(institutionEducationCoordinators.id, input.assignmentId),
+          eq(institutionEducationCoordinators.institutionalAccountId, input.institutionId),
+        ))
+        .limit(1);
+      if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "Department CPD coordinator assignment not found." });
+      await assertCanManageArea(db, ctx.user, input.institutionId, "cpd_portal", assignment.departmentId);
       await db
         .update(institutionEducationCoordinators)
         .set({
@@ -646,19 +689,28 @@ export const institutionLearningRouter = router({
         presenterDepartment: z.string().trim().max(128).nullable().optional(),
         cpdPoints: z.number().min(0).nullable().optional(),
         approvingCouncil: z.string().trim().max(128).nullable().optional(),
-        coPresenters: z
-          .array(
-            z.object({
-              userId: z.number().int().positive(),
-              /** Legacy fields remain input-compatible but are ignored. */
-              fullName: z.string().trim().min(1).max(255).optional(),
-              email: z.string().email().nullable().optional(),
-              cadre: z.string().trim().max(128).nullable().optional(),
-              department: z.string().trim().max(128).nullable().optional(),
-            })
-          )
-          .max(6)
-          .default([]),
+        coPresenters: z.preprocess(
+          value =>
+            Array.isArray(value)
+              ? value.filter(entry => {
+                  if (!entry || typeof entry !== "object") return true;
+                  return (entry as { userId?: unknown }).userId !== "";
+                })
+              : value,
+          z
+            .array(
+              z.object({
+                userId: z.number().int().positive(),
+                /** Legacy fields remain input-compatible but are ignored. */
+                fullName: z.string().trim().min(1).max(255).optional(),
+                email: z.string().email().nullable().optional(),
+                cadre: z.string().trim().max(128).nullable().optional(),
+                department: z.string().trim().max(128).nullable().optional(),
+              })
+            )
+            .max(6)
+            .default([])
+        ),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -709,15 +761,28 @@ export const institutionLearningRouter = router({
         db,
         input.institutionId,
         access,
-        input.facilityDepartmentId ?? undefined
+        access.departmentIds ? input.facilityDepartmentId ?? undefined : undefined
       );
-      const leadPresenter = memberDirectory.find(
+      const leadMember = memberDirectory.find(
         member => member.userId === input.presenterUserId
       );
+      if (!leadMember && access.departmentIds !== null) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Department-scoped coordinators can assign presenters only from their department member directory.",
+        });
+      }
+      const leadPresenter = leadMember
+        ? { ...leadMember, isInstitutionMember: true }
+        : await resolvePlatformPresenter(db, input.presenterUserId, {
+            name: input.presenterName,
+            cadre: input.presenterCadre,
+            department: input.presenterDepartment,
+          });
       if (!leadPresenter) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Choose the lead presenter from the active institution-member list.",
+          message: "Choose a valid Paeds Resus account as the presenter.",
         });
       }
       const coPresenterIds = input.coPresenters.map(presenter => presenter.userId);
@@ -727,13 +792,24 @@ export const institutionLearningRouter = router({
           message: "Each co-presenter must be a different active member and cannot be the lead presenter.",
         });
       }
-      const coPresenterDirectory = coPresenterIds.map(userId =>
-        memberDirectory.find(member => member.userId === userId)
+      const coPresenterDirectory = await Promise.all(
+        coPresenterIds.map(async userId => {
+          const member = memberDirectory.find(candidate => candidate.userId === userId);
+          if (!member && access.departmentIds !== null) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Department-scoped coordinators can assign presenters only from their department member directory.",
+            });
+          }
+          return member
+            ? { ...member, isInstitutionMember: true }
+            : await resolvePlatformPresenter(db, userId);
+        })
       );
       if (coPresenterDirectory.some(member => !member)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Choose every co-presenter from the active institution-member list.",
+          message: "Choose every co-presenter from a valid Paeds Resus account.",
         });
       }
       const normalizedAudienceLabel = input.audienceScope === "other_cadre"
@@ -761,7 +837,7 @@ export const institutionLearningRouter = router({
         }
       }
       const now = new Date();
-      const result = await db.insert(cpdEvents).values({
+      const [result] = await db.insert(cpdEvents).values({
         institutionalAccountId: input.institutionId,
         name: input.name,
         eventDate: input.eventDate,
@@ -782,7 +858,7 @@ export const institutionLearningRouter = router({
         cpdPoints: input.cpdPoints == null ? null : String(input.cpdPoints),
         approvingCouncil: input.approvingCouncil ?? null,
       });
-      const eventId = (result as unknown as { insertId: number }).insertId;
+      const eventId = Number((result as unknown as { insertId: number }).insertId);
       await db.insert(cpdEventAuditEvents).values({
         institutionalAccountId: input.institutionId,
         cpdEventId: eventId,
@@ -800,14 +876,14 @@ export const institutionLearningRouter = router({
             if (!member) {
               throw new TRPCError({
                 code: "BAD_REQUEST",
-                message: "Choose every co-presenter from the active institution-member list.",
+                message: "Choose every co-presenter from a valid Paeds Resus account.",
               });
             }
             return {
               cpdEventId: eventId,
               institutionalAccountId: input.institutionId,
               userId: member.userId,
-              participantType: "institution_member" as const,
+              participantType: member.isInstitutionMember ? "institution_member" as const : "guest" as const,
               fullName: member.staffName,
               email: member.staffEmail || null,
               cadre: member.cadre ?? member.staffRole,
@@ -936,24 +1012,33 @@ export const institutionLearningRouter = router({
         db,
         input.institutionId,
         access,
-        event.facilityDepartmentId ?? undefined
+        access.departmentIds ? event.facilityDepartmentId ?? undefined : undefined
       );
       const member = members.find(candidate => candidate.userId === input.userId);
-      if (!member) {
+      if (!member && access.departmentIds !== null) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Department-scoped coordinators can assign presenters only from their department member directory.",
+        });
+      }
+      const presenter = member
+        ? { ...member, isInstitutionMember: true }
+        : await resolvePlatformPresenter(db, input.userId);
+      if (!presenter) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Choose the co-presenter from the active institution-member directory.",
+          message: "Choose the co-presenter from a valid Paeds Resus account.",
         });
       }
       await db.insert(cpdEventCoPresenters).values({
         cpdEventId: input.eventId,
         institutionalAccountId: input.institutionId,
-        userId: member.userId,
-        participantType: "institution_member",
-        fullName: member.staffName,
-        email: member.staffEmail || null,
-        cadre: member.cadre ?? member.staffRole,
-        department: member.department,
+        userId: presenter.userId,
+        participantType: presenter.isInstitutionMember ? "institution_member" : "guest",
+        fullName: presenter.staffName,
+        email: presenter.staffEmail || null,
+        cadre: presenter.cadre ?? presenter.staffRole,
+        department: presenter.department,
         addedByUserId: ctx.user.id,
       });
       await db.insert(cpdEventAuditEvents).values({
@@ -962,7 +1047,7 @@ export const institutionLearningRouter = router({
         action: "presenter_changed",
         previousStatus: null,
         nextStatus: null,
-        reason: `Co-presenter added: ${member.staffName}`,
+        reason: `Co-presenter added: ${presenter.staffName}`,
         changedFields: JSON.stringify(["coPresenters"]),
         actorUserId: ctx.user.id,
       });

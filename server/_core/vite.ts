@@ -47,6 +47,53 @@ export async function setupVite(app: Express, server: Server) {
   });
 }
 
+const ANONYMOUS_SPA_ROUTES = new Set([
+  "/",
+  "/home",
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/about",
+  "/resources",
+  "/resources/bls-certification-cost-kenya",
+  "/resources/hospital-emergency-readiness-checklist",
+  "/resources/paediatric-shock-recognition-first-actions",
+  "/help",
+  "/verify",
+  "/privacy",
+  "/terms",
+  "/legal/cookies",
+  "/legal/care-signal",
+  "/legal/clinical-use",
+  "/legal/subprocessors",
+  "/legal/data-request",
+  "/legal/care-signal-appeal",
+  "/legal/code-signal",
+  "/parent-safe-truth",
+  "/safe-truth",
+  "/institutional",
+  "/micro-courses",
+  "/aha-courses",
+  "/training",
+  "/training/bls",
+  "/training/acls",
+  "/training/pals",
+  "/training/nrp",
+  "/for-providers",
+  "/for-institutions",
+  "/for-parents",
+  "/programs/nerp-acls",
+  "/programs/ierp",
+  "/fellowship",
+  "/iers/orientation",
+  "/contact",
+]);
+
+function requestPath(req: express.Request) {
+  return req.path.replace(/\/$/, "") || "/";
+}
+
 export function serveStatic(app: Express) {
   const distPath =
     process.env.NODE_ENV === "development"
@@ -58,10 +105,55 @@ export function serveStatic(app: Express) {
     );
   }
 
+  const prerenderedRoutes = [
+    "/",
+    "/for-institutions",
+    "/for-providers",
+    "/institutional",
+    "/about",
+    "/resources",
+    "/resources/bls-certification-cost-kenya",
+    "/resources/hospital-emergency-readiness-checklist",
+    "/resources/paediatric-shock-recognition-first-actions",
+    "/training",
+    "/aha-courses",
+    "/fellowship",
+    "/for-parents",
+    "/programs/nerp-acls",
+    "/programs/ierp",
+  ];
+
+  for (const route of prerenderedRoutes) {
+    app.get(route, (req, res, next) => {
+      const spaShell = path.resolve(distPath, "index.html");
+      if (req.headers.cookie) {
+        res.sendFile(spaShell);
+        return;
+      }
+      const prerenderedFile = path.resolve(
+        distPath,
+        route === "/" ? "index.html" : route.slice(1),
+        route === "/" ? "" : "index.html"
+      );
+      if (fs.existsSync(prerenderedFile)) {
+        res.sendFile(prerenderedFile);
+        return;
+      }
+      next();
+    });
+  }
+
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
+  // Authenticated routes retain the SPA shell because role gates resolve them
+  // after the session is read. Anonymous unknown paths must return a real 404
+  // so crawlers do not mistake dead legacy URLs for live pages.
+  app.use("*", (req, res) => {
+    const hasSession = Boolean(req.headers.cookie);
+    if (!hasSession && !ANONYMOUS_SPA_ROUTES.has(requestPath(req))) {
+      res.status(404).sendFile(path.resolve(distPath, "index.html"));
+      return;
+    }
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

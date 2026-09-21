@@ -478,7 +478,7 @@ async function ensureCatalog(
   const existing = await db
     .select({ id: courses.id })
     .from(courses)
-    .where(eq(courses.programType, programType))
+    .where(and(eq(courses.programType, programType), eq(courses.isActive, true)))
     .orderBy(asc(courses.id));
 
   let courseId: number | undefined;

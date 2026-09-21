@@ -938,6 +938,15 @@ export default function InstructorPortal() {
                 })()}
               </div>
             )}
+            {approved && (
+              <div className="rounded-lg border border-teal-200 bg-teal-50/60 p-4 space-y-2">
+                <p className="text-sm font-medium text-teal-950">Record learner completion</p>
+                <p className="text-xs text-teal-900/75">Document verified Phase 2 and Phase 3 completion for learners who completed part of their training outside the platform.</p>
+                <Link href="/completion-records">
+                  <Button size="sm" variant="outline" className="border-teal-300 text-teal-900">Open completion records</Button>
+                </Link>
+              </div>
+            )}
             {!certified && (
               <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-3">
                 <p className="text-sm text-foreground/90">

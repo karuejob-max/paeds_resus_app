@@ -42,6 +42,18 @@ describe("IERP authoritative programme state", () => {
     expect(access.phase2BookingLocked).toBe(false);
   });
 
+  it("treats an early-paid August-to-November starter as fully unlocked", () => {
+    const access = getIerpPaymentAccess(
+      { enrolledAt: new Date("2026-09-01T10:00:00+03:00"), totalPaidAmount: String(IERP_TOTAL_FEE_KES) },
+      new Date("2026-09-15T12:00:00+03:00")
+    );
+    expect(access.deferredStartWindow).toBe(true);
+    expect(access.isPaidInFull).toBe(true);
+    expect(access.balance).toBe(0);
+    expect(access.cognitiveAccessLocked).toBe(false);
+    expect(access.phase2BookingLocked).toBe(false);
+  });
+
   it("locks an unpaid August-to-November starter at the December EAT boundary", () => {
     const access = getIerpPaymentAccess(
       { enrolledAt: new Date("2026-08-15T10:00:00+03:00"), totalPaidAmount: "0.00" },
@@ -99,16 +111,17 @@ describe("IERP authoritative programme state", () => {
     expect(access.paymentLockoutActive).toBe(true);
   });
 
-  it("uses the declared effective commencement date for the payment window", () => {
+  it("uses the IERP enrolment timestamp even when the profile commencement date is stale", () => {
     const access = getIerpPaymentAccess(
       {
-        enrolledAt: new Date("2026-07-31T10:00:00+03:00"),
-        effectiveCommencementDate: new Date("2026-08-01T00:00:00+03:00"),
+        enrolledAt: new Date("2026-09-01T10:00:00+03:00"),
+        effectiveCommencementDate: new Date("2025-08-01T00:00:00+03:00"),
         totalPaidAmount: 0,
       },
-      new Date("2026-08-15T00:00:00+03:00")
+      new Date("2026-09-01T12:00:00+03:00")
     );
     expect(access.deferredStartWindow).toBe(true);
+    expect(access.paymentDeadline).toEqual(new Date("2026-12-01T00:00:00+03:00"));
     expect(access.cognitiveAccessLocked).toBe(false);
   });
 

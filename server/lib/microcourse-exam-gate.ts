@@ -50,6 +50,7 @@ export type MicrocourseExamState = {
   diagnosticCompleted: boolean;
   summativeRequired: boolean;
   summativePassed: boolean;
+  summativeScore: number | null;
   summativeQuizId: number | null;
   diagnosticQuizId: number | null;
   summativeAttempts: number;
@@ -190,6 +191,7 @@ export async function getMicrocourseExamState(
       diagnosticCompleted: true,
       summativeRequired: false,
       summativePassed: true,
+      summativeScore: null,
       summativeQuizId: null,
       diagnosticQuizId: null,
       summativeAttempts: 0,
@@ -293,6 +295,7 @@ export async function getMicrocourseExamState(
     diagnosticCompleted: diagnosticQuiz ? diagnosticCompleted : true,
     summativeRequired: !!summativeQuiz,
     summativePassed: passed,
+    summativeScore: summativeProgress?.score ?? null,
     summativeQuizId: summativeQuiz?.id ?? null,
     diagnosticQuizId: diagnosticQuiz?.id ?? null,
     summativeAttempts,
@@ -493,6 +496,7 @@ export async function getAhaCourseExamState(
     diagnosticCompleted: diagnosticQuizId ? diagnosticCompleted : true,
     summativeRequired: !!summativeQuizId,
     summativePassed: passed,
+    summativeScore: summativeProgress?.score ?? null,
     summativeQuizId,
     diagnosticQuizId,
     summativeAttempts,

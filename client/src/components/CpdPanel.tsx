@@ -5,6 +5,8 @@ import SignaturePad from "@/components/SignaturePad";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -41,7 +43,7 @@ import {
 } from "lucide-react";
 import { CANONICAL_CLINICAL_DEPARTMENTS } from "@/lib/clinical-departments";
 import { DepartmentSelectors } from "@/components/DepartmentSelectors";
-import CadreProgressiveSelector from "@/components/CadreProgressiveSelector";
+import CadreProgressiveSelector, { SearchableDropdown } from "@/components/CadreProgressiveSelector";
 import { StaffPerformanceRoster } from "@/components/StaffPerformanceRoster";
 import { ALL_STANDARD_SPECIALTIES } from "@/lib/cadre-taxonomy";
 import {
@@ -86,6 +88,13 @@ function AttendeeDepartmentCell({ department, canonicalDepartmentName }: { depar
   );
 }
 
+export function getCurrentOpenCpdEvent<T extends { id: number; isOpen: boolean }>(events: T[]): T | null {
+  return events.reduce<T | null>(
+    (current, event) => event.isOpen && (!current || event.id > current.id) ? event : current,
+    null,
+  );
+}
+
 export default function CpdPanel({ institutionId, compact = false }: CpdPanelProps) {
   const utils = trpc.useUtils();
 
@@ -116,7 +125,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
   const [presenterSubSpecialty, setPresenterSubSpecialty] = useState("");
   const [presenterCustomOther, setPresenterCustomOther] = useState("");
   const [presenterDepartment, setPresenterDepartment] = useState("");
-  const [showPresenterSuggestions, setShowPresenterSuggestions] = useState(false);
+  const [presenterSearch, setPresenterSearch] = useState("");
 
   const [approvingCouncil, setApprovingCouncil] = useState("NCK");
   const [customCouncil, setCustomCouncil] = useState("");
@@ -135,7 +144,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
   const [editEventType, setEditEventType] = useState<"cne" | "cme" | "cpd_general" | "grand_rounds" | "journal_club" | "workshop">("cne");
   const [editCpdPoints, setEditCpdPoints] = useState("");
   const [editApprovingCouncil, setEditApprovingCouncil] = useState("NCK");
-  const [showEditPresenterSuggestions, setShowEditPresenterSuggestions] = useState(false);
+  const [editPresenterSearch, setEditPresenterSearch] = useState("");
 
   // Helper functions for parsing and setting presenter cadre
   const setPresenterCadreFromUser = (
@@ -253,18 +262,20 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
 
   // Search queries for autocomplete
   const presenterSearchQuery = trpc.cpd.searchPresenters.useQuery(
-    { query: presenterName, institutionId },
-    { enabled: showPresenterSuggestions && presenterName.trim().length >= 2 }
+    { query: presenterSearch.trim(), institutionId },
+    { enabled: true, staleTime: 15_000 }
   );
 
   const editPresenterSearchQuery = trpc.cpd.searchPresenters.useQuery(
-    { query: editPresenterName, institutionId },
-    { enabled: showEditPresenterSuggestions && editPresenterName.trim().length >= 2 }
+    { query: editPresenterSearch.trim(), institutionId },
+    { enabled: true, staleTime: 15_000 }
   );
 
   const events = eventsQuery.data ?? [];
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
-  const openEvent = events.find((e) => e.isOpen && e.id === selectedEventId) ?? events.find((e) => e.isOpen) ?? null;
+  // The registration QR/link must always point to the newest open session. A historical
+  // session selected for attendance review must never change the public check-in target.
+  const openEvent = getCurrentOpenCpdEvent(events);
   const effectiveEventId = selectedEventId ?? openEvent?.id ?? events[0]?.id ?? null;
   const selectedEvent = events.find((e) => e.id === effectiveEventId) ?? null;
 
@@ -291,6 +302,13 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
   const [deleteTargetEvent, setDeleteTargetEvent] = useState<{ id: number; name: string; isOpen: boolean; attendeeCount: number } | null>(null);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
   const [deleteConfirmAttendeesInput, setDeleteConfirmAttendeesInput] = useState("");
+  const [selectedAttendanceIds, setSelectedAttendanceIds] = useState<number[]>([]);
+  const [bulkVerificationReason, setBulkVerificationReason] = useState("Platform attendance roster reviewed by CPD Coordinator");
+  const [bulkVerificationResult, setBulkVerificationResult] = useState<{
+    succeeded: number[];
+    skipped: Array<{ attendeeId: number; reason: string }>;
+    failed: Array<{ attendeeId: number; reason: string }>;
+  } | null>(null);
 
   useEffect(() => {
     if (selectedEvent) {
@@ -335,7 +353,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
       setApprovingCouncil("NCK");
       setCustomCouncil("");
       setCpdPoints("");
-      setShowPresenterSuggestions(false);
+      setPresenterSearch("");
       void utils.cpd.listEvents.invalidate({ institutionId });
       void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
     },
@@ -346,7 +364,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
     onSuccess: () => {
       toast.success("Event presenter & details updated");
       setEditingEventId(null);
-      setShowEditPresenterSuggestions(false);
+      setEditPresenterSearch("");
       void utils.cpd.listEvents.invalidate({ institutionId });
       void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
     },
@@ -361,6 +379,21 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
     },
   });
 
+  const bulkVerifyAttendanceMutation = trpc.cpd.bulkVerifyAttendance.useMutation({
+    onSuccess: (result) => {
+      setBulkVerificationResult(result);
+      const messages = [`Verified ${result.succeeded.length} attendance record(s).`];
+      if (result.skipped.length) messages.push(`Skipped ${result.skipped.length}.`);
+      if (result.failed.length) messages.push(`${result.failed.length} require individual review.`);
+      toast.success(messages.join(" "));
+      setSelectedAttendanceIds([]);
+      void utils.cpd.listAttendees.invalidate({ institutionId, eventId: effectiveEventId ?? undefined });
+      void utils.cpd.listEvents.invalidate({ institutionId });
+      void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
+    },
+    onError: (err) => toast.error(err.message || "Bulk verification failed"),
+  });
+
   const reviewAttendanceMutation = trpc.cpd.reviewAttendance.useMutation({
     onSuccess: () => {
       toast.success("Attendance status updated");
@@ -372,15 +405,15 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
   });
 
   const deleteEventMutation = trpc.cpd.deleteEvent.useMutation({
-    onSuccess: () => {
-      toast.success("CPD event archived; records were preserved.");
+    onSuccess: (result) => {
+      toast.success(result.deleted ? "CPD session deleted." : "CPD event archived; records were preserved.");
       setDeleteTargetEvent(null);
       setDeleteConfirmInput("");
       setDeleteConfirmAttendeesInput("");
       void utils.cpd.listEvents.invalidate({ institutionId });
       void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
     },
-    onError: (err) => toast.error(err.message || "Failed to archive event"),
+    onError: (err) => toast.error(err.message || "Failed to delete or archive event"),
   });
 
   const voidEventMutation = trpc.cpd.voidEvent.useMutation({
@@ -494,11 +527,11 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
   );  return (
     <>
       {/* Sub-tab navigation header for new users */}
-      <div className="sticky top-2 z-20 -mx-1 mb-6 flex gap-2 overflow-x-auto border-b bg-background/95 px-1 pb-3 pt-1 shadow-sm backdrop-blur sm:static sm:mx-0 sm:flex-wrap sm:overflow-visible sm:bg-transparent sm:px-0 sm:pt-0 sm:shadow-none">
+      <div className="sticky top-2 z-20 -mx-1 mb-6 flex min-w-0 flex-col gap-2 overflow-hidden border-b bg-background/95 px-1 pb-3 pt-1 shadow-sm backdrop-blur sm:static sm:mx-0 sm:flex-row sm:flex-wrap sm:overflow-visible sm:bg-transparent sm:px-0 sm:pt-0 sm:shadow-none">
         {!compact && <Button
           variant={cpdSubTab === "overview" ? "default" : "outline"}
           onClick={() => setCpdSubTab("overview")}
-          className="text-xs font-semibold gap-2"
+          className="w-full min-w-0 justify-start whitespace-normal text-left text-xs font-semibold gap-2 sm:w-auto sm:justify-center sm:text-center"
         >
           <BarChart3 className="h-4 w-4" />
           Overview & Analytics
@@ -506,7 +539,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
         <Button
           variant={cpdSubTab === "sessions" ? "default" : "outline"}
           onClick={() => setCpdSubTab("sessions")}
-          className="text-xs font-semibold gap-2"
+          className="w-full min-w-0 justify-start whitespace-normal text-left text-xs font-semibold gap-2 sm:w-auto sm:justify-center sm:text-center"
         >
           <Calendar className="h-4 w-4" />
           Sessions & Check-In
@@ -514,7 +547,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
         {!compact && <Button
           variant={cpdSubTab === "staff_development" ? "default" : "outline"}
           onClick={() => setCpdSubTab("staff_development")}
-          className="text-xs font-semibold gap-2"
+          className="w-full min-w-0 justify-start whitespace-normal text-left text-xs font-semibold gap-2 sm:w-auto sm:justify-center sm:text-center"
         >
           <UserCheck className="h-4 w-4" />
           Staff Development
@@ -522,7 +555,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
         <Button
           variant={cpdSubTab === "certificates" ? "default" : "outline"}
           onClick={() => setCpdSubTab("certificates")}
-          className="text-xs font-semibold gap-2"
+          className="w-full min-w-0 justify-start whitespace-normal text-left text-xs font-semibold gap-2 sm:w-auto sm:justify-center sm:text-center"
         >
           <Award className="h-4 w-4" />
           Certificates & Exports
@@ -530,7 +563,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
         {!compact && <Button
           variant={cpdSubTab === "new_session" ? "default" : "outline"}
           onClick={() => setCpdSubTab("new_session")}
-          className="text-xs font-semibold gap-2"
+          className="w-full min-w-0 justify-start whitespace-normal text-left text-xs font-semibold gap-2 sm:w-auto sm:justify-center sm:text-center"
         >
           <PlusCircle className="h-4 w-4" />
           Open New Session
@@ -538,14 +571,14 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
         {!compact && <Button
           variant={cpdSubTab === "settings" ? "default" : "outline"}
           onClick={() => setCpdSubTab("settings")}
-          className="text-xs font-semibold gap-2"
+          className="w-full min-w-0 justify-start whitespace-normal text-left text-xs font-semibold gap-2 sm:w-auto sm:justify-center sm:text-center"
         >
           <Building2 className="h-4 w-4" />
           Certificate settings
         </Button>}
       </div>
 
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-6">
         <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
           <CardContent className="grid gap-3 p-4 text-xs sm:grid-cols-4">
             <div><p className="font-semibold text-blue-950 dark:text-blue-100">Reporting scope</p><p className="text-muted-foreground">Professional development activity only.</p></div>
@@ -838,7 +871,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
 
         {/* --- STAFF DEVELOPMENT TAB --- */}
         {!compact && cpdSubTab === "staff_development" && (
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <Card className="border-indigo-200 bg-indigo-50/40 dark:border-indigo-900 dark:bg-indigo-950/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><UserCheck className="h-5 w-5 text-indigo-700" />Staff Development</CardTitle>
@@ -851,7 +884,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
 
         {/* --- CERTIFICATES & EXPORTS TAB --- */}
         {cpdSubTab === "certificates" && (
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Award className="h-5 w-5 text-purple-700" />CPD Certificates & Exports</CardTitle>
@@ -1017,7 +1050,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                                   setEditEventType((event.eventType as any) || "cne");
                                   setEditCpdPoints(event.cpdPoints || "");
                                   setEditApprovingCouncil(event.approvingCouncil || "NCK");
-                                  setShowEditPresenterSuggestions(false);
+                                  setEditPresenterSearch("");
                                 }}
                               >
                                 <Edit className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1053,12 +1086,12 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                                   <Ban className="h-3.5 w-3.5" />
                                 </Button>
                               )}
-                              {/* Archive button — preserves attendees, certificates, and audit history */}
-                              {!event.isOpen && (
+                              {/* Delete attendee-free mistakes; archive sessions with registrations. */}
+                              {!event.isOpen && !["archived", "voided", "cancelled"].includes(event.lifecycleStatus ?? "") && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  title="Archive CPD session (records preserved)"
+                                  title={(event as any).attendeeCount > 0 ? "Archive CPD session (records preserved)" : "Delete CPD session (no attendees)"}
                                   className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                   onClick={() => {
                                     setDeleteTargetEvent({
@@ -1071,7 +1104,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                                     setDeleteConfirmAttendeesInput("");
                                   }}
                                 >
-                                  <Ban className="h-3.5 w-3.5" />
+                                  {(event as any).attendeeCount > 0 ? <Ban className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
                                 </Button>
                               )}
                             </div>
@@ -1135,49 +1168,39 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                       </div>
 
                       <div className="grid gap-3 sm:grid-cols-3">
-                        <div className="relative">
+                        <div className="min-w-0">
                           <Label className="text-xs">
-                            Presenter Name — type to search, then choose the department/cadre match {editPresenterUserId && <UserCheck className="inline h-3 w-3 text-emerald-600 ml-1" />}
+                            Presenter {editPresenterUserId && <UserCheck className="inline h-3 w-3 text-emerald-600 ml-1" />}
                           </Label>
-                          <Input
-                            className="h-8 text-xs"
-                            placeholder="Type to search..."
-                            value={editPresenterName}
-                            onChange={(e) => {
-                              setEditPresenterName(e.target.value);
-                              setEditPresenterUserId(null);
-                              setShowEditPresenterSuggestions(true);
+                          <SearchableDropdown
+                            value={editPresenterUserId == null ? "" : String(editPresenterUserId)}
+                            onChange={(value) => {
+                              const user = (editPresenterSearchQuery.data ?? []).find(candidate => String(candidate.id) === value);
+                              if (!value || !user) {
+                                setEditPresenterUserId(null);
+                                setEditPresenterName("");
+                                setEditPresenterCadre("");
+                                setEditPresenterSubSpecialty("");
+                                setEditPresenterCustomOther("");
+                                setEditPresenterDept("");
+                                return;
+                              }
+                              setEditPresenterUserId(user.id);
+                              setEditPresenterName(user.fullName);
+                              setPresenterCadreFromUser(user.cadre, user.cadreOther, true);
+                              setEditPresenterDept(user.department || "");
                             }}
-                            onFocus={() => setShowEditPresenterSuggestions(true)}
+                            options={(editPresenterSearchQuery.data ?? []).map(user => ({
+                              value: String(user.id),
+                              label: `${user.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member"} · ${user.fullName} · ${user.department || "Department not set"} · ${user.cadre || "Cadre not set"} · ${user.email || "No email"}`,
+                            }))}
+                            onSearchChange={setEditPresenterSearch}
+                            placeholder="Choose presenter"
+                            searchPlaceholder="Type name or email to search..."
+                            emptyText="No eligible Paeds Resus account found."
+                            clearable
+                            searchAlwaysVisible
                           />
-                          {showEditPresenterSuggestions && editPresenterSearchQuery.data && editPresenterSearchQuery.data.length > 0 && (
-                            <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 text-popover-foreground shadow-md max-h-48 overflow-auto">
-                              {editPresenterSearchQuery.data.map((user) => (
-                                <div
-                                  key={user.id}
-                                  className="cursor-pointer rounded-sm px-2 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground flex items-center justify-between"
-                                  onClick={() => {
-                                    setEditPresenterUserId(user.id);
-                                    setEditPresenterName(user.fullName);
-                                    setPresenterCadreFromUser(user.cadre, user.cadreOther, true);
-                                    if (user.department) setEditPresenterDept(user.department);
-                                    setShowEditPresenterSuggestions(false);
-                                  }}
-                                >
-                                  <div>
-                                    <span className="font-semibold">{user.fullName}</span>
-                                    <span className="text-muted-foreground ml-1">· {user.department || "Department not set"}</span>
-                                    <span className="text-muted-foreground ml-1">· {user.email}</span>
-                                  </div>
-                                  {user.cadre && (
-                                    <Badge variant="outline" className="text-[10px]">
-                                      {user.cadre === "Other" ? user.cadreOther || "Other" : (user.cadreOther ? `${user.cadre} - ${user.cadreOther}` : user.cadre)}
-                                    </Badge>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Presenter Cadre</Label>
@@ -1282,49 +1305,48 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
               </div>
 
               <div className="grid gap-4 sm:grid-cols-3">
-                <div className="relative">
-                          <Label htmlFor="cpd-presenter-name">
-                            Lead presenter — type a name to search institution members {presenterUserId && <UserCheck className="inline h-3.5 w-3.5 text-emerald-600 ml-1" />}
-                          </Label>
-                  <Input
-                    id="cpd-presenter-name"
-                    placeholder="Type name to search platform clinicians..."
-                    value={presenterName}
-                    onChange={(e) => {
-                      setPresenterName(e.target.value);
-                      setPresenterUserId(null);
-                      setShowPresenterSuggestions(true);
+                <div className="min-w-0">
+                  <Label htmlFor="cpd-presenter-name">
+                    Lead presenter {presenterUserId && <UserCheck className="inline h-3.5 w-3.5 text-emerald-600 ml-1" />}
+                  </Label>
+                  <SearchableDropdown
+                    value={presenterUserId == null ? "" : String(presenterUserId)}
+                    onChange={(value) => {
+                      const user = (presenterSearchQuery.data ?? []).find(candidate => String(candidate.id) === value);
+                      if (!value || !user) {
+                        setPresenterSearch("");
+                        setPresenterUserId(null);
+                        setPresenterName("");
+                        setPresenterCadre("");
+                        setPresenterSubSpecialty("");
+                        setPresenterCustomOther("");
+                        setPresenterDepartment("");
+                        return;
+                      }
+                      setPresenterSearch("");
+                      setPresenterUserId(user.id);
+                      setPresenterName(user.fullName);
+                      setPresenterCadreFromUser(user.cadre, user.cadreOther, false);
+                      setPresenterDepartment(user.department || "");
                     }}
-                    onFocus={() => setShowPresenterSuggestions(true)}
+                    options={(presenterSearchQuery.data ?? []).map(user => ({
+                      value: String(user.id),
+                      label: user.fullName,
+                      description: [
+                        user.email || "No email",
+                        user.department || "Department not set",
+                        user.cadre || "Cadre not set",
+                        user.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member",
+                      ].join(" · "),
+                      searchText: [user.fullName, user.email, user.department, user.cadre].filter(Boolean).join(" "),
+                    }))}
+                    onSearchChange={setPresenterSearch}
+                    placeholder="Choose lead presenter"
+                    searchPlaceholder="Type name or email to search..."
+                    emptyText="No eligible Paeds Resus account found."
+                    clearable
+                    searchAlwaysVisible
                   />
-                  {showPresenterSuggestions && presenterSearchQuery.data && presenterSearchQuery.data.length > 0 && (
-                    <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 text-popover-foreground shadow-md max-h-48 overflow-auto">
-                      {presenterSearchQuery.data.map((user) => (
-                        <div
-                          key={user.id}
-                          className="cursor-pointer rounded-sm px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground flex items-center justify-between"
-                          onClick={() => {
-                            setPresenterUserId(user.id);
-                            setPresenterName(user.fullName);
-                            setPresenterCadreFromUser(user.cadre, user.cadreOther, false);
-                            if (user.department) setPresenterDepartment(user.department);
-                            setShowPresenterSuggestions(false);
-                          }}
-                        >
-                          <div>
-                            <span className="font-semibold">{user.fullName}</span>
-                            <span className="text-muted-foreground ml-1">· {user.department || "Department not set"}</span>
-                            <span className="text-muted-foreground ml-1">· {user.email}</span>
-                          </div>
-                          {user.cadre && (
-                            <Badge variant="outline" className="text-[10px]">
-                              {user.cadre === "Other" ? user.cadreOther || "Other" : (user.cadreOther ? `${user.cadre} - ${user.cadreOther}` : user.cadre)}
-                            </Badge>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="cpd-presenter-cadre">Lead presenter cadre</Label>
@@ -1592,9 +1614,53 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
               ) : attendees.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No registrations for this event yet.</p>
               ) : (
-                <Table>
+                <>
+                  <div className="mb-4 rounded-lg border bg-muted/20 p-3 space-y-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Bulk attendance approval</p>
+                        <p className="text-xs text-muted-foreground">Select registered or checked-in attendees. Existing safeguards still apply per record; exceptions are returned for individual review.</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={selectedAttendanceIds.length === 0 || bulkVerificationReason.trim().length < 3 || bulkVerifyAttendanceMutation.isPending}
+                        onClick={() => bulkVerifyAttendanceMutation.mutate({
+                          institutionId,
+                          attendeeIds: selectedAttendanceIds,
+                          reason: bulkVerificationReason.trim(),
+                        })}
+                      >
+                        {bulkVerifyAttendanceMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                        Verify {selectedAttendanceIds.length || "selected"}
+                      </Button>
+                  </div>
+                  {bulkVerificationResult && (bulkVerificationResult.failed.length > 0 || bulkVerificationResult.skipped.length > 0) ? (
+                    <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+                      <p className="font-medium">Batch exceptions</p>
+                      {[...bulkVerificationResult.failed, ...bulkVerificationResult.skipped].map(item => (
+                        <p key={`${item.attendeeId}-${item.reason}`}>Record {item.attendeeId}: {item.reason}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                  <Textarea
+                      value={bulkVerificationReason}
+                      onChange={event => setBulkVerificationReason(event.target.value)}
+                      rows={2}
+                      maxLength={500}
+                      aria-label="Bulk verification reason"
+                      placeholder="Reason for this batch verification"
+                    />
+                  </div>
+                  <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          aria-label="Select all eligible attendees"
+                          checked={attendees.some(a => !["attendance_verified", "excused", "cancelled"].includes(a.attendanceStatus)) && attendees.filter(a => !["attendance_verified", "excused", "cancelled"].includes(a.attendanceStatus)).every(a => selectedAttendanceIds.includes(a.id))}
+                          onCheckedChange={checked => setSelectedAttendanceIds(checked ? attendees.filter(a => !["attendance_verified", "excused", "cancelled"].includes(a.attendanceStatus)).map(a => a.id) : [])}
+                        />
+                      </TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Cadre</TableHead>
                       <TableHead>Department</TableHead>
@@ -1606,6 +1672,14 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                   <TableBody>
                     {attendees.map((a) => (
                       <TableRow key={a.id}>
+                        <TableCell>
+                          <Checkbox
+                            aria-label={`Select ${a.fullName}`}
+                            disabled={["attendance_verified", "excused", "cancelled"].includes(a.attendanceStatus)}
+                            checked={selectedAttendanceIds.includes(a.id)}
+                            onCheckedChange={checked => setSelectedAttendanceIds(current => checked ? [...new Set([...current, a.id])] : current.filter(id => id !== a.id))}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">{a.fullName}</TableCell>
                         <TableCell>
                           {a.cadre === "Other" ? a.cadreOther || "Other" : a.cadre}
@@ -1667,6 +1741,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                     ))}
                   </TableBody>
                 </Table>
+                </>
               )}
             </CardContent>
           </Card>
@@ -1687,13 +1762,13 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <Ban className="h-5 w-5" />
-              Archive CPD Session
+              {deleteTargetEvent?.attendeeCount ? <Ban className="h-5 w-5" /> : <Trash2 className="h-5 w-5" />}
+              {deleteTargetEvent?.attendeeCount ? "Archive CPD Session" : "Delete CPD Session"}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm">
                 <p>
-                  You are about to archive:{" "}
+                  You are about to {deleteTargetEvent?.attendeeCount ? "archive" : "permanently delete"}:{" "}
                   <strong>{deleteTargetEvent?.name}</strong>.
                 </p>
 
@@ -1708,9 +1783,9 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                   </div>
                 ) : (
                   <div className="rounded-md border border-border bg-muted/30 p-3 text-muted-foreground">
-                    <p className="font-semibold text-foreground">This session will be archived.</p>
+                    <p className="font-semibold text-foreground">This session has no registered attendees and will be permanently deleted.</p>
                     <p className="text-xs mt-1">
-                      Session records, codes, and logs will be preserved for audit and reporting.
+                      This action is intended for incorrectly created sessions and cannot be undone. Type the exact event name to continue.
                     </p>
                   </div>
                 )}
@@ -1776,10 +1851,12 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
             >
               {deleteEventMutation.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
+              ) : deleteTargetEvent?.attendeeCount ? (
                 <Ban className="mr-2 h-4 w-4" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
               )}
-              Archive session
+              {deleteTargetEvent?.attendeeCount ? "Archive session" : "Delete session permanently"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1810,7 +1887,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
           <div className="py-4">
             {/* SESSIONS VIEW */}
             {drilldownType === "sessions" && (
-              <div className="border rounded-md overflow-x-auto">
+              <div className="max-w-full overflow-x-auto rounded-md border">
                 <table className="w-full text-sm text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-900 border-b">
@@ -1854,7 +1931,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                     <Loader2 className="h-5 w-5 animate-spin" /> Loading registrations...
                   </div>
                 ) : (
-                  <div className="border rounded-md overflow-x-auto">
+                  <div className="max-w-full overflow-x-auto rounded-md border">
                     <table className="w-full text-sm text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-slate-900 border-b">
@@ -1901,7 +1978,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                     <Loader2 className="h-5 w-5 animate-spin" /> Loading points leaderboard...
                   </div>
                 ) : (
-                  <div className="border rounded-md overflow-x-auto">
+                  <div className="max-w-full overflow-x-auto rounded-md border">
                     <table className="w-full text-sm text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-slate-900 border-b">
@@ -1965,7 +2042,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
 
             {/* ACTIVE DEPTS VIEW */}
             {drilldownType === "active_depts" && (
-              <div className="border rounded-md overflow-x-auto">
+              <div className="max-w-full overflow-x-auto rounded-md border">
                 <table className="w-full text-sm text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-900 border-b">
@@ -2028,7 +2105,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                     <Loader2 className="h-5 w-5 animate-spin" /> Loading department check-ins...
                   </div>
                 ) : (
-                  <div className="border rounded-md overflow-x-auto">
+                  <div className="max-w-full overflow-x-auto rounded-md border">
                     <table className="w-full text-sm text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-slate-900 border-b">
@@ -2071,7 +2148,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
 
             {/* ROLE ENGAGEMENT VIEW */}
             {drilldownType === "role_engagement" && (
-              <div className="border rounded-md overflow-x-auto">
+              <div className="max-w-full overflow-x-auto rounded-md border">
                 <table className="w-full text-sm text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-900 border-b">

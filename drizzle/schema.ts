@@ -200,6 +200,8 @@ export const enrollments = mysqlTable("enrollments", {
   ),
   elearningProofSubmittedAt: timestamp("elearningProofSubmittedAt"),
   elearningProofVerifiedAt: timestamp("elearningProofVerifiedAt"),
+  elearningProofRejectedAt: timestamp("elearningProofRejectedAt"),
+  elearningProofRejectionReason: text("elearningProofRejectionReason"),
   /** ILS operations: first paid access and most recent learning activity for activation/reporting. */
   activatedAt: timestamp("activatedAt"),
   lastActivityAt: timestamp("lastActivityAt"),
@@ -361,9 +363,14 @@ export const globalEntitlements = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     grantReference: varchar("grantReference", { length: 64 }).notNull().unique(),
+    /** One-way hash of a shareable redemption code; plaintext is never persisted. */
+    accessCodeHash: varchar("accessCodeHash", { length: 64 }).unique(),
+    accessCodePrefix: varchar("accessCodePrefix", { length: 12 }),
+    /** SHA-256 of the normalized recipient email for single-person shareable codes. */
+    recipientEmailHash: varchar("recipientEmailHash", { length: 64 }),
     targetUserId: int("targetUserId"),
     targetInstitutionalAccountId: int("targetInstitutionalAccountId"),
-    programType: mysqlEnum("programType", ["ierp", "nerp", "paeds_resus_ils", "self_pay"]).notNull(),
+    programType: mysqlEnum("programType", ["ierp", "nerp", "paeds_resus_ils", "self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"]).notNull(),
     selfPayCourseId: varchar("selfPayCourseId", { length: 128 }),
     benefitType: mysqlEnum("benefitType", ["free", "percentage_discount"]).notNull(),
     discountPercent: int("discountPercent"),
@@ -395,7 +402,7 @@ export const globalEntitlementRedemptions = mysqlTable(
     entitlementId: int("entitlementId").notNull(),
     targetUserId: int("targetUserId"),
     targetInstitutionalAccountId: int("targetInstitutionalAccountId"),
-    programType: mysqlEnum("programType", ["ierp", "nerp", "paeds_resus_ils", "self_pay"]).notNull(),
+    programType: mysqlEnum("programType", ["ierp", "nerp", "paeds_resus_ils", "self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"]).notNull(),
     resourceReference: varchar("resourceReference", { length: 128 }).notNull(),
     originalAmountKes: int("originalAmountKes").notNull(),
     discountAmountKes: int("discountAmountKes").notNull(),
@@ -690,6 +697,16 @@ export const certificates = mysqlTable("certificates", {
     "heartsaver_cognitive",
     "nrp_cognitive",
     "paeds_resus_phase2",
+    "paeds_resus_acls_phase2",
+    "paeds_resus_pals_phase2",
+    "paeds_resus_nrp_phase2",
+    "paeds_resus_instructor_phase2",
+    "paeds_resus_bls_phase3",
+    "paeds_resus_acls_phase3",
+    "paeds_resus_pals_phase3",
+    "paeds_resus_nrp_phase3",
+    "paeds_resus_heartsaver_phase3",
+    "paeds_resus_instructor_phase3",
     "paeds_resus_bls_provider",
     "paeds_resus_acls_provider",
     "paeds_resus_pals_provider",
@@ -716,6 +733,50 @@ export const certificates = mysqlTable("certificates", {
 
 export type Certificate = typeof certificates.$inferSelect;
 export type InsertCertificate = typeof certificates.$inferInsert;
+
+/**
+ * Authoritative record for Phase 2 and Phase 3 completion documented by an
+ * approved Paeds Resus administrator or lead instructor, including training
+ * completed outside the platform. Cognitive completion remains a hard
+ * prerequisite for any verified record and final provider certificate.
+ */
+export const externalTrainingCompletions = mysqlTable(
+  "externalTrainingCompletions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    recordKey: varchar("recordKey", { length: 255 }).notNull().unique(),
+    userId: int("userId").notNull(),
+    enrollmentId: int("enrollmentId"),
+    pathway: mysqlEnum("pathway", ["ierp", "nerp", "open_enrolment", "ilsp"]).notNull(),
+    courseProgramType: mysqlEnum("courseProgramType", ["bls", "acls", "pals", "nrp", "heartsaver", "paeds_resus_ils"]).notNull(),
+    phase2Completed: boolean("phase2Completed").default(false).notNull(),
+    phase2CompletedAt: timestamp("phase2CompletedAt"),
+    phase3Completed: boolean("phase3Completed").default(false).notNull(),
+    phase3CompletedAt: timestamp("phase3CompletedAt"),
+    evidenceReference: text("evidenceReference"),
+    notes: text("notes"),
+    recordedByUserId: int("recordedByUserId").notNull(),
+    recordedByName: varchar("recordedByName", { length: 255 }),
+    recordedAt: timestamp("recordedAt").defaultNow().notNull(),
+    revokedAt: timestamp("revokedAt"),
+    revokedByUserId: int("revokedByUserId"),
+    revocationReason: text("revocationReason"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    userCoursePathwayUq: uniqueIndex("external_training_completions_user_course_pathway_uq").on(
+      table.userId,
+      table.courseProgramType,
+      table.pathway,
+    ),
+    userIdx: index("external_training_completions_user_idx").on(table.userId),
+    courseIdx: index("external_training_completions_course_idx").on(table.courseProgramType),
+  }),
+);
+
+export type ExternalTrainingCompletion = typeof externalTrainingCompletions.$inferSelect;
+export type InsertExternalTrainingCompletion = typeof externalTrainingCompletions.$inferInsert;
 
 /** One pre-download feedback row per user per certificate (before PDF download). */
 export const certificateDownloadFeedback = mysqlTable(
@@ -2185,6 +2246,8 @@ export const courses = mysqlTable("courses", {
   level: mysqlEnum("level", ["beginner", "intermediate", "advanced"]).default(
     "beginner"
   ),
+  /** False retires a duplicate catalog row without deleting historical enrollments. */
+  isActive: boolean("isActive").default(true).notNull(),
   order: int("order").default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -2667,6 +2730,21 @@ export const institutionProductSubscriptions = mysqlTable(
     expiresAt: timestamp("expiresAt"),
     graceEndsAt: timestamp("graceEndsAt"),
     cancelledAt: timestamp("cancelledAt"),
+    facilityLevel: mysqlEnum("facilityLevel", ["level_4", "level_5", "level_6"]),
+    verifiedStaffCount: int("verifiedStaffCount"),
+    pricingTier: mysqlEnum("pricingTier", ["founding_partner", "standard"]).default("standard").notNull(),
+    dataSharingStatus: mysqlEnum("dataSharingStatus", ["consented", "consented_anonymous", "private_mode", "lapsed"]).default("private_mode").notNull(),
+    dataSharingConsentedAt: timestamp("dataSharingConsentedAt"),
+    dataSharingLapsedAt: timestamp("dataSharingLapsedAt"),
+    foundingPartnerStartedAt: timestamp("foundingPartnerStartedAt"),
+    foundingPartnerEndsAt: timestamp("foundingPartnerEndsAt"),
+    commitmentTermYears: int("commitmentTermYears").default(1).notNull(),
+    lastStaffCountAttestationAt: timestamp("lastStaffCountAttestationAt"),
+    autoRenewEnabled: boolean("autoRenewEnabled").default(false).notNull(),
+    renewalApprovalRequired: boolean("renewalApprovalRequired").default(true).notNull(),
+    participationCureEndsAt: timestamp("participationCureEndsAt"),
+    participationLastEvaluatedAt: timestamp("participationLastEvaluatedAt"),
+    participationLastStatus: mysqlEnum("participationLastStatus", ["met", "not_met", "exempt", "pending_review"]),
     source: mysqlEnum("source", [
       "contract",
       "quotation",
@@ -4415,6 +4493,25 @@ export const providerProfiles = mysqlTable("providerProfiles", {
 
 export type ProviderProfile = typeof providerProfiles.$inferSelect;
 export type InsertProviderProfile = typeof providerProfiles.$inferInsert;
+
+/**
+ * Additive professional identities. The legacy users.cadre remains the primary
+ * display value for backward compatibility; this table stores additional roles.
+ */
+export const providerProfessionalRoles = mysqlTable("providerProfessionalRoles", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  cadre: varchar("cadre", { length: 128 }).notNull(),
+  cadreOther: varchar("cadreOther", { length: 128 }),
+  specialization: varchar("specialization", { length: 255 }),
+  isPrimary: boolean("isPrimary").default(false).notNull(),
+  status: mysqlEnum("status", ["active", "archived"]).default("active").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProviderProfessionalRole = typeof providerProfessionalRoles.$inferSelect;
+export type InsertProviderProfessionalRole = typeof providerProfessionalRoles.$inferInsert;
 
 // Provider Performance Metrics table
 export const providerPerformanceMetrics = mysqlTable(
@@ -6806,6 +6903,48 @@ export const cpdAttendees = mysqlTable("cpdAttendees", {
   clinicalTakeaway: text("clinicalTakeaway"),
 });
 
+export const cpdEventQuizzes = mysqlTable("cpdEventQuizzes", {
+  id: int("id").autoincrement().primaryKey(),
+  cpdEventId: int("cpdEventId").notNull(),
+  passingScore: int("passingScore").default(80).notNull(),
+  isRequired: boolean("isRequired").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  eventIndex: uniqueIndex("cpd_event_quizzes_event_uq").on(table.cpdEventId),
+}));
+export type CpdEventQuiz = typeof cpdEventQuizzes.$inferSelect;
+export type InsertCpdEventQuiz = typeof cpdEventQuizzes.$inferInsert;
+
+export const cpdEventQuizQuestions = mysqlTable("cpdEventQuizQuestions", {
+  id: int("id").autoincrement().primaryKey(),
+  cpdEventQuizId: int("cpdEventQuizId").notNull(),
+  question: text("question").notNull(),
+  questionType: mysqlEnum("questionType", ["multiple_choice", "true_false"]).default("multiple_choice").notNull(),
+  options: text("options"),
+  correctAnswer: text("correctAnswer").notNull(),
+  order: int("order").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => ({
+  quizOrderIndex: index("cpd_event_quiz_questions_order_idx").on(table.cpdEventQuizId, table.order),
+}));
+export type CpdEventQuizQuestion = typeof cpdEventQuizQuestions.$inferSelect;
+export type InsertCpdEventQuizQuestion = typeof cpdEventQuizQuestions.$inferInsert;
+
+export const cpdAttendeeQuizAttempts = mysqlTable("cpdAttendeeQuizAttempts", {
+  id: int("id").autoincrement().primaryKey(),
+  cpdAttendeeId: int("cpdAttendeeId").notNull(),
+  cpdEventQuizId: int("cpdEventQuizId").notNull(),
+  score: int("score").notNull(),
+  passed: boolean("passed").notNull(),
+  answers: text("answers").notNull(),
+  submittedAt: timestamp("submittedAt").defaultNow().notNull(),
+}, table => ({
+  attendeeQuizIndex: index("cpd_attendee_quiz_attempts_attendee_quiz_idx").on(table.cpdAttendeeId, table.cpdEventQuizId),
+}));
+export type CpdAttendeeQuizAttempt = typeof cpdAttendeeQuizAttempts.$inferSelect;
+export type InsertCpdAttendeeQuizAttempt = typeof cpdAttendeeQuizAttempts.$inferInsert;
+
 export const cpdAttendanceAuditEvents = mysqlTable("cpdAttendanceAuditEvents", {
   id: int("id").autoincrement().primaryKey(),
   institutionalAccountId: int("institutionalAccountId").notNull(),
@@ -7471,6 +7610,8 @@ export const facilityDepartments = mysqlTable(
     institutionId: int("institution_id").notNull(),
     poleId: int("pole_id"),
     departmentName: varchar("department_name", { length: 128 }).notNull(),
+    /** Optional canonical parent department for unambiguous hierarchies such as Surgery → Theatre. */
+    parentDepartmentId: int("parent_department_id"),
     isActive: boolean("is_active").default(true).notNull(),
     /** Explicit account-admin decision: only these confirmed active departments require an IERS pole. */
     requiresPole: boolean("requires_pole").default(false).notNull(),
@@ -9588,3 +9729,317 @@ export type PromotionalPreferenceAuditEvent =
   typeof promotionalPreferenceAuditEvents.$inferSelect;
 export type InsertPromotionalPreferenceAuditEvent =
   typeof promotionalPreferenceAuditEvents.$inferInsert;
+
+
+/**
+ * Canonical institutional quality-improvement report. Care Signal, Code Signal,
+ * and future report sources map into this workflow without copying patient
+ * identifiers into the institutional layer.
+ */
+export const institutionalQiReports = mysqlTable(
+  "institutionalQiReports",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    facilityDepartmentId: int("facilityDepartmentId"),
+    reportType: mysqlEnum("reportType", ["safety_event", "improvement_project"]).notNull(),
+    sourceType: mysqlEnum("sourceType", ["manual", "care_signal", "code_signal"]).default("manual").notNull(),
+    sourceId: int("sourceId"),
+    title: varchar("title", { length: 255 }).notNull(),
+    eventDate: timestamp("eventDate"),
+    careArea: varchar("careArea", { length: 128 }),
+    ageGroup: varchar("ageGroup", { length: 64 }),
+    harmOccurred: boolean("harmOccurred").default(false).notNull(),
+    severity: mysqlEnum("severity", ["low", "moderate", "severe", "critical"]).default("low").notNull(),
+    problemStatement: text("problemStatement").notNull(),
+    expectedProcess: text("expectedProcess"),
+    observedGap: text("observedGap"),
+    contributingFactors: json("contributingFactors"),
+    baselineMeasure: decimal("baselineMeasure", { precision: 12, scale: 4 }),
+    numerator: int("numerator"),
+    denominator: int("denominator"),
+    dataSource: varchar("dataSource", { length: 255 }),
+    targetMeasure: decimal("targetMeasure", { precision: 12, scale: 4 }),
+    confidentialityLevel: mysqlEnum("confidentialityLevel", ["institution_only", "aggregate_only", "restricted"]).default("institution_only").notNull(),
+    status: mysqlEnum("status", ["draft", "submitted", "triaged", "action_planned", "in_progress", "effectiveness_review", "closed", "reopened"]).default("draft").notNull(),
+    reporterUserId: int("reporterUserId"),
+    reviewerUserId: int("reviewerUserId"),
+    submittedAt: timestamp("submittedAt"),
+    closedAt: timestamp("closedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    institutionStatusIdx: index("institutionalQiReports_institution_status_idx").on(table.institutionalAccountId, table.status),
+    sourceIdx: index("institutionalQiReports_source_idx").on(table.sourceType, table.sourceId),
+    closedAtIdx: index("institutionalQiReports_closed_at_idx").on(table.institutionalAccountId, table.closedAt),
+  })
+);
+export type InstitutionalQiReport = typeof institutionalQiReports.$inferSelect;
+export type InsertInstitutionalQiReport = typeof institutionalQiReports.$inferInsert;
+
+export const institutionalQiActions = mysqlTable(
+  "institutionalQiActions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    reportId: int("reportId").notNull(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    actionText: text("actionText").notNull(),
+    ownerUserId: int("ownerUserId"),
+    dueAt: timestamp("dueAt"),
+    priority: mysqlEnum("priority", ["low", "medium", "high", "urgent"]).default("medium").notNull(),
+    status: mysqlEnum("status", ["open", "in_progress", "completed", "cancelled"]).default("open").notNull(),
+    evidenceUrl: text("evidenceUrl"),
+    completedAt: timestamp("completedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    reportIdx: index("institutionalQiActions_report_idx").on(table.reportId),
+    institutionStatusIdx: index("institutionalQiActions_institution_status_idx").on(table.institutionalAccountId, table.status),
+  })
+);
+export type InstitutionalQiAction = typeof institutionalQiActions.$inferSelect;
+export type InsertInstitutionalQiAction = typeof institutionalQiActions.$inferInsert;
+
+export const institutionalQiEffectivenessReviews = mysqlTable(
+  "institutionalQiEffectivenessReviews",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    reportId: int("reportId").notNull(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    reviewerUserId: int("reviewerUserId").notNull(),
+    reviewDate: timestamp("reviewDate").defaultNow().notNull(),
+    outcome: mysqlEnum("outcome", ["effective", "partially_effective", "not_effective", "insufficient_evidence"]).notNull(),
+    followUpRequired: boolean("followUpRequired").default(false).notNull(),
+    evidenceSummary: text("evidenceSummary").notNull(),
+    measureValue: decimal("measureValue", { precision: 12, scale: 4 }),
+    notes: text("notes"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    reportIdx: index("institutionalQiEffectivenessReviews_report_idx").on(table.reportId),
+    institutionDateIdx: index("institutionalQiEffectivenessReviews_institution_date_idx").on(table.institutionalAccountId, table.reviewDate),
+  })
+);
+export type InstitutionalQiEffectivenessReview = typeof institutionalQiEffectivenessReviews.$inferSelect;
+export type InsertInstitutionalQiEffectivenessReview = typeof institutionalQiEffectivenessReviews.$inferInsert;
+
+export const institutionalQiParticipationSnapshots = mysqlTable(
+  "institutionalQiParticipationSnapshots",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    quarterStart: timestamp("quarterStart").notNull(),
+    quarterEnd: timestamp("quarterEnd").notNull(),
+    facilityLevel: varchar("facilityLevel", { length: 32 }),
+    requiredClosedEffectiveReports: int("requiredClosedEffectiveReports").default(1).notNull(),
+    closedEffectiveReports: int("closedEffectiveReports").default(0).notNull(),
+    careSignalReports: int("careSignalReports").default(0).notNull(),
+    codeSignalReports: int("codeSignalReports").default(0).notNull(),
+    participationStatus: mysqlEnum("participationStatus", ["met", "not_met", "exempt", "pending_review"]).default("pending_review").notNull(),
+    calculatedAt: timestamp("calculatedAt").defaultNow().notNull(),
+  },
+  table => ({
+    institutionQuarterIdx: uniqueIndex("institutionalQiParticipationSnapshots_institution_quarter_uq").on(table.institutionalAccountId, table.quarterStart),
+  })
+);
+export type InstitutionalQiParticipationSnapshot = typeof institutionalQiParticipationSnapshots.$inferSelect;
+export type InsertInstitutionalQiParticipationSnapshot = typeof institutionalQiParticipationSnapshots.$inferInsert;
+
+/** Versioned USD reference rates used to produce local-currency invoice snapshots. */
+export const institutionalExchangeRates = mysqlTable(
+  "institutionalExchangeRates",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    currencyCode: varchar("currencyCode", { length: 3 }).notNull(),
+    kesPerUsd: decimal("kesPerUsd", { precision: 14, scale: 6 }).notNull(),
+    effectiveFrom: timestamp("effectiveFrom").notNull(),
+    effectiveTo: timestamp("effectiveTo"),
+    source: varchar("source", { length: 255 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    currencyEffectiveIdx: index("institutionalExchangeRates_currency_effective_idx").on(table.currencyCode, table.effectiveFrom),
+  })
+);
+export type InstitutionalExchangeRate = typeof institutionalExchangeRates.$inferSelect;
+export type InsertInstitutionalExchangeRate = typeof institutionalExchangeRates.$inferInsert;
+
+export const institutionalSubscriptionInvoices = mysqlTable(
+  "institutionalSubscriptionInvoices",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    productId: int("productId").notNull(),
+    subscriptionId: int("subscriptionId"),
+    invoiceNumber: varchar("invoiceNumber", { length: 64 }).notNull(),
+    baseAmountUsdCents: int("baseAmountUsdCents").notNull(),
+    amountCents: int("amountCents").notNull(),
+    currency: varchar("currency", { length: 3 }).default("KES").notNull(),
+    fxRateKesPerUsd: decimal("fxRateKesPerUsd", { precision: 14, scale: 6 }),
+    status: mysqlEnum("status", ["draft", "issued", "payment_pending", "paid", "void", "overdue", "cancelled"]).default("draft").notNull(),
+    issuedAt: timestamp("issuedAt"),
+    dueAt: timestamp("dueAt"),
+    paidAt: timestamp("paidAt"),
+    provider: varchar("provider", { length: 64 }),
+    providerPaymentReference: varchar("providerPaymentReference", { length: 255 }),
+    paymentMethod: mysqlEnum("paymentMethod", ["mpesa", "bank_transfer", "card"]),
+    paymentAttemptCount: int("paymentAttemptCount").default(0).notNull(),
+    lastPaymentAttemptAt: timestamp("lastPaymentAttemptAt"),
+    settledAt: timestamp("settledAt"),
+    reconciliationStatus: mysqlEnum("reconciliationStatus", ["unreconciled", "matched", "mismatch", "refunded", "disputed"]).default("unreconciled").notNull(),
+    reconciliationNote: text("reconciliationNote"),
+    refundedAmountCents: int("refundedAmountCents").default(0).notNull(),
+    refundedAt: timestamp("refundedAt"),
+    refundReason: text("refundReason"),
+    voidedAt: timestamp("voidedAt"),
+    voidReason: text("voidReason"),
+    renewalForSubscriptionId: int("renewalForSubscriptionId"),
+    metadata: json("metadata"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    invoiceNumberUq: uniqueIndex("institutionalSubscriptionInvoices_number_uq").on(table.invoiceNumber),
+    institutionStatusIdx: index("institutionalSubscriptionInvoices_institution_status_idx").on(table.institutionalAccountId, table.status),
+    dueIdx: index("institutionalSubscriptionInvoices_due_idx").on(table.status, table.dueAt),
+  })
+);
+export type InstitutionalSubscriptionInvoice = typeof institutionalSubscriptionInvoices.$inferSelect;
+export type InsertInstitutionalSubscriptionInvoice = typeof institutionalSubscriptionInvoices.$inferInsert;
+
+export const institutionalPaymentProviderEvents = mysqlTable(
+  "institutionalPaymentProviderEvents",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    provider: varchar("provider", { length: 64 }).notNull(),
+    providerEventId: varchar("providerEventId", { length: 255 }).notNull(),
+    eventType: varchar("eventType", { length: 128 }).notNull(),
+    invoiceId: int("invoiceId"),
+    paymentId: int("paymentId"),
+    status: mysqlEnum("status", ["received", "processed", "ignored", "failed"]).default("received").notNull(),
+    signatureVerified: boolean("signatureVerified").default(false).notNull(),
+    signatureAlgorithm: varchar("signatureAlgorithm", { length: 32 }),
+    processingAttempts: int("processingAttempts").default(0).notNull(),
+    lastAttemptAt: timestamp("lastAttemptAt"),
+    payload: json("payload").notNull(),
+    receivedAt: timestamp("receivedAt").defaultNow().notNull(),
+    processedAt: timestamp("processedAt"),
+    errorMessage: text("errorMessage"),
+  },
+  table => ({
+    providerEventUq: uniqueIndex("institutionalPaymentProviderEvents_provider_event_uq").on(table.provider, table.providerEventId),
+    invoiceIdx: index("institutionalPaymentProviderEvents_invoice_idx").on(table.invoiceId),
+  })
+);
+export type InstitutionalPaymentProviderEvent = typeof institutionalPaymentProviderEvents.$inferSelect;
+export type InsertInstitutionalPaymentProviderEvent = typeof institutionalPaymentProviderEvents.$inferInsert;
+
+export const institutionalPaymentAttempts = mysqlTable(
+  "institutionalPaymentAttempts",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    invoiceId: int("invoiceId").notNull(),
+    provider: varchar("provider", { length: 64 }).notNull(),
+    paymentMethod: mysqlEnum("paymentMethod", ["mpesa", "bank_transfer", "card"]).notNull(),
+    idempotencyKey: varchar("idempotencyKey", { length: 255 }).notNull(),
+    providerPaymentReference: varchar("providerPaymentReference", { length: 255 }),
+    amountCents: int("amountCents").notNull(),
+    currency: varchar("currency", { length: 3 }).notNull(),
+    status: mysqlEnum("status", ["created", "pending", "succeeded", "failed", "refunded", "disputed"]).default("created").notNull(),
+    failureReason: text("failureReason"),
+    reconciliationStatus: mysqlEnum("reconciliationStatus", ["unreconciled", "matched", "mismatch", "refunded", "disputed"]).default("unreconciled").notNull(),
+    reconciliationNote: text("reconciliationNote"),
+    initiatedAt: timestamp("initiatedAt").defaultNow().notNull(),
+    settledAt: timestamp("settledAt"),
+    refundedAt: timestamp("refundedAt"),
+    metadata: json("metadata"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    idempotencyUq: uniqueIndex("institutionalPaymentAttempts_idempotency_uq").on(table.idempotencyKey),
+    invoiceIdx: index("institutionalPaymentAttempts_invoice_idx").on(table.invoiceId),
+    reconciliationIdx: index("institutionalPaymentAttempts_reconciliation_idx").on(table.reconciliationStatus, table.createdAt),
+  })
+);
+export type InstitutionalPaymentAttempt = typeof institutionalPaymentAttempts.$inferSelect;
+export type InsertInstitutionalPaymentAttempt = typeof institutionalPaymentAttempts.$inferInsert;
+
+export const institutionalQiExportRequests = mysqlTable(
+  "institutionalQiExportRequests",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    requestedByUserId: int("requestedByUserId").notNull(),
+    format: mysqlEnum("format", ["json", "csv"]).default("json").notNull(),
+    confidentialityScope: mysqlEnum("confidentialityScope", ["institution_only", "aggregate_only"]).default("institution_only").notNull(),
+    status: mysqlEnum("status", ["requested", "completed", "failed", "expired"]).default("requested").notNull(),
+    filters: json("filters"),
+    rowCount: int("rowCount").default(0).notNull(),
+    expiresAt: timestamp("expiresAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    completedAt: timestamp("completedAt"),
+  },
+  table => ({ institutionCreatedIdx: index("institutionalQiExportRequests_institution_created_idx").on(table.institutionalAccountId, table.createdAt) })
+);
+export type InstitutionalQiExportRequest = typeof institutionalQiExportRequests.$inferSelect;
+export type InsertInstitutionalQiExportRequest = typeof institutionalQiExportRequests.$inferInsert;
+
+export const institutionalQiRetentionPolicies = mysqlTable(
+  "institutionalQiRetentionPolicies",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    retentionDays: int("retentionDays").default(2555).notNull(),
+    autoDeleteEnabled: boolean("autoDeleteEnabled").default(false).notNull(),
+    approvedByUserId: int("approvedByUserId").notNull(),
+    lastReviewedAt: timestamp("lastReviewedAt").defaultNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({ institutionUnique: uniqueIndex("institutionalQiRetentionPolicies_institution_uq").on(table.institutionalAccountId) })
+);
+export type InstitutionalQiRetentionPolicy = typeof institutionalQiRetentionPolicies.$inferSelect;
+export type InsertInstitutionalQiRetentionPolicy = typeof institutionalQiRetentionPolicies.$inferInsert;
+
+export const institutionalPricingAuditEvents = mysqlTable(
+  "institutionalPricingAuditEvents",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    subscriptionId: int("subscriptionId"),
+    eventType: varchar("eventType", { length: 64 }).notNull(),
+    actorUserId: int("actorUserId"),
+    previousValue: json("previousValue"),
+    currentValue: json("currentValue").notNull(),
+    reason: text("reason").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    institutionCreatedIdx: index("institutionalPricingAuditEvents_institution_created_idx").on(table.institutionalAccountId, table.createdAt),
+  })
+);
+export type InstitutionalPricingAuditEvent = typeof institutionalPricingAuditEvents.$inferSelect;
+export type InsertInstitutionalPricingAuditEvent = typeof institutionalPricingAuditEvents.$inferInsert;
+
+// Pricing/consent inputs are nullable for legacy subscriptions and required for new quotes.
+export const institutionSubscriptionPricingFields = {
+  facilityLevel: mysqlEnum("facilityLevel", ["level_4", "level_5", "level_6"]),
+  verifiedStaffCount: int("verifiedStaffCount"),
+  pricingTier: mysqlEnum("pricingTier", ["founding_partner", "standard"]).default("standard").notNull(),
+  dataSharingStatus: mysqlEnum("dataSharingStatus", ["consented", "consented_anonymous", "private_mode", "lapsed"]).default("private_mode").notNull(),
+  dataSharingConsentedAt: timestamp("dataSharingConsentedAt"),
+  dataSharingLapsedAt: timestamp("dataSharingLapsedAt"),
+  foundingPartnerStartedAt: timestamp("foundingPartnerStartedAt"),
+  foundingPartnerEndsAt: timestamp("foundingPartnerEndsAt"),
+  commitmentTermYears: int("commitmentTermYears").default(1).notNull(),
+  lastStaffCountAttestationAt: timestamp("lastStaffCountAttestationAt"),
+  autoRenewEnabled: boolean("autoRenewEnabled").default(false).notNull(),
+  renewalApprovalRequired: boolean("renewalApprovalRequired").default(true).notNull(),
+};
+
+// The fields above are exported for the migration generator; they are also added
+// by migration 0156 to the existing institutionProductSubscriptions table.

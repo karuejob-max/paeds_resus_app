@@ -3,7 +3,8 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { useUserRole, type UserRole } from "@/hooks/useUserRole";
+import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
+import type { UserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -52,9 +53,9 @@ function getResusGateCopy(role: UserRole) {
  */
 export default function ResusGated() {
   const { user, loading } = useAuth();
-  const { role } = useUserRole();
+  const { effectiveWorkspace } = useWorkspaceAccess();
   const [location, setLocation] = useLocation();
-  const effectiveRole = role ?? mapUserTypeToRole(user?.userType);
+  const effectiveRole = effectiveWorkspace;
   const roleHomePath = getRoleHomePath(effectiveRole);
   const gateCopy = getResusGateCopy(effectiveRole);
   const [slowLoad, setSlowLoad] = useState(false);

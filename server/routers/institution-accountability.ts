@@ -26,6 +26,7 @@ import {
   type AppDb,
 } from "../lib/institution-access";
 import { assertInstitutionAccountScope } from "../lib/institution-account-scopes";
+import { assertCanManageDepartmentHead } from "../lib/institution-role-authority";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { evaluateClinicalLicenceRows } from "../lib/professional-credential-safety";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
@@ -267,7 +268,9 @@ function activeAssignmentKey(
 
 export const institutionAccountabilityRouter = router({
   /** Workspace entry projection: institution admins and active linked members only. */
-  getMyWorkspace: protectedProcedure.query(async ({ ctx }) => {
+  getMyWorkspace: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive().optional() }).optional())
+    .query(async ({ ctx, input }) => {
     const db = await requireDb();
     const administeredIds = await getAdministeredInstitutionIds(
       db,
@@ -388,7 +391,9 @@ export const institutionAccountabilityRouter = router({
         )
       );
 
-    const first = institutions[0] ?? null;
+    const first = input?.institutionId != null
+      ? institutions.find(row => row.id === input.institutionId) ?? null
+      : institutions[0] ?? null;
     return {
       institution: first,
       institutions,
@@ -1059,6 +1064,7 @@ export const institutionAccountabilityRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertCanManageDepartmentHead(db, ctx.user, input.institutionId);
       const [department] = await db
         .select({ id: facilityDepartments.id })
         .from(facilityDepartments)
@@ -1216,6 +1222,7 @@ export const institutionAccountabilityRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      await assertCanManageDepartmentHead(db, ctx.user, input.institutionId);
       const [assignment] = await db
         .select()
         .from(institutionDepartmentHeads)

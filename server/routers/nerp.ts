@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, isNull, like, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   enrollments,
@@ -38,8 +38,12 @@ import {
   requiresExternalCandidateCadre,
   type ExternalNerpCandidateType,
 } from "../lib/nerp-external-candidate";
-import { hasVerifiedNckLicence } from "../lib/aha-access";
+import {
+  canStartNerpWithCredential,
+  getNerpCredentialState,
+} from "../lib/aha-access";
 import { consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
+import { calculateProgramJourney } from "../../shared/program-journey";
 
 const PHASES = ["phase_2", "phase_3"] as const;
 const DECISIONS = ["verified", "rejected", "revoked"] as const;
@@ -86,6 +90,48 @@ async function getOfferForUser(db: any, userId: number) {
     )
     .limit(1);
   return rows[0] ?? null;
+}
+
+async function getLatestNerpCredentialForUser(db: any, userId: number) {
+  const rows = await db
+    .select({
+      issuer: professionalCredentials.issuer,
+      jurisdiction: professionalCredentials.jurisdiction,
+      credentialNumber: professionalCredentials.credentialNumber,
+      expiresAt: professionalCredentials.expiresAt,
+      evidenceKey: professionalCredentials.evidenceKey,
+      status: professionalCredentials.status,
+      reviewReason: professionalCredentials.reviewReason,
+    })
+    .from(professionalCredentials)
+    .where(
+      and(
+        eq(professionalCredentials.userId, userId),
+        eq(professionalCredentials.credentialType, "regulatory_license"),
+      ),
+    )
+    .orderBy(desc(professionalCredentials.updatedAt))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+function nerpCredentialBlockMessage(
+  state: ReturnType<typeof getNerpCredentialState>,
+  reviewReason?: string | null,
+) {
+  if (state === "rejected") {
+    return `Your Nursing Council of Kenya licence submission was rejected.${reviewReason ? ` Review reason: ${reviewReason}` : " Review Professional Credentials for the correction required."}`;
+  }
+  if (state === "revoked") {
+    return `Your Nursing Council of Kenya licence is revoked.${reviewReason ? ` Review reason: ${reviewReason}` : " Review Professional Credentials before continuing."}`;
+  }
+  if (state === "expired") {
+    return "Your Nursing Council of Kenya licence is expired. Update Professional Credentials before continuing.";
+  }
+  if (state === "pending_review") {
+    return "Your Nursing Council of Kenya licence is submitted and under review. You may begin the NERP payment and coursework while review is pending; access will stop if the submission is rejected or revoked.";
+  }
+  return "Submit Nursing Council of Kenya licence evidence and a licence number in Professional Credentials before starting NERP.";
 }
 
 async function ensureChildEnrollment(
@@ -297,12 +343,15 @@ export const nerpRouter = router({
 
   getEligibility: protectedProcedure.query(async ({ ctx }) => {
     const db = await requireDb();
-    const eligible = await hasVerifiedNckLicence(db, ctx.user.id);
+    const latestCredential = await getLatestNerpCredentialForUser(db, ctx.user.id);
+    const credentialState = getNerpCredentialState(latestCredential);
+    const eligible = canStartNerpWithCredential(credentialState);
     return {
       eligible,
-      message: eligible
-        ? "Your verified Nursing Council of Kenya licence is ready for NERP."
-        : "Complete your provider profile and submit a Nursing Council of Kenya licence with the licence number for verification before joining NERP.",
+      verificationState: credentialState,
+      state: credentialState,
+      reviewReason: latestCredential?.reviewReason ?? null,
+      message: nerpCredentialBlockMessage(credentialState, latestCredential?.reviewReason),
     };
   }),
 
@@ -334,13 +383,54 @@ export const nerpRouter = router({
     };
   }),
 
+  getJourneyStatus: protectedProcedure.query(async ({ ctx }) => {
+    const db = await requireDb();
+    const offer = await getOfferForUser(db, ctx.user.id);
+    if (!offer) return null;
+    const [links, verification] = await Promise.all([
+      db.select().from(nerpOfferCourses).where(eq(nerpOfferCourses.nerpOfferEnrollmentId, offer.id)),
+      getVerificationState(db, offer.id),
+    ]);
+    const enrollmentIds = links.map((link: any) => Number(link.enrollmentId)).filter(Boolean);
+    const childRows = enrollmentIds.length
+      ? await db.select().from(enrollments).where(inArray(enrollments.id, enrollmentIds))
+      : [];
+    const byType = new Map(childRows.map((row: any) => [row.programType, row]));
+    const bls = byType.get("bls") as any;
+    const acls = byType.get("acls") as any;
+    const paymentState = calculateNerpPaymentState({
+      amountPaidKes: Number(offer.amountPaidKes),
+      totalAmountKes: Number(offer.totalAmountKes),
+      monthlyInstallmentKes: Number(offer.monthlyInstallmentKes),
+      installmentCount: offer.installmentCount,
+    });
+    const phase2Verified = verification.phase2?.status === "verified";
+    const phase3Verified = verification.phase3?.status === "verified";
+    const ahaEvidenceVerified = !!(bls?.certificateVerified && acls?.certificateVerified) || phase2Verified;
+    const journey = calculateProgramJourney({
+      blsProgress: Number(bls?.progressPercentage ?? (bls?.cognitiveModulesComplete ? 100 : 0)) / 100,
+      aclsProgress: Number(acls?.progressPercentage ?? (acls?.cognitiveModulesComplete ? 100 : 0)) / 100,
+      ahaEvidenceVerified,
+      phase2Progress: phase2Verified ? 1 : 0,
+      paymentProgress: Number(offer.totalAmountKes) > 0 ? Number(offer.amountPaidKes) / Number(offer.totalAmountKes) : 0,
+      phase3Complete: phase3Verified || offer.status === "completed",
+      phase1Action: { label: "Open NERP coursework", destination: "/programs/nerp-acls/entry" },
+      phase2Action: { label: "Open Phase 2", destination: "/programs/nerp-acls/entry" },
+      paymentAction: { label: "Open NERP payment", destination: "/programs/nerp-acls/checkout" },
+      phase3Action: { label: "Open Phase 3", destination: "/programs/nerp-acls/entry" },
+      phase2LockedReason: "Complete BLS and ACLS cognitive learning and submit the required evidence first.",
+      phase3LockedReason: "Complete Phase 2 and the NERP programme requirements first.",
+    });
+    return { programKey: "nerp" as const, programName: "Nurse Emergency Readiness Program", ...journey };
+  }),
   createOrResumeEnrollment: protectedProcedure.mutation(async ({ ctx }) => {
     const db = await requireDb();
-    if (!(await hasVerifiedNckLicence(db, ctx.user.id))) {
+    const credential = await getLatestNerpCredentialForUser(db, ctx.user.id);
+    const credentialState = getNerpCredentialState(credential);
+    if (!canStartNerpWithCredential(credentialState)) {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message:
-          "Complete your provider profile and submit a Nursing Council of Kenya licence with the licence number for verification before joining NERP.",
+        message: nerpCredentialBlockMessage(credentialState, credential?.reviewReason),
       });
     }
     const { offer, children } = await ensureOfferForUser(db, ctx.user.id);
@@ -361,20 +451,18 @@ export const nerpRouter = router({
 
   getPathwayEntry: protectedProcedure.query(async ({ ctx }) => {
     const db = await requireDb();
-    if (!(await hasVerifiedNckLicence(db, ctx.user.id))) {
+    const credential = await getLatestNerpCredentialForUser(db, ctx.user.id);
+    const credentialState = getNerpCredentialState(credential);
+    if (!canStartNerpWithCredential(credentialState)) {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message:
-          "A verified Nursing Council of Kenya licence and licence number are required before NERP enrollment.",
+        message: nerpCredentialBlockMessage(credentialState, credential?.reviewReason),
       });
     }
     const { offer, children } = await ensureOfferForUser(db, ctx.user.id);
-    if (offer.status === "completed") {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "This NERP pathway is already complete.",
-      });
-    }
+    // A fully paid offer still needs the learning pathway for coursework,
+    // practical requirements, and certification progress. Only checkout should
+    // stop once the financial obligation is complete.
     const paymentState = calculateNerpPaymentState({
       amountPaidKes: Number(offer.amountPaidKes),
       totalAmountKes: Number(offer.totalAmountKes),
@@ -386,11 +474,13 @@ export const nerpRouter = router({
       paymentState,
       bls: {
         enrollmentId: children.bls.id,
+        courseId: children.bls.courseId,
         cognitiveModulesComplete: children.bls.cognitiveModulesComplete,
         practicalSkillsSignedOff: children.bls.practicalSkillsSignedOff,
       },
       acls: {
         enrollmentId: children.acls.id,
+        courseId: children.acls.courseId,
         cognitiveModulesComplete: children.acls.cognitiveModulesComplete,
         practicalSkillsSignedOff: children.acls.practicalSkillsSignedOff,
       },
@@ -399,11 +489,12 @@ export const nerpRouter = router({
 
   getCheckoutContext: protectedProcedure.query(async ({ ctx }) => {
     const db = await requireDb();
-    if (!(await hasVerifiedNckLicence(db, ctx.user.id))) {
+    const credential = await getLatestNerpCredentialForUser(db, ctx.user.id);
+    const credentialState = getNerpCredentialState(credential);
+    if (!canStartNerpWithCredential(credentialState)) {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message:
-          "A verified Nursing Council of Kenya licence and licence number are required before NERP checkout.",
+        message: nerpCredentialBlockMessage(credentialState, credential?.reviewReason),
       });
     }
     const { offer, children } = await ensureOfferForUser(db, ctx.user.id);
@@ -427,10 +518,12 @@ export const nerpRouter = router({
       paymentState: state,
       bls: {
         enrollmentId: children.bls.id,
+        courseId: children.bls.courseId,
         cognitiveModulesComplete: children.bls.cognitiveModulesComplete,
       },
       acls: {
         enrollmentId: children.acls.id,
+        courseId: children.acls.courseId,
         cognitiveModulesComplete: children.acls.cognitiveModulesComplete,
       },
     };

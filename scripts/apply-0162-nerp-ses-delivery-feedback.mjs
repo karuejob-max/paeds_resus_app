@@ -9,14 +9,14 @@ import { createMysqlConnection } from "./db-connection-config.mjs";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
-  console.error("[0149] DATABASE_URL is required.");
+  console.error("[0162] DATABASE_URL is required.");
   process.exit(1);
 }
 
 async function main() {
   const conn = await createMysqlConnection(databaseUrl, mysql);
   try {
-    console.log("[0149] Preparing NERP SES delivery feedback schema...");
+    console.log("[0162] Preparing NERP SES delivery feedback schema...");
     await conn.query(`
       CREATE TABLE IF NOT EXISTS nerp_promotion_delivery_events (
         id INT NOT NULL AUTO_INCREMENT,
@@ -51,13 +51,13 @@ async function main() {
     if (!existing.has("delivery_event_type")) {
       await conn.query(`ALTER TABLE nerp_promotion_recipients ADD COLUMN delivery_event_type VARCHAR(64) NULL AFTER delivery_event_at`);
     }
-    console.log("[0149] NERP SES delivery feedback schema is ready.");
+    console.log("[0162] NERP SES delivery feedback schema is ready.");
   } finally {
     await conn.end();
   }
 }
 
 main().catch(error => {
-  console.error("[0149] Fatal error:", error);
+  console.error("[0162] Fatal error:", error);
   process.exit(1);
 });

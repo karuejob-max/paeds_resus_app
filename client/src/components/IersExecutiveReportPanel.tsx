@@ -1,8 +1,8 @@
 import { Download, FileText, Gauge, ShieldCheck, TimerReset } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { trpc } from "@/lib/trpc";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
@@ -12,7 +12,7 @@ function secondsBetween(start: Date | string, end: Date | string | null | undefi
   return Number.isFinite(value) && value >= 0 ? value : null;
 }
 
-export function IersExecutiveReportPanel({ institutionId }: { institutionId: number }) {
+export function IersExecutiveReportPanel({ institutionId, onOpenEvidence }: { institutionId: number; onOpenEvidence?: () => void }) {
   const scorecardQuery = trpc.iers.getEvidenceScorecard.useQuery({ institutionId }, { staleTime: 30_000, retry: 1 });
   const activationQuery = trpc.iers.listInstitutionActivations.useQuery({ institutionId, limit: 100 }, { staleTime: 30_000, retry: 1 });
   const actionQuery = trpc.iers.listActions.useQuery({ institutionId }, { staleTime: 30_000, retry: 1 });
@@ -70,11 +70,16 @@ export function IersExecutiveReportPanel({ institutionId }: { institutionId: num
       </Card>
       <Card className="border-slate-200">
         <CardHeader className="flex flex-row items-start justify-between gap-4"><div><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-teal-700" /> IERS executive snapshot</CardTitle><CardDescription>Decision-grade metrics from reviewed evidence, activation timelines, drills, and owned actions. Unrecorded data is shown as unrecorded.</CardDescription></div><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={downloadCsv}><Download className="h-4 w-4 mr-2" />CSV snapshot</Button><Button size="sm" variant="outline" onClick={() => window.print()}>Print / share</Button></div></CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 p-4">
-          <div className="rounded-lg border p-4"><p className="text-xs text-muted-foreground">Evidence score</p><p className="text-2xl font-bold text-teal-800">{scorecardQuery.data ? `${scorecardQuery.data.totalScore}/100` : "—"}</p><Progress value={scorecardQuery.data?.totalScore ?? 0} className="mt-2" /></div>
-          <div className="rounded-lg border p-4"><p className="text-xs text-muted-foreground">First acknowledgement</p><p className="text-2xl font-bold">{averageAcknowledgement == null ? "Not recorded" : `${averageAcknowledgement}s`}</p><p className="text-xs text-muted-foreground mt-1">{acknowledgementTimes.length} activations with timestamps</p></div>
-          <div className="rounded-lg border p-4"><p className="text-xs text-muted-foreground">First responder</p><p className="text-2xl font-bold">{averageResponse == null ? "Not recorded" : `${averageResponse}s`}</p><p className="text-xs text-muted-foreground mt-1">{responseTimes.length} activations with timestamps</p></div>
-          <div className="rounded-lg border p-4"><p className="text-xs text-muted-foreground">Action closure</p><p className="text-2xl font-bold">{actions.length ? `${closedActions}/${actions.length}` : "—"}</p><p className="text-xs text-muted-foreground mt-1">Closed only after leader verification</p></div>
+        <CardContent className="space-y-4 p-4">
+          <div className="flex min-w-0 flex-col justify-between gap-2 rounded-lg border p-3 text-sm sm:flex-row sm:items-center">
+            <span className="text-muted-foreground">Evidence score: <strong className="text-foreground">{scorecardQuery.data ? `${scorecardQuery.data.totalScore}/100` : "—"}</strong></span>
+            {onOpenEvidence ? <Button size="sm" variant="link" className="h-auto w-fit p-0" onClick={onOpenEvidence}>See detail in Evidence & actions <ArrowRight className="ml-1 h-3.5 w-3.5" /></Button> : null}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="rounded-lg border p-4"><p className="text-xs text-muted-foreground">First acknowledgement</p><p className="text-2xl font-bold">{averageAcknowledgement == null ? "Not recorded" : `${averageAcknowledgement}s`}</p><p className="mt-1 text-xs text-muted-foreground">{acknowledgementTimes.length} activations with timestamps</p></div>
+            <div className="rounded-lg border p-4"><p className="text-xs text-muted-foreground">First responder</p><p className="text-2xl font-bold">{averageResponse == null ? "Not recorded" : `${averageResponse}s`}</p><p className="mt-1 text-xs text-muted-foreground">{responseTimes.length} activations with timestamps</p></div>
+            <div className="rounded-lg border p-4"><p className="text-xs text-muted-foreground">Action closure</p><p className="text-2xl font-bold">{actions.length ? `${closedActions}/${actions.length}` : "—"}</p><p className="mt-1 text-xs text-muted-foreground">Closed only after leader verification</p></div>
+          </div>
         </CardContent>
       </Card>
 

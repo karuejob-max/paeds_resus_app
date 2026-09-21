@@ -4,6 +4,13 @@ import {
   formatCognitiveCourseworkDuration,
 } from "@/const/aha-course-metadata";
 import { getIndividualCoursePrice } from "@/const/pricing";
+import {
+  ACLS_COHORT_PRICE,
+  ACLS_PRICE,
+  BLS_COHORT_PRICE,
+  BLS_PRICE,
+  formatCohortLine,
+} from "@/const/marketingCopy";
 
 export type TrainingFaq = { question: string; answer: string };
 
@@ -94,16 +101,23 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
   acls: {
     slug: "acls",
     path: "/training/acls",
-    title: "ACLS Course Kenya — Advanced Cardiovascular Life Support | Paeds Resus",
+    title: "ACLS Training in Kenya — AHA-Aligned Certification | Paeds Resus",
     metaDescription:
-      "AHA-aligned ACLS (Advanced Cardiovascular Life Support) course in Kenya. Enroll with Paeds Resus Limited for blended training with online modules and hands-on certification.",
-    h1: "ACLS Course in Kenya — Advanced Cardiovascular Life Support",
+      "ACLS training in Kenya for healthcare providers: AHA-aligned blended learning, online cognitive modules, practical megacode sign-off, and cohort pricing from Paeds Resus.",
+    h1: "ACLS Training in Kenya — Advanced Cardiovascular Life Support",
     subtitle:
-      "Master cardiac arrest algorithms, arrhythmia management, and team dynamics with AHA-aligned ACLS from Paeds Resus Limited.",
+      "A structured ACLS training pathway for clinicians in Kenya, with online learning and a confirmed hands-on megacode session.",
     courseCode: "ACLS",
     duration: ahaDurationIsoHours("acls"),
     priceCourseId: "acls",
-    keywords: ["ACLS course Kenya", "advanced cardiovascular life support", "ACLS training Nairobi", "cardiac arrest training"],
+    keywords: [
+      "ACLS training Kenya",
+      "ACLS course Kenya",
+      "ACLS training Nairobi",
+      "AHA ACLS Kenya",
+      "advanced cardiovascular life support Kenya",
+      "cardiac arrest training Kenya",
+    ],
     sections: [
       {
         heading: "ACLS for clinicians who respond to cardiac emergencies",
@@ -121,6 +135,20 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
         ],
       },
       {
+        heading: "ACLS training in Kenya and Nairobi",
+        paragraphs: [
+          "Paeds Resus is based in Kenya and supports individual clinicians and institutional teams across the country. If you are searching for ACLS training in Nairobi or another Kenyan county, begin the online pathway and request the next practical megacode session; the confirmed date and location are shared during booking based on cohort and instructor scheduling.",
+          "Online cognitive completion is not the same as full ACLS certification. Plan for the separate instructor-led practical assessment so you can demonstrate team leadership, defibrillation, and algorithm performance under supervision.",
+        ],
+      },
+      {
+        heading: "ACLS course price and cohort options",
+        paragraphs: [
+          `${formatCohortLine(ACLS_PRICE, ACLS_COHORT_PRICE)}. Individual clinicians can start online; hospitals and organised teams can request an institutional cohort pathway and practical-session plan.`,
+          "Confirm practical-session arrangements, certification wording, and any employer or licensing requirements before payment.",
+        ],
+      },
+      {
         heading: "Institutional and team enrollment",
         paragraphs: [
           "Hospitals and training organisations can enroll staff cohorts with institutional pricing and track completion through the Paeds Resus institutional portal. This supports emergency readiness systems — not just seat sales — so leadership can see who is certified and who needs renewal.",
@@ -132,9 +160,14 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
     ],
     faqs: [
       {
-        question: "How much does ACLS cost in Kenya through Paeds Resus?",
+        question: "How much does ACLS training cost in Kenya?",
         answer:
-          "Individual ACLS pricing is listed on this page when available. Institutional cohorts may receive volume discounts — contact us through the institutional page for a quote.",
+          `${formatCohortLine(ACLS_PRICE, ACLS_COHORT_PRICE)}. Contact Paeds Resus for an institutional cohort pathway and practical-session details.`,
+      },
+      {
+        question: "Is ACLS training available in Nairobi?",
+        answer:
+          "Providers searching for ACLS training in Nairobi can start the Paeds Resus Kenya enrollment pathway online. Practical-session dates and locations are confirmed during booking based on the active cohort and instructor schedule; contact Paeds Resus if you are organising a team cohort.",
       },
       {
         question: "Is ACLS AHA-certified through Paeds Resus?",
@@ -146,25 +179,32 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
           "BLS competence is assumed. If you need BLS certification, enroll in our BLS track first or concurrently as your schedule allows.",
       },
       {
-        question: "Can I book a practical session online?",
+        question: "Can I book an ACLS practical session online?",
         answer:
-          "After completing cognitive modules, sign in and use the AHA courses hub to book or register for an upcoming hands-on session.",
+          "After completing cognitive modules, sign in and use the AHA courses hub to request or register for an upcoming hands-on megacode session. The date and location are confirmed during booking.",
       },
     ],
   },
   bls: {
     slug: "bls",
     path: "/training/bls",
-    title: "BLS Certification Kenya — Basic Life Support Training | Paeds Resus",
+    title: "BLS Training in Kenya — AHA-Aligned Certification | Paeds Resus",
     metaDescription:
-      "BLS (Basic Life Support) certification in Kenya with Paeds Resus Limited. AHA-aligned blended training for healthcare providers — enroll online and complete hands-on skills.",
-    h1: "BLS Certification in Kenya — Basic Life Support",
+      "BLS training in Kenya for healthcare providers: AHA-aligned blended learning, online cognitive modules, practical skills sign-off, and cohort pricing from Paeds Resus.",
+    h1: "BLS Training in Kenya — Basic Life Support Certification",
     subtitle:
-      "Foundational CPR and team response skills for every healthcare provider, delivered AHA-aligned by Paeds Resus Limited.",
+      "A practical BLS training pathway for healthcare providers in Kenya, with online cognitive learning and a confirmed hands-on skills session.",
     courseCode: "BLS",
     duration: ahaDurationIsoHours("bls"),
     priceCourseId: "bls",
-    keywords: ["BLS certification Kenya", "basic life support", "BLS course Nairobi", "healthcare CPR training"],
+    keywords: [
+      "BLS training Kenya",
+      "BLS certification Kenya",
+      "BLS course Nairobi",
+      "AHA BLS Kenya",
+      "basic life support course Kenya",
+      "healthcare CPR training",
+    ],
     sections: [
       {
         heading: "BLS: the foundation of every resuscitation team",
@@ -172,6 +212,20 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
           "Basic Life Support (BLS) is the entry point for high-quality CPR, AED use, and team-based response for healthcare providers. Whether you work in a district hospital, private clinic, or national referral centre in Kenya, BLS competence is non-negotiable for safe emergency care.",
           `Paeds Resus Limited delivers AHA-aligned BLS through the Paeds Resus platform. The AHA recommends ${formatAhaRecommendedDuration("bls")} total contact time; learners typically spend ${formatCognitiveCourseworkDuration("bls")} on self-paced cognitive modules, receive a gatepass certificate when online modules are complete, and attend a practical session for full certification.`,
           "BLS is separate from the Paeds Resus Fellowship. It is an optional, standalone AHA-aligned offering — many institutions require BLS renewal every two years regardless of fellowship progress.",
+        ],
+      },
+      {
+        heading: "BLS training in Kenya and Nairobi",
+        paragraphs: [
+          "Paeds Resus is based in Kenya and supports individual healthcare providers and institutional cohorts across the country. If you are searching for BLS training in Nairobi or another Kenyan county, start your enrollment online and request the next practical skills session; the confirmed date and location are shared during booking based on cohort and instructor scheduling.",
+          "The online cognitive modules allow providers to prepare around shifts and on-call rotas. Practical skills sign-off is a separate, hands-on step, so learners should not treat completion of the online modules as full certification.",
+        ],
+      },
+      {
+        heading: "BLS course price and cohort options",
+        paragraphs: [
+          `${formatCohortLine(BLS_PRICE, BLS_COHORT_PRICE)}. Individual learners can start online; hospitals, clinics, and organised teams can request an institutional cohort pathway and a practical-session plan.`,
+          "The published individual fee covers the Paeds Resus BLS enrollment pathway. Confirm the practical-session arrangements, certification wording, and any employer or licensing requirements before payment.",
         ],
       },
       {
@@ -198,9 +252,19 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
     ],
     faqs: [
       {
-        question: "Where do I get BLS certified in Kenya?",
+        question: "Where can I do BLS training in Kenya?",
         answer:
-          "Start at www.paedsresus.com/training/bls — create a provider account, enroll, complete cognitive modules, and attend your practical session with Paeds Resus Limited.",
+          "Start at www.paedsresus.com/training/bls. Create a provider account, enroll, complete the online cognitive modules, and request the next practical skills session. The confirmed date and location are shared during booking.",
+      },
+      {
+        question: "Is BLS training available in Nairobi?",
+        answer:
+          "Providers searching for BLS training in Nairobi can start the Paeds Resus Kenya enrollment pathway online. Practical-session dates and locations are confirmed during booking based on the active cohort and instructor schedule; contact Paeds Resus if you are organising a team cohort.",
+      },
+      {
+        question: "How much does BLS training cost in Kenya?",
+        answer:
+          `${formatCohortLine(BLS_PRICE, BLS_COHORT_PRICE)}. Contact Paeds Resus for an institutional cohort pathway and practical-session details.`,
       },
       {
         question: "Is BLS AHA-certified through Paeds Resus?",
@@ -219,7 +283,7 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
       {
         question: "Can parents take BLS?",
         answer:
-          "Parents and caregivers should explore Parent Safe-Truth and family-oriented resources. BLS enrollment is designed for healthcare providers.",
+          "Parents and caregivers should explore Parent Safe-Truth and family-oriented resources. This BLS enrollment pathway is designed for healthcare providers and clinical teams.",
       },
     ],
   },

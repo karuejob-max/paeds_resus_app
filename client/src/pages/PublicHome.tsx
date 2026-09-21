@@ -1,386 +1,129 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  ArrowRight,
-  Award,
-  Brain,
-  Building2,
-  GraduationCap,
-  Heart,
-  ShieldCheck,
-  Siren,
-  Stethoscope,
-} from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Building2, Heart, Stethoscope } from "lucide-react";
 import Footer from "@/components/Footer";
 import { JsonLdScript } from "@/components/JsonLdScript";
 import { usePageMeta } from "@/hooks/usePageMeta";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { getLoginUrl } from "@/const";
-import { formatPrice, getIndividualCoursePrice } from "@/const/pricing";
-import { buildJsonLdGraph, buildOrganizationJsonLd, buildWebsiteJsonLd } from "@/lib/seo-schema";
-
-const TRAINING_LINKS = [
-  { href: "/training/bls", label: "BLS" },
-  { href: "/training/acls", label: "ACLS" },
-  { href: "/training/pals", label: "PALS" },
-  { href: "/training/nrp", label: "NRP" },
-  { href: "/training", label: "All training" },
-];
+import { DEFAULT_PAGE_DESCRIPTION } from "@/lib/site-meta";
+import {
+  buildJsonLdGraph,
+  buildOrganizationJsonLd,
+  buildWebsiteJsonLd,
+} from "@/lib/seo-schema";
 
 export default function PublicHome() {
   useScrollToTop();
   usePageMeta({
-    title: "Paeds Resus — Preventable child death ends here | Kenya & EAC",
-    description:
-      "Children die from preventable causes not because the right care is unknown, but because it doesn't reach them in time. Paeds Resus is an adaptive learning system for paediatric emergencies in Kenya and East Africa — bedside guidance, training, and quality improvement that learns from every case.",
+    title:
+      "Paeds Resus — Emergency Care Training & Institutional Readiness (Kenya)",
+    description: DEFAULT_PAGE_DESCRIPTION,
     path: "/",
   });
 
-  const jsonLd = buildJsonLdGraph([buildOrganizationJsonLd(), buildWebsiteJsonLd()]);
+  const jsonLd = buildJsonLdGraph([
+    buildOrganizationJsonLd(),
+    buildWebsiteJsonLd(),
+  ]);
 
   return (
     <>
       <JsonLdScript data={jsonLd} />
       <div className="min-h-screen bg-gradient-to-b from-background to-brand-surface/60">
-        {/* Hero */}
         <section className="relative overflow-hidden bg-gradient-to-br from-brand-teal via-[#143333] to-brand-teal text-white">
-          <div className="max-w-6xl mx-auto px-4 py-16 md:py-24">
-            <p className="text-sm font-medium text-brand-orange mb-3 tracking-wide uppercase">
-              Kenya · East African Community · LMIC-focused
+          <div className="mx-auto max-w-6xl px-4 py-16 md:py-24">
+            <p className="mb-3 text-sm font-medium uppercase tracking-wide text-brand-orange">
+              Kenya · Emergency care training · Institutional readiness
             </p>
-            <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-4 max-w-3xl">
-              No child should die from a preventable emergency
+            <h1 className="mb-4 max-w-3xl text-3xl font-bold leading-tight md:text-5xl">
+              No patient should die from a preventable emergency
             </h1>
-            <p className="text-lg md:text-xl text-white/90 max-w-2xl mb-8 leading-relaxed">
-              Most preventable child deaths don't happen because the right treatment is unknown — they happen
-              because it doesn't reach the child in time. Paeds Resus is built to close that gap: bedside
-              guidance, training, and a quality-improvement system that learns from every case to make the next
-              one safer.
+            <p className="mb-8 max-w-2xl text-lg leading-relaxed text-white/90 md:text-xl">
+              Most preventable deaths don&apos;t happen because the right
+              treatment is unknown — they happen because it doesn&apos;t reach
+              the patient in time. Paeds Resus helps people and institutions
+              build the readiness, training, and systems that make emergency
+              care safer.
             </p>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/register">
-                <Button variant="cta" size="lg" className="gap-2">
-                  Create free account
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
+
+            <section aria-label="Choose your path" className="mt-10">
+              <p className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-white/80">
+                What brings you here today?
+              </p>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Link href="/for-providers">
+                  <Card className="h-full cursor-pointer border-white/20 bg-white/10 p-6 text-white transition hover:bg-white/20">
+                    <Stethoscope className="h-6 w-6 text-brand-orange" />
+                    <p className="mt-3 font-semibold">My own readiness</p>
+                    <p className="mt-1 text-sm text-white/80">
+                      I want to be ready for the next code blue, shift, or
+                      emergency I personally respond to.
+                    </p>
+                  </Card>
+                </Link>
+                <Link href="/for-institutions">
+                  <Card className="h-full cursor-pointer border-white/20 bg-white/10 p-6 text-white transition hover:bg-white/20">
+                    <Building2 className="h-6 w-6 text-brand-orange" />
+                    <p className="mt-3 font-semibold">
+                      Our institution&apos;s readiness
+                    </p>
+                    <p className="mt-1 text-sm text-white/80">
+                      I&apos;m responsible for how our hospital or facility
+                      responds, hospital-wide.
+                    </p>
+                  </Card>
+                </Link>
+                <Link href="/for-parents">
+                  <Card className="h-full cursor-pointer border-white/20 bg-white/10 p-6 text-white transition hover:bg-white/20">
+                    <Heart className="h-6 w-6 text-brand-orange" />
+                    <p className="mt-3 font-semibold">
+                      As family or a caregiver
+                    </p>
+                    <p className="mt-1 text-sm text-white/80">
+                      I want to understand what good emergency care should look
+                      like for someone I care about.
+                    </p>
+                  </Card>
+                </Link>
+              </div>
+            </section>
+
+            <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-white/80">
+              <Link
+                href="/register"
+                className="underline underline-offset-4 hover:text-white"
+              >
+                Create free account
               </Link>
-              <a href={getLoginUrl()}>
-                <Button variant="outline" size="lg" className="bg-white/10 border-white/30 text-white hover:bg-white/20">
-                  Sign in
-                </Button>
+              <a
+                href={getLoginUrl()}
+                className="underline underline-offset-4 hover:text-white"
+              >
+                Sign in
               </a>
-              <Link href="/training">
-                <Button variant="ghost" size="lg" className="text-white hover:bg-white/10">
-                  Browse training
-                </Button>
+              <Link
+                href="/training"
+                className="underline underline-offset-4 hover:text-white"
+              >
+                Browse training
+              </Link>
+              <Link
+                href="/training/bls"
+                className="underline underline-offset-4 hover:text-white"
+              >
+                BLS training in Kenya
+              </Link>
+              <Link
+                href="/training/acls"
+                className="underline underline-offset-4 hover:text-white"
+              >
+                ACLS training in Kenya
               </Link>
             </div>
           </div>
         </section>
-
-        <div className="max-w-6xl mx-auto px-4 py-12 md:py-16 space-y-16">
-          {/* Why we exist — the learning system framing */}
-          <section id="why" aria-labelledby="why-heading" className="text-center max-w-3xl mx-auto">
-            <div className="flex justify-center mb-4">
-              <div className="rounded-full bg-brand-orange/10 p-4 text-brand-orange">
-                <Brain className="h-8 w-8" />
-              </div>
-            </div>
-            <h2 id="why-heading" className="text-2xl md:text-3xl font-bold mb-4">
-              Not a training company. A system that learns.
-            </h2>
-            <p className="text-muted-foreground leading-relaxed mb-3">
-              The largest reductions in child mortality have come from simple, well-known interventions delivered
-              reliably — not from rarer breakthroughs. The hardest problem in paediatric emergency care isn't
-              discovering what works. It's making sure what works actually happens, every time, for every child.
-            </p>
-            <p className="text-muted-foreground leading-relaxed">
-              Paeds Resus works the way aviation safety works: every near-miss reported by a provider, every
-              experience shared by a parent, feeds a system that gets better for everyone who uses it next.
-              ResusGPS, training, and Care Signal aren't separate products bundled together — they're one loop.
-              Use the tool, reflect on the case, the system learns, the next child gets better care.
-            </p>
-          </section>
-
-          {/* Healthcare providers */}
-          <section id="providers" aria-labelledby="providers-heading">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="rounded-lg bg-brand-teal/10 p-3 text-brand-teal">
-                <Stethoscope className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 id="providers-heading" className="text-2xl md:text-3xl font-bold">
-                  Healthcare providers
-                </h2>
-                <p className="text-muted-foreground">ResusGPS · Care Signal · Fellowship</p>
-              </div>
-            </div>
-            <div className="grid md:grid-cols-3 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">ResusGPS</CardTitle>
-                  <CardDescription>Bedside paediatric emergency guidance</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Structured ABCDE flows, CPR Clock, weight-based drug calculators, and protocols for
-                    time-critical decisions. ResusGPS is one product on Paeds Resus — not the whole platform.
-                  </p>
-                  <a href={getLoginUrl("/resus")}>
-                    <Button className="w-full gap-2">
-                      Sign in to open ResusGPS
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </a>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Care Signal</CardTitle>
-                  <CardDescription>Monthly QI incident & near-miss reporting</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Provider-facing quality improvement — distinct from Parent Safe-Truth. Contributes to
-                    Fellowship Pillar C when you maintain qualifying monthly reports.
-                  </p>
-                  <a href={getLoginUrl("/care-signal")}>
-                    <Button variant="outline" className="w-full">
-                      Sign in for Care Signal
-                    </Button>
-                  </a>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Paeds Resus Fellowship</CardTitle>
-                  <CardDescription>Three pillars · one earned title</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Micro-courses, ResusGPS attributable cases, and Care Signal discipline — automated
-                    progress tracking. BLS/ACLS/PALS are optional parallel tracks, not fellowship requirements.
-                  </p>
-                  <Link href="/for-providers">
-                    <Button variant="outline" className="w-full">
-                      Learn about the pathway
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </div>
-          </section>
-
-          {/* Training */}
-          <section id="training" aria-labelledby="training-heading">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="rounded-lg bg-brand-teal/10 p-3 text-brand-teal">
-                <GraduationCap className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 id="training-heading" className="text-2xl md:text-3xl font-bold">
-                  Training & AHA-aligned courses
-                </h2>
-                <p className="text-muted-foreground">Delivered by Paeds Resus Limited</p>
-              </div>
-            </div>
-            <p className="text-muted-foreground mb-6 max-w-3xl">
-              BLS, ACLS, PALS, NRP, Heartsaver, and condition-focused micro-courses — blended cognitive modules
-              plus hands-on skills sessions. Individual pricing from{" "}
-              {formatPrice(getIndividualCoursePrice("heartsaver") ?? 0)} (Heartsaver) to{" "}
-              {formatPrice(getIndividualCoursePrice("acls") ?? 0)} (ACLS/PALS); NRP from{" "}
-              {formatPrice(getIndividualCoursePrice("nrp") ?? 0)}. Search-friendly landing pages explain each
-              course for teams across Kenya and the East African Community.
-            </p>
-            <div className="flex flex-wrap gap-2 mb-6">
-              {TRAINING_LINKS.map((link) => (
-                <Link key={link.href} href={link.href}>
-                  <Button variant="outline" size="sm">
-                    {link.label}
-                  </Button>
-                </Link>
-              ))}
-              <Link href="/micro-courses">
-                <Button variant="outline" size="sm">
-                  Micro-courses
-                </Button>
-              </Link>
-              <Link href="/aha-courses">
-                <Button variant="outline" size="sm">
-                  AHA hub
-                </Button>
-              </Link>
-            </div>
-            <Card className="border-brand-teal/20 bg-brand-teal/5">
-              <CardContent className="py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <p className="font-semibold">Ready to enroll?</p>
-                  <p className="text-sm text-muted-foreground">
-                    Create a provider account, choose your course, and complete cognitive modules at your pace.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <a href={getLoginUrl("/enroll")}>
-                    <Button variant="cta">Enroll now</Button>
-                  </a>
-                  <Link href="/register">
-                    <Button variant="outline">Register</Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-
-          {/* Parents */}
-          <section id="parents" aria-labelledby="parents-heading">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="rounded-lg bg-brand-teal/10 p-3 text-brand-teal">
-                <Heart className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 id="parents-heading" className="text-2xl md:text-3xl font-bold">
-                  Parents & caregivers
-                </h2>
-                <p className="text-muted-foreground">Parent Safe-Truth</p>
-              </div>
-            </div>
-            <Card>
-              <CardContent className="py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <p className="text-muted-foreground max-w-2xl">
-                  Trustworthy, appropriately scoped family resources — separate tone and audience from
-                  ResusGPS and Care Signal. Help your community recognise danger signs and seek care early.
-                </p>
-                <div className="flex flex-wrap gap-2 shrink-0">
-                  <Link href="/parent-safe-truth">
-                    <Button variant="cta" className="gap-2">
-                      Explore Safe-Truth
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <Link href="/for-parents">
-                    <Button variant="outline">Overview</Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-
-          {/* Institutions */}
-          <section id="institutions" aria-labelledby="institutions-heading">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="rounded-lg bg-brand-teal/10 p-3 text-brand-teal">
-                <Building2 className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 id="institutions-heading" className="text-2xl md:text-3xl font-bold">
-                  Hospitals & institutions
-                </h2>
-                <p className="text-muted-foreground">Hospital ERS · nurse-led ERT · readiness systems</p>
-              </div>
-            </div>
-            <Card>
-              <CardContent className="py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <p className="text-muted-foreground max-w-2xl">
-                  Build a hospital-wide Emergency Readiness System with paediatric priority — nurse-led 24/7 ERT that
-                  coordinates teams across units, ResusGPS, Care Signal QI, AHA-aligned training mesh, and readiness
-                  audits. Serving Nyeri, Embu, Murang&apos;a, Meru, and central Kenya — working ERS plus training, not
-                  seat bundles.
-                </p>
-                <div className="flex flex-wrap gap-2 shrink-0">
-                  <Link href="/institutional">
-                    <Button variant="cta" className="gap-2">
-                      Institutional portal
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <Link href="/for-institutions">
-                    <Button variant="outline">Learn more</Button>
-                  </Link>
-                  <Link href="/register">
-                    <Button variant="outline">Register institution</Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-
-          {/* Trust signals */}
-          <section id="trust" aria-labelledby="trust-heading">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="rounded-lg bg-brand-teal/10 p-3 text-brand-teal">
-                <ShieldCheck className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 id="trust-heading" className="text-2xl md:text-3xl font-bold">
-                  Trust & verification
-                </h2>
-              </div>
-            </div>
-            <div className="grid md:grid-cols-3 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Award className="h-4 w-4 text-brand-teal" />
-                    Certificate verify
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Employers and institutions can verify Paeds Resus and AHA-aligned certificates publicly.
-                  </p>
-                  <Link href="/verify">
-                    <Button variant="outline" size="sm">
-                      Verify a certificate
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Paeds Resus Limited</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Legal entity and AHA-aligned training provider for BLS, ACLS, PALS, and instructor
-                    programmes. Invoices and training correspondence use Paeds Resus Limited.
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Siren className="h-4 w-4 text-brand-teal" />
-                    Clinical scope
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    We support — not replace — professional judgment and local protocols. Read our intended
-                    use statement before bedside use.
-                  </p>
-                  <Link href="/legal/clinical-use">
-                    <Button variant="outline" size="sm">
-                      Intended use
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </div>
-          </section>
-
-          {/* EAC note */}
-          <section className="rounded-xl border border-border bg-muted/30 p-6 md:p-8">
-            <h2 className="text-xl font-bold mb-2">Kenya today · East Africa next</h2>
-            <p className="text-muted-foreground text-sm leading-relaxed max-w-3xl">
-              Paeds Resus is headquartered in Kenya and built for resource-limited settings across the East
-              African Community. Training cohorts, institutional pilots, and localized discovery pages will
-              expand as we partner with ministries of health and referral hospitals — without compromising
-              data integrity or brand clarity.
-            </p>
-          </section>
-        </div>
-
         <Footer />
       </div>
     </>

@@ -86,7 +86,7 @@ const BRAND = {
 
 interface CertificateData {
   recipientName: string;
-  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor" | "fellowship_diploma" | "heartsaver" | "nrp" | "paeds_resus_ils" | "bls_cognitive" | "acls_cognitive" | "pals_cognitive" | "heartsaver_cognitive" | "nrp_cognitive" | "paeds_resus_phase2" | "paeds_resus_bls_provider" | "paeds_resus_acls_provider" | "paeds_resus_pals_provider" | "paeds_resus_nrp_provider";
+  programType: "bls" | "acls" | "pals" | "fellowship" | "instructor" | "fellowship_diploma" | "heartsaver" | "nrp" | "paeds_resus_ils" | "bls_cognitive" | "acls_cognitive" | "pals_cognitive" | "heartsaver_cognitive" | "nrp_cognitive" | "paeds_resus_phase2" | "paeds_resus_acls_phase2" | "paeds_resus_pals_phase2" | "paeds_resus_nrp_phase2" | "paeds_resus_instructor_phase2" | "paeds_resus_bls_phase3" | "paeds_resus_acls_phase3" | "paeds_resus_pals_phase3" | "paeds_resus_nrp_phase3" | "paeds_resus_heartsaver_phase3" | "paeds_resus_instructor_phase3" | "paeds_resus_bls_provider" | "paeds_resus_acls_provider" | "paeds_resus_pals_provider" | "paeds_resus_nrp_provider";
   trainingDate: Date;
   /** Issue date for expiry calculation; defaults to trainingDate when omitted. */
   issueDate?: Date;
@@ -241,38 +241,98 @@ const CERTIFICATE_TEMPLATES: Record<string, CertificateTemplate> = {
     hours: 4,
   },
   paeds_resus_phase2: {
-    title: "Paeds Resus Phase 2 — Online Simulations",
-    subtitle: "Phase 2 Completion Certificate",
+    title: "Paeds Resus Phase 2 — Simulation Training and Evaluation",
+    subtitle: "Phase 2 Gatepass — Progress Record",
     description:
-      "has successfully completed the required confirmed online simulation roles in Phase 2 of the Paeds Resus readiness pathway and is eligible to proceed to Phase 3 hands-on assessment.",
+      "has successfully completed the required simulation training and evaluation in Phase 2 of the Paeds Resus readiness pathway and is eligible to proceed to Phase 3 practical skills evaluation. This is a progress record and not a final provider certificate.",
     hours: 9,
+  },
+  paeds_resus_acls_phase2: {
+    title: "ACLS Phase 2 — Simulation Training and Evaluation",
+    subtitle: "ACLS Phase 2 Gatepass — Progress Record",
+    description: "has successfully completed the required ACLS simulation training and evaluation and is eligible to proceed to the ACLS Phase 3 practical skills evaluation. This is a progress record and not a final provider certificate.",
+    hours: 9,
+  },
+  paeds_resus_pals_phase2: {
+    title: "PALS Phase 2 — Simulation Training and Evaluation",
+    subtitle: "PALS Phase 2 Gatepass — Progress Record",
+    description: "has successfully completed the required PALS simulation training and evaluation and is eligible to proceed to the PALS Phase 3 practical skills evaluation. This is a progress record and not a final provider certificate.",
+    hours: 9,
+  },
+  paeds_resus_nrp_phase2: {
+    title: "NRP Phase 2 — Simulation Training and Evaluation",
+    subtitle: "NRP Phase 2 Gatepass — Progress Record",
+    description: "has successfully completed the required NRP simulation training and evaluation and is eligible to proceed to the NRP Phase 3 practical skills evaluation. This is a progress record and not a final provider certificate.",
+    hours: 9,
+  },
+  paeds_resus_instructor_phase2: {
+    title: "Instructor Phase 2 — Simulation Training and Evaluation",
+    subtitle: "Instructor Phase 2 Gatepass — Progress Record",
+    description: "has successfully completed the required Instructor simulation training and evaluation and is eligible to proceed to the Instructor Phase 3 practical skills evaluation. This is a progress record and not a final provider certificate.",
+    hours: 9,
+  },
+  paeds_resus_bls_phase3: {
+    title: "BLS Phase 3 — Practical Skills Evaluation",
+    subtitle: "BLS Phase 3 Completion Record",
+    description: "has successfully completed the BLS practical skills evaluation. This is a phase completion record and not a final provider certificate.",
+    hours: 3,
+  },
+  paeds_resus_acls_phase3: {
+    title: "ACLS Phase 3 — Practical Skills Evaluation",
+    subtitle: "ACLS Phase 3 Completion Record",
+    description: "has successfully completed the ACLS practical skills evaluation. This is a phase completion record and not a final provider certificate.",
+    hours: 3,
+  },
+  paeds_resus_pals_phase3: {
+    title: "PALS Phase 3 — Practical Skills Evaluation",
+    subtitle: "PALS Phase 3 Completion Record",
+    description: "has successfully completed the PALS practical skills evaluation. This is a phase completion record and not a final provider certificate.",
+    hours: 3,
+  },
+  paeds_resus_nrp_phase3: {
+    title: "NRP Phase 3 — Practical Skills Evaluation",
+    subtitle: "NRP Phase 3 Completion Record",
+    description: "has successfully completed the NRP practical skills evaluation. This is a phase completion record and not a final provider certificate.",
+    hours: 3,
+  },
+  paeds_resus_heartsaver_phase3: {
+    title: "Heartsaver Phase 3 — Practical Skills Evaluation",
+    subtitle: "Heartsaver Phase 3 Completion Record",
+    description: "has successfully completed the Heartsaver practical skills evaluation. This is a phase completion record and not a final provider certificate.",
+    hours: 3,
+  },
+  paeds_resus_instructor_phase3: {
+    title: "Instructor Phase 3 — Practical Skills Evaluation",
+    subtitle: "Instructor Phase 3 Completion Record",
+    description: "has successfully completed the Instructor practical skills evaluation. This is a phase completion record and not a final provider certificate.",
+    hours: 3,
   },
   paeds_resus_bls_provider: {
     title: "Paeds Resus Certified BLS Provider",
     subtitle: "Paeds Resus Provider Certificate",
     description:
-      "has successfully completed the Paeds Resus BLS provider pathway, including the required online learning and practical skills assessment.",
+      "has successfully completed the Paeds Resus BLS provider pathway, including the required cognitive evaluations and practical skills assessment.",
     hours: 6,
   },
   paeds_resus_acls_provider: {
     title: "Paeds Resus Certified ACLS Provider",
     subtitle: "Paeds Resus Provider Certificate",
     description:
-      "has successfully completed the Paeds Resus ACLS provider pathway, including the required online learning and practical skills assessment.",
+      "has successfully completed the Paeds Resus ACLS provider pathway, including the required cognitive evaluations, simulation training and evaluation, and practical skills assessment.",
     hours: 16,
   },
   paeds_resus_pals_provider: {
     title: "Paeds Resus Certified PALS Provider",
     subtitle: "Paeds Resus Provider Certificate",
     description:
-      "has successfully completed the Paeds Resus PALS provider pathway, including the required online learning and practical skills assessment.",
+      "has successfully completed the Paeds Resus PALS provider pathway, including the required cognitive evaluations, simulation training and evaluation, and practical skills assessment.",
     hours: 16,
   },
   paeds_resus_nrp_provider: {
     title: "Paeds Resus Certified NRP Provider",
     subtitle: "Paeds Resus Provider Certificate",
     description:
-      "has successfully completed the Paeds Resus NRP provider pathway, including the required online learning and practical skills assessment.",
+      "has successfully completed the Paeds Resus NRP provider pathway, including the required cognitive evaluations, simulation training and evaluation, and practical skills assessment.",
     hours: 6,
   },
 };

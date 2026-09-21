@@ -21,15 +21,11 @@ import { Progress } from "@/components/ui/progress";
 export default function InstitutionHomePanel({
   institutionId,
   onOpenLearning,
-  onOpenReadiness,
-  onOpenIls,
   onOpenAdministration,
   iersEnabled,
 }: {
   institutionId: number;
   onOpenLearning: () => void;
-  onOpenReadiness: () => void;
-  onOpenIls: () => void;
   onOpenAdministration: () => void;
   iersEnabled: boolean;
 }) {
@@ -243,68 +239,13 @@ export default function InstitutionHomePanel({
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Choose the operating lane</CardTitle>
-          <CardDescription>
-            Use Readiness for IERS operations, ILS Program for Paeds Resus
-            competency training and provider cohorts, Learning for CPD and staff
-            development, and Administration for access and governance.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-4">
-          <Button
-            variant="outline"
-            className="h-auto justify-start p-4 text-left"
-            onClick={onOpenReadiness}
-          >
-            <div>
-              <div className="font-semibold">Open Readiness</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Teams, equipment, drills, evidence, and improvement.
-              </div>
-            </div>
-            <ArrowRight className="ml-auto h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="h-auto justify-start p-4 text-left"
-            onClick={onOpenIls}
-          >
-            <div>
-              <div className="font-semibold">Open ILS Program</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Paeds Resus competency training, practical assessment, and provider cohorts.
-              </div>
-            </div>
-            <ArrowRight className="ml-auto h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="h-auto justify-start p-4 text-left"
-            onClick={onOpenLearning}
-          >
-            <div>
-              <div className="font-semibold">Open Learning</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Cohorts, competency, CPD, certificates, and staff development.
-              </div>
-            </div>
-            <ArrowRight className="ml-auto h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="h-auto justify-start p-4 text-left"
-            onClick={onOpenAdministration}
-          >
-            <div>
-              <div className="font-semibold">Open Administration</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                People, roles, access, contracts, renewal, and recovery.
-              </div>
-            </div>
-            <ArrowRight className="ml-auto h-4 w-4" />
-          </Button>
+      <Card className="border-dashed">
+        <CardContent className="flex flex-col gap-2 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-medium">Use the workspace navigation to change operating lane.</p>
+            <p className="text-muted-foreground">Readiness, Learning, Accountability, and Administration stay in one place so the next action is never hidden behind repeated launchers.</p>
+          </div>
+          <span className="shrink-0 text-xs font-medium text-muted-foreground">One navigation. One task view.</span>
         </CardContent>
       </Card>
     </div>

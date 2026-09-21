@@ -16,6 +16,11 @@ export const PUBLIC_SEO_ROUTES = [
   "/",
   "/start",
   "/about",
+  "/resources",
+  "/resources/bls-certification-cost-kenya",
+  "/resources/acls-course-cost-kenya",
+  "/resources/hospital-emergency-readiness-checklist",
+  "/resources/paediatric-shock-recognition-first-actions",
   "/help",
   "/verify",
   "/login",
@@ -39,6 +44,9 @@ export const PUBLIC_SEO_ROUTES = [
   "/for-providers",
   "/for-institutions",
   "/for-parents",
+  "/programs/nerp-acls",
+  "/programs/ierp",
+  "/fellowship",
 ] as const;
 
 export function buildOrganizationJsonLd() {
@@ -51,8 +59,8 @@ export function buildOrganizationJsonLd() {
     url: SITE_ORIGIN,
     logo: `${SITE_ORIGIN}/og-image.png`,
     description:
-      "Paeds Resus is an adaptive learning system for paediatric emergency care in Kenya and the East African Community. Every case worked through ResusGPS, every Care Signal report, and every parent's Safe-Truth experience feeds a system that closes the gap between what's known to save children and what actually happens at the bedside — through training, bedside guidance, quality improvement, and institutional readiness.",
-    areaServed: ["Kenya", "East African Community"],
+      "Paeds Resus is an emergency-care organisation and platform based in Kenya, built on paediatric resuscitation science and serving providers and institutions across all patient populations. Individual products include AHA BLS, AHA ACLS, NERP, IERP, and the Paeds Resus Fellowship. Institutional products include ILSP, IERS, and ICPD. ResusGPS and Care Signal are products within IERS: ResusGPS supports bedside guidance and Care Signal supports institutional improvement. Paeds Resus also provides family and caregiver resources.",
+    areaServed: ["Kenya"],
     email: "paedsresus254@gmail.com",
     telephone: "+254706781260",
     sameAs: [
@@ -62,6 +70,51 @@ export function buildOrganizationJsonLd() {
       "https://x.com/PaedsResus",
       "https://youtube.com/@paeds_resus",
     ],
+  };
+}
+
+export type FaqSchemaItem = {
+  question: string;
+  answer: string;
+};
+
+export function buildFaqPageJsonLd(items: FaqSchemaItem[], path: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "@id": `${SITE_ORIGIN}${path}#faq`,
+    url: `${SITE_ORIGIN}${path}`,
+    mainEntity: items.map(item => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  };
+}
+
+export function buildMedicalOrganizationJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": ["MedicalOrganization", "LocalBusiness"],
+    "@id": `${SITE_ORIGIN}/#medical-organization`,
+    name: "Paeds Resus",
+    legalName: "Paeds Resus Limited",
+    url: SITE_ORIGIN,
+    logo: `${SITE_ORIGIN}/og-image.png`,
+    description:
+      "Emergency-care training and institutional readiness for all patient populations in Kenya, grounded in paediatric resuscitation science.",
+    areaServed: ["Kenya"],
+    address: {
+      "@type": "PostalAddress",
+      addressCountry: "KE",
+      addressRegion: "Central Kenya",
+    },
+    email: "paedsresus254@gmail.com",
+    telephone: "+254706781260",
+    parentOrganization: { "@id": ORGANIZATION_ID },
   };
 }
 
@@ -108,7 +161,7 @@ export function buildCourseJsonLd(input: CourseSchemaInput) {
       courseMode: "blended",
       location: {
         "@type": "Place",
-        name: "Kenya and East African Community",
+        name: "Kenya",
         address: {
           "@type": "PostalAddress",
           addressCountry: "KE",
@@ -118,7 +171,8 @@ export function buildCourseJsonLd(input: CourseSchemaInput) {
   };
 
   if (input.duration) {
-    (course.hasCourseInstance as Record<string, unknown>).courseWorkload = input.duration;
+    (course.hasCourseInstance as Record<string, unknown>).courseWorkload =
+      input.duration;
   }
 
   if (input.priceKes != null && input.priceKes > 0) {
@@ -133,6 +187,19 @@ export function buildCourseJsonLd(input: CourseSchemaInput) {
   }
 
   return course;
+}
+
+export function buildBreadcrumbListJsonLd(items: { name: string; path: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: `${SITE_ORIGIN}${item.path}`,
+    })),
+  };
 }
 
 export function buildJsonLdGraph(items: Record<string, unknown>[]) {

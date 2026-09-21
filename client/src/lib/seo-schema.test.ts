@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   PUBLIC_SEO_ROUTES,
+  buildBreadcrumbListJsonLd,
   buildCourseJsonLd,
+  buildFaqPageJsonLd,
   buildJsonLdGraph,
   buildOrganizationJsonLd,
   buildWebsiteJsonLd,
@@ -73,6 +75,32 @@ describe("buildCourseJsonLd", () => {
   });
 });
 
+describe("public training structured data", () => {
+  it("builds a canonical breadcrumb list", () => {
+    const breadcrumbs = buildBreadcrumbListJsonLd([
+      { name: "Home", path: "/" },
+      { name: "Training", path: "/training" },
+      { name: "BLS", path: "/training/bls" },
+    ]);
+    expect(breadcrumbs["@type"]).toBe("BreadcrumbList");
+    expect(breadcrumbs.itemListElement).toHaveLength(3);
+    expect(breadcrumbs.itemListElement[2]).toMatchObject({
+      position: 3,
+      name: "BLS",
+      item: "https://www.paedsresus.com/training/bls",
+    });
+  });
+
+  it("builds FAQPage data from visible training FAQs", () => {
+    const faq = buildFaqPageJsonLd(TRAINING_LANDING_CONFIGS.bls.faqs, "/training/bls");
+    expect(faq["@type"]).toBe("FAQPage");
+    expect(faq.mainEntity).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "How much does BLS training cost in Kenya?" }),
+      expect.objectContaining({ name: "Is BLS training available in Nairobi?" }),
+    ]));
+  });
+});
+
 describe("buildJsonLdGraph", () => {
   it("wraps items in a graph", () => {
     const graph = buildJsonLdGraph([buildOrganizationJsonLd(), buildWebsiteJsonLd()]);
@@ -81,8 +109,11 @@ describe("buildJsonLdGraph", () => {
 });
 
 describe("PUBLIC_SEO_ROUTES", () => {
-  it("includes training and stakeholder paths", () => {
+  it("includes all core training and authority paths", () => {
+    expect(PUBLIC_SEO_ROUTES).toContain("/training/bls");
+    expect(PUBLIC_SEO_ROUTES).toContain("/training/acls");
     expect(PUBLIC_SEO_ROUTES).toContain("/training/pals");
+    expect(PUBLIC_SEO_ROUTES).toContain("/resources/acls-course-cost-kenya");
     expect(PUBLIC_SEO_ROUTES).toContain("/for-providers");
     expect(PUBLIC_SEO_ROUTES).toContain("/aha-courses");
   });

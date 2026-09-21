@@ -21,6 +21,7 @@ import { LegalReconsentGate } from "@/components/LegalReconsentGate";
 import { trpc } from "@/lib/trpc";
 import { AHA_HUB_STALE_MS } from "@/const/aha-hub-query";
 import AdminShell from "./components/AdminShell";
+import NotFound from "./pages/NotFound";
 
 const Login = lazy(() => import("./pages/Login"));
 const CpdRegister = lazy(() => import("./pages/CpdRegister"));
@@ -57,6 +58,12 @@ const CareSignalNotice = lazy(() => import("./pages/legal/CareSignalNotice"));
 const CodeSignalNotice = lazy(() => import("./pages/legal/CodeSignalNotice"));
 const ClinicalIntendedUse = lazy(() => import("./pages/legal/ClinicalIntendedUse"));
 const About = lazy(() => import("./pages/About"));
+const PublicResourcesPage = lazy(() =>
+  import("./pages/PublicResources").then((module) => ({ default: module.default }))
+);
+const PublicResourceArticle = lazy(() =>
+  import("./pages/PublicResources").then((module) => ({ default: module.PublicResourceArticle }))
+);
 const PublicHome = lazy(() => import("./pages/PublicHome"));
 const TrainingHub = lazy(() => import("./pages/TrainingHub"));
 const TrainingCourseLanding = lazy(() => import("./pages/TrainingCourseLanding"));
@@ -134,6 +141,8 @@ const NerpOfferPage = lazy(() => import("./pages/NerpOfferPage"));
 const NerpPathwayEntry = lazy(() => import("./pages/NerpPathwayEntry"));
 const NerpCheckout = lazy(() => import("./pages/NerpCheckout"));
 const AdminNerpVerification = lazy(() => import("./pages/AdminNerpVerification"));
+const AdminAhaProofReview = lazy(() => import("./pages/AdminAhaProofReview"));
+const AdminCompletionRecords = lazy(() => import("./pages/AdminCompletionRecords"));
 const AdminNerpCampaign = lazy(() => import("./pages/AdminNerpCampaign"));
 const AdminPromotionalMessaging = lazy(() => import("./pages/AdminPromotionalMessaging"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
@@ -264,7 +273,7 @@ function Router() {
               <CodeSignal />
             </RoleGate>
           )}</Route>
-          {/* Institutional Workspace: IERS, CPD Portal, shared Administration, and Connected Services. */}
+          {/* Institutional Workspace: sign in through RoleGate, then open the persistent vertical portal navigation. */}
           <Route path="/institutional-portal">{() => (
             <RoleGate allowed={["institution"]}>
               <Redirect to="/institution" />
@@ -363,6 +372,16 @@ function Router() {
               <AdminNerpVerification />
             </AdminGate>
           )}</Route>
+          <Route path="/admin/aha-proof-review">{() => (
+            <AdminGate>
+              <AdminAhaProofReview />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin/completion-records">{() => (
+            <AdminGate>
+              <AdminCompletionRecords />
+            </AdminGate>
+          )}</Route>
           <Route path="/admin/nerp-campaign">{() => (
             <AdminGate>
               <AdminNerpCampaign />
@@ -389,6 +408,8 @@ function Router() {
           <Route path="/legal/data-request" component={DataRequest} />
           <Route path="/care-signal/appeal" component={CareSignalAppeal} />
           <Route path="/about" component={About} />
+          <Route path="/resources" component={PublicResourcesPage} />
+          <Route path="/resources/:slug">{({ slug }) => <PublicResourceArticle slug={slug} />}</Route>
           <Route path="/start">{() => <Redirect to="/" />}</Route>
           <Route path="/training/pals">{() => <TrainingCourseLanding slug="pals" />}</Route>
           <Route path="/training/acls">{() => <TrainingCourseLanding slug="acls" />}</Route>
@@ -590,6 +611,11 @@ function Router() {
               <InstructorPortal />
             </RoleGate>
           )}</Route>
+          <Route path="/completion-records">{() => (
+            <RoleGate allowed={["provider"]}>
+              <AdminCompletionRecords />
+            </RoleGate>
+          )}</Route>
           <Route path="/institutional-onboarding">{() => (
             <RoleGate allowed={["institution"]}>
               <InstitutionalOnboarding />
@@ -696,8 +722,8 @@ function Router() {
           <Route path="/elite-fellowship">{() => <Redirect to="/fellowship" />}</Route>
           {/* / : public compound for anonymous; role home for authenticated */}
           <Route path="/" component={HomeEntry} />
-          {/* Catch-all → role-aware redirect or public home */}
-            <Route component={FallbackEntry} />
+          {/* Catch-all: show a clear 404 instead of silently rendering the homepage. */}
+          <Route component={NotFound} />
           </Switch>
         </Suspense>
         </LegalReconsentGate>

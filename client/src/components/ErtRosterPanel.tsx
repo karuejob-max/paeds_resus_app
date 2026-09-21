@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Shield, Clock, AlertCircle, Plus, Star, Calendar, UserPlus, ArrowDown, ArrowUp, Search } from "lucide-react";
+import { Users, Shield, Clock, AlertCircle, Star, Calendar, UserPlus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { ErtBillboardWidget } from "./ErtBillboardWidget";
 
@@ -109,9 +109,7 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
   const [selectedShiftStartTime, setSelectedShiftStartTime] = useState<string>(SHIFT_TIME_PRESETS.morning.startTime);
   const [selectedShiftEndTime, setSelectedShiftEndTime] = useState<string>(SHIFT_TIME_PRESETS.morning.endTime);
   const [selectedShiftEndDayOffset, setSelectedShiftEndDayOffset] = useState<0 | 1>(SHIFT_TIME_PRESETS.morning.endDayOffset);
-  const [newPoleName, setNewPoleName] = useState("");
-  const [showNewPoleForm, setShowNewPoleForm] = useState(false);
-  
+
   const todayStr = new Date().toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [monthStart, setMonthStart] = useState(`${todayStr.slice(0, 7)}-01`);
@@ -214,24 +212,6 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
     { institutionId, poleId: activePoleId ?? 0, weekNumber, year },
     { enabled: !!institutionId && !!activePoleId }
   );
-
-  const createPoleMutation = trpc.institution.createFacilityPole.useMutation({
-    onSuccess: (result) => {
-      toast.success("Facility Pole created!");
-      setNewPoleName("");
-      setShowNewPoleForm(false);
-      void utils.institution.getFacilityPoles.invalidate({ institutionId });
-      setSelectedPoleId(result.poleId);
-    },
-    onError: (err) => toast.error(err.message || "Failed to create pole"),
-  });
-  const reorderPolesMutation = trpc.institution.reorderFacilityPoles.useMutation({
-    onSuccess: async () => {
-      toast.success("Pole order updated");
-      await utils.institution.getFacilityPoles.invalidate({ institutionId });
-    },
-    onError: (err) => toast.error(err.message || "Could not update pole order"),
-  });
 
   const overrideLeadershipMutation = trpc.institution.overrideWeeklyErtlLeadership.useMutation({
     onSuccess: () => {
@@ -516,8 +496,8 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
           {/* Geographic Pole Tabs */}
           <div className="flex flex-col items-stretch gap-2 border-b pb-2 sm:flex-row sm:flex-wrap sm:items-center">
             <span className="text-xs font-semibold text-muted-foreground sm:mr-2">Facility Zone:</span>
-            {poleList.length === 0 && !showNewPoleForm && (
-              <span className="text-xs text-muted-foreground italic mr-2">No poles set up yet.</span>
+            {poleList.length === 0 && (
+              <span className="text-xs text-muted-foreground italic mr-2">No poles set up yet. Create one in the Team & shift setup section above.</span>
             )}
             {poleList.map((pole, index) => (
               <div key={pole.id} className="flex min-w-0 items-center gap-1 rounded-md border bg-background p-1">
@@ -530,41 +510,12 @@ export function ErtRosterPanel({ institutionId }: ErtRosterPanelProps) {
                   <Shield className="w-3.5 h-3.5 shrink-0" />
                   <span className="max-w-[9rem] truncate">{index + 1}. {pole.poleName}</span>
                 </Button>
-                <div className="flex shrink-0">
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`Move ${pole.poleName} up`} disabled={index === 0 || reorderPolesMutation.isPending} onClick={() => { const poleIds = poleList.map((item) => item.id); [poleIds[index - 1], poleIds[index]] = [poleIds[index], poleIds[index - 1]]; reorderPolesMutation.mutate({ institutionId, poleIds }); }}><ArrowUp className="h-3.5 w-3.5" /></Button>
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`Move ${pole.poleName} down`} disabled={index === poleList.length - 1 || reorderPolesMutation.isPending} onClick={() => { const poleIds = poleList.map((item) => item.id); [poleIds[index], poleIds[index + 1]] = [poleIds[index + 1], poleIds[index]]; reorderPolesMutation.mutate({ institutionId, poleIds }); }}><ArrowDown className="h-3.5 w-3.5" /></Button>
-                </div>
+
               </div>
             ))}
-            {showNewPoleForm ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  value={newPoleName}
-                  onChange={(e) => setNewPoleName(e.target.value)}
-                  placeholder="Pole name, e.g. East Wing"
-                  className="h-8 w-full min-w-0 text-xs sm:w-48"
-                  autoFocus
-                />
-                <Button
-                  size="sm"
-                  className="h-8"
-                  disabled={!newPoleName.trim() || createPoleMutation.isPending}
-                  onClick={() => createPoleMutation.mutate({ institutionId, poleName: newPoleName.trim() })}
-                >
-                  Save
-                </Button>
-                <Button size="sm" variant="ghost" className="h-8" onClick={() => setShowNewPoleForm(false)}>
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <Button size="sm" variant="outline" className="gap-1.5 h-8" onClick={() => setShowNewPoleForm(true)}>
-                <Plus className="w-3.5 h-3.5" />
-                New Pole
-              </Button>
-            )}
+
           </div>
-          {poleList.length > 0 && <p className="text-xs text-muted-foreground">Step 2 is ordered for your facility. New poles are added at the end. The order is for navigation; weekly ERTL rotation still cycles through eligible departments within each selected pole.</p>}
+          {poleList.length > 0 && <p className="text-xs text-muted-foreground">Facility zones are ordered in Team & shift setup. The order is for navigation; weekly ERTL rotation still cycles through eligible departments within each selected pole.</p>}
 
           {/* ERTL Rotation Rule Notice + this week's assignment */}
           <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
