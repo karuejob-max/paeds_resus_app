@@ -21,6 +21,8 @@ import {
   HeartPulse,
   LayoutDashboard,
   LockKeyhole,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings2,
   ShieldCheck,
   Users,
@@ -97,6 +99,7 @@ export default function InstitutionWorkspace() {
   const [activeLearningTab, setActiveLearningTab] = useState<LearningNavigationTab>(initialWorkspaceState.learningTab);
   const [activeAdminTab, setActiveAdminTab] = useState<AdministrationNavigationTab>(initialWorkspaceState.adminTab);
   const [expandedPortalSection, setExpandedPortalSection] = useState<WorkspaceSection | null>(initialWorkspaceState.section);
+  const [navigationOpen, setNavigationOpen] = useState(true);
   const [selectedInstitutionId, setSelectedInstitutionId] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     const value = Number(new URLSearchParams(window.location.search).get("institutionId"));
@@ -107,6 +110,7 @@ export default function InstitutionWorkspace() {
   const setSection = (section: WorkspaceSection) => {
     setActiveSection(section);
     setExpandedPortalSection(section);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       params.set("section", section);
@@ -250,11 +254,23 @@ export default function InstitutionWorkspace() {
               </label>
             ) : null}
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-expanded={navigationOpen}
+            aria-controls="institution-workspace-navigation"
+            onClick={() => setNavigationOpen(current => !current)}
+            className="shrink-0 self-start"
+          >
+            {navigationOpen ? <PanelLeftClose className="mr-2 h-4 w-4" /> : <PanelLeftOpen className="mr-2 h-4 w-4" />}
+            {navigationOpen ? "Hide navigation" : "Open navigation"}
+          </Button>
         </div>
 
         <Tabs value={visibleSection} onValueChange={(value) => setSection(value as WorkspaceSection)} className="min-w-0">
           <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] lg:items-start">
-            <InstitutionPortalNavigation
+            {navigationOpen ? <InstitutionPortalNavigation
               activeSection={visibleSection}
               expandedSection={expandedPortalSection}
               activeIersTab={activeIersTab}
@@ -270,7 +286,7 @@ export default function InstitutionWorkspace() {
               onSelectLearningTab={setLearningTab}
               onSelectAdminTab={setAdminTab}
               onOpenExternal={href => navigate(href)}
-            />
+            /> : null}
             <div className="min-w-0">
               <TabsList className="sr-only">
                 <TabsTrigger value="overview">Home</TabsTrigger>
@@ -476,6 +492,7 @@ function InstitutionPortalNavigation({
 
   return (
     <aside
+      id="institution-workspace-navigation"
       aria-label="Institution workspace navigation"
       className="min-w-0 rounded-xl border bg-background/95 p-2 shadow-sm lg:sticky lg:top-4"
     >

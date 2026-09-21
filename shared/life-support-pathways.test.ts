@@ -32,7 +32,17 @@ describe("Life Support pathway definitions", () => {
     expect(isLifeSupportCertificateProgramType("bls_cognitive")).toBe(true);
     expect(isLifeSupportCertificateProgramType("paeds_resus_bls_phase3")).toBe(true);
     expect(isLifeSupportCertificateProgramType("paeds_resus_acls_provider")).toBe(true);
+    expect(isLifeSupportCertificateProgramType("paeds_resus_acls_phase3")).toBe(true);
+    expect(isLifeSupportCertificateProgramType("paeds_resus_pals_phase3")).toBe(true);
     expect(isLifeSupportCertificateProgramType("fellowship_diploma")).toBe(false);
+  });
+
+  it("keeps a downloadable Phase 3 progress record in every displayed pathway", () => {
+    for (const course of ["bls", "acls", "pals", "nrp", "heartsaver", "instructor"] as const) {
+      const phase3 = getLifeSupportPathway(course)?.phases.find((phase) => phase.key === "phase3");
+      expect(phase3?.applicable).toBe(true);
+      expect(phase3?.recordKind).toBe("completion");
+    }
   });
 
   it("marks supporting records as non-final and the final record as the credential", () => {
