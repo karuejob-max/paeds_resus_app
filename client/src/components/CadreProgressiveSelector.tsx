@@ -308,7 +308,9 @@ export function SearchableDropdown({
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
-            onFocus={() => setOpen(true)}
+            onFocus={() => {
+              if (!value) setOpen(true);
+            }}
             onKeyDown={event => {
             if (clearable && value && !searchQuery && (event.key === "Backspace" || event.key === "Delete")) {
               event.preventDefault();
