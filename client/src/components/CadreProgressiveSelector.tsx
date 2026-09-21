@@ -292,7 +292,6 @@ export function SearchableDropdown({
           aria-expanded={open}
           aria-haspopup="listbox"
           className="min-w-0"
-          onClick={() => setOpen(true)}
         >
           {selectedOption ? (
             <div className="mb-2 rounded-md border border-emerald-200 bg-emerald-50/70 px-2.5 py-2 text-left dark:border-emerald-900/60 dark:bg-emerald-950/30" aria-live="polite">
