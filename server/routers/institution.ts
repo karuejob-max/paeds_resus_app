@@ -5065,7 +5065,16 @@ export const institutionRouter = router({
         .limit(1);
       if (!staff) throw new TRPCError({ code: "NOT_FOUND", message: "Institution staff member not found." });
       if (staff.removedAt) throw new TRPCError({ code: "BAD_REQUEST", message: "This person has already been retired from the institution." });
-      if (staff.facilityDepartmentId === input.departmentId) throw new TRPCError({ code: "BAD_REQUEST", message: "This staff member is already assigned to the selected department." });
+      // A previous profile edit can leave the canonical FK correct while the
+      // denormalized department label is stale (for example Theatre displayed
+      // as Male Surgical). Allow the administrator to repair that label and
+      // close the mismatch instead of incorrectly treating it as a duplicate.
+      const departmentLabelIsCurrent = Boolean(
+        staff.department && departmentLabelsMatch(staff.department, department.departmentName),
+      );
+      if (staff.facilityDepartmentId === input.departmentId && departmentLabelIsCurrent) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This staff member is already assigned to the selected department." });
+      }
 
       const now = new Date();
       await db.transaction(async (tx) => {
@@ -7802,4 +7811,3 @@ export const institutionRouter = router({
       });
     }),
 });
-
