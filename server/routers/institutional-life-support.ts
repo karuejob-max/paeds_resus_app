@@ -31,6 +31,7 @@ import {
   payments,
   certificates,
   users,
+  institutionalPricingAuditEvents,
 } from "../../drizzle/schema";
 import {
   ensureInstitutionalLifeSupportCatalog,
@@ -150,6 +151,76 @@ async function getEnrollmentCertificate(db: any, enrollmentId: number) {
 }
 
 export const institutionalLifeSupportRouter = router({
+  listPendingInstitutionalOrders: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role !== "admin") {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Only Paeds Resus platform administrators can view pending institutional payments." });
+    }
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    return db
+      .select({
+        id: institutionalTrainingOrders.id,
+        institutionalAccountId: institutionalTrainingOrders.institutionalAccountId,
+        companyName: institutionalAccounts.companyName,
+        providerCount: institutionalTrainingOrders.providerCount,
+        totalAmountKes: institutionalTrainingOrders.totalAmountKes,
+        trainingDate: institutionalTrainingOrders.trainingDate,
+        paymentStatus: institutionalTrainingOrders.paymentStatus,
+        orderStatus: institutionalTrainingOrders.orderStatus,
+        createdAt: institutionalTrainingOrders.createdAt,
+      })
+      .from(institutionalTrainingOrders)
+      .innerJoin(institutionalAccounts, eq(institutionalAccounts.id, institutionalTrainingOrders.institutionalAccountId))
+      .where(and(eq(institutionalTrainingOrders.paymentStatus, "pending"), inArray(institutionalTrainingOrders.orderStatus, ["ready_for_payment", "payment_pending"])))
+      .orderBy(desc(institutionalTrainingOrders.createdAt));
+  }),
+
+  confirmManualIlsPayment: protectedProcedure
+    .input(z.object({
+      orderId: z.number().int().positive(),
+      paymentMethod: z.enum(["bank_transfer", "card"]),
+      transactionReference: z.string().trim().min(3).max(255),
+      reason: z.string().trim().min(3).max(1000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only Paeds Resus platform administrators can confirm manual institutional payments." });
+      }
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [order] = await db.select().from(institutionalTrainingOrders).where(eq(institutionalTrainingOrders.id, input.orderId)).limit(1);
+      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "ILSP order not found." });
+      if (order.paymentStatus !== "pending") {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: `This order's payment status is already "${order.paymentStatus}".` });
+      }
+      if (!order.coordinatorUserId) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This order has no billing coordinator account." });
+      const [provider] = await db.select({ enrollmentId: institutionalTrainingOrderProviders.enrollmentId })
+        .from(institutionalTrainingOrderProviders)
+        .where(and(eq(institutionalTrainingOrderProviders.orderId, input.orderId), eq(institutionalTrainingOrderProviders.assignmentStatus, "active")))
+        .limit(1);
+      if (!provider?.enrollmentId) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This order has no active provider enrollment to anchor the payment ledger." });
+      const paymentInsert = await db.insert(payments).values({
+        enrollmentId: provider.enrollmentId,
+        userId: order.coordinatorUserId,
+        amount: order.totalAmountKes * 100,
+        paymentMethod: input.paymentMethod,
+        transactionId: input.transactionReference,
+        institutionalTrainingOrderId: input.orderId,
+        status: "completed",
+      });
+      const paymentId = (paymentInsert as unknown as { insertId: number }).insertId;
+      await db.update(institutionalTrainingOrders).set({ paymentId, paymentReceiptReference: input.transactionReference, updatedAt: new Date() }).where(eq(institutionalTrainingOrders.id, input.orderId));
+      await applyInstitutionalLifeSupportPaymentCompletion(db, paymentId);
+      await db.insert(institutionalPricingAuditEvents).values({
+        institutionalAccountId: order.institutionalAccountId,
+        eventType: "manual_payment_confirmed",
+        actorUserId: ctx.user.id,
+        currentValue: { orderId: input.orderId, paymentId, paymentMethod: input.paymentMethod, transactionReference: input.transactionReference },
+        reason: input.reason,
+      });
+      return { success: true as const, orderId: input.orderId, paymentId };
+    }),
+
   getCatalog: protectedProcedure.query(async ({ ctx }) => {
     assertTrainingWorkspaceOrAdmin(ctx.user);
     const db = await getDb();
