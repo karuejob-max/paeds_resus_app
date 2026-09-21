@@ -15,7 +15,8 @@ import { toast } from 'sonner';
 import { BottomNav } from '@/components/BottomNav';
 import { RecommendationBanner } from '@/components/RecommendationBanner';
 import { CPRClockUnified } from '@/components/CPRClockUnified';
-import { resolveLifeSupportPack, type ResusSetting } from '@/lib/resus/cpr-pack-resolver';
+import { type ResusSetting } from '@/lib/resus/cpr-pack-resolver';
+import { resolveResusContext } from '@/lib/resus/resus-context-resolver';
 import { useResusAnalytics } from '@/hooks/useResusAnalytics';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { trpc } from '@/lib/trpc';
@@ -303,6 +304,11 @@ function approximateAgeMonths(age: string | null): number {
   return parseAgeToMonths(age) ?? 0;
 }
 
+function isNeonatalCase(age: string | null): boolean {
+  const context = resolveResusContext({ age, measuredWeightKg: 1, setting: 'hospital' });
+  return context.ageMonths != null && context.ageMonths < 1;
+}
+
 // ─── Main Component ─────────────────────────────────────────
 
 export default function ResusGPS({ hasActivationContext = false, activationEventId }: { hasActivationContext?: boolean; activationEventId?: number }) {
@@ -518,6 +524,15 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     trackButtonClick('Start ResusGPS emergency flow', { isTrauma });
     const entryAge = entry?.age ?? demographics.age;
     const resolution = resolveCurrentWeight(entry);
+    const context = resolveResusContext({
+      age: entry?.age ?? demographics.age,
+      measuredWeightKg: entry?.weightSource === 'measured' ? parseResusWeight(entry.weight) : null,
+      lastKnownWeightKg: entry?.weightSource === 'last_known' ? parseResusWeight(entry.weight) : parseResusWeight(demographics.lastKnownWeight),
+      gestationalAgeWeeks: entry?.gestationalAgeWeeks?.trim() ? Number(entry.gestationalAgeWeeks) : null,
+      setting: entry?.resusSetting ?? tempSetting,
+      trauma: isTrauma,
+      adultContentEnabled: false,
+    });
     if (!entryAge.trim()) {
       toast.error('Enter the patient age before starting age-specific guidance.');
       return;
@@ -531,16 +546,11 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       toast.error(weightValidation.message ?? 'Verify the patient weight before starting.');
       return;
     }
-    const setting = entry?.resusSetting ?? 'hospital';
-    const ageMonths = parseAgeToMonths(entryAge);
-    if (ageMonths === null) {
-      toast.error('Enter age in a supported format before starting age-specific guidance.');
+    if (context.status !== 'ready' || !context.pack || !context.setting) {
+      toast.error(context.reason ?? 'Confirm the patient context before starting age-specific guidance.');
       return;
     }
-    if (setting === 'delivery_room' && ageMonths >= 1) {
-      toast.error('Delivery-room NRP requires a newborn age under 1 month and explicit birth-context confirmation.');
-      return;
-    }
+    const setting = context.setting;
     const s = createSession(
       resolution.weightKg,
       entryAge || null,
@@ -711,21 +721,18 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     analytics.trackCardiacArrestTriggered();
   };
 
-  const isNeonatalCase = (age: string | null) => age !== null && approximateAgeMonths(age) < 1;
-  const patientAgeMonthsForCpr = session.patientAge
-    ? approximateAgeMonths(session.patientAge)
-    : demographics.age
-      ? approximateAgeMonths(demographics.age)
-      : null;
-  const cprDemographicsReady =
-    weight != null && weight > 0 && patientAgeMonthsForCpr != null && patientAgeMonthsForCpr >= 0;
-  const lifeSupportPack = cprDemographicsReady
-    ? resolveLifeSupportPack(
-        patientAgeMonthsForCpr,
-        undefined,
-        isNeonatalCase(session.patientAge) ? session.resusSetting : 'hospital',
-      )
-    : null;
+  const currentContext = resolveResusContext({
+    age: session.patientAge ?? demographics.age,
+    measuredWeightKg: session.patientWeightSource === 'measured' ? weight : null,
+    lastKnownWeightKg: session.patientWeightSource === 'last_known' ? weight : parseResusWeight(demographics.lastKnownWeight),
+    gestationalAgeWeeks: demographics.gestationalAgeWeeks?.trim() ? Number(demographics.gestationalAgeWeeks) : null,
+    setting: session.resusSetting,
+    trauma: session.isTrauma,
+    adultContentEnabled: false,
+  });
+  const patientAgeMonthsForCpr = currentContext.ageMonths;
+  const cprDemographicsReady = currentContext.status === 'ready' && currentContext.weight != null && patientAgeMonthsForCpr != null;
+  const lifeSupportPack = cprDemographicsReady ? currentContext.pack : null;
 
   const handleCprSessionReady = useCallback((cprSessionId: number) => {
     if (!activationEventId || cprLinkSessionRef.current === cprSessionId) return;
@@ -787,6 +794,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       age: newAge,
       measuredWeightKg: tempWeightSource === 'measured' ? enteredWeight : null,
       lastKnownWeightKg: tempWeightSource === 'last_known' ? enteredWeight : parseResusWeight(demographics.lastKnownWeight),
+      gestationalAgeWeeks: demographics.gestationalAgeWeeks?.trim() ? Number(demographics.gestationalAgeWeeks) : null,
     });
     if (tempWeight.trim() && enteredWeight === null) {
       toast.error('Enter a valid weight in kilograms, or clear the field to use an emergency estimate.');
@@ -800,8 +808,17 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       try {
         setSession(prev => {
           const updated = updatePatientInfo(prev, resolution?.weightKg ?? null, newAge, resolution?.source, resolution?.method);
-          const setting = getAgeCategory(newAge) === 'neonate' ? tempSetting : 'hospital';
-          return updateResusSetting(updated, setting);
+          const context = resolveResusContext({
+            age: newAge,
+            measuredWeightKg: tempWeightSource === 'measured' ? enteredWeight : null,
+            lastKnownWeightKg: tempWeightSource === 'last_known' ? enteredWeight : parseResusWeight(demographics.lastKnownWeight),
+            gestationalAgeWeeks: demographics.gestationalAgeWeeks?.trim() ? Number(demographics.gestationalAgeWeeks) : null,
+            setting: tempSetting,
+            trauma: prev.isTrauma,
+            adultContentEnabled: false,
+          });
+          if (context.status !== 'ready' || !context.setting) throw new Error(context.reason ?? 'Confirm patient context before saving.');
+          return updateResusSetting(updated, context.setting);
         });
       } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Verify the patient information before saving.');

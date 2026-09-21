@@ -101,11 +101,11 @@ export const cprSessionRouter = router({
     }),
 
   // Get session details
-  getSession: publicProcedure
+  getSession: protectedProcedure
     .input(z.object({
       sessionId: z.number(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new Error('Database not available');
 
@@ -114,6 +114,15 @@ export const cprSessionRouter = router({
 
       if (!session) {
         throw new Error('Session not found');
+      }
+
+      const [membership] = await db.select({ id: cprTeamMembers.id }).from(cprTeamMembers).where(and(
+        eq(cprTeamMembers.sessionId, input.sessionId),
+        eq(cprTeamMembers.userId, ctx.user.id),
+        isNull(cprTeamMembers.leftAt),
+      )).limit(1);
+      if (ctx.user.role !== 'admin' && session.createdBy !== ctx.user.id && !membership) {
+        throw new Error('Only the session creator or an active CPR team member can view this session');
       }
 
       // Get team members
@@ -214,11 +223,13 @@ export const cprSessionRouter = router({
       const db = await getDb();
       if (!db) throw new Error('Database not available');
 
-      const [session] = await db.select({ id: cprSessions.id, createdBy: cprSessions.createdBy })
+      const [session] = await db.select({ id: cprSessions.id, createdBy: cprSessions.createdBy, status: cprSessions.status })
         .from(cprSessions)
         .where(eq(cprSessions.id, input.sessionId))
         .limit(1);
       if (!session) throw new Error('Session not found');
+      if (session.status !== 'active') throw new Error('This CPR session is no longer accepting clinical events');
+      if (!Number.isFinite(input.eventTime) || input.eventTime < 0) throw new Error('Event time must be a non-negative finite number');
 
       const [actor] = await db.select({ id: cprTeamMembers.id, role: cprTeamMembers.role })
         .from(cprTeamMembers)
@@ -242,11 +253,19 @@ export const cprSessionRouter = router({
       }
 
       if (input.clientRequestId) {
-        const [existing] = await db.select({ id: cprEvents.id })
+        const [existing] = await db.select({ id: cprEvents.id, eventType: cprEvents.eventType, eventTime: cprEvents.eventTime, description: cprEvents.description, value: cprEvents.value, metadata: cprEvents.metadata })
           .from(cprEvents)
           .where(and(eq(cprEvents.cprSessionId, input.sessionId), eq(cprEvents.idempotencyKey, input.clientRequestId)))
           .limit(1);
-        if (existing) return { success: true, eventId: existing.id, idempotent: true };
+        if (existing) {
+          const samePayload = existing.eventType === input.eventType
+            && existing.eventTime === input.eventTime
+            && (existing.description ?? null) === (input.description ?? null)
+            && (existing.value ?? null) === (input.value ?? null)
+            && (existing.metadata ?? null) === (input.metadata ?? null);
+          if (!samePayload) throw new Error('This retry key is already bound to a different CPR event');
+          return { success: true, eventId: existing.id, idempotent: true };
+        }
       }
 
       const [created] = await db.insert(cprEvents).values({
@@ -285,6 +304,15 @@ export const cprSessionRouter = router({
       if (session.createdBy !== ctx.user.id) {
         throw new Error('Only session creator can end the session');
       }
+
+      if (input.outcome === 'ongoing') {
+        throw new Error('Use the CPR event timeline for interim status; terminal closure requires a final outcome');
+      }
+      if (session.status === 'completed') {
+        if (session.outcome === input.outcome) return { success: true, idempotent: true };
+        throw new Error('This CPR session already has a different terminal outcome');
+      }
+      if (session.status !== 'active') throw new Error('This CPR session is not active');
 
       const completedAt = new Date();
       await db.update(cprSessions)
@@ -493,7 +521,9 @@ Keep the tone supportive and constructive. Focus on actionable insights.`;
       if (!db) throw new Error('Database not available');
 
       // Get all sessions, ordered by most recent first
-      const sessions = await db.select().from(cprSessions).orderBy(desc(cprSessions.startTime)).limit(1000);
+      const sessions = await db.select().from(cprSessions)
+        .where(eq(cprSessions.createdBy, ctx.user.id))
+        .orderBy(desc(cprSessions.startTime)).limit(1000);
 
       return sessions;
     }),
@@ -515,6 +545,15 @@ Keep the tone supportive and constructive. Focus on actionable insights.`;
         throw new Error('Session not found');
       }
 
+      const [membership] = await db.select({ id: cprTeamMembers.id }).from(cprTeamMembers).where(and(
+        eq(cprTeamMembers.sessionId, input.sessionId),
+        eq(cprTeamMembers.userId, ctx.user.id),
+        isNull(cprTeamMembers.leftAt),
+      )).limit(1);
+      if (ctx.user.role !== 'admin' && session.createdBy !== ctx.user.id && !membership) {
+        throw new Error('Only the session creator or an active CPR team member can view this session');
+      }
+
       // Get all events for this session, ordered by time
       const events = await db.select().from(cprEvents)
         .where(eq(cprEvents.cprSessionId, input.sessionId))
@@ -531,4 +570,3 @@ Keep the tone supportive and constructive. Focus on actionable insights.`;
       };
     }),
 });
-

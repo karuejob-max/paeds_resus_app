@@ -89,7 +89,7 @@ describe('all-age clinical content safety matrix', () => {
     expect(resolveLifeSupportPack(0, false, 'delivery_room').pack).toBe('NRP');
     expect(() => resolveLifeSupportPack(12, false, 'delivery_room')).toThrow(/delivery-room NRP/i);
     expect(resolveLifeSupportPack(12, false, 'hospital').pack).toBe('PALS');
-    expect(resolveLifeSupportPack(216, false, 'hospital').pack).toBe('ACLS');
+    expect(resolveLifeSupportPack(216, false, 'hospital', true).pack).toBe('ACLS');
   });
 
   it('routes confirmed absent pulse to the arrest branch before generic XABCDE', () => {

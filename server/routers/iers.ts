@@ -1467,12 +1467,18 @@ export const iersRouter = router({
         await assertCurrentClinicalLicence(db, targetUserId);
       }
       if (target.responder.notificationStatus === "declined" || target.responder.notificationStatus === "timed_out") throw new TRPCError({ code: "CONFLICT", message: "A provider who declined or timed out cannot be recorded as arrived without a new response." });
+      if (target.responder.atSceneAt) {
+        return { success: true, status: "at_scene" as const, providerUserId: targetUserId, idempotent: true };
+      }
       if (input.arrivalType === "self" && targetUserId !== ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Self arrival can only be recorded for your own provider account." });
       const actorCanWitness = actor.responder.userId === targetUserId || Boolean(actor.responder.atSceneAt) || ["ert_leader", "unit_team_leader"].includes(actor.responder.responsibilityRole);
       if (!actorCanWitness) throw new TRPCError({ code: "FORBIDDEN", message: "You must be at scene or hold the UTL/ERTL role to record another member's arrival." });
       const [snapshot] = await db.select().from(iersActivationTeamSnapshots).where(and(eq(iersActivationTeamSnapshots.activationEventId, input.activationEventId), eq(iersActivationTeamSnapshots.providerUserId, targetUserId))).orderBy(desc(iersActivationTeamSnapshots.id)).limit(1);
       const now = new Date();
-      await db.update(iersActivationResponders).set({ receivedAt: target.responder.receivedAt ?? now, acknowledgedAt: target.responder.acknowledgedAt ?? now, responseAt: target.responder.responseAt ?? now, atSceneAt: target.responder.atSceneAt ?? now, notificationStatus: "acknowledged", updatedAt: now }).where(eq(iersActivationResponders.id, target.responder.id));
+      await db.update(iersActivationResponders).set({
+        atSceneAt: target.responder.atSceneAt ?? now,
+        updatedAt: now,
+      }).where(eq(iersActivationResponders.id, target.responder.id));
       await recordArrivalIfMissing(db, { activationEventId: input.activationEventId, institutionId: target.event.institutionalAccountId, teamId: target.event.teamId, roleSnapshotId: snapshot?.id ?? null, providerUserId: targetUserId, roleKey: snapshot?.roleKey ?? null, arrivalType: input.arrivalType, recordedByUserId: ctx.user.id, note: input.note ?? null });
       await db.update(iersActivationEvents).set({ status: "at_scene", firstResponderAt: target.event.firstResponderAt ?? now, atSceneAt: target.event.atSceneAt ?? now, updatedAt: now }).where(eq(iersActivationEvents.id, input.activationEventId));
       await appendTimeline(db, { activationEventId: input.activationEventId, institutionalAccountId: target.event.institutionalAccountId, actorUserId: ctx.user.id, eventType: input.arrivalType === "self" ? "responder_arrival_recorded" : "responder_arrival_witnessed", fromStatus: target.event.status, toStatus: "at_scene", note: input.note ?? null, metadata: { providerUserId: targetUserId, arrivalType: input.arrivalType } });
@@ -1491,7 +1497,13 @@ export const iersRouter = router({
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "No responder assignment found for this activation." });
       const continuityDecision = await assertInstitutionProductCapability(db, assignment.event.institutionalAccountId, "iers", "iers.activation.respond");
       assertIersActivationContinuity(continuityDecision);
+      if (["closed", "cancelled", "false_alarm"].includes(assignment.event.status)) {
+        throw new TRPCError({ code: "CONFLICT", message: "This activation is already terminal; receipt cannot be added." });
+      }
       if (assignment.responder.notificationStatus === "declined") throw new TRPCError({ code: "BAD_REQUEST", message: "This activation response was declined." });
+      if (["received", "acknowledged"].includes(assignment.responder.notificationStatus)) {
+        return { success: true, status: assignment.responder.notificationStatus as "received" | "acknowledged", idempotent: true };
+      }
       const now = new Date();
       await db.update(iersActivationResponders).set({ notificationStatus: "received", receivedAt: assignment.responder.receivedAt ?? now, updatedAt: now }).where(eq(iersActivationResponders.id, assignment.responder.id));
       await appendTimeline(db, { activationEventId: input.activationEventId, institutionalAccountId: assignment.event.institutionalAccountId, actorUserId: ctx.user.id, eventType: "responder_notification_received", fromStatus: assignment.event.status, note: "Provider confirmed receipt of the activation alert." });
@@ -1517,6 +1529,18 @@ export const iersRouter = router({
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "No responder assignment found for this activation." });
       const continuityDecision = await assertInstitutionProductCapability(db, assignment.event.institutionalAccountId, "iers", "iers.activation.respond");
       assertIersActivationContinuity(continuityDecision);
+      if (["closed", "cancelled", "false_alarm"].includes(assignment.event.status)) {
+        throw new TRPCError({ code: "CONFLICT", message: "This activation is already terminal; acknowledgement cannot be changed." });
+      }
+      if (!input.accept && !input.reason) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Provide a reason when declining an activation assignment." });
+      }
+      if (input.accept && assignment.responder.notificationStatus === "acknowledged") {
+        return { success: true, status: "acknowledged" as const, idempotent: true };
+      }
+      if (!input.accept && assignment.responder.notificationStatus === "declined") {
+        return { success: true, status: "declined" as const, idempotent: true };
+      }
 
       const now = new Date();
       if (input.accept) {
