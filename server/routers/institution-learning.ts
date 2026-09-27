@@ -15,6 +15,7 @@ import {
   institutionalAccounts,
   institutionalStaffMembers,
   institutionMemberships,
+  inAppNotifications,
   providerProfiles,
   users,
 } from "../../drizzle/schema";
@@ -606,26 +607,87 @@ export const institutionLearningRouter = router({
           )
         )
         .limit(1);
+      let assignmentId: number;
       if (existing) {
+        assignmentId = existing.id;
         await db
           .update(institutionEducationCoordinators)
           .set({
-            assignmentStatus: "active",
+            assignmentStatus: "pending_acceptance",
             assignedByUserId: ctx.user.id,
+            acceptedAt: null,
+            declinedAt: null,
+            declineReason: null,
             endedAt: null,
             updatedAt: new Date(),
           })
           .where(eq(institutionEducationCoordinators.id, existing.id));
       } else {
-        await db.insert(institutionEducationCoordinators).values({
+        const [result] = await db.insert(institutionEducationCoordinators).values({
           institutionalAccountId: input.institutionId,
           departmentId: input.departmentId,
           userId: input.userId,
-          assignmentStatus: "active",
+          assignmentStatus: "pending_acceptance",
           assignedByUserId: ctx.user.id,
         });
+        assignmentId = result.insertId;
       }
-      return { success: true as const };
+      await db.insert(inAppNotifications).values({
+        userId: input.userId,
+        type: "institution_role_assignment",
+        title: "Departmental CPD Coordinator role assigned — acceptance required",
+        body: `You were assigned Departmental CPD Coordinator for department ${input.departmentId}. Open My Shift to accept or decline the role.`,
+        actionUrl: "/my-shift?tab=team",
+        relatedId: assignmentId,
+        read: false,
+      });
+      return { success: true as const, assignmentId };
+    }),
+
+  getMyEducationCoordinatorAssignments: protectedProcedure
+    .query(async ({ ctx }) => {
+      const db = await requireDb();
+      return db
+        .select({
+          id: institutionEducationCoordinators.id,
+          institutionId: institutionEducationCoordinators.institutionalAccountId,
+          departmentId: institutionEducationCoordinators.departmentId,
+          departmentName: facilityDepartments.departmentName,
+          assignmentStatus: institutionEducationCoordinators.assignmentStatus,
+          assignedAt: institutionEducationCoordinators.assignedAt,
+          acceptedAt: institutionEducationCoordinators.acceptedAt,
+          declinedAt: institutionEducationCoordinators.declinedAt,
+          declineReason: institutionEducationCoordinators.declineReason,
+        })
+        .from(institutionEducationCoordinators)
+        .leftJoin(facilityDepartments, eq(facilityDepartments.id, institutionEducationCoordinators.departmentId))
+        .where(and(
+          eq(institutionEducationCoordinators.userId, ctx.user.id),
+          inArray(institutionEducationCoordinators.assignmentStatus, ["pending_acceptance", "active", "declined"]),
+        ))
+        .orderBy(desc(institutionEducationCoordinators.updatedAt));
+    }),
+
+  respondToEducationCoordinatorAssignment: protectedProcedure
+    .input(z.object({
+      assignmentId: z.number().int().positive(),
+      response: z.enum(["accept", "decline"]),
+      declineReason: z.string().trim().min(3).max(500).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      const [assignment] = await db.select().from(institutionEducationCoordinators).where(and(
+        eq(institutionEducationCoordinators.id, input.assignmentId),
+        eq(institutionEducationCoordinators.userId, ctx.user.id),
+      )).limit(1);
+      if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "Departmental CPD Coordinator assignment not found." });
+      if (assignment.assignmentStatus !== "pending_acceptance") throw new TRPCError({ code: "BAD_REQUEST", message: "This CPD Coordinator assignment is not awaiting a response." });
+      if (input.response === "decline" && !input.declineReason) throw new TRPCError({ code: "BAD_REQUEST", message: "Provide a reason when declining the role." });
+      await db.update(institutionEducationCoordinators).set(input.response === "accept"
+        ? { assignmentStatus: "active", acceptedAt: new Date(), declinedAt: null, declineReason: null, updatedAt: new Date() }
+        : { assignmentStatus: "declined", acceptedAt: null, declinedAt: new Date(), declineReason: input.declineReason, updatedAt: new Date() }
+      ).where(eq(institutionEducationCoordinators.id, assignment.id));
+      return { success: true as const, assignmentStatus: input.response === "accept" ? "active" as const : "declined" as const };
     }),
 
   endEducationCoordinator: protectedProcedure

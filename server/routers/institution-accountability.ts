@@ -14,6 +14,7 @@ import {
   institutionalProducts,
   institutionalStaffMembers,
   institutionMemberships,
+  inAppNotifications,
   professionalCredentials,
   users,
 } from "../../drizzle/schema";
@@ -1102,7 +1103,7 @@ export const institutionAccountabilityRouter = router({
             "Departmental Heads must be active linked institution staff.",
         });
 
-      return db.transaction(async tx => {
+      const result = await db.transaction(async tx => {
         const [active] = await tx
           .select()
           .from(institutionDepartmentHeads)
@@ -1167,13 +1168,16 @@ export const institutionAccountabilityRouter = router({
           await tx
             .update(institutionDepartmentHeads)
             .set({
-              assignmentStatus: "active",
+              assignmentStatus: "pending_acceptance",
               activeAssignmentKey: activeAssignmentKey(
                 input.institutionId,
                 input.departmentId
               ),
               assignedByUserId: ctx.user.id,
               assignedAt: new Date(),
+              acceptedAt: null,
+              declinedAt: null,
+              declineReason: null,
               endedAt: null,
               updatedAt: new Date(),
             })
@@ -1183,7 +1187,7 @@ export const institutionAccountabilityRouter = router({
             institutionalAccountId: input.institutionId,
             departmentId: input.departmentId,
             userId: input.userId,
-            assignmentStatus: "active",
+            assignmentStatus: "pending_acceptance",
             activeAssignmentKey: activeAssignmentKey(
               input.institutionId,
               input.departmentId
@@ -1208,6 +1212,62 @@ export const institutionAccountabilityRouter = router({
           action: active ? ("reassigned" as const) : ("assigned" as const),
         };
       });
+      await db.insert(inAppNotifications).values({
+        userId: input.userId,
+        type: "institution_role_assignment",
+        title: "Departmental Head role assigned — acceptance required",
+        body: `You were assigned Departmental Head for department ${input.departmentId}. Open My Shift to accept or decline the role.`,
+        actionUrl: "/my-shift?tab=team",
+        relatedId: result.assignmentId,
+        read: false,
+      });
+      return result;
+    }),
+
+  getMyDepartmentHeadAssignments: protectedProcedure
+    .query(async ({ ctx }) => {
+      const db = await requireDb();
+      return db
+        .select({
+          id: institutionDepartmentHeads.id,
+          institutionId: institutionDepartmentHeads.institutionalAccountId,
+          departmentId: institutionDepartmentHeads.departmentId,
+          departmentName: facilityDepartments.departmentName,
+          assignmentStatus: institutionDepartmentHeads.assignmentStatus,
+          assignedAt: institutionDepartmentHeads.assignedAt,
+          acceptedAt: institutionDepartmentHeads.acceptedAt,
+          declinedAt: institutionDepartmentHeads.declinedAt,
+          declineReason: institutionDepartmentHeads.declineReason,
+        })
+        .from(institutionDepartmentHeads)
+        .leftJoin(facilityDepartments, eq(facilityDepartments.id, institutionDepartmentHeads.departmentId))
+        .where(and(
+          eq(institutionDepartmentHeads.userId, ctx.user.id),
+          inArray(institutionDepartmentHeads.assignmentStatus, ["pending_acceptance", "active", "declined"]),
+        ))
+        .orderBy(desc(institutionDepartmentHeads.updatedAt));
+    }),
+
+  respondToDepartmentHeadAssignment: protectedProcedure
+    .input(z.object({
+      assignmentId: z.number().int().positive(),
+      response: z.enum(["accept", "decline"]),
+      declineReason: z.string().trim().min(3).max(500).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      const [assignment] = await db.select().from(institutionDepartmentHeads).where(and(
+        eq(institutionDepartmentHeads.id, input.assignmentId),
+        eq(institutionDepartmentHeads.userId, ctx.user.id),
+      )).limit(1);
+      if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "Departmental Head assignment not found." });
+      if (assignment.assignmentStatus !== "pending_acceptance") throw new TRPCError({ code: "BAD_REQUEST", message: "This Departmental Head assignment is not awaiting a response." });
+      if (input.response === "decline" && !input.declineReason) throw new TRPCError({ code: "BAD_REQUEST", message: "Provide a reason when declining the role." });
+      await db.update(institutionDepartmentHeads).set(input.response === "accept"
+        ? { assignmentStatus: "active", acceptedAt: new Date(), declinedAt: null, declineReason: null, updatedAt: new Date() }
+        : { assignmentStatus: "declined", acceptedAt: null, declinedAt: new Date(), declineReason: input.declineReason, activeAssignmentKey: null, updatedAt: new Date() }
+      ).where(eq(institutionDepartmentHeads.id, assignment.id));
+      return { success: true as const, assignmentStatus: input.response === "accept" ? "active" as const : "declined" as const };
     }),
 
   /** Institution administrator ends an appointment without deleting history. */
