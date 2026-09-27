@@ -16,8 +16,9 @@ import { TRPCError } from '@trpc/server';
 import { router, protectedProcedure } from '../_core/trpc';
 import { getDb } from '../db';
 import { careSignalReviews, inAppNotifications, analyticsEvents } from '../../drizzle/schema';
-import { eq, and, desc, count } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { isMissingTableError } from '../lib/is-missing-db-table';
+import { countCanonicalUnread, listCanonicalNotifications } from '../lib/notifications';
 
 export const careSignalReviewRouter = router({
   /**
@@ -67,6 +68,9 @@ export const careSignalReviewRouter = router({
         await db.insert(inAppNotifications).values({
           userId: input.reporterUserId,
           type: 'care_signal_review',
+          domain: 'clinical',
+          severity: 'info',
+          requiresAction: false,
           title: `Care Signal Response: ${input.interventionName}`,
           body: `Your resource gap report for "${input.interventionName}" has been ${actionLabel}. ${input.responseText.slice(0, 200)}${input.responseText.length > 200 ? '…' : ''}`,
           actionUrl: '/care-signal',
@@ -98,23 +102,8 @@ export const careSignalReviewRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) return [];
-      const userId = ctx.user.id;
-
       try {
-        const rows = await db
-          .select()
-          .from(inAppNotifications)
-          .where(
-            input.unreadOnly
-              ? and(eq(inAppNotifications.userId, userId), eq(inAppNotifications.read, false))
-              : eq(inAppNotifications.userId, userId)
-          )
-          .orderBy(desc(inAppNotifications.createdAt))
-          .limit(input.limit);
-
-        return rows;
+        return await listCanonicalNotifications({ userId: ctx.user.id, limit: input.limit, unreadOnly: input.unreadOnly });
       } catch (error) {
         if (isMissingTableError(error, 'inAppNotifications')) {
           console.warn('[careSignalReview.getMyNotifications] inAppNotifications missing — run db:apply-0042');
@@ -128,17 +117,8 @@ export const careSignalReviewRouter = router({
    * Provider fetches unread notification count (for bell badge).
    */
   getUnreadCount: protectedProcedure.query(async ({ ctx }) => {
-    const db = await getDb();
-    if (!db) return { count: 0 };
-    const userId = ctx.user.id;
-
     try {
-      const [result] = await db
-        .select({ count: count() })
-        .from(inAppNotifications)
-        .where(and(eq(inAppNotifications.userId, userId), eq(inAppNotifications.read, false)));
-
-      return { count: result?.count ?? 0 };
+      return { count: (await countCanonicalUnread(ctx.user.id)).unreadCount };
     } catch (error) {
       if (isMissingTableError(error, 'inAppNotifications')) {
         console.warn('[careSignalReview.getUnreadCount] inAppNotifications missing — run db:apply-0042');
@@ -161,7 +141,7 @@ export const careSignalReviewRouter = router({
       try {
         await db
           .update(inAppNotifications)
-          .set({ read: true })
+          .set({ read: true, readAt: new Date() })
           .where(
             and(
               eq(inAppNotifications.id, input.notificationId),
@@ -188,7 +168,7 @@ export const careSignalReviewRouter = router({
     try {
       await db
         .update(inAppNotifications)
-        .set({ read: true })
+        .set({ read: true, readAt: new Date() })
         .where(eq(inAppNotifications.userId, ctx.user.id));
       return { success: true };
     } catch (error) {

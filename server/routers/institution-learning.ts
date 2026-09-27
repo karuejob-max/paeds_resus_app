@@ -635,10 +635,15 @@ export const institutionLearningRouter = router({
       await db.insert(inAppNotifications).values({
         userId: input.userId,
         type: "institution_role_assignment",
+        domain: "role",
+        severity: "action_required",
+        requiresAction: true,
         title: "Departmental CPD Coordinator role assigned — acceptance required",
         body: `You were assigned Departmental CPD Coordinator for department ${input.departmentId}. Open My Shift to accept or decline the role.`,
         actionUrl: "/my-shift?tab=team",
         relatedId: assignmentId,
+        dataJson: JSON.stringify({ institutionId: input.institutionId, departmentId: input.departmentId, roleKey: "department_cpd_coordinator", assignmentId, action: "accept_or_decline" }),
+        dedupeKey: `institution-role:department-cpd-coordinator:${assignmentId}:${input.userId}`,
         read: false,
       });
       return { success: true as const, assignmentId };

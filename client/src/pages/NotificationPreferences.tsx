@@ -256,6 +256,25 @@ export default function NotificationPreferences() {
             ))}
           </CardContent>
         </Card>
+
+        <Card className="border-amber-200 bg-amber-50/40">
+          <CardHeader>
+            <CardTitle>Mandatory operational alerts</CardTitle>
+            <CardDescription>
+              Role assignments, acceptance decisions, and urgent clinical/IERS alerts remain enabled because they can affect patient-safety operations, institutional accountability, or access to an assigned duty. These notices use the in-app inbox even when optional delivery channels are disabled.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex items-center justify-between rounded-lg border bg-background p-3">
+              <span><strong>Institutional role assignments</strong><span className="mt-1 block text-xs text-muted-foreground">Department Head, Departmental CPD Coordinator, ERCo, and related acceptance actions.</span></span>
+              <span className="text-xs font-medium text-emerald-700">Always on</span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border bg-background p-3">
+              <span><strong>Urgent clinical and IERS alerts</strong><span className="mt-1 block text-xs text-muted-foreground">The in-app alert remains available as a fallback for urgent activation workflows.</span></span>
+              <span className="text-xs font-medium text-emerald-700">Always on</span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

@@ -1215,10 +1215,15 @@ export const institutionAccountabilityRouter = router({
       await db.insert(inAppNotifications).values({
         userId: input.userId,
         type: "institution_role_assignment",
+        domain: "role",
+        severity: "action_required",
+        requiresAction: true,
         title: "Departmental Head role assigned — acceptance required",
         body: `You were assigned Departmental Head for department ${input.departmentId}. Open My Shift to accept or decline the role.`,
         actionUrl: "/my-shift?tab=team",
         relatedId: result.assignmentId,
+        dataJson: JSON.stringify({ institutionId: input.institutionId, departmentId: input.departmentId, roleKey: "department_head", assignmentId: result.assignmentId, action: "accept_or_decline" }),
+        dedupeKey: `institution-role:department-head:${result.assignmentId}:${input.userId}`,
         read: false,
       });
       return result;

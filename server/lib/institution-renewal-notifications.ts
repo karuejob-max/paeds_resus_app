@@ -218,10 +218,15 @@ export async function queueRenewalNotifications(db: AppDb, now = new Date()): Pr
               await db.insert(inAppNotifications).values({
                 userId: recipient.userId,
                 type: "institutional_renewal",
+                domain: "finance",
+                severity: "action_required",
+                requiresAction: true,
                 title: copy.title,
                 body: copy.body,
                 actionUrl: appUrl(),
                 relatedId: notificationId || null,
+                dataJson: JSON.stringify({ institutionalAccountId: subscription.institutionId, productId: subscription.productId, notificationType }),
+                dedupeKey,
                 read: false,
               });
             }

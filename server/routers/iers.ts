@@ -500,10 +500,15 @@ export const iersRouter = router({
         await db.insert(inAppNotifications).values({
           userId: responder.userId,
           type: "iers_activation",
+          domain: "clinical",
+          severity: "urgent",
+          requiresAction: true,
           title: `${input.activationType.replaceAll("_", " ")} activation — ${input.location}${input.bedNumber ? ` · Bed ${input.bedNumber}` : ""}`,
           body: `A ${input.priority} activation is active for your dated ERT. Location: ${input.location}${input.bedNumber ? `, bed ${input.bedNumber}` : ""}.${resourceLabels.length ? ` Needed resources: ${resourceLabels.join(", ")}.` : ""} Acknowledge immediately if you can respond.`,
           actionUrl: `/resus?activationId=${activationEventId}`,
           relatedId: activationEventId,
+          dataJson: JSON.stringify({ activationEventId, priority: input.priority, action: "acknowledge" }),
+          dedupeKey: `iers-activation:${activationEventId}:${responder.userId}`,
         });
         notifiedCount += 1;
       }

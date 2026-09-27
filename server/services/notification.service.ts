@@ -1,5 +1,5 @@
-import { getDb } from "../db";
 import { notifyOwner } from "../_core/notification";
+import { createCanonicalNotification } from "../lib/notifications";
 
 export interface NotificationInput {
   userId: number;
@@ -29,8 +29,18 @@ export async function sendNotification(input: NotificationInput): Promise<boolea
   try {
     const { userId, type, title, content, actionUrl, priority } = input;
 
-    // Log notification in database
-    console.log(`[Notification] Sending ${type} to user ${userId}: ${title}`);
+    const domain = type === "recommendation" || type === "achievement" ? "learning" : type === "alert" ? "clinical" : "system";
+    const durable = await createCanonicalNotification({
+      userId,
+      type: `generic_${type}`,
+      domain,
+      severity: priority === "high" ? "action_required" : "info",
+      requiresAction: priority === "high",
+      title,
+      body: content,
+      actionUrl: actionUrl ?? null,
+    });
+    console.log(`[Notification] ${durable.created ? "Persisted" : "Skipped"} ${type} to user ${userId}: ${title}`);
 
     // In production, integrate with email/SMS service
     // For now, we'll use the owner notification for critical alerts
@@ -41,7 +51,7 @@ export async function sendNotification(input: NotificationInput): Promise<boolea
       });
     }
 
-    return true;
+    return durable.created || durable.duplicate === true;
   } catch (error) {
     console.error("Error sending notification:", error);
     return false;

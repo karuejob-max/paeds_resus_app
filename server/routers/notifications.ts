@@ -10,12 +10,13 @@ import {
   userNotificationPreferences,
   users,
 } from "../../drizzle/schema";
-import { and, desc, eq, gte, inArray, isNotNull, ne } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, isNull, ne } from "drizzle-orm";
 import { trackEvent } from "../services/analytics.service";
 import { sendRecommendationNotification } from "../services/notification.service";
 import { sendSMS } from "../sms";
 import { sendEmail } from "../email-service";
 import { ENV } from "../_core/env";
+import { countCanonicalUnread, listCanonicalNotifications } from "../lib/notifications";
 
 type LifecycleNudge = {
   enrollmentId: number;
@@ -46,6 +47,8 @@ const DEFAULT_NOTIFICATION_PREFERENCES: Omit<NotificationPreferences, "userId"> 
   courseUpdates: true,
   quizReminders: true,
   achievementNotifications: true,
+  roleNotifications: true,
+  clinicalAlerts: true,
 };
 
 async function getDurableNotificationPreferences(userId: number): Promise<NotificationPreferences> {
@@ -788,55 +791,28 @@ export const notificationsRouter = router({
       };
     }),
 
-  /**
-   * Get all notifications for the current user
-   */
+  /** Canonical durable inbox. Legacy in-memory notifications are intentionally excluded. */
   getNotifications: protectedProcedure
-    .input(
-      z.object({
-        limit: z.number().min(1).max(100).optional().default(50),
-      })
-    )
+    .input(z.object({
+      limit: z.number().int().min(1).max(100).default(50),
+      unreadOnly: z.boolean().default(false),
+      domain: z.enum(["clinical", "role", "learning", "finance", "system"]).optional(),
+      actionRequiredOnly: z.boolean().default(false),
+    }))
     .query(async ({ input, ctx }) => {
-      const db = await getDb();
-      const legacyNotifications = notificationService.getNotifications(ctx.user.id, input.limit);
-      const durableNotifications = db
-        ? await db.select().from(inAppNotifications).where(eq(inAppNotifications.userId, ctx.user.id)).orderBy(desc(inAppNotifications.createdAt)).limit(input.limit)
-        : [];
-      const notifications = [
-        ...legacyNotifications,
-        ...durableNotifications.map(notification => ({
-          id: `inapp-${notification.id}`,
-          userId: notification.userId,
-          type: "system" as const,
-          title: notification.title,
-          message: notification.body,
-          data: { relatedId: notification.relatedId },
-          read: notification.read,
-          createdAt: notification.createdAt,
-          actionUrl: notification.actionUrl ?? undefined,
-          actionLabel: "Open My Shift",
-        })),
-      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, input.limit);
-      return {
-        success: true,
-        notifications,
-        unreadCount: notificationService.getUnreadCount(ctx.user.id) + durableNotifications.filter(notification => !notification.read).length,
-      };
+      const notifications = await listCanonicalNotifications({ userId: ctx.user.id, ...input });
+      const summary = await countCanonicalUnread(ctx.user.id);
+      return { success: true, notifications, unreadCount: summary.unreadCount, summary };
     }),
 
-  /**
-   * Get unread notification count
-   */
-  getUnreadCount: protectedProcedure.query(async ({ ctx }) => {
-    const db = await getDb();
-    const durableUnread = db
-      ? await db.select({ id: inAppNotifications.id }).from(inAppNotifications).where(and(eq(inAppNotifications.userId, ctx.user.id), eq(inAppNotifications.read, false)))
-      : [];
-    return {
-      unreadCount: notificationService.getUnreadCount(ctx.user.id) + durableUnread.length,
-    };
-  }),
+  getSummary: protectedProcedure.query(async ({ ctx }) => ({
+    success: true,
+    ...(await countCanonicalUnread(ctx.user.id)),
+  })),
+
+  getUnreadCount: protectedProcedure.query(async ({ ctx }) => ({
+    ...(await countCanonicalUnread(ctx.user.id)),
+  })),
 
   /**
    * Mark a notification as read
@@ -850,14 +826,12 @@ export const notificationsRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       let success = false;
-      if (input.notificationId.startsWith("inapp-")) {
-        const id = Number(input.notificationId.slice(6));
-        if (Number.isInteger(id) && db) {
-          const result = await db.update(inAppNotifications).set({ read: true }).where(and(eq(inAppNotifications.id, id), eq(inAppNotifications.userId, ctx.user.id)));
-          success = result[0].affectedRows > 0;
-        }
-      } else {
-        success = notificationService.markAsRead(ctx.user.id, input.notificationId);
+      const id = Number(input.notificationId.replace(/^inapp-/, ""));
+      if (Number.isInteger(id) && db) {
+        const result = await db.update(inAppNotifications)
+          .set({ read: true, readAt: new Date() })
+          .where(and(eq(inAppNotifications.id, id), eq(inAppNotifications.userId, ctx.user.id)));
+        success = result[0].affectedRows > 0;
       }
       return {
         success,
@@ -869,9 +843,14 @@ export const notificationsRouter = router({
    * Mark all notifications as read
    */
   markAllAsRead: protectedProcedure.mutation(async ({ ctx }) => {
-    const count = notificationService.markAllAsRead(ctx.user.id);
     const db = await getDb();
-    if (db) await db.update(inAppNotifications).set({ read: true }).where(and(eq(inAppNotifications.userId, ctx.user.id), eq(inAppNotifications.read, false)));
+    let count = 0;
+    if (db) {
+      const result = await db.update(inAppNotifications)
+        .set({ read: true, readAt: new Date() })
+        .where(and(eq(inAppNotifications.userId, ctx.user.id), eq(inAppNotifications.read, false), isNull(inAppNotifications.dismissedAt)));
+      count = result[0].affectedRows;
+    }
     return {
       success: true,
       message: `${count} notifications marked as read`,
@@ -891,14 +870,12 @@ export const notificationsRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       let success = false;
-      if (input.notificationId.startsWith("inapp-")) {
-        const id = Number(input.notificationId.slice(6));
-        if (Number.isInteger(id) && db) {
-          const result = await db.delete(inAppNotifications).where(and(eq(inAppNotifications.id, id), eq(inAppNotifications.userId, ctx.user.id)));
-          success = result[0].affectedRows > 0;
-        }
-      } else {
-        success = notificationService.deleteNotification(ctx.user.id, input.notificationId);
+      const id = Number(input.notificationId.replace(/^inapp-/, ""));
+      if (Number.isInteger(id) && db) {
+        const result = await db.update(inAppNotifications)
+          .set({ dismissedAt: new Date() })
+          .where(and(eq(inAppNotifications.id, id), eq(inAppNotifications.userId, ctx.user.id)));
+        success = result[0].affectedRows > 0;
       }
       return {
         success,
@@ -910,9 +887,14 @@ export const notificationsRouter = router({
    * Clear all notifications
    */
   clearAll: protectedProcedure.mutation(async ({ ctx }) => {
-    const count = notificationService.clearNotifications(ctx.user.id);
     const db = await getDb();
-    if (db) await db.delete(inAppNotifications).where(eq(inAppNotifications.userId, ctx.user.id));
+    let count = 0;
+    if (db) {
+      const result = await db.update(inAppNotifications)
+        .set({ dismissedAt: new Date() })
+        .where(and(eq(inAppNotifications.userId, ctx.user.id), isNull(inAppNotifications.dismissedAt)));
+      count = result[0].affectedRows;
+    }
     return {
       success: true,
       message: `${count} notifications cleared`,
@@ -977,6 +959,8 @@ export const notificationsRouter = router({
         courseUpdates: z.boolean().optional(),
         quizReminders: z.boolean().optional(),
         achievementNotifications: z.boolean().optional(),
+        roleNotifications: z.boolean().optional(),
+        clinicalAlerts: z.boolean().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
