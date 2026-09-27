@@ -61,7 +61,7 @@ async function main() {
 
     if (!(await indexExists(conn, "inAppNotifications", "inapp_user_unread_created_idx"))) {
       await conn.query(
-        "CREATE INDEX inapp_user_unread_created_idx ON inAppNotifications (userId, read, dismissedAt, createdAt)",
+        "CREATE INDEX inapp_user_unread_created_idx ON inAppNotifications (userId, `read`, dismissedAt, createdAt)",
       );
     }
     if (!(await indexExists(conn, "inAppNotifications", "inapp_user_dedupe_idx"))) {
