@@ -24,6 +24,7 @@ import ProviderIersOperationsCard from "@/components/ProviderIersOperationsCard"
 import ProviderIersShiftTeamCard from "@/components/ProviderIersShiftTeamCard";
 import ProviderShiftReadinessCard from "@/components/ProviderShiftReadinessCard";
 import ProviderCrashCartReadinessCard from "@/components/ProviderCrashCartReadinessCard";
+import ProviderInstitutionRoleAssignmentsCard from "@/components/ProviderInstitutionRoleAssignmentsCard";
 
 const TAB_VALUES = ["team", "readiness", "respond", "improve"] as const;
 type TabValue = (typeof TAB_VALUES)[number];
@@ -66,7 +67,7 @@ export default function ProviderMyShift() {
       cancelled = true;
     };
   }, [user?.id]);
-  const [showInstitutionResponsibilities, setShowInstitutionResponsibilities] = useState(false);
+  const [showInstitutionResponsibilities, setShowInstitutionResponsibilities] = useState(true);
 
   const changeTab = (value: string) => {
     if (TAB_VALUES.includes(value as TabValue)) setActiveTab(value as TabValue);
@@ -115,6 +116,7 @@ export default function ProviderMyShift() {
 
           <TabsContent value="team" className="space-y-4">
             <ProviderInstitutionReadinessCard />
+            <ProviderInstitutionRoleAssignmentsCard />
             <ProviderIersShiftTeamCard />
             <Card className="border-slate-200 bg-white">
               <CardContent className="p-3">
@@ -125,8 +127,8 @@ export default function ProviderMyShift() {
                   onClick={() => setShowInstitutionResponsibilities((visible) => !visible)}
                   aria-expanded={showInstitutionResponsibilities}
                 >
-                  <span>Institution responsibilities</span>
-                  <span className="text-xs text-muted-foreground">{showInstitutionResponsibilities ? "Hide" : "Open when needed"}</span>
+                  <span>Institution responsibilities and ERCo/shift acceptance</span>
+                  <span className="text-xs text-muted-foreground">{showInstitutionResponsibilities ? "Hide" : "Show"}</span>
                 </Button>
                 {showInstitutionResponsibilities && <div className="mt-3"><ProviderIersDutyAssignmentCard /></div>}
               </CardContent>

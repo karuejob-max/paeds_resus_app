@@ -4,6 +4,7 @@ import { notificationService, type NotificationPreferences } from "../notificati
 import { getDb } from "../db";
 import {
   analyticsEvents,
+  inAppNotifications,
   microCourseEnrollments,
   microCourses,
   userNotificationPreferences,
@@ -796,21 +797,44 @@ export const notificationsRouter = router({
         limit: z.number().min(1).max(100).optional().default(50),
       })
     )
-    .query(({ input, ctx }) => {
-      const notifications = notificationService.getNotifications(ctx.user.id, input.limit);
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      const legacyNotifications = notificationService.getNotifications(ctx.user.id, input.limit);
+      const durableNotifications = db
+        ? await db.select().from(inAppNotifications).where(eq(inAppNotifications.userId, ctx.user.id)).orderBy(desc(inAppNotifications.createdAt)).limit(input.limit)
+        : [];
+      const notifications = [
+        ...legacyNotifications,
+        ...durableNotifications.map(notification => ({
+          id: `inapp-${notification.id}`,
+          userId: notification.userId,
+          type: "system" as const,
+          title: notification.title,
+          message: notification.body,
+          data: { relatedId: notification.relatedId },
+          read: notification.read,
+          createdAt: notification.createdAt,
+          actionUrl: notification.actionUrl ?? undefined,
+          actionLabel: "Open My Shift",
+        })),
+      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, input.limit);
       return {
         success: true,
         notifications,
-        unreadCount: notificationService.getUnreadCount(ctx.user.id),
+        unreadCount: notificationService.getUnreadCount(ctx.user.id) + durableNotifications.filter(notification => !notification.read).length,
       };
     }),
 
   /**
    * Get unread notification count
    */
-  getUnreadCount: protectedProcedure.query(({ ctx }) => {
+  getUnreadCount: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    const durableUnread = db
+      ? await db.select({ id: inAppNotifications.id }).from(inAppNotifications).where(and(eq(inAppNotifications.userId, ctx.user.id), eq(inAppNotifications.read, false)))
+      : [];
     return {
-      unreadCount: notificationService.getUnreadCount(ctx.user.id),
+      unreadCount: notificationService.getUnreadCount(ctx.user.id) + durableUnread.length,
     };
   }),
 
@@ -823,8 +847,18 @@ export const notificationsRouter = router({
         notificationId: z.string(),
       })
     )
-    .mutation(({ input, ctx }) => {
-      const success = notificationService.markAsRead(ctx.user.id, input.notificationId);
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      let success = false;
+      if (input.notificationId.startsWith("inapp-")) {
+        const id = Number(input.notificationId.slice(6));
+        if (Number.isInteger(id) && db) {
+          const result = await db.update(inAppNotifications).set({ read: true }).where(and(eq(inAppNotifications.id, id), eq(inAppNotifications.userId, ctx.user.id)));
+          success = result[0].affectedRows > 0;
+        }
+      } else {
+        success = notificationService.markAsRead(ctx.user.id, input.notificationId);
+      }
       return {
         success,
         message: success ? "Notification marked as read" : "Notification not found",
@@ -834,8 +868,10 @@ export const notificationsRouter = router({
   /**
    * Mark all notifications as read
    */
-  markAllAsRead: protectedProcedure.mutation(({ ctx }) => {
+  markAllAsRead: protectedProcedure.mutation(async ({ ctx }) => {
     const count = notificationService.markAllAsRead(ctx.user.id);
+    const db = await getDb();
+    if (db) await db.update(inAppNotifications).set({ read: true }).where(and(eq(inAppNotifications.userId, ctx.user.id), eq(inAppNotifications.read, false)));
     return {
       success: true,
       message: `${count} notifications marked as read`,
@@ -852,8 +888,18 @@ export const notificationsRouter = router({
         notificationId: z.string(),
       })
     )
-    .mutation(({ input, ctx }) => {
-      const success = notificationService.deleteNotification(ctx.user.id, input.notificationId);
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      let success = false;
+      if (input.notificationId.startsWith("inapp-")) {
+        const id = Number(input.notificationId.slice(6));
+        if (Number.isInteger(id) && db) {
+          const result = await db.delete(inAppNotifications).where(and(eq(inAppNotifications.id, id), eq(inAppNotifications.userId, ctx.user.id)));
+          success = result[0].affectedRows > 0;
+        }
+      } else {
+        success = notificationService.deleteNotification(ctx.user.id, input.notificationId);
+      }
       return {
         success,
         message: success ? "Notification deleted" : "Notification not found",
@@ -863,8 +909,10 @@ export const notificationsRouter = router({
   /**
    * Clear all notifications
    */
-  clearAll: protectedProcedure.mutation(({ ctx }) => {
+  clearAll: protectedProcedure.mutation(async ({ ctx }) => {
     const count = notificationService.clearNotifications(ctx.user.id);
+    const db = await getDb();
+    if (db) await db.delete(inAppNotifications).where(eq(inAppNotifications.userId, ctx.user.id));
     return {
       success: true,
       message: `${count} notifications cleared`,

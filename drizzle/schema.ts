@@ -7641,11 +7641,14 @@ export const institutionEducationCoordinators = mysqlTable(
     institutionalAccountId: int("institutionalAccountId").notNull(),
     departmentId: int("departmentId").notNull(),
     userId: int("userId").notNull(),
-    assignmentStatus: mysqlEnum("assignmentStatus", ["active", "ended"])
+    assignmentStatus: mysqlEnum("assignmentStatus", ["pending_acceptance", "active", "declined", "ended"])
       .default("active")
       .notNull(),
     assignedByUserId: int("assignedByUserId").notNull(),
     assignedAt: timestamp("assignedAt").defaultNow().notNull(),
+    acceptedAt: timestamp("acceptedAt"),
+    declinedAt: timestamp("declinedAt"),
+    declineReason: varchar("declineReason", { length: 500 }),
     endedAt: timestamp("endedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -7894,12 +7897,15 @@ export const institutionDepartmentHeads = mysqlTable(
     institutionalAccountId: int("institutionalAccountId").notNull(),
     departmentId: int("departmentId").notNull(),
     userId: int("userId").notNull(),
-    assignmentStatus: mysqlEnum("assignmentStatus", ["active", "ended"])
+    assignmentStatus: mysqlEnum("assignmentStatus", ["pending_acceptance", "active", "declined", "ended"])
       .default("active")
       .notNull(),
     activeAssignmentKey: varchar("activeAssignmentKey", { length: 128 }),
     assignedByUserId: int("assignedByUserId").notNull(),
     assignedAt: timestamp("assignedAt").defaultNow().notNull(),
+    acceptedAt: timestamp("acceptedAt"),
+    declinedAt: timestamp("declinedAt"),
+    declineReason: varchar("declineReason", { length: 500 }),
     endedAt: timestamp("endedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

@@ -6446,6 +6446,26 @@ export const institutionRouter = router({
         actorUserId: ctx.user.id,
         note: input.effectiveUntil ? `Coverage from ${input.effectiveFrom} through ${input.effectiveUntil}.` : `Coverage from ${input.effectiveFrom} with no end date.`,
       });
+      await db.insert(inAppNotifications).values([
+        {
+          userId: input.coordinatorUserId,
+          type: "institution_role_assignment",
+          title: "ERCo role assigned — acceptance required",
+          body: `You were assigned ERCo for department ${input.departmentId}. Open My Shift to accept or decline the role.`,
+          actionUrl: "/my-shift?tab=team",
+          relatedId: assignmentId,
+          read: false,
+        },
+        ...(input.backupUserId == null ? [] : [{
+          userId: input.backupUserId,
+          type: "institution_role_assignment",
+          title: "Assistant ERCo role assigned — acceptance required",
+          body: `You were assigned Assistant ERCo for department ${input.departmentId}. Open My Shift to accept or decline the role.`,
+          actionUrl: "/my-shift?tab=team",
+          relatedId: assignmentId,
+          read: false,
+        }]),
+      ]);
       return { success: true, assignmentId, replaced: !!existing };
     }),
 
