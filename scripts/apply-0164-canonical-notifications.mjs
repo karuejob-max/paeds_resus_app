@@ -80,7 +80,7 @@ async function main() {
       "UPDATE inAppNotifications SET requiresAction = TRUE WHERE requiresAction = FALSE AND (type LIKE '%role%' OR type LIKE '%deadline%' OR type LIKE '%renewal%' OR type LIKE 'iers_%')",
     );
     await conn.query(
-      "UPDATE inAppNotifications SET readAt = createdAt WHERE read = TRUE AND readAt IS NULL",
+      "UPDATE inAppNotifications SET readAt = createdAt WHERE `read` = TRUE AND readAt IS NULL",
     );
     console.log("[0164] Canonical notification migration applied successfully.");
   } finally {
