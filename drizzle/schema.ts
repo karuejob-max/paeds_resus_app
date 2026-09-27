@@ -6476,11 +6476,19 @@ export const inAppNotifications = mysqlTable("inAppNotifications", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   type: varchar("type", { length: 64 }).notNull(),
+  domain: varchar("domain", { length: 32 }),
+  severity: varchar("severity", { length: 32 }),
+  requiresAction: boolean("requiresAction").notNull().default(false),
   title: varchar("title", { length: 256 }).notNull(),
   body: text("body").notNull(),
   actionUrl: varchar("actionUrl", { length: 512 }),
   relatedId: int("relatedId"),
+  dataJson: text("dataJson"),
+  dedupeKey: varchar("dedupeKey", { length: 255 }),
   read: boolean("read").notNull().default(false),
+  readAt: timestamp("readAt"),
+  dismissedAt: timestamp("dismissedAt"),
+  expiresAt: timestamp("expiresAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type InAppNotification = typeof inAppNotifications.$inferSelect;
@@ -6503,6 +6511,8 @@ export const userNotificationPreferences = mysqlTable(
     achievementNotifications: boolean("achievementNotifications")
       .notNull()
       .default(true),
+    roleNotifications: boolean("roleNotifications").notNull().default(true),
+    clinicalAlerts: boolean("clinicalAlerts").notNull().default(true),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },

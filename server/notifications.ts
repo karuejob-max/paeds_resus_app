@@ -34,6 +34,8 @@ export interface NotificationPreferences {
   courseUpdates: boolean;
   quizReminders: boolean;
   achievementNotifications: boolean;
+  roleNotifications: boolean;
+  clinicalAlerts: boolean;
 }
 
 class NotificationService extends EventEmitter {
@@ -179,6 +181,8 @@ class NotificationService extends EventEmitter {
       courseUpdates: true,
       quizReminders: true,
       achievementNotifications: true,
+      roleNotifications: true,
+      clinicalAlerts: true,
     };
 
     const updated = { ...existing, ...preferences, userId };
@@ -202,6 +206,8 @@ class NotificationService extends EventEmitter {
         courseUpdates: true,
         quizReminders: true,
         achievementNotifications: true,
+        roleNotifications: true,
+        clinicalAlerts: true,
       }
     );
   }

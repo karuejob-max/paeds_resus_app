@@ -114,6 +114,7 @@
     "db:verify-0150": "node scripts/verify-0150-cpd-quiz-gating.mjs",
     "db:apply-0162": "node scripts/apply-0162-nerp-ses-delivery-feedback.mjs",
     "db:apply-0163": "node scripts/apply-0163-institution-role-acceptance.mjs",
+    "db:apply-0164": "node scripts/apply-0164-canonical-notifications.mjs",
     "db:verify-0148": "node scripts/verify-0148-promotional-messaging-governance.mjs",
     "db:verify-cpr-event-link": "node scripts/verify-cpr-event-link.mjs",
     "db:verify-cpr-event-loop": "node scripts/verify-cpr-event-loop.mjs",
