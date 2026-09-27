@@ -355,12 +355,9 @@ export function SearchableDropdown({
             {optionList}
           </PopoverContent>
         </Popover>}
-        {searchAlwaysVisible ? (
+        {searchAlwaysVisible && open ? (
           <div
-            className={cn(
-              "absolute z-50 mt-1 w-full overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md",
-              !open && "hidden",
-            )}
+            className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md"
             role="listbox"
             aria-label="Presenter search results"
           >
