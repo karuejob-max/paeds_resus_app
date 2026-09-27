@@ -145,6 +145,16 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
   const [editCpdPoints, setEditCpdPoints] = useState("");
   const [editApprovingCouncil, setEditApprovingCouncil] = useState("NCK");
   const [editPresenterSearch, setEditPresenterSearch] = useState("");
+  const [debouncedPresenterSearch, setDebouncedPresenterSearch] = useState("");
+  const [debouncedEditPresenterSearch, setDebouncedEditPresenterSearch] = useState("");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedPresenterSearch(presenterSearch.trim());
+      setDebouncedEditPresenterSearch(editPresenterSearch.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [presenterSearch, editPresenterSearch]);
 
   // Helper functions for parsing and setting presenter cadre
   const setPresenterCadreFromUser = (
@@ -262,13 +272,13 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
 
   // Search queries for autocomplete
   const presenterSearchQuery = trpc.cpd.searchPresenters.useQuery(
-    { query: presenterSearch.trim(), institutionId },
-    { enabled: true, staleTime: 15_000 }
+    { query: debouncedPresenterSearch, institutionId },
+    { enabled: debouncedPresenterSearch.length >= 2, staleTime: 15_000 }
   );
 
   const editPresenterSearchQuery = trpc.cpd.searchPresenters.useQuery(
-    { query: editPresenterSearch.trim(), institutionId },
-    { enabled: true, staleTime: 15_000 }
+    { query: debouncedEditPresenterSearch, institutionId },
+    { enabled: debouncedEditPresenterSearch.length >= 2, staleTime: 15_000 }
   );
 
   const events = eventsQuery.data ?? [];
@@ -1173,6 +1183,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                             Presenter {editPresenterUserId && <UserCheck className="inline h-3 w-3 text-emerald-600 ml-1" />}
                           </Label>
                           <SearchableDropdown
+                            id="edit-cpd-presenter"
                             value={editPresenterUserId == null ? "" : String(editPresenterUserId)}
                             onChange={(value) => {
                               const user = (editPresenterSearchQuery.data ?? []).find(candidate => String(candidate.id) === value);
@@ -1310,6 +1321,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                     Lead presenter {presenterUserId && <UserCheck className="inline h-3.5 w-3.5 text-emerald-600 ml-1" />}
                   </Label>
                   <SearchableDropdown
+                    id="cpd-lead-presenter"
                     value={presenterUserId == null ? "" : String(presenterUserId)}
                     onChange={(value) => {
                       const user = (presenterSearchQuery.data ?? []).find(candidate => String(candidate.id) === value);

@@ -1014,6 +1014,8 @@ export const institutionalAccounts = mysqlTable("institutionalAccounts", {
    *  institutional recovery requests (North Star §6.1) can be matched against it directly —
    *  previously only captured inside institutionalInquiries.specificNeeds as opaque JSON. */
   registrationNumber: varchar("registrationNumber", { length: 255 }),
+  /** Selected canonical KMHFL record; display name and registrationNumber remain editable snapshots. */
+  kmhflFacilityId: int("kmhflFacilityId"),
   status: mysqlEnum("status", ["prospect", "active", "inactive"]).default(
     "prospect"
   ),
@@ -7031,6 +7033,10 @@ export const kmhflFacilities = mysqlTable("kmhflFacilities", {
   name: varchar("name", { length: 255 }).notNull(),
   /** KMHFL facility code / registration number (may be null for some facilities). */
   code: varchar("code", { length: 64 }),
+  /** Immutable source-owned identity when supplied by the official registry. */
+  sourceFacilityId: varchar("sourceFacilityId", { length: 128 }),
+  /** Registry provenance, allowing a later global source to coexist safely. */
+  sourceSystem: varchar("sourceSystem", { length: 64 }).default("KMHFL").notNull(),
   /** County name where the facility is located. */
   county: varchar("county", { length: 100 }),
   /** Facility type (e.g., "hospital", "clinic", "health_center"). */

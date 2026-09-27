@@ -222,6 +222,7 @@ export default function InstitutionalOnboarding() {
         facilityCareLevel: requiresCareFacilityClassification(formData.organizationCategory) ? formData.facilityCareLevel : undefined,
         facilityLocalLevel: formData.facilityLocalLevel.trim() || undefined,
         registrationNumber: formData.registrationNumber.trim() || undefined,
+        kmhflFacilityId: selectedFacility?.id,
         healthcareStaffCount: staffCount,
         country: formData.country.trim(),
         city: formData.city.trim(),
@@ -331,6 +332,7 @@ export default function InstitutionalOnboarding() {
                         }
                       }}
                       onManualEntry={(name) => {
+                        setSelectedFacility(null);
                         setFormData((prev) => ({ ...prev, institutionName: name }));
                       }}
                       registrationNumber={formData.registrationNumber}

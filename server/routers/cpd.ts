@@ -54,6 +54,10 @@ async function loadFacilityDepartmentNames(db: any, institutionId: number) {
   ]));
 }
 
+function escapeSearchLike(value: string): string {
+  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
+}
+
 async function resolveActiveInstitutionPresenter(
   db: any,
   institutionId: number,
@@ -384,7 +388,7 @@ export const cpdRouter = router({
   searchPresenters: protectedProcedure
     .input(
       z.object({
-        query: z.string().trim().max(100).default(""),
+        query: z.string().trim().min(2, "Enter at least 2 characters to search presenters.").max(100),
         institutionId: z.number().int().positive().optional(),
       })
     )
@@ -394,11 +398,13 @@ export const cpdRouter = router({
       if (!institutionId) return [];
       let access: { departmentIds: number[] | null } = { departmentIds: null };
       if (institutionId) {
-        await assertInstitutionProductCapability(db, institutionId, "cpd_portal", "cpd.workspace.read");
-        access = await assertCpdInstitutionAccess(db, ctx.user, institutionId);
+        await assertInstitutionProductCapability(db, institutionId, "cpd_portal", "cpd.sessions.operate");
+        access = await assertCpdInstitutionAccess(db, ctx.user, institutionId, ["cpd_coordinator", "cpd_education_coordinator"]);
       }
       const normalizedQuery = input.query.trim().toLowerCase();
-      const q = `%${normalizedQuery}%`;
+      const escapedQuery = escapeSearchLike(normalizedQuery);
+      const q = `%${escapedQuery}%`;
+      const prefix = `${escapedQuery}%`;
       const searchCondition = normalizedQuery
         ? or(
             like(sql`LOWER(${users.name})`, q),
@@ -447,7 +453,18 @@ export const cpdRouter = router({
               : undefined
           )
         )
-        .limit(250);
+        .orderBy(
+          sql`CASE
+            WHEN LOWER(${users.name}) = ${normalizedQuery} THEN 0
+            WHEN LOWER(${institutionalStaffMembers.staffName}) = ${normalizedQuery} THEN 0
+            WHEN LOWER(${users.name}) LIKE ${prefix} THEN 1
+            WHEN LOWER(${institutionalStaffMembers.staffName}) LIKE ${prefix} THEN 1
+            ELSE 2 END`,
+          asc(institutionalStaffMembers.staffName),
+          asc(users.name),
+          asc(users.id),
+        )
+        .limit(50);
 
       const staffMatches = await db
         .select({
@@ -480,8 +497,14 @@ export const cpdRouter = router({
               : undefined,
           ),
         )
-        .limit(250);
+        .orderBy(
+          sql`CASE WHEN LOWER(${users.name}) = ${normalizedQuery} THEN 0 WHEN LOWER(${users.name}) LIKE ${prefix} THEN 1 ELSE 2 END`,
+          asc(users.name),
+          asc(users.id),
+        )
+        .limit(50);
 
+      const facilityDepartmentNames = await loadFacilityDepartmentNames(db, institutionId);
       const memberRows = Array.from(
         new Map(
           [...userMatches, ...staffMatches].map(row => [row.id, row]),
@@ -493,7 +516,9 @@ export const cpdRouter = router({
         email: u.staffEmail || u.userEmail || "",
         cadre: u.userCadre || u.staffRole || null,
         cadreOther: u.userCadreOther || null,
-        department: u.department || null,
+        department: u.facilityDepartmentId != null
+          ? facilityDepartmentNames.get(u.facilityDepartmentId) || u.department || "Department not set"
+          : u.department || null,
         facilityDepartmentId: u.facilityDepartmentId ?? null,
         isInstitutionMember: true as const,
       }));
@@ -527,7 +552,7 @@ export const cpdRouter = router({
           facilityDepartmentId: null,
           isInstitutionMember: false as const,
         }));
-      return [...memberResults, ...platformResults].slice(0, 250);
+      return [...memberResults, ...platformResults].slice(0, 100);
     }),
 
   /** Admin: open a new event. Closes any currently open event for this institution first. */
