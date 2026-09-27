@@ -50,6 +50,15 @@ describe("platform-search-index", () => {
     expect(results.some((r) => r.id === "resusgps")).toBe(true);
   });
 
+  it("matches descriptions and includes live learning destinations", () => {
+    const provider = { isAuthenticated: true, isAdmin: false, role: "provider" as const };
+    const bedsideResults = filterPlatformSearchItems(index, "bedside", provider);
+    expect(bedsideResults.some((r) => r.id === "resusgps")).toBe(true);
+    expect(index.some((r) => r.href === "/code-signal")).toBe(true);
+    expect(index.some((r) => r.href === "/learning/guide")).toBe(true);
+    expect(index.some((r) => r.href === "/provider-profile")).toBe(true);
+  });
+
   it("hides admin routes from non-admins", () => {
     const provider = { isAuthenticated: true, isAdmin: false, role: "provider" as const };
     const adminItem = index.find((i) => i.id === "admin-reports")!;

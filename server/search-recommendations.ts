@@ -43,20 +43,30 @@ export interface UserPreferences {
 
 class SearchRecommendationEngine {
   private searchIndex: Map<string, SearchResult[]> = new Map();
+  private indexedContentIds = new Set<string>();
   private userPreferences: Map<number, UserPreferences> = new Map();
   private courseDatabase: Map<string, any> = new Map();
   private userInteractions: Map<number, string[]> = new Map();
+  private totalSearches = 0;
+  private totalRecommendations = 0;
+
+  /** The process-local engine is not usable until content has been indexed. */
+  isReady(): boolean {
+    return this.searchIndex.size > 0 || this.courseDatabase.size > 0;
+  }
 
   /**
    * Index content for search
    */
   indexContent(content: SearchResult): void {
+    this.indexedContentIds.add(content.id);
     const keywords = this.extractKeywords(content.title + " " + content.description);
 
     keywords.forEach((keyword) => {
       const existing = this.searchIndex.get(keyword) || [];
-      existing.push(content);
-      this.searchIndex.set(keyword, existing);
+      const withoutContent = existing.filter((result) => result.id !== content.id);
+      withoutContent.push(content);
+      this.searchIndex.set(keyword, withoutContent);
     });
   }
 
@@ -66,6 +76,7 @@ class SearchRecommendationEngine {
   private extractKeywords(text: string): string[] {
     const words = text
       .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
       .split(/\s+/)
       .filter((word) => word.length > 3);
 
@@ -77,6 +88,7 @@ class SearchRecommendationEngine {
    * Search courses and content
    */
   search(query: string, filters?: SearchFilters, limit: number = 20): SearchResult[] {
+    this.totalSearches += 1;
     const keywords = this.extractKeywords(query);
     const results: Map<string, SearchResult> = new Map();
 
@@ -130,6 +142,7 @@ class SearchRecommendationEngine {
    * Get personalized recommendations
    */
   getRecommendations(userId: number, limit: number = 10): RecommendationResult[] {
+    this.totalRecommendations += 1;
     const preferences = this.userPreferences.get(userId);
     const interactions = this.userInteractions.get(userId) || [];
 
@@ -138,14 +151,20 @@ class SearchRecommendationEngine {
       return this.getPopularCourses(limit);
     }
 
-    const recommendations: RecommendationResult[] = [];
+    const recommendationsById = new Map<string, RecommendationResult>();
+    const addRecommendation = (recommendation: RecommendationResult) => {
+      const existing = recommendationsById.get(recommendation.id);
+      if (!existing || recommendation.score > existing.score) {
+        recommendationsById.set(recommendation.id, recommendation);
+      }
+    };
 
     // Recommend based on favorite categories
     preferences.favoriteCategories.forEach((category) => {
       const courses = this.searchIndex.get(category) || [];
       courses.forEach((course) => {
         if (!interactions.includes(course.id)) {
-          recommendations.push({
+          addRecommendation({
             id: course.id,
             title: course.title,
             description: course.description,
@@ -161,7 +180,7 @@ class SearchRecommendationEngine {
     const styleMatches = this.searchIndex.get(preferences.learningStyle) || [];
     styleMatches.forEach((course) => {
       if (!interactions.includes(course.id)) {
-        recommendations.push({
+        addRecommendation({
           id: course.id,
           title: course.title,
           description: course.description,
@@ -173,7 +192,8 @@ class SearchRecommendationEngine {
     });
 
     // Sort by score and return top results
-    recommendations.sort((a, b) => b.score - a.score);
+    const recommendations = Array.from(recommendationsById.values());
+    recommendations.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
     return recommendations.slice(0, limit);
   }
 
@@ -306,9 +326,9 @@ class SearchRecommendationEngine {
     uniqueUsers: number;
   } {
     return {
-      totalIndexedContent: this.searchIndex.size,
-      totalSearches: 0, // Would be tracked in production
-      totalRecommendations: 0, // Would be tracked in production
+      totalIndexedContent: this.indexedContentIds.size,
+      totalSearches: this.totalSearches,
+      totalRecommendations: this.totalRecommendations,
       uniqueUsers: this.userPreferences.size,
     };
   }

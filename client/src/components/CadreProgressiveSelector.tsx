@@ -188,6 +188,7 @@ function getLeafValue(category: string, role: string, rnLevel: string, rnSub: st
 }
 
 interface SearchableDropdownProps {
+  id?: string;
   value: string;
   onChange: (val: string) => void;
   options: { value: string; label: string; description?: string; searchText?: string }[];
@@ -203,6 +204,7 @@ interface SearchableDropdownProps {
 }
 
 export function SearchableDropdown({
+  id,
   value,
   onChange,
   options,
@@ -216,6 +218,7 @@ export function SearchableDropdown({
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const selectedOption = options.find((opt) => opt.value === value);
+  const listboxId = id ? `${id}-listbox` : undefined;
 
   useEffect(() => {
     if (value) {
@@ -288,9 +291,6 @@ export function SearchableDropdown({
     )}>
       {searchAlwaysVisible ? (
         <div
-          role="combobox"
-          aria-expanded={open}
-          aria-haspopup="listbox"
           className="min-w-0"
         >
           {selectedOption ? (
@@ -301,9 +301,14 @@ export function SearchableDropdown({
             </div>
           ) : null}
           <Input
+            id={id}
             value={searchQuery}
             placeholder={searchPlaceholder}
             aria-label={searchPlaceholder}
+            role="combobox"
+            aria-expanded={open}
+            aria-haspopup="listbox"
+            aria-controls={listboxId}
             aria-autocomplete="list"
             autoComplete="off"
             autoCorrect="off"
@@ -357,6 +362,7 @@ export function SearchableDropdown({
         </Popover>}
         {searchAlwaysVisible && open ? (
           <div
+            id={listboxId}
             className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md"
             role="listbox"
             aria-label="Presenter search results"

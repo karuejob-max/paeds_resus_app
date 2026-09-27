@@ -103,6 +103,7 @@ export default function InstitutionLearningGovernancePanel({
   const [presenterUserId, setPresenterUserId] = useState("");
   const [presenterSearch, setPresenterSearch] = useState("");
   const [presenterCache, setPresenterCache] = useState<PresenterSearchPerson[]>([]);
+  const [debouncedPresenterSearch, setDebouncedPresenterSearch] = useState("");
   const [cpdPoints, setCpdPoints] = useState("1");
   const [coPresenters, setCoPresenters] = useState<Array<{ userId: string }>>([]);
   const [quizEnabled, setQuizEnabled] = useState(false);
@@ -143,18 +144,20 @@ export default function InstitutionLearningGovernancePanel({
     { staleTime: 30_000 }
   );
   const { data: presenterMatches = [] } = trpc.cpd.searchPresenters.useQuery(
-    { institutionId, query: presenterSearch.trim() },
-    { enabled: true, staleTime: 15_000 },
+    { institutionId, query: debouncedPresenterSearch },
+    { enabled: debouncedPresenterSearch.length >= 2, staleTime: 15_000 },
   );
   useEffect(() => {
-    if (!presenterMatches.length) return;
-    setPresenterCache(current => {
-      const merged = new Map<number, PresenterSearchPerson>(current.map(person => [person.id, person]));
-      presenterMatches.forEach(person => merged.set(person.id, person));
-      return Array.from(merged.values());
-    });
-  }, [presenterMatches]);
-  const searchablePresenters = [...presenterCache, ...presenterMatches].filter((person, index, all) => all.findIndex(candidate => candidate.id === person.id) === index);
+    const timer = window.setTimeout(() => setDebouncedPresenterSearch(presenterSearch.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [presenterSearch]);
+  useEffect(() => {
+    const selected = presenterCache.find(person => person.id === Number(presenterUserId));
+    setPresenterCache(selected && !presenterMatches.some(person => person.id === selected.id)
+      ? [selected, ...presenterMatches]
+      : presenterMatches);
+  }, [presenterMatches, presenterUserId]);
+  const searchablePresenters = presenterCache;
   const presenterOptions = searchablePresenters
     .filter(person => person.id != null)
     .map(person => ({
@@ -573,6 +576,7 @@ export default function InstitutionLearningGovernancePanel({
             )}
             <Field label="Lead presenter">
               <SearchableDropdown
+                id="learning-lead-presenter"
                 value={presenterUserId}
                 onChange={setPresenterUserId}
                 options={presenterOptions.map(({ value, label, description, searchText }) => ({ value, label, description, searchText }))}
@@ -669,6 +673,7 @@ export default function InstitutionLearningGovernancePanel({
                 >
                   <div>
                     <SearchableDropdown
+                      id={`learning-co-presenter-${index}`}
                       value={presenter.userId}
                       onChange={value =>
                         setCoPresenters(rows =>

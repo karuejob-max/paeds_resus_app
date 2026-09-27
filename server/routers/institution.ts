@@ -2233,6 +2233,7 @@ export const institutionRouter = router({
           (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
           z.string().trim().min(1).optional()
         ),
+        kmhflFacilityId: z.number().int().positive().optional(),
         healthcareStaffCount: z.coerce.number().int().positive(),
         country: z.string().min(1),
         city: z.string().min(1),
@@ -2275,6 +2276,22 @@ export const institutionRouter = router({
       }
       if (input.facilityCareLevel === "other_or_not_sure" && !input.facilityLocalLevel) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Add the local facility designation when your country uses another classification model." });
+      }
+
+      let selectedKmhflFacility: { id: number; name: string; code: string | null } | undefined;
+      if (input.kmhflFacilityId) {
+        const [facility] = await db
+          .select({ id: kmhflFacilities.id, name: kmhflFacilities.name, code: kmhflFacilities.code })
+          .from(kmhflFacilities)
+          .where(and(
+            eq(kmhflFacilities.id, input.kmhflFacilityId),
+            or(eq(kmhflFacilities.operationalStatus, "operational"), isNull(kmhflFacilities.operationalStatus)),
+          ))
+          .limit(1);
+        if (!facility) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "The selected facility is not an active registry record. Search again or choose manual entry." });
+        }
+        selectedKmhflFacility = facility;
       }
 
       const existing = await db
@@ -2324,7 +2341,7 @@ export const institutionRouter = router({
 
       const accountResult = await db.insert(institutionalAccounts).values({
         userId: ctx.user.id,
-        companyName: input.institutionName,
+        companyName: selectedKmhflFacility?.name ?? input.institutionName,
         industry: organizationCategory,
         organizationCategory,
         facilityOwnership: input.facilityOwnership,
@@ -2334,7 +2351,8 @@ export const institutionRouter = router({
         contactName: primaryAdminName,
         contactEmail: primaryAdminEmail,
         contactPhone: input.contactPhone,
-        registrationNumber: input.registrationNumber,
+        registrationNumber: selectedKmhflFacility?.code ?? input.registrationNumber,
+        kmhflFacilityId: selectedKmhflFacility?.id ?? null,
         status: "prospect",
       });
 
@@ -2367,10 +2385,10 @@ export const institutionRouter = router({
       });
 
       await db.insert(institutionalInquiries).values({
-        companyName: input.institutionName,
+        companyName: selectedKmhflFacility?.name ?? input.institutionName,
         staffCount: input.healthcareStaffCount,
         specificNeeds: JSON.stringify({
-          registrationNumber: input.registrationNumber,
+          registrationNumber: selectedKmhflFacility?.code ?? input.registrationNumber,
           address: input.address,
           city: input.city,
           country: input.country,

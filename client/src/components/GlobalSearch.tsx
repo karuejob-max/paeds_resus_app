@@ -53,13 +53,14 @@ type GlobalSearchProps = {
 export function GlobalSearch({ className, variant = "icon" }: GlobalSearchProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user, isAuthenticated } = useAuth();
   const { effectiveWorkspace } = useWorkspaceAccess();
   const trackEventMutation = trpc.events.trackEvent.useMutation();
 
   const isAdmin = (user as { role?: string })?.role === "admin";
   const effectiveRole: AppRole = isAuthenticated ? effectiveWorkspace : null;
+  const isActiveResusGuidance = /^\/resus(?:\/|$)/.test(location);
 
   const context: SearchContext = useMemo(
     () => ({
@@ -100,6 +101,7 @@ export function GlobalSearch({ className, variant = "icon" }: GlobalSearchProps)
   );
 
   useEffect(() => {
+    if (isActiveResusGuidance) return;
     const onKeyDown = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === "k") {
@@ -109,10 +111,12 @@ export function GlobalSearch({ className, variant = "icon" }: GlobalSearchProps)
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [isActiveResusGuidance]);
 
   const isMac =
     typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+
+  if (isActiveResusGuidance) return null;
 
   return (
     <>
@@ -168,7 +172,7 @@ export function GlobalSearch({ className, variant = "icon" }: GlobalSearchProps)
                 {items.map((item) => (
                   <CommandItem
                     key={item.id}
-                    value={`${item.label} ${item.href} ${item.keywords?.join(" ") ?? ""}`}
+                    value={`${item.label} ${item.description ?? ""} ${item.href} ${item.keywords?.join(" ") ?? ""} ${item.category}`}
                     onSelect={() => navigateTo(item)}
                   >
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">

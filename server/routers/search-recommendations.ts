@@ -9,11 +9,11 @@ export const searchRecommendationsRouter = router({
   search: protectedProcedure
     .input(
       z.object({
-        query: z.string(),
-        type: z.array(z.string()).optional(),
-        difficulty: z.array(z.string()).optional(),
-        language: z.array(z.string()).optional(),
-        tags: z.array(z.string()).optional(),
+        query: z.string().trim().max(200),
+        type: z.array(z.string().trim().min(1).max(64)).max(10).optional(),
+        difficulty: z.array(z.string().trim().min(1).max(64)).max(10).optional(),
+        language: z.array(z.string().trim().min(1).max(32)).max(10).optional(),
+        tags: z.array(z.string().trim().min(1).max(64)).max(20).optional(),
         limit: z.number().min(1).max(100).optional().default(20),
       })
     )
@@ -27,6 +27,7 @@ export const searchRecommendationsRouter = router({
 
       return {
         success: true,
+        available: searchRecommendationEngine.isReady(),
         results,
         total: results.length,
       };
@@ -38,16 +39,15 @@ export const searchRecommendationsRouter = router({
   getRecommendations: protectedProcedure
     .input(
       z.object({
-        userId: z.number().optional(),
         limit: z.number().min(1).max(50).optional().default(10),
       })
     )
     .query(({ ctx, input }) => {
-      const userId = input.userId || ctx.user.id;
-      const recommendations = searchRecommendationEngine.getRecommendations(userId, input.limit);
+      const recommendations = searchRecommendationEngine.getRecommendations(ctx.user.id, input.limit);
 
       return {
         success: true,
+        available: searchRecommendationEngine.isReady(),
         recommendations,
         total: recommendations.length,
       };
@@ -88,12 +88,10 @@ export const searchRecommendationsRouter = router({
   getUserPreferences: protectedProcedure
     .input(
       z.object({
-        userId: z.number().optional(),
       })
     )
-    .query(({ ctx, input }) => {
-      const userId = input.userId || ctx.user.id;
-      const preferences = searchRecommendationEngine.getUserPreferences(userId);
+    .query(({ ctx }) => {
+      const preferences = searchRecommendationEngine.getUserPreferences(ctx.user.id);
 
       return {
         success: !!preferences,
@@ -144,7 +142,7 @@ export const searchRecommendationsRouter = router({
   getSearchSuggestions: protectedProcedure
     .input(
       z.object({
-        query: z.string(),
+        query: z.string().trim().max(200),
         limit: z.number().min(1).max(20).optional().default(5),
       })
     )
@@ -153,6 +151,7 @@ export const searchRecommendationsRouter = router({
 
       return {
         success: true,
+        available: searchRecommendationEngine.isReady(),
         suggestions,
         total: suggestions.length,
       };

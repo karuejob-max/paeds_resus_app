@@ -38,21 +38,32 @@ export function FacilityAutocomplete({
   const [isOpen, setIsOpen] = useState(false);
   const [results, setResults] = useState<FacilityOption[]>([]);
   const [selectedFacility, setSelectedFacility] = useState<FacilityOption | null>(null);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const searchFacilities = trpc.institution.searchKmhflFacilities.useQuery(
-    { query, limit: 10 },
-    { enabled: query.length > 0 && !isManualEntry, staleTime: 5 * 60 * 1000 }
+    { query: debouncedQuery, limit: 10 },
+    { enabled: debouncedQuery.length >= 2 && !isManualEntry, staleTime: 5 * 60 * 1000 }
   );
 
   useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    if (searchFacilities.error) {
+      setResults([]);
+      setIsOpen(false);
+      return;
+    }
     if (searchFacilities.data) {
       setResults(searchFacilities.data);
       setIsOpen(true);
     }
-  }, [searchFacilities.data]);
+  }, [searchFacilities.data, searchFacilities.error]);
 
   useEffect(() => {
     setIsLoading(searchFacilities.isLoading);
@@ -76,7 +87,7 @@ export function FacilityAutocomplete({
     // Keep the parent onboarding form synchronized even before a registry result is selected.
     // Otherwise the final submit can send the initial empty institutionName.
     onManualEntry(newValue);
-    if (newValue.length === 0) {
+    if (newValue.trim().length < 2) {
       setIsOpen(false);
       setResults([]);
     }
@@ -118,7 +129,7 @@ export function FacilityAutocomplete({
             ref={inputRef}
             id="facilitySearch"
             type="text"
-            placeholder={`Search facility registry or enter a ${entityLabel} name`}
+            placeholder={`Search KMHFL snapshot or enter a ${entityLabel} name`}
             value={query}
             onChange={handleInputChange}
             onFocus={() => query.length > 0 && setIsOpen(true)}
@@ -163,9 +174,15 @@ export function FacilityAutocomplete({
               </ul>
             )}
 
-            {!isLoading && results.length === 0 && query.length > 0 && (
+            {!isLoading && results.length === 0 && query.trim().length >= 2 && (
               <div className="p-3 text-sm text-muted-foreground text-center">
                 No facilities found
+              </div>
+            )}
+
+            {!isLoading && searchFacilities.error && (
+              <div className="p-3 text-sm text-destructive text-center" role="alert">
+                Facility registry search is unavailable. You can use manual entry.
               </div>
             )}
 
@@ -185,6 +202,12 @@ export function FacilityAutocomplete({
           </div>
         )}
       </div>
+
+      {!isManualEntry && (
+        <p className="text-xs text-muted-foreground">
+          Registry matches are a maintained snapshot. Confirm the facility details before submitting.
+        </p>
+      )}
 
       {/* Manual entry mode */}
       {isManualEntry && (
