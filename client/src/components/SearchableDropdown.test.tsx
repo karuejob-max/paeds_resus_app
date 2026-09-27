@@ -76,7 +76,8 @@ describe("SearchableDropdown clearable selection", () => {
     expect(onSearchChange).toHaveBeenCalledWith("Brian");
     expect(screen.getByRole("option", { name: /Brian Kamau/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("option", { name: /Brian Kamau/ }));
-    expect(screen.getByRole("combobox").textContent).toContain("Brian Kamau");
+    expect((screen.getByPlaceholderText("Search option...") as HTMLInputElement).value).toBe("");
+    expect(screen.getByText("Presenter selected").parentElement?.textContent).toContain("Brian Kamau");
     expect(screen.getByRole("combobox").getAttribute("aria-expanded")).toBe("false");
   });
 
