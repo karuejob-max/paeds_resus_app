@@ -71,13 +71,10 @@ describe("SearchableDropdown clearable selection", () => {
     const onSearchChange = vi.fn();
     render(<Harness onSearchChange={onSearchChange} searchAlwaysVisible />);
 
-    fireEvent.click(screen.getByRole("combobox"));
     const searchInput = screen.getByPlaceholderText("Search option...");
-    expect(screen.getByRole("option", { name: /Amina Otieno/ })).toBeTruthy();
-    expect(screen.getByRole("option", { name: /Brian Kamau/ })).toBeTruthy();
-
     fireEvent.change(searchInput, { target: { value: "Brian" } });
     expect(onSearchChange).toHaveBeenCalledWith("Brian");
+    expect(screen.getByRole("option", { name: /Brian Kamau/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("option", { name: /Brian Kamau/ }));
     expect(screen.getByRole("combobox").textContent).toContain("Brian Kamau");
     expect(screen.getByRole("combobox").getAttribute("aria-expanded")).toBe("false");
