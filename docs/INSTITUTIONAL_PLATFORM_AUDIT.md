@@ -4,6 +4,8 @@
 **Date:** 2026-02-25  
 **Scope:** Routes, UI, tRPC/APIs, data model, and alignment between them.
 
+> **Superseded:** This historical audit predates later institutional onboarding, role, QI, pricing, billing, notification, and ILSP releases. Do not use its executive summary as current state. Start with [`docs/PLATFORM_CURRENT_STATE.md`](PLATFORM_CURRENT_STATE.md), [`docs/WORK_STATUS.md`](WORK_STATUS.md), and [`docs/institutional-ux/PHASE0_BASELINE.md`](institutional-ux/PHASE0_BASELINE.md).
+
 ---
 
 ## 1. Executive summary
