@@ -98,13 +98,31 @@ export async function assertCanManageDepartmentHead(
   db: AppDb,
   user: Pick<User, "id" | "role" | "email">,
   institutionId: number,
+  departmentId?: number,
 ) {
   if (user.role === "admin" || await isInstitutionAdmin(db, user.id, institutionId)) {
     return { authority: "institution_admin" as const };
   }
+  if (departmentId != null) {
+    const [head] = await db
+      .select({ id: institutionDepartmentHeads.id })
+      .from(institutionDepartmentHeads)
+      .where(and(
+        eq(institutionDepartmentHeads.institutionalAccountId, institutionId),
+        eq(institutionDepartmentHeads.departmentId, departmentId),
+        or(
+          and(eq(institutionDepartmentHeads.userId, user.id), eq(institutionDepartmentHeads.assignmentStatus, "active")),
+          and(eq(institutionDepartmentHeads.deputyUserId, user.id), eq(institutionDepartmentHeads.deputyAssignmentStatus, "active")),
+        ),
+      ))
+      .limit(1);
+    if (head) return { authority: "department_head" as const };
+  }
   throw new TRPCError({
     code: "FORBIDDEN",
-    message: "Only an institutional administrator can assign or end Departmental Heads.",
+    message: departmentId == null
+      ? "Only an institutional administrator can assign or end Departmental Heads."
+      : "Departmental Head authority is limited to the appointed department.",
   });
 }
 

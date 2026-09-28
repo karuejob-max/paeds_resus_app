@@ -1066,7 +1066,7 @@ export const institutionAccountabilityRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-      await assertCanManageDepartmentHead(db, ctx.user, input.institutionId);
+      await assertCanManageDepartmentHead(db, ctx.user, input.institutionId, input.departmentId);
       const [department] = await db
         .select({ id: facilityDepartments.id })
         .from(facilityDepartments)
@@ -1106,7 +1106,7 @@ export const institutionAccountabilityRouter = router({
 
       if (input.assignmentRole === "deputy") {
         const [primary] = await db
-          .select({ id: institutionDepartmentHeads.id, deputyUserId: institutionDepartmentHeads.deputyUserId })
+          .select({ id: institutionDepartmentHeads.id, userId: institutionDepartmentHeads.userId, deputyUserId: institutionDepartmentHeads.deputyUserId })
           .from(institutionDepartmentHeads)
           .where(and(
             eq(institutionDepartmentHeads.institutionalAccountId, input.institutionId),
@@ -1115,6 +1115,7 @@ export const institutionAccountabilityRouter = router({
           ))
           .limit(1);
         if (!primary) throw new TRPCError({ code: "BAD_REQUEST", message: "Assign and accept the primary Departmental Head before assigning a Deputy." });
+        if (primary.userId === input.userId) throw new TRPCError({ code: "BAD_REQUEST", message: "The Deputy Departmental Head must be different from the primary." });
         if (primary.deputyUserId === input.userId) return { success: true as const, assignmentId: primary.id, action: "unchanged" as const, assignmentRole: "deputy" as const };
         await db.update(institutionDepartmentHeads).set({
           deputyUserId: input.userId,
@@ -1244,7 +1245,29 @@ export const institutionAccountabilityRouter = router({
             ),
             assignedByUserId: ctx.user.id,
           });
-          assignmentId = (result as unknown as { insertId: number }).insertId;
+          const insertedId = Number((result as unknown as { insertId?: number | string }).insertId);
+          if (Number.isInteger(insertedId) && insertedId > 0) {
+            assignmentId = insertedId;
+          } else {
+            const [created] = await tx
+              .select({ id: institutionDepartmentHeads.id })
+              .from(institutionDepartmentHeads)
+              .where(and(
+                eq(institutionDepartmentHeads.institutionalAccountId, input.institutionId),
+                eq(institutionDepartmentHeads.departmentId, input.departmentId),
+                eq(institutionDepartmentHeads.userId, input.userId),
+                eq(institutionDepartmentHeads.assignmentStatus, "pending_acceptance"),
+              ))
+              .orderBy(desc(institutionDepartmentHeads.id))
+              .limit(1);
+            if (!created?.id) {
+              throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Departmental Head assignment was not created; no assignment ID was returned." });
+            }
+            assignmentId = created.id;
+          }
+        }
+        if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Departmental Head assignment has no valid audit ID." });
         }
         await tx.insert(institutionDepartmentHeadEvents).values({
           institutionalAccountId: input.institutionId,
