@@ -116,6 +116,7 @@
     "db:apply-0163": "node scripts/apply-0163-institution-role-acceptance.mjs",
     "db:apply-0164": "node scripts/apply-0164-canonical-notifications.mjs",
     "db:apply-0165": "node scripts/apply-0165-search-hardening.mjs",
+    "db:apply-0166": "node scripts/apply-0166-deputy-institutional-roles.mjs",
     "db:verify-0148": "node scripts/verify-0148-promotional-messaging-governance.mjs",
     "db:verify-cpr-event-link": "node scripts/verify-cpr-event-link.mjs",
     "db:verify-cpr-event-loop": "node scripts/verify-cpr-event-loop.mjs",

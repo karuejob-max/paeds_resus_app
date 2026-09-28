@@ -7660,6 +7660,13 @@ export const institutionEducationCoordinators = mysqlTable(
     assignmentStatus: mysqlEnum("assignmentStatus", ["pending_acceptance", "active", "declined", "ended"])
       .default("active")
       .notNull(),
+    deputyUserId: int("deputyUserId"),
+    deputyAssignmentStatus: mysqlEnum("deputyAssignmentStatus", ["pending_acceptance", "active", "declined", "ended"]),
+    deputyAssignedByUserId: int("deputyAssignedByUserId"),
+    deputyAssignedAt: timestamp("deputyAssignedAt"),
+    deputyAcceptedAt: timestamp("deputyAcceptedAt"),
+    deputyDeclinedAt: timestamp("deputyDeclinedAt"),
+    deputyDeclineReason: varchar("deputyDeclineReason", { length: 500 }),
     assignedByUserId: int("assignedByUserId").notNull(),
     assignedAt: timestamp("assignedAt").defaultNow().notNull(),
     acceptedAt: timestamp("acceptedAt"),
@@ -7916,6 +7923,13 @@ export const institutionDepartmentHeads = mysqlTable(
     assignmentStatus: mysqlEnum("assignmentStatus", ["pending_acceptance", "active", "declined", "ended"])
       .default("active")
       .notNull(),
+    deputyUserId: int("deputyUserId"),
+    deputyAssignmentStatus: mysqlEnum("deputyAssignmentStatus", ["pending_acceptance", "active", "declined", "ended"]),
+    deputyAssignedByUserId: int("deputyAssignedByUserId"),
+    deputyAssignedAt: timestamp("deputyAssignedAt"),
+    deputyAcceptedAt: timestamp("deputyAcceptedAt"),
+    deputyDeclinedAt: timestamp("deputyDeclinedAt"),
+    deputyDeclineReason: varchar("deputyDeclineReason", { length: 500 }),
     activeAssignmentKey: varchar("activeAssignmentKey", { length: 128 }),
     assignedByUserId: int("assignedByUserId").notNull(),
     assignedAt: timestamp("assignedAt").defaultNow().notNull(),
@@ -8078,6 +8092,7 @@ export const institutionDepartmentResponseCoordinators = mysqlTable(
     departmentId: int("department_id").notNull(),
     coordinatorUserId: int("coordinator_user_id").notNull(),
     backupUserId: int("backup_user_id"),
+    deputyUserId: int("deputy_user_id"),
     assignmentStatus: mysqlEnum("assignment_status", [
       "pending_acceptance",
       "active",
@@ -8095,6 +8110,10 @@ export const institutionDepartmentResponseCoordinators = mysqlTable(
     backupAcceptedAt: timestamp("backup_accepted_at"),
     backupDeclinedAt: timestamp("backup_declined_at"),
     backupDeclineReason: varchar("backup_decline_reason", { length: 500 }),
+    deputyAssignmentStatus: mysqlEnum("deputy_assignment_status", ["pending_acceptance", "active", "declined", "ended"]),
+    deputyAcceptedAt: timestamp("deputy_accepted_at"),
+    deputyDeclinedAt: timestamp("deputy_declined_at"),
+    deputyDeclineReason: varchar("deputy_decline_reason", { length: 500 }),
     assignedAt: timestamp("assigned_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
   },

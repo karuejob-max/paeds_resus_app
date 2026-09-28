@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import {
   institutionDepartmentHeads,
   institutionDepartmentResponseCoordinators,
@@ -79,8 +79,10 @@ export async function assertCanManageArea(
     .where(and(
       eq(institutionDepartmentHeads.institutionalAccountId, institutionId),
       eq(institutionDepartmentHeads.departmentId, departmentId),
-      eq(institutionDepartmentHeads.userId, user.id),
-      eq(institutionDepartmentHeads.assignmentStatus, "active"),
+      or(
+        and(eq(institutionDepartmentHeads.userId, user.id), eq(institutionDepartmentHeads.assignmentStatus, "active")),
+        and(eq(institutionDepartmentHeads.deputyUserId, user.id), eq(institutionDepartmentHeads.deputyAssignmentStatus, "active")),
+      ),
     ))
     .limit(1);
   if (!head) {

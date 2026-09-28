@@ -1059,6 +1059,7 @@ export const institutionAccountabilityRouter = router({
         institutionId: z.number().int().positive(),
         departmentId: z.number().int().positive(),
         userId: z.number().int().positive(),
+        assignmentRole: z.enum(["primary", "deputy"]).default("primary"),
         note: z.string().trim().max(500).optional(),
       })
     )
@@ -1102,6 +1103,55 @@ export const institutionAccountabilityRouter = router({
           message:
             "Departmental Heads must be active linked institution staff.",
         });
+
+      if (input.assignmentRole === "deputy") {
+        const [primary] = await db
+          .select({ id: institutionDepartmentHeads.id, deputyUserId: institutionDepartmentHeads.deputyUserId })
+          .from(institutionDepartmentHeads)
+          .where(and(
+            eq(institutionDepartmentHeads.institutionalAccountId, input.institutionId),
+            eq(institutionDepartmentHeads.departmentId, input.departmentId),
+            eq(institutionDepartmentHeads.assignmentStatus, "active"),
+          ))
+          .limit(1);
+        if (!primary) throw new TRPCError({ code: "BAD_REQUEST", message: "Assign and accept the primary Departmental Head before assigning a Deputy." });
+        if (primary.deputyUserId === input.userId) return { success: true as const, assignmentId: primary.id, action: "unchanged" as const, assignmentRole: "deputy" as const };
+        await db.update(institutionDepartmentHeads).set({
+          deputyUserId: input.userId,
+          deputyAssignmentStatus: "pending_acceptance",
+          deputyAssignedByUserId: ctx.user.id,
+          deputyAssignedAt: new Date(),
+          deputyAcceptedAt: null,
+          deputyDeclinedAt: null,
+          deputyDeclineReason: null,
+          updatedAt: new Date(),
+        }).where(eq(institutionDepartmentHeads.id, primary.id));
+        await db.insert(institutionDepartmentHeadEvents).values({
+          institutionalAccountId: input.institutionId,
+          departmentId: input.departmentId,
+          assignmentId: primary.id,
+          eventType: "assigned",
+          previousUserId: null,
+          currentUserId: input.userId,
+          actorUserId: ctx.user.id,
+          note: input.note ?? "Deputy Departmental Head assigned.",
+        });
+        await db.insert(inAppNotifications).values({
+          userId: input.userId,
+          type: "institution_role_assignment",
+          domain: "role",
+          severity: "action_required",
+          requiresAction: true,
+          title: "Deputy Departmental Head role assigned — acceptance required",
+          body: `You were assigned Deputy Departmental Head for department ${input.departmentId}. Open My Shift to accept or decline the role.`,
+          actionUrl: "/my-shift?tab=team",
+          relatedId: primary.id,
+          dataJson: JSON.stringify({ institutionId: input.institutionId, departmentId: input.departmentId, roleKey: "deputy_department_head", assignmentId: primary.id, action: "accept_or_decline" }),
+          dedupeKey: `institution-role:deputy-department-head:${primary.id}:${input.userId}`,
+          read: false,
+        });
+        return { success: true as const, assignmentId: primary.id, action: "assigned" as const, assignmentRole: "deputy" as const };
+      }
 
       const result = await db.transaction(async tx => {
         const [active] = await tx
@@ -1210,6 +1260,7 @@ export const institutionAccountabilityRouter = router({
           success: true as const,
           assignmentId,
           action: active ? ("reassigned" as const) : ("assigned" as const),
+          assignmentRole: "primary" as const,
         };
       });
       await db.insert(inAppNotifications).values({
@@ -1232,30 +1283,44 @@ export const institutionAccountabilityRouter = router({
   getMyDepartmentHeadAssignments: protectedProcedure
     .query(async ({ ctx }) => {
       const db = await requireDb();
-      return db
+      const rows = await db
         .select({
           id: institutionDepartmentHeads.id,
           institutionId: institutionDepartmentHeads.institutionalAccountId,
           departmentId: institutionDepartmentHeads.departmentId,
           departmentName: facilityDepartments.departmentName,
+          userId: institutionDepartmentHeads.userId,
+          deputyUserId: institutionDepartmentHeads.deputyUserId,
           assignmentStatus: institutionDepartmentHeads.assignmentStatus,
+          deputyAssignmentStatus: institutionDepartmentHeads.deputyAssignmentStatus,
           assignedAt: institutionDepartmentHeads.assignedAt,
           acceptedAt: institutionDepartmentHeads.acceptedAt,
           declinedAt: institutionDepartmentHeads.declinedAt,
           declineReason: institutionDepartmentHeads.declineReason,
+          deputyAssignedAt: institutionDepartmentHeads.deputyAssignedAt,
+          deputyAcceptedAt: institutionDepartmentHeads.deputyAcceptedAt,
+          deputyDeclinedAt: institutionDepartmentHeads.deputyDeclinedAt,
+          deputyDeclineReason: institutionDepartmentHeads.deputyDeclineReason,
         })
         .from(institutionDepartmentHeads)
         .leftJoin(facilityDepartments, eq(facilityDepartments.id, institutionDepartmentHeads.departmentId))
         .where(and(
-          eq(institutionDepartmentHeads.userId, ctx.user.id),
-          inArray(institutionDepartmentHeads.assignmentStatus, ["pending_acceptance", "active", "declined"]),
+          or(
+            and(eq(institutionDepartmentHeads.userId, ctx.user.id), inArray(institutionDepartmentHeads.assignmentStatus, ["pending_acceptance", "active", "declined"])),
+            and(eq(institutionDepartmentHeads.deputyUserId, ctx.user.id), inArray(institutionDepartmentHeads.deputyAssignmentStatus, ["pending_acceptance", "active", "declined"])),
+          ),
         ))
         .orderBy(desc(institutionDepartmentHeads.updatedAt));
+      return rows.flatMap((row) => [
+        ...(row.userId === ctx.user.id ? [{ ...row, roleKey: "department_head" as const, assignmentStatus: row.assignmentStatus, assignedAt: row.assignedAt, acceptedAt: row.acceptedAt, declinedAt: row.declinedAt, declineReason: row.declineReason }] : []),
+        ...(row.deputyUserId === ctx.user.id ? [{ ...row, roleKey: "deputy_department_head" as const, assignmentStatus: row.deputyAssignmentStatus ?? "ended", assignedAt: row.deputyAssignedAt, acceptedAt: row.deputyAcceptedAt, declinedAt: row.deputyDeclinedAt, declineReason: row.deputyDeclineReason }] : []),
+      ]);
     }),
 
   respondToDepartmentHeadAssignment: protectedProcedure
     .input(z.object({
       assignmentId: z.number().int().positive(),
+      roleKey: z.enum(["department_head", "deputy_department_head"]).default("department_head"),
       response: z.enum(["accept", "decline"]),
       declineReason: z.string().trim().min(3).max(500).optional(),
     }))
@@ -1263,14 +1328,15 @@ export const institutionAccountabilityRouter = router({
       const db = await requireDb();
       const [assignment] = await db.select().from(institutionDepartmentHeads).where(and(
         eq(institutionDepartmentHeads.id, input.assignmentId),
-        eq(institutionDepartmentHeads.userId, ctx.user.id),
+        input.roleKey === "deputy_department_head" ? eq(institutionDepartmentHeads.deputyUserId, ctx.user.id) : eq(institutionDepartmentHeads.userId, ctx.user.id),
       )).limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "Departmental Head assignment not found." });
-      if (assignment.assignmentStatus !== "pending_acceptance") throw new TRPCError({ code: "BAD_REQUEST", message: "This Departmental Head assignment is not awaiting a response." });
+      const currentStatus = input.roleKey === "deputy_department_head" ? assignment.deputyAssignmentStatus : assignment.assignmentStatus;
+      if (currentStatus !== "pending_acceptance") throw new TRPCError({ code: "BAD_REQUEST", message: "This Departmental Head assignment is not awaiting a response." });
       if (input.response === "decline" && !input.declineReason) throw new TRPCError({ code: "BAD_REQUEST", message: "Provide a reason when declining the role." });
-      await db.update(institutionDepartmentHeads).set(input.response === "accept"
-        ? { assignmentStatus: "active", acceptedAt: new Date(), declinedAt: null, declineReason: null, updatedAt: new Date() }
-        : { assignmentStatus: "declined", acceptedAt: null, declinedAt: new Date(), declineReason: input.declineReason, activeAssignmentKey: null, updatedAt: new Date() }
+      await db.update(institutionDepartmentHeads).set(input.roleKey === "deputy_department_head"
+        ? (input.response === "accept" ? { deputyAssignmentStatus: "active" as const, deputyAcceptedAt: new Date(), deputyDeclinedAt: null, deputyDeclineReason: null, updatedAt: new Date() } : { deputyAssignmentStatus: "declined" as const, deputyAcceptedAt: null, deputyDeclinedAt: new Date(), deputyDeclineReason: input.declineReason, updatedAt: new Date() })
+        : (input.response === "accept" ? { assignmentStatus: "active" as const, acceptedAt: new Date(), declinedAt: null, declineReason: null, updatedAt: new Date() } : { assignmentStatus: "declined" as const, acceptedAt: null, declinedAt: new Date(), declineReason: input.declineReason, activeAssignmentKey: null, updatedAt: new Date() })
       ).where(eq(institutionDepartmentHeads.id, assignment.id));
       return { success: true as const, assignmentStatus: input.response === "accept" ? "active" as const : "declined" as const };
     }),

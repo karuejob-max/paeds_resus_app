@@ -22,6 +22,7 @@ export default function ProviderInstitutionRoleAssignmentsCard() {
   const utils = trpc.useUtils();
   const { data: departmentHeads, isLoading: headsLoading } = trpc.institutionAccountability.getMyDepartmentHeadAssignments.useQuery(undefined, { staleTime: 15_000 });
   const { data: educationCoordinators, isLoading: educationLoading } = trpc.institutionLearning.getMyEducationCoordinatorAssignments.useQuery(undefined, { staleTime: 15_000 });
+  const { data: ercoAssignments, isLoading: ercoLoading } = trpc.institution.getMyDepartmentResponseAssignments.useQuery(undefined, { staleTime: 15_000 });
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const respondHead = trpc.institutionAccountability.respondToDepartmentHeadAssignment.useMutation({
     onSuccess: () => { toast.success("Departmental Head response recorded."); void utils.institutionAccountability.getMyDepartmentHeadAssignments.invalidate(); setBusyKey(null); },
@@ -31,18 +32,24 @@ export default function ProviderInstitutionRoleAssignmentsCard() {
     onSuccess: () => { toast.success("Departmental CPD Coordinator response recorded."); void utils.institutionLearning.getMyEducationCoordinatorAssignments.invalidate(); setBusyKey(null); },
     onError: error => { toast.error(error.message || "Could not respond to CPD Coordinator role."); setBusyKey(null); },
   });
+  const respondErco = trpc.institution.respondToDepartmentResponseCoordinatorAssignment.useMutation({
+    onSuccess: () => { toast.success("ERCo response recorded."); void utils.institution.getMyDepartmentResponseAssignments.invalidate(); setBusyKey(null); },
+    onError: error => { toast.error(error.message || "Could not respond to ERCo role."); setBusyKey(null); },
+  });
 
-  if (headsLoading || educationLoading) return null;
+  if (headsLoading || educationLoading || ercoLoading) return null;
   const headRows = departmentHeads ?? [];
   const educationRows = educationCoordinators ?? [];
-  if (headRows.length === 0 && educationRows.length === 0) return null;
+  const ercoRows = (ercoAssignments ?? []).filter((row: any) => row.roleKey === "erco" || row.roleKey === "deputy_erco");
+  if (headRows.length === 0 && educationRows.length === 0 && ercoRows.length === 0) return null;
 
-  const respond = (kind: "head" | "education", id: number, response: "accept" | "decline") => {
+  const respond = (kind: "head" | "education" | "erco", id: number, response: "accept" | "decline", roleKey?: string) => {
     const reason = response === "decline" ? declineReason() : undefined;
     if (response === "decline" && !reason) return;
     setBusyKey(`${kind}-${id}`);
-    if (kind === "head") respondHead.mutate({ assignmentId: id, response, declineReason: reason ?? undefined });
-    else respondEducation.mutate({ assignmentId: id, response, declineReason: reason ?? undefined });
+    if (kind === "head") respondHead.mutate({ assignmentId: id, response, declineReason: reason ?? undefined, roleKey: roleKey === "deputy_department_head" ? "deputy_department_head" : "department_head" });
+    else if (kind === "education") respondEducation.mutate({ assignmentId: id, response, declineReason: reason ?? undefined, roleKey: roleKey === "deputy_department_cpd_coordinator" ? "deputy_department_cpd_coordinator" : "department_cpd_coordinator" });
+    else respondErco.mutate({ assignmentId: id, response, declineReason: reason ?? undefined, roleKey: roleKey === "deputy_erco" ? "deputy_erco" : "erco" });
   };
 
   return (
@@ -52,7 +59,7 @@ export default function ProviderInstitutionRoleAssignmentsCard() {
         <CardDescription>This is the central place to accept, decline, and review your standing institutional roles. Department Heads can manage ERCo and CPD Coordinator roles within their accepted department.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {[...headRows.map(row => ({ ...row, kind: "head" as const, title: "Departmental Head" })), ...educationRows.map(row => ({ ...row, kind: "education" as const, title: "Departmental CPD Coordinator" }))].map(row => {
+        {[...headRows.map(row => ({ ...row, kind: "head" as const, title: row.roleKey === "deputy_department_head" ? "Deputy Departmental Head" : "Departmental Head" })), ...educationRows.map(row => ({ ...row, kind: "education" as const, title: row.roleKey === "deputy_department_cpd_coordinator" ? "Deputy Departmental CPD Coordinator" : "Departmental CPD Coordinator" })), ...ercoRows.map(row => ({ ...row, kind: "erco" as const, title: row.roleKey === "deputy_erco" ? "Deputy ERCo" : "ERCo" }))].map(row => {
           const key = `${row.kind}-${row.id}`;
           const pending = row.assignmentStatus === "pending_acceptance";
           return (
@@ -65,7 +72,7 @@ export default function ProviderInstitutionRoleAssignmentsCard() {
                 <div className="mt-3 flex flex-wrap gap-2 rounded-md border border-amber-200 bg-amber-50 p-3">
                   <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
                   <div className="min-w-0 flex-1"><p className="text-sm font-medium text-amber-950">Acceptance required</p><p className="text-xs text-amber-900/80">Accept to activate this role, or decline with a reason so the institution can arrange cover.</p></div>
-                  <div className="flex w-full flex-wrap gap-2 sm:w-auto"><Button size="sm" onClick={() => respond(row.kind, row.id, "accept")} disabled={busyKey === key}><CheckCircle2 className="mr-1.5 h-4 w-4" />Accept</Button><Button size="sm" variant="outline" onClick={() => respond(row.kind, row.id, "decline")} disabled={busyKey === key}><XCircle className="mr-1.5 h-4 w-4" />Decline</Button></div>
+                  <div className="flex w-full flex-wrap gap-2 sm:w-auto"><Button size="sm" onClick={() => respond(row.kind, row.id, "accept", row.roleKey)} disabled={busyKey === key}><CheckCircle2 className="mr-1.5 h-4 w-4" />Accept</Button><Button size="sm" variant="outline" onClick={() => respond(row.kind, row.id, "decline", row.roleKey)} disabled={busyKey === key}><XCircle className="mr-1.5 h-4 w-4" />Decline</Button></div>
                 </div>
               ) : row.assignmentStatus === "active" ? (
                 <div className="mt-3 space-y-2">
