@@ -7270,7 +7270,10 @@ export const institutionRouter = router({
         const [departmentErco] = await db.select({ id: institutionDepartmentResponseCoordinators.id }).from(institutionDepartmentResponseCoordinators).where(and(
           eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId),
           eq(institutionDepartmentResponseCoordinators.departmentId, roster.departmentId),
-          eq(institutionDepartmentResponseCoordinators.coordinatorUserId, ctx.user.id),
+          or(
+            eq(institutionDepartmentResponseCoordinators.coordinatorUserId, ctx.user.id),
+            and(eq(institutionDepartmentResponseCoordinators.deputyUserId, ctx.user.id), eq(institutionDepartmentResponseCoordinators.deputyAssignmentStatus, "active")),
+          ),
           eq(institutionDepartmentResponseCoordinators.assignmentStatus, "active"),
         )).limit(1);
         const [acceptedErtl] = await db.select({ id: iersShiftRoleAssignments.id }).from(iersShiftRoleAssignments).innerJoin(iersShiftTeams, eq(iersShiftTeams.id, iersShiftRoleAssignments.teamId)).where(and(
