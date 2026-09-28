@@ -95,6 +95,7 @@ export default function InstitutionLearningGovernancePanel({
   const [sessionDepartmentId, setSessionDepartmentId] = useState("");
   const [selectedCoordinatorUserId, setSelectedCoordinatorUserId] =
     useState("");
+  const [coordinatorAssignmentRole, setCoordinatorAssignmentRole] = useState<"primary" | "deputy">("primary");
   const [sessionName, setSessionName] = useState("");
   const [sessionDate, setSessionDate] = useState(today());
   const [eventType, setEventType] = useState("cpd_general");
@@ -424,12 +425,22 @@ export default function InstitutionLearningGovernancePanel({
                 </option>
               ))}
             </select>
+            <select
+              className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
+              value={coordinatorAssignmentRole}
+              onChange={event => setCoordinatorAssignmentRole(event.target.value as "primary" | "deputy")}
+              aria-label="Coordinator assignment role"
+            >
+              <option value="primary">Departmental CPD Coordinator</option>
+              <option value="deputy">Deputy Departmental CPD Coordinator</option>
+            </select>
             <Button
               onClick={() =>
                 assignCoordinator.mutate({
                   institutionId,
                   departmentId: Number(selectedDepartmentId),
                   userId: Number(selectedCoordinatorUserId),
+                  assignmentRole: coordinatorAssignmentRole,
                 })
               }
               disabled={
