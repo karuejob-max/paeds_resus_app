@@ -42,9 +42,17 @@ async function requireActiveMember(db: NonNullable<Awaited<ReturnType<typeof get
 }
 
 async function notifyErco(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, institutionId: number, departmentId: number, title: string, body: string, relatedId: number) {
-  const [coordinator] = await db.select({ coordinatorUserId: institutionDepartmentResponseCoordinators.coordinatorUserId }).from(institutionDepartmentResponseCoordinators).where(and(eq(institutionDepartmentResponseCoordinators.institutionId, institutionId), eq(institutionDepartmentResponseCoordinators.departmentId, departmentId), eq(institutionDepartmentResponseCoordinators.assignmentStatus, "active"))).orderBy(desc(institutionDepartmentResponseCoordinators.effectiveFrom)).limit(1);
-  if (!coordinator?.coordinatorUserId) return;
-  await db.insert(inAppNotifications).values({ userId: coordinator.coordinatorUserId, type: "iers_utl_readiness_gap", title, body, relatedId, actionUrl: "/institution?section=iers&iersTab=workforce&workforceTab=roster" });
+  const [assignment] = await db.select({
+    coordinatorUserId: institutionDepartmentResponseCoordinators.coordinatorUserId,
+    deputyUserId: institutionDepartmentResponseCoordinators.deputyUserId,
+    deputyAssignmentStatus: institutionDepartmentResponseCoordinators.deputyAssignmentStatus,
+  }).from(institutionDepartmentResponseCoordinators).where(and(eq(institutionDepartmentResponseCoordinators.institutionId, institutionId), eq(institutionDepartmentResponseCoordinators.departmentId, departmentId), eq(institutionDepartmentResponseCoordinators.assignmentStatus, "active"))).orderBy(desc(institutionDepartmentResponseCoordinators.effectiveFrom)).limit(1);
+  const userIds = [...new Set([
+    assignment?.coordinatorUserId,
+    assignment?.deputyAssignmentStatus === "active" ? assignment.deputyUserId : null,
+  ].filter((userId): userId is number => userId != null))];
+  if (userIds.length === 0) return;
+  await db.insert(inAppNotifications).values(userIds.map((userId) => ({ userId, type: "iers_utl_readiness_gap" as const, title, body, relatedId, actionUrl: "/institution?section=iers&iersTab=workforce&workforceTab=roster" })));
 }
 
 async function resolveAcceptedUtl(db: NonNullable<Awaited<ReturnType<typeof getDb>>>, userId: number, teamId: number, shiftUtlRosterId?: number) {
