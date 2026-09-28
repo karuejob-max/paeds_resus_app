@@ -307,7 +307,10 @@ async function assertIersDepartmentRotaWriteAccess(
       .where(and(
         eq(institutionDepartmentResponseCoordinators.institutionId, institutionId),
         eq(institutionDepartmentResponseCoordinators.departmentId, departmentId),
-        eq(institutionDepartmentResponseCoordinators.coordinatorUserId, user.id),
+        or(
+          eq(institutionDepartmentResponseCoordinators.coordinatorUserId, user.id),
+          and(eq(institutionDepartmentResponseCoordinators.deputyUserId, user.id), eq(institutionDepartmentResponseCoordinators.deputyAssignmentStatus, "active")),
+        ),
         eq(institutionDepartmentResponseCoordinators.assignmentStatus, "active"),
       ))
       .limit(1);
@@ -331,8 +334,10 @@ async function assertIersInstitutionReadAccess(
         .from(institutionDepartmentHeads)
         .where(and(
           eq(institutionDepartmentHeads.institutionalAccountId, institutionId),
-          eq(institutionDepartmentHeads.userId, user.id),
-          eq(institutionDepartmentHeads.assignmentStatus, "active"),
+          or(
+            and(eq(institutionDepartmentHeads.userId, user.id), eq(institutionDepartmentHeads.assignmentStatus, "active")),
+            and(eq(institutionDepartmentHeads.deputyUserId, user.id), eq(institutionDepartmentHeads.deputyAssignmentStatus, "active")),
+          ),
         ));
       if (heads.length > 0) return { roleKey: "department_head" as const, departmentIds: heads.map((head) => head.departmentId) };
     } catch (headError) {
@@ -344,7 +349,10 @@ async function assertIersInstitutionReadAccess(
       .from(institutionDepartmentResponseCoordinators)
       .where(and(
         eq(institutionDepartmentResponseCoordinators.institutionId, institutionId),
-        eq(institutionDepartmentResponseCoordinators.coordinatorUserId, user.id),
+        or(
+          eq(institutionDepartmentResponseCoordinators.coordinatorUserId, user.id),
+          and(eq(institutionDepartmentResponseCoordinators.deputyUserId, user.id), eq(institutionDepartmentResponseCoordinators.deputyAssignmentStatus, "active")),
+        ),
         eq(institutionDepartmentResponseCoordinators.assignmentStatus, "active"),
       ))
       .limit(1);
@@ -370,7 +378,10 @@ async function assertIersPoleRotaReadAccess(
       .innerJoin(facilityDepartments, eq(facilityDepartments.id, institutionDepartmentResponseCoordinators.departmentId))
       .where(and(
         eq(institutionDepartmentResponseCoordinators.institutionId, institutionId),
-        eq(institutionDepartmentResponseCoordinators.coordinatorUserId, user.id),
+        or(
+          eq(institutionDepartmentResponseCoordinators.coordinatorUserId, user.id),
+          and(eq(institutionDepartmentResponseCoordinators.deputyUserId, user.id), eq(institutionDepartmentResponseCoordinators.deputyAssignmentStatus, "active")),
+        ),
         eq(institutionDepartmentResponseCoordinators.assignmentStatus, "active"),
         eq(facilityDepartments.poleId, poleId),
       ))
@@ -5952,6 +5963,7 @@ export const institutionRouter = router({
       await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
       const includeEnded = input.includeEnded === true;
       const backupUser = alias(users, "iers_backup_duty_user");
+      const deputyUser = alias(users, "iers_deputy_duty_user");
       const ercoStatus = includeEnded ? undefined : inArray(institutionDepartmentResponseCoordinators.assignmentStatus, ["pending_acceptance", "active", "declined"]);
       const ertlStatus = includeEnded ? undefined : inArray(ertlWeeklyRotations.assignmentStatus, ["unassigned", "pending_acceptance", "active", "declined"]);
       const utlStatus = includeEnded ? undefined : inArray(shiftUtlRosters.assignmentStatus, ["unassigned", "pending_acceptance", "active", "declined"]);
@@ -5966,6 +5978,7 @@ export const institutionRouter = router({
           departmentName: facilityDepartments.departmentName,
           poleName: facilityPoles.poleName,
           providerUserId: institutionDepartmentResponseCoordinators.coordinatorUserId,
+          assignmentRole: sql<string>`'erco'`,
           providerName: users.name,
           providerEmail: users.email,
           assignmentStatus: institutionDepartmentResponseCoordinators.assignmentStatus,
@@ -5985,6 +5998,7 @@ export const institutionRouter = router({
           departmentName: facilityDepartments.departmentName,
           poleName: facilityPoles.poleName,
           providerUserId: institutionDepartmentResponseCoordinators.backupUserId,
+          assignmentRole: sql<string>`'assistant_erco'`,
           providerName: backupUser.name,
           providerEmail: backupUser.email,
           assignmentStatus: institutionDepartmentResponseCoordinators.assignmentStatus,
@@ -5998,6 +6012,26 @@ export const institutionRouter = router({
           .leftJoin(facilityPoles, eq(facilityPoles.id, facilityDepartments.poleId))
           .leftJoin(backupUser, eq(backupUser.id, institutionDepartmentResponseCoordinators.backupUserId))
           .where(and(...ercoPredicates, isNotNull(institutionDepartmentResponseCoordinators.backupUserId))),
+        db.select({
+          id: institutionDepartmentResponseCoordinators.id,
+          departmentId: institutionDepartmentResponseCoordinators.departmentId,
+          departmentName: facilityDepartments.departmentName,
+          poleName: facilityPoles.poleName,
+          providerUserId: institutionDepartmentResponseCoordinators.deputyUserId,
+          assignmentRole: sql<string>`'deputy_erco'`,
+          providerName: deputyUser.name,
+          providerEmail: deputyUser.email,
+          assignmentStatus: institutionDepartmentResponseCoordinators.deputyAssignmentStatus,
+          effectiveFrom: institutionDepartmentResponseCoordinators.effectiveFrom,
+          effectiveUntil: institutionDepartmentResponseCoordinators.effectiveUntil,
+          acceptedAt: institutionDepartmentResponseCoordinators.deputyAcceptedAt,
+          declinedAt: institutionDepartmentResponseCoordinators.deputyDeclinedAt,
+          declineReason: institutionDepartmentResponseCoordinators.deputyDeclineReason,
+        }).from(institutionDepartmentResponseCoordinators)
+          .leftJoin(facilityDepartments, eq(facilityDepartments.id, institutionDepartmentResponseCoordinators.departmentId))
+          .leftJoin(facilityPoles, eq(facilityPoles.id, facilityDepartments.poleId))
+          .leftJoin(deputyUser, eq(deputyUser.id, institutionDepartmentResponseCoordinators.deputyUserId))
+          .where(and(...ercoPredicates, isNotNull(institutionDepartmentResponseCoordinators.deputyUserId))),
         db.select({
           id: ertlWeeklyRotations.id,
           departmentId: ertlWeeklyRotations.departmentId,
@@ -6133,7 +6167,9 @@ export const institutionRouter = router({
             poleName: facilityPoles.poleName,
             coordinatorUserId: institutionDepartmentResponseCoordinators.coordinatorUserId,
             backupUserId: institutionDepartmentResponseCoordinators.backupUserId,
+            deputyUserId: institutionDepartmentResponseCoordinators.deputyUserId,
             assignmentStatus: institutionDepartmentResponseCoordinators.assignmentStatus,
+            deputyAssignmentStatus: institutionDepartmentResponseCoordinators.deputyAssignmentStatus,
             effectiveFrom: institutionDepartmentResponseCoordinators.effectiveFrom,
             effectiveUntil: institutionDepartmentResponseCoordinators.effectiveUntil,
             acceptedAt: institutionDepartmentResponseCoordinators.acceptedAt,
@@ -6142,16 +6178,26 @@ export const institutionRouter = router({
             backupAcceptedAt: institutionDepartmentResponseCoordinators.backupAcceptedAt,
             backupDeclinedAt: institutionDepartmentResponseCoordinators.backupDeclinedAt,
             backupDeclineReason: institutionDepartmentResponseCoordinators.backupDeclineReason,
+            deputyAcceptedAt: institutionDepartmentResponseCoordinators.deputyAcceptedAt,
+            deputyDeclinedAt: institutionDepartmentResponseCoordinators.deputyDeclinedAt,
+            deputyDeclineReason: institutionDepartmentResponseCoordinators.deputyDeclineReason,
           })
           .from(institutionDepartmentResponseCoordinators)
           .leftJoin(facilityDepartments, eq(facilityDepartments.id, institutionDepartmentResponseCoordinators.departmentId))
           .leftJoin(facilityPoles, eq(facilityPoles.id, facilityDepartments.poleId))
           .where(or(
-            eq(institutionDepartmentResponseCoordinators.coordinatorUserId, ctx.user.id),
-            eq(institutionDepartmentResponseCoordinators.backupUserId, ctx.user.id),
+            or(
+              eq(institutionDepartmentResponseCoordinators.coordinatorUserId, ctx.user.id),
+              eq(institutionDepartmentResponseCoordinators.backupUserId, ctx.user.id),
+              eq(institutionDepartmentResponseCoordinators.deputyUserId, ctx.user.id),
+            ),
           ));
         const allowedInstitutionIds = await getActiveProviderDutyInstitutionIds(db, ctx.user, assignments.map((assignment) => assignment.institutionId));
-        return assignments.filter((assignment) => allowedInstitutionIds.has(assignment.institutionId));
+        return assignments.filter((assignment) => allowedInstitutionIds.has(assignment.institutionId)).flatMap((assignment) => [
+          ...(assignment.coordinatorUserId === ctx.user.id ? [{ ...assignment, roleKey: "erco" as const }] : []),
+          ...(assignment.deputyUserId === ctx.user.id ? [{ ...assignment, roleKey: "deputy_erco" as const, assignmentStatus: assignment.deputyAssignmentStatus ?? "ended", acceptedAt: assignment.deputyAcceptedAt, declinedAt: assignment.deputyDeclinedAt, declineReason: assignment.deputyDeclineReason }] : []),
+          ...(assignment.backupUserId === ctx.user.id ? [{ ...assignment, roleKey: "assistant_erco" as const }] : []),
+        ]);
       } catch (error) {
         if (isMissingTableError(error)) return [];
         throw error;
@@ -6355,6 +6401,7 @@ export const institutionRouter = router({
       departmentId: z.number(),
       coordinatorUserId: z.number(),
       backupUserId: z.number().nullable().optional(),
+      deputyUserId: z.number().nullable().optional(),
       effectiveFrom: z.string(),
       effectiveUntil: z.string().nullable().optional(),
     }))
@@ -6377,7 +6424,7 @@ export const institutionRouter = router({
         .limit(1);
       if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "Department not found in this institution." });
 
-      const requestedUserIds = [input.coordinatorUserId, ...(input.backupUserId == null ? [] : [input.backupUserId])];
+      const requestedUserIds = [input.coordinatorUserId, ...(input.backupUserId == null ? [] : [input.backupUserId]), ...(input.deputyUserId == null ? [] : [input.deputyUserId])];
       const [members, staffRows] = await Promise.all([
         db
           .select({ userId: institutionMemberships.userId })
@@ -6418,6 +6465,12 @@ export const institutionRouter = router({
       if (input.backupUserId != null && !eligibleNurseIds.has(input.backupUserId)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "The Assistant ERCo must be an active linked nurse registered with this canonical department." });
       }
+      if (input.deputyUserId != null && !eligibleNurseIds.has(input.deputyUserId)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The Deputy ERCo must be an active linked nurse registered with this canonical department." });
+      }
+      if (input.deputyUserId != null && input.deputyUserId === input.coordinatorUserId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The Deputy ERCo must be different from the primary ERCo." });
+      }
 
       const [existing] = await db
         .select({ id: institutionDepartmentResponseCoordinators.id })
@@ -6432,6 +6485,7 @@ export const institutionRouter = router({
         departmentId: input.departmentId,
         coordinatorUserId: input.coordinatorUserId,
         backupUserId: input.backupUserId ?? null,
+        deputyUserId: input.deputyUserId ?? null,
         assignmentStatus: "pending_acceptance" as const,
         effectiveFrom: new Date(input.effectiveFrom),
         effectiveUntil: input.effectiveUntil ? new Date(input.effectiveUntil) : null,
@@ -6442,6 +6496,10 @@ export const institutionRouter = router({
         backupAcceptedAt: null,
         backupDeclinedAt: null,
         backupDeclineReason: null,
+        deputyAssignmentStatus: input.deputyUserId == null ? null : "pending_acceptance" as const,
+        deputyAcceptedAt: null,
+        deputyDeclinedAt: null,
+        deputyDeclineReason: null,
         assignedAt: new Date(),
         updatedAt: new Date(),
       };
@@ -6490,6 +6548,7 @@ export const institutionRouter = router({
   respondToDepartmentResponseCoordinatorAssignment: protectedProcedure
     .input(z.object({
       assignmentId: z.number(),
+      roleKey: z.enum(["erco", "deputy_erco"]).default("erco"),
       response: z.enum(["accept", "decline"]),
       declineReason: z.string().trim().max(500).optional(),
     }))
@@ -6501,27 +6560,30 @@ export const institutionRouter = router({
         .from(institutionDepartmentResponseCoordinators)
         .where(and(
           eq(institutionDepartmentResponseCoordinators.id, input.assignmentId),
-          eq(institutionDepartmentResponseCoordinators.coordinatorUserId, ctx.user.id),
+          input.roleKey === "deputy_erco" ? eq(institutionDepartmentResponseCoordinators.deputyUserId, ctx.user.id) : eq(institutionDepartmentResponseCoordinators.coordinatorUserId, ctx.user.id),
         ))
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "ERCo assignment not found for this provider." });
       await assertActiveProviderDutyAccess(db, ctx.user, assignment.institutionId);
       if (input.response === "accept") await assertCurrentClinicalLicence(db, ctx.user.id);
+      const deputy = input.roleKey === "deputy_erco";
+      const currentStatus = deputy ? assignment.deputyAssignmentStatus : assignment.assignmentStatus;
+      if (currentStatus !== "pending_acceptance") throw new TRPCError({ code: "BAD_REQUEST", message: "This ERCo assignment is not awaiting a response." });
       assertProviderDutyDecision({
         action: "respond_to_assignment",
         requestedInstitutionId: assignment.institutionId,
         assignmentInstitutionId: assignment.institutionId,
         requestingUserId: ctx.user.id,
-        assignedUserId: assignment.coordinatorUserId,
+        assignedUserId: deputy ? assignment.deputyUserId : assignment.coordinatorUserId,
         membershipStatus: "active",
-        assignmentStatus: assignment.assignmentStatus,
+        assignmentStatus: currentStatus,
         response: input.response,
         declineReason: input.declineReason,
       });
       await db.update(institutionDepartmentResponseCoordinators).set(
-        input.response === "accept"
-          ? { assignmentStatus: "active", acceptedAt: new Date(), declinedAt: null, declineReason: null, updatedAt: new Date() }
-          : { assignmentStatus: "declined", acceptedAt: null, declinedAt: new Date(), declineReason: input.declineReason, updatedAt: new Date() },
+        deputy
+          ? (input.response === "accept" ? { deputyAssignmentStatus: "active", deputyAcceptedAt: new Date(), deputyDeclinedAt: null, deputyDeclineReason: null, updatedAt: new Date() } : { deputyAssignmentStatus: "declined", deputyAcceptedAt: null, deputyDeclinedAt: new Date(), deputyDeclineReason: input.declineReason, updatedAt: new Date() })
+          : (input.response === "accept" ? { assignmentStatus: "active", acceptedAt: new Date(), declinedAt: null, declineReason: null, updatedAt: new Date() } : { assignmentStatus: "declined", acceptedAt: null, declinedAt: new Date(), declineReason: input.declineReason, updatedAt: new Date() }),
       ).where(eq(institutionDepartmentResponseCoordinators.id, assignment.id));
       await db.insert(institutionDepartmentResponseCoordinatorEvents).values({
         institutionId: assignment.institutionId,

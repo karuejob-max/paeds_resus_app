@@ -129,7 +129,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
   });
   const { data: iersDuties, isLoading: iersDutiesLoading, isFetching: iersDutiesFetching, refetch: refetchIersDuties ,
   } = trpc.institution.getInstitutionIersDutyAssignments.useQuery({ institutionId }, {
-    enabled: !!institutionId && activeSection === "duties",
+    enabled: !!institutionId && (activeSection === "duties" || activeSection === "assignments"),
     staleTime: 30_000,
   });
   const updateRole = trpc.institution.updateStaffGovernanceRole.useMutation({
@@ -248,7 +248,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
     },
     onError: error => toast.error(error.message),
   });
-  const assignErco = trpc.institution.assignDepartmentResponseCoordinator.useMutation({ onSuccess: () => toast.success("ERCo assignment saved"), onError: error => toast.error(error.message) });
+  const assignErco = trpc.institution.assignDepartmentResponseCoordinator.useMutation({ onSuccess: async () => { toast.success("ERCo assignment saved"); await utils.institution.getInstitutionIersDutyAssignments.invalidate({ institutionId }); }, onError: error => toast.error(error.message) });
   const assignEducationCoordinator = trpc.institutionLearning.assignEducationCoordinator.useMutation({ onSuccess: () => toast.success("Departmental CPD Coordinator assigned"), onError: error => toast.error(error.message) });
   const resolveMismatch = trpc.institution.resolveDepartmentMismatch.useMutation({
     onSuccess: async () => {
@@ -284,6 +284,11 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
     return staff.filter(member => [member.staffName, member.staffEmail, member.staffRole, member.department ?? ""].some(value => value.toLowerCase().includes(query))).slice(0, 12);
   }, [search, staff]);
   const selectedAssignmentStaff = assignmentResults.length === 1 ? assignmentResults[0] : staff.find(member => member.staffEmail.toLowerCase() === search.trim().toLowerCase()) ?? null;
+  const selectedDepartmentPrimaryErco = useMemo(() => {
+    const departmentId = Number(assignmentDepartmentId);
+    if (!departmentId) return null;
+    return (iersDuties?.erco ?? []).find((row: any) => row.departmentId === departmentId && row.assignmentRole === "erco" && row.providerUserId != null) ?? null;
+  }, [assignmentDepartmentId, iersDuties]);
   const departmentLabels = useMemo(() => {
     const rows = facilityDepartments ?? [];
     const byId = new Map(rows.map(row => [row.id, row.departmentName]));
@@ -376,8 +381,11 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
                     <RoleAssignmentCard title="Institutional CPD Coordinator" scope="Whole institution" detail="Assign the CPD coordinator product role." actionLabel="Assign CPD coordinator" onClick={() => grantProductRole.mutate({ institutionId, productKey: "cpd_portal", invitedEmail: selectedAssignmentStaff.staffEmail, userId: selectedAssignmentStaff.userId ?? undefined, roleKey: "cpd_coordinator" })} disabled={!selectedAssignmentStaff.userId || grantProductRole.isPending} />
                     <RoleAssignmentCard title="Institutional administrator" scope="Whole institution" detail="Uses the protected multi-admin account workflow." actionLabel="Assign institutional admin" onClick={() => selectedAssignmentStaff.userId && inviteInstitutionAdmin.mutate({ institutionId, userId: selectedAssignmentStaff.userId })} disabled={!selectedAssignmentStaff.userId || inviteInstitutionAdmin.isPending} />
                     <RoleAssignmentCard title="Departmental Head" scope={assignmentDepartmentId ? formatDepartmentLabel(Number(assignmentDepartmentId), "Selected department") : "Choose department"} detail="One active head per canonical department." actionLabel="Assign Departmental Head" onClick={() => selectedAssignmentStaff.userId && assignmentDepartmentId && assignDepartmentHead.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), userId: selectedAssignmentStaff.userId })} disabled={!selectedAssignmentStaff.userId || !assignmentDepartmentId || assignDepartmentHead.isPending} />
+                    <RoleAssignmentCard title="Deputy Departmental Head" scope={assignmentDepartmentId ? formatDepartmentLabel(Number(assignmentDepartmentId), "Selected department") : "Choose department"} detail="Same department-scoped rights as the accepted Departmental Head." actionLabel="Assign Deputy Head" onClick={() => selectedAssignmentStaff.userId && assignmentDepartmentId && assignDepartmentHead.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), userId: selectedAssignmentStaff.userId, assignmentRole: "deputy" })} disabled={!selectedAssignmentStaff.userId || !assignmentDepartmentId || assignDepartmentHead.isPending} />
                     <RoleAssignmentCard title="ERCo" scope={assignmentDepartmentId ? formatDepartmentLabel(Number(assignmentDepartmentId), "Selected department") : "Choose department"} detail="Requires an active linked eligible nurse in the selected department." actionLabel="Assign ERCo" onClick={() => selectedAssignmentStaff.userId && assignmentDepartmentId && assignErco.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), coordinatorUserId: selectedAssignmentStaff.userId, effectiveFrom: new Date().toISOString().slice(0, 10), effectiveUntil: null })} disabled={!selectedAssignmentStaff.userId || !assignmentDepartmentId || assignErco.isPending} />
+                    <RoleAssignmentCard title="Deputy ERCo" scope={assignmentDepartmentId ? formatDepartmentLabel(Number(assignmentDepartmentId), "Selected department") : "Choose department"} detail="Same department-scoped IERS rights as the accepted ERCo." actionLabel="Assign Deputy ERCo" onClick={() => selectedAssignmentStaff.userId && assignmentDepartmentId && selectedDepartmentPrimaryErco?.providerUserId && assignErco.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), coordinatorUserId: Number(selectedDepartmentPrimaryErco.providerUserId), deputyUserId: selectedAssignmentStaff.userId, effectiveFrom: new Date().toISOString().slice(0, 10), effectiveUntil: null })} disabled={!selectedAssignmentStaff.userId || !assignmentDepartmentId || !selectedDepartmentPrimaryErco?.providerUserId || assignErco.isPending} />
                     <RoleAssignmentCard title="Departmental CPD Coordinator" scope={assignmentDepartmentId ? formatDepartmentLabel(Number(assignmentDepartmentId), "Selected department") : "Choose department"} detail="Requires active linked staff in the selected department." actionLabel="Assign CPD Coordinator" onClick={() => selectedAssignmentStaff.userId && assignmentDepartmentId && assignEducationCoordinator.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), userId: selectedAssignmentStaff.userId })} disabled={!selectedAssignmentStaff.userId || !assignmentDepartmentId || assignEducationCoordinator.isPending} />
+                    <RoleAssignmentCard title="Deputy Departmental CPD Coordinator" scope={assignmentDepartmentId ? formatDepartmentLabel(Number(assignmentDepartmentId), "Selected department") : "Choose department"} detail="Same department-scoped CPD rights as the accepted coordinator." actionLabel="Assign Deputy CPD Coordinator" onClick={() => selectedAssignmentStaff.userId && assignmentDepartmentId && assignEducationCoordinator.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), userId: selectedAssignmentStaff.userId, assignmentRole: "deputy" })} disabled={!selectedAssignmentStaff.userId || !assignmentDepartmentId || assignEducationCoordinator.isPending} />
                   </div>
                 </div>
               )}
@@ -568,7 +576,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
               ...(iersDuties?.erco ?? []),
               ...(iersDuties?.ertl ?? []),
               ...(iersDuties?.utl ?? []),
-            ].map(duty => {
+            ].map((duty: any) => {
               const shiftType = "shiftType" in duty ? duty.shiftType : null;
               const readinessSignOffAt = "readinessSignOffAt" in duty ? duty.readinessSignOffAt : null;
               const weekLabel = "weekNumber" in duty && duty.weekNumber && duty.year ? `Week ${duty.weekNumber}, ${duty.year}` : null;
