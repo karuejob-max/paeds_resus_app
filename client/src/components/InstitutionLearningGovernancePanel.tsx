@@ -153,11 +153,21 @@ export default function InstitutionLearningGovernancePanel({
     return () => window.clearTimeout(timer);
   }, [presenterSearch]);
   useEffect(() => {
-    const selected = presenterCache.find(person => person.id === Number(presenterUserId));
-    setPresenterCache(selected && !presenterMatches.some(person => person.id === selected.id)
-      ? [selected, ...presenterMatches]
-      : presenterMatches);
-  }, [presenterMatches, presenterUserId]);
+    const selectedIds = new Set(
+      [presenterUserId, ...coPresenters.map(row => row.userId)]
+        .filter(Boolean)
+        .map(Number)
+    );
+    const selectedFromCache = presenterCache.filter(person => selectedIds.has(person.id));
+    const selectedFromMatches = presenterMatches.filter(person => selectedIds.has(person.id));
+    const selectedPeople = [...selectedFromCache, ...selectedFromMatches].filter(
+      (person, index, people) => people.findIndex(candidate => candidate.id === person.id) === index
+    );
+    setPresenterCache([
+      ...selectedPeople,
+      ...presenterMatches.filter(person => !selectedIds.has(person.id)),
+    ]);
+  }, [presenterMatches, presenterUserId, coPresenters]);
   const searchablePresenters = presenterCache;
   const presenterOptions = searchablePresenters
     .filter(person => person.id != null)
@@ -304,6 +314,10 @@ export default function InstitutionLearningGovernancePanel({
   const submitSession = async () => {
     if (!presenterUserId) {
       toast.error("Choose a lead presenter from the eligible presenter list.");
+      return;
+    }
+    if (coPresenters.some(presenter => !presenter.userId)) {
+      toast.error("Choose a presenter for every co-presenter row or remove the empty row.");
       return;
     }
     const selectedCoPresenters = coPresenters
