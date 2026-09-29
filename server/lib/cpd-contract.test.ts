@@ -76,6 +76,13 @@ describe("CPD remediation contract", () => {
     expect(isAudienceEligible({
       audienceScope: "nursing_wide",
       audienceLabel: null,
+      attendeeCadre: "NOI",
+      attendeeDepartmentId: null,
+      eventDepartmentId: null,
+    })).toBe(true);
+    expect(isAudienceEligible({
+      audienceScope: "nursing_wide",
+      audienceLabel: null,
       attendeeCadre: "Doctor",
       attendeeDepartmentId: null,
       eventDepartmentId: null,
