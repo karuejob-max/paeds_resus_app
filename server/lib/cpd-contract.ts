@@ -55,12 +55,12 @@ export function canVoidEvent(attendeeCount: number): boolean {
 const NURSING_CADRE_VALUES = new Set([
   "msn", "hnd", "bsn", "bsm", "other undergraduate", "krchn", "krnm", "krn", "krm",
   "other diploma rn", "kechn", "other certificate rn", "other rn", "rn", "registered nurse", "staff nurse", "nursing", "nursing student",
-  "nursing intern", "midwife", "midwifery",
+  "nursing intern", "noi", "nursing officer intern", "midwife", "midwifery",
 ]);
 
 function isNursingCadre(value: string | null | undefined): boolean {
   const cadre = value?.trim().toLowerCase() ?? "";
-  return NURSING_CADRE_VALUES.has(cadre) || /\b(rn|nurse|nursing|midwi)/i.test(cadre);
+  return NURSING_CADRE_VALUES.has(cadre) || /\b(rn|noi|nurse|nursing|midwi)/i.test(cadre);
 }
 
 function isClinicalCadre(value: string | null | undefined): boolean {
