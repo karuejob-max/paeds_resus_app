@@ -172,7 +172,7 @@ export const healthcareWorkerDirect = router({
     }))
     .query(async ({ input }) => {
       const referralCode = `REF-${input.workerId.slice(-8).toUpperCase()}`;
-      const referralLink = `https://paeds-resus.com/join/${referralCode}`;
+      const referralLink = `https://paedsresus.com/join/${referralCode}`;
 
       return {
         workerId: input.workerId,

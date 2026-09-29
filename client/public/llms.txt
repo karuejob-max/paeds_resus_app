@@ -15,8 +15,8 @@
 ### Institutional products
 
 - ILSP: Institutional Life Support Program for institution-paid life-support cohorts, delivery, practical assessment, and completion evidence.
-- IERS: Institutional Emergency Readiness System for hospital-wide emergency-response governance, activation, readiness evidence, drills, equipment gaps, corrective actions, and reporting. Price anchor: KES 200,000 per year.
-- ICPD: Institutional Continuous Professional Development for verified professional-development activity, attendance, targets, certificates, and leadership reporting. Price anchor: KES 200,000 per year.
+- IERS: Institutional Emergency Readiness System for hospital-wide emergency-response governance, activation, readiness evidence, drills, equipment gaps, corrective actions, and reporting. Annual price tiers (Levels 4/5/6): KES 200,000 / 350,000 / 600,000.
+- ICPD: Institutional Continuous Professional Development for verified professional-development activity, attendance, targets, certificates, and leadership reporting. Per-staff price tiers: KES 1,000 / 900 / 800 / 700 / 600, based on verified staff bands.
 
 ## Products within IERS
 

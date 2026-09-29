@@ -48,8 +48,8 @@ export const directHospitalOnboarding = router({
         },
         credentials: {
           apiKey: `pk_live_${Math.random().toString(36).substr(2, 32)}`,
-          adminLink: `https://paeds-resus.com/hospital/${hospitalId}`,
-          staffPortal: `https://paeds-resus.com/staff/${hospitalId}`,
+          adminLink: `https://paedsresus.com/hospital/${hospitalId}`,
+          staffPortal: `https://paedsresus.com/staff/${hospitalId}`,
         },
         nextSteps: [
           'Share staff portal link with your team',
@@ -119,7 +119,7 @@ export const directHospitalOnboarding = router({
         },
         receipt: {
           receiptId: `receipt-${transactionId}`,
-          downloadUrl: `https://paeds-resus.com/receipts/${transactionId}`,
+          downloadUrl: `https://paedsresus.com/receipts/${transactionId}`,
         },
         nextBilling: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       };
@@ -208,7 +208,7 @@ export const directHospitalOnboarding = router({
           title: input.title,
           description: input.description,
           metrics: input.metrics,
-          publicUrl: input.publicationConsent ? `https://paeds-resus.com/stories/${storyId}` : null,
+          publicUrl: input.publicationConsent ? `https://paedsresus.com/stories/${storyId}` : null,
           visibility: input.publicationConsent ? 'public' : 'private',
           timestamp: new Date(),
         },
@@ -236,7 +236,7 @@ export const directHospitalOnboarding = router({
         referralProgram: {
           hospitalId: input.hospitalId,
           referralCode,
-          referralLink: `https://paeds-resus.com/join?ref=${referralCode}`,
+          referralLink: `https://paedsresus.com/join?ref=${referralCode}`,
           commissionPercentage: input.referralCommission,
           status: 'active',
         },

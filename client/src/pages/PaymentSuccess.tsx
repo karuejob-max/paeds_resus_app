@@ -168,7 +168,7 @@ export default function PaymentSuccess() {
             <a href="/help" className="text-primary underline">
               Help
             </a>{" "}
-            or email payments@paeds-resus.com with your enrollment ID ({data.enrollmentId}).
+            or email payments@paedsresus.com with your enrollment ID ({data.enrollmentId}).
           </p>
         </CardContent>
       </Card>

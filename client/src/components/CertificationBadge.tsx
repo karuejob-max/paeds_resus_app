@@ -173,7 +173,7 @@ export function CertificationBadge({ certificate, onDownload, onShare }: Certifi
               </div>
 
               <p className="text-xs text-slate-500 italic">
-                This certificate is valid and can be verified at paeds-resus.com/verify
+                This certificate is valid and can be verified at paedsresus.com/verify
               </p>
             </div>
 
@@ -236,7 +236,7 @@ export function CertificationBadge({ certificate, onDownload, onShare }: Certifi
             <Alert>
               <CheckCircle2 className="h-4 w-4" />
               <AlertDescription>
-                This certificate can be verified at paeds-resus.com/verify using the verification code above.
+                This certificate can be verified at paedsresus.com/verify using the verification code above.
               </AlertDescription>
             </Alert>
           </div>

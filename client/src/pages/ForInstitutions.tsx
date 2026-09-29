@@ -27,21 +27,22 @@ import AcronymGlossary from "@/components/AcronymGlossary";
 import InstitutionalReadinessForm from "@/components/InstitutionalReadinessForm";
 import InstitutionalProofSection from "@/components/InstitutionalProofSection";
 import {
-  ICPD_ANNUAL_PRICE,
-  IERS_ANNUAL_PRICE,
   INSTITUTIONAL_GEOGRAPHY_COPY,
   formatIlspPriceLine,
-  formatKes,
 } from "@/const/marketingCopy";
+import {
+  formatIcpdPublicPriceLine,
+  formatIersPublicPriceLine,
+} from "@shared/institutional-public-pricing";
 
 const INSTITUTIONAL_PRODUCTS = [
   {
     title: "ILSP",
-    label: "Institutional Life Support Program",
+    label: "Institutional Life Support Training Program",
     body: "A managed institution-paid cohort pathway for life-support learning, delivery, practical assessment, and completion evidence.",
     tagline: "Don't wait for the code to find out who's ready.",
     supporting:
-      "A managed cohort pathway — training, assessment, and completion evidence your file can actually stand behind, at KES 10,000 per staff member, renewable every two years.",
+      "A managed cohort pathway — training, assessment, and completion evidence your file can actually stand behind. Participants receive a Paeds Resus ILSP completion certificate, not an AHA provider card.",
     price: formatIlspPriceLine(),
     icon: Users,
   },
@@ -53,7 +54,7 @@ const INSTITUTIONAL_PRODUCTS = [
       "Know your hospital is ready before the call comes — and be able to prove it.",
     supporting:
       "Response roles, activation, readiness evidence, and a system that gets better after every case, hospital-wide.",
-    price: `${formatKes(IERS_ANNUAL_PRICE)} per year`,
+    price: formatIersPublicPriceLine(),
     icon: HeartPulse,
   },
   {
@@ -63,7 +64,7 @@ const INSTITUTIONAL_PRODUCTS = [
     tagline: "Your regulator will ask. Have the answer ready.",
     supporting:
       "Verified attendance, targets, and certificates your leadership team can report on without a scramble.",
-    price: `${formatKes(ICPD_ANNUAL_PRICE)} per year`,
+    price: formatIcpdPublicPriceLine(),
     icon: BarChart3,
   },
 ];
@@ -370,8 +371,8 @@ export default function ForInstitutions() {
               <p className="text-sm text-muted-foreground">
                 Annual institutional plan
               </p>
-              <p className="mt-1 text-2xl font-bold text-primary">
-                {formatKes(ICPD_ANNUAL_PRICE)}
+              <p className="mt-1 text-sm font-bold leading-relaxed text-primary">
+                {formatIcpdPublicPriceLine()}
               </p>
               <Link href="/institutional#quote">
                 <Button className="mt-4">Start ICPD conversation</Button>
@@ -413,8 +414,8 @@ export default function ForInstitutions() {
           <section className="rounded-2xl border border-primary/15 bg-primary/5 p-6 md:flex md:items-center md:justify-between md:gap-6">
             <div>
               <h2 className="text-2xl font-bold">
-                Built and proven in central Kenya. Built to scale across Kenya
-                and the EAC.
+                Built in central Kenya for practical emergency readiness in
+                resource-constrained hospitals.
               </h2>
               <p className="mt-2 text-muted-foreground">
                 {INSTITUTIONAL_GEOGRAPHY_COPY}

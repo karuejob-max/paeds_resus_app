@@ -52,7 +52,7 @@ export const healthcareWorkerCommunity = router({
           peerSupport: true,
           certification: true,
         },
-        profileUrl: `https://paeds-resus.com/worker/${workerId}`,
+        profileUrl: `https://paedsresus.com/worker/${workerId}`,
         timestamp: new Date(),
       };
     }),
@@ -85,7 +85,7 @@ export const healthcareWorkerCommunity = router({
           status: 'active',
           joinCode: Math.random().toString(36).substr(2, 8).toUpperCase(),
         },
-        joinUrl: `https://paeds-resus.com/groups/${groupId}`,
+        joinUrl: `https://paedsresus.com/groups/${groupId}`,
         timestamp: new Date(),
       };
     }),
@@ -186,7 +186,7 @@ export const healthcareWorkerCommunity = router({
           reason: input.reason,
           awardedAt: new Date(),
           visibility: 'public',
-          shareUrl: `https://paeds-resus.com/badges/${input.workerId}/${input.badgeType}`,
+          shareUrl: `https://paedsresus.com/badges/${input.workerId}/${input.badgeType}`,
         },
         impact: {
           profileViews: Math.floor(Math.random() * 1000),
@@ -329,7 +329,7 @@ export const healthcareWorkerCommunity = router({
       return {
         success: true,
         referralCode,
-        referralLink: `https://paeds-resus.com/join?ref=${referralCode}`,
+        referralLink: `https://paedsresus.com/join?ref=${referralCode}`,
         earnings: {
           perReferral: 500,
           bonusAt10Referrals: 5000,

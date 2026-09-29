@@ -214,7 +214,7 @@ export default function Payment() {
         ? `Reference: include enrollment #${enrollmentIdFromEnroll} in the transfer narration`
         : "Reference: use your full name + course",
       "",
-      "After paying, use the button on the site to register your transfer and send proof to payments@paeds-resus.com",
+      "After paying, use the button on the site to register your transfer and send proof to payments@paedsresus.com",
     ];
     void navigator.clipboard.writeText(lines.join("\n")).then(
       () => toast.success("Bank details copied"),
@@ -538,7 +538,7 @@ export default function Payment() {
                         </div>
                       )}
                       <p className="text-xs text-slate-500">
-                        After transfer, send proof of payment to payments@paeds-resus.com
+                        After transfer, send proof of payment to payments@paedsresus.com
                       </p>
                     </CardContent>
                   </Card>

@@ -1,3 +1,8 @@
+import {
+  PAEDS_RESUS_ILS_BASE_PRICE_KES,
+  PAEDS_RESUS_ILS_INSTITUTIONAL_PRICE_KES,
+} from "@shared/institutional-life-support";
+
 export const COHORT_THRESHOLD = 7;
 export const COHORT_LABEL = "cohorts of 7 or more";
 
@@ -9,10 +14,8 @@ export const IERP_FULL_PRICE = 15_000;
 export const NERP_TOTAL_PRICE = 15_000;
 export const NERP_INSTALLMENT = 2_500;
 export const NERP_INSTALLMENT_COUNT = 6;
-export const ILSP_PRICE_PER_STAFF = 10_000;
-export const ILSP_RENEWAL_YEARS = 2;
-export const IERS_ANNUAL_PRICE = 200_000;
-export const ICPD_ANNUAL_PRICE = 200_000;
+export const ILSP_PRICE_PER_STAFF = PAEDS_RESUS_ILS_INSTITUTIONAL_PRICE_KES;
+export const ILSP_LIST_PRICE_PER_STAFF = PAEDS_RESUS_ILS_BASE_PRICE_KES;
 
 export const INSTITUTIONAL_GEOGRAPHY_COPY =
   "Paeds Resus is based in Kenya, with our current institutional focus in Central Kenya. ILSP, IERS, and ICPD are built to scale to any facility in Kenya as we grow — East African Community expansion is planned, not yet active. Contact us to discuss your facility.";
@@ -40,5 +43,5 @@ export function formatNerpValueLine(): string {
 }
 
 export function formatIlspPriceLine(): string {
-  return `${formatKes(ILSP_PRICE_PER_STAFF)} per staff member, renewable every ${ILSP_RENEWAL_YEARS} years`;
+  return `${formatKes(ILSP_LIST_PRICE_PER_STAFF)} list price; ${formatKes(ILSP_PRICE_PER_STAFF)} per provider for institution-paid cohorts`;
 }

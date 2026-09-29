@@ -186,7 +186,7 @@ export function applyBranding(partner: WhiteLabelPartner, branding: Partial<Bran
     footerText: branding.footerText || "© 2024 Paeds Resus",
     customCss: branding.customCss,
     emailTemplate: branding.emailTemplate,
-    supportEmail: branding.supportEmail || "support@paeds-resus.com",
+    supportEmail: branding.supportEmail || "support@paedsresus.com",
     supportPhone: branding.supportPhone,
   };
 

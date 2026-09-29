@@ -30,6 +30,10 @@ import {
   INSTITUTIONAL_GEOGRAPHY_COPY,
   formatIlspPriceLine,
 } from "@/const/marketingCopy";
+import {
+  formatIcpdPublicPriceLine,
+  formatIersPublicPriceLine,
+} from "@shared/institutional-public-pricing";
 
 const COURSE_TO_PRICING_KEY: Record<string, string> = {
   bls: "bls",
@@ -110,8 +114,8 @@ export default function Institutional() {
             onboarding does not enroll staff in a course.
           </p>
           <p className="text-sm text-orange-100/90 max-w-3xl">
-            Built and proven in central Kenya. Built to scale across Kenya and
-            the EAC.
+            Built in central Kenya for practical emergency readiness in
+            resource-constrained hospitals.
           </p>
           <p className="text-sm text-orange-100/90 max-w-3xl">
             {INSTITUTIONAL_GEOGRAPHY_COPY}
@@ -123,8 +127,9 @@ export default function Institutional() {
             <p className="mt-2 leading-6">
               ILSP, IERS, and ICPD can be purchased separately or combined. None
               is a prerequisite or component of another. ILSP is{" "}
-              {formatIlspPriceLine()}; IERS and ICPD are each KES 200,000 per
-              year.
+              {formatIlspPriceLine()}. IERS standard pricing is {" "}
+              {formatIersPublicPriceLine()}. ICPD is priced by staff count: {" "}
+              {formatIcpdPublicPriceLine()}.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 pt-2">
@@ -312,11 +317,13 @@ export default function Institutional() {
             </p>
             <p className="mt-2">
               Book AHA courses directly for a fixed per-seat price and receive
-              certificates, or run the same courses through{" "}
-              <strong className="text-foreground">ILSP</strong> (
-              {formatIlspPriceLine()}) for managed cohort scheduling, practical
-              assessment tracking, and completion evidence your board or
-              regulator can review.{" "}
+              certificates, or use ILSP for Paeds Resus competency-based
+              training through an institution-paid cohort. Successful
+              participants receive a Paeds Resus ILSP completion certificate;
+              this is not an AHA BLS or ACLS provider card. The institutional
+              rate is {formatIlspPriceLine()} for managed cohort scheduling,
+              practical assessment tracking, and completion evidence your board
+              or regulator can review.{" "}
               <a
                 href="/for-institutions#ilsp-heading"
                 className="font-semibold text-primary underline underline-offset-4"

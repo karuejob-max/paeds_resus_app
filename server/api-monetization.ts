@@ -333,7 +333,7 @@ export async function triggerWebhook(webhook: Webhook, event: string, data: any)
  * API Documentation endpoints
  */
 export const API_DOCUMENTATION = {
-  baseUrl: "https://api.paeds-resus.com/v1",
+  baseUrl: "https://api.paedsresus.com/v1",
   version: "1.0.0",
   endpoints: [
     {

@@ -88,7 +88,7 @@ export const institutionOnboardingRouter = router({
     .mutation(async ({ input, ctx }) => {
       try {
         const activationCode = Math.random().toString(36).slice(-8).toUpperCase();
-        const activationLink = `https://paeds-resus.com/activate-provider?code=${activationCode}&institution=${input.institutionId}`;
+        const activationLink = `https://paedsresus.com/activate-provider?code=${activationCode}&institution=${input.institutionId}`;
 
         console.log(`[ACTIVATION] Generated link for provider ${input.providerId}`);
 
@@ -189,7 +189,7 @@ export const institutionOnboardingRouter = router({
         return {
           success: true,
           message: `SSO enabled with ${input.ssoProvider}`,
-          ssoUrl: `https://paeds-resus.com/sso/${input.ssoProvider}`,
+          ssoUrl: `https://paedsresus.com/sso/${input.ssoProvider}`,
         };
       } catch (error) {
         throw new TRPCError({

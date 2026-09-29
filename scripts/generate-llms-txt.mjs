@@ -6,6 +6,10 @@ const source = readFileSync(
   resolve(root, "client/src/const/marketingCopy.ts"),
   "utf8"
 );
+const institutionalPricingSource = readFileSync(
+  resolve(root, "shared/institutional-pricing.ts"),
+  "utf8"
+);
 
 function readNumber(name) {
   const match = source.match(new RegExp(`export const ${name} = ([0-9_]+);`));
@@ -24,13 +28,25 @@ function readString(name) {
   return rest.slice(1, end);
 }
 
+function readSharedNumber(pattern, name) {
+  const match = institutionalPricingSource.match(pattern);
+  if (!match) throw new Error(`Missing shared pricing constant: ${name}`);
+  return Number(match[1].replaceAll("_", ""));
+}
+
 const cohortLabel = readString("COHORT_LABEL");
 const blsPrice = readNumber("BLS_PRICE").toLocaleString("en-KE");
 const blsCohortPrice = readNumber("BLS_COHORT_PRICE").toLocaleString("en-KE");
 const aclsPrice = readNumber("ACLS_PRICE").toLocaleString("en-KE");
 const aclsCohortPrice = readNumber("ACLS_COHORT_PRICE").toLocaleString("en-KE");
-const iersPrice = readNumber("IERS_ANNUAL_PRICE").toLocaleString("en-KE");
-const icpdPrice = readNumber("ICPD_ANNUAL_PRICE").toLocaleString("en-KE");
+const iersPrice = [
+  readSharedNumber(/level_4:\s*([0-9_]+)/, "IERS Level 4"),
+  readSharedNumber(/level_5:\s*([0-9_]+)/, "IERS Level 5"),
+  readSharedNumber(/level_6:\s*([0-9_]+)/, "IERS Level 6"),
+].map(value => value.toLocaleString("en-KE")).join(" / ");
+const icpdPrice = [1000, 900, 800, 700, 600]
+  .map(value => value.toLocaleString("en-KE"))
+  .join(" / ");
 const geography = readString("INSTITUTIONAL_GEOGRAPHY_COPY");
 
 const output = `# Paeds Resus
@@ -50,8 +66,8 @@ const output = `# Paeds Resus
 ### Institutional products
 
 - ILSP: Institutional Life Support Program for institution-paid life-support cohorts, delivery, practical assessment, and completion evidence.
-- IERS: Institutional Emergency Readiness System for hospital-wide emergency-response governance, activation, readiness evidence, drills, equipment gaps, corrective actions, and reporting. Price anchor: KES ${iersPrice} per year.
-- ICPD: Institutional Continuous Professional Development for verified professional-development activity, attendance, targets, certificates, and leadership reporting. Price anchor: KES ${icpdPrice} per year.
+- IERS: Institutional Emergency Readiness System for hospital-wide emergency-response governance, activation, readiness evidence, drills, equipment gaps, corrective actions, and reporting. Annual price tiers (Levels 4/5/6): KES ${iersPrice}.
+- ICPD: Institutional Continuous Professional Development for verified professional-development activity, attendance, targets, certificates, and leadership reporting. Per-staff price tiers: KES ${icpdPrice}, based on verified staff bands.
 
 ## Products within IERS
 

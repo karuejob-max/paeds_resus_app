@@ -42,7 +42,7 @@ export const coreExponential = router({
         message: 'Welcome to Paeds Resus. You can start learning immediately.',
         coursesAvailable: 4,
         firstCourse: 'BLS Fundamentals',
-        referralLink: `https://paeds-resus.com/join/${workerId}`,
+        referralLink: `https://paedsresus.com/join/${workerId}`,
         referralCode: workerId.slice(-8).toUpperCase(),
         nextSteps: [
           'Start BLS Fundamentals (takes 2 weeks)',
@@ -100,7 +100,7 @@ export const coreExponential = router({
         ],
         totalCourses: 4,
         totalHours: 380,
-        startLearning: 'https://paeds-resus.com/learn/bls-fundamentals',
+        startLearning: 'https://paedsresus.com/learn/bls-fundamentals',
       };
     }),
 
@@ -114,7 +114,7 @@ export const coreExponential = router({
     }))
     .query(async ({ input }) => {
       const referralCode = input.workerId.slice(-8).toUpperCase();
-      const referralLink = `https://paeds-resus.com/join/${referralCode}`;
+      const referralLink = `https://paedsresus.com/join/${referralCode}`;
 
       return {
         workerId: input.workerId,
@@ -165,7 +165,7 @@ export const coreExponential = router({
         },
         nextPayout: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         payoutMethod: 'M-Pesa',
-        withdrawalLink: 'https://paeds-resus.com/withdraw',
+        withdrawalLink: 'https://paedsresus.com/withdraw',
       };
     }),
 
@@ -274,10 +274,10 @@ export const coreExponential = router({
         issuedDate: new Date(),
         expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         verificationCode,
-        verificationLink: `https://paeds-resus.com/verify/${verificationCode}`,
+        verificationLink: `https://paedsresus.com/verify/${verificationCode}`,
         shareMessage: `I'm certified in BLS Fundamentals by Paeds Resus. I'm trained to save children's lives. Verification: ${verificationCode}`,
-        downloadPDF: 'https://paeds-resus.com/download/cert',
-        shareOnLinkedIn: `https://www.linkedin.com/sharing/share-offsite/?url=https://paeds-resus.com/verify/${verificationCode}`,
+        downloadPDF: 'https://paedsresus.com/download/cert',
+        shareOnLinkedIn: `https://www.linkedin.com/sharing/share-offsite/?url=https://paedsresus.com/verify/${verificationCode}`,
       };
     }),
 
@@ -328,7 +328,7 @@ export const coreExponential = router({
           reason: 'You saved 5 children with cardiac issues - master this skill',
           estimatedTime: '60 hours',
           difficulty: 'Advanced',
-          startNow: 'https://paeds-resus.com/learn/acls-advanced',
+          startNow: 'https://paedsresus.com/learn/acls-advanced',
         },
         alternativeCourses: [
           {
