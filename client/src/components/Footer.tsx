@@ -255,7 +255,7 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="mailto:privacy@paeds-resus.com"
+                  href="mailto:privacy@paedsresus.com"
                   className="text-white/70 hover:text-brand-orange transition"
                 >
                   Contact (privacy)

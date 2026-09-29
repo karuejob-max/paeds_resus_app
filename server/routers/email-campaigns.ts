@@ -18,7 +18,7 @@ const emailTemplates = {
         <li>Hands-on simulation exercises</li>
         <li>Certification upon completion</li>
       </ul>
-      <p>Log in to your dashboard to get started: <a href="https://paeds-resus.com/dashboard">Dashboard</a></p>
+      <p>Log in to your dashboard to get started: <a href="https://paedsresus.com/dashboard">Dashboard</a></p>
       <p>Questions? Contact us at paedsresus254@gmail.com or WhatsApp +254706781260</p>
     `,
   },
@@ -44,8 +44,8 @@ const emailTemplates = {
       <p>We noticed you haven't accessed <strong>${courseName}</strong> in ${daysInactive} days.</p>
       <p>Don't miss out on your certification! Here's how to get back on track:</p>
       <ul>
-        <li>Review your progress: <a href="https://paeds-resus.com/progress">View Progress</a></li>
-        <li>Access course materials: <a href="https://paeds-resus.com/dashboard">Dashboard</a></li>
+        <li>Review your progress: <a href="https://paedsresus.com/progress">View Progress</a></li>
+        <li>Access course materials: <a href="https://paedsresus.com/dashboard">Dashboard</a></li>
         <li>Need help? Contact us anytime</li>
       </ul>
       <p>Your success is our priority. Let's finish strong together!</p>
@@ -56,7 +56,7 @@ const emailTemplates = {
     body: (hospitalName: string, staffCount: number) => `
       <h2>Welcome, ${hospitalName}!</h2>
       <p>Thank you for partnering with Paeds Resus to train ${staffCount} staff members.</p>
-      <p>Your institutional dashboard is ready: <a href="https://paeds-resus.com/institutional-dashboard">Access Dashboard</a></p>
+      <p>Your institutional dashboard is ready: <a href="https://paedsresus.com/institutional-dashboard">Access Dashboard</a></p>
       <p>Next steps:</p>
       <ul>
         <li>Schedule training sessions</li>

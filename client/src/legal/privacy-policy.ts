@@ -12,10 +12,13 @@ export const privacyPolicyDocument: LegalDocumentMeta = {
       id: "controller",
       title: "1. Data controller",
       paragraphs: [
-        `${LEGAL_CONTACT.controllerName} is the data controller for personal data processed through paeds-resus.com and related applications.`,
+        `${LEGAL_CONTACT.controllerName} is the data controller for personal data processed through paedsresus.com and related applications.`,
         `Registered address: ${LEGAL_CONTACT.registeredAddress}.`,
         `Data Protection contact: ${LEGAL_CONTACT.dpoEmail}. General support: ${LEGAL_CONTACT.supportEmail}.`,
-        `Kenya Data Protection Act 2019: We process personal data in accordance with the Act. Our ODPC registration status: ${LEGAL_CONTACT.odpcRegistrationPlaceholder}.`,
+        "Kenya Data Protection Act 2019: We process personal data in accordance with the Act.",
+        ...(LEGAL_CONTACT.odpcRegistrationNumber
+          ? [`ODPC registration number: ${LEGAL_CONTACT.odpcRegistrationNumber}.`]
+          : []),
       ],
     },
     {

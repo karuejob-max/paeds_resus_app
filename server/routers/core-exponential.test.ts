@@ -16,7 +16,7 @@ describe('Core Exponential Platform', () => {
       expect(result.success).toBe(true);
       expect(result.workerId).toBeDefined();
       expect(result.accessToken).toBeDefined();
-      expect(result.referralLink).toContain('https://paeds-resus.com/join/');
+      expect(result.referralLink).toContain('https://paedsresus.com/join/');
       expect(result.coursesAvailable).toBe(4);
       expect(result.nextSteps).toHaveLength(4);
     });
@@ -50,7 +50,7 @@ describe('Core Exponential Platform', () => {
       });
 
       expect(result.referralCode).toBeDefined();
-      expect(result.referralLink).toContain('https://paeds-resus.com/join/');
+      expect(result.referralLink).toContain('https://paedsresus.com/join/');
       expect(result.shareMessage).toContain('Paeds Resus');
       expect(result.shareChannels.whatsapp).toBeDefined();
       expect(result.shareChannels.sms).toBeDefined();
@@ -140,7 +140,7 @@ describe('Core Exponential Platform', () => {
 
       expect(result.certificationId).toBeDefined();
       expect(result.verificationCode).toBeDefined();
-      expect(result.verificationLink).toContain('https://paeds-resus.com/verify/');
+      expect(result.verificationLink).toContain('https://paedsresus.com/verify/');
       expect(result.expiryDate).toBeDefined();
       expect(result.downloadPDF).toBeDefined();
       expect(result.shareOnLinkedIn).toBeDefined();
@@ -178,7 +178,7 @@ describe('Core Exponential Platform', () => {
       expect(result.nextCourse.courseId).toBeDefined();
       expect(result.nextCourse.reason).toBeDefined();
       expect(result.alternativeCourses.length).toBeGreaterThan(0);
-      expect(result.nextCourse.startNow).toContain('https://paeds-resus.com/learn/');
+      expect(result.nextCourse.startNow).toContain('https://paedsresus.com/learn/');
     });
   });
 });

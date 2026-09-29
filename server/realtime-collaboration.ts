@@ -312,7 +312,7 @@ export function startSessionRecording(session: LiveSession): SessionRecording {
   return {
     id: `rec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     sessionId: session.id,
-    recordingUrl: `https://recordings.paeds-resus.com/${session.id}/recording.mp4`,
+    recordingUrl: `https://recordings.paedsresus.com/${session.id}/recording.mp4`,
     duration: 0,
     fileSize: 0,
     status: "processing",
@@ -401,7 +401,7 @@ export function getLiveSessions() {
         recordedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
         duration: 120,
         views: 234,
-        url: "https://recordings.paeds-resus.com/bls-fundamentals.mp4",
+        url: "https://recordings.paedsresus.com/bls-fundamentals.mp4",
       },
       {
         id: "rec_2",
@@ -410,7 +410,7 @@ export function getLiveSessions() {
         recordedAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
         duration: 150,
         views: 156,
-        url: "https://recordings.paeds-resus.com/neonatal-care.mp4",
+        url: "https://recordings.paedsresus.com/neonatal-care.mp4",
       },
     ],
   };

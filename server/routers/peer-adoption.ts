@@ -115,7 +115,7 @@ export const peerAdoption = router({
           metrics: input.metrics,
           publicShare: input.publicShare,
           sharedAt: new Date(),
-          shareUrl: input.publicShare ? `https://paeds-resus.com/stories/${storyId}` : null,
+          shareUrl: input.publicShare ? `https://paedsresus.com/stories/${storyId}` : null,
         },
         reach: {
           viewsExpected: input.publicShare ? Math.floor(Math.random() * 10000) + 1000 : 0,

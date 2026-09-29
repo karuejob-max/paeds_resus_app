@@ -35,13 +35,13 @@ export const LEGAL_CHANGE_SUMMARY: Record<string, string> = {
 
 export const LEGAL_CONTACT = {
   controllerName: "Paeds Resus Limited",
-  dpoEmail: "privacy@paeds-resus.com",
-  supportEmail: "support@paeds-resus.com",
-  legalEmail: "legal@paeds-resus.com",
-  dataRequestsEmail: "privacy@paeds-resus.com",
+  dpoEmail: "privacy@paedsresus.com",
+  supportEmail: "support@paedsresus.com",
+  legalEmail: "legal@paedsresus.com",
+  dataRequestsEmail: "privacy@paedsresus.com",
   registeredAddress: "Nairobi, Kenya",
-  /** ODPC registration — counsel to confirm before publication */
-  odpcRegistrationPlaceholder: "[ODPC registration number — counsel to insert]",
+  /** Leave empty until counsel confirms the real ODPC registration detail. */
+  odpcRegistrationNumber: null as string | null,
 } as const;
 
 export type LegalDocumentKey = keyof typeof LEGAL_DOCUMENT_VERSIONS;

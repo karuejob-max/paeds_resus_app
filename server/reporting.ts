@@ -128,7 +128,7 @@ class ReportingService {
       execution.status = "completed";
       execution.completedAt = Date.now();
       execution.rowCount = Math.floor(Math.random() * 10000) + 100;
-      execution.fileUrl = `https://reports.paeds-resus.com/${executionId}.${format}`;
+      execution.fileUrl = `https://reports.paedsresus.com/${executionId}.${format}`;
     }, 1000);
 
     return execution;

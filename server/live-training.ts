@@ -199,7 +199,7 @@ class LiveTrainingService {
     const recording: SessionRecording = {
       id: recordingId,
       sessionId,
-      url: `https://recordings.paeds-resus.com/${recordingId}`,
+      url: `https://recordings.paedsresus.com/${recordingId}`,
       duration: 0,
       size: 0,
       createdAt: Date.now(),

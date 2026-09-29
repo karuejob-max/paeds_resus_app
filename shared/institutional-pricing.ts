@@ -8,9 +8,9 @@ export const PRIVATE_MODE_PREMIUM_RATIO = 0.3;
 export const DEFAULT_KES_PER_USD = 129.45;
 
 export const IERS_STANDARD_KES_BY_LEVEL: Record<FacilityLevel, number> = {
-  level_4: 80_000,
-  level_5: 150_000,
-  level_6: 250_000,
+  level_4: 200_000,
+  level_5: 350_000,
+  level_6: 600_000,
 };
 
 export const ICPD_STANDARD_KES_PER_STAFF = [

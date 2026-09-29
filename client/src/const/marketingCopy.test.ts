@@ -7,7 +7,7 @@ import {
   IERP_FULL_PRICE,
   IERP_SAVINGS,
   ILSP_PRICE_PER_STAFF,
-  ILSP_RENEWAL_YEARS,
+  ILSP_LIST_PRICE_PER_STAFF,
   NERP_INSTALLMENT,
   NERP_INSTALLMENT_COUNT,
   NERP_TOTAL_PRICE,
@@ -41,9 +41,9 @@ describe("public marketing copy", () => {
     );
   });
 
-  it("keeps the ILSP renewal price canonical", () => {
+  it("keeps the ILSP list and institutional cohort prices canonical", () => {
     expect(formatIlspPriceLine()).toBe(
-      `${formatKes(ILSP_PRICE_PER_STAFF)} per staff member, renewable every ${ILSP_RENEWAL_YEARS} years`
+      `${formatKes(ILSP_LIST_PRICE_PER_STAFF)} list price; ${formatKes(ILSP_PRICE_PER_STAFF)} per provider for institution-paid cohorts`
     );
   });
 });

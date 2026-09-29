@@ -186,11 +186,11 @@ Do not confuse IERP with IERS. **IERP is the intern training pathway; IERS is th
 
 ### Short institutional message
 
-> **ILSP — KES 7,000 per staff member.** Institution-paid life-support training with roster control, learning, delivery, readiness coordination, practical assessment, and Paeds Resus certification. The institution may absorb the cost or use an approved recovery arrangement such as payroll deduction.
+> **ILSP — KES 10,000 list price; KES 7,000 per provider for institution-paid cohorts.** Institution-paid life-support training with roster control, learning, delivery, readiness coordination, practical assessment, and Paeds Resus certification. The institution may absorb the cost or use an approved recovery arrangement such as payroll deduction.
 
 ### WhatsApp message
 
-> **ILSP — Institutional Life Support Program.** A managed, institution-paid facility cohort for life-support learning, delivery, practical assessment, and completion evidence, scoped around your staff list, departments, and schedule. Priced at **KES 7,000 per staff member**. Institutions can absorb the cost or recover it through options such as payroll deduction. Contact us to plan your institutional cohort.
+> **ILSP — Institutional Life Support Training Program.** A managed, institution-paid facility cohort for life-support learning, delivery, practical assessment, and completion evidence, scoped around your staff list, departments, and schedule. The list price is **KES 10,000** and the institutional cohort rate is **KES 7,000 per provider**. Participants receive a Paeds Resus ILSP completion certificate, not an AHA BLS or ACLS provider card. Institutions can absorb the cost or recover it through options such as payroll deduction. Contact us to plan your institutional cohort.
 
 ### Institutional sales message
 
@@ -252,12 +252,12 @@ Do not claim that IERS alone reduces mortality or guarantees successful resuscit
 
 **Headline:** Turn staff learning into a trusted institutional record.  
 **Body:** ICPD gives hospitals one clear way to organise professional-development sessions, verify attendance, track targets, issue certificates from verified records, and produce leadership reports across departments.  
-**Price:** **KES 1,000 / 900 / 800 per staff per year**, based on verified total facility staff; facilities with 501+ staff receive an individual quote.
+**Price:** **KES 1,000 / 900 / 800 / 700 / 600 per staff per year**, based on verified total facility staff; facilities with more than 2,000 staff receive an individual quote.
 **CTA:** **Start your ICPD programme**
 
 ### Short institutional message
 
-> **ICPD — Institutional Continuous Professional Development, priced at KES 1,000, KES 900, or KES 800 per staff per year according to verified facility size.** Bring staff learning into one accountable system: scheduled sessions, verified attendance, development targets, certificates, and leadership reporting.
+> **ICPD — Institutional Continuous Professional Development, priced at KES 1,000, KES 900, KES 800, KES 700, or KES 600 per staff per year according to verified facility size.** Bring staff learning into one accountable system: scheduled sessions, verified attendance, development targets, certificates, and leadership reporting.
 
 ### Education and HR message
 
@@ -346,8 +346,9 @@ Never say that ICPD proves a provider is ready for an emergency, competent at th
 | BLS | “KES 10,000 per person; KES 7,500 per person for cohorts of 7+” |
 | ACLS | “KES 20,000 per person; KES 17,500 per person for cohorts of 7+” |
 | IERS | “From KES 200,000/year, tiered by facility level” with scope, implementation, and renewal boundaries stated in the proposal |
-| ICPD | “KES 1,000 / 900 / 800 per staff per year, based on verified total facility staff; 501+ quoted individually” with staff scope, departments, support, reporting, and exclusions stated in the proposal |
-| NERP, IERP, ILSP | “Request the current cohort offer” or “Quoted by cohort and scope” until pricing is formally approved |
+| ICPD | “KES 1,000 / 900 / 800 / 700 / 600 per staff per year, based on verified total facility staff; more than 2,000 quoted individually” with staff scope, departments, support, reporting, and exclusions stated in the proposal |
+| NERP, IERP | “Request the current cohort offer” or “Quoted by cohort and scope” until pricing is formally approved |
+| ILSP | “KES 10,000 list price; KES 7,000 per provider for institution-paid cohorts” with the Paeds Resus completion certificate and AHA distinction stated clearly |
 | AHA credential | State the exact pathway, practical requirements, official credential scope, and included/excluded fees |
 | Institutional offer | Present training, IERS, and ICPD as separate components even when sold together |
 

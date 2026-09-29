@@ -55,7 +55,7 @@ export const directRevenue = router({
         nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         receipt: {
           receiptId: `receipt-${transactionId}`,
-          downloadUrl: `https://paeds-resus.com/receipts/${transactionId}`,
+          downloadUrl: `https://paedsresus.com/receipts/${transactionId}`,
         },
         timestamp: new Date(),
       };
@@ -96,7 +96,7 @@ export const directRevenue = router({
         },
         receipt: {
           receiptId: `receipt-${transactionId}`,
-          downloadUrl: `https://paeds-resus.com/receipts/${transactionId}`,
+          downloadUrl: `https://paedsresus.com/receipts/${transactionId}`,
         },
         timestamp: new Date(),
       };

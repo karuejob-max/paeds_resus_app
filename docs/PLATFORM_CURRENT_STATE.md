@@ -23,10 +23,10 @@ Paeds Resus is a clinical learning, emergency-readiness, quality-improvement, an
 
 ## Current commercial rules
 
-- **Founding Partner:** five-year term with a 50% renewal rate after the founding term.
+- **Founding Partner:** five-year founding term at 50% of the applicable Standard price. Renewal pricing is confirmed before the term ends; continued consent supports benchmarking but withdrawal does not trigger retroactive repricing.
 - **IERS / institutional emergency readiness:** facility-level pricing anchors are Level 4 **KES 200,000**, Level 5 **KES 350,000**, and Level 6 **KES 600,000**. Quaternary scope is custom and should not be quoted as an automatic fixed tier.
-- **ICPD / CPD Portal:** staff-count tiered pricing; the Kiirua planning case uses KES 800 per staff per year for the 301–500 staff tier. Above 500 staff is negotiated unless the pricing source of truth changes.
-- **ILSP:** the institutional rate is **KES 7,000 per provider** rather than the KES 10,000 list price. Percentage discounts do not stack with this institutional rate; full waivers remain possible through governed entitlements.
+- **ICPD / CPD Portal:** staff-count tiered pricing: KES 1,000 (1–100), KES 900 (101–300), KES 800 (301–500), KES 700 (501–1,000), and KES 600 (1,001–2,000) per staff member per year. Above 2,000 staff is negotiated.
+- **ILSP:** KES 10,000 list price and **KES 7,000 per provider** for institution-paid cohorts. Percentage discounts do not stack with this institutional rate; full waivers remain possible through governed entitlements.
 - **AHA add-ons:** an ILSP learner may request BLS or ACLS credentialing within the allowed post-certificate window at the approved add-on price. Paeds Resus ILSP completion is not an AHA card.
 - **Currencies:** KES is the settlement currency for Kenyan institutional invoices. USD is only a reference/display currency when explicitly labelled with the FX snapshot and must not silently replace the KES invoice amount.
 - **Renewal:** annual invoice-first renewal is the default; card autopay is optional. M-Pesa and bank transfer remain fallback routes where configured.

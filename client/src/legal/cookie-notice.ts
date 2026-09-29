@@ -32,7 +32,7 @@ export const cookieNoticeDocument: LegalDocumentMeta = {
       id: "control",
       title: "4. Your choices",
       paragraphs: [
-        "You can clear browser storage or use private browsing. Blocking essential cookies will prevent login. Contact privacy@paeds-resus.com for data subject requests.",
+        "You can clear browser storage or use private browsing. Blocking essential cookies will prevent login. Contact privacy@paedsresus.com for data subject requests.",
       ],
     },
   ],

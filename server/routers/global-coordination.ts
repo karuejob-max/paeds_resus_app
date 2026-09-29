@@ -248,7 +248,7 @@ export const globalCoordination = router({
         requestingHospitalId: input.requestingHospitalId,
         specialty: input.specialty,
         availableSpecialists: available.slice(0, 3),
-        consultationLink: `https://consult.paeds-resus.com/${input.requestingHospitalId}`,
+        consultationLink: `https://consult.paedsresus.com/${input.requestingHospitalId}`,
         timestamp: new Date(),
       };
     }),
