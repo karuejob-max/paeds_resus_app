@@ -109,6 +109,14 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
     enabled: !!institutionId && activeSection === "assignments",
     staleTime: 30_000,
   });
+  const { data: educationCoordinators } = trpc.institutionLearning.listEducationCoordinators.useQuery({ institutionId }, {
+    enabled: !!institutionId && activeSection === "assignments",
+    staleTime: 30_000,
+  });
+  const { data: institutionAdmins } = trpc.institutionAdmins.list.useQuery({ institutionId }, {
+    enabled: !!institutionId && activeSection === "assignments",
+    staleTime: 30_000,
+  });
   const { data: productRoles, isLoading: productRolesLoading, refetch: refetchProductRoles ,
   } = trpc.institutionProducts.listProductRoles.useQuery({ institutionId }, {
     enabled: !!institutionId && (activeSection === "assignments" || activeSection === "product_roles"),
@@ -348,17 +356,30 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
               <CardDescription>Search for one person first. The six operational role families are shown here; the existing protected assignment workflows are used for the final write.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {(departmentHeads ?? []).length > 0 && (
+              {((departmentHeads ?? []).length > 0 || (educationCoordinators ?? []).length > 0 || (institutionAdmins?.admins ?? []).length > 0) && (
                 <div className="rounded-lg border bg-background p-3">
-                  <p className="mb-2 text-sm font-semibold">Saved Departmental Heads</p>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <p className="mb-2 text-sm font-semibold">Saved institutional role assignments</p>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {(institutionAdmins?.admins ?? []).map(admin => (
+                      <div key={`admin-${admin.userId}`} className="rounded-md border border-violet-200 bg-violet-50/40 px-3 py-2 text-sm">
+                        <p className="font-medium">{admin.name || "Unresolved account"}</p>
+                        <p className="text-xs text-muted-foreground">Institutional administrator · {admin.email}</p>
+                      </div>
+                    ))}
                     {(departmentHeads ?? []).map(head => (
-                      <div key={head.id} className="rounded-md border px-3 py-2 text-sm">
-                        <p className="font-medium">{head.department || "Department"}</p>
-                        <p className="text-xs text-muted-foreground">{head.fullName || "Unresolved account"}</p>
+                      <div key={`head-${head.id}`} className="rounded-md border px-3 py-2 text-sm">
+                        <p className="font-medium">{head.fullName || "Unresolved account"}</p>
+                        <p className="text-xs text-muted-foreground">Departmental Head · {head.department || "Department"}</p>
+                      </div>
+                    ))}
+                    {(educationCoordinators ?? []).map(coordinator => (
+                      <div key={`cpd-${coordinator.id}`} className="rounded-md border px-3 py-2 text-sm">
+                        <p className="font-medium">{coordinator.fullName || "Unresolved account"}</p>
+                        <p className="text-xs text-muted-foreground">Departmental CPD Coordinator · {coordinator.departmentName || "Department"}</p>
                       </div>
                     ))}
                   </div>
+                  <p className="mt-2 text-xs text-muted-foreground">ERCo and Deputy ERCo appointments appear in the IERS duties section below; product roles and shared scopes remain in their dedicated sections.</p>
                 </div>
               )}
               <div className="relative max-w-xl"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search by staff name or email" value={search} onChange={event => setSearch(event.target.value)} /></div>
