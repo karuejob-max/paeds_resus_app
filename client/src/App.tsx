@@ -434,13 +434,19 @@ function Router() {
           <Route path="/training" component={TrainingHub} />
           <Route path="/programs/nerp-acls" component={NerpOfferPage} />
           <Route path="/programs/nerp-acls/start" component={NerpPathwayEntry} />
+          {/* Backward-compatible aliases used by earlier journey cards and campaign links. */}
+          <Route path="/programs/nerp-acls/entry">{() => <Redirect to="/programs/nerp-acls/start" />}</Route>
           <Route path="/programs/nerp-acls/enroll">{() => (
             <RoleGate allowed={["provider"]}>
               <NerpCheckout />
             </RoleGate>
           )}</Route>
+          <Route path="/programs/nerp-acls/checkout">{() => <Redirect to="/programs/nerp-acls/enroll" />}</Route>
           <Route path="/programs/ierp" component={IerpLanding} />
           <Route path="/programs/ierp/enroll" component={IerpEnrollment} />
+          {/* Legacy IERP deep links should explain the current destination, not 404. */}
+          <Route path="/ierp">{() => <Redirect to="/programs/ierp" />}</Route>
+          <Route path="/ierp/enroll">{() => <Redirect to="/programs/ierp/enroll" />}</Route>
           <Route path="/for-providers" component={ForProviders} />
           <Route path="/for-institutions" component={ForInstitutions} />
           <Route path="/for-parents" component={ForParents} />

@@ -74,6 +74,9 @@ export default function NerpOfferPage() {
       (paymentComplete || enrollment.data.paymentState.amountPaidKes > 0)
   );
   const verificationPending = eligibility.data?.state === "pending_review";
+  const eligibilityMessage = eligibility.isError
+    ? "We could not check your NERP eligibility right now. Refresh and try again; no profile or payment record has been changed."
+    : eligibility.data?.message;
   const nextHref = !user
     ? `/login?redirect=${encodeURIComponent(NERP_PATHWAY_ENTRY_PATH)}`
     : canStart
@@ -122,10 +125,12 @@ export default function NerpOfferPage() {
                   {paymentConfirmed ? "Check your next learning step" : "View first payment and learning steps"}
                 </Link>
               </Button>
-              {user && eligibility.data && !eligibility.data.eligible && (
+              {user && eligibilityMessage && (eligibility.isError || eligibility.data?.eligible === false) && (
                 <p className="max-w-xl text-sm text-muted-foreground">
-                  {"NERP is for nurses with a complete Nursing Council of Kenya licence submission. Submit the licence number and evidence in Professional Credentials before starting."}
-                  {" "}<Link href="/provider-profile" className="font-medium text-primary underline">Open professional credentials</Link>
+                  {eligibilityMessage}
+                  {eligibility.data && !eligibility.isError ? (
+                    <>{" "}<Link href="/provider-profile" className="font-medium text-primary underline">Open professional credentials</Link></>
+                  ) : null}
                 </p>
               )}
               {user && verificationPending && (

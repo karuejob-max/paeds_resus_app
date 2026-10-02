@@ -14,6 +14,7 @@ import {
   nerpExternalVerificationAuditEvents,
   nerpCampaignSuppressions,
   nerpCampaignSuppressionAuditEvents,
+  ierpInternProfiles,
   professionalCredentials,
   users,
 } from "../../drizzle/schema";
@@ -111,8 +112,11 @@ async function getLatestNerpCredentialForUser(db: any, userId: number) {
       ),
     )
     .orderBy(desc(professionalCredentials.updatedAt))
-    .limit(1);
-  return rows[0] ?? null;
+    .limit(20);
+  // A newer incomplete draft must not hide an older pending/verified NCK
+  // licence. Select the newest usable nursing credential first, otherwise the
+  // newest record is retained so the UI can explain what needs correction.
+  return rows.find((row: any) => canStartNerpWithCredential(getNerpCredentialState(row))) ?? rows[0] ?? null;
 }
 
 function nerpCredentialBlockMessage(
@@ -346,12 +350,26 @@ export const nerpRouter = router({
     const latestCredential = await getLatestNerpCredentialForUser(db, ctx.user.id);
     const credentialState = getNerpCredentialState(latestCredential);
     const eligible = canStartNerpWithCredential(credentialState);
+    const internProfiles = await db
+      .select({ status: ierpInternProfiles.status, reviewReason: ierpInternProfiles.reviewReason })
+      .from(ierpInternProfiles)
+      .where(eq(ierpInternProfiles.userId, ctx.user.id))
+      .limit(1);
+    const hasIerpInternProfile = Boolean(internProfiles[0]);
+    const message = !eligible && hasIerpInternProfile
+      ? `${nerpCredentialBlockMessage(credentialState, latestCredential?.reviewReason)} Your submitted IERP intern profile is separate and does not qualify as an NERP nursing licence. Use Professional Credentials to submit the NCK licence record for NERP.`
+      : nerpCredentialBlockMessage(credentialState, latestCredential?.reviewReason);
     return {
       eligible,
       verificationState: credentialState,
       state: credentialState,
       reviewReason: latestCredential?.reviewReason ?? null,
-      message: nerpCredentialBlockMessage(credentialState, latestCredential?.reviewReason),
+      message,
+      profileDiagnostics: {
+        hasNerpNursingLicence: Boolean(latestCredential),
+        hasIerpInternProfile,
+        ierpProfileStatus: internProfiles[0]?.status ?? null,
+      },
     };
   }),
 
@@ -414,10 +432,10 @@ export const nerpRouter = router({
       phase2Progress: phase2Verified ? 1 : 0,
       paymentProgress: Number(offer.totalAmountKes) > 0 ? Number(offer.amountPaidKes) / Number(offer.totalAmountKes) : 0,
       phase3Complete: phase3Verified || offer.status === "completed",
-      phase1Action: { label: "Open NERP coursework", destination: "/programs/nerp-acls/entry" },
-      phase2Action: { label: "Open Phase 2", destination: "/programs/nerp-acls/entry" },
-      paymentAction: { label: "Open NERP payment", destination: "/programs/nerp-acls/checkout" },
-      phase3Action: { label: "Open Phase 3", destination: "/programs/nerp-acls/entry" },
+      phase1Action: { label: "Open NERP coursework", destination: "/programs/nerp-acls/start" },
+      phase2Action: { label: "Open Phase 2", destination: "/programs/nerp-acls/start" },
+      paymentAction: { label: "Open NERP payment", destination: "/programs/nerp-acls/enroll" },
+      phase3Action: { label: "Open Phase 3", destination: "/programs/nerp-acls/start" },
       phase2LockedReason: "Complete BLS and ACLS cognitive learning and submit the required evidence first.",
       phase3LockedReason: "Complete Phase 2 and the NERP programme requirements first.",
     });
