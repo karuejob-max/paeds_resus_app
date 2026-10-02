@@ -267,8 +267,8 @@ export default function ProviderToday() {
     if (!user?.id || (teamsQuery.data && dutiesQuery.data)) return;
     let cancelled = false;
     void Promise.all([
-      getOfflineSnapshot<any[]>(offlineStoreKeys.providerTeams(user.id, 0)),
-      getOfflineSnapshot<any>(offlineStoreKeys.providerDuties(user.id)),
+      getOfflineSnapshot<any[]>(offlineStoreKeys.providerTeams(user.id, 0), user.id),
+      getOfflineSnapshot<any>(offlineStoreKeys.providerDuties(user.id), user.id),
     ]).then(([teamsSnapshot, dutiesSnapshot]) => {
       if (cancelled) return;
       const teamFreshness = teamsSnapshot ? getOfflineSnapshotFreshness(teamsSnapshot, Date.now(), 15 * 60 * 1000) : null;

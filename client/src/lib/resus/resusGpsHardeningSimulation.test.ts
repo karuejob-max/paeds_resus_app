@@ -4,6 +4,7 @@ import {
   createSession,
   getBlockingPrimarySurveyInterventions,
   markInterventionUnavailable,
+  recordUnavailableDisposition,
   resolveBlsAssessment,
   returnToPrimarySurvey,
   updateResusSetting,
@@ -77,7 +78,34 @@ describe("ResusGPS synthetic/manikin hardening matrix", () => {
     expect(unavailable.threats[0].interventions[0].status).toBe("skipped");
     expect(unavailable.threats[0].interventions[0].unavailableAt).toEqual(expect.any(Number));
     expect(unavailable.threats[0].interventions[0].alternativeUsed).toContain("IO escalation");
-    expect(getBlockingPrimarySurveyInterventions(unavailable)).toHaveLength(0);
+    expect(getBlockingPrimarySurveyInterventions(unavailable)).toHaveLength(1);
+
+    const disposed = recordUnavailableDisposition(unavailable, "synthetic-fluid-action", {
+      kind: "alternative_used",
+      reasonCode: "not_stocked",
+      alternativeUsed: "Documented simulation alternative",
+      escalationStatus: "not_completed",
+      escalationAcknowledged: true,
+    });
+    expect(getBlockingPrimarySurveyInterventions(disposed)).toHaveLength(1);
+
+    const attempted = recordUnavailableDisposition(unavailable, "synthetic-fluid-action", {
+      kind: "alternative_used",
+      reasonCode: "not_stocked",
+      alternativeUsed: "Documented simulation alternative",
+      escalationStatus: "local_process_attempted",
+      escalationAcknowledged: true,
+    });
+    expect(getBlockingPrimarySurveyInterventions(attempted)).toHaveLength(1);
+
+    const locallyHandled = recordUnavailableDisposition(unavailable, "synthetic-fluid-action", {
+      kind: "alternative_used",
+      reasonCode: "not_stocked",
+      alternativeUsed: "Documented simulation alternative",
+      escalationStatus: "local_process_completed",
+      escalationAcknowledged: true,
+    });
+    expect(getBlockingPrimarySurveyInterventions(locallyHandled)).toHaveLength(0);
   });
 
   it("redacts patient identifiers before the QI timeline boundary", () => {

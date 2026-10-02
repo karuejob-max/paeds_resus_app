@@ -31,11 +31,11 @@ export default function ProviderIersTargetedReportCard({ teamId, assignmentId }:
   const [clientRequestId, setClientRequestId] = useState(() => crypto.randomUUID());
   const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const [offlineDraft, setOfflineDraft] = useState<TargetedReportDraft | null>(null);
-  const localDraftId = `targeted-report-${teamId}-${assignmentId}`;
+  const localDraftId = `targeted-report-${user?.id ?? 'unowned'}-${teamId}-${assignmentId}`;
   const activationsQuery = trpc.iersTargetedReports.listOpenActivationsForTeam.useQuery({ teamId }, { staleTime: 10_000, retry: 1 });
   const activationTeamQuery = trpc.iersTargetedReports.getActivationTeam.useQuery({ activationEventId: Number(activationEventId), teamId }, { enabled: Boolean(activationEventId) });
   const submit = trpc.iersTargetedReports.submitRoleReport.useMutation({
-    onSuccess: async () => { toast.success("Targeted ERT role report submitted."); await removeOfflineCommand(localDraftId); setOfflineDraft(null); setNarrative(""); setNoIdentifiers(false); setClientRequestId(crypto.randomUUID()); },
+    onSuccess: async () => { toast.success("Targeted ERT role report submitted."); if (user?.id) await removeOfflineCommand(localDraftId, user.id); setOfflineDraft(null); setNarrative(""); setNoIdentifiers(false); setClientRequestId(crypto.randomUUID()); },
     onError: (error) => toast.error(error.message),
   });
   const selectedActivation = activationsQuery.data?.find((activation) => String(activation.id) === activationEventId);
@@ -51,8 +51,9 @@ export default function ProviderIersTargetedReportCard({ teamId, assignmentId }:
   }, []);
 
   useEffect(() => {
+    if (!user?.id) return;
     let cancelled = false;
-    void getOfflineCommand<TargetedReportDraft>(localDraftId).then((command) => {
+    void getOfflineCommand<TargetedReportDraft>(localDraftId, user.id).then((command) => {
       if (cancelled || !command || command.status === "acknowledged") return;
       setOfflineDraft(command.payload);
       setActivationEventId(String(command.payload.activationEventId));
@@ -64,7 +65,7 @@ export default function ProviderIersTargetedReportCard({ teamId, assignmentId }:
     return () => {
       cancelled = true;
     };
-  }, [localDraftId]);
+  }, [localDraftId, user?.id]);
 
   const draftPayload: TargetedReportDraft = {
     activationEventId: Number(activationEventId),
@@ -90,7 +91,7 @@ export default function ProviderIersTargetedReportCard({ teamId, assignmentId }:
         payload: draftPayload,
         clientCreatedAt: Date.now(),
       });
-      await updateOfflineCommand(localDraftId, { status: "requires_review", lastError: "Offline draft requires live activation/team revalidation before submission." });
+      await updateOfflineCommand(localDraftId, user.id, { status: "requires_review", lastError: "Offline draft requires live activation/team revalidation before submission." });
       setOfflineDraft(draftPayload);
       toast.success("Targeted report draft saved on this device. It is not yet submitted.");
     } catch {

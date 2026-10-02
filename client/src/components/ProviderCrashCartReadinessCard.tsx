@@ -46,8 +46,8 @@ type CrashCartPayload = {
   deficitsFound?: string;
 };
 
-function draftId(shiftRosterId: number) {
-  return `provider-crash-cart-${shiftRosterId}`;
+function draftId(shiftRosterId: number, actorId: number) {
+  return `provider-crash-cart-${actorId}-${shiftRosterId}`;
 }
 
 function formatDate(value: Date | string) {
@@ -76,7 +76,7 @@ export default function ProviderCrashCartReadinessCard() {
   const submitAuditMutation = trpc.institution.submitEquipmentAuditLog.useMutation({
     onSuccess: async () => {
       toast.success("Crash-cart check submitted and recorded.");
-      if (selectedShiftId) await removeOfflineCommand(draftId(selectedShiftId));
+      if (selectedShiftId && user?.id) await removeOfflineCommand(draftId(selectedShiftId, user.id), user.id);
       setOfflineDraft(null);
       setDeficitsFound("");
     },
@@ -116,7 +116,7 @@ export default function ProviderCrashCartReadinessCard() {
   useEffect(() => {
     if (!user?.id || readinessQuery.data) return;
     let cancelled = false;
-    void getOfflineSnapshot<ReadinessShift[]>(offlineStoreKeys.providerReadiness(user.id)).then((snapshot) => {
+    void getOfflineSnapshot<ReadinessShift[]>(offlineStoreKeys.providerReadiness(user.id), user.id).then((snapshot) => {
       if (cancelled || !snapshot?.payload) return;
       const freshness = getOfflineSnapshotFreshness(snapshot, Date.now(), 15 * 60 * 1000);
       if (freshness === "expired") return;
@@ -132,7 +132,8 @@ export default function ProviderCrashCartReadinessCard() {
     if (!selectedShift) return;
     setSelectedShiftId((current) => current ?? selectedShift.id);
     let cancelled = false;
-    void getOfflineCommand<CrashCartPayload>(draftId(selectedShift.id)).then((command) => {
+    if (!user?.id) return;
+    void getOfflineCommand<CrashCartPayload>(draftId(selectedShift.id, user.id), user.id).then((command) => {
       if (cancelled || !command || command.status === "acknowledged") return;
       setOfflineDraft(command.payload);
       setCartSealIntact(command.payload.cartSealIntact);
@@ -146,7 +147,7 @@ export default function ProviderCrashCartReadinessCard() {
     return () => {
       cancelled = true;
     };
-  }, [selectedShift]);
+  }, [selectedShift, user?.id]);
 
   const payload = useMemo<CrashCartPayload | null>(() => {
     if (!selectedShift) return null;
@@ -169,9 +170,13 @@ export default function ProviderCrashCartReadinessCard() {
   if (!selectedShift || !payload) return null;
 
   const saveOffline = async () => {
+    if (!user?.id) {
+      toast.error("Sign in with the assigned provider account before saving this offline record.");
+      return;
+    }
     try {
       await enqueueOfflineCommand({
-        localEventId: draftId(selectedShift.id),
+        localEventId: draftId(selectedShift.id, user.id),
         aggregateType: "crash_cart_check",
         aggregateId: String(selectedShift.id),
         tenantId: selectedShift.institutionId,
@@ -181,7 +186,7 @@ export default function ProviderCrashCartReadinessCard() {
         baseVersion: String(selectedShift.readinessSignOffAt ?? selectedShift.shiftDate),
         clientCreatedAt: Date.now(),
       });
-      await updateOfflineCommand(draftId(selectedShift.id), {
+      await updateOfflineCommand(draftId(selectedShift.id, user.id), user.id, {
         status: "requires_review",
         lastError: "Offline draft requires an online review and explicit submission.",
       });

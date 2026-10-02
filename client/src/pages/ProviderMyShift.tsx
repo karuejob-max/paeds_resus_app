@@ -56,7 +56,7 @@ export default function ProviderMyShift() {
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
-    void getOfflineSnapshot<any[]>(offlineStoreKeys.providerTeams(user.id, 0)).then((snapshot) => {
+    void getOfflineSnapshot<any[]>(offlineStoreKeys.providerTeams(user.id, 0), user.id).then((snapshot) => {
       if (cancelled) return;
       if (!snapshot) return;
       const freshness = getOfflineSnapshotFreshness(snapshot, Date.now(), 15 * 60 * 1000);

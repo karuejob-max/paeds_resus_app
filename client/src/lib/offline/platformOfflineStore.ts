@@ -98,6 +98,10 @@ function assertOfflineCommandScope(command: { aggregateType: OfflineAggregateTyp
   }
 }
 
+function isValidActorId(actorId: number | undefined): actorId is number {
+  return Number.isInteger(actorId) && Number(actorId) > 0;
+}
+
 function assertOfflineSnapshotScope(snapshot: Pick<OfflineSnapshot, "actorId" | "kind">) {
   if (!Number.isInteger(snapshot.actorId) || Number(snapshot.actorId) <= 0) {
     throw new Error("An authenticated actor is required for offline snapshots.");
@@ -191,18 +195,21 @@ export function getOfflineSnapshotFreshness<TPayload>(
   return "fresh";
 }
 
-export async function getOfflineSnapshot<TPayload>(key: string): Promise<OfflineSnapshot<TPayload> | null> {
+export async function getOfflineSnapshot<TPayload>(key: string, actorId: number): Promise<OfflineSnapshot<TPayload> | null> {
+  if (!isValidActorId(actorId)) return null;
   try {
     const db = await openPlatformOfflineDb();
     const transaction = db.transaction(SNAPSHOTS_STORE, "readonly");
     const row = await requestResult<OfflineSnapshot<TPayload> | undefined>(transaction.objectStore(SNAPSHOTS_STORE).get(key));
-    return row ?? null;
-  } catch {
+    return row?.actorId === actorId ? row : null;
+  } catch (error) {
+    notifyStorageFailure(error);
     return null;
   }
 }
 
-export async function listOfflineSnapshots(kind?: OfflineSnapshotKind): Promise<OfflineSnapshot[]> {
+export async function listOfflineSnapshots(kind: OfflineSnapshotKind | undefined, actorId: number): Promise<OfflineSnapshot[]> {
+  if (!isValidActorId(actorId)) return [];
   try {
     const db = await openPlatformOfflineDb();
     const transaction = db.transaction(SNAPSHOTS_STORE, "readonly");
@@ -210,8 +217,9 @@ export async function listOfflineSnapshots(kind?: OfflineSnapshotKind): Promise<
     const rows = kind
       ? await requestResult<OfflineSnapshot[]>(store.index("kind").getAll(kind))
       : await requestResult<OfflineSnapshot[]>(store.getAll());
-    return rows.sort((a, b) => b.savedAt - a.savedAt);
-  } catch {
+    return rows.filter((row) => row.actorId === actorId).sort((a, b) => b.savedAt - a.savedAt);
+  } catch (error) {
+    notifyStorageFailure(error);
     return [];
   }
 }
@@ -243,36 +251,42 @@ export async function enqueueOfflineCommand<TPayload>(
   return fullCommand;
 }
 
-export async function getOfflineCommand<TPayload>(localEventId: string): Promise<OfflineCommand<TPayload> | null> {
+export async function getOfflineCommand<TPayload>(localEventId: string, actorId: number): Promise<OfflineCommand<TPayload> | null> {
+  if (!isValidActorId(actorId)) return null;
   try {
     const db = await openPlatformOfflineDb();
     const transaction = db.transaction(COMMANDS_STORE, "readonly");
     const row = await requestResult<OfflineCommand<TPayload> | undefined>(transaction.objectStore(COMMANDS_STORE).get(localEventId));
-    return row ?? null;
-  } catch {
+    return row?.actorId === actorId ? row : null;
+  } catch (error) {
+    notifyStorageFailure(error);
     return null;
   }
 }
 
-export async function listOfflineCommands(limit = 100): Promise<OfflineCommand[]> {
+export async function listOfflineCommands(actorId: number, limit = 100): Promise<OfflineCommand[]> {
+  if (!isValidActorId(actorId)) return [];
   try {
     const db = await openPlatformOfflineDb();
     const transaction = db.transaction(COMMANDS_STORE, "readonly");
     const rows = await requestResult<OfflineCommand[]>(transaction.objectStore(COMMANDS_STORE).getAll());
     return rows
-      .filter((row) => ["queued", "sending", "failed"].includes(row.status))
+      .filter((row) => row.actorId === actorId && ["queued", "sending", "failed"].includes(row.status))
       .filter((row) => row.status !== "sending" || row.updatedAt < Date.now() - 30_000)
       .sort((a, b) => a.queuedAt - b.queuedAt)
       .slice(0, limit);
-  } catch {
+  } catch (error) {
+    notifyStorageFailure(error);
     return [];
   }
 }
 
 export async function updateOfflineCommand<TPayload>(
   localEventId: string,
+  actorId: number,
   update: Partial<Pick<OfflineCommand<TPayload>, "status" | "attempts" | "lastError" | "payload" | "baseVersion">>,
 ): Promise<void> {
+  if (!isValidActorId(actorId)) throw new Error("An authenticated actor is required to update offline work.");
   const db = await openPlatformOfflineDb();
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(COMMANDS_STORE, "readwrite");
@@ -281,6 +295,11 @@ export async function updateOfflineCommand<TPayload>(
     request.onsuccess = () => {
       const existing = request.result as OfflineCommand<TPayload> | undefined;
       if (!existing) return;
+      if (existing.actorId !== actorId) {
+        reject(new Error("This offline command belongs to another provider account."));
+        transaction.abort();
+        return;
+      }
       store.put({ ...existing, ...update, updatedAt: Date.now() });
     };
     request.onerror = () => reject(request.error ?? new Error("Could not read offline command"));
@@ -329,37 +348,53 @@ export async function pruneOfflineData(now = Date.now()): Promise<number> {
   }
 }
 
-export async function removeOfflineCommand(localEventId: string): Promise<void> {
+export async function removeOfflineCommand(localEventId: string, actorId: number): Promise<void> {
+  if (!isValidActorId(actorId)) throw new Error("An authenticated actor is required to remove offline work.");
   const db = await openPlatformOfflineDb();
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(COMMANDS_STORE, "readwrite");
-    transaction.objectStore(COMMANDS_STORE).delete(localEventId);
+    const store = transaction.objectStore(COMMANDS_STORE);
+    const request = store.get(localEventId);
+    request.onsuccess = () => {
+      const row = request.result as OfflineCommand | undefined;
+      if (!row) return;
+      if (row.actorId !== actorId) {
+        reject(new Error("This offline command belongs to another provider account."));
+        transaction.abort();
+        return;
+      }
+      store.delete(localEventId);
+    };
+    request.onerror = () => reject(request.error ?? new Error("Could not read offline command before removing it"));
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error ?? new Error("Could not remove offline command"));
     transaction.onabort = () => reject(transaction.error ?? new Error("Offline command removal aborted"));
   });
 }
 
-export async function listOfflineReviewCommands(limit = 100): Promise<OfflineCommand[]> {
+export async function listOfflineReviewCommands(actorId: number, limit = 100): Promise<OfflineCommand[]> {
+  if (!isValidActorId(actorId)) return [];
   try {
     const db = await openPlatformOfflineDb();
     const transaction = db.transaction(COMMANDS_STORE, "readonly");
     const rows = await requestResult<OfflineCommand[]>(transaction.objectStore(COMMANDS_STORE).getAll());
     return rows
-      .filter((row) => ["failed", "conflict", "rejected", "requires_review"].includes(row.status))
+      .filter((row) => row.actorId === actorId && ["failed", "conflict", "rejected", "requires_review"].includes(row.status))
       .sort((a, b) => b.updatedAt - a.updatedAt)
       .slice(0, limit);
-  } catch {
+  } catch (error) {
+    notifyStorageFailure(error);
     return [];
   }
 }
 
-export async function getOfflineSyncCounts(): Promise<OfflineSyncCounts> {
+export async function getOfflineSyncCounts(actorId: number): Promise<OfflineSyncCounts> {
+  if (!isValidActorId(actorId)) return { queued: 0, sending: 0, failed: 0, conflict: 0, rejected: 0, requiresReview: 0 };
   try {
     const db = await openPlatformOfflineDb();
     const transaction = db.transaction(COMMANDS_STORE, "readonly");
     const rows = await requestResult<OfflineCommand[]>(transaction.objectStore(COMMANDS_STORE).getAll());
-    return rows.reduce<OfflineSyncCounts>((counts, row) => {
+    return rows.filter((row) => row.actorId === actorId).reduce<OfflineSyncCounts>((counts, row) => {
       if (row.status === "queued") counts.queued += 1;
       if (row.status === "sending") counts.sending += 1;
       if (row.status === "failed") counts.failed += 1;
@@ -368,7 +403,8 @@ export async function getOfflineSyncCounts(): Promise<OfflineSyncCounts> {
       if (row.status === "requires_review") counts.requiresReview += 1;
       return counts;
     }, { queued: 0, sending: 0, failed: 0, conflict: 0, rejected: 0, requiresReview: 0 });
-  } catch {
+  } catch (error) {
+    notifyStorageFailure(error);
     return { queued: 0, sending: 0, failed: 0, conflict: 0, rejected: 0, requiresReview: 0 };
   }
 }
@@ -379,7 +415,8 @@ export async function getOfflineMeta<TValue>(key: string): Promise<TValue | null
     const transaction = db.transaction(META_STORE, "readonly");
     const row = await requestResult<{ key: string; value: TValue } | undefined>(transaction.objectStore(META_STORE).get(key));
     return row?.value ?? null;
-  } catch {
+  } catch (error) {
+    notifyStorageFailure(error);
     return null;
   }
 }
@@ -395,6 +432,25 @@ export async function saveOfflineMeta<TValue>(key: string, value: TValue): Promi
   });
 }
 
+/** Clear potentially sensitive cached snapshots at logout without deleting unacknowledged commands. */
+export async function clearOfflineSnapshotsForActor(actorId: number): Promise<void> {
+  if (!isValidActorId(actorId)) throw new Error("A valid actor is required to clear offline snapshots.");
+  const db = await openPlatformOfflineDb();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(SNAPSHOTS_STORE, "readwrite");
+    transaction.objectStore(SNAPSHOTS_STORE).openCursor().onsuccess = (event) => {
+      const cursor = (event.target as IDBRequest<IDBCursorWithValue | null>).result;
+      if (!cursor) return;
+      if (cursor.value?.actorId === actorId) cursor.delete();
+      cursor.continue();
+    };
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error ?? new Error("Could not clear offline snapshots"));
+    transaction.onabort = () => reject(transaction.error ?? new Error("Offline snapshot cleanup aborted"));
+  });
+}
+
+/** Explicit destructive cleanup; do not use at logout because unacknowledged commands must be preserved. */
 export async function clearOfflineActorData(actorId: number): Promise<void> {
   const db = await openPlatformOfflineDb();
   await new Promise<void>((resolve, reject) => {
@@ -451,3 +507,15 @@ export const offlineStoreKeys = {
   providerReadiness: (actorId: number) => `provider-readiness:${actorId}`,
   crashCartTemplate: (institutionId: number, templateId: number, version: string) => `crash-cart:${institutionId}:${templateId}:${version}`,
 } as const;
+/** Count legacy unowned commands without exposing command payloads to another provider. */
+export async function countUnownedOfflineCommands(): Promise<number> {
+  try {
+    const db = await openPlatformOfflineDb();
+    const transaction = db.transaction(COMMANDS_STORE, "readonly");
+    const rows = await requestResult<OfflineCommand[]>(transaction.objectStore(COMMANDS_STORE).getAll());
+    return rows.filter((row) => !isValidActorId(row.actorId) && row.status !== "acknowledged").length;
+  } catch (error) {
+    notifyStorageFailure(error);
+      return 0;
+    }
+  }

@@ -35,8 +35,8 @@ type EquipmentAuditPayload = {
   deficitsFound?: string;
 };
 
-function draftId(institutionId: number, department: string, auditType: string) {
-  return `crash-cart-audit-${institutionId}-${auditType}-${department}`;
+function draftId(institutionId: number, department: string, auditType: string, actorId: number) {
+  return `crash-cart-audit-${institutionId}-${actorId}-${auditType}-${department}`;
 }
 
 export function EquipmentAuditPanel({ institutionId }: EquipmentAuditPanelProps) {
@@ -55,7 +55,7 @@ export function EquipmentAuditPanel({ institutionId }: EquipmentAuditPanelProps)
   const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const [offlineDraft, setOfflineDraft] = useState<EquipmentAuditPayload | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const currentDraftId = draftId(institutionId, department, auditType);
+  const currentDraftId = draftId(institutionId, department, auditType, user?.id ?? -1);
 
   useEffect(() => {
     const refreshOnline = () => setIsOnline(navigator.onLine);
@@ -68,8 +68,9 @@ export function EquipmentAuditPanel({ institutionId }: EquipmentAuditPanelProps)
   }, []);
 
   useEffect(() => {
+    if (!user?.id) return;
     let cancelled = false;
-    void getOfflineCommand<EquipmentAuditPayload>(currentDraftId).then((command) => {
+    void getOfflineCommand<EquipmentAuditPayload>(currentDraftId, user.id).then((command) => {
       if (cancelled || !command || command.status === "acknowledged") return;
       setOfflineDraft(command.payload);
       setDepartment(command.payload.department);
@@ -85,7 +86,7 @@ export function EquipmentAuditPanel({ institutionId }: EquipmentAuditPanelProps)
     return () => {
       cancelled = true;
     };
-  }, [currentDraftId]);
+  }, [currentDraftId, user?.id]);
 
   const { data: auditLogs, isLoading } = trpc.institution.getEquipmentAuditLogs.useQuery(
     { institutionId, limit: 30 },
@@ -102,7 +103,7 @@ export function EquipmentAuditPanel({ institutionId }: EquipmentAuditPanelProps)
       toast.success("Equipment Audit Logged!");
       setDeficitsFound("");
       setOfflineDraft(null);
-      void removeOfflineCommand(currentDraftId);
+      if (user?.id) void removeOfflineCommand(currentDraftId, user.id);
       void utils.institution.getEquipmentAuditLogs.invalidate({ institutionId });
       void utils.institution.getEquipmentDeficitAlerts.invalidate({ institutionId });
     },
@@ -123,6 +124,10 @@ export function EquipmentAuditPanel({ institutionId }: EquipmentAuditPanelProps)
   };
 
   const saveDraftOffline = async () => {
+    if (!user?.id) {
+      toast.error("Sign in with the assigned provider account before saving this offline audit.");
+      return;
+    }
     setIsSavingDraft(true);
     try {
       await enqueueOfflineCommand({
@@ -135,7 +140,7 @@ export function EquipmentAuditPanel({ institutionId }: EquipmentAuditPanelProps)
         payload,
         clientCreatedAt: Date.now(),
       });
-      await updateOfflineCommand(currentDraftId, {
+      await updateOfflineCommand(currentDraftId, user.id, {
         status: "requires_review",
         lastError: "Offline draft requires an online review and explicit submission.",
       });

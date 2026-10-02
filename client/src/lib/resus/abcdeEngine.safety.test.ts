@@ -9,6 +9,8 @@ import {
   returnToPrimarySurvey,
   getBlockingPrimarySurveyInterventions,
   getInterventionsAwaitingReassessment,
+  startIntervention,
+  completeIntervention,
   type Threat,
 } from './abcdeEngine';
 
@@ -78,6 +80,55 @@ describe('canonical ResusGPS engine safety boundaries', () => {
 
     expect(getBlockingPrimarySurveyInterventions(session)).toHaveLength(1);
     expect(returnToPrimarySurvey(session).phase).toBe('INTERVENTION');
+  });
+
+  it('preserves the confirmed dose snapshot and reassessment deadline across patient-context changes', () => {
+    const session = createSession(10, '1 year');
+    const threat: Threat = {
+      id: 'synthetic-dose-threat',
+      letter: 'C',
+      name: 'Synthetic test threat',
+      severity: 'urgent',
+      resolved: false,
+      findings: [],
+      interventions: [
+        {
+          id: 'synthetic-dose-action',
+          action: 'Synthetic test medication',
+          dose: { drug: 'Synthetic test medication', dosePerKg: 1, unit: 'mg', route: 'test' },
+          timerSeconds: 60,
+          status: 'pending',
+        },
+        {
+          id: 'synthetic-follow-up-dose',
+          action: 'Synthetic second medication',
+          dose: { drug: 'Different synthetic medication', dosePerKg: 1, unit: 'mg', route: 'test' },
+          status: 'pending',
+        },
+      ],
+    };
+    const active = { ...session, phase: 'INTERVENTION' as const, currentLetter: 'C' as const, threats: [threat] };
+    const started = startIntervention(active, 'synthetic-dose-action', 7);
+    const completed = completeIntervention(started, 'synthetic-dose-action', 7);
+    const original = completed.threats[0].interventions[0].doseSnapshot;
+    const deadline = completed.activeTimers[0];
+
+    expect(original).toMatchObject({ patientWeightKg: 10, confirmedByUserId: 7, confirmationAction: 'started' });
+    expect(deadline).toMatchObject({ interventionId: 'synthetic-dose-action', durationSeconds: 60 });
+    expect(deadline.endsAt).toBe(deadline.startedAt! + 60_000);
+
+    const updated = updatePatientInfo(completed, 12, '1 year', 'measured', 'measured again');
+    expect(updated.doseReviewRequired).toBe(true);
+    expect(updated.threats[0].interventions[0].doseSnapshot).toEqual(original);
+    expect(updated.activeTimers).toEqual(completed.activeTimers);
+    expect(startIntervention(updated, 'synthetic-follow-up-dose')).toBe(updated);
+    expect(returnToPrimarySurvey(updated).activeTimers).toEqual(completed.activeTimers);
+  });
+
+  it('requires a dose review when the numeric weight is unchanged but its source changes', () => {
+    const active = { ...createSession(10, '1 year'), phase: 'INTERVENTION' as const };
+    const updated = updatePatientInfo(active, 10, '1 year', 'estimated', 'length-based estimate');
+    expect(updated.doseReviewRequired).toBe(true);
   });
 
   it('assigns stable IDs to newly generated clinical events', () => {
