@@ -50,6 +50,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { usePatientDemographics } from '@/contexts/PatientDemographicsContext';
 import { useUndo } from '@/hooks/useUndo';
+import { useAuth } from '@/hooks/useAuth';
 import {
   type ResusSession,
   type BLSAssessmentAnswer,
@@ -60,6 +61,8 @@ import {
   type ClinicalEvent,
   type Phase,
   type ABCDELetter,
+  type UnavailabilityReasonCode,
+  type UnavailabilityDispositionKind,
   type DiagnosisSuggestion,
   createSession,
   startQuickAssessment,
@@ -70,11 +73,14 @@ import {
   completeIntervention,
   startIntervention,
   markInterventionUnavailable,
+  recordUnavailableDisposition,
+  acknowledgeDoseReview,
   returnToPrimarySurvey,
   getActiveThreats,
   getPendingInterventions,
   getAllPendingCritical,
   getBlockingPrimarySurveyInterventions,
+  getUnresolvedUnavailableInterventions,
   getInterventionsAwaitingReassessment,
   getSuggestedDiagnoses,
   triggerCardiacArrest,
@@ -105,6 +111,8 @@ import {
   persistResusSession,
   loadPersistedResusSession,
   clearPersistedResusSession,
+  countUnownedResusRecords,
+  countPendingResusEvents,
   saveSampleHistory,
   loadLastSampleHistory,
   clearSampleHistory,
@@ -304,6 +312,12 @@ function approximateAgeMonths(age: string | null): number {
   return parseAgeToMonths(age) ?? 0;
 }
 
+function isPermanentResusEventRejection(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null || !('data' in error)) return false;
+  const code = (error as { data?: { code?: unknown } }).data?.code;
+  return code === 'BAD_REQUEST' || code === 'NOT_FOUND' || code === 'CONFLICT';
+}
+
 function isNeonatalCase(age: string | null): boolean {
   const context = resolveResusContext({ age, measuredWeightKg: 1, setting: 'hospital' });
   return context.ageMonths != null && context.ageMonths < 1;
@@ -312,6 +326,8 @@ function isNeonatalCase(age: string | null): boolean {
 // ─── Main Component ─────────────────────────────────────────
 
 export default function ResusGPS({ hasActivationContext = false, activationEventId }: { hasActivationContext?: boolean; activationEventId?: number }) {
+  const { user, sessionSettled } = useAuth();
+  const actorId = user?.id ?? null;
   const { demographics, setDemographics, clearDemographics, getWeightInKg } = usePatientDemographics();
   const resolveCurrentWeight = useCallback((override?: { age?: string; weight?: string; weightSource?: 'measured' | 'last_known'; gestationalAgeWeeks?: string }): ResolvedPatientWeight | null => {
     const age = override?.age ?? demographics.age;
@@ -342,31 +358,78 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     initialWeightResolution?.source ?? demographics.weightSource ?? 'measured',
     initialWeightResolution?.method,
   ));
+  const [sessionOwnerId, setSessionOwnerId] = useState<number | null>(null);
+  const sessionOwnerRef = useRef<number | null>(null);
+  const [sessionStorageError, setSessionStorageError] = useState<string | null>(null);
+  const [sessionRestoreNotice, setSessionRestoreNotice] = useState<string | null>(null);
+  const [unownedResusRecordCount, setUnownedResusRecordCount] = useState(0);
   const [resumeCandidate, setResumeCandidate] = useState<ResusSession | null>(null);
 
-  // ── On mount: check for an unfinished persisted session + last SAMPLE ───────
+  // ── Restore only after auth is settled; never expose another account's case ─
   useEffect(() => {
-    loadPersistedResusSession().then((saved) => {
-      if (saved && saved.phase !== 'IDLE') {
-        analyticsRef.current.resetSessionId(saved.id);
-        setResumeCandidate(saved);
+    if (!sessionSettled) return;
+    if (sessionOwnerRef.current !== actorId) {
+      sessionOwnerRef.current = actorId;
+      setSessionOwnerId(actorId);
+      setSession(createSession(null, null));
+      setResumeCandidate(null);
+      setPreFillSample(null);
+      clearDemographics();
+    }
+    if (actorId == null) return;
+
+    let cancelled = false;
+    void loadPersistedResusSession(actorId).then((result) => {
+      if (cancelled) return;
+      if (result.status === 'available' && result.session.phase !== 'IDLE') {
+        analyticsRef.current.resetSessionId(result.session.id);
+        setResumeCandidate(result.session);
+      } else if (result.status === 'expired') {
+        setSessionRestoreNotice('A previous case is older than the four-hour resume window. It was not resumed; confirm local records before starting a new case.');
+      } else if (result.status === 'error') {
+        setSessionStorageError('The previous case could not be read from local storage. Do not assume it is saved.');
       }
     });
-    loadLastSampleHistory().then((sample) => {
-      if (sample) setPreFillSample(sample);
+    void loadLastSampleHistory(actorId).then((sample) => {
+      if (!cancelled && sample) setPreFillSample(sample);
+    }).catch(() => {
+      if (!cancelled) setSessionStorageError('Saved SAMPLE history could not be read from this device.');
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void countUnownedResusRecords().then((count) => {
+      if (!cancelled) setUnownedResusRecordCount(count);
+    }).catch(() => {
+      if (!cancelled) setSessionStorageError('Legacy local clinical records could not be checked. Do not assume this shared device is clear.');
+    });
+    return () => { cancelled = true; };
+  }, [actorId, clearDemographics, sessionSettled]);
 
   // ── Auto-persist on every session change ──────────────────────────────────
   useEffect(() => {
-    if (session.phase !== 'IDLE') {
-      persistResusSession(session);
+    if (session.phase !== 'IDLE' && actorId != null && sessionOwnerId === actorId) {
+      void persistResusSession(session, actorId).then(() => setSessionStorageError(null)).catch(() => {
+        setSessionStorageError('The active resuscitation is not being saved on this device. Continue only with an approved downtime record.');
+      });
     }
-  }, [session]);
+  }, [actorId, session, sessionOwnerId]);
+
+  const sampleHistoryJson = JSON.stringify(session.sampleHistory);
+  useEffect(() => {
+    if (session.phase === 'IDLE' || actorId == null || sessionOwnerId !== actorId) return;
+    const sample = JSON.parse(sampleHistoryJson) as PersistedSampleHistory;
+    void saveSampleHistory(sample, actorId).catch(() => {
+      setSessionStorageError('SAMPLE history could not be saved locally on this device.');
+    });
+  }, [actorId, session.phase, sampleHistoryJson, sessionOwnerId]);
   const [interventionPanelOpen, setInterventionPanelOpen] = useState(false);
   const [patientInfoOpen, setPatientInfoOpen] = useState(false);
   const [pendingConfirmation, setPendingConfirmation] = useState<'cardiac_arrest' | 'new_case' | null>(null);
+  const [pendingUnavailableId, setPendingUnavailableId] = useState<string | null>(null);
+  const [unavailabilityKind, setUnavailabilityKind] = useState<UnavailabilityDispositionKind | ''>('');
+  const [unavailabilityReasonCode, setUnavailabilityReasonCode] = useState<UnavailabilityReasonCode | ''>('');
+  const [unavailabilityReasonNote, setUnavailabilityReasonNote] = useState('');
+  const [unavailabilityAlternative, setUnavailabilityAlternative] = useState('');
+  const [unavailabilityEscalationStatus, setUnavailabilityEscalationStatus] = useState<'' | 'local_process_completed' | 'local_process_attempted' | 'not_completed'>('');
+  const [unavailabilityEscalationConfirmed, setUnavailabilityEscalationConfirmed] = useState(false);
   const [tempWeight, setTempWeight] = useState('');
   const [tempAge, setTempAge] = useState('');
   const [tempWeightSource, setTempWeightSource] = useState<'measured' | 'last_known'>('measured');
@@ -392,6 +455,8 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   const [preFillSample, setPreFillSample] = useState<PersistedSampleHistory | null>(null);
   const [isOnline, setIsOnline] = useState(() => typeof navigator === 'undefined' ? true : navigator.onLine);
   const [pendingResusEventCount, setPendingResusEventCount] = useState(0);
+  const [outboxSyncError, setOutboxSyncError] = useState<string | null>(null);
+  const [outboxEnqueueRetryEpoch, setOutboxEnqueueRetryEpoch] = useState(0);
   const queuedResusEventIdsRef = useRef<Set<string>>(new Set());
   const resusEventFlushInFlightRef = useRef(false);
   const [samplePreFillDismissed, setSamplePreFillDismissed] = useState(false);
@@ -435,6 +500,18 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   const criticalPending = useMemo(() => getAllPendingCritical(session), [session]);
   const blockingInterventions = useMemo(() => getBlockingPrimarySurveyInterventions(session), [session]);
   const pendingReassessments = useMemo(() => getInterventionsAwaitingReassessment(session), [session]);
+  const unresolvedUnavailableInterventions = useMemo(() => getUnresolvedUnavailableInterventions(session), [session]);
+  const reassessmentRequiredIds = useMemo(() => pendingReassessments.map(({ intervention }) => intervention.id), [pendingReassessments]);
+  const canRecordUnavailableDisposition = Boolean(
+    pendingUnavailableId &&
+    unavailabilityKind &&
+    unavailabilityReasonCode &&
+    unavailabilityEscalationStatus &&
+    unavailabilityEscalationConfirmed &&
+    (unavailabilityKind !== 'alternative_used' || unavailabilityAlternative.trim().length >= 3) &&
+    (unavailabilityKind !== 'no_alternative_escalated' || unavailabilityReasonNote.trim().length >= 8) &&
+    (unavailabilityReasonCode !== 'other' || unavailabilityReasonNote.trim().length >= 3),
+  );
   const diagnoses = useMemo(() => getSuggestedDiagnoses(session), [session]);
   const unackedAlerts = session.safetyAlerts.filter(a => !a.acknowledged);
 
@@ -596,9 +673,13 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   const handleCompleteIntervention = (id: string) => {
     const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
     const threat = session.threats.find((t) => t.interventions.some((i) => i.id === id));
+    if (intervention?.dose && intervention.status === 'pending' && session.doseReviewRequired) {
+      toast.error('Review the displayed dose for the current patient weight and age before starting this medication action.');
+      return;
+    }
     setSession(prev => {
       const withUndo = pushToUndoStack(prev, `Complete: ${intervention?.action ?? id}`);
-      return completeIntervention(withUndo, id);
+      return completeIntervention(withUndo, id, actorId ?? undefined);
     });
     if (intervention) {
       trackButtonClick('Log Intervention', { interventionName: intervention.action });
@@ -628,6 +709,10 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   const handleStartIntervention = (id: string) => {
     const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
     if (!intervention) return;
+    if (intervention.dose && session.doseReviewRequired) {
+      toast.error('Review the displayed dose for the current patient weight and age before starting this medication action.');
+      return;
+    }
 
     // Check for medication duplicates
     const duplicate = checkMedicationDuplicate(intervention, session, {
@@ -641,26 +726,68 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     // No duplicate, proceed with intervention
     setSession(prev => {
       const withUndo = pushToUndoStack(prev, `Start: ${intervention.action}`);
-      return startIntervention(withUndo, id);
+      return startIntervention(withUndo, id, actorId ?? undefined);
     });
     analytics.trackInterventionStarted(intervention.action);
     
   };
 
   const handleMarkInterventionUnavailable = (id: string) => {
-    const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
-    if (!intervention) return;
-    setSession(prev => {
-      const withUndo = pushToUndoStack(prev, `Unavailable: ${intervention.action}`);
-      return markInterventionUnavailable(withUndo, id);
+    const intervention = session.threats.flatMap((threat) => threat.interventions).find((item) => item.id === id);
+    if (!intervention || intervention.status !== 'pending') {
+      toast.error('Only a not-yet-started action can be recorded as unavailable.');
+      return;
+    }
+    setUnavailabilityKind('');
+    setUnavailabilityReasonCode('');
+    setUnavailabilityReasonNote('');
+    setUnavailabilityAlternative('');
+    setUnavailabilityEscalationStatus('');
+    setUnavailabilityEscalationConfirmed(false);
+    setPendingUnavailableId(id);
+  };
+  const handleConfirmUnavailableDisposition = () => {
+    if (!pendingUnavailableId || !unavailabilityKind || !unavailabilityReasonCode || !unavailabilityEscalationStatus || !unavailabilityEscalationConfirmed) {
+      toast.error('Choose the reason and disposition, record local escalation status, and confirm the local escalation step.');
+      return;
+    }
+    if (unavailabilityKind === 'alternative_used' && unavailabilityAlternative.trim().length < 3) {
+      toast.error('Describe the alternative used before continuing.');
+      return;
+    }
+    if (unavailabilityKind === 'no_alternative_escalated' && unavailabilityReasonNote.trim().length < 8) {
+      toast.error('Record why no alternative was available before continuing.');
+      return;
+    }
+    if (unavailabilityReasonCode === 'other' && unavailabilityReasonNote.trim().length < 3) {
+      toast.error('Describe the other resource-availability reason.');
+      return;
+    }
+    const intervention = session.threats.flatMap((threat) => threat.interventions).find((item) => item.id === pendingUnavailableId);
+    if (!intervention || intervention.status !== 'pending') {
+      setPendingUnavailableId(null);
+      toast.error('This action has changed; refresh the case state before recording an unavailability disposition.');
+      return;
+    }
+    const dispositionKind = unavailabilityKind;
+    const reasonCode = unavailabilityReasonCode;
+    const escalationStatus = unavailabilityEscalationStatus;
+    setSession((previous) => {
+      const withUndo = pushToUndoStack(previous, `Unavailable: ${intervention.action}`);
+      const unavailable = markInterventionUnavailable(withUndo, pendingUnavailableId);
+      return recordUnavailableDisposition(unavailable, pendingUnavailableId, {
+        kind: dispositionKind,
+        reasonCode,
+        reasonNote: unavailabilityReasonNote,
+        alternativeUsed: dispositionKind === 'alternative_used' ? unavailabilityAlternative : undefined,
+        escalationStatus,
+        escalationAcknowledged: true,
+      });
     });
     void analytics.trackResourceUnavailable(intervention.action);
-    toast.warning(
-      `⚠ Resource gap logged: "${intervention.action}" not available at this facility. Captured for Care Signal.`,
-      { duration: 5000 }
-    );
+    toast.warning(`Resource gap documented for "${intervention.action}". The active threat remains visible until resolved.`, { duration: 6000 });
+    setPendingUnavailableId(null);
   };
-
   const handleConfirmDuplicateOverride = () => {
     if (!duplicateCheck) return;
     const intervention = session.threats
@@ -670,9 +797,14 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       setDuplicateCheck(null);
       return;
     }
+    if (intervention.dose && session.doseReviewRequired) {
+      toast.error('Review the displayed dose for the current patient weight and age before starting this medication action.');
+      setDuplicateCheck(null);
+      return;
+    }
     setSession(prev => {
       const withUndo = pushToUndoStack(prev, `Override duplicate: ${intervention.action}`);
-      return startIntervention(withUndo, duplicateCheck.interventionId);
+      return startIntervention(withUndo, duplicateCheck.interventionId, actorId ?? undefined);
     });
     analytics.trackInterventionStarted(intervention.action);
     toast.warning('Repeat dose logged — verify clinical decision');
@@ -839,6 +971,11 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     setSession(prev => acknowledgeSafetyAlert(prev, alertId));
   };
 
+  const handleAcknowledgeDoseReview = () => {
+    setSession((previous) => acknowledgeDoseReview(previous, actorId ?? undefined));
+    toast.success('Dose review recorded.');
+  };
+
   const invalidateFellowshipProgress = useCallback(() => {
     void utils.fellowship.getProgress.invalidate();
     void utils.fellowship.getResusGPSCaseLog.invalidate();
@@ -860,6 +997,18 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   });
 
   useEffect(() => {
+    setPendingResusEventCount(0);
+    if (actorId == null || sessionOwnerId !== actorId) return;
+    let cancelled = false;
+    void countPendingResusEvents(actorId)
+      .then((count) => { if (!cancelled) setPendingResusEventCount(count); })
+      .catch(() => {
+        if (!cancelled) setOutboxSyncError('The local clinical event outbox count could not be read. Do not assume queued events are synced.');
+      });
+    return () => { cancelled = true; };
+  }, [actorId, sessionOwnerId]);
+
+  useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
@@ -871,13 +1020,16 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   }, []);
 
   const flushResusEventOutbox = useCallback(async () => {
-    if (!isOnline || resusEventFlushInFlightRef.current) return;
+    if (!isOnline || actorId == null || sessionOwnerId !== actorId || resusEventFlushInFlightRef.current) return;
     resusEventFlushInFlightRef.current = true;
+    let syncError: string | null = null;
     try {
-      const pending = await listPendingResusEvents(100);
-      setPendingResusEventCount(pending.length);
+      const pending = await listPendingResusEvents(actorId, 100);
+      setPendingResusEventCount(await countPendingResusEvents(actorId));
       for (const event of pending) {
-        await markResusEventSending(event.localEventId);
+        if (event.nextAttemptAt != null && event.nextAttemptAt > Date.now()) continue;
+        const claimed = await markResusEventSending(event.localEventId, actorId);
+        if (!claimed) continue;
         try {
           await resusEventMutation.mutateAsync({
             localEventId: event.localEventId,
@@ -889,21 +1041,26 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
             eventData: event.data,
             eventTimestamp: event.eventTimestamp,
           });
-          await removeResusEvent(event.localEventId);
+          await removeResusEvent(event.localEventId, actorId);
         } catch (error) {
-          await markResusEventFailed(event.localEventId, error instanceof Error ? error.message : 'Event sync failed');
-          break;
+          await markResusEventFailed(event.localEventId, actorId, error instanceof Error ? error.message : 'Event sync failed');
+          syncError = 'Clinical events remain on this device and are not yet confirmed by the server.';
+          if (!isPermanentResusEventRejection(error)) break;
         }
       }
-      const remaining = await listPendingResusEvents(100);
-      setPendingResusEventCount(remaining.length);
+      const remainingCount = await countPendingResusEvents(actorId);
+      setPendingResusEventCount(remainingCount);
+      if (remainingCount === 0) setOutboxSyncError(null);
+      else if (syncError) setOutboxSyncError(syncError);
+    } catch {
+      setOutboxSyncError('The local clinical event outbox could not be read or updated. Do not assume queued events are synced.');
     } finally {
       resusEventFlushInFlightRef.current = false;
     }
-  }, [isOnline, resusEventMutation]);
+  }, [actorId, isOnline, resusEventMutation, sessionOwnerId]);
 
   useEffect(() => {
-    if (session.phase === 'IDLE') return;
+    if (session.phase === 'IDLE' || actorId == null || sessionOwnerId !== actorId) return;
     const newEvents = session.events.filter((event): event is ClinicalEvent & { id: string } => {
       if (typeof event.id !== 'string' || event.id.length === 0) return false;
       return !queuedResusEventIdsRef.current.has(event.id);
@@ -913,6 +1070,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       void enqueueResusEvent({
         localEventId: event.id,
         sessionId: session.id,
+        actorId,
         activationEventId,
         eventType: event.type,
         eventTimestamp: event.timestamp,
@@ -925,9 +1083,11 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
         void flushResusEventOutbox();
       }).catch(() => {
         queuedResusEventIdsRef.current.delete(event.id);
+        setOutboxSyncError('A clinical event could not be saved to the local outbox. It has not been confirmed by the server; keep the case open and use the approved downtime record.');
+        window.setTimeout(() => setOutboxEnqueueRetryEpoch((value) => value + 1), 5_000);
       });
     }
-  }, [activationEventId, flushResusEventOutbox, session.events, session.id, session.phase]);
+  }, [actorId, activationEventId, flushResusEventOutbox, outboxEnqueueRetryEpoch, session.events, session.id, session.phase, sessionOwnerId]);
 
   useEffect(() => {
     void flushResusEventOutbox();
@@ -1105,14 +1265,19 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     [fellowshipSavedSessionId, session, timer.elapsed, protocolsUsed, enrichSessionForFellowshipCredit]
   );
 
-  const handleBolusReassessNow = useCallback((interventionId: string) => {
-    setPendingReassessmentId(interventionId);
-    setReassessmentMode({ interventionId, checkIndex: 0 });
-    setInterventionPanelOpen(true);
+  const handleTimerReassessNow = useCallback((interventionId: string) => {
     const threat = session.threats.find((t) =>
       t.interventions.some((i) => i.id === interventionId)
     );
     if (threat) setExpandedThreat(threat.id);
+    setInterventionPanelOpen(true);
+    const intervention = threat?.interventions.find((item) => item.id === interventionId);
+    if (intervention?.reassessmentChecks?.length) {
+      setPendingReassessmentId(interventionId);
+      setReassessmentMode({ interventionId, checkIndex: 0 });
+    } else {
+      toast.info('Reassessment reminder due. Review the patient and document findings; the timer does not choose treatment or repeat a dose.');
+    }
   }, [session.threats]);
 
   const handleStartDefinitiveCare = useCallback(() => {
@@ -1303,7 +1468,9 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   }, [session, timer.elapsed, trackButtonClick, analytics]);
 
   const handleNewCase = () => {
-    clearPersistedResusSession();
+    if (actorId != null) {
+      void clearPersistedResusSession(actorId).catch(() => setSessionStorageError('The previous local case could not be cleared.'));
+    }
     // Optionally record the previous session before starting new one
     // (only if it had significant activity)
     if (session.events.length > 5) {
@@ -1376,6 +1543,14 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   const requestCardiacArrest = useCallback(() => setPendingConfirmation('cardiac_arrest'), []);
   const requestNewCase = useCallback(() => setPendingConfirmation('new_case'), []);
 
+  if (sessionSettled && sessionOwnerId !== actorId) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6" role="status">
+        <p className="max-w-md text-center text-sm text-muted-foreground">Loading this provider's private case workspace. Previous account data is not available in this session.</p>
+      </div>
+    );
+  }
+
   // ── Resume dialog ──────────────────────────────────────────────────────────
   if (resumeCandidate) {
     return (
@@ -1410,7 +1585,9 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
                 variant="outline"
                 className="flex-1"
                 onClick={() => {
-                  clearPersistedResusSession();
+                  if (actorId != null) {
+                    void clearPersistedResusSession(actorId).catch(() => setSessionStorageError('The previous local case could not be cleared.'));
+                  }
                   setResumeCandidate(null);
                 }}
               >
@@ -1428,6 +1605,57 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   return (
     <div className="min-h-screen bg-background text-foreground">
       <ClinicalUseDisclaimer />
+      {sessionStorageError && (
+        <div role="alert" className="border-2 border-red-600 bg-red-950 text-white px-4 py-3 text-sm font-semibold">
+          <AlertTriangle className="inline h-4 w-4 mr-2" />{sessionStorageError}
+        </div>
+      )}
+      {sessionRestoreNotice && (
+        <div role="alert" className="border border-amber-500 bg-amber-950/30 text-amber-100 px-4 py-3 text-sm">
+          <AlertTriangle className="inline h-4 w-4 mr-2" />{sessionRestoreNotice}
+        </div>
+      )}
+      {unownedResusRecordCount > 0 && (
+        <div role="alert" className="border-2 border-red-600 bg-red-950 text-white px-4 py-3 text-sm">
+          {unownedResusRecordCount} legacy local clinical record{unownedResusRecordCount === 1 ? '' : 's'} has no verified account owner. It remains quarantined and was not shown or sent under this account. Preserve this device and resolve ownership through the site's data-governance process.
+        </div>
+      )}
+      {pendingResusEventCount > 0 && (
+        <div role="status" className="border border-amber-500 bg-amber-950/30 text-amber-100 px-4 py-3 text-sm">
+          {pendingResusEventCount} clinical event{pendingResusEventCount === 1 ? '' : 's'} remain on this device and are not yet confirmed by the server. Keep the case open or use the approved downtime record; automatic retry is account-bound.
+        </div>
+      )}
+      {outboxSyncError && (
+        <div role="alert" className="border-2 border-red-600 bg-red-950 text-white px-4 py-3 text-sm">
+          {outboxSyncError}
+        </div>
+      )}
+      {session.phase !== 'IDLE' && session.doseReviewRequired && (
+        <div role="alert" className="border-2 border-amber-500 bg-amber-950/40 text-amber-100 px-4 py-3 text-sm">
+          <p className="font-bold">Dose review required before starting another dose action.</p>
+          <p className="mt-1">Review the current patient weight/age and all displayed dose values. Existing actions with no captured dose snapshot must be checked against the medication record before acknowledgement.</p>
+          <Button className="mt-2" size="sm" variant="outline" onClick={handleAcknowledgeDoseReview}>
+            I reviewed the dose display and prior medication record
+          </Button>
+        </div>
+      )}
+      {unresolvedUnavailableInterventions.length > 0 && (
+        <div role="alert" className="border-2 border-red-600 bg-red-950 text-white px-4 py-3 text-sm">
+          <p className="font-bold">Unresolved critical/urgent resource gap — the active threat remains open.</p>
+          <ul className="mt-1 list-disc pl-5 space-y-1">
+            {unresolvedUnavailableInterventions.map(({ threat, intervention }) => (
+              <li key={`${threat.id}:${intervention.id}`}>
+                {threat.name}: {intervention.action}. {intervention.unavailabilityDisposition?.kind === 'alternative_used'
+                  ? `Alternative recorded: ${intervention.unavailabilityDisposition.alternativeUsed}.`
+                  : intervention.unavailabilityDisposition?.kind === 'no_alternative_escalated'
+                    ? 'No alternative recorded; escalation status documented.'
+                    : 'Required disposition and escalation status are not recorded.'}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1">Continue local escalation and reassess the threat. A timer is a reminder only, not a treatment instruction.</p>
+        </div>
+      )}
       {/* Recording indicator */}
       {recordSessionMutation.isPending && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-blue-500/20 border-b border-blue-500/50 px-4 py-2 animate-pulse">
@@ -1709,8 +1937,13 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
             </SheetDescription>
           </SheetHeader>
 
-          {/* Medication countdown timers for in-progress interventions */}
-          <MedicationTimerStrip threats={session.threats} onReassessNow={handleBolusReassessNow} />
+          {/* Persisted medication deadlines; the timer does not infer a duration from action text. */}
+          <MedicationTimerStrip
+            threats={session.threats}
+            activeTimers={session.activeTimers ?? []}
+            reassessmentRequiredIds={reassessmentRequiredIds}
+            onReassessNow={handleTimerReassessNow}
+          />
 
           <div className="space-y-4 mt-4">
             {threatGroups.map((group) => (
@@ -1827,6 +2060,95 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
             >
               <CheckCircle2 className="h-4 w-4" />
               Save Weight & Age
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={pendingUnavailableId !== null} onOpenChange={(open) => { if (!open) setPendingUnavailableId(null); }}>
+        <DialogContent className="bg-background border-border max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Document unavailable resource</DialogTitle>
+            <DialogDescription>
+              This action remains blocking until a disposition and local escalation status are recorded. ResusGPS does not contact staff, define local escalation contacts, or validate an alternative's clinical suitability.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <label className="block text-sm font-medium" htmlFor="unavailable-reason">Why is it unavailable?</label>
+            <select
+              id="unavailable-reason"
+              value={unavailabilityReasonCode}
+              onChange={(event) => setUnavailabilityReasonCode(event.target.value as UnavailabilityReasonCode)}
+              className="min-h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+            >
+              <option value="">Select a reason</option>
+              <option value="not_stocked">Not stocked</option>
+              <option value="not_functioning">Not functioning</option>
+              <option value="not_accessible">Not accessible</option>
+              <option value="other">Other</option>
+            </select>
+
+            <label className="block text-sm font-medium" htmlFor="unavailable-disposition">What happened next?</label>
+            <select
+              id="unavailable-disposition"
+              value={unavailabilityKind}
+              onChange={(event) => setUnavailabilityKind(event.target.value as UnavailabilityDispositionKind)}
+              className="min-h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+            >
+              <option value="">Choose what happened next</option>
+              <option value="alternative_used">A clinician-selected alternative was used</option>
+              <option value="no_alternative_escalated">No alternative was identified; document local escalation status below</option>
+            </select>
+            {unavailabilityKind === 'alternative_used' ? (
+              <Input
+                value={unavailabilityAlternative}
+                onChange={(event) => setUnavailabilityAlternative(event.target.value)}
+                aria-label="Describe the alternative used"
+                placeholder="Describe the locally selected alternative"
+              />
+            ) : null}
+            {(unavailabilityKind === 'no_alternative_escalated' || unavailabilityReasonCode === 'other') && (
+              <textarea
+                value={unavailabilityReasonNote}
+                onChange={(event) => setUnavailabilityReasonNote(event.target.value)}
+                aria-label="Explain why no alternative was available or the other resource reason"
+                placeholder="Briefly document the reason"
+                rows={3}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+            )}
+            <label className="block text-sm font-medium" htmlFor="unavailable-escalation">Local escalation status</label>
+            <select
+              id="unavailable-escalation"
+              value={unavailabilityEscalationStatus}
+              onChange={(event) => setUnavailabilityEscalationStatus(event.target.value as typeof unavailabilityEscalationStatus)}
+              className="min-h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+            >
+              <option value="">Select status</option>
+              <option value="local_process_completed">Local escalation process completed</option>
+              <option value="local_process_attempted">Local escalation process attempted</option>
+              <option value="not_completed">Local escalation not completed</option>
+            </select>
+            {unavailabilityEscalationStatus !== 'local_process_completed' ? (
+              <p role="alert" className="text-sm text-destructive">
+                If this is an active critical or urgent threat, an attempted or incomplete local process keeps the primary-survey return gate closed. Only recording a completed local process clears it. No contact lookup or alert is available here.
+              </p>
+            ) : null}
+            <label className="flex items-start gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={unavailabilityEscalationConfirmed}
+                onChange={(event) => setUnavailabilityEscalationConfirmed(event.target.checked)}
+                className="mt-0.5"
+              />
+              <span>I confirm this entry reflects what happened. This does not identify a contact, send an alert, or replace the site's local process.</span>
+            </label>
+            <p className="text-[11px] text-muted-foreground">Do not enter patient names or identifiers in free text. This resource gap stays visible until the associated threat is resolved.</p>
+          </div>
+          <DialogFooter className="gap-2 mt-4">
+            <Button variant="outline" onClick={() => setPendingUnavailableId(null)}>Cancel</Button>
+            <Button onClick={handleConfirmUnavailableDisposition} disabled={!canRecordUnavailableDisposition}>
+              Record disposition
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2006,7 +2328,12 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       {session.phase !== 'IDLE' && (
         <div className="fixed bottom-16 left-0 right-0 z-40 px-2 pointer-events-none">
           <div className="max-w-lg mx-auto pointer-events-auto shadow-lg rounded-lg overflow-hidden border border-border">
-            <MedicationTimerStrip threats={session.threats} onReassessNow={handleBolusReassessNow} />
+            <MedicationTimerStrip
+              threats={session.threats}
+              activeTimers={session.activeTimers ?? []}
+              reassessmentRequiredIds={reassessmentRequiredIds}
+              onReassessNow={handleTimerReassessNow}
+            />
           </div>
         </div>
       )}
@@ -3018,16 +3345,21 @@ function InterventionScreen({
                   {intervention.dose && (
                     <div className="mt-2 bg-primary/10 rounded p-2">
                       <p className="text-sm font-medium text-primary">
-                        {calcDose(intervention.dose, weight)}
+                        {intervention.doseSnapshot?.calculatedDisplay ?? calcDose(intervention.dose, weight)}
                       </p>
+                      {intervention.doseSnapshot && (
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Dose context captured at {new Date(intervention.doseSnapshot.confirmedAt).toLocaleTimeString()}: {intervention.doseSnapshot.patientWeightKg == null ? 'weight unavailable' : `${intervention.doseSnapshot.patientWeightKg} kg`} ({intervention.doseSnapshot.patientWeightSource ?? 'source not recorded'}).{intervention.status === 'in_progress' ? ' Re-check before administration if patient context changed.' : ''}
+                        </p>
+                      )}
                       {intervention.dose.preparation && (
                         <p className="text-xs text-muted-foreground mt-1">{intervention.dose.preparation}</p>
                       )}
                       <InterventionDoseRationale
                         action={intervention.action}
                         dose={intervention.dose}
-                        weight={weight}
-                        patientAge={patientAge}
+                        weight={intervention.doseSnapshot?.patientWeightKg ?? weight}
+                        patientAge={intervention.doseSnapshot?.patientAge ?? patientAge}
                         className="mt-2 pt-2 border-t border-primary/20"
                       />
                     </div>
@@ -4015,7 +4347,12 @@ function ThreatCard({
                   <div className="flex-1">
                     <p className="text-xs font-medium text-foreground">{intervention.action}</p>
                     {intervention.dose && (
-                      <p className="text-xs text-primary mt-0.5">{calcDose(intervention.dose, weight)}</p>
+                      <p className="text-xs text-primary mt-0.5">{intervention.doseSnapshot?.calculatedDisplay ?? calcDose(intervention.dose, weight)}</p>
+                    )}
+                    {intervention.doseSnapshot && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Dose context captured at {new Date(intervention.doseSnapshot.confirmedAt).toLocaleTimeString()}: {intervention.doseSnapshot.patientWeightKg == null ? 'weight unavailable' : `${intervention.doseSnapshot.patientWeightKg} kg`} ({intervention.doseSnapshot.patientWeightSource ?? 'source not recorded'}).{intervention.status === 'in_progress' ? ' Re-check before administration if patient context changed.' : ''}
+                      </p>
                     )}
                     {intervention.dose?.preparation && (
                       <p className="text-[10px] text-muted-foreground mt-0.5">{intervention.dose.preparation}</p>
@@ -4028,8 +4365,8 @@ function ThreatCard({
                       <InterventionDoseRationale
                         action={intervention.action}
                         dose={intervention.dose}
-                        weight={weight}
-                        patientAge={session.patientAge}
+                        weight={intervention.doseSnapshot?.patientWeightKg ?? weight}
+                        patientAge={intervention.doseSnapshot?.patientAge ?? session.patientAge}
                       />
                     )}
 
@@ -4142,18 +4479,24 @@ function ReassessmentFlow({
   const handleOption = (option: (typeof check.options)[0]) => {
     const next = JSON.parse(JSON.stringify(session)) as ResusSession;
     next.events.push({
+      id: globalThis.crypto?.randomUUID?.() ?? `reassess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       timestamp: Date.now(),
       type: 'reassessment',
       detail: `Reassessment (${doseRationaleDrug}): ${check.question} -> ${option.label}`,
-      data: { interventionId },
+      data: { interventionId, checkIndex: currentIndex, outcome: option.label, action: option.action },
     });
 
     if (option.recommendation) {
       next.events.push({
+        id: globalThis.crypto?.randomUUID?.() ?? `reassess-note-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         timestamp: Date.now(),
         type: 'note',
         detail: `Recommendation: ${option.recommendation}`,
       });
+    }
+
+    if (option.action === 'resolved' || option.action === 'stop' || currentIndex >= checks.length - 1) {
+      next.activeTimers = (next.activeTimers ?? []).filter((timer) => timer.interventionId !== interventionId);
     }
 
     setSession(next);

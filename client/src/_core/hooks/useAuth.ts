@@ -1,11 +1,14 @@
 import { getLoginUrl } from "@/const";
+import { clearOfflineSnapshotsForActor } from "@/lib/offline/platformOfflineStore";
 import {
   clearAuthSessionCache,
   readCachedAuthMe,
   writeAuthMeCache,
 } from "@/lib/auth-session-cache";
 import { trpc } from "@/lib/trpc";
+import { getQueryKey } from "@trpc/react-query";
 import { TRPCClientError } from "@trpc/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
 
 type UseAuthOptions = {
@@ -17,6 +20,7 @@ export function useAuth(options?: UseAuthOptions) {
   const { redirectOnUnauthenticated = false, redirectPath = getLoginUrl() } =
     options ?? {};
   const utils = trpc.useUtils();
+  const queryClient = useQueryClient();
 
   const cachedMe = useMemo(() => readCachedAuthMe(), []);
 
@@ -29,14 +33,10 @@ export function useAuth(options?: UseAuthOptions) {
     gcTime: 1000 * 60 * 30,
   });
 
-  const logoutMutation = trpc.auth.logout.useMutation({
-    onSuccess: () => {
-      utils.auth.me.setData(undefined, null);
-      clearAuthSessionCache();
-    },
-  });
+  const logoutMutation = trpc.auth.logout.useMutation();
 
   const logout = useCallback(async () => {
+    const actorId = meQuery.data?.id ?? cachedMe?.id;
     try {
       await logoutMutation.mutateAsync();
     } catch (error: unknown) {
@@ -48,11 +48,24 @@ export function useAuth(options?: UseAuthOptions) {
       }
       throw error;
     } finally {
+      const authMePath = JSON.stringify(getQueryKey(trpc.auth.me)[0]);
+      queryClient.removeQueries({
+        predicate: (query) => JSON.stringify(query.queryKey[0]) !== authMePath,
+      });
       utils.auth.me.setData(undefined, null);
       clearAuthSessionCache();
+      if (actorId != null) {
+        await clearOfflineSnapshotsForActor(actorId).catch((error: unknown) => {
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("platform-offline-storage-error", {
+              detail: { message: error instanceof Error ? error.message : "Cached account data could not be cleared." },
+            }));
+          }
+        });
+      }
       await utils.auth.me.invalidate();
     }
-  }, [logoutMutation, utils]);
+  }, [cachedMe?.id, logoutMutation, meQuery.data?.id, queryClient, utils]);
 
   const hasCachedSession = cachedMe !== undefined;
   const sessionSettled = meQuery.isFetchedAfterMount;

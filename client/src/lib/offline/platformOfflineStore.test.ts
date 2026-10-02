@@ -1,15 +1,18 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   clearOfflineDataForActor,
+  clearOfflineSnapshotsForActor,
   enqueueOfflineCommand,
   getOfflineSnapshot,
   getOfflineCommand,
   getOfflineSnapshotFreshness,
   getOfflineSyncCounts,
   listOfflineReviewCommands,
+  listOfflineSnapshots,
   listOfflineCommands,
   pruneOfflineData,
   offlineStoreKeys,
+  removeOfflineCommand,
   saveOfflineSnapshot,
   updateOfflineCommand,
 } from "./platformOfflineStore";
@@ -19,6 +22,12 @@ describe("platform offline store", () => {
 
   beforeEach(async () => {
     await clearOfflineDataForActor(990000);
+    await clearOfflineDataForActor(990002);
+  });
+
+  afterEach(async () => {
+    await clearOfflineDataForActor(990000);
+    await clearOfflineDataForActor(990002);
   });
 
   it("rejects a snapshot without an authenticated actor", async () => {
@@ -44,8 +53,8 @@ describe("platform offline store", () => {
     })).rejects.toThrow("institution scope");
   });
 
-  it("stores a versioned snapshot for offline read-only access", async () => {
-    const key = offlineStoreKeys.module(990001, `test-${testSuffix}`);
+  it("stores snapshots for the owner and returns no data to another actor", async () => {
+    const key = offlineStoreKeys.module(990001, `test-${testSuffix}`, 990000);
     await saveOfflineSnapshot({
       key,
       kind: "course_package",
@@ -57,10 +66,12 @@ describe("platform offline store", () => {
       lastServerSyncAt: Date.now(),
     });
 
-    const snapshot = await getOfflineSnapshot<{ title: string; sections: string[] }>(key);
+    const snapshot = await getOfflineSnapshot<{ title: string; sections: string[] }>(key, 990000);
     expect(snapshot?.version).toBe(`test-${testSuffix}`);
     expect(snapshot?.payload.title).toBe("Synthetic BLS module");
     expect(snapshot?.payload.sections).toEqual(["Airway"]);
+    expect(await getOfflineSnapshot(key, 990002)).toBeNull();
+    expect(await listOfflineSnapshots("course_package", 990002)).toHaveLength(0);
   });
 
   it("classifies snapshots as fresh, stale, or expired", () => {
@@ -80,7 +91,7 @@ describe("platform offline store", () => {
     expect(getOfflineSnapshotFreshness(snapshot, savedAt + 300_000)).toBe("expired");
   });
 
-  it("queues commands with stable local IDs and exposes pending state", async () => {
+  it("queues commands with stable local IDs and exposes owner-only pending state", async () => {
     const localEventId = `test-command-${testSuffix}`;
     await enqueueOfflineCommand({
       localEventId,
@@ -94,13 +105,15 @@ describe("platform offline store", () => {
       clientCreatedAt: Date.now(),
     });
 
-    const pending = await listOfflineCommands(1000);
+    const pending = await listOfflineCommands(990000, 1000);
     const row = pending.find((command) => command.localEventId === localEventId);
     expect(row?.status).toBe("queued");
     expect(row?.attempts).toBe(0);
+    expect((await listOfflineCommands(990002, 1000)).some((command) => command.localEventId === localEventId)).toBe(false);
 
-    const counts = await getOfflineSyncCounts();
+    const counts = await getOfflineSyncCounts(990000);
     expect(counts.queued).toBeGreaterThanOrEqual(1);
+    expect((await getOfflineSyncCounts(990002)).queued).toBe(0);
   });
 
   it("retains a conflict for operator review instead of silently resolving it", async () => {
@@ -117,17 +130,37 @@ describe("platform offline store", () => {
       clientCreatedAt: Date.now(),
     });
 
-    await updateOfflineCommand(localEventId, {
+    await updateOfflineCommand(localEventId, 990000, {
       status: "requires_review",
       lastError: "The server assignment changed while this device was offline.",
     });
 
-    const counts = await getOfflineSyncCounts();
+    const counts = await getOfflineSyncCounts(990000);
     expect(counts.requiresReview).toBeGreaterThanOrEqual(1);
-    const review = await listOfflineReviewCommands(1000);
+    const review = await listOfflineReviewCommands(990000, 1000);
     expect(review.some((command) => command.localEventId === localEventId)).toBe(true);
-    const pending = await listOfflineCommands(1000);
+    const pending = await listOfflineCommands(990000, 1000);
     expect(pending.some((command) => command.localEventId === localEventId)).toBe(false);
+  });
+
+  it("rejects cross-account update and delete attempts", async () => {
+    const localEventId = `owner-check-${testSuffix}`;
+    await enqueueOfflineCommand({
+      localEventId,
+      aggregateType: "course_progress",
+      aggregateId: "course-owner-check",
+      actorId: 990000,
+      actionType: "bookmark",
+      payload: {},
+      clientCreatedAt: Date.now(),
+    });
+
+    await expect(updateOfflineCommand(localEventId, 990002, { status: "acknowledged" }))
+      .rejects.toThrow("another provider account");
+    await expect(removeOfflineCommand(localEventId, 990002))
+      .rejects.toThrow("another provider account");
+    expect((await getOfflineCommand(localEventId, 990000))?.status).toBe("queued");
+    expect(await getOfflineCommand(localEventId, 990002)).toBeNull();
   });
 
   it("prunes expired snapshots and old acknowledged commands", async () => {
@@ -152,11 +185,11 @@ describe("platform offline store", () => {
       payload: {},
       clientCreatedAt: 1_000,
     });
-    await updateOfflineCommand(acknowledgedId, { status: "acknowledged" });
+    await updateOfflineCommand(acknowledgedId, 990000, { status: "acknowledged" });
     const removed = await pruneOfflineData(Date.now() + 31 * 24 * 60 * 60 * 1000);
     expect(removed).toBeGreaterThanOrEqual(2);
-    expect(await getOfflineSnapshot(expiredKey)).toBeNull();
-    expect(await getOfflineCommand(acknowledgedId)).toBeNull();
+    expect(await getOfflineSnapshot(expiredKey, 990000)).toBeNull();
+    expect(await getOfflineCommand(acknowledgedId, 990000)).toBeNull();
   });
 
   it("clears only the selected actor's local records", async () => {
@@ -182,8 +215,34 @@ describe("platform offline store", () => {
     });
 
     await clearOfflineDataForActor(990000);
-    const pending = await listOfflineCommands(1000);
-    expect(pending.some((command) => command.localEventId === clearedId)).toBe(false);
-    expect(pending.some((command) => command.localEventId === retainedId)).toBe(true);
+    expect(await getOfflineCommand(clearedId, 990000)).toBeNull();
+    expect((await getOfflineCommand(retainedId, 990002))?.actorId).toBe(990002);
+  });
+
+  it("clears cached snapshots at logout but preserves unacknowledged owner-bound commands", async () => {
+    const key = `logout-snapshot-${testSuffix}`;
+    const commandId = `logout-command-${testSuffix}`;
+    await saveOfflineSnapshot({
+      key,
+      kind: "course_module",
+      aggregateId: "logout-module",
+      actorId: 990000,
+      version: "v1",
+      payload: { private: "synthetic" },
+      savedAt: Date.now(),
+    });
+    await enqueueOfflineCommand({
+      localEventId: commandId,
+      aggregateType: "course_progress",
+      aggregateId: "logout-course",
+      actorId: 990000,
+      actionType: "bookmark",
+      payload: { sectionId: "synthetic" },
+      clientCreatedAt: Date.now(),
+    });
+
+    await clearOfflineSnapshotsForActor(990000);
+    expect(await getOfflineSnapshot(key, 990000)).toBeNull();
+    expect(await getOfflineCommand(commandId, 990000)).not.toBeNull();
   });
 });

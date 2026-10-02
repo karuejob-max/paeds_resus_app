@@ -292,7 +292,7 @@ export default function MicroCoursePlayerDB() {
 
   useEffect(() => {
     if (remoteCourseDetails || !courseAggregateId || !user?.id) return;
-    void listOfflineSnapshots("course_package").then((rows) => {
+    void listOfflineSnapshots("course_package", user.id).then((rows) => {
       const match = rows.find((row) => row.aggregateId === courseAggregateId && row.actorId === user.id && getOfflineSnapshotFreshness(row) !== "expired");
       if (match) {
         setOfflineCourseDetails(match.payload);
@@ -341,7 +341,7 @@ export default function MicroCoursePlayerDB() {
 
   useEffect(() => {
     if (remoteModuleContent || !currentModuleId || !user?.id) return;
-    void listOfflineSnapshots("course_module").then((rows) => {
+    void listOfflineSnapshots("course_module", user.id).then((rows) => {
       const match = rows.find((row) => row.aggregateId === String(currentModuleId) && row.actorId === user.id && getOfflineSnapshotFreshness(row) !== "expired");
       if (match) {
         setOfflineModuleContent(match.payload);
@@ -369,7 +369,7 @@ export default function MicroCoursePlayerDB() {
 
   useEffect(() => {
     if (remoteFirstModuleContent || !firstModuleId || !user?.id) return;
-    void listOfflineSnapshots("course_module").then((rows) => {
+    void listOfflineSnapshots("course_module", user.id).then((rows) => {
       const match = rows.find((row) => row.aggregateId === String(firstModuleId) && row.actorId === user.id && getOfflineSnapshotFreshness(row) !== "expired");
       if (match) setOfflineFirstModuleContent(match.payload);
     });

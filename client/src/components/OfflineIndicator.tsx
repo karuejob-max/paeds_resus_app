@@ -5,10 +5,11 @@
  * Provides visual feedback for offline capability.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { WifiOff, Wifi, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getOfflineSyncCounts, listOfflineSnapshots } from '@/lib/offline/platformOfflineStore';
+import { useAuth } from '@/_core/hooks/useAuth';
+import { countUnownedOfflineCommands, getOfflineSyncCounts, listOfflineSnapshots } from '@/lib/offline/platformOfflineStore';
 
 interface OfflineIndicatorProps {
   onInstallClick?: () => void;
@@ -16,9 +17,13 @@ interface OfflineIndicatorProps {
 }
 
 export function OfflineIndicator({ onInstallClick, showInstallButton = false }: OfflineIndicatorProps) {
+  const { user } = useAuth();
+  const actorId = user?.id ?? null;
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [cachedProtocolsCount, setCachedProtocolsCount] = useState(0);
   const [pendingMutations, setPendingMutations] = useState(0);
+  const [unownedCommandCount, setUnownedCommandCount] = useState(0);
+  const [storageError, setStorageError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
@@ -35,31 +40,46 @@ export function OfflineIndicator({ onInstallClick, showInstallButton = false }: 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    void listOfflineSnapshots('course_module').then((snapshots) => {
-      setCachedProtocolsCount(snapshots.length);
-    });
+    if (actorId != null) {
+      void listOfflineSnapshots('course_module', actorId).then((snapshots) => setCachedProtocolsCount(snapshots.length));
+    } else setCachedProtocolsCount(0);
+    void countUnownedOfflineCommands().then(setUnownedCommandCount);
+    const onStorageError = (event: Event) => {
+      const detail = (event as CustomEvent<{ message?: string }>).detail;
+      setStorageError(detail?.message ?? 'Offline storage is unavailable on this device.');
+    };
+    window.addEventListener('platform-offline-storage-error', onStorageError);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('platform-offline-storage-error', onStorageError);
     };
-  }, []);
+  }, [actorId]);
 
-  const refreshStatus = async () => {
+  const refreshStatus = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const [counts, snapshots] = await Promise.all([
-        getOfflineSyncCounts(),
-        listOfflineSnapshots('course_module'),
+      if (actorId == null) {
+        setPendingMutations(0);
+        setCachedProtocolsCount(0);
+        setUnownedCommandCount(await countUnownedOfflineCommands());
+        return;
+      }
+      const [counts, snapshots, unownedCount] = await Promise.all([
+        getOfflineSyncCounts(actorId),
+        listOfflineSnapshots('course_module', actorId),
+        countUnownedOfflineCommands(),
       ]);
       setPendingMutations(counts.queued + counts.sending + counts.failed + counts.conflict + counts.rejected + counts.requiresReview);
       setCachedProtocolsCount(snapshots.length);
+      setUnownedCommandCount(unownedCount);
     } catch (error) {
       console.error('[Offline Indicator] Could not refresh platform offline state:', error);
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [actorId]);
 
   // The typed domain adapters own replay. This legacy surface only refreshes
   // status and must not trigger the old generic mutation endpoint.
@@ -67,7 +87,7 @@ export function OfflineIndicator({ onInstallClick, showInstallButton = false }: 
     void refreshStatus();
     const interval = setInterval(() => void refreshStatus(), 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshStatus]);
 
   return (
     <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
@@ -100,6 +120,8 @@ export function OfflineIndicator({ onInstallClick, showInstallButton = false }: 
             • {pendingMutations} pending
           </span>
         )}
+        {unownedCommandCount > 0 && <span role="alert" className="text-xs text-red-300">• {unownedCommandCount} unowned record{unownedCommandCount === 1 ? '' : 's'} quarantined</span>}
+        {storageError && <span role="alert" className="text-xs text-red-300" title={storageError}>• Offline storage problem</span>}
       </div>
 
       {/* Sync Button */}
