@@ -127,6 +127,7 @@ const FellowshipAbout = lazy(() => import("./pages/FellowshipAbout"));
 const ExamPolicy = lazy(() => import("./pages/ExamPolicy"));
 const FellowshipWhy = lazy(() => import("./pages/FellowshipWhy"));
 const FellowshipProgress = lazy(() => import("./pages/FellowshipProgress"));
+const ProfessionalProgressPage = lazy(() => import("./pages/ProfessionalProgressPage"));
 const CourseGenericMicro = lazy(() => import('./pages/CourseGenericMicro'));
 const MicroCoursesLanding = lazy(() => import('./pages/MicroCoursesLanding'));
 const MicroCoursePlayer = lazy(() => import('./pages/MicroCoursePlayerDB'));
@@ -672,6 +673,12 @@ function Router() {
               <FellowshipProgress />
             </RoleGate>
           )}</Route>
+          <Route path="/my-progress">{() => (
+            <RoleGate allowed={["provider"]}>
+              <ProfessionalProgressPage />
+            </RoleGate>
+          )}</Route>
+          <Route path="/verify-progress/:verificationCode" component={ProfessionalProgressPage} />
           <Route path="/fellowship">{() => (
             <RoleGate allowed={["provider"]}>
               <FellowshipDashboard />

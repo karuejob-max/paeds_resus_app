@@ -10084,3 +10084,39 @@ export const institutionSubscriptionPricingFields = {
 
 // The fields above are exported for the migration generator; they are also added
 // by migration 0156 to the existing institutionProductSubscriptions table.
+
+
+/** Learner-owned professional goals, designed for both personal and institutional review. */
+export const professionalProgressGoals = mysqlTable("professionalProgressGoals", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  metricKey: varchar("metricKey", { length: 64 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  targetValue: decimal("targetValue", { precision: 10, scale: 2 }).notNull(),
+  unit: varchar("unit", { length: 32 }).notNull(),
+  periodType: mysqlEnum("periodType", ["monthly", "quarterly", "annual"]).notNull(),
+  periodStart: date("periodStart").notNull(),
+  periodEnd: date("periodEnd").notNull(),
+  status: mysqlEnum("status", ["active", "achieved", "archived"]).default("active").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  userPeriodIndex: index("professional_progress_goals_user_period_idx").on(table.userId, table.periodType, table.periodStart),
+}));
+export type ProfessionalProgressGoal = typeof professionalProgressGoals.$inferSelect;
+export type InsertProfessionalProgressGoal = typeof professionalProgressGoals.$inferInsert;
+
+/** Immutable, user-approved snapshots suitable for appraisal/interview verification. */
+export const professionalProgressReports = mysqlTable("professionalProgressReports", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  reportType: mysqlEnum("reportType", ["monthly", "quarterly", "annual", "custom"]).notNull(),
+  periodStart: date("periodStart").notNull(),
+  periodEnd: date("periodEnd").notNull(),
+  snapshotJson: text("snapshotJson").notNull(),
+  snapshotHash: varchar("snapshotHash", { length: 64 }).notNull(),
+  verificationCode: varchar("verificationCode", { length: 64 }).notNull().unique(),
+  generatedAt: timestamp("generatedAt").defaultNow().notNull(),
+});
+export type ProfessionalProgressReport = typeof professionalProgressReports.$inferSelect;
+export type InsertProfessionalProgressReport = typeof professionalProgressReports.$inferInsert;

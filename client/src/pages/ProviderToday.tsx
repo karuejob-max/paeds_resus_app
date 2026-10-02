@@ -499,10 +499,10 @@ export default function ProviderToday() {
               <p className="mt-3 text-sm font-semibold text-slate-900">Learn</p>
               <p className="mt-1 text-xs text-slate-500">Fellowship and AHA training</p>
             </button>
-            <button type="button" onClick={() => setLocation("/records")} className="rounded-xl border border-blue-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-300 hover:bg-blue-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+            <button type="button" onClick={() => setLocation("/my-progress")} className="rounded-xl border border-blue-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-300 hover:bg-blue-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
               <FileText className="h-5 w-5 text-blue-700" />
-              <p className="mt-3 text-sm font-semibold text-slate-900">My Records</p>
-              <p className="mt-1 text-xs text-slate-500">CPD, certificates, profile</p>
+              <p className="mt-3 text-sm font-semibold text-slate-900">Progress & records</p>
+              <p className="mt-1 text-xs text-slate-500">Life support, CPD, goals, certificates</p>
             </button>
           </div>
         </section>
