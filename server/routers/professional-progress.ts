@@ -11,7 +11,9 @@ import {
   ierpProgramEnrollments,
   microCourseEnrollments,
   microCourses,
+  nerpOfferCourses,
   nerpOfferEnrollments,
+  nerpOfferExternalVerifications,
   professionalProgressGoals,
   professionalProgressReports,
   users,
@@ -27,6 +29,8 @@ const reportInput = z.object({
 });
 
 function progressForEnrollment(row: any) {
+  const trackedPercentage = Number(row.progressPercentage ?? 0);
+  if (trackedPercentage > 0) return Math.min(100, trackedPercentage);
   if (row.certificateVerified || row.practicalSkillsSignedOff) return 100;
   if (row.cognitiveModulesComplete) return 50;
   if (row.ahaPrecourseCompleted || row.elearningProofVerifiedAt) return 25;
@@ -45,7 +49,7 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
     db.select({ id: users.id, name: users.name, email: users.email, cadre: users.cadre, cadreOther: users.cadreOther }).from(users).where(eq(users.id, userId)).limit(1),
     db.select().from(enrollments).where(and(eq(enrollments.userId, userId), inArray(enrollments.programType, ["bls", "acls", "pals", "nrp"]))),
     db.select({ enrollment: microCourseEnrollments, course: microCourses }).from(microCourseEnrollments).innerJoin(microCourses, eq(microCourses.id, microCourseEnrollments.microCourseId)).where(eq(microCourseEnrollments.userId, userId)).orderBy(desc(microCourseEnrollments.updatedAt)),
-    db.select({ id: nerpOfferEnrollments.id }).from(nerpOfferEnrollments).where(and(eq(nerpOfferEnrollments.userId, userId), eq(nerpOfferEnrollments.offerKey, "nerp-acls"))).limit(1),
+    db.select().from(nerpOfferEnrollments).where(and(eq(nerpOfferEnrollments.userId, userId), eq(nerpOfferEnrollments.offerKey, "nerp-acls-2026"))).limit(1),
     db.select({ id: ierpProgramEnrollments.id }).from(ierpProgramEnrollments).where(and(eq(ierpProgramEnrollments.userId, userId), eq(ierpProgramEnrollments.programKey, "ierp"))).limit(1),
     db.select().from(externalTrainingCompletions).where(eq(externalTrainingCompletions.userId, userId)).orderBy(desc(externalTrainingCompletions.recordedAt)),
     db.select({ id: certificates.id, programType: certificates.programType, certificateNumber: certificates.certificateNumber, issueDate: certificates.issueDate, verificationCode: certificates.verificationCode }).from(certificates).where(eq(certificates.userId, userId)).orderBy(desc(certificates.issueDate)),
@@ -55,8 +59,21 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
   const hasNerp = Boolean(nerpRows[0]);
   const hasIerp = Boolean(ierpRows[0]);
   const source = sourceLabel(hasNerp, hasIerp);
+  const [nerpLinks, nerpVerifications] = await Promise.all([
+    nerpRows[0]
+      ? db.select().from(nerpOfferCourses).where(eq(nerpOfferCourses.nerpOfferEnrollmentId, nerpRows[0].id))
+      : Promise.resolve([]),
+    nerpRows[0]
+      ? db.select().from(nerpOfferExternalVerifications).where(eq(nerpOfferExternalVerifications.nerpOfferEnrollmentId, nerpRows[0].id))
+      : Promise.resolve([]),
+  ]);
+  const linkedEnrollmentIds = new Set<number>(nerpLinks.map((row: any) => Number(row.enrollmentId)));
+  const linkedAhaRows = linkedEnrollmentIds.size
+    ? await db.select().from(enrollments).where(inArray(enrollments.id, [...linkedEnrollmentIds]))
+    : [];
+  const allAhaRows = [...ahaRows, ...linkedAhaRows.filter((row: any) => !ahaRows.some((existing: any) => existing.id === row.id))];
 
-  const lifeSupport = ahaRows.map((row: any) => ({
+  const lifeSupport = allAhaRows.map((row: any) => ({
     program: String(row.programType).toUpperCase(),
     source,
     phase: row.certificateVerified || row.practicalSkillsSignedOff ? "Provider / Phase 3" : row.cognitiveModulesComplete ? "Cognitive / Phase 2" : "Started",
@@ -65,6 +82,32 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
     paymentStatus: row.paymentStatus,
     updatedAt: row.updatedAt,
   }));
+  const verifiedPhase2 = nerpVerifications.some((row: any) => row.phase === "phase_2" && row.status === "verified");
+  const verifiedPhase3 = nerpVerifications.some((row: any) => row.phase === "phase_3" && row.status === "verified");
+  if (hasNerp && !lifeSupport.some((row: any) => row.source === "NERP" || row.source === "NERP + IERP")) {
+    lifeSupport.push({
+      program: "NERP ACLS PATHWAY",
+      source: "NERP",
+      phase: verifiedPhase3 ? "Provider / Phase 3" : verifiedPhase2 ? "Simulation / Phase 2" : "Started · BLS/ACLS coursework pending",
+      percentage: verifiedPhase3 ? 100 : verifiedPhase2 ? 50 : Number(nerpRows[0]?.status === "completed" ? 100 : 0),
+      status: nerpRows[0]?.status ?? "active",
+      paymentStatus: null,
+      updatedAt: nerpRows[0]?.updatedAt,
+    });
+  }
+  if (hasIerp && !lifeSupport.some((row: any) => row.source === "IERP" || row.source === "NERP + IERP")) {
+    const program = ierpRows[0];
+    const percentage = program.phaseStatus === "completed" ? 100 : program.phaseStatus === "phase_3" ? 75 : program.phaseStatus === "phase_2" ? 50 : program.phase1Status === "verified" ? 25 : 0;
+    lifeSupport.push({
+      program: "IERP READINESS PATHWAY",
+      source: "IERP",
+      phase: program.phaseStatus === "completed" ? "Completed" : `Phase ${program.phaseStatus.replace("phase_", "")}`,
+      percentage,
+      status: program.lifecycleStatus,
+      paymentStatus: program.paymentStatus,
+      updatedAt: program.updatedAt,
+    });
+  }
   for (const row of externalRows) {
     lifeSupport.push({
       program: String(row.courseProgramType).toUpperCase(),
