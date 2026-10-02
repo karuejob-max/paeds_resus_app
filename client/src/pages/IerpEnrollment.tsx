@@ -73,6 +73,13 @@ export default function IerpEnrollment() {
             Register your intern profile first. Then complete the three-phase
             KES 15,000 pathway for AHA ACLS plus Paeds Resus BLS.
           </p>
+          <p className="mt-2 max-w-2xl text-sm text-amber-800">
+            IERP uses the intern profile and MoH deployment/posting letter. An
+            RN/NCK licence submission belongs to NERP and does not replace the
+            IERP intern evidence. If you have submitted both, choose IERP here
+            only for your internship pathway; use the NERP page for nursing
+            readiness.
+          </p>
         </div>
         <div className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-950">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-indigo-700" />
