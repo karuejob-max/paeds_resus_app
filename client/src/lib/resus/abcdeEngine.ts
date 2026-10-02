@@ -107,6 +107,32 @@ export interface DoseInfo {
 
 export type InterventionStatus = 'pending' | 'in_progress' | 'completed' | 'skipped';
 
+export type UnavailabilityReasonCode = 'not_stocked' | 'not_functioning' | 'not_accessible' | 'other';
+export type UnavailabilityDispositionKind = 'alternative_used' | 'no_alternative_escalated';
+
+export interface InterventionDoseSnapshot {
+  /** Patient context and calculated display captured when the provider starts/logs this dose. */
+  patientAge: string | null;
+  patientWeightKg: number | null;
+  patientWeightSource?: PatientWeightSource;
+  patientWeightMethod?: string;
+  doseInfo: DoseInfo;
+  calculatedDisplay: string;
+  confirmedAt: number;
+  confirmedByUserId?: number;
+  confirmationAction: 'started' | 'completed';
+}
+
+export interface UnavailabilityDisposition {
+  kind: UnavailabilityDispositionKind;
+  reasonCode: UnavailabilityReasonCode;
+  reasonNote?: string;
+  alternativeUsed?: string;
+  escalationStatus: 'local_process_completed' | 'local_process_attempted' | 'not_completed';
+  escalationAcknowledged: true;
+  recordedAt: number;
+}
+
 export interface ReassessmentCheck {
   id: string;
   question: string;
@@ -138,6 +164,10 @@ export interface Intervention {
   unavailableAt?: number;
   /** Free-text description of the alternative used when the primary resource was unavailable */
   alternativeUsed?: string;
+  /** Preserves exactly which patient weight/context and displayed amount were confirmed for this action. */
+  doseSnapshot?: InterventionDoseSnapshot;
+  /** Required disposition before an unavailable critical/urgent action may cease blocking progression. */
+  unavailabilityDisposition?: UnavailabilityDisposition;
 }
 
 export interface SafetyAlert {
@@ -230,12 +260,14 @@ export interface ResusSession {
   patientWeightSource?: PatientWeightSource;
   patientWeightMethod?: string;
   patientAge: string | null;
+  /** Set after a mid-case age/weight change or a legacy-session upgrade until the displayed doses are reviewed. */
+  doseReviewRequired?: boolean;
   /** Clinical context needed to select NRP safely; age alone does not imply delivery-room NRP. */
   resusSetting?: ResusSetting;
   isTrauma: boolean;
   events: ClinicalEvent[];
   startTime: number;
-  activeTimers: { interventionId: string; endsAt: number }[];
+  activeTimers: { interventionId: string; endsAt: number; startedAt?: number; durationSeconds?: number }[];
   bolusCount: number;
   totalBolusVolume: number;
   insulinRunning: boolean;
@@ -1815,6 +1847,7 @@ export function createSession(
     patientWeightSource: weight == null ? undefined : weightSource,
     patientWeightMethod: weight == null ? undefined : weightMethod,
     patientAge: age ?? null,
+    doseReviewRequired: false,
     resusSetting,
     isTrauma: isTrauma ?? false,
     events: [],
@@ -1875,6 +1908,10 @@ export function updatePatientInfo(
       // Volume alone does not establish fluid-refractory shock across ages or diagnoses. Set this only from an explicit protocol/clinical disposition in a governed pathway.
       next.fluidTracker.isFluidRefractory = false;
     }
+  } else if (weight !== null && (weightSource !== next.patientWeightSource || weightMethod !== next.patientWeightMethod)) {
+    changes.push(`Weight source/method: ${weightSource ?? next.patientWeightSource ?? 'not recorded'}`);
+    if (weightSource) next.patientWeightSource = weightSource;
+    next.patientWeightMethod = weightMethod;
   }
   if (age !== null && age !== next.patientAge) {
     changes.push(`Age: ${age}`);
@@ -1883,8 +1920,26 @@ export function updatePatientInfo(
     next.fluidTracker.fluidType = getDefaultFluid(next).name;
   }
   if (changes.length > 0) {
+    if (session.phase !== 'IDLE' && (changes.some((change) => change.startsWith('Weight')) || changes.some((change) => change.startsWith('Age:')))) {
+      next.doseReviewRequired = true;
+    }
     log(next, 'patient_info_updated', `Patient info updated: ${changes.join(', ')}`);
   }
+  return next;
+}
+
+/** Explicitly clear the dose-review gate after the provider has reviewed the recalculated values. */
+export function acknowledgeDoseReview(session: ResusSession, userId?: number): ResusSession {
+  if (!session.doseReviewRequired) return session;
+  const next = deepCopy(session);
+  next.doseReviewRequired = false;
+  log(next, 'patient_info_updated', 'Provider acknowledged review of displayed doses after patient context changed.', undefined, {
+    confirmedByUserId: userId,
+    patientWeightKg: next.patientWeight,
+    patientWeightSource: next.patientWeightSource,
+    patientWeightMethod: next.patientWeightMethod,
+    patientAge: next.patientAge,
+  });
   return next;
 }
 
@@ -2075,16 +2130,49 @@ function isInsulinAdministration(action: string): boolean {
   return upper.includes('INSULIN INFUSION') || upper.includes('START INSULIN') || upper.includes('INSULIN DRIP');
 }
 
-export function completeIntervention(session: ResusSession, interventionId: string): ResusSession {
+function buildDoseSnapshot(
+  session: ResusSession,
+  intervention: Intervention,
+  confirmedByUserId: number | undefined,
+  confirmationAction: 'started' | 'completed',
+  confirmedAt = Date.now(),
+): InterventionDoseSnapshot | undefined {
+  if (!intervention.dose) return undefined;
+  return {
+    patientAge: session.patientAge,
+    patientWeightKg: session.patientWeight,
+    patientWeightSource: session.patientWeightSource,
+    patientWeightMethod: session.patientWeightMethod,
+    doseInfo: deepCopy(intervention.dose),
+    calculatedDisplay: calcDose(intervention.dose, session.patientWeight),
+    confirmedAt,
+    confirmedByUserId,
+    confirmationAction,
+  };
+}
+
+export function completeIntervention(session: ResusSession, interventionId: string, confirmedByUserId?: number): ResusSession {
   const next = deepCopy(session);
   let completedDrug: { drug?: string; route?: string } = {};
 
   for (const threat of next.threats) {
     const intervention = threat.interventions.find(i => i.id === interventionId);
     if (intervention) {
+      if (intervention.status !== 'pending' && intervention.status !== 'in_progress') return session;
+      if (intervention.dose && session.doseReviewRequired && intervention.status === 'pending') return session;
+      const completedAt = Date.now();
+      const legacyDoseContextUnknown = Boolean(intervention.dose && session.doseReviewRequired && intervention.status === 'in_progress' && !intervention.doseSnapshot);
+      if (intervention.dose && !intervention.doseSnapshot && !legacyDoseContextUnknown) {
+        intervention.doseSnapshot = buildDoseSnapshot(session, intervention, confirmedByUserId, 'completed', completedAt);
+      }
       intervention.status = 'completed';
-      intervention.completedAt = Date.now();
-      log(next, 'intervention_completed', `✓ ${intervention.action}`, threat.letter);
+      intervention.completedAt = completedAt;
+      log(next, 'intervention_completed', `✓ ${intervention.action}`, threat.letter,
+        intervention.doseSnapshot
+          ? { doseSnapshot: intervention.doseSnapshot }
+          : legacyDoseContextUnknown
+            ? { doseContextNotCaptured: true, instruction: 'Verify the contemporaneous medication record; do not infer from current patient weight.' }
+            : undefined);
       completedDrug = extractDrugInfoFromIntervention(intervention);
 
       // Track boluses with fluid tracker
@@ -2117,9 +2205,12 @@ export function completeIntervention(session: ResusSession, interventionId: stri
       }
 
       if (intervention.timerSeconds) {
+        next.activeTimers = next.activeTimers.filter((timer) => timer.interventionId !== intervention.id);
         next.activeTimers.push({
           interventionId: intervention.id,
-          endsAt: Date.now() + intervention.timerSeconds * 1000,
+          startedAt: completedAt,
+          durationSeconds: intervention.timerSeconds,
+          endsAt: completedAt + intervention.timerSeconds * 1000,
         });
       }
 
@@ -2155,14 +2246,21 @@ function extractDrugInfoFromIntervention(intervention: Intervention): { drug?: s
   return { drug: intervention.dose?.drug, route: intervention.dose?.route };
 }
 
-export function startIntervention(session: ResusSession, interventionId: string): ResusSession {
+export function startIntervention(session: ResusSession, interventionId: string, confirmedByUserId?: number): ResusSession {
   const next = deepCopy(session);
   for (const threat of next.threats) {
     const intervention = threat.interventions.find(i => i.id === interventionId);
     if (intervention) {
+      if (intervention.status !== 'pending') return session;
+      if (intervention.dose && session.doseReviewRequired) return session;
+      const startedAt = Date.now();
       intervention.status = 'in_progress';
-      intervention.startedAt = Date.now();
-      log(next, 'intervention_started', `▶ Started: ${intervention.action}`, threat.letter);
+      intervention.startedAt = startedAt;
+      if (intervention.dose) {
+        intervention.doseSnapshot = buildDoseSnapshot(session, intervention, confirmedByUserId, 'started', startedAt);
+      }
+      log(next, 'intervention_started', `▶ Started: ${intervention.action}`, threat.letter,
+        intervention.doseSnapshot ? { doseSnapshot: intervention.doseSnapshot } : undefined);
       break;
     }
   }
@@ -2186,10 +2284,14 @@ export function markInterventionUnavailable(
   for (const threat of next.threats) {
     const intervention = threat.interventions.find(i => i.id === interventionId);
     if (intervention) {
+      if (intervention.status !== 'pending') return session;
       intervention.status = 'skipped';
       intervention.unavailableAt = Date.now();
+      intervention.unavailabilityDisposition = undefined;
       if (alternativeUsed) {
         intervention.alternativeUsed = alternativeUsed;
+      } else {
+        intervention.alternativeUsed = undefined;
       }
       const altNote = alternativeUsed ? ` → Alternative: ${alternativeUsed}` : '';
       log(
@@ -2202,6 +2304,48 @@ export function markInterventionUnavailable(
     }
   }
   return next;
+}
+
+export function recordUnavailableDisposition(
+  session: ResusSession,
+  interventionId: string,
+  disposition: Omit<UnavailabilityDisposition, 'recordedAt' | 'escalationAcknowledged'> & { escalationAcknowledged: true },
+): ResusSession {
+  if (disposition.escalationAcknowledged !== true || !disposition.reasonCode || !disposition.escalationStatus) {
+    throw new RangeError('Record why the resource is unavailable and the escalation status.');
+  }
+  if (disposition.kind === 'alternative_used' && !disposition.alternativeUsed?.trim()) {
+    throw new RangeError('Describe the alternative used.');
+  }
+  if (disposition.kind === 'no_alternative_escalated' && (disposition.reasonNote?.trim().length ?? 0) < 8) {
+    throw new RangeError('Record why no alternative was available.');
+  }
+  if (disposition.reasonCode === 'other' && (disposition.reasonNote?.trim().length ?? 0) < 3) {
+    throw new RangeError('Describe the other resource-availability reason.');
+  }
+
+  const next = deepCopy(session);
+  for (const threat of next.threats) {
+    const intervention = threat.interventions.find((item) => item.id === interventionId);
+    if (!intervention) continue;
+    if (intervention.status !== 'skipped' || !intervention.unavailableAt) {
+      throw new RangeError('Mark the intervention unavailable before recording its disposition.');
+    }
+    intervention.alternativeUsed = disposition.alternativeUsed?.trim() || undefined;
+    intervention.unavailabilityDisposition = {
+      ...disposition,
+      reasonNote: disposition.reasonNote?.trim() || undefined,
+      alternativeUsed: disposition.alternativeUsed?.trim() || undefined,
+      escalationAcknowledged: true,
+      recordedAt: Date.now(),
+    };
+    log(next, 'resource_unavailable', `Disposition recorded for unavailable action: ${intervention.action}`, threat.letter, {
+      interventionId,
+      disposition: intervention.unavailabilityDisposition,
+    });
+    return next;
+  }
+  throw new RangeError('Intervention not found.');
 }
 
 export function returnToPrimarySurvey(session: ResusSession): ResusSession {
@@ -2283,6 +2427,7 @@ export function completeFluidReassessment(session: ResusSession): ResusSession {
   const interventionId = next.pendingFluidReassessmentInterventionId;
   next.pendingFluidReassessment = false;
   next.pendingFluidReassessmentInterventionId = undefined;
+  if (interventionId) next.activeTimers = next.activeTimers.filter((timer) => timer.interventionId !== interventionId);
   log(next, 'reassessment', 'Fluid bolus reassessment evidence complete', undefined, interventionId ? { interventionId } : undefined);
   return next;
 }
@@ -2477,12 +2622,32 @@ export function getBlockingPrimarySurveyInterventions(session: ResusSession): { 
   for (const threat of getActiveThreats(session)) {
     if (threat.severity !== 'critical' && threat.severity !== 'urgent') continue;
     for (const intervention of threat.interventions) {
-      if (intervention.status === 'pending' || intervention.status === 'in_progress') {
+      const unavailableWithoutDisposition = intervention.status === 'skipped' && !hasValidUnavailableDisposition(intervention);
+      if (intervention.status === 'pending' || intervention.status === 'in_progress' || unavailableWithoutDisposition) {
         result.push({ threat, intervention });
       }
     }
   }
   return result;
+}
+
+function hasValidUnavailableDisposition(intervention: Intervention): boolean {
+  const disposition = intervention.unavailabilityDisposition;
+  if (!disposition?.escalationAcknowledged || !disposition.reasonCode || !disposition.escalationStatus) return false;
+  if (disposition.escalationStatus !== 'local_process_completed') return false;
+  if (disposition.kind === 'alternative_used') return Boolean(disposition.alternativeUsed?.trim());
+  if (disposition.kind === 'no_alternative_escalated') return (disposition.reasonNote?.trim().length ?? 0) >= 8;
+  return false;
+}
+
+/** Active critical/urgent threats with unavailable actions stay visibly unresolved even after a disposition is recorded. */
+export function getUnresolvedUnavailableInterventions(session: ResusSession): { threat: Threat; intervention: Intervention }[] {
+  return getActiveThreats(session).flatMap((threat) => {
+    if (threat.severity !== 'critical' && threat.severity !== 'urgent') return [];
+    return threat.interventions
+      .filter((intervention) => intervention.status === 'skipped')
+      .map((intervention) => ({ threat, intervention }));
+  });
 }
 
 /**
@@ -2495,13 +2660,20 @@ export function getInterventionsAwaitingReassessment(session: ResusSession): { t
   for (const threat of session.threats) {
     for (const intervention of threat.interventions) {
       if (intervention.status !== 'completed' || !intervention.reassessmentChecks?.length) continue;
-      const hasLoggedOutcome = session.events.some(
-        (event) =>
-          event.type === 'reassessment' &&
-          (event.data?.interventionId === intervention.id ||
-            (intervention.action.includes('FLUID BOLUS') && event.detail === 'Fluid bolus reassessment evidence complete')),
+      const events = session.events.filter((event) =>
+        event.type === 'reassessment' &&
+        (event.data?.interventionId === intervention.id ||
+          (intervention.action.includes('FLUID BOLUS') && event.detail === 'Fluid bolus reassessment evidence complete')),
       );
-      if (!hasLoggedOutcome) result.push({ threat, intervention });
+      const terminalOutcome = events.some((event) =>
+        event.data?.action === 'resolved' || event.data?.action === 'stop' ||
+        event.detail === 'Fluid bolus reassessment evidence complete',
+      );
+      const loggedCheckIndexes = new Set(events.map((event) =>
+        Number.isInteger(event.data?.checkIndex) ? Number(event.data?.checkIndex) : 0,
+      ));
+      const allChecksLogged = intervention.reassessmentChecks.every((_check, index) => loggedCheckIndexes.has(index));
+      if (!terminalOutcome && !allChecksLogged) result.push({ threat, intervention });
     }
   }
   return result;
@@ -2895,6 +3067,22 @@ export function exportClinicalRecord(session: ResusSession): string {
                 ? 'skipped'
                 : 'pending';
         lines.push(`    - ${intervention.action} (${status})`);
+        if (intervention.doseSnapshot) {
+          const snapshot = intervention.doseSnapshot;
+          lines.push(`      Dose snapshot: ${snapshot.calculatedDisplay}`);
+          lines.push(`      Weight: ${snapshot.patientWeightKg == null ? 'not recorded' : `${snapshot.patientWeightKg} kg`} (${snapshot.patientWeightSource ?? 'source not recorded'}${snapshot.patientWeightMethod ? `; ${snapshot.patientWeightMethod}` : ''})`);
+          lines.push(`      Confirmed at: ${formatClinicalDateTime(snapshot.confirmedAt)} (${snapshot.confirmationAction}); account id ${snapshot.confirmedByUserId ?? 'not available'}`);
+        } else if (intervention.dose && (intervention.status === 'completed' || intervention.status === 'in_progress')) {
+          lines.push('      DOSE CONTEXT NOT CAPTURED — verify the contemporaneous medication record; do not infer from current patient weight.');
+        }
+        if (intervention.unavailabilityDisposition) {
+          const disposition = intervention.unavailabilityDisposition;
+          lines.push(`      Availability reason: ${disposition.reasonCode}${disposition.reasonNote ? ` — ${disposition.reasonNote}` : ''}`);
+          lines.push(`      Disposition: ${disposition.kind}; escalation ${disposition.escalationStatus}; recorded ${formatClinicalDateTime(disposition.recordedAt)}`);
+          if (disposition.alternativeUsed) lines.push(`      Alternative documented: ${disposition.alternativeUsed}`);
+        } else if (intervention.status === 'skipped') {
+          lines.push('      REQUIRED DISPOSITION/ESCALATION NOT RECORDED.');
+        }
       }
     }
     lines.push('');

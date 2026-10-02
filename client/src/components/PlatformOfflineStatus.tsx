@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { AlertTriangle, Download, RefreshCw, Trash2, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { clearOfflineActorData, clearPlatformOfflineData, getOfflineMeta, getOfflineSyncCounts, listOfflineReviewCommands, pruneOfflineData, removeOfflineCommand, saveOfflineMeta, updateOfflineCommand, type OfflineCommand, type OfflineSyncCounts } from "@/lib/offline/platformOfflineStore";
+import { clearOfflineActorData, clearOfflineSnapshotsForActor, countUnownedOfflineCommands, getOfflineMeta, getOfflineSyncCounts, listOfflineReviewCommands, pruneOfflineData, removeOfflineCommand, saveOfflineMeta, updateOfflineCommand, type OfflineCommand, type OfflineSyncCounts } from "@/lib/offline/platformOfflineStore";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -34,6 +34,7 @@ const EMPTY_COUNTS: OfflineSyncCounts = {
 
 export default function PlatformOfflineStatus() {
   const { user, loading: authLoading } = useAuth();
+  const actorId = user?.id ?? null;
   const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const [counts, setCounts] = useState<OfflineSyncCounts>(EMPTY_COUNTS);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -42,13 +43,15 @@ export default function PlatformOfflineStatus() {
   const [reviewCommands, setReviewCommands] = useState<OfflineCommand[]>([]);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
+  const [unownedCommandCount, setUnownedCommandCount] = useState(0);
 
   useEffect(() => {
     if (authLoading) return;
-    const actorId = user?.id ?? null;
     void getOfflineMeta<number>("platform.activeActorId").then((previousActorId) => {
       if (previousActorId && previousActorId !== actorId) {
-        void clearOfflineActorData(previousActorId);
+        void clearOfflineSnapshotsForActor(previousActorId).catch(() => {
+          setStorageError("Previous-account cached data could not be cleared from this device.");
+        });
       }
       void saveOfflineMeta("platform.activeActorId", actorId);
     });
@@ -57,7 +60,13 @@ export default function PlatformOfflineStatus() {
   useEffect(() => {
     const refresh = () => {
       setIsOnline(navigator.onLine);
-      void pruneOfflineData().then(() => Promise.all([getOfflineSyncCounts(), listOfflineReviewCommands(20)])).then(([nextCounts, nextReviewCommands]) => {
+      void countUnownedOfflineCommands().then(setUnownedCommandCount);
+      if (actorId == null) {
+        setCounts(EMPTY_COUNTS);
+        setReviewCommands([]);
+        return;
+      }
+      void pruneOfflineData().then(() => Promise.all([getOfflineSyncCounts(actorId), listOfflineReviewCommands(actorId, 20)])).then(([nextCounts, nextReviewCommands]) => {
         setCounts(nextCounts);
         setReviewCommands(nextReviewCommands);
       });
@@ -81,7 +90,8 @@ export default function PlatformOfflineStatus() {
     window.addEventListener("appinstalled", onAppInstalled);
     window.addEventListener("platform-offline-storage-error", onStorageError);
     const interval = window.setInterval(() => {
-      void pruneOfflineData().then(() => Promise.all([getOfflineSyncCounts(), listOfflineReviewCommands(20)])).then(([nextCounts, nextReviewCommands]) => {
+      if (actorId == null) return;
+      void pruneOfflineData().then(() => Promise.all([getOfflineSyncCounts(actorId), listOfflineReviewCommands(actorId, 20)])).then(([nextCounts, nextReviewCommands]) => {
         setCounts(nextCounts);
         setReviewCommands(nextReviewCommands);
       });
@@ -95,37 +105,41 @@ export default function PlatformOfflineStatus() {
       window.removeEventListener("platform-offline-storage-error", onStorageError);
       window.clearInterval(interval);
     };
-  }, []);
+  }, [actorId]);
 
   const pendingCount = counts.queued + counts.sending + counts.failed;
   const reviewCount = counts.conflict + counts.rejected + counts.requiresReview;
-  const shouldShow = !isOnline || pendingCount > 0 || reviewCount > 0 || Boolean(installPrompt) || Boolean(storageError);
+  const shouldShow = !isOnline || pendingCount > 0 || reviewCount > 0 || Boolean(installPrompt) || Boolean(storageError) || unownedCommandCount > 0;
   if (!shouldShow) return null;
 
   const handleClearOfflineData = async () => {
-    if (!window.confirm("Clear cached coursework, shift snapshots, and offline drafts from this device? This cannot be undone. ResusGPS and CPR session recovery data are stored separately.")) return;
+    if (actorId == null) return;
+    if (!window.confirm("Clear this provider account's cached coursework, shift snapshots, and offline drafts from this device? This cannot be undone. Unowned legacy records and ResusGPS case recovery data are preserved separately.")) return;
     setIsClearing(true);
     try {
-      await clearPlatformOfflineData();
+      await clearOfflineActorData(actorId);
       setCounts(EMPTY_COUNTS);
+    } catch {
+      setStorageError("This account's offline data could not be fully cleared. Preserve the device and retry after checking storage availability.");
     } finally {
       setIsClearing(false);
     }
   };
 
   const handleRetryFailed = async (command: OfflineCommand) => {
-    if (command.status !== "failed") return;
-    await updateOfflineCommand(command.localEventId, { status: "queued", lastError: undefined });
-    const [nextCounts, nextReviewCommands] = await Promise.all([getOfflineSyncCounts(), listOfflineReviewCommands(20)]);
+    if (command.status !== "failed" || actorId == null) return;
+    await updateOfflineCommand(command.localEventId, actorId, { status: "queued", lastError: undefined });
+    const [nextCounts, nextReviewCommands] = await Promise.all([getOfflineSyncCounts(actorId), listOfflineReviewCommands(actorId, 20)]);
     setCounts(nextCounts);
     setReviewCommands(nextReviewCommands);
   };
 
   const handleDiscard = async (command: OfflineCommand) => {
+    if (actorId == null) return;
     if (!window.confirm(`Discard this local ${offlineDomainLabel(command).toLowerCase()}? This removes the device copy and cannot be undone.`)) return;
-    await removeOfflineCommand(command.localEventId);
+    await removeOfflineCommand(command.localEventId, actorId);
     setReviewCommands((current) => current.filter((item) => item.localEventId !== command.localEventId));
-    const nextCounts = await getOfflineSyncCounts();
+    const nextCounts = await getOfflineSyncCounts(actorId);
     setCounts(nextCounts);
   };
 
@@ -149,6 +163,7 @@ export default function PlatformOfflineStatus() {
           <span className="font-semibold text-slate-900">{isOnline ? "Online" : "Offline mode"}</span>
           {!isOnline && <span className="text-slate-600">Saved local work is not server-confirmed until synchronization completes.</span>}
           {storageError && <span className="font-semibold text-rose-700">Offline storage problem: {storageError}</span>}
+          {unownedCommandCount > 0 && <span role="alert" className="font-semibold text-rose-700">{unownedCommandCount} older offline record{unownedCommandCount === 1 ? "" : "s"} has no recorded owner and will not be sent under this account.</span>}
           {isOnline && pendingCount > 0 && <span className="text-slate-600">{pendingCount} local record{pendingCount === 1 ? "" : "s"} awaiting server confirmation.</span>}
           {reviewCount > 0 && <span className="inline-flex items-center gap-1 font-semibold text-rose-700"><AlertTriangle className="h-3.5 w-3.5" />{reviewCount} local record{reviewCount === 1 ? "" : "s"} require review.</span>}
         </div>
