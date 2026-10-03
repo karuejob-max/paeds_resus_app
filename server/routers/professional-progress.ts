@@ -29,6 +29,18 @@ const reportInput = z.object({
   periodEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
+<<<<<<< ours
+=======
+function progressForEnrollment(row: any) {
+  const trackedPercentage = Number(row.progressPercentage ?? 0);
+  if (trackedPercentage > 0) return Math.min(100, trackedPercentage);
+  if (row.certificateVerified || row.practicalSkillsSignedOff) return 100;
+  if (row.cognitiveModulesComplete) return 50;
+  if (row.ahaPrecourseCompleted || row.elearningProofVerifiedAt) return 25;
+  return 0;
+}
+
+>>>>>>> theirs
 function sourceLabel(hasNerp: boolean, hasIerp: boolean) {
   if (hasNerp && hasIerp) return "NERP + IERP";
   if (hasNerp) return "NERP";
@@ -42,7 +54,11 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
     db.select().from(enrollments).where(and(eq(enrollments.userId, userId), inArray(enrollments.programType, ["bls", "acls", "pals", "nrp"]))),
     db.select({ enrollment: microCourseEnrollments, course: microCourses }).from(microCourseEnrollments).innerJoin(microCourses, eq(microCourses.id, microCourseEnrollments.microCourseId)).where(eq(microCourseEnrollments.userId, userId)).orderBy(desc(microCourseEnrollments.updatedAt)),
     db.select().from(nerpOfferEnrollments).where(and(eq(nerpOfferEnrollments.userId, userId), eq(nerpOfferEnrollments.offerKey, "nerp-acls-2026"))).limit(1),
+<<<<<<< ours
     db.select().from(ierpProgramEnrollments).where(and(eq(ierpProgramEnrollments.userId, userId), eq(ierpProgramEnrollments.programKey, "ierp"))).limit(1),
+=======
+    db.select({ id: ierpProgramEnrollments.id }).from(ierpProgramEnrollments).where(and(eq(ierpProgramEnrollments.userId, userId), eq(ierpProgramEnrollments.programKey, "ierp"))).limit(1),
+>>>>>>> theirs
     db.select().from(externalTrainingCompletions).where(eq(externalTrainingCompletions.userId, userId)).orderBy(desc(externalTrainingCompletions.recordedAt)),
     db.select({ id: certificates.id, programType: certificates.programType, certificateNumber: certificates.certificateNumber, issueDate: certificates.issueDate, verificationCode: certificates.verificationCode }).from(certificates).where(eq(certificates.userId, userId)).orderBy(desc(certificates.issueDate)),
     db.select().from(fellowshipProgress).where(eq(fellowshipProgress.userId, userId)).limit(1),
