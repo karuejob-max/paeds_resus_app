@@ -38,6 +38,14 @@ export type ContinueRouteConfig = {
   ctaLabel: "Start course" | "Open learner dashboard";
 };
 
+export type AhaNextPhase = "cognitive" | "practical" | "completed" | "review";
+
+export type AhaNextPhaseAction = {
+  phase: AhaNextPhase;
+  destination: string;
+  label: "Continue cognitive modules" | "Book hands-on session" | "View course certificates" | "Review enrollment";
+};
+
 export type AhaPathway = "ierp" | "nerp" | "ilsp" | "independent" | "admin_grant";
 
 /** Pathway learners must return to their owning programme portal. */
@@ -129,4 +137,34 @@ export function getAhaContinueRoute(
     destination: getProviderCourseDestination(programType, enrollmentId, "/learner-dashboard", courseDbId),
     ctaLabel: "Start course",
   };
+}
+
+/**
+ * Resolve the next unfinished action for an enrolled AHA course.
+ * Cognitive learning is handled by the course player, practical completion is
+ * instructor-led, and certificates are the terminal destination.
+ */
+export function getAhaNextPhaseAction(
+  programType: AhaProgramType,
+  enrollmentId: number,
+  courseDbId: number | undefined,
+  cognitiveModulesComplete: boolean,
+  practicalSkillsSignedOff: boolean,
+  enrollmentStatus: string | null | undefined,
+): AhaNextPhaseAction {
+  if (enrollmentStatus === "cancelled") {
+    return { phase: "review", destination: "/aha-courses", label: "Review enrollment" };
+  }
+  if (!cognitiveModulesComplete) {
+    return {
+      phase: "cognitive",
+      destination: getProviderCourseDestination(programType, enrollmentId, "/aha-courses", courseDbId),
+      label: "Continue cognitive modules",
+    };
+  }
+  if (!practicalSkillsSignedOff) {
+    const query = new URLSearchParams({ programType, enrollmentId: String(enrollmentId) });
+    return { phase: "practical", destination: `/aha-book-session?${query.toString()}`, label: "Book hands-on session" };
+  }
+  return { phase: "completed", destination: "/certificates", label: "View course certificates" };
 }

@@ -22,6 +22,7 @@ import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { TRPCError } from "@trpc/server";
 import { phaseForEnrollment, progressForEnrollment, selectBestCurrentEnrollments } from "../lib/professional-progress-calculation";
+import { getAhaNextPhaseAction, type AhaProgramType } from "../../shared/provider-course-routes";
 
 const reportInput = z.object({
   reportType: z.enum(["monthly", "quarterly", "annual", "custom"]).default("monthly"),
@@ -73,6 +74,16 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
     status: row.enrollmentStatus,
     paymentStatus: row.paymentStatus,
     updatedAt: row.updatedAt,
+    enrollmentId: Number(row.id),
+    courseDbId: row.courseId == null ? null : Number(row.courseId),
+    nextAction: getAhaNextPhaseAction(
+      String(row.programType) as AhaProgramType,
+      Number(row.id),
+      row.courseId == null ? undefined : Number(row.courseId),
+      Boolean(row.cognitiveModulesComplete) || progressForEnrollment(row) >= 100,
+      Boolean(row.practicalSkillsSignedOff),
+      row.enrollmentStatus,
+    ),
   }));
   const verifiedPhase2 = nerpVerifications.some((row: any) => row.phase === "phase_2" && row.status === "verified");
   const verifiedPhase3 = nerpVerifications.some((row: any) => row.phase === "phase_3" && row.status === "verified");
