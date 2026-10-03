@@ -151,7 +151,7 @@ function MetricCard({ metric }: { metric: ComparisonMetric }) {
   );
 }
 
-export function PerformanceDashboard() {
+export function PerformanceDashboard({ embedded = false }: { embedded?: boolean }) {
   const { user } = useAuth();
   const [period, setPeriod] = useState<Period>("month");
   const progressPeriod = useMemo(() => {
@@ -193,8 +193,8 @@ export function PerformanceDashboard() {
   const ierpPathway = pathways.find((item) => item.program.includes("IERP"));
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b border-border bg-card">
+    <div className={embedded ? "bg-background" : "min-h-screen bg-background"}>
+      <div className={embedded ? "border-b border-border bg-card" : "border-b border-border bg-card"}>
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
           <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
             <div>
@@ -203,7 +203,7 @@ export function PerformanceDashboard() {
                 Private professional growth
               </div>
               <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                My progress
+                Portfolio overview
               </h1>
               <p className="mt-2 max-w-2xl text-muted-foreground">
                 See how your activity is changing compared with your own
@@ -256,7 +256,7 @@ export function PerformanceDashboard() {
               <p className="mt-1 text-sm text-muted-foreground">This is the same unified record used by detailed progress: Life Support, CPD, Fellowship, Care Signal, Code Signal, and certificates.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link href="/records" className="inline-flex items-center rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-accent">Open My records</Link>
+              <Link href="/my-progress?section=records" className="inline-flex items-center rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-accent">Open My records</Link>
               <Link href="/my-progress" className="inline-flex items-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Detailed progress summary</Link>
             </div>
           </div>
@@ -266,12 +266,12 @@ export function PerformanceDashboard() {
               <p className="mt-1 text-lg font-bold text-emerald-900">{progressQuery.isLoading ? "…" : `${lifeSupportAverage}%`}</p>
               <p className="text-xs text-emerald-800">{blsContinuation?.label ?? "Open BLS / continue learning"} →</p>
             </Link>
-            <Link href="/my-cpd-certificates" className="rounded-lg border border-blue-200 bg-blue-50/60 p-3 transition hover:border-blue-400">
+            <Link href="/my-progress?section=records" className="rounded-lg border border-blue-200 bg-blue-50/60 p-3 transition hover:border-blue-400">
               <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">CPD</p>
               <p className="mt-1 text-lg font-bold text-blue-900">{progressReport?.cpd?.points ?? 0} pts</p>
               <p className="text-xs text-blue-800">Open CPD records →</p>
             </Link>
-            <Link href="/fellowship/progress" className="rounded-lg border border-violet-200 bg-violet-50/60 p-3 transition hover:border-violet-400">
+            <Link href="/my-progress?section=progress" className="rounded-lg border border-violet-200 bg-violet-50/60 p-3 transition hover:border-violet-400">
               <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">Fellowship</p>
               <p className="mt-1 text-lg font-bold text-violet-900">{progressReport?.fellowship?.overallPercentage ?? 0}%</p>
               <p className="text-xs text-violet-800">Continue Fellowship →</p>
