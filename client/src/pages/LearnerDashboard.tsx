@@ -220,13 +220,19 @@ export default function LearnerDashboard() {
   useEffect(() => {
     const id = window.location.hash?.replace(/^#/, "").trim();
     if (!id) return;
-    const frame = requestAnimationFrame(() => {
+    let attempts = 0;
+    let timer: number | undefined;
+    const focusTarget = () => {
       const target = document.getElementById(id);
-      if (!target) return;
-      target.scrollIntoView({ behavior: "smooth", block: "center" });
-      if (id !== "my-certificates") target.focus({ preventScroll: true });
-    });
-    return () => cancelAnimationFrame(frame);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (id !== "my-certificates") target.focus({ preventScroll: true });
+        return;
+      }
+      if (attempts++ < 12) timer = window.setTimeout(focusTarget, 100);
+    };
+    timer = window.setTimeout(focusTarget, 0);
+    return () => { if (timer) window.clearTimeout(timer); };
   }, []);
 
   const savePdfFromResult = (result: {

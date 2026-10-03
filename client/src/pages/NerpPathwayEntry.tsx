@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link } from "wouter";
 import { ArrowRight, CheckCircle2, Loader2, LockKeyhole } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -30,6 +31,25 @@ export default function NerpPathwayEntry() {
     enabled: Boolean(user),
     retry: false,
   });
+
+  useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, "");
+    if (!hash) return;
+    const targetId = hash === "phase-2" || hash === "phase-3" ? `program-phase-phase_${hash.slice(-1)}` : hash;
+    let attempts = 0;
+    let timer: number | undefined;
+    const focusTarget = () => {
+      const target = document.getElementById(targetId);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        target.focus({ preventScroll: true });
+        return;
+      }
+      if (attempts++ < 12) timer = window.setTimeout(focusTarget, 100);
+    };
+    timer = window.setTimeout(focusTarget, 0);
+    return () => { if (timer) window.clearTimeout(timer); };
+  }, [pathway.data, journey]);
 
   if (authLoading || pathway.isLoading) {
     return (
