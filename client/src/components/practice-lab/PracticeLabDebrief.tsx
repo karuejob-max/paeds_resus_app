@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, RotateCcw, CalendarPlus } from "lucide-react";
 import { buildNarrativeDebrief, buildScriptedDebrief } from "@/lib/practiceLab/debrief";
 import type { PracticeLabEvent } from "@shared/practice-lab-types";
+import { getNextRehearsal, summarizeSimulationDomains } from "@shared/simulation-hub-mastery";
 import { useState } from "react";
 
 type Props = {
@@ -32,6 +33,8 @@ export function PracticeLabDebrief({
   const [showAiNarrative, setShowAiNarrative] = useState(false);
   const scripted = buildScriptedDebrief({ trackName, scenarioName, score, passed, events });
   const narrative = buildNarrativeDebrief({ trackName, scenarioName, score, passed, events });
+  const domains = summarizeSimulationDomains(events);
+  const nextRehearsal = getNextRehearsal(domains);
 
   return (
     <Card>
@@ -54,6 +57,22 @@ export function PracticeLabDebrief({
             </li>
           ))}
         </ul>
+
+        <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+          <div>
+            <p className="text-sm font-semibold">Your performance map</p>
+            <p className="text-xs text-muted-foreground">This is coaching evidence, not a public ranking.</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {domains.map((domain) => (
+              <div key={domain.id} className="space-y-1">
+                <div className="flex items-center justify-between text-xs"><span>{domain.label}</span><span className="text-muted-foreground">{domain.score === null ? "No evidence yet" : `${domain.score}%`}</span></div>
+                <div className="h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${domain.score !== null && domain.score >= 70 ? "bg-emerald-500" : "bg-amber-500"}`} style={{ width: `${domain.score ?? 0}%` }} /></div>
+              </div>
+            ))}
+          </div>
+          {nextRehearsal && nextRehearsal.score !== null && nextRehearsal.score < 70 && <div className="border-t pt-3 text-xs"><span className="font-semibold">Next rehearsal: {nextRehearsal.label}.</span> {nextRehearsal.coaching}</div>}
+        </div>
 
         {showNarrative && (
           <div className="border-t pt-4">

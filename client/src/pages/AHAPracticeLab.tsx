@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Lock,
   Sparkles,
+  GraduationCap,
 } from "lucide-react";
 import { PracticeLabGate } from "@/components/practice-lab/PracticeLabGate";
 import { ShockNoShockTrack } from "@/components/practice-lab/ShockNoShockTrack";
@@ -23,6 +24,7 @@ import { AbcdeTrack } from "@/components/practice-lab/AbcdeTrack";
 import { CardiacArrestTrack } from "@/components/practice-lab/CardiacArrestTrack";
 import { RhythmRecognitionTrack } from "@/components/practice-lab/RhythmRecognitionTrack";
 import { AiRoleplayTrack } from "@/components/practice-lab/AiRoleplayTrack";
+import { PalsCapstoneSimulation } from "@/components/PalsCapstoneSimulation";
 import { PartnershipPlaceholders } from "@/components/practice-lab/PartnershipPlaceholders";
 import type { PracticeLabProgramType, PracticeLabTrackId } from "@shared/practice-lab-types";
 
@@ -55,11 +57,17 @@ const TRACK_META: Record<
     icon: Sparkles,
     description: "Interactive AI resus room roleplay — speak orders and manage dynamic patient vitals",
   },
+  pals_capstone: {
+    label: "PALS Capstone",
+    icon: GraduationCap,
+    description: "Full deterioration arc — ABCDE, shock, CPR, ROSC, and post-resuscitation care",
+  },
 };
 
 export default function AHAPracticeLab() {
   const [, setLocation] = useLocation();
   const { data: access, isLoading: accessLoading } = trpc.practiceLab.getAccess.useQuery();
+  const recordAttempt = trpc.practiceLab.recordAttempt.useMutation();
 
   const [programType, setProgramType] = useState<PracticeLabProgramType>("pals");
   const [enrollmentId, setEnrollmentId] = useState<number | null>(null);
@@ -251,6 +259,26 @@ export default function AHAPracticeLab() {
                 {id === "cardiac_arrest" && <CardiacArrestTrack {...trackProps} />}
                 {id === "rhythm_recognition" && <RhythmRecognitionTrack {...trackProps} />}
                 {id === "ai_interactive_roleplay" && <AiRoleplayTrack {...trackProps} />}
+                {id === "pals_capstone" && (effectiveProgram === "pals" ? (
+                  <PalsCapstoneSimulation
+                    patientAge={2}
+                    patientWeight={12}
+                    onComplete={(score, simReady) => {
+                      if (!effectiveEnrollmentId) return;
+                      void recordAttempt.mutateAsync({
+                        enrollmentId: effectiveEnrollmentId,
+                        programType: "pals",
+                        trackId: "pals_capstone",
+                        scenarioId: "pals_capstone_standard",
+                        score,
+                        passed: simReady,
+                        eventLog: [{ timestamp: 0, type: "capstone_complete", description: `PALS capstone completed at ${score}%`, correct: simReady }],
+                        durationSeconds: 900,
+                      });
+                    }}
+                    onClose={() => setActiveTrack("cardiac_arrest")}
+                  />
+                ) : <Card><CardContent className="pt-6 text-sm text-muted-foreground">The PALS capstone is available when the selected enrollment is PALS.</CardContent></Card>)}
               </TabsContent>
             ))}
           </Tabs>

@@ -20,9 +20,12 @@ Simulation Hub is a video-game-style rehearsal room for emergency decisions. It 
 - **The first minutes** — Cardiac Arrest track.
 - **Deteriorating child** — ABCDE track.
 - **Rhythm under uncertainty** — Rhythm Recognition track.
+- **The full deterioration arc** — PALS capstone: ABCDE → shock recognition → deterioration → CPR → ROSC → post-resuscitation care. This mission uses an explicit 80% Sim-Ready threshold.
 - **Resus room** — AI roleplay track, unlocked after the first-minutes rehearsal.
 
 The Hub reuses the existing, tested Practice Lab engines and server attempt recording. This avoids duplicating clinical scoring logic or creating a second source of truth.
+
+Every debrief now produces a five-domain performance map: recognition, prioritisation, technical action, communication, and reassessment. The weakest evidenced domain becomes the next rehearsal recommendation. The AI resus room also supports optional browser voice dictation with typed input as the fallback.
 
 ## Guardrails
 
@@ -32,11 +35,10 @@ The Hub reuses the existing, tested Practice Lab engines and server attempt reco
 - Clinical content, scoring, and consequence rules remain owned by the existing simulation engines and must receive clinical-owner review before expansion.
 - A new mission must have an objective, supported program scope, failure explanation, and debrief before release.
 
-## Next build stages
+## Remaining governed stages
 
-1. Add mission-specific scenario packs and richer consequence state transitions.
-2. Split debriefs into recognition, prioritisation, technical action, communication, and reassessment domains.
-3. Add optional role assignment and closed-loop communication tasks.
-4. Add audio/visual sensory cues only after accessibility and device testing.
-5. Add cohort-level analytics for educators without exposing individual public rankings.
-6. Validate with labelled synthetic/manikin sessions on at least two mobile devices and clinical-owner review.
+1. Add mission-specific scenario packs and richer consequence state transitions after clinical-owner approval.
+2. Add optional role assignment and closed-loop communication tasks.
+3. Add audio/visual sensory cues only after accessibility and device testing.
+4. Add cohort-level analytics for educators without exposing individual public rankings.
+5. Validate with labelled synthetic/manikin sessions on at least two mobile devices and clinical-owner review. This is a release gate, not a software-only task.

@@ -17,7 +17,22 @@ import {
   CheckCircle2,
   RefreshCw,
   Award,
+  Mic,
+  MicOff,
 } from "lucide-react";
+
+type BrowserSpeechRecognition = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  start: () => void;
+  stop: () => void;
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+};
+
+type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 
 interface Vitals {
   heartRate: number;
@@ -97,6 +112,7 @@ export function AiRoleplayTrack({ programType, enrollmentId, onBookSession }: Pr
   const [inputMsg, setInputMsg] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [startTime, setStartTime] = useState<number>(0);
 
   const [evaluationResult, setEvaluationResult] = useState<{
@@ -111,6 +127,34 @@ export function AiRoleplayTrack({ programType, enrollmentId, onBookSession }: Pr
   const sendMessageMutation = trpc.practiceLab.sendAiRoleplayMessage.useMutation();
   const evaluateMutation = trpc.practiceLab.evaluateAiRoleplaySession.useMutation();
   const recordAttemptMutation = trpc.practiceLab.recordAttempt.useMutation();
+
+  const toggleVoiceInput = () => {
+    const speechWindow = window as Window & { SpeechRecognition?: BrowserSpeechRecognitionConstructor; webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor };
+    const SpeechRecognition = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Voice dictation is not available in this browser", { description: "You can still type orders normally." });
+      return;
+    }
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-KE";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.onresult = (event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => {
+      const transcript = event.results[0]?.[0]?.transcript;
+      if (transcript) setInputMsg((current) => `${current}${current ? " " : ""}${transcript}`);
+    };
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => {
+      setIsListening(false);
+      toast.error("Voice dictation stopped", { description: "Check microphone permission or continue by typing." });
+    };
+    setIsListening(true);
+    recognition.start();
+  };
 
   useEffect(() => {
     if (chatEndRef.current) {
@@ -346,6 +390,9 @@ export function AiRoleplayTrack({ programType, enrollmentId, onBookSession }: Pr
               disabled={isSending || isEvaluating}
               className="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-slate-400"
             />
+            <Button type="button" size="icon" variant={isListening ? "default" : "outline"} onClick={toggleVoiceInput} disabled={isSending || isEvaluating} aria-label={isListening ? "Stop voice dictation" : "Start voice dictation"} title={isListening ? "Listening" : "Dictate an order"}>
+              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            </Button>
             <Button
               onClick={handleSend}
               disabled={isSending || isEvaluating || !inputMsg.trim()}

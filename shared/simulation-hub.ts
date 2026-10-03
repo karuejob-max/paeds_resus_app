@@ -1,6 +1,6 @@
 import type { PracticeLabProgramType, PracticeLabTrackId } from "./practice-lab-types";
 
-export type SimulationMissionId = "first-minutes" | "deteriorating-child" | "rhythm-decisions" | "resus-room";
+export type SimulationMissionId = "first-minutes" | "deteriorating-child" | "rhythm-decisions" | "pals-capstone" | "resus-room";
 
 export type SimulationMission = {
   id: SimulationMissionId;
@@ -9,6 +9,7 @@ export type SimulationMission = {
   trackId: PracticeLabTrackId;
   difficulty: "Foundation" | "Applied" | "Pressure";
   estimatedMinutes: number;
+  masteryThreshold: number;
   objective: string;
   realism: string;
   unlocksAfter?: SimulationMissionId;
@@ -23,6 +24,7 @@ export const SIMULATION_MISSIONS: readonly SimulationMission[] = [
     trackId: "cardiac_arrest",
     difficulty: "Foundation",
     estimatedMinutes: 8,
+    masteryThreshold: 70,
     objective: "Recognise arrest, lead high-quality CPR, and keep the algorithm moving.",
     realism: "Time pressure is visible, but speed never overrides a safe, deliberate action.",
     supportedPrograms: ["bls", "acls", "pals", "heartsaver", "nrp"],
@@ -34,6 +36,7 @@ export const SIMULATION_MISSIONS: readonly SimulationMission[] = [
     trackId: "abcde",
     difficulty: "Applied",
     estimatedMinutes: 6,
+    masteryThreshold: 70,
     objective: "Use ABCDE, treat the immediate threat, and reassess instead of waiting for certainty.",
     realism: "The patient responds to your decisions, including delayed or unsafe priorities.",
     supportedPrograms: ["acls", "pals", "nrp"],
@@ -45,6 +48,7 @@ export const SIMULATION_MISSIONS: readonly SimulationMission[] = [
     trackId: "rhythm_recognition",
     difficulty: "Applied",
     estimatedMinutes: 5,
+    masteryThreshold: 70,
     objective: "Identify the rhythm and choose the first action that matches the patient, not just the strip.",
     realism: "Context can change the correct response; pattern recognition alone is not enough.",
     supportedPrograms: ["acls", "pals"],
@@ -56,10 +60,24 @@ export const SIMULATION_MISSIONS: readonly SimulationMission[] = [
     trackId: "ai_interactive_roleplay",
     difficulty: "Pressure",
     estimatedMinutes: 10,
+    masteryThreshold: 70,
     objective: "Make an actionable plan, delegate, reassess, and close the loop with your team.",
     realism: "The room is intentionally imperfect: interruptions, ambiguity, and competing priorities are part of the work.",
     unlocksAfter: "first-minutes",
     supportedPrograms: ["acls", "pals"],
+  },
+  {
+    id: "pals-capstone",
+    title: "The full deterioration arc",
+    subtitle: "Assess, stabilise, recognise shock, respond to deterioration, resuscitate, and protect the post-ROSC patient.",
+    trackId: "pals_capstone",
+    difficulty: "Pressure",
+    estimatedMinutes: 15,
+    masteryThreshold: 80,
+    objective: "Connect ABCDE, shock recognition, CPR execution, ROSC, and post-resuscitation care into one coherent response.",
+    realism: "The patient worsens when priorities are missed; the debrief focuses on the sequence, not a single lucky click.",
+    unlocksAfter: "deteriorating-child",
+    supportedPrograms: ["pals"],
   },
 ];
 
