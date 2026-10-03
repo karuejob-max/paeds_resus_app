@@ -118,6 +118,8 @@
     "db:apply-0165": "node scripts/apply-0165-search-hardening.mjs",
     "db:apply-0166": "node scripts/apply-0166-deputy-institutional-roles.mjs",
     "db:apply-0167": "node scripts/apply-0167-professional-progress-records.mjs",
+    "db:apply-0168": "node scripts/apply-0168-professional-record-trust.mjs",
+    "db:verify-0168": "node scripts/verify-0168-professional-record-trust.mjs",
     "db:verify-0148": "node scripts/verify-0148-promotional-messaging-governance.mjs",
     "db:verify-cpr-event-link": "node scripts/verify-cpr-event-link.mjs",
     "db:verify-cpr-event-loop": "node scripts/verify-cpr-event-loop.mjs",

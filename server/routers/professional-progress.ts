@@ -9,32 +9,42 @@ import {
   externalTrainingCompletions,
   fellowshipProgress,
   ierpProgramEnrollments,
+  institutionalStaffMembers,
   microCourseEnrollments,
   microCourses,
   nerpOfferCourses,
   nerpOfferEnrollments,
   nerpOfferExternalVerifications,
   professionalProgressGoals,
+  professionalProgressCorrectionCases,
   professionalProgressReports,
   users,
 } from "../../drizzle/schema";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { adminProcedure, publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { TRPCError } from "@trpc/server";
-import { phaseForEnrollment, progressForEnrollment, selectBestCurrentEnrollments } from "../lib/professional-progress-calculation";
+import { phaseForEnrollment, progressForEnrollment, selectBestCurrentEnrollments, selectBestExternalCompletions } from "../lib/professional-progress-calculation";
 import { getAhaNextPhaseAction, getIerpNextAction, getNerpNextAction, type AhaProgramType } from "../../shared/provider-course-routes";
+import { isInstitutionAdmin } from "../lib/institution-access";
 
 const reportInput = z.object({
   reportType: z.enum(["monthly", "quarterly", "annual", "custom"]).default("monthly"),
+  reportScope: z.enum(["activity", "current_status"]).default("activity"),
   periodStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   periodEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-});
+}).refine((value) => value.periodStart <= value.periodEnd, { message: "periodStart must be on or before periodEnd", path: ["periodStart"] });
 
 function sourceLabel(hasNerp: boolean, hasIerp: boolean) {
   if (hasNerp && hasIerp) return "NERP + IERP";
   if (hasNerp) return "NERP";
   if (hasIerp) return "IERP";
   return "Self Pay / Individual";
+}
+
+function dateOnly(value: unknown): string {
+  if (!value) return "";
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
 }
 
 async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typeof reportInput>) {
@@ -72,6 +82,14 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
     phase: phaseForEnrollment(row),
     percentage: progressForEnrollment(row),
     status: row.enrollmentStatus,
+    recordStatus: row.enrollmentStatus === "cancelled" ? "cancelled" : progressForEnrollment(row) >= 100 ? "completed" : progressForEnrollment(row) > 0 ? "in_progress" : "enrolled_not_started",
+    dataQuality: {
+      level: row.courseId == null ? "partial" : "linked",
+      reasons: [
+        ...(row.courseId == null ? ["Course catalogue link is not present on this enrollment."] : []),
+        ...(progressForEnrollment(row) === 0 ? ["No completed learning activity is recorded yet."] : []),
+      ],
+    },
     paymentStatus: row.paymentStatus,
     updatedAt: row.updatedAt,
     cognitiveComplete: Boolean(row.cognitiveModulesComplete) || progressForEnrollment(row) >= 100,
@@ -136,7 +154,7 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
       nextAction,
     });
   }
-  const externalCompletions = externalRows.map((row: any) => ({
+  const externalCompletionRows = externalRows.map((row: any) => ({
       program: String(row.courseProgramType).toUpperCase(),
       source: `${String(row.pathway).toUpperCase()} · External completion`,
       phase: row.phase3Completed ? "Provider / Phase 3" : row.phase2Completed ? "Simulation / Phase 2" : "Cognitive prerequisite",
@@ -145,6 +163,7 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
       paymentStatus: null,
       updatedAt: row.recordedAt,
     }));
+  const externalCompletions = selectBestExternalCompletions(externalCompletionRows);
 
   const cpdRows = await db.select({ attendee: cpdAttendees, event: cpdEvents }).from(cpdAttendees).innerJoin(cpdEvents, eq(cpdEvents.id, cpdAttendees.cpdEventId)).where(and(sql`(${cpdAttendees.userId} = ${userId} OR LOWER(TRIM(${cpdAttendees.email})) = ${String(user?.email ?? "").trim().toLowerCase()})`, eq(cpdAttendees.attendanceStatus, "attendance_verified"), sql`${cpdEvents.eventDateAt} >= ${input.periodStart}`, sql`${cpdEvents.eventDateAt} <= ${input.periodEnd}`)).orderBy(desc(cpdEvents.eventDateAt));
   const cpdPoints = cpdRows.reduce((sum: number, row: any) => sum + Number(row.event.cpdPoints ?? 0), 0);
@@ -162,7 +181,7 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
     lifeSupport,
     externalCompletions,
     pathways: pathwayRecords,
-    coursework: microRows.map(({ enrollment, course }: any) => ({
+    coursework: microRows.filter(({ enrollment }: any) => input.reportScope === "current_status" || (enrollment.completedAt && dateOnly(enrollment.completedAt) >= input.periodStart && dateOnly(enrollment.completedAt) <= input.periodEnd) || (!enrollment.completedAt && dateOnly(enrollment.updatedAt) >= input.periodStart && dateOnly(enrollment.updatedAt) <= input.periodEnd)).map(({ enrollment, course }: any) => ({
       title: course.title,
       courseId: course.courseId,
       category: "Paeds Resus Fellowship coursework",
@@ -177,8 +196,11 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
       sessions: cpdRows.map((row: any) => ({ title: row.event.name, date: row.event.eventDateAt ?? row.event.eventDate, points: Number(row.event.cpdPoints ?? 0), departmentId: row.event.facilityDepartmentId })),
     },
     fellowship,
-    certificates: certRows.map((row: any) => ({ programType: row.programType, certificateNumber: row.certificateNumber, issueDate: row.issueDate, verificationCode: row.verificationCode })),
+    certificates: certRows.filter((row: any) => input.reportScope === "current_status" || (dateOnly(row.issueDate) >= input.periodStart && dateOnly(row.issueDate) <= input.periodEnd)).map((row: any) => ({ programType: row.programType, certificateNumber: row.certificateNumber, issueDate: row.issueDate, verificationCode: row.verificationCode })),
     sourceAttribution: { hasNerp, hasIerp, standaloneLearningIncluded: true },
+    periodSemantics: input.reportScope === "activity"
+      ? "This report shows learning activity and certificates issued during the selected period. Life-support and pathway cards show current status as of report generation."
+      : "This report shows current status as of report generation. Period dates are retained as the requested reporting window but do not filter current status.",
     generatedAt: new Date().toISOString(),
   };
 }
@@ -188,6 +210,52 @@ export const professionalProgressRouter = router({
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
     return buildProgressSnapshot(db, ctx.user.id, input);
+  }),
+
+  getInstitutionStaffProgress: protectedProcedure.input(z.object({ institutionId: z.number().int().positive(), periodStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), periodEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).query(async ({ ctx, input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    if (!(await isInstitutionAdmin(db, ctx.user.id, input.institutionId))) throw new TRPCError({ code: "FORBIDDEN", message: "Only institution administrators can view staff progress summaries" });
+    const staff = await db.select({ userId: institutionalStaffMembers.userId, staffName: institutionalStaffMembers.staffName, staffRole: institutionalStaffMembers.staffRole, department: institutionalStaffMembers.department }).from(institutionalStaffMembers).where(and(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId), sql`${institutionalStaffMembers.userId} IS NOT NULL`, sql`${institutionalStaffMembers.removedAt} IS NULL`));
+    const rows = [];
+    for (const member of staff) {
+      if (!member.userId) continue;
+      const snapshot = await buildProgressSnapshot(db, member.userId, { reportType: "custom", reportScope: "current_status", periodStart: input.periodStart, periodEnd: input.periodEnd });
+      rows.push({ staffName: member.staffName, staffRole: member.staffRole, department: member.department, lifeSupport: snapshot.lifeSupport.map((item: any) => ({ program: item.program, percentage: item.percentage, recordStatus: item.recordStatus })), pathways: snapshot.pathways.map((item: any) => ({ program: item.program, percentage: item.percentage, status: item.status })), cpdVerifiedSessions: snapshot.cpd.verifiedSessions, dataQuality: snapshot.lifeSupport.filter((item: any) => item.dataQuality?.level !== "linked").map((item: any) => ({ program: item.program, reasons: item.dataQuality.reasons })) });
+    }
+    return { institutionId: input.institutionId, generatedAt: new Date().toISOString(), privacy: "Names, role, department, learning status, and support signals only; no email, certificates, narratives, or clinical event content.", staff: rows };
+  }),
+
+  listMyCorrectionCases: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    return db.select().from(professionalProgressCorrectionCases).where(eq(professionalProgressCorrectionCases.userId, ctx.user.id)).orderBy(desc(professionalProgressCorrectionCases.createdAt));
+  }),
+
+  createCorrectionCase: protectedProcedure.input(z.object({
+    category: z.enum(["missing_record", "duplicate_record", "wrong_identity", "wrong_certificate", "wrong_status", "wrong_date", "other"]),
+    subject: z.string().trim().min(3).max(255),
+    description: z.string().trim().min(10).max(4000),
+    evidenceReference: z.string().trim().max(512).optional(),
+  })).mutation(async ({ ctx, input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    const result = await db.insert(professionalProgressCorrectionCases).values({ userId: ctx.user.id, ...input });
+    return { success: true as const, caseId: Number(result[0].insertId) };
+  }),
+
+  listCorrectionCasesForReview: adminProcedure.input(z.object({ status: z.enum(["open", "under_review", "resolved", "rejected"]).optional() }).optional()).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    const filters = input?.status ? eq(professionalProgressCorrectionCases.status, input.status) : undefined;
+    return db.select({ case: professionalProgressCorrectionCases, userName: users.name, userEmail: users.email }).from(professionalProgressCorrectionCases).innerJoin(users, eq(users.id, professionalProgressCorrectionCases.userId)).where(filters).orderBy(desc(professionalProgressCorrectionCases.createdAt));
+  }),
+
+  resolveCorrectionCase: adminProcedure.input(z.object({ caseId: z.number().int().positive(), status: z.enum(["under_review", "resolved", "rejected"]), resolutionNote: z.string().trim().min(3).max(4000) })).mutation(async ({ ctx, input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    await db.update(professionalProgressCorrectionCases).set({ status: input.status, resolutionNote: input.resolutionNote, resolvedByUserId: ctx.user.id, resolvedAt: new Date() }).where(eq(professionalProgressCorrectionCases.id, input.caseId));
+    return { success: true as const };
   }),
 
   listMyGoals: protectedProcedure.query(async ({ ctx }) => {
@@ -210,7 +278,7 @@ export const professionalProgressRouter = router({
     const snapshotJson = JSON.stringify(snapshot);
     const snapshotHash = createHash("sha256").update(snapshotJson).digest("hex");
     const verificationCode = `PPR-${randomBytes(12).toString("hex").toUpperCase()}`;
-    await db.insert(professionalProgressReports).values({ userId: ctx.user.id, reportType: input.reportType, periodStart: new Date(`${input.periodStart}T00:00:00.000Z`), periodEnd: new Date(`${input.periodEnd}T00:00:00.000Z`), snapshotJson, snapshotHash, verificationCode });
+    await db.insert(professionalProgressReports).values({ userId: ctx.user.id, reportType: input.reportType, reportScope: input.reportScope, periodStart: new Date(`${input.periodStart}T00:00:00.000Z`), periodEnd: new Date(`${input.periodEnd}T00:00:00.000Z`), snapshotJson, snapshotHash, verificationCode, publicExpiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000) });
     return { verificationCode, snapshotHash, verificationUrl: `/verify-progress/${verificationCode}`, snapshot };
   }),
 
@@ -219,7 +287,14 @@ export const professionalProgressRouter = router({
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
     const rows = await db.select({ report: professionalProgressReports, name: users.name, cadre: users.cadre }).from(professionalProgressReports).innerJoin(users, eq(users.id, professionalProgressReports.userId)).where(eq(professionalProgressReports.verificationCode, input.verificationCode)).limit(1);
     const row = rows[0];
-    if (!row) return { verified: false as const };
+    if (!row || row.report.status !== "active" || (row.report.publicExpiresAt && new Date(row.report.publicExpiresAt).getTime() < Date.now())) return { verified: false as const, reason: row?.report.status === "revoked" ? "revoked" : row?.report.status === "superseded" ? "superseded" : "expired" };
     return { verified: true as const, verificationCode: row.report.verificationCode, snapshotHash: row.report.snapshotHash, generatedAt: row.report.generatedAt, reportType: row.report.reportType, periodStart: row.report.periodStart, periodEnd: row.report.periodEnd, subjectName: row.name, cadre: row.cadre, snapshot: JSON.parse(row.report.snapshotJson) };
+  }),
+
+  revokeMyReport: protectedProcedure.input(z.object({ verificationCode: z.string().trim().min(8).max(64) })).mutation(async ({ ctx, input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    await db.update(professionalProgressReports).set({ status: "revoked" }).where(and(eq(professionalProgressReports.userId, ctx.user.id), eq(professionalProgressReports.verificationCode, input.verificationCode)));
+    return { success: true as const };
   }),
 });
