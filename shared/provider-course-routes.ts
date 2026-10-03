@@ -46,6 +46,12 @@ export type AhaNextPhaseAction = {
   label: "Continue cognitive modules" | "Book hands-on session" | "View course certificates" | "Review enrollment";
 };
 
+export type PathwayNextAction = {
+  phase: "phase_1" | "phase_2" | "payment" | "phase_3" | "completed" | "review";
+  destination: string;
+  label: string;
+};
+
 export type AhaPathway = "ierp" | "nerp" | "ilsp" | "independent" | "admin_grant";
 
 /** Pathway learners must return to their owning programme portal. */
@@ -167,4 +173,67 @@ export function getAhaNextPhaseAction(
     return { phase: "practical", destination: `/aha-book-session?${query.toString()}`, label: "Book hands-on session" };
   }
   return { phase: "completed", destination: "/certificates", label: "View course certificates" };
+}
+
+function addPathwayQuery(destination: string, pathway: "nerp" | "ierp") {
+  const url = new URL(destination, "https://paedsresus.local");
+  url.searchParams.set("pathway", pathway);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+export function getNerpNextAction(input: {
+  bls?: { id?: number; courseId?: number | null; cognitiveComplete?: boolean; progress?: number };
+  acls?: { id?: number; courseId?: number | null; cognitiveComplete?: boolean; progress?: number };
+  phase2Verified: boolean;
+  phase3Verified: boolean;
+  paymentComplete: boolean;
+  offerStatus?: string | null;
+}): PathwayNextAction {
+  if (input.offerStatus === "completed" || input.phase3Verified) {
+    return { phase: "completed", destination: "/certificates", label: "View NERP certificates" };
+  }
+  const blsComplete = Boolean(input.bls?.cognitiveComplete) || Number(input.bls?.progress ?? 0) >= 100;
+  if (!blsComplete && input.bls?.id != null) {
+    return { phase: "phase_1", destination: addPathwayQuery(getProviderCourseDestination("bls", input.bls.id, "/programs/nerp-acls/start", input.bls.courseId ?? undefined), "nerp"), label: "Continue BLS cognitive learning" };
+  }
+  const aclsComplete = Boolean(input.acls?.cognitiveComplete) || Number(input.acls?.progress ?? 0) >= 100;
+  if (!aclsComplete && input.acls?.id != null) {
+    return { phase: "phase_1", destination: addPathwayQuery(getProviderCourseDestination("acls", input.acls.id, "/programs/nerp-acls/start", input.acls.courseId ?? undefined), "nerp"), label: "Continue ACLS cognitive learning" };
+  }
+  if (!input.phase2Verified) {
+    return { phase: "phase_2", destination: "/programs/nerp-acls/start#phase-2", label: "Continue NERP Phase 2 simulations" };
+  }
+  if (!input.paymentComplete) {
+    return { phase: "payment", destination: "/programs/nerp-acls/enroll#payment", label: "Complete NERP payment" };
+  }
+  return { phase: "phase_3", destination: "/programs/nerp-acls/start#phase-3", label: "Continue NERP Phase 3" };
+}
+
+export function getIerpNextAction(input: {
+  bls?: { id?: number; courseId?: number | null; cognitiveComplete?: boolean };
+  acls?: { id?: number; courseId?: number | null; cognitiveComplete?: boolean };
+  phaseStatus: "phase_1" | "phase_2" | "phase_3" | "completed";
+  phase1Complete: boolean;
+  paymentComplete: boolean;
+  lifecycleStatus?: string | null;
+}): PathwayNextAction {
+  if (input.lifecycleStatus === "completed" || input.phaseStatus === "completed") {
+    return { phase: "completed", destination: "/certificates", label: "View IERP certificates" };
+  }
+  if (!input.bls?.cognitiveComplete && input.bls?.id != null) {
+    return { phase: "phase_1", destination: addPathwayQuery(getProviderCourseDestination("bls", input.bls.id, "/programs/ierp/enroll#ierp-program", input.bls.courseId ?? undefined), "ierp"), label: "Continue IERP BLS learning" };
+  }
+  if (!input.acls?.cognitiveComplete && input.acls?.id != null) {
+    return { phase: "phase_1", destination: addPathwayQuery(getProviderCourseDestination("acls", input.acls.id, "/programs/ierp/enroll#ierp-program", input.acls.courseId ?? undefined), "ierp"), label: "Continue IERP ACLS learning" };
+  }
+  if (!input.phase1Complete) {
+    return { phase: "phase_1", destination: "/programs/ierp/enroll#ierp-program", label: "Submit IERP Phase 1 evidence" };
+  }
+  if (input.phaseStatus === "phase_1" || input.phaseStatus === "phase_2") {
+    return { phase: "phase_2", destination: "/programs/ierp/enroll#ierp-program", label: "Continue IERP Phase 2 simulations" };
+  }
+  if (!input.paymentComplete) {
+    return { phase: "payment", destination: "/programs/ierp/enroll#ierp-program", label: "Complete IERP payment" };
+  }
+  return { phase: "phase_3", destination: "/programs/ierp/enroll#ierp-program", label: "Continue IERP Phase 3" };
 }

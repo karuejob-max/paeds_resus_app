@@ -45,6 +45,7 @@ import {
 } from "../lib/aha-access";
 import { consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
 import { calculateProgramJourney } from "../../shared/program-journey";
+import { getNerpNextAction } from "../../shared/provider-course-routes";
 
 const PHASES = ["phase_2", "phase_3"] as const;
 const DECISIONS = ["verified", "rejected", "revoked"] as const;
@@ -425,6 +426,14 @@ export const nerpRouter = router({
     const phase2Verified = verification.phase2?.status === "verified";
     const phase3Verified = verification.phase3?.status === "verified";
     const ahaEvidenceVerified = !!(bls?.certificateVerified && acls?.certificateVerified) || phase2Verified;
+    const pathwayNextAction = getNerpNextAction({
+      bls: bls && { id: Number(bls.id), courseId: bls.courseId, cognitiveComplete: bls.cognitiveModulesComplete, progress: bls.progressPercentage },
+      acls: acls && { id: Number(acls.id), courseId: acls.courseId, cognitiveComplete: acls.cognitiveModulesComplete, progress: acls.progressPercentage },
+      phase2Verified,
+      phase3Verified,
+      paymentComplete: paymentState.status === "completed",
+      offerStatus: offer.status,
+    });
     const journey = calculateProgramJourney({
       blsProgress: Number(bls?.progressPercentage ?? (bls?.cognitiveModulesComplete ? 100 : 0)) / 100,
       aclsProgress: Number(acls?.progressPercentage ?? (acls?.cognitiveModulesComplete ? 100 : 0)) / 100,
@@ -432,14 +441,14 @@ export const nerpRouter = router({
       phase2Progress: phase2Verified ? 1 : 0,
       paymentProgress: Number(offer.totalAmountKes) > 0 ? Number(offer.amountPaidKes) / Number(offer.totalAmountKes) : 0,
       phase3Complete: phase3Verified || offer.status === "completed",
-      phase1Action: { label: "Open NERP coursework", destination: "/programs/nerp-acls/start" },
-      phase2Action: { label: "Open Phase 2", destination: "/programs/nerp-acls/start" },
-      paymentAction: { label: "Open NERP payment", destination: "/programs/nerp-acls/enroll" },
-      phase3Action: { label: "Open Phase 3", destination: "/programs/nerp-acls/start" },
+      phase1Action: pathwayNextAction.phase === "phase_1" ? pathwayNextAction : undefined,
+      phase2Action: pathwayNextAction.phase === "phase_2" ? pathwayNextAction : undefined,
+      paymentAction: pathwayNextAction.phase === "payment" ? pathwayNextAction : undefined,
+      phase3Action: pathwayNextAction.phase === "phase_3" ? pathwayNextAction : undefined,
       phase2LockedReason: "Complete BLS and ACLS cognitive learning and submit the required evidence first.",
       phase3LockedReason: "Complete Phase 2 and the NERP programme requirements first.",
     });
-    return { programKey: "nerp" as const, programName: "Nurse Emergency Readiness Program", ...journey };
+    return { programKey: "nerp" as const, programName: "Nurse Emergency Readiness Program", ...journey, nextAction: pathwayNextAction };
   }),
   createOrResumeEnrollment: protectedProcedure.mutation(async ({ ctx }) => {
     const db = await requireDb();
