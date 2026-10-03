@@ -10,6 +10,7 @@ import { AbcdeTrack } from "@/components/practice-lab/AbcdeTrack";
 import { CardiacArrestTrack } from "@/components/practice-lab/CardiacArrestTrack";
 import { RhythmRecognitionTrack } from "@/components/practice-lab/RhythmRecognitionTrack";
 import { AiRoleplayTrack } from "@/components/practice-lab/AiRoleplayTrack";
+import { PalsCapstoneSimulation } from "@/components/PalsCapstoneSimulation";
 import { getSimulationMasteryLabel, getSimulationMission, isSimulationMissionUnlocked, SIMULATION_MISSIONS, type SimulationMissionId } from "@shared/simulation-hub";
 import type { PracticeLabProgramType } from "@shared/practice-lab-types";
 import { Activity, ArrowLeft, Brain, CheckCircle2, Clock3, Gamepad2, HeartPulse, Lock, RotateCcw, ShieldAlert, Sparkles, Target, Trophy, Users } from "lucide-react";
@@ -22,6 +23,7 @@ const TRACK_LABELS: Record<string, string> = {
   rhythm_recognition: "Rhythm decisions",
   ai_interactive_roleplay: "Resus room",
   shock_no_shock: "Shock / no shock",
+  pals_capstone: "PALS capstone",
 };
 
 export default function SimulationHub() {
@@ -31,6 +33,9 @@ export default function SimulationHub() {
   const [stage, setStage] = useState<"map" | "briefing" | "playing">("map");
   const [programType, setProgramType] = useState<PracticeLabProgramType>("pals");
   const [enrollmentId, setEnrollmentId] = useState<number | null>(null);
+  const [capstoneKey, setCapstoneKey] = useState(0);
+  const [capstoneResult, setCapstoneResult] = useState<{ score: number; simReady: boolean } | null>(null);
+  const recordAttempt = trpc.practiceLab.recordAttempt.useMutation();
 
   const enrollments = access?.enrollments ?? [];
   const selectedMission = getSimulationMission(selectedMissionId) ?? SIMULATION_MISSIONS[0];
@@ -58,9 +63,9 @@ export default function SimulationHub() {
     }
     return next;
   }, [attempts]);
-  const completedMissionIds = Object.entries(progress).filter(([, value]) => value.bestScore >= 70).map(([id]) => id);
+  const completedMissionIds = SIMULATION_MISSIONS.filter((mission) => progress[mission.id]?.bestScore >= mission.masteryThreshold).map((mission) => mission.id);
   const missionProgress = progress[selectedMission.id];
-  const allCompleted = SIMULATION_MISSIONS.filter((mission) => progress[mission.id]?.bestScore >= 70).length;
+  const allCompleted = SIMULATION_MISSIONS.filter((mission) => progress[mission.id]?.bestScore >= mission.masteryThreshold).length;
 
   useEffect(() => {
     if (selectedEnrollment) {
@@ -82,6 +87,22 @@ export default function SimulationHub() {
     programType: effectiveProgram,
     enrollmentId: effectiveEnrollmentId!,
     onBookSession: () => setLocation("/aha-book-session"),
+  };
+
+  const handleCapstoneComplete = async (score: number, simReady: boolean) => {
+    if (!effectiveEnrollmentId) return;
+    setCapstoneResult({ score, simReady });
+    await recordAttempt.mutateAsync({
+      enrollmentId: effectiveEnrollmentId,
+      programType: effectiveProgram,
+      trackId: "pals_capstone",
+      scenarioId: "pals_capstone_standard",
+      score,
+      passed: simReady,
+      eventLog: [{ timestamp: 0, type: "capstone_complete", description: `PALS capstone completed at ${score}%`, correct: simReady }],
+      durationSeconds: selectedMission.estimatedMinutes * 60,
+    });
+    await refetchAttempts();
   };
 
   if (isLoading) return <div className="flex min-h-[60vh] items-center justify-center text-sm text-muted-foreground">Preparing your simulation room…</div>;
@@ -130,7 +151,7 @@ export default function SimulationHub() {
                     const unlocked = isSimulationMissionUnlocked(mission, completedMissionIds);
                     const eligible = mission.supportedPrograms.some((program) => enrollments.some((enrollment) => enrollment.programType === program));
                     const selected = mission.id === selectedMissionId;
-                    return <button key={mission.id} type="button" disabled={!unlocked || !eligible} onClick={() => setSelectedMissionId(mission.id)} className={`w-full rounded-xl border p-4 text-left transition ${selected ? "border-cyan-400 bg-cyan-400/10" : "border-slate-800 bg-slate-950/40 hover:border-slate-600"} disabled:cursor-not-allowed disabled:opacity-50`}><div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{mission.title}</p><Badge variant="outline" className="border-slate-600 text-slate-300">{mission.difficulty}</Badge></div><p className="mt-1 text-sm text-slate-400">{mission.subtitle}</p></div>{unlocked ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" /> : <Lock className="h-5 w-5 shrink-0 text-slate-500" />}</div><div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500"><span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{mission.estimatedMinutes} min</span><span>{TRACK_LABELS[mission.trackId]}</span>{item ? <span className="text-cyan-300">Best {item.bestScore}% · {getSimulationMasteryLabel(item.attempts, item.bestScore)}</span> : null}</div></button>;
+                    return <button key={mission.id} type="button" disabled={!unlocked || !eligible} onClick={() => setSelectedMissionId(mission.id)} className={`w-full rounded-xl border p-4 text-left transition ${selected ? "border-cyan-400 bg-cyan-400/10" : "border-slate-800 bg-slate-950/40 hover:border-slate-600"} disabled:cursor-not-allowed disabled:opacity-50`}><div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{mission.title}</p><Badge variant="outline" className="border-slate-600 text-slate-300">{mission.difficulty}</Badge></div><p className="mt-1 text-sm text-slate-400">{mission.subtitle}</p></div>{unlocked ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" /> : <Lock className="h-5 w-5 shrink-0 text-slate-500" />}</div><div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500"><span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{mission.estimatedMinutes} min</span><span>{TRACK_LABELS[mission.trackId]}</span><span>Pass {mission.masteryThreshold}%</span>{item ? <span className="text-cyan-300">Best {item.bestScore}% · {getSimulationMasteryLabel(item.attempts, item.bestScore)}</span> : null}</div></button>;
                   })}
                 </CardContent>
               </Card>
@@ -148,7 +169,7 @@ export default function SimulationHub() {
           )}
 
           {stage === "playing" && effectiveEnrollmentId && (
-            <div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"><div><p className="text-xs uppercase tracking-[0.16em] text-cyan-300">Live mission</p><p className="font-semibold">{selectedMission.title}</p></div><Button size="sm" variant="outline" className="gap-2 border-slate-600 text-slate-200" onClick={() => setStage("map")}><RotateCcw className="h-4 w-4" />Exit to map</Button></div><div className="rounded-xl bg-white p-3 text-slate-950">{selectedMission.trackId === "cardiac_arrest" && <CardiacArrestTrack {...trackProps} />}{selectedMission.trackId === "abcde" && <AbcdeTrack {...trackProps} />}{selectedMission.trackId === "rhythm_recognition" && <RhythmRecognitionTrack {...trackProps} />}{selectedMission.trackId === "ai_interactive_roleplay" && <AiRoleplayTrack {...trackProps} />}{selectedMission.trackId === "shock_no_shock" && <ShockNoShockTrack {...trackProps} />}</div></div>
+            <div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"><div><p className="text-xs uppercase tracking-[0.16em] text-cyan-300">Live mission</p><p className="font-semibold">{selectedMission.title}</p></div><Button size="sm" variant="outline" className="gap-2 border-slate-600 text-slate-200" onClick={() => setStage("map")}><RotateCcw className="h-4 w-4" />Exit to map</Button></div><div className="rounded-xl bg-white p-3 text-slate-950">{selectedMission.trackId === "cardiac_arrest" && <CardiacArrestTrack {...trackProps} />}{selectedMission.trackId === "abcde" && <AbcdeTrack {...trackProps} />}{selectedMission.trackId === "rhythm_recognition" && <RhythmRecognitionTrack {...trackProps} />}{selectedMission.trackId === "ai_interactive_roleplay" && <AiRoleplayTrack {...trackProps} />}{selectedMission.trackId === "shock_no_shock" && <ShockNoShockTrack {...trackProps} />}{selectedMission.trackId === "pals_capstone" && <div className="space-y-4"><PalsCapstoneSimulation key={capstoneKey} patientAge={2} patientWeight={12} onComplete={handleCapstoneComplete} onClose={() => setStage("map")} />{capstoneResult && <Card className="border-emerald-200 bg-emerald-50"><CardContent className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-semibold text-emerald-900">{capstoneResult.simReady ? "Capstone passed — Sim-Ready" : "Capstone complete — another rehearsal recommended"}</p><p className="text-sm text-emerald-800">Score {capstoneResult.score}%. Use the debrief and repeat the weak phase before progressing.</p></div><Button size="sm" variant="outline" onClick={() => { setCapstoneResult(null); setCapstoneKey((key) => key + 1); }}>Repeat capstone</Button></CardContent></Card>}</div>}</div></div>
           )}
         </div>
       </div>

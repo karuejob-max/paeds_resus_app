@@ -8,8 +8,11 @@ describe("Simulation Hub mission model", () => {
       "deteriorating-child",
       "rhythm-decisions",
       "resus-room",
+      "pals-capstone",
     ]);
     expect(getSimulationMission("deteriorating-child")?.trackId).toBe("abcde");
+    expect(getSimulationMission("pals-capstone")?.unlocksAfter).toBe("deteriorating-child");
+    expect(getSimulationMission("pals-capstone")?.masteryThreshold).toBe(80);
   });
 
   it("keeps missions unlocked by default and supports explicit prerequisites", () => {
