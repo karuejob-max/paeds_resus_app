@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
@@ -222,6 +223,16 @@ export function PerformanceDashboard() {
                 {option.label}
               </button>
             ))}
+          </div>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+            <div>
+              <p className="font-semibold text-foreground">Learning records and evidence</p>
+              <p className="mt-1 text-sm text-muted-foreground">Open the existing organized records hub for Life Support Phases 1–3, CPD, microcourses, and certificates.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/records" className="inline-flex items-center rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-accent">Open My records</Link>
+              <Link href="/my-progress" className="inline-flex items-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Detailed progress summary</Link>
+            </div>
           </div>
         </div>
       </div>
