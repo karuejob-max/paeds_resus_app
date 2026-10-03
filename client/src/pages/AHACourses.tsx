@@ -201,17 +201,17 @@ export default function AHACourses() {
                   AHA Practice Lab
                 </p>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Self-guided simulation — shock/no-shock, ABCDE, cardiac arrest, and rhythm drills. Supplemental to
+                  Video-game-style clinical rehearsal with missions, changing physiology, team pressure, and a debrief. Supplemental to
                   your course, not certification.
                 </p>
               </div>
               <Button
                 variant="outline"
                 className="shrink-0 gap-2 border-violet-300"
-                onClick={() => setLocation("/aha-courses/practice")}
+                onClick={() => setLocation("/simulation-hub")}
               >
                 <FlaskConical className="h-4 w-4" />
-                Open Practice Lab
+                Open Simulation Hub
               </Button>
             </CardContent>
           </Card>

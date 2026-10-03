@@ -134,6 +134,7 @@ const MicroCoursePlayer = lazy(() => import('./pages/MicroCoursePlayerDB'));
 const CapstoneGradingPanel = lazy(() => import('./pages/CapstoneGradingPanel'));
 const AHABookSession = lazy(() => import("./pages/AHABookSession"));
 const AHAPracticeLab = lazy(() => import("./pages/AHAPracticeLab"));
+const SimulationHub = lazy(() => import("./pages/SimulationHub"));
 const KaizenDashboard = lazy(() => import("./pages/KaizenDashboard"));
 const ResusGated = lazy(() => import("./pages/ResusGated"));
 const JoinSession = lazy(() => import("./pages/JoinSession"));
@@ -699,6 +700,11 @@ function Router() {
           <Route path="/aha-courses/practice">{() => (
             <RoleGate allowed={["provider"]}>
               <AHAPracticeLab />
+            </RoleGate>
+          )}</Route>
+          <Route path="/simulation-hub">{() => (
+            <RoleGate allowed={["provider"]}>
+              <SimulationHub />
             </RoleGate>
           )}</Route>
           <Route path="/aha-book-session">{() => (
