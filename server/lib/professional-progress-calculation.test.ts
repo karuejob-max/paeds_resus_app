@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { phaseForEnrollment, progressForEnrollment, selectBestCurrentEnrollments } from "./professional-progress-calculation";
+import { phaseForEnrollment, progressForEnrollment, selectBestCurrentEnrollments, selectBestExternalCompletions } from "./professional-progress-calculation";
 
 describe("professional progress calculation", () => {
   it("maps the real enrollment evidence fields to percentages", () => {
@@ -18,5 +18,19 @@ describe("professional progress calculation", () => {
       { id: 4, programType: "acls", enrollmentStatus: "active", cognitiveModulesComplete: true, practicalSkillsSignedOff: true, updatedAt: "2026-08-02" },
     ]);
     expect(records.map(record => [record.programType, record.id])).toEqual([["acls", 4], ["bls", 2]]);
+  });
+
+  it("deduplicates external completion evidence by programme and keeps the strongest record", () => {
+    const records = selectBestExternalCompletions([
+      { program: "BLS", percentage: 50, updatedAt: "2026-01-01" },
+      { program: "BLS", percentage: 100, updatedAt: "2026-02-01" },
+      { program: "ACLS", percentage: 100, updatedAt: "2026-01-15" },
+    ]);
+    expect(records.map(record => [record.program, record.percentage])).toEqual([["ACLS", 100], ["BLS", 100]]);
+  });
+
+  it("keeps a zero-progress enrollment distinguishable from no linked enrollment", () => {
+    expect(progressForEnrollment({ programType: "bls", enrollmentStatus: "active" })).toBe(0);
+    expect(phaseForEnrollment({ programType: "bls", enrollmentStatus: "active" })).toContain("Started");
   });
 });

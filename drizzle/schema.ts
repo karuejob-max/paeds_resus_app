@@ -10111,12 +10111,36 @@ export const professionalProgressReports = mysqlTable("professionalProgressRepor
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   reportType: mysqlEnum("reportType", ["monthly", "quarterly", "annual", "custom"]).notNull(),
+  reportScope: mysqlEnum("reportScope", ["activity", "current_status"]).default("activity").notNull(),
   periodStart: date("periodStart").notNull(),
   periodEnd: date("periodEnd").notNull(),
   snapshotJson: text("snapshotJson").notNull(),
   snapshotHash: varchar("snapshotHash", { length: 64 }).notNull(),
   verificationCode: varchar("verificationCode", { length: 64 }).notNull().unique(),
+  status: mysqlEnum("status", ["active", "revoked", "superseded"]).default("active").notNull(),
+  supersededByReportId: int("supersededByReportId"),
+  publicExpiresAt: timestamp("publicExpiresAt"),
   generatedAt: timestamp("generatedAt").defaultNow().notNull(),
 });
 export type ProfessionalProgressReport = typeof professionalProgressReports.$inferSelect;
 export type InsertProfessionalProgressReport = typeof professionalProgressReports.$inferInsert;
+
+/** User-owned correction requests for missing, duplicate, or inaccurate professional evidence. */
+export const professionalProgressCorrectionCases = mysqlTable("professionalProgressCorrectionCases", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  category: mysqlEnum("category", ["missing_record", "duplicate_record", "wrong_identity", "wrong_certificate", "wrong_status", "wrong_date", "other"]).notNull(),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  evidenceReference: varchar("evidenceReference", { length: 512 }),
+  status: mysqlEnum("status", ["open", "under_review", "resolved", "rejected"]).default("open").notNull(),
+  resolutionNote: text("resolutionNote"),
+  resolvedByUserId: int("resolvedByUserId"),
+  resolvedAt: timestamp("resolvedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  userStatusIndex: index("professional_progress_corrections_user_status_idx").on(table.userId, table.status),
+}));
+export type ProfessionalProgressCorrectionCase = typeof professionalProgressCorrectionCases.$inferSelect;
+export type InsertProfessionalProgressCorrectionCase = typeof professionalProgressCorrectionCases.$inferInsert;

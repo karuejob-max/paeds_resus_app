@@ -147,6 +147,7 @@ const AdminAhaProofReview = lazy(() => import("./pages/AdminAhaProofReview"));
 const AdminCompletionRecords = lazy(() => import("./pages/AdminCompletionRecords"));
 const AdminNerpCampaign = lazy(() => import("./pages/AdminNerpCampaign"));
 const AdminPromotionalMessaging = lazy(() => import("./pages/AdminPromotionalMessaging"));
+const AdminProfessionalProgressCorrections = lazy(() => import("./pages/AdminProfessionalProgressCorrections"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 const AHACourses = lazy(() => import("./pages/AHACourses"));
 
@@ -402,6 +403,11 @@ function Router() {
           <Route path="/admin/promotional-messaging">{() => (
             <AdminGate>
               <AdminPromotionalMessaging />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin/professional-record-corrections">{() => (
+            <AdminGate>
+              <AdminProfessionalProgressCorrections />
             </AdminGate>
           )}</Route>
           <Route path="/help" component={Help} />

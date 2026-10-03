@@ -46,3 +46,20 @@ export function selectBestCurrentEnrollments(rows: LifeSupportEnrollmentLike[]):
   }
   return [...best.values()].sort((a, b) => a.programType.localeCompare(b.programType));
 }
+
+export type ExternalCompletionLike = {
+  program: string;
+  percentage: number;
+  updatedAt?: Date | string | null;
+  [key: string]: unknown;
+};
+
+/** Keep the strongest verified external record per programme; never count duplicate evidence twice. */
+export function selectBestExternalCompletions(rows: ExternalCompletionLike[]): ExternalCompletionLike[] {
+  const best = new Map<string, ExternalCompletionLike>();
+  for (const row of rows) {
+    const current = best.get(row.program);
+    if (!current || row.percentage > current.percentage || (row.percentage === current.percentage && new Date(row.updatedAt ?? 0).getTime() > new Date(current.updatedAt ?? 0).getTime())) best.set(row.program, row);
+  }
+  return [...best.values()].sort((a, b) => a.program.localeCompare(b.program));
+}
