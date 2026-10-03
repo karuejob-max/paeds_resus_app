@@ -219,11 +219,14 @@ export default function LearnerDashboard() {
 
   useEffect(() => {
     const id = window.location.hash?.replace(/^#/, "").trim();
-    if (id === "my-certificates") {
-      requestAnimationFrame(() =>
-        document.getElementById("my-certificates")?.scrollIntoView({ behavior: "smooth", block: "start" })
-      );
-    }
+    if (!id) return;
+    const frame = requestAnimationFrame(() => {
+      const target = document.getElementById(id);
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (id !== "my-certificates") target.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   const savePdfFromResult = (result: {
@@ -1227,7 +1230,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
           phases={journey.phases}
           nextAction={journey.nextAction}
         />
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div id="ierp-phase2-simulations" tabIndex={-1} className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-teal-500 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">Current learning task</p>
@@ -1287,7 +1290,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
             </p>
           ) : null}
         </div>
-        <div id="ierp-phase1-evidence" className="rounded-lg border border-slate-200 bg-white p-3 space-y-3">
+        <div id="ierp-phase1-evidence" tabIndex={-1} className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-3 space-y-3 outline-none focus-visible:ring-2 focus-visible:ring-teal-500">
           <div>
             <p className="text-sm font-semibold text-slate-950">AHA certificates for online simulations</p>
             <p className="text-xs text-slate-600">After the platform BLS and ACLS, PALS, or NRP cognitive modules are complete, upload the two certificates here. Files are private and reviewer-controlled; do not paste a public Drive link.</p>
@@ -1333,7 +1336,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
           {summary?.payment.cognitiveAccessLocked && <span className="font-semibold text-red-700">Cognitive coursework and Phase 2 access are locked until the full KES 15,000 balance is paid.</span>}
         </div>
         {ierpLedger && ierpLedger.balanceKsh > 0 && (
-          <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+          <div id="ierp-payment" tabIndex={-1} className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-3 space-y-2 outline-none focus-visible:ring-2 focus-visible:ring-teal-500">
             <p className="text-xs font-semibold text-slate-950">{summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? "Pay IERP early (optional)" : "Complete IERP payment"}</p>
             <p className="text-xs text-slate-600">{summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? `Not required yet — you are covered until 1 December EAT. Pay now if you would rather clear the KES ${ierpLedger.balanceKsh.toLocaleString()} balance early.` : `From 1 December EAT, IERP requires the remaining balance of KES ${ierpLedger.balanceKsh.toLocaleString()} in one payment. No instalment plan is used for IERP.`}</p>
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -1848,7 +1851,7 @@ function ProgressAndLedgerCard() {
   const overallPct = Math.round((phasesDoneCount / 3) * 100);
 
   return (
-    <Card className="md:col-span-3">
+    <Card id="ierp-phase3-assessment" tabIndex={-1} className="scroll-mt-24 outline-none focus-visible:ring-2 focus-visible:ring-teal-500 md:col-span-3">
       <CardHeader>
         <CardTitle className="text-lg font-bold">My Progress</CardTitle>
       </CardHeader>

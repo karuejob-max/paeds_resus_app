@@ -161,7 +161,7 @@ export default function NerpOfferPage() {
         ) : null}
 
         <div className="grid gap-5 md:grid-cols-3">
-          <Card>
+          <Card id="payment" tabIndex={-1} className="scroll-mt-24 outline-none focus-visible:ring-2 focus-visible:ring-brand-orange">
             <CardHeader>
               <CreditCard className="h-6 w-6 text-brand-orange" />
               <CardTitle className="text-lg">Lipa Mdogo Mdogo</CardTitle>
