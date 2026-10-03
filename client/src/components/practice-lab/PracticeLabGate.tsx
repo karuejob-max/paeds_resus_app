@@ -30,10 +30,10 @@ export function PracticeLabGate({ children }: Props) {
     <div className="max-w-lg mx-auto p-6 space-y-4">
       <Alert variant="destructive" className="border-amber-500/50 bg-amber-500/10">
         <AlertTriangle className="h-4 w-4 text-amber-600" />
-        <AlertTitle className="text-amber-900">AHA Practice Lab — simulation only</AlertTitle>
+        <AlertTitle className="text-amber-900">Simulation Hub — training only</AlertTitle>
         <AlertDescription className="text-amber-900/90 space-y-2">
           <p>
-            <strong>AHA Practice Lab</strong> is self-guided supplemental practice for your AHA course.
+            <strong>Simulation Hub</strong> is self-guided supplemental practice for your Life Support course.
             It does <strong>not</strong> replace hands-on skills sessions or issue AHA certification.
           </p>
           <ul className="list-disc list-inside text-sm space-y-1">
@@ -60,7 +60,7 @@ export function PracticeLabGate({ children }: Props) {
           setAcknowledged(true);
         }}
       >
-        I understand — enter Practice Lab
+        I understand — enter Simulation Hub
       </Button>
     </div>
   );

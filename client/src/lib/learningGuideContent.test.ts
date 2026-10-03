@@ -17,12 +17,12 @@ describe("Learning guide content", () => {
     ]);
   });
 
-  it("keeps Fellowship separate from AHA certification", () => {
+  it("keeps Fellowship separate from Life Support certification", () => {
     const trackStep = INDIVIDUAL_LEARNING_STEPS.find(
       step => step.title === "Choose the right learning track"
     );
     expect(trackStep?.detail).toContain(
-      "Fellowship and AHA certifications are distinct"
+      "Fellowship and Life Support certifications are distinct"
     );
     expect(trackStep?.detail).toContain(
       "BLS, ACLS, and PALS are not Fellowship requirements"

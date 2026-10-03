@@ -568,13 +568,13 @@ export default function LearnerDashboard() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-muted-foreground text-sm">
-                  Fellowship and AHA are managed separately. Choose the hub that matches your next step.
+                  Fellowship and Life Support are managed separately. Choose the hub that matches your next step.
                 </p>
                 <Button className="w-full" onClick={() => navigate("/fellowship")}>
                   Open fellowship
                 </Button>
                 <Button variant="outline" className="w-full" onClick={() => navigate("/aha-courses")}>
-                  Open AHA certification
+                  Open Life Support courses
                 </Button>
               </CardContent>
             </Card>
@@ -1046,12 +1046,12 @@ function ActiveAhaPathwayCard() {
     <Card className="md:col-span-3 border-emerald-200 bg-emerald-50/40">
       <CardContent className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Your active AHA pathway</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Your active Life Support pathway</p>
           <p className="text-base font-bold text-emerald-950">{label}</p>
           <p className="text-xs text-emerald-900">Your BLS and ACLS access is being managed through this pathway.</p>
         </div>
         <Button asChild size="sm" variant="outline" className="border-emerald-300 bg-white text-emerald-900">
-          <Link href="/aha-courses">Open AHA coursework</Link>
+          <Link href="/aha-courses">Open Life Support coursework</Link>
         </Button>
       </CardContent>
     </Card>

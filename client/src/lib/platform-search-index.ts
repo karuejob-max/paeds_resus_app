@@ -157,7 +157,7 @@ const STATIC_ITEMS: PlatformSearchItem[] = [
   }),
   item({
     id: "aha-courses",
-    label: "AHA courses hub",
+    label: "Life Support courses hub",
     href: "/aha-courses",
     category: "Courses",
     keywords: ["BLS", "ACLS", "PALS", "NRP", "Heartsaver"],

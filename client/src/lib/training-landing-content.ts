@@ -181,7 +181,7 @@ export const TRAINING_LANDING_CONFIGS: Record<TrainingLandingConfig["slug"], Tra
       {
         question: "Can I book an ACLS practical session online?",
         answer:
-          "After completing cognitive modules, sign in and use the AHA courses hub to request or register for an upcoming hands-on megacode session. The date and location are confirmed during booking.",
+          "After completing cognitive modules, sign in and use the Life Support Courses Hub to request or register for an upcoming hands-on megacode session. The date and location are confirmed during booking.",
       },
     ],
   },

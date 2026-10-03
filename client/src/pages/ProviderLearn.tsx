@@ -116,7 +116,7 @@ export default function ProviderLearn() {
         <Card className="border-violet-200 bg-violet-50/60">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base text-violet-950"><GraduationCap className="h-5 w-5 text-violet-700" />Your next learning action</CardTitle>
-            <CardDescription className="text-violet-900/75">Fellowship and AHA certification are separate learning tracks. Choose the one you are currently pursuing.</CardDescription>
+            <CardDescription className="text-violet-900/75">Fellowship and Life Support certification are separate learning tracks. Choose the one you are currently pursuing.</CardDescription>
           </CardHeader>
           <CardContent>
             {nextLearning ? (
@@ -135,7 +135,7 @@ export default function ProviderLearn() {
             ) : (
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
                 <CheckCircle2 className="mb-2 h-5 w-5" />
-                No learning task is currently in progress. Browse Fellowship or AHA courses when ready.
+                No learning task is currently in progress. Browse Fellowship or Life Support courses when ready.
               </div>
             )}
           </CardContent>
@@ -144,7 +144,7 @@ export default function ProviderLearn() {
         <Card className="border-orange-200 bg-orange-50/30">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-5 w-5 text-orange-700" />Life Support Training</CardTitle>
-            <CardDescription>Our Financial Strategy 1: AHA certification pathways for providers and interns, separate from the Fellowship.</CardDescription>
+            <CardDescription>Our Financial Strategy 1: Life Support certification pathways for providers and interns, separate from the Fellowship.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
             {nerpJourney ? (
@@ -195,16 +195,16 @@ export default function ProviderLearn() {
 
           <Card className="border-orange-200 bg-white">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-5 w-5 text-orange-700" />AHA life support training</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-5 w-5 text-orange-700" />Life Support training</CardTitle>
               <CardDescription>BLS, ACLS, PALS, NRP, and instructor training follow their own certification path.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex flex-wrap gap-2">
                 {ahaEnrollments.length > 0 ? ahaEnrollments.slice(0, 4).map((enrollment) => (
                   <Badge key={enrollment.id} variant="outline" className="border-orange-200 text-orange-800">{enrollment.programType.toUpperCase()}</Badge>
-                )) : <span className="text-sm text-slate-500">No AHA enrollment yet.</span>}
+                )) : <span className="text-sm text-slate-500">No Life Support enrollment yet.</span>}
               </div>
-              <Button type="button" variant="outline" className="w-full justify-between" onClick={() => setLocation("/aha-courses")}>Open AHA courses <ArrowRight className="h-4 w-4" /></Button>
+              <Button type="button" variant="outline" className="w-full justify-between" onClick={() => setLocation("/aha-courses")}>Open Life Support courses <ArrowRight className="h-4 w-4" /></Button>
             </CardContent>
           </Card>
         </div>

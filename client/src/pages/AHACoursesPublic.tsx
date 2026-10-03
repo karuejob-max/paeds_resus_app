@@ -151,7 +151,7 @@ export default function AHACoursesPublic() {
 
               <a href={getLoginUrl("/aha-courses")}>
 
-                <Button variant="cta">Sign in to AHA hub</Button>
+                <Button variant="cta">Sign in to Life Support Hub</Button>
 
               </a>
 
@@ -182,4 +182,3 @@ export default function AHACoursesPublic() {
   );
 
 }
-

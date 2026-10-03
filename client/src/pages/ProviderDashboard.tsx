@@ -621,14 +621,14 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
             </Button>
           </CardContent>
         </Card>
-        {/* ── AHA Courses ───────────────────────────────────────────────────── */}
+        {/* ── Life Support Courses ──────────────────────────────────────────── */}
         <Card className="border-brand-orange/25 overflow-hidden">
           <div className="bg-gradient-to-r from-brand-orange to-[var(--brand-orange-hover)] px-5 py-4 text-white">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <BookOpen className="h-8 w-8 opacity-90" />
                 <div>
-                  <h2 className="font-bold text-lg leading-tight">Life Support (AHA) Training Journey</h2>
+                  <h2 className="font-bold text-lg leading-tight">Life Support Training Journey</h2>
                   <p className="text-white/90 text-xs mt-0.5">Track your BLS, ACLS, PALS, and NRP progress</p>
                 </div>
               </div>
@@ -799,7 +799,7 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
                       className="text-xs text-slate-500 hover:text-slate-700 font-medium"
                       onClick={() => setLocation("/aha-courses")}
                     >
-                      Manage all enrollments in AHA Certification Hub &rarr;
+                      Manage all enrollments in Life Support Hub &rarr;
                     </Button>
                   </div>
                 </div>
@@ -819,7 +819,7 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
                 >
                   <span className="flex items-center gap-2">
                     <BookOpen className="h-4 w-4" />
-                    View AHA Courses
+                    View Life Support Courses
                   </span>
                   <ArrowRight className="h-4 w-4" />
                 </Button>

@@ -118,7 +118,7 @@ export default function MicroCoursePlayerDB() {
     : isIlsCourse
       ? "Return to Institutional Life Support"
       : isAhaCourse
-        ? "Return to AHA Courses"
+        ? "Return to Life Support Courses"
         : "Return to Fellowship Dashboard";
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -1173,7 +1173,7 @@ export default function MicroCoursePlayerDB() {
             : isAhaCourse && !ahaDetailsLoading && (ahaDetailsHasError || !ahaCourseDetails)
               ? isIlsCourse
                 ? "This Institutional Life Support programme could not be loaded. Please return to the programme page and try again."
-                : "This AHA course could not be loaded. Please refresh the page or return to AHA Courses and try again."
+                : "This Life Support course could not be loaded. Please refresh the page or return to Life Support Courses and try again."
               : "This course is not yet available in the interactive format."}
         </p>
         {isAhaAccessBlocked ? (

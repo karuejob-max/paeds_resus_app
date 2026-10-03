@@ -98,7 +98,7 @@ export default function AHABookSession() {
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => setLocation("/aha-courses")} className="gap-2">
             <ArrowLeft className="h-4 w-4" />
-            AHA courses
+            Life Support courses
           </Button>
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -106,7 +106,7 @@ export default function AHABookSession() {
               Book a hands-on session
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Attend a practical skills session to complete Gate 2 of your AHA certificate.
+              Attend a practical skills session to complete Gate 2 of your Life Support certificate.
             </p>
           </div>
         </div>
