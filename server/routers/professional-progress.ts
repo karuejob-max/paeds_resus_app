@@ -22,7 +22,7 @@ import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { TRPCError } from "@trpc/server";
 import { phaseForEnrollment, progressForEnrollment, selectBestCurrentEnrollments } from "../lib/professional-progress-calculation";
-import { getAhaNextPhaseAction, type AhaProgramType } from "../../shared/provider-course-routes";
+import { getAhaNextPhaseAction, getIerpNextAction, getNerpNextAction, type AhaProgramType } from "../../shared/provider-course-routes";
 
 const reportInput = z.object({
   reportType: z.enum(["monthly", "quarterly", "annual", "custom"]).default("monthly"),
@@ -74,6 +74,8 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
     status: row.enrollmentStatus,
     paymentStatus: row.paymentStatus,
     updatedAt: row.updatedAt,
+    cognitiveComplete: Boolean(row.cognitiveModulesComplete) || progressForEnrollment(row) >= 100,
+    practicalComplete: Boolean(row.practicalSkillsSignedOff),
     enrollmentId: Number(row.id),
     courseDbId: row.courseId == null ? null : Number(row.courseId),
     nextAction: getAhaNextPhaseAction(
@@ -88,11 +90,19 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
   const verifiedPhase2 = nerpVerifications.some((row: any) => row.phase === "phase_2" && row.status === "verified");
   const verifiedPhase3 = nerpVerifications.some((row: any) => row.phase === "phase_3" && row.status === "verified");
   const bestAhaByProgram = new Map(lifeSupport.map((row: any) => [row.program, row]));
+  const bls = bestAhaByProgram.get("BLS");
+  const acls = bestAhaByProgram.get("ACLS");
   const pathwayRecords = [];
   if (hasNerp) {
-    const bls = bestAhaByProgram.get("BLS");
-    const acls = bestAhaByProgram.get("ACLS");
     const courseworkComplete = Number(bls?.percentage ?? 0) >= 100 && Number(acls?.percentage ?? 0) >= 100;
+    const nextAction = getNerpNextAction({
+      bls: bls && { id: bls.enrollmentId, courseId: bls.courseDbId, cognitiveComplete: bls.cognitiveComplete, progress: bls.percentage },
+      acls: acls && { id: acls.enrollmentId, courseId: acls.courseDbId, cognitiveComplete: acls.cognitiveComplete, progress: acls.percentage },
+      phase2Verified: verifiedPhase2,
+      phase3Verified: verifiedPhase3,
+      paymentComplete: nerpRows[0]?.status === "completed" || Number(nerpRows[0]?.amountPaidKes ?? 0) >= Number(nerpRows[0]?.totalAmountKes ?? 15000),
+      offerStatus: nerpRows[0]?.status,
+    });
     pathwayRecords.push({
       program: "NERP ACLS PATHWAY",
       source: "NERP",
@@ -101,11 +111,20 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
       status: nerpRows[0]?.status ?? "active",
       paymentStatus: null,
       updatedAt: nerpRows[0]?.updatedAt,
+      nextAction,
     });
   }
   if (hasIerp) {
     const program = ierpRows[0];
     const percentage = program.phaseStatus === "completed" ? 100 : program.phaseStatus === "phase_3" ? 75 : program.phaseStatus === "phase_2" ? 50 : program.phase1Status === "verified" ? 25 : 0;
+    const nextAction = getIerpNextAction({
+      bls: bls && { id: bls.enrollmentId, courseId: bls.courseDbId, cognitiveComplete: bls.cognitiveComplete },
+      acls: acls && { id: acls.enrollmentId, courseId: acls.courseDbId, cognitiveComplete: acls.cognitiveComplete },
+      phaseStatus: program.phaseStatus,
+      phase1Complete: program.phase1Status === "verified",
+      paymentComplete: program.paymentStatus === "paid_in_full" || program.paymentStatus === "not_required",
+      lifecycleStatus: program.lifecycleStatus,
+    });
     pathwayRecords.push({
       program: "IERP READINESS PATHWAY",
       source: "IERP",
@@ -114,6 +133,7 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
       status: program.lifecycleStatus,
       paymentStatus: program.paymentStatus,
       updatedAt: program.updatedAt,
+      nextAction,
     });
   }
   const externalCompletions = externalRows.map((row: any) => ({

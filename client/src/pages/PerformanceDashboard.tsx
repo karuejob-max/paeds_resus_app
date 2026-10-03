@@ -188,6 +188,9 @@ export function PerformanceDashboard() {
     ? Math.round(lifeSupport.reduce((sum, item) => sum + Number(item.percentage ?? 0), 0) / lifeSupport.length)
     : 0;
   const blsContinuation = lifeSupport.find((item) => item.program === "BLS")?.nextAction;
+  const pathways = (progressReport?.pathways ?? []) as Array<{ program: string; percentage: number; nextAction?: { destination: string; label: string; phase: string } }>;
+  const nerpPathway = pathways.find((item) => item.program.includes("NERP"));
+  const ierpPathway = pathways.find((item) => item.program.includes("IERP"));
 
   return (
     <div className="min-h-screen bg-background">
@@ -257,7 +260,7 @@ export function PerformanceDashboard() {
               <Link href="/my-progress" className="inline-flex items-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Detailed progress summary</Link>
             </div>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
             <Link href={blsContinuation?.destination ?? "/training/bls"} className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 transition hover:border-emerald-400">
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Life Support</p>
               <p className="mt-1 text-lg font-bold text-emerald-900">{progressQuery.isLoading ? "…" : `${lifeSupportAverage}%`}</p>
@@ -280,6 +283,8 @@ export function PerformanceDashboard() {
                 <Link href="/code-signal" className="underline underline-offset-2">Code Signal</Link>
               </div>
             </div>
+            {nerpPathway ? <Link href={nerpPathway.nextAction?.destination ?? "/programs/nerp-acls/start"} className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-3 transition hover:border-indigo-400"><p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">NERP</p><p className="mt-1 text-lg font-bold text-indigo-900">{nerpPathway.percentage}%</p><p className="text-xs text-indigo-800">{nerpPathway.nextAction?.label ?? "Open NERP pathway"} →</p></Link> : null}
+            {ierpPathway ? <Link href={ierpPathway.nextAction?.destination ?? "/programs/ierp/enroll"} className="rounded-lg border border-teal-200 bg-teal-50/60 p-3 transition hover:border-teal-400"><p className="text-xs font-semibold uppercase tracking-wide text-teal-700">IERP</p><p className="mt-1 text-lg font-bold text-teal-900">{ierpPathway.percentage}%</p><p className="text-xs text-teal-800">{ierpPathway.nextAction?.label ?? "Open IERP pathway"} →</p></Link> : null}
           </div>
         </div>
       </div>
