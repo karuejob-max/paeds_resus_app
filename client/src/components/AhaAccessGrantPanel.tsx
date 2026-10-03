@@ -46,7 +46,7 @@ export default function AhaAccessGrantPanel() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <ShieldCheck className="h-5 w-5 text-primary" />
-          AHA access grants
+          Life Support access grants
         </CardTitle>
         <CardDescription>
           Grant temporary free access to a named reviewer or authorised learner. Grants bypass payment only; they do not bypass clinical prerequisites. Every grant is auditable and revocable.
@@ -82,7 +82,7 @@ export default function AhaAccessGrantPanel() {
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="aha-grant-program">Course scope</label>
             <select id="aha-grant-program" value={programType} onChange={(event) => setProgramType(event.target.value as AhaProgramType | "")} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
-              <option value="">All AHA courses</option>
+              <option value="">All Life Support courses</option>
               {AHA_PROGRAM_TYPES.map((type) => <option key={type} value={type}>{AHA_PROGRAM_LABELS[type]}</option>)}
             </select>
           </div>
@@ -108,13 +108,13 @@ export default function AhaAccessGrantPanel() {
             return (
               <div key={grant.id} className="flex flex-col gap-2 rounded-md border p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="font-medium">{grant.userName || grant.userEmail || `User #${grant.userId}`} · {grant.programType ? AHA_PROGRAM_LABELS[grant.programType] : "All AHA courses"}</p>
+                  <p className="font-medium">{grant.userName || grant.userEmail || `User #${grant.userId}`} · {grant.programType ? AHA_PROGRAM_LABELS[grant.programType] : "All Life Support courses"}</p>
                   <p className="text-xs text-muted-foreground">{grant.reason}{grant.expiresAt ? ` · expires ${new Date(grant.expiresAt).toLocaleDateString()}` : " · no expiry"}</p>
                 </div>
                 {active ? <Button type="button" size="sm" variant="outline" onClick={() => { const revokeReason = window.prompt("Reason for revoking this grant:"); if (revokeReason?.trim()) revokeMutation.mutate({ grantId: grant.id, reason: revokeReason.trim() }); }} disabled={revokeMutation.isPending}><XCircle className="mr-1 h-4 w-4" />Revoke</Button> : <span className="text-xs text-muted-foreground">Inactive</span>}
               </div>
             );
-          }) : <p className="text-sm text-muted-foreground">No named-user AHA grants recorded.</p>}
+          }) : <p className="text-sm text-muted-foreground">No named-user Life Support grants recorded.</p>}
         </div>
       </CardContent>
     </Card>

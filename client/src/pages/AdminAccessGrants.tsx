@@ -85,9 +85,9 @@ export default function AdminAccessGrants() {
 
       <section className="space-y-3">
         <div>
-          <h2 className="text-lg font-semibold">AHA course review access</h2>
+          <h2 className="text-lg font-semibold">Life Support course review access</h2>
           <p className="text-sm text-muted-foreground">
-            Use this for named AHA reviewer or authorised learner access.
+            Use this for named Life Support reviewer or authorised learner access.
           </p>
         </div>
         <AhaAccessGrantPanel />

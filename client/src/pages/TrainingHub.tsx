@@ -134,12 +134,12 @@ export default function TrainingHub() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Heartsaver covers adult, child, and infant CPR plus AED use. Available through the AHA courses
-                hub after sign-in — ideal for hospital support staff, schools, and community responders.
+                Heartsaver covers adult, child, and infant CPR plus AED use. Available through the Life Support Courses
+                Hub after sign-in — ideal for hospital support staff, schools, and community responders.
               </p>
               <Link href="/aha-courses">
                 <Button variant="outline" size="sm">
-                  AHA courses hub
+                  Life Support Courses Hub
                 </Button>
               </Link>
             </CardContent>

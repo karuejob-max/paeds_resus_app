@@ -574,7 +574,7 @@ function Router() {
               </TrainingSimulationGate>
             </RoleGate>
           )}</Route>
-          {/* AHA courses — all routed through the unified DB-backed player */}
+          {/* Life Support courses — all routed through the unified DB-backed player */}
           <Route path="/course/bls">{() => (
             <RoleGate allowed={["provider"]}>
               <ErrorBoundary><MicroCoursePlayer /></ErrorBoundary>
@@ -1013,7 +1013,7 @@ function AHACoursesRoute() {
   if (loading) {
     return (
       <RouteLoadingState
-        title="Loading AHA courses…"
+        title="Loading Life Support courses…"
         description="Preparing certification information."
       />
     );

@@ -12,6 +12,8 @@
 | **Offering** | What the customer enrolled in (audit label) | **BLS**, **ACLS**, **PALS**, **Heartsaver** within AHA; individual **micro-courses** within Fellowship |
 | **Catalog row** | Internal `courses.id` + `courses.title` (LMS content) | May differ from offering name; multiple rows can share `programType` |
 
+The learner-facing product name is **Life Support Courses** and its authenticated entry is the **Life Support Hub**. AHA remains the external certification/alignment context and the internal compatibility name for existing routes, database fields, and service modules.
+
 Your mental model matches how we document the platform:
 
 - **Fellowship** = program → **micro-courses** = courses (pillar A).

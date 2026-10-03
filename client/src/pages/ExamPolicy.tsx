@@ -34,7 +34,7 @@ export default function ExamPolicy() {
             <Link href="/aha-courses">
               <Button variant="ghost" size="sm" className="gap-1.5">
                 <GraduationCap className="h-4 w-4" />
-                AHA courses
+                Life Support Courses
               </Button>
             </Link>
           </div>

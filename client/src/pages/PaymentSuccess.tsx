@@ -159,7 +159,7 @@ export default function PaymentSuccess() {
                 className="w-full sm:w-auto"
                 onClick={() => setLocation(ahaHubHref)}
               >
-                Open AHA hub
+                Open Life Support Hub
               </Button>
             )}
           </div>

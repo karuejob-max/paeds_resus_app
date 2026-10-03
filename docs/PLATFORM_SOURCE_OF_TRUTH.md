@@ -597,10 +597,10 @@ A provider who completes all three pillars over 24 months has demonstrated that 
 - **Integration gap (current):** Micro-course recommendations are not yet dynamically triggered by Care Signal gap reports or ResusGPS case patterns
 - **Canonical docs:** [FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md](./FELLOWSHIP_QUALIFICATION_AND_PROVIDER_INTELLIGENCE.md), [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md), [MICRO_COURSE_CATALOG_BACKLOG.md](./MICRO_COURSE_CATALOG_BACKLOG.md)
 
-#### AHA Courses (BLS / ACLS / PALS)
+#### Life Support Courses (BLS / ACLS / PALS)
 - **Feeds:** Provider certification (standalone), institutional compliance reporting
 - **Receives from:** None (standalone track — not part of Fellowship pathway)
-- **Integration note:** AHA courses share the same platform identity and enrollment infrastructure but do **not** contribute to Fellowship pillars. This separation is **non-negotiable**.
+- **Integration note:** Life Support Courses use the AHA-aligned provider pathway and share the same platform identity and enrollment infrastructure, but do **not** contribute to Fellowship pillars. This separation is **non-negotiable**.
 - **Canonical doc:** [COURSE_PORTFOLIO_AND_ADF_STRATEGY.md](./COURSE_PORTFOLIO_AND_ADF_STRATEGY.md)
 #### IERP and NERP programme pathways
 - **IERP** means only the **Intern Emergency Readiness Program**. It is a user-owned training participation record for intern designations, entered through the dedicated `/programs/ierp/enroll` route after the learner submits an individual Intern profile with designation, official internship letter reference number, effective commencement date, and private MoH deployment/posting-letter evidence. It has independent Phase 1 evidence, named-role Phase 2 completion, hands-on Phase 3 gating, and programme-aware payment reconciliation. The programme fee is KES 15,000: August–November starters may use Phase 1 and Phase 2 before payment, but from 1 December EAT onward the full balance is required before cognitive or further Phase 2 access; December–July starters pay in full before cognitive access. Phase 3 always requires full payment. Migration `0137` stores the intern-profile evidence separately from institutional staff and IERS membership.
@@ -612,12 +612,12 @@ A provider who completes all three pillars over 24 months has demonstrated that 
 - Neither IERP, NERP, nor Open Enrolment certification grants IERS institutional membership, product roles, dated duties, responder permissions, or readiness sign-off. IERS remains the institutional emergency operations system.
 - IERP promotional email infrastructure is consent-aware and previewable but remains draft/paused with sending disabled until a separately governed release.
 
-#### AHA Practice Lab (supplemental simulation)
+#### Simulation Hub (supplemental simulation)
 - **Product:** Enrollment-gated skills practice for **Paeds Resus Limited** AHA course learners (BLS, ACLS, PALS, Heartsaver, NRP). Supplemental simulation and debrief � **not** Fellowship credit and **not** ResusGPS clinical bedside mode (/resus).
-- **Route:** /aha-courses/practice (linked from AHA hub for enrolled providers)
+- **Route:** /simulation-hub (legacy `/aha-courses/practice` remains supported for compatibility)
 - **Feeds:** haPracticeLabAttempts (per-track scores, event logs), admin Practice Lab rollup on /admin/reports
 - **Receives from:** AHA enrollments (access gate), shared CPR simulation engine (practiceLabMode � no Fellowship case save)
-- **Integration note:** Standalone under the AHA training track (same non-Fellowship rule as certificated courses). Reuses simulation UI patterns but must never be marketed or logged as ResusGPS clinical guidance.
+- **Integration note:** Standalone under the Life Support training track (same non-Fellowship rule as certificated courses). Reuses simulation UI patterns but must never be marketed or logged as ResusGPS clinical guidance.
 - **Schema:** drizzle/0049_aha_practice_lab_attempts.sql; apply via pnpm run db:apply-0049 post-deploy
 
 #### Safe-Truth (Parent / Guardian)
@@ -880,7 +880,7 @@ The PSOT is a living document. It is only as useful as the discipline of the age
 | `/start` | **Alias → `/`** (301-style client redirect; canonical is `/`) |
 | `/training` | Training hub (BLS, ACLS, PALS, NRP, micro-courses mention) |
 | `/training/bls`, `/training/acls`, `/training/pals`, `/training/nrp` | **Course-intent SEO** landing pages |
-| `/aha-courses` | Public AHA overview; authenticated providers see enrollment hub |
+| `/aha-courses` | Public Life Support Courses overview; authenticated providers see the Life Support Hub |
 | `/for-providers`, `/for-institutions`, `/for-parents` | Stakeholder discovery pages |
 | `/institutional`, `/parent-safe-truth`, `/verify`, `/about`, `/help` | Existing public surfaces |
 | `/login`, `/register` | Auth entry (indexed for brand discovery) |

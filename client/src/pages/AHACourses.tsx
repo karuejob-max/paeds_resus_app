@@ -178,7 +178,7 @@ export default function AHACourses() {
             <div>
               <h1 className="text-3xl font-bold flex items-center gap-3">
                 <BookOpen className="h-8 w-8" />
-                AHA Certification
+                Life Support Courses
               </h1>
               <p className="text-muted-foreground mt-2">
                 BLS, ACLS, PALS, Heartsaver, and NRP. Fellowship micro-courses are managed in the Fellowship section.
@@ -198,11 +198,10 @@ export default function AHACourses() {
               <div>
                 <p className="font-semibold text-foreground flex items-center gap-2">
                   <FlaskConical className="h-5 w-5 text-violet-600" />
-                  AHA Practice Lab
+                  Simulation Hub
                 </p>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Video-game-style clinical rehearsal with missions, changing physiology, team pressure, and a debrief. Supplemental to
-                  your course, not certification.
+                  Game-style life-support rehearsal with missions, changing physiology, team pressure, and a debrief. Supplemental practice, not certification.
                 </p>
               </div>
               <Button
@@ -222,12 +221,12 @@ export default function AHACourses() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2 text-blue-800 dark:text-blue-300">
                 <ClipboardCheck className="h-4 w-4" />
-                How your AHA certificate is issued
+                How your Life Support certificate is issued
               </CardTitle>
             </CardHeader>
             <CardContent className="text-xs text-foreground/80 space-y-1">
               <p>
-                Your full AHA certificate is released when <strong>both</strong> requirements below are met:
+                Your full Life Support certificate is released when <strong>both</strong> requirements below are met:
               </p>
               <ol className="list-decimal list-inside space-y-0.5 ml-2">
                 <li>
@@ -237,7 +236,7 @@ export default function AHACourses() {
                 <li>Practical skills signed off by your assigned instructor at a hands-on session.</li>
               </ol>
               <p className="text-muted-foreground pt-1">
-                Full AHA certificates are valid for 2 years from the date of issuance.
+                Full Life Support certificates are valid for 2 years from the date of issuance.
               </p>
             </CardContent>
           </Card>
@@ -254,7 +253,7 @@ export default function AHACourses() {
                   Cognitive gatepass certificate available
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  You have completed the cognitive portion of one or more AHA courses. Download your gatepass
+                  You have completed the cognitive portion of one or more Life Support courses. Download your gatepass
                   certificate to present at your practical skills session.
                 </p>
               </div>
@@ -292,7 +291,7 @@ export default function AHACourses() {
           <Card className="border-2 border-primary/30 bg-primary/5">
             <CardHeader>
               <CardTitle className="text-base">Recommended next step</CardTitle>
-              <CardDescription>Continue your AHA certification path</CardDescription>
+              <CardDescription>Continue your Life Support certification path</CardDescription>
             </CardHeader>
             <CardContent>
               <Button variant="default" className="w-full" onClick={primaryAction.onClick}>

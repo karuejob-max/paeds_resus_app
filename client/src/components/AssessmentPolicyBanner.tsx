@@ -21,7 +21,7 @@ const COPY: Record<
   },
   aha: {
     summary: "Diagnostic baseline, module checks, and a final summative exam.",
-    detail: "Gatepass rules, retries, and what counts toward your AHA certificate.",
+    detail: "Gatepass rules, retries, and what counts toward your Life Support certificate.",
     icon: ClipboardCheck,
   },
 };

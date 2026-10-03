@@ -19,7 +19,7 @@ Ensure providers, trainees, parents, and institutions **find Paeds Resus** when 
 | Public compound home | `/` — `client/src/pages/PublicHome.tsx` |
 | Training SEO landings | `/training`, `/training/bls`, `/training/acls`, `/training/pals`, `/training/nrp` |
 | Stakeholder pages | `/for-providers`, `/for-institutions`, `/for-parents` |
-| Public AHA overview | `/aha-courses` (anonymous); provider hub when signed in |
+| Public Life Support Courses overview | `/aha-courses` (anonymous); Life Support Hub when signed in |
 | Sitemap | `client/public/sitemap.xml` |
 | JSON-LD helpers | `client/src/lib/seo-schema.ts` |
 | AI-readable product guide | `client/public/llms.txt` |

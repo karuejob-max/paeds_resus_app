@@ -193,7 +193,7 @@ export default function TrainingCourseLanding({ slug }: Props) {
             </Link>
             <Link href="/aha-courses">
               <Button variant="ghost" size="sm">
-                AHA courses hub
+                Life Support Courses Hub
               </Button>
             </Link>
             {slug === "bls" && (

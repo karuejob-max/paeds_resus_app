@@ -54,7 +54,7 @@ export const INDIVIDUAL_LEARNING_STEPS: LearningGuideStep[] = [
     number: "2",
     title: "Choose the right learning track",
     detail:
-      "Open Learn and choose the Paeds Resus Fellowship journey or a separate AHA life-support course. Fellowship and AHA certifications are distinct; BLS, ACLS, and PALS are not Fellowship requirements.",
+      "Open Learn and choose the Paeds Resus Fellowship journey or a separate Life Support course. Fellowship and Life Support certifications are distinct; BLS, ACLS, and PALS are not Fellowship requirements.",
   },
   {
     number: "3",
@@ -79,7 +79,7 @@ export const INDIVIDUAL_LEARNING_STEPS: LearningGuideStep[] = [
 export const INDIVIDUAL_DESTINATIONS: LearningDestination[] = [
   {
     title: "Open Learn",
-    description: "Continue a course or choose Fellowship versus AHA learning.",
+    description: "Continue a course or choose Fellowship versus Life Support learning.",
     route: "/learn",
     action: "Open Learn",
   },
@@ -91,11 +91,11 @@ export const INDIVIDUAL_DESTINATIONS: LearningDestination[] = [
     action: "Open Fellowship",
   },
   {
-    title: "Open AHA courses",
+    title: "Open Life Support courses",
     description:
       "Access standalone BLS, ACLS, PALS, NRP, Heartsaver, and instructor tracks.",
     route: "/aha-courses",
-    action: "Open AHA courses",
+    action: "Open Life Support courses",
   },
   {
     title: "Open My Records",

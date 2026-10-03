@@ -1270,7 +1270,7 @@ export default function AdminReports() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <FlaskConical className="h-5 w-5" />
-                    AHA Practice Lab — simulation attempts
+                    Simulation Hub — simulation attempts
                   </CardTitle>
                   <CardDescription>All-time attempts by program and track</CardDescription>
                 </CardHeader>
