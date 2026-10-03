@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { CheckCircle2, LockKeyhole, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,19 @@ export function IerpJourneyCard({
   compact = false,
 }: IerpJourneyCardProps) {
   const currentPhase = phases.find((phase) => phase.status === "current") ?? phases.find((phase) => phase.status === "locked");
+
+  useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, "");
+    if (!hash) return;
+    const focusTarget = () => {
+      const target = document.getElementById(hash);
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.focus({ preventScroll: true });
+    };
+    const frame = window.requestAnimationFrame(() => window.requestAnimationFrame(focusTarget));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   return (
     <Card className="overflow-hidden border-slate-200 bg-white shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)]">
@@ -83,7 +97,9 @@ export function IerpJourneyCard({
             {phases.map((phase, index) => (
               <div
                 key={phase.key}
-                className={`relative rounded-xl border p-3 ${
+                id={`ierp-phase-${phase.key.replace("phase_", "")}`}
+                tabIndex={-1}
+                className={`relative scroll-mt-24 rounded-xl border p-3 outline-none focus-visible:ring-2 focus-visible:ring-teal-500 ${
                   phase.status === "complete"
                     ? "border-emerald-200 bg-emerald-50"
                     : phase.status === "current"

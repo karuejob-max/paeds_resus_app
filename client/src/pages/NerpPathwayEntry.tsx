@@ -14,6 +14,7 @@ import { trpc } from "@/lib/trpc";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import { getNerpNextStep } from "@shared/nerp-pathway";
 import { AclsElearningProofCard } from "@/components/AclsElearningProofCard";
+import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
 import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function NerpPathwayEntry() {
@@ -22,6 +23,10 @@ export default function NerpPathwayEntry() {
     redirectPath: "/login?redirect=%2Fprograms%2Fnerp-acls%2Fstart",
   });
   const pathway = trpc.nerp.getPathwayEntry.useQuery(undefined, {
+    enabled: Boolean(user),
+    retry: false,
+  });
+  const { data: journey } = trpc.nerp.getJourneyStatus.useQuery(undefined, {
     enabled: Boolean(user),
     retry: false,
   });
@@ -120,6 +125,16 @@ export default function NerpPathwayEntry() {
             requirements.
           </AlertDescription>
         </Alert>
+
+        {journey ? (
+          <ProgramJourneyCard
+            title={journey.programName}
+            subtitle="Programme progress is an orientation aid, not a clinical competence score."
+            percentComplete={journey.percentComplete}
+            phases={journey.phases}
+            nextAction={journey.nextAction}
+          />
+        ) : null}
 
         {acls.cognitiveModulesComplete ? <AclsElearningProofCard compact /> : null}
 

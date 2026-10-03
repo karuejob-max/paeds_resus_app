@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { CheckCircle2, LockKeyhole } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,21 @@ type ProgramJourneyCardProps = {
 };
 
 export function ProgramJourneyCard({ title, subtitle, percentComplete, phases, nextAction, compact = false }: ProgramJourneyCardProps) {
+  useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, "");
+    if (!hash) return;
+    const key = hash === "phase-2" ? "phase_2" : hash === "phase-3" ? "phase_3" : hash;
+    const targetId = key.startsWith("phase_") ? `program-phase-${key}` : key;
+    const focusTarget = () => {
+      const target = document.getElementById(targetId);
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.focus({ preventScroll: true });
+    };
+    const frame = window.requestAnimationFrame(() => window.requestAnimationFrame(focusTarget));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
   return (
     <Card className="border-slate-200 bg-white shadow-sm">
       <CardHeader className={compact ? "pb-2" : undefined}>
@@ -31,7 +47,7 @@ export function ProgramJourneyCard({ title, subtitle, percentComplete, phases, n
         {!compact && (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {phases.map((phase) => (
-              <div key={phase.key} className={`rounded-lg border p-3 ${phase.status === "complete" ? "border-emerald-200 bg-emerald-50" : phase.status === "current" ? "border-indigo-300 bg-indigo-50" : "border-slate-200 bg-slate-50"}`}>
+              <div id={`program-phase-${phase.key}`} tabIndex={-1} key={phase.key} className={`scroll-mt-24 rounded-lg border p-3 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${phase.status === "complete" ? "border-emerald-200 bg-emerald-50" : phase.status === "current" ? "border-indigo-300 bg-indigo-50" : "border-slate-200 bg-slate-50"}`}>
                 <div className="flex items-start gap-2">
                   {phase.status === "complete" ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" /> : phase.status === "locked" ? <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" /> : <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-indigo-600" />}
                   <div className="min-w-0">
