@@ -223,7 +223,7 @@ function Router() {
             </RoleGate>
           )}</Route>
           <Route path="/feedback" component={FeedbackPage} />
-          <Route path="/my-cpd-certificates" component={MyCpdCertificates} />
+          <Route path="/my-cpd-certificates">{() => <Redirect to="/my-progress?section=records" />}</Route>
           <Route path="/my-cne-certificates">{() => <Redirect to="/my-cpd-certificates" />}</Route>
           <Route path="/home" component={Home} />
           <Route path="/my-shift">{() => (
@@ -241,11 +241,7 @@ function Router() {
               <LearningGuide />
             </RoleGate>
           )}</Route>
-          <Route path="/records">{() => (
-            <RoleGate allowed={["provider"]}>
-              <ProviderRecords />
-            </RoleGate>
-          )}</Route>
+          <Route path="/records">{() => <Redirect to="/my-progress?section=records" />}</Route>
           <Route path="/activation-scan">{() => (
             <RoleGate allowed={["provider"]}>
               <ProviderActivationQrScanner />
@@ -498,11 +494,7 @@ function Router() {
               <EmergencyProtocols />
             </RoleGate>
           )}</Route>
-          <Route path="/performance-dashboard">{() => (
-            <RoleGate allowed={["provider"]}>
-              <PerformanceDashboard />
-            </RoleGate>
-          )}</Route>
+          <Route path="/performance-dashboard">{() => <Redirect to="/my-progress?section=overview" />}</Route>
           <Route path="/provider-profile">{() => (
             <RoleGate allowed={["provider"]}>
               <ProviderProfile />
@@ -675,11 +667,7 @@ function Router() {
               <FellowshipWhy />
             </RoleGate>
           )}</Route>
-          <Route path="/fellowship/progress">{() => (
-            <RoleGate allowed={["provider"]}>
-              <FellowshipProgress />
-            </RoleGate>
-          )}</Route>
+          <Route path="/fellowship/progress">{() => <Redirect to="/my-progress?section=progress" />}</Route>
           <Route path="/my-progress">{() => (
             <RoleGate allowed={["provider"]}>
               <ProfessionalProgressPage />
@@ -732,12 +720,8 @@ function Router() {
           <Route path="/institution-onboarding">{() => <Redirect to="/institutional-onboarding" />}</Route>
           {/* case-analysis has no page; redirect to targeted-solutions */}
           <Route path="/case-analysis">{() => <Redirect to="/targeted-solutions" />}</Route>
-          {/* /certificates → focused detailed certificate list; /records is the broader provider summary */}
-          <Route path="/certificates">{() => (
-            <RoleGate allowed={["provider"]}>
-              <ProviderRecords focusCertificates={true} />
-            </RoleGate>
-          )}</Route>
+          {/* Legacy portfolio URLs converge on the canonical My Professional Portfolio. */}
+          <Route path="/certificates">{() => <Redirect to="/my-progress?section=records" />}</Route>
           {/* dashboard → home (provider hub) */}
           <Route path="/dashboard">{() => <Redirect to="/home" />}</Route>
           {/* institutional-dashboard → hospital admin */}

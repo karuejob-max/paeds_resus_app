@@ -88,7 +88,7 @@ export default function Header() {
         { label: "Learning guide", href: "/learning/guide", icon: "🧭", group: "learn" },
         { label: "Fellowship guide", href: "/fellowship/about", icon: "📖", group: "learn" },
         { label: "Life Support", href: "/aha-courses", icon: "🩺", group: "learn" },
-        { label: "My CPD", href: "/my-cpd-certificates", icon: "📜", group: "learn" },
+        { label: "My CPD", href: "/my-progress?section=records", icon: "📜", group: "learn" },
       ];
       if (instructorStatus?.portalUnlocked) {
         items.push({ label: "Instructor", href: "/instructor-portal", icon: "🎓" });
@@ -408,20 +408,12 @@ export default function Header() {
                                 Workplaces &amp; access
                               </div>
                             </Link>
-                            <Link href="/records">
+                            <Link href="/my-progress">
                               <div
                                 className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
                                 onClick={() => setAccountDropdownOpen(false)}
                               >
-                                My records
-                              </div>
-                            </Link>
-                            <Link href="/performance-dashboard">
-                              <div
-                                className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
-                                onClick={() => setAccountDropdownOpen(false)}
-                              >
-                                My performance
+                                My Professional Portfolio
                               </div>
                             </Link>
                           </>
@@ -601,8 +593,8 @@ export default function Header() {
                 <p className="text-xs font-semibold text-muted-foreground mb-2">Account</p>
                 <p className="truncate px-3 pb-2 text-sm font-medium text-foreground">{user?.name}</p>
                 <div className="space-y-1">
-                  <Link href="/records" onClick={() => setMobileMenuOpen(false)}>
-                    <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">My records</span>
+                  <Link href="/my-progress" onClick={() => setMobileMenuOpen(false)}>
+                    <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">My Professional Portfolio</span>
                   </Link>
                   {effectiveRole === "provider" && (
                     <>
@@ -611,9 +603,6 @@ export default function Header() {
                       </Link>
                       <Link href="/workplaces" onClick={() => setMobileMenuOpen(false)}>
                         <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">Workplaces &amp; access</span>
-                      </Link>
-                      <Link href="/performance-dashboard" onClick={() => setMobileMenuOpen(false)}>
-                        <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">My performance</span>
                       </Link>
                     </>
                   )}

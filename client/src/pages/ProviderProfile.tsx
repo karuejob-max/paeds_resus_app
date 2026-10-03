@@ -64,14 +64,14 @@ export default function ProviderProfile() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" /> My performance</CardTitle>
+            <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" /> Professional portfolio overview</CardTitle>
             <CardDescription>
               Performance analytics are separate from professional identity. They are personal insight, not a public ranking or proof of competency.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/performance-dashboard">
-              <Button type="button" variant="outline">Open My performance</Button>
+            <Link href="/my-progress?section=overview">
+              <Button type="button" variant="outline">Open Professional portfolio overview</Button>
             </Link>
           </CardContent>
         </Card>
