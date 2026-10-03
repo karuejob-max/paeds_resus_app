@@ -88,7 +88,7 @@ export default function Header() {
         { label: "Learning guide", href: "/learning/guide", icon: "🧭", group: "learn" },
         { label: "Fellowship guide", href: "/fellowship/about", icon: "📖", group: "learn" },
         { label: "Life Support", href: "/aha-courses", icon: "🩺", group: "learn" },
-        { label: "My CPD", href: "/my-progress?section=records", icon: "📜", group: "learn" },
+        { label: "Professional portfolio", href: "/my-progress", icon: "📜", group: "learn" },
       ];
       if (instructorStatus?.portalUnlocked) {
         items.push({ label: "Instructor", href: "/instructor-portal", icon: "🎓" });
