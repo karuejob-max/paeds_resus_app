@@ -107,6 +107,15 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
     staleTime: 30_000,
     retry: 1,
   });
+  const professionalProgressQuery = trpc.professionalProgress.getMyReport.useQuery({
+    reportType: "annual",
+    periodStart: "2000-01-01",
+    periodEnd: new Date().toISOString().slice(0, 10),
+  }, {
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+    retry: 1,
+  });
   const [activeTab, setActiveTab] = useState<RecordsTab>("aha");
   const [selectedCourse, setSelectedCourse] = useState<LifeSupportCourseKey>("bls");
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
@@ -151,15 +160,33 @@ export default function ProviderRecords({ focusCertificates = false }: { focusCe
     );
   }
 
-  const certificates = certificatesQuery.data?.certificates ?? [];
+  const progressReport = professionalProgressQuery.data as any;
+  const progressCertificates = (progressReport?.certificates ?? []).map((certificate: any) => ({
+    ...certificate,
+    courseTitle: certificate.courseTitle ?? null,
+    expiryDate: certificate.expiryDate ?? null,
+    certificateUrl: certificate.certificateUrl ?? null,
+  }));
+  const certificates = (certificatesQuery.data?.certificates?.length ? certificatesQuery.data.certificates : progressCertificates) as typeof certificatesPlaceholder;
   const phaseCertificates = phaseStatusQuery.data ?? [];
   const completionRecords = completionStatusQuery.data ?? [];
-  const cpdRecords = cpdQuery.data?.records ?? [];
+  const cpdRecords: Array<any> = cpdQuery.data?.records?.length ? cpdQuery.data.records : (progressReport?.cpd?.sessions ?? []).map((session: any) => ({
+    eventName: session.title,
+    institutionName: "Paeds Resus",
+    eventDate: session.date,
+    cpdPoints: session.points,
+  }));
   const activeMemberships = (membershipsQuery.data ?? []).filter((membership) => membership.membershipStatus === "active");
   const selectedPathway = LIFE_SUPPORT_COURSES.find((course) => course.key === selectedCourse) ?? LIFE_SUPPORT_COURSES[0];
-  const selectedCompletion = completionRecords.find((record) => record.courseProgramType === selectedCourse && !record.revokedAt);
-  const phase2Certificate = phaseCertificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_phase2`);
-  const phase3Certificate = phaseCertificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_phase3`);
+  const progressCourse = (progressReport?.lifeSupport ?? []).find((record: any) => record.program === selectedCourse.toUpperCase());
+  const selectedCompletion = completionRecords.find((record) => record.courseProgramType === selectedCourse && !record.revokedAt) ?? (progressCourse ? {
+    courseProgramType: selectedCourse,
+    phase2Completed: Number(progressCourse.percentage) >= 100,
+    phase3Completed: Number(progressCourse.percentage) >= 100,
+    revokedAt: null,
+  } : undefined);
+  const phase2Certificate = phaseCertificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_phase2`) ?? certificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_phase2`);
+  const phase3Certificate = phaseCertificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_phase3`) ?? certificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_phase3`);
   const providerCertificates = new Map<string, (typeof phaseCertificates)[number]>(phaseCertificates.filter((certificate) => certificate.programType.endsWith("_provider")).map((certificate) => [certificate.programType, certificate]));
   const triggerBrowserDownload = (pdfBase64: string, filename: string) => {
     try {
