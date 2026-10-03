@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -154,6 +154,14 @@ function MetricCard({ metric }: { metric: ComparisonMetric }) {
 export function PerformanceDashboard() {
   const { user } = useAuth();
   const [period, setPeriod] = useState<Period>("month");
+  const progressPeriod = useMemo(() => {
+    const now = new Date();
+    return {
+      reportType: "annual" as const,
+      periodStart: `${now.getFullYear()}-01-01`,
+      periodEnd: now.toISOString().slice(0, 10),
+    };
+  }, []);
   const comparisonQuery = trpc.performance.getMySelfComparison.useQuery(
     { period },
     { enabled: !!user?.id }
@@ -162,9 +170,18 @@ export function PerformanceDashboard() {
     { userId: user?.id, limit: 8 },
     { enabled: !!user?.id }
   );
+  const progressQuery = trpc.professionalProgress.getMyReport.useQuery(progressPeriod, {
+    enabled: !!user?.id,
+    retry: false,
+  });
 
   const comparison = comparisonQuery.data;
   const metrics = (comparison?.metrics ?? []) as ComparisonMetric[];
+  const progressReport = progressQuery.data as any;
+  const lifeSupport = (progressReport?.lifeSupport ?? []) as Array<{ program: string; percentage: number; phase: string }>;
+  const lifeSupportAverage = lifeSupport.length
+    ? Math.round(lifeSupport.reduce((sum, item) => sum + Number(item.percentage ?? 0), 0) / lifeSupport.length)
+    : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -224,14 +241,38 @@ export function PerformanceDashboard() {
               </button>
             ))}
           </div>
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+          <div className="mt-5 grid gap-4 rounded-lg border border-primary/20 bg-primary/5 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <p className="font-semibold text-foreground">Learning records and evidence</p>
-              <p className="mt-1 text-sm text-muted-foreground">Open the existing organized records hub for Life Support Phases 1–3, CPD, microcourses, and certificates.</p>
+              <p className="mt-1 text-sm text-muted-foreground">This is the same unified record used by detailed progress: Life Support, CPD, Fellowship, Care Signal, Code Signal, and certificates.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Link href="/records" className="inline-flex items-center rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-accent">Open My records</Link>
               <Link href="/my-progress" className="inline-flex items-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Detailed progress summary</Link>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Link href="/training/bls" className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 transition hover:border-emerald-400">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Life Support</p>
+              <p className="mt-1 text-lg font-bold text-emerald-900">{progressQuery.isLoading ? "…" : `${lifeSupportAverage}%`}</p>
+              <p className="text-xs text-emerald-800">Open BLS / continue learning →</p>
+            </Link>
+            <Link href="/my-cpd-certificates" className="rounded-lg border border-blue-200 bg-blue-50/60 p-3 transition hover:border-blue-400">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">CPD</p>
+              <p className="mt-1 text-lg font-bold text-blue-900">{progressReport?.cpd?.points ?? 0} pts</p>
+              <p className="text-xs text-blue-800">Open CPD records →</p>
+            </Link>
+            <Link href="/fellowship/progress" className="rounded-lg border border-violet-200 bg-violet-50/60 p-3 transition hover:border-violet-400">
+              <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">Fellowship</p>
+              <p className="mt-1 text-lg font-bold text-violet-900">{progressReport?.fellowship?.overallPercentage ?? 0}%</p>
+              <p className="text-xs text-violet-800">Continue Fellowship →</p>
+            </Link>
+            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Reports</p>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs font-medium text-amber-900">
+                <Link href="/care-signal" className="underline underline-offset-2">Care Signal</Link>
+                <Link href="/code-signal" className="underline underline-offset-2">Code Signal</Link>
+              </div>
             </div>
           </div>
         </div>
