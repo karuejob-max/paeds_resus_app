@@ -105,8 +105,7 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
       updatedAt: program.updatedAt,
     });
   }
-  for (const row of externalRows) {
-    lifeSupport.push({
+  const externalCompletions = externalRows.map((row: any) => ({
       program: String(row.courseProgramType).toUpperCase(),
       source: `${String(row.pathway).toUpperCase()} · External completion`,
       phase: row.phase3Completed ? "Provider / Phase 3" : row.phase2Completed ? "Simulation / Phase 2" : "Cognitive prerequisite",
@@ -114,8 +113,7 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
       status: "verified_external",
       paymentStatus: null,
       updatedAt: row.recordedAt,
-    });
-  }
+    }));
 
   const cpdRows = await db.select({ attendee: cpdAttendees, event: cpdEvents }).from(cpdAttendees).innerJoin(cpdEvents, eq(cpdEvents.id, cpdAttendees.cpdEventId)).where(and(sql`(${cpdAttendees.userId} = ${userId} OR LOWER(TRIM(${cpdAttendees.email})) = ${String(user?.email ?? "").trim().toLowerCase()})`, eq(cpdAttendees.attendanceStatus, "attendance_verified"), sql`${cpdEvents.eventDateAt} >= ${input.periodStart}`, sql`${cpdEvents.eventDateAt} <= ${input.periodEnd}`)).orderBy(desc(cpdEvents.eventDateAt));
   const cpdPoints = cpdRows.reduce((sum: number, row: any) => sum + Number(row.event.cpdPoints ?? 0), 0);
@@ -131,6 +129,7 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
     subject: { name: user?.name ?? "Provider", email: user?.email ?? null, cadre: user?.cadreOther || user?.cadre || null },
     period: { type: input.reportType, start: input.periodStart, end: input.periodEnd },
     lifeSupport,
+    externalCompletions,
     pathways: pathwayRecords,
     coursework: microRows.map(({ enrollment, course }: any) => ({
       title: course.title,
