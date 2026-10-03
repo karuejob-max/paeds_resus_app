@@ -931,8 +931,32 @@ export async function getCertificatesByUserId(userId: number) {
       courseTitle: row.microCourseTitle ?? row.courseTitle ?? null,
     }));
   } catch (err) {
-    console.error("[Certificates] getCertificatesByUserId:", err);
-    return [];
+    console.error("[Certificates] getCertificatesByUserId joined lookup:", err);
+    // Keep the records hub usable even when an optional course/micro-course
+    // join is unavailable in an older production schema. Certificate rows
+    // themselves are authoritative and can still be listed safely.
+    try {
+      const db = await getDb();
+      if (!db) return [];
+      return await db
+        .select({
+          id: certificates.id,
+          enrollmentId: certificates.enrollmentId,
+          certificateNumber: certificates.certificateNumber,
+          programType: certificates.programType,
+          issueDate: certificates.issueDate,
+          expiryDate: certificates.expiryDate,
+          certificateUrl: certificates.certificateUrl,
+          readinessPathway: certificates.readinessPathway,
+          courseTitle: sql<string | null>`NULL`,
+        })
+        .from(certificates)
+        .where(eq(certificates.userId, userId))
+        .orderBy(desc(certificates.issueDate));
+    } catch (fallbackError) {
+      console.error("[Certificates] getCertificatesByUserId fallback:", fallbackError);
+      return [];
+    }
   }
 }
 
