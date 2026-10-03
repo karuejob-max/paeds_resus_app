@@ -178,10 +178,16 @@ export function PerformanceDashboard() {
   const comparison = comparisonQuery.data;
   const metrics = (comparison?.metrics ?? []) as ComparisonMetric[];
   const progressReport = progressQuery.data as any;
-  const lifeSupport = (progressReport?.lifeSupport ?? []) as Array<{ program: string; percentage: number; phase: string }>;
+  const lifeSupport = (progressReport?.lifeSupport ?? []) as Array<{
+    program: string;
+    percentage: number;
+    phase: string;
+    nextAction?: { destination: string; label: string; phase: string };
+  }>;
   const lifeSupportAverage = lifeSupport.length
     ? Math.round(lifeSupport.reduce((sum, item) => sum + Number(item.percentage ?? 0), 0) / lifeSupport.length)
     : 0;
+  const blsContinuation = lifeSupport.find((item) => item.program === "BLS")?.nextAction;
 
   return (
     <div className="min-h-screen bg-background">
@@ -252,10 +258,10 @@ export function PerformanceDashboard() {
             </div>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Link href="/training/bls" className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 transition hover:border-emerald-400">
+            <Link href={blsContinuation?.destination ?? "/training/bls"} className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 transition hover:border-emerald-400">
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Life Support</p>
               <p className="mt-1 text-lg font-bold text-emerald-900">{progressQuery.isLoading ? "…" : `${lifeSupportAverage}%`}</p>
-              <p className="text-xs text-emerald-800">Open BLS / continue learning →</p>
+              <p className="text-xs text-emerald-800">{blsContinuation?.label ?? "Open BLS / continue learning"} →</p>
             </Link>
             <Link href="/my-cpd-certificates" className="rounded-lg border border-blue-200 bg-blue-50/60 p-3 transition hover:border-blue-400">
               <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">CPD</p>
