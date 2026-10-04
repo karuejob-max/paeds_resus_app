@@ -6,7 +6,7 @@ const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required");
 const db = await createMysqlConnection(databaseUrl, mysql);
 try {
-  console.log("[0171] Applying institutional trust-closure schema...");
+  console.log("[0172] Applying institutional trust-closure schema...");
   await db.query(`CREATE TABLE IF NOT EXISTS institutionalQiReportEvents (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     institutionalAccountId INT NOT NULL,
@@ -52,7 +52,7 @@ try {
 
   await db.query(`ALTER TABLE institutionalSubscriptionInvoices MODIFY COLUMN status ENUM('draft','issued','payment_pending','payment_received','settlement_confirmed','reconciled','paid','disputed','refunded','void','overdue','cancelled') NOT NULL DEFAULT 'draft'`);
   await db.query(`ALTER TABLE institutionalPaymentAttempts MODIFY COLUMN status ENUM('created','pending','succeeded','settled','failed','refunded','disputed') NOT NULL DEFAULT 'created'`);
-  console.log("[0171] Institutional trust-closure schema is ready.");
+  console.log("[0172] Institutional trust-closure schema is ready.");
 } finally {
   await db.end();
 }

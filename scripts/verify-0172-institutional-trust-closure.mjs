@@ -20,7 +20,7 @@ try {
     if (!invoiceStatus.includes(required)) throw new Error(`Invoice status ${required} is missing`);
   }
   if (!attemptStatus.includes("settled")) throw new Error("Payment attempt settled state is missing");
-  console.log("[0171 verify] PASS — QI transition ledger and finance-grade payment states are present; no write was performed.");
+  console.log("[0172 verify] PASS — QI transition ledger and finance-grade payment states are present; no write was performed.");
 } finally {
   await db.end();
 }

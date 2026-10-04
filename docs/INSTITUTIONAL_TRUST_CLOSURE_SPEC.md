@@ -68,8 +68,8 @@ Only the fourth status is suitable for an external endorsement claim.
 ## Operational commands
 
 ```bash
-pnpm run db:apply-0171
-pnpm run db:verify-0171
+pnpm run db:apply-0172
+pnpm run db:verify-0172
 pnpm exec vitest run server/lib/institutional-trust-invariants.test.ts
 pnpm run check
 pnpm run build
