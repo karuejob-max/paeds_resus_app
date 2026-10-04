@@ -86,6 +86,23 @@ export default function SimulationHub() {
     }
     return map;
   }, [attempts]);
+  const recommendedRole = useMemo(() => {
+    const eligibleByRole = new Map<string, Set<string>>();
+    for (const attempt of attempts) {
+      if (attempt.trackId !== "simulation_world") continue;
+      const evidence = getRoleEvidenceFromAttempt(attempt.eventLog);
+      if (!evidence.role || !evidence.evidenceEligible) continue;
+      const scenarios = eligibleByRole.get(evidence.role) ?? new Set<string>();
+      scenarios.add(evidence.scenarioId ?? "unknown");
+      eligibleByRole.set(evidence.role, scenarios);
+    }
+    const teamRoles = SIMULATION_WORLD_ROLES.filter((role) => role !== "team_leader");
+    const missingTeamRole = teamRoles.find((role) => (eligibleByRole.get(role)?.size ?? 0) < 1);
+    if (missingTeamRole) return { role: missingTeamRole, reason: "You have not yet demonstrated this role." };
+    const leadershipScenarios = eligibleByRole.get("team_leader")?.size ?? 0;
+    if (leadershipScenarios < 3) return { role: "team_leader" as const, reason: `${leadershipScenarios}/3 distinct leadership scenarios are evidence-ready.` };
+    return null;
+  }, [attempts]);
 
   useEffect(() => {
     if (selectedEnrollment) {
@@ -180,6 +197,7 @@ export default function SimulationHub() {
                 <Card className="border-cyan-400/30 bg-cyan-400/10 text-white"><CardHeader><CardTitle className="text-base">Why this feels real</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-slate-200"><p className="flex gap-2"><Users className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />Team members create pressure, but do not replace your clinical reasoning.</p><p className="flex gap-2"><Activity className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />Vitals and patient state change after decisions, so you must reassess.</p><p className="flex gap-2"><Brain className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />Debrief separates knowledge, recognition, action, and communication.</p><p className="flex gap-2"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />You can retry immediately, then return later for spaced rehearsal.</p></CardContent></Card>
                 <Card className="border-amber-400/30 bg-amber-400/10 text-white"><CardContent className="p-4 text-xs leading-5 text-amber-100"><strong>Training boundary:</strong> This is a scripted learning simulation. It does not replace local protocols, an instructor-led skills session, or ResusGPS during live patient care.</CardContent></Card>
                 <Card className="border-violet-400/30 bg-violet-400/10 text-white"><CardHeader><CardTitle className="text-base">Role evidence</CardTitle><CardDescription className="text-violet-100/70">Your Simulation World attempts are tracked by role, not attendance alone.</CardDescription></CardHeader><CardContent className="space-y-2">{SIMULATION_WORLD_ROLES.map((role) => { const item = roleEvidence.get(role)!; return <div key={role} className="flex items-center justify-between rounded-lg bg-slate-950/50 px-3 py-2 text-xs"><span>{getSimulationWorldRoleLabel(role)}</span><span className={item.eligible > 0 ? "text-emerald-300" : "text-slate-400"}>{item.eligible > 0 ? `${item.eligible} evidence-ready` : `${item.attempts} rehearsal${item.attempts === 1 ? "" : "s"}`}</span></div>; })}</CardContent></Card>
+                {recommendedRole && <Card className="border-emerald-400/30 bg-emerald-400/10 text-white"><CardHeader><CardTitle className="text-base">Next required experience</CardTitle><CardDescription className="text-emerald-100/80">The Mission Director selects the next gap instead of making you manage the curriculum.</CardDescription></CardHeader><CardContent><p className="font-semibold">{getSimulationWorldRoleLabel(recommendedRole.role)}</p><p className="mt-1 text-xs text-emerald-100/80">{recommendedRole.reason}</p></CardContent></Card>}
                 <Button className="w-full bg-cyan-500 text-slate-950 hover:bg-cyan-400" size="lg" disabled={!eligibleEnrollments.length} onClick={() => setStage("briefing")}>Brief me for “{selectedMission.title}” <span className="ml-2">→</span></Button>
               </div>
             </div>
