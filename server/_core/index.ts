@@ -28,6 +28,7 @@ import { registerCpdRoutes } from "../cpd/routes";
 import { registerInstitutionalReadinessRoutes } from "../routers/institutional-readiness-download";
 import { registerNerpCampaignRoutes } from "../nerp-campaign-routes";
 import { registerPromotionalCampaignRoutes } from "../promotional-campaign-routes";
+import { registerProfessionalProgressRoutes } from "../professional-progress-routes";
 import { handleInstitutionalPaymentWebhook } from "../webhooks/institutional-payment";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -101,6 +102,8 @@ async function startServer() {
   registerCpdRoutes(app);
   // INST-20 cohort readiness summary PDF — same streamed-binary reasoning as CPD certs above.
   registerInstitutionalReadinessRoutes(app);
+  // Signed professional progress report PDFs — streamed owner-authenticated downloads.
+  registerProfessionalProgressRoutes(app);
   // NERP recipient-specific unsubscribe route; it only records opt-out suppression.
   registerNerpCampaignRoutes(app);
   registerPromotionalCampaignRoutes(app);
