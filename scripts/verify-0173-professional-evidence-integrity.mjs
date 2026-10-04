@@ -25,6 +25,16 @@ function requireAll(actual, expected, label) {
 function requireUniqueColumn(rows, column, label) {
   if (!rows.some(row => row.Non_unique === 0 && row.Column_name === column)) throw new Error(`[0173-verify] FAIL: ${label} has no unique index on ${column}`);
 }
+function requireIndexColumns(rows, expected, label) {
+  const groups = new Map();
+  for (const row of rows) {
+    const bucket = groups.get(row.Key_name) ?? [];
+    bucket.push(row);
+    groups.set(row.Key_name, bucket);
+  }
+  const found = [...groups.values()].some(bucket => bucket.sort((a, b) => a.Seq_in_index - b.Seq_in_index).slice(0, expected.length).map(row => row.Column_name).join(",") === expected.join(","));
+  if (!found) throw new Error(`[0173-verify] FAIL: ${label} lacks index on (${expected.join(", ")})`);
+}
 
 try {
   const reconciliationColumns = await columns("professionalEvidenceReconciliationRuns");
@@ -36,12 +46,14 @@ try {
   const reconciliationIndexes = await indexes("professionalEvidenceReconciliationRuns");
   const conflictIndexes = await indexes("professionalEvidenceConflicts");
   const ledgerIndexes = await indexes("professionalEvidenceLedger");
-  requireAll(reconciliationIndexes, ["PRIMARY", "runKey", "professional_evidence_reconciliation_status_idx"], "reconciliation indexes");
-  requireAll(conflictIndexes, ["PRIMARY", "conflictKey", "professional_evidence_conflict_user_state_idx", "professional_evidence_conflict_type_idx"], "conflict indexes");
-  requireAll(ledgerIndexes, ["PRIMARY", "professional_evidence_ledger_user_status_idx", "professional_evidence_ledger_user_type_idx"], "ledger indexes");
   requireUniqueColumn(reconciliationIndexes, "runKey", "reconciliation table");
   requireUniqueColumn(conflictIndexes, "conflictKey", "conflict table");
   requireUniqueColumn(ledgerIndexes, "sourceKey", "ledger table");
+  requireIndexColumns(reconciliationIndexes, ["status", "completedAt"], "reconciliation table");
+  requireIndexColumns(conflictIndexes, ["userId", "state"], "conflict table");
+  requireIndexColumns(conflictIndexes, ["evidenceType", "state"], "conflict table");
+  requireIndexColumns(ledgerIndexes, ["userId", "status"], "ledger table");
+  requireIndexColumns(ledgerIndexes, ["userId", "evidenceType"], "ledger table");
   console.log("[0173-verify] PASS: required tables, columns, unique keys, and indexes are present.");
 
   const provenanceGaps = await scalar("SELECT COUNT(*) AS count FROM professionalEvidenceLedger WHERE sourceSystem IS NULL OR sourceRecordType IS NULL OR sourceRecordId IS NULL OR sourceFactJson IS NULL OR interpretationVersion IS NULL");
