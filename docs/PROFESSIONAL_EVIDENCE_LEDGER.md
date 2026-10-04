@@ -92,6 +92,17 @@ The admin **Professional Truth Audit** is the control room for whether the portf
 
 Evidence strength is controlled by ontology version `0173-v1`. It is not a free-text synonym for “good”: each strength maps to an authority level and an objective validity rule. When two sources disagree, the system creates a conflict record with `CONFLICT` semantics; it does not silently choose the highest-looking row.
 
+### Phase 2 integrity contract
+
+- Covered adapters project AHA enrollments, certificates, Fellowship micro-courses, external completions, IERP enrollments, NERP enrollments, and linked CPD attendance.
+- Each covered source identity is checked in both directions: missing ledger rows, duplicate source rows, duplicate canonical rows, wrong source system/type, and wrong user ownership are review failures.
+- Cross-source rows are compared by owner, evidence type, programme/domain, status, and validity date. Material disagreement creates an explicit conflict; authority ranking never silently resolves it.
+- CPD attendees without a stable account link remain explicitly unresolved and are not counted as canonical professional evidence.
+- `getProfessionalTruthAudit` is read-only. An administrator must explicitly invoke `persistProfessionalTruthAudit` to write conflicts and a reconciliation-run snapshot.
+- `db:verify-0173` checks required columns, indexes, provenance completeness, canonical-key uniqueness, adapter source-versus-ledger coverage, and read-only operation.
+
+All interpretation metadata uses the authoritative ontology version `0173-v1`. Migration numbers identify schema rollout; they are not independently valid ontology versions.
+
 Migration: `pnpm run db:apply-0173` then `pnpm run db:verify-0173`.
 
 The 0169 sync now also backfills source facts and interpretation metadata. Re-run `pnpm run db:sync-0169` after 0173 so existing ledger rows can be audited for provenance completeness.

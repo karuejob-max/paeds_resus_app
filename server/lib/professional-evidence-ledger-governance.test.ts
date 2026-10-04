@@ -32,6 +32,6 @@ describe("professional evidence governance", () => {
     const [row] = evidenceRowsFromSnapshot({ lifeSupport: [{ enrollmentId: 7, program: "BLS", percentage: 100, practicalComplete: false, cognitiveComplete: true, status: "active", updatedAt: "2026-10-01" }], externalCompletions: [], coursework: [], certificates: [], cpd: { sessions: [] } }, 9);
     expect(JSON.parse(row.sourceFactJson ?? "{}").cognitiveModulesComplete).toBe(true);
     expect(row.interpretation).toBe("learning_status");
-    expect(row.interpretationVersion).toBe("0171-v1");
+    expect(row.interpretationVersion).toBe("0173-v1");
   });
 });

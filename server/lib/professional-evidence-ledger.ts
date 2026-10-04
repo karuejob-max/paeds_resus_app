@@ -32,7 +32,7 @@ export function effectiveCompetenceStatus(item: { result?: string; status?: stri
 }
 
 function row(source: Omit<EvidenceProjection, "metadataJson"> & { sourceFacts: unknown; interpretation: string }): EvidenceProjection {
-  return { ...source, metadataJson: json(source.sourceFacts), sourceFactJson: json(source.sourceFacts), interpretation: source.interpretation, interpretationVersion: "0171-v1" };
+  return { ...source, metadataJson: json(source.sourceFacts), sourceFactJson: json(source.sourceFacts), interpretation: source.interpretation, interpretationVersion: "0173-v1" };
 }
 
 export function evidenceRowsFromSnapshot(snapshot: any, userId: number): EvidenceProjection[] {

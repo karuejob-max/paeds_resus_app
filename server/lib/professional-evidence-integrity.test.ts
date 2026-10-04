@@ -35,16 +35,28 @@ describe("Professional Truth invariants", () => {
     expect(conflicts[0].state).toMatch(/^conflict/);
   });
   it("proves missing source records and duplicate source identities", () => {
-    const result = reconcileSourceRows("AHA", [{ userId: 1, sourceRecordId: 7 }, { userId: 1, sourceRecordId: 7 }, { userId: 2, sourceRecordId: 8 }], [{ userId: 1, sourceRecordId: "7" }]);
+    const result = reconcileSourceRows("AHA", [{ userId: 1, sourceRecordId: 7 }, { userId: 1, sourceRecordId: 7 }, { userId: 2, sourceRecordId: 8 }], [{ userId: 1, sourceRecordId: "7", sourceSystem: "aha_learning", sourceRecordType: "enrollments" }], { sourceSystem: "aha_learning", sourceRecordType: "enrollments" });
     expect(result.duplicates).toBe(1);
     expect(result.missing).toBe(1);
+    expect(result.complete).toBe(false);
+  });
+  it("detects duplicate canonical rows and wrong source ownership/type", () => {
+    const result = reconcileSourceRows("Certificates", [{ userId: 7, sourceRecordId: 123 }], [
+      { userId: 7, sourceRecordId: "123", sourceSystem: "external_completion", sourceRecordType: "wrong" },
+      { userId: 7, sourceRecordId: "123", sourceSystem: "external_completion", sourceRecordType: "wrong" },
+    ], { sourceSystem: "certificates", sourceRecordType: "certificates" });
+    expect(result.ledgerDuplicates).toBe(1);
+    expect(result.wrongSourceSystem).toBe(2);
+    expect(result.wrongSourceType).toBe(2);
+    expect(result.complete).toBe(false);
   });
   it("keeps activity reports inside the requested period", () => {
     expect(selectEvidenceForReport([{ sourceKey: "old", completedAt: "2026-01-01" }, { sourceKey: "new", completedAt: "2026-10-02" }], "activity", "2026-10-01", "2026-10-31").map(row => row.sourceKey)).toEqual(["new"]);
   });
   it("makes not-projected sources visible in the truth summary", () => {
-    const summary = buildTruthAuditSummary({ sources: [{ source: "IERP", adapterStatus: "not_projected", sourceRecords: 4, ledgerRecords: 0, missing: 4, duplicates: 0, conflicts: 0, provenanceGaps: 4 }], ledgerRows: [], conflicts: [], reports: { superseded: 1, activePublic: 2 } });
+    const summary = buildTruthAuditSummary({ sources: [{ source: "IERP", adapterStatus: "not_projected", sourceRecords: 4, ledgerRecords: 0, missing: 4, duplicates: 0, ledgerDuplicates: 0, wrongSourceSystem: 0, wrongSourceType: 0, wrongUserOwnership: 0, conflicts: 0, provenanceGaps: 4, complete: false }], ledgerRows: [], conflicts: [], reports: { superseded: 1, activePublic: 2 } });
     expect(summary.totals.unprojectedRecords).toBe(4);
     expect(summary.sourceCoverage[0].adapterStatus).toBe("not_projected");
+    expect(summary.integrityStatus).toBe("review_required");
   });
 });
