@@ -1,7 +1,8 @@
+import "dotenv/config";
 import mysql from "mysql2/promise";
 import { getConnectionConfig } from "./db-connection-config.mjs";
 
-const connection = await mysql.createConnection(getConnectionConfig());
+const connection = await mysql.createConnection(await getConnectionConfig(process.env.DATABASE_URL));
 try {
   for (const table of ["simulationWorldSessions", "simulationWorldCommandReceipts", "simulationWorldEvidence"]) {
     const [rows] = await connection.query(`SHOW TABLES LIKE ?`, [table]);
@@ -15,3 +16,4 @@ try {
 } finally {
   await connection.end();
 }
+

@@ -1,7 +1,8 @@
+import "dotenv/config";
 import mysql from "mysql2/promise";
 import { getConnectionConfig } from "./db-connection-config.mjs";
 
-const connection = await mysql.createConnection(getConnectionConfig());
+const connection = await mysql.createConnection(await getConnectionConfig(process.env.DATABASE_URL));
 try {
   await connection.execute(`
     CREATE TABLE IF NOT EXISTS simulationWorldSessions (
@@ -59,3 +60,4 @@ try {
 } finally {
   await connection.end();
 }
+
