@@ -76,9 +76,13 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
     : [];
   const allAhaRows = selectBestCurrentEnrollments([...ahaRows, ...linkedAhaRows.filter((row: any) => !ahaRows.some((existing: any) => existing.id === row.id))]);
 
+  const nerpEnrollmentIds = new Set(nerpLinks.map((row: any) => Number(row.enrollmentId)));
   const lifeSupport = allAhaRows.map((row: any) => ({
     program: String(row.programType).toUpperCase(),
-    source,
+    // NERP has an explicit course-link ledger. IERP currently stores pathway
+    // state but does not store an AHA enrollment link, so do not claim IERP
+    // attribution for a course we cannot prove belongs to that pathway.
+    source: nerpEnrollmentIds.has(Number(row.id)) ? "NERP" : "Individual / unlinked",
     phase: phaseForEnrollment(row),
     percentage: progressForEnrollment(row),
     status: row.enrollmentStatus,
@@ -165,7 +169,15 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
     }));
   const externalCompletions = selectBestExternalCompletions(externalCompletionRows);
 
-  const cpdRows = await db.select({ attendee: cpdAttendees, event: cpdEvents }).from(cpdAttendees).innerJoin(cpdEvents, eq(cpdEvents.id, cpdAttendees.cpdEventId)).where(and(sql`(${cpdAttendees.userId} = ${userId} OR LOWER(TRIM(${cpdAttendees.email})) = ${String(user?.email ?? "").trim().toLowerCase()})`, eq(cpdAttendees.attendanceStatus, "attendance_verified"), sql`${cpdEvents.eventDateAt} >= ${input.periodStart}`, sql`${cpdEvents.eventDateAt} <= ${input.periodEnd}`)).orderBy(desc(cpdEvents.eventDateAt));
+  const cpdFilters = [
+    sql`(${cpdAttendees.userId} = ${userId} OR LOWER(TRIM(${cpdAttendees.email})) = ${String(user?.email ?? "").trim().toLowerCase()})`,
+    eq(cpdAttendees.attendanceStatus, "attendance_verified"),
+  ];
+  if (input.reportScope === "activity") {
+    cpdFilters.push(sql`${cpdEvents.eventDateAt} >= ${input.periodStart}`);
+    cpdFilters.push(sql`${cpdEvents.eventDateAt} <= ${input.periodEnd}`);
+  }
+  const cpdRows = await db.select({ attendee: cpdAttendees, event: cpdEvents }).from(cpdAttendees).innerJoin(cpdEvents, eq(cpdEvents.id, cpdAttendees.cpdEventId)).where(and(...cpdFilters)).orderBy(desc(cpdEvents.eventDateAt));
   const cpdPoints = cpdRows.reduce((sum: number, row: any) => sum + Number(row.event.cpdPoints ?? 0), 0);
   const fellowship = fellowshipRows[0] ? {
     overallPercentage: fellowshipRows[0].overallPercentage ?? 0,
@@ -197,7 +209,7 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
     },
     fellowship,
     certificates: certRows.filter((row: any) => input.reportScope === "current_status" || (dateOnly(row.issueDate) >= input.periodStart && dateOnly(row.issueDate) <= input.periodEnd)).map((row: any) => ({ programType: row.programType, certificateNumber: row.certificateNumber, issueDate: row.issueDate, verificationCode: row.verificationCode })),
-    sourceAttribution: { hasNerp, hasIerp, standaloneLearningIncluded: true },
+    sourceAttribution: { hasNerp, hasIerp, standaloneLearningIncluded: true, unlinkedAhaRecords: lifeSupport.filter((item: any) => item.source === "Individual / unlinked").length },
     periodSemantics: input.reportScope === "activity"
       ? "This report shows learning activity and certificates issued during the selected period. Life-support and pathway cards show current status as of report generation."
       : "This report shows current status as of report generation. Period dates are retained as the requested reporting window but do not filter current status.",
