@@ -7,6 +7,7 @@ import {
   institutionalPaymentProviderEvents,
   institutionalPaymentAttempts,
   institutionalPricingAuditEvents,
+  institutionalCommercialContracts,
   institutionalSubscriptionInvoices,
   institutionProductSubscriptions,
   institutionalProducts,
@@ -15,6 +16,7 @@ import { assertInstitutionAccess } from "../lib/institution-access";
 import { assertInstitutionProductRole } from "../lib/institution-product-roles";
 import { buildInstitutionalQuote, buildInvoiceNumber, paymentProviderFor, renewalPolicyFor } from "../lib/institutional-billing";
 import { createInstitutionalCheckoutAction } from "../lib/institutional-payment-adapter";
+import { assertInstitutionalInvoiceTransition } from "../lib/institutional-trust-invariants";
 import { DEFAULT_KES_PER_USD, type DataSharingStatus, type FacilityLevel, type PricingTier } from "@shared/institutional-pricing";
 
 async function dbOrThrow() {
@@ -36,6 +38,20 @@ async function getProductId(db: Awaited<ReturnType<typeof dbOrThrow>>, productKe
 }
 
 export const institutionalBillingRouter = router({
+  createCommercialContract: protectedProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive(), product: productSchema, facilityLevel: z.enum(["level_4", "level_5", "level_6"]).optional(), staffCount: z.number().int().positive().optional(), pricingTier: z.enum(["founding_partner", "standard"]).default("standard"), dataSharingStatus: z.enum(["consented", "consented_anonymous", "private_mode", "lapsed"]).default("private_mode"), fxRateKesPerUsd: z.number().positive().default(DEFAULT_KES_PER_USD), termYears: z.number().int().min(1).max(5).default(1), startsAt: z.coerce.date().optional(), notes: z.string().trim().max(4000).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Only a Paeds Resus platform administrator may approve commercial contracts." });
+      const db = await dbOrThrow();
+      const quote = buildInstitutionalQuote({ product: input.product, facilityLevel: input.facilityLevel as FacilityLevel | undefined, staffCount: input.staffCount, pricingTier: input.pricingTier as PricingTier, dataSharingStatus: input.dataSharingStatus as DataSharingStatus, fxRateKesPerUsd: input.fxRateKesPerUsd, termYears: input.termYears });
+      const now = new Date();
+      const startsAt = input.startsAt ?? now;
+      const endsAt = new Date(startsAt.getTime() + input.termYears * 365 * 24 * 60 * 60 * 1000);
+      const contractNumber = `PR-${input.institutionalAccountId}-${now.getTime()}`;
+      const [created] = await db.insert(institutionalCommercialContracts).values({ institutionalAccountId: input.institutionalAccountId, productKey: input.product, contractNumber, pricingTier: input.pricingTier, facilityLevel: input.facilityLevel ?? null, verifiedStaffCount: input.staffCount ?? null, termYears: quote.termYears, currency: quote.currency, amountCents: quote.amountCents, fxRateKesPerUsd: quote.fxRateKesPerUsd.toString(), dataSharingStatus: input.dataSharingStatus, status: "approved", approvedByUserId: ctx.user.id, approvedAt: now, startsAt, endsAt, notes: input.notes ?? null }).$returningId();
+      return { contractId: created.id, contractNumber, amountCents: quote.amountCents, currency: quote.currency, startsAt, endsAt, quote };
+    }),
+
   getQuote: protectedProcedure
     .input(z.object({ institutionalAccountId: z.number().int().positive(), product: productSchema, facilityLevel: z.enum(["level_4", "level_5", "level_6"]).optional(), staffCount: z.number().int().positive().optional(), pricingTier: z.enum(["founding_partner", "standard"]).default("standard"), dataSharingStatus: z.enum(["consented", "consented_anonymous", "private_mode", "lapsed"]).default("private_mode"), fxRateKesPerUsd: z.number().positive().default(DEFAULT_KES_PER_USD), termYears: z.number().int().min(1).max(5).default(1) }))
     .query(async ({ ctx, input }) => {
@@ -65,17 +81,20 @@ export const institutionalBillingRouter = router({
     }),
 
   issueInvoice: protectedProcedure
-    .input(z.object({ institutionalAccountId: z.number().int().positive(), product: productSchema, facilityLevel: z.enum(["level_4", "level_5", "level_6"]).optional(), staffCount: z.number().int().positive().optional(), pricingTier: z.enum(["founding_partner", "standard"]).default("standard"), dataSharingStatus: z.enum(["consented", "consented_anonymous", "private_mode", "lapsed"]).default("private_mode"), fxRateKesPerUsd: z.number().positive().default(DEFAULT_KES_PER_USD), termYears: z.number().int().min(1).max(5).default(1), dueAt: z.coerce.date().optional() }))
+    .input(z.object({ institutionalAccountId: z.number().int().positive(), contractId: z.number().int().positive(), dueAt: z.coerce.date().optional() }))
     .mutation(async ({ ctx, input }) => {
       const db = await dbOrThrow();
-      await assertBillingAdmin(db, ctx.user, input.institutionalAccountId, input.product);
-      const productId = await getProductId(db, input.product);
+      const [contract] = await db.select().from(institutionalCommercialContracts).where(and(eq(institutionalCommercialContracts.id, input.contractId), eq(institutionalCommercialContracts.institutionalAccountId, input.institutionalAccountId), eq(institutionalCommercialContracts.status, "approved"))).limit(1);
+      if (!contract) throw new TRPCError({ code: "NOT_FOUND", message: "An approved commercial contract is required before issuing an invoice." });
+      if (contract.endsAt && contract.endsAt.getTime() < Date.now()) throw new TRPCError({ code: "BAD_REQUEST", message: "The commercial contract has expired." });
+      await assertBillingAdmin(db, ctx.user, input.institutionalAccountId, contract.productKey as "iers" | "cpd_portal");
+      const productId = await getProductId(db, contract.productKey as "iers" | "cpd_portal");
       const [subscription] = await db.select().from(institutionProductSubscriptions).where(and(eq(institutionProductSubscriptions.institutionalAccountId, input.institutionalAccountId), eq(institutionProductSubscriptions.productId, productId))).limit(1);
-      const quote = buildInstitutionalQuote({ product: input.product, facilityLevel: input.facilityLevel as FacilityLevel | undefined, staffCount: input.staffCount, pricingTier: input.pricingTier as PricingTier, dataSharingStatus: input.dataSharingStatus as DataSharingStatus, fxRateKesPerUsd: input.fxRateKesPerUsd, termYears: input.termYears });
       const now = new Date();
       const dueAt = input.dueAt ?? new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      const [created] = await db.insert(institutionalSubscriptionInvoices).values({ institutionalAccountId: input.institutionalAccountId, productId, subscriptionId: subscription?.id ?? null, invoiceNumber: buildInvoiceNumber(now), baseAmountUsdCents: quote.baseAmountUsdCents, amountCents: quote.amountCents, currency: quote.currency, fxRateKesPerUsd: quote.fxRateKesPerUsd.toString(), status: "issued", issuedAt: now, dueAt, renewalForSubscriptionId: subscription?.id ?? null, metadata: { product: input.product, label: quote.label, termYears: quote.termYears } }).$returningId();
-      return { invoiceId: created.id, amountCents: quote.amountCents, currency: quote.currency, dueAt, invoiceStatus: "issued" as const };
+      const fx = Number(contract.fxRateKesPerUsd ?? DEFAULT_KES_PER_USD);
+      const [created] = await db.insert(institutionalSubscriptionInvoices).values({ institutionalAccountId: input.institutionalAccountId, productId, subscriptionId: subscription?.id ?? null, commercialContractId: contract.id, invoiceNumber: buildInvoiceNumber(now), baseAmountUsdCents: Math.round(contract.amountCents / fx), amountCents: contract.amountCents, currency: contract.currency, fxRateKesPerUsd: contract.fxRateKesPerUsd, status: "issued", issuedAt: now, dueAt, renewalForSubscriptionId: subscription?.id ?? null, metadata: { product: contract.productKey, contractNumber: contract.contractNumber, pricingTier: contract.pricingTier, termYears: contract.termYears } }).$returningId();
+      return { invoiceId: created.id, amountCents: contract.amountCents, currency: contract.currency, dueAt, invoiceStatus: "issued" as const, contractNumber: contract.contractNumber };
     }),
 
   listInvoices: protectedProcedure
@@ -94,6 +113,7 @@ export const institutionalBillingRouter = router({
       const db = await dbOrThrow();
       const [invoice] = await db.select().from(institutionalSubscriptionInvoices).where(and(eq(institutionalSubscriptionInvoices.id, input.invoiceId), eq(institutionalSubscriptionInvoices.institutionalAccountId, input.institutionalAccountId))).limit(1);
       if (!invoice) throw new TRPCError({ code: "NOT_FOUND", message: "Invoice not found." });
+      if (!["issued", "overdue", "payment_pending", "disputed"].includes(invoice.status)) throw new TRPCError({ code: "CONFLICT", message: `Invoice is not payable in its current state: ${invoice.status}.` });
       await assertInstitutionAccess(db, ctx.user, input.institutionalAccountId);
       const provider = paymentProviderFor(input.paymentMethod);
       const policy = renewalPolicyFor(input.paymentMethod, input.autoRenewRequested);
@@ -125,8 +145,13 @@ export const institutionalBillingRouter = router({
       const [attempt] = await db.select().from(institutionalPaymentAttempts).where(eq(institutionalPaymentAttempts.id, input.attemptId)).limit(1);
       if (!attempt) throw new TRPCError({ code: "NOT_FOUND", message: "Payment attempt not found." });
       const now = new Date();
-      await db.update(institutionalPaymentAttempts).set({ reconciliationStatus: input.reconciliationStatus, reconciliationNote: input.note, providerPaymentReference: input.providerPaymentReference ?? attempt.providerPaymentReference, updatedAt: now }).where(eq(institutionalPaymentAttempts.id, attempt.id));
-      await db.update(institutionalSubscriptionInvoices).set({ reconciliationStatus: input.reconciliationStatus, reconciliationNote: input.note, providerPaymentReference: input.providerPaymentReference ?? undefined, updatedAt: now }).where(eq(institutionalSubscriptionInvoices.id, attempt.invoiceId));
+      const terminalStatus = input.reconciliationStatus === "matched" ? "settled" : input.reconciliationStatus === "refunded" ? "refunded" : input.reconciliationStatus === "mismatch" || input.reconciliationStatus === "disputed" ? "disputed" : attempt.status;
+      const invoiceStatus = input.reconciliationStatus === "matched" ? "reconciled" : input.reconciliationStatus === "refunded" ? "refunded" : input.reconciliationStatus === "mismatch" || input.reconciliationStatus === "disputed" ? "disputed" : "payment_received";
+      const [invoice] = await db.select({ status: institutionalSubscriptionInvoices.status }).from(institutionalSubscriptionInvoices).where(eq(institutionalSubscriptionInvoices.id, attempt.invoiceId)).limit(1);
+      if (!invoice) throw new TRPCError({ code: "NOT_FOUND", message: "Invoice not found." });
+      if (invoice.status !== invoiceStatus) assertInstitutionalInvoiceTransition(invoice.status, invoiceStatus);
+      await db.update(institutionalPaymentAttempts).set({ status: terminalStatus, reconciliationStatus: input.reconciliationStatus, reconciliationNote: input.note, providerPaymentReference: input.providerPaymentReference ?? attempt.providerPaymentReference, settledAt: input.reconciliationStatus === "matched" ? now : attempt.settledAt, refundedAt: input.reconciliationStatus === "refunded" ? now : attempt.refundedAt, updatedAt: now }).where(eq(institutionalPaymentAttempts.id, attempt.id));
+      await db.update(institutionalSubscriptionInvoices).set({ status: invoiceStatus, reconciliationStatus: input.reconciliationStatus, reconciliationNote: input.note, providerPaymentReference: input.providerPaymentReference ?? undefined, paidAt: input.reconciliationStatus === "matched" ? now : undefined, settledAt: input.reconciliationStatus === "matched" ? now : undefined, updatedAt: now }).where(eq(institutionalSubscriptionInvoices.id, attempt.invoiceId));
       return { success: true, attemptId: attempt.id, reconciliationStatus: input.reconciliationStatus };
     }),
 

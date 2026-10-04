@@ -10,12 +10,16 @@ import {
   institutionalQiEffectivenessReviews,
   institutionalQiParticipationSnapshots,
   institutionalQiReports,
+  institutionalQiReportEvents,
   institutionalQiExportRequests,
   institutionalQiRetentionPolicies,
+  facilityDepartments,
+  institutionMemberships,
 } from "../../drizzle/schema";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { assertInstitutionProductRole } from "../lib/institution-product-roles";
 import { participationRequirement, type FacilityLevel } from "@shared/institutional-pricing";
+import { canCloseQiReport } from "../lib/institutional-trust-invariants";
 
 const reportTypes = ["safety_event", "improvement_project"] as const;
 const reportStatuses = ["draft", "submitted", "triaged", "action_planned", "in_progress", "effectiveness_review", "closed", "reopened"] as const;
@@ -31,6 +35,16 @@ async function dbOrThrow() {
 
 async function assertReviewer(db: Awaited<ReturnType<typeof dbOrThrow>>, user: { id: number; role: string; email: string | null }, institutionId: number) {
   await assertInstitutionProductRole(db, user as never, institutionId, "iers", reviewerRoles);
+}
+
+async function assertDepartmentBelongsToInstitution(db: Awaited<ReturnType<typeof dbOrThrow>>, institutionId: number, departmentId: number) {
+  const [department] = await db.select({ id: facilityDepartments.id }).from(facilityDepartments).where(and(eq(facilityDepartments.id, departmentId), eq(facilityDepartments.institutionId, institutionId), eq(facilityDepartments.isActive, true))).limit(1);
+  if (!department) throw new TRPCError({ code: "BAD_REQUEST", message: "The selected department is not an active department of this institution." });
+}
+
+async function assertActiveInstitutionMember(db: Awaited<ReturnType<typeof dbOrThrow>>, institutionId: number, userId: number) {
+  const [membership] = await db.select({ id: institutionMemberships.id }).from(institutionMemberships).where(and(eq(institutionMemberships.institutionalAccountId, institutionId), eq(institutionMemberships.userId, userId), eq(institutionMemberships.membershipStatus, "active"))).limit(1);
+  if (!membership) throw new TRPCError({ code: "BAD_REQUEST", message: "The action owner must be an active member of this institution." });
 }
 
 function assertTransition(current: ReportStatus, next: ReportStatus) {
@@ -76,6 +90,7 @@ export const institutionalQiRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await dbOrThrow();
       await assertInstitutionAccess(db, ctx.user, input.institutionalAccountId);
+      if (input.facilityDepartmentId) await assertDepartmentBelongsToInstitution(db, input.institutionalAccountId, input.facilityDepartmentId);
       const now = new Date();
       const [created] = await db.insert(institutionalQiReports).values({
         institutionalAccountId: input.institutionalAccountId,
@@ -104,6 +119,7 @@ export const institutionalQiRouter = router({
         createdAt: now,
         updatedAt: now,
       }).$returningId();
+      await db.insert(institutionalQiReportEvents).values({ institutionalAccountId: input.institutionalAccountId, reportId: created.id, fromStatus: null, toStatus: input.status, actorUserId: ctx.user.id, actorRole: ctx.user.role, reason: input.status === "submitted" ? "QI report submitted" : "QI report created as draft", occurredAt: now });
       return { id: created.id, status: input.status };
     }),
 
@@ -117,6 +133,16 @@ export const institutionalQiRouter = router({
       return db.select().from(institutionalQiReports).where(and(...predicates)).orderBy(desc(institutionalQiReports.updatedAt)).limit(input.limit);
     }),
 
+  listReportEvents: protectedProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive(), reportId: z.number().int().positive(), limit: z.number().int().min(1).max(200).default(100) }))
+    .query(async ({ ctx, input }) => {
+      const db = await dbOrThrow();
+      await assertInstitutionAccess(db, ctx.user, input.institutionalAccountId);
+      const [report] = await db.select({ id: institutionalQiReports.id }).from(institutionalQiReports).where(and(eq(institutionalQiReports.id, input.reportId), eq(institutionalQiReports.institutionalAccountId, input.institutionalAccountId))).limit(1);
+      if (!report) throw new TRPCError({ code: "NOT_FOUND", message: "QI report not found." });
+      return db.select().from(institutionalQiReportEvents).where(and(eq(institutionalQiReportEvents.institutionalAccountId, input.institutionalAccountId), eq(institutionalQiReportEvents.reportId, input.reportId))).orderBy(desc(institutionalQiReportEvents.occurredAt)).limit(input.limit);
+    }),
+
   addAction: protectedProcedure
     .input(z.object({ institutionalAccountId: z.number().int().positive(), reportId: z.number().int().positive(), actionText: z.string().trim().min(3).max(5000), ownerUserId: z.number().int().positive().optional(), dueAt: z.coerce.date().optional(), priority: z.enum(["low", "medium", "high", "urgent"]).default("medium") }))
     .mutation(async ({ ctx, input }) => {
@@ -124,6 +150,7 @@ export const institutionalQiRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionalAccountId);
       const [report] = await db.select({ id: institutionalQiReports.id }).from(institutionalQiReports).where(and(eq(institutionalQiReports.id, input.reportId), eq(institutionalQiReports.institutionalAccountId, input.institutionalAccountId))).limit(1);
       if (!report) throw new TRPCError({ code: "NOT_FOUND", message: "QI report not found." });
+      if (input.ownerUserId) await assertActiveInstitutionMember(db, input.institutionalAccountId, input.ownerUserId);
       const [created] = await db.insert(institutionalQiActions).values({ institutionalAccountId: input.institutionalAccountId, reportId: input.reportId, actionText: input.actionText, ownerUserId: input.ownerUserId ?? null, dueAt: input.dueAt ?? null, priority: input.priority }).$returningId();
       return { id: created.id };
     }),
@@ -138,11 +165,12 @@ export const institutionalQiRouter = router({
       if (["triaged", "action_planned", "in_progress", "effectiveness_review", "closed"].includes(input.nextStatus)) await assertReviewer(db, ctx.user, input.institutionalAccountId);
       assertTransition(report.status as ReportStatus, input.nextStatus);
       if (input.nextStatus === "closed") {
-        const [review] = await db.select({ id: institutionalQiEffectivenessReviews.id }).from(institutionalQiEffectivenessReviews).where(eq(institutionalQiEffectivenessReviews.reportId, input.reportId)).orderBy(desc(institutionalQiEffectivenessReviews.reviewDate)).limit(1);
-        if (!review) throw new TRPCError({ code: "BAD_REQUEST", message: "A verified effectiveness review is required before closing a QI report." });
+        const [review] = await db.select({ outcome: institutionalQiEffectivenessReviews.outcome, followUpRequired: institutionalQiEffectivenessReviews.followUpRequired }).from(institutionalQiEffectivenessReviews).where(and(eq(institutionalQiEffectivenessReviews.reportId, input.reportId), eq(institutionalQiEffectivenessReviews.institutionalAccountId, input.institutionalAccountId))).orderBy(desc(institutionalQiEffectivenessReviews.reviewDate)).limit(1);
+        if (!canCloseQiReport(review)) throw new TRPCError({ code: "BAD_REQUEST", message: "A verified effectiveness review with no unresolved follow-up is required before closing a QI report." });
       }
       const now = new Date();
-      await db.update(institutionalQiReports).set({ status: input.nextStatus, submittedAt: input.nextStatus === "submitted" ? now : report.submittedAt, closedAt: input.nextStatus === "closed" ? now : input.nextStatus === "reopened" ? null : report.closedAt, updatedAt: now }).where(eq(institutionalQiReports.id, input.reportId));
+      await db.update(institutionalQiReports).set({ status: input.nextStatus, reviewerUserId: ["triaged", "action_planned", "in_progress", "effectiveness_review", "closed"].includes(input.nextStatus) ? ctx.user.id : report.reviewerUserId, submittedAt: input.nextStatus === "submitted" ? now : report.submittedAt, closedAt: input.nextStatus === "closed" ? now : input.nextStatus === "reopened" ? null : report.closedAt, updatedAt: now }).where(eq(institutionalQiReports.id, input.reportId));
+      await db.insert(institutionalQiReportEvents).values({ institutionalAccountId: input.institutionalAccountId, reportId: input.reportId, fromStatus: report.status, toStatus: input.nextStatus, actorUserId: ctx.user.id, actorRole: ctx.user.role, reason: input.reason, occurredAt: now });
       return { success: true, status: input.nextStatus, reason: input.reason };
     }),
 
@@ -153,9 +181,11 @@ export const institutionalQiRouter = router({
       await assertReviewer(db, ctx.user, input.institutionalAccountId);
       const [report] = await db.select().from(institutionalQiReports).where(and(eq(institutionalQiReports.id, input.reportId), eq(institutionalQiReports.institutionalAccountId, input.institutionalAccountId))).limit(1);
       if (!report) throw new TRPCError({ code: "NOT_FOUND", message: "QI report not found." });
+      if (["closed", "draft"].includes(report.status)) throw new TRPCError({ code: "BAD_REQUEST", message: "Effectiveness review is only available for an active submitted QI workflow." });
       const now = new Date();
       const [created] = await db.insert(institutionalQiEffectivenessReviews).values({ reportId: input.reportId, institutionalAccountId: input.institutionalAccountId, reviewerUserId: ctx.user.id, reviewDate: now, outcome: input.outcome, followUpRequired: input.followUpRequired, evidenceSummary: input.evidenceSummary, measureValue: input.measureValue?.toString() ?? null, notes: input.notes ?? null }).$returningId();
-      await db.update(institutionalQiReports).set({ status: "effectiveness_review", updatedAt: now }).where(eq(institutionalQiReports.id, input.reportId));
+      await db.update(institutionalQiReports).set({ status: "effectiveness_review", reviewerUserId: ctx.user.id, updatedAt: now }).where(eq(institutionalQiReports.id, input.reportId));
+      await db.insert(institutionalQiReportEvents).values({ institutionalAccountId: input.institutionalAccountId, reportId: input.reportId, fromStatus: report.status, toStatus: "effectiveness_review", actorUserId: ctx.user.id, actorRole: ctx.user.role, reason: `Effectiveness review recorded: ${input.outcome}`, occurredAt: now });
       return { id: created.id, status: "effectiveness_review" as const };
     }),
 

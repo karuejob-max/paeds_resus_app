@@ -343,7 +343,7 @@ export const institutionProductsRouter = router({
         });
       } catch (error) {
         if (!isMissingTableError(error)) throw error;
-        return FALLBACK_CATALOG;
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "The institutional product ledger is unavailable. No subscription or access decision was made; contact Paeds Resus support." });
       }
     }),
 

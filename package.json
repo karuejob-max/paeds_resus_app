@@ -125,6 +125,8 @@
     "db:sync-0169": "node scripts/sync-0169-professional-evidence-ledger.mjs",
     "db:apply-0170": "node scripts/apply-0170-professional-trust-closure.mjs",
     "db:verify-0170": "node scripts/verify-0170-professional-trust-closure.mjs",
+    "db:apply-0171": "node scripts/apply-0171-institutional-trust-closure.mjs",
+    "db:verify-0171": "node scripts/verify-0171-institutional-trust-closure.mjs",
     "db:verify-0148": "node scripts/verify-0148-promotional-messaging-governance.mjs",
     "db:verify-cpr-event-link": "node scripts/verify-cpr-event-link.mjs",
     "db:verify-cpr-event-loop": "node scripts/verify-cpr-event-loop.mjs",

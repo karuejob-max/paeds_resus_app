@@ -21,11 +21,13 @@ import { Progress } from "@/components/ui/progress";
 export default function InstitutionHomePanel({
   institutionId,
   onOpenLearning,
+  onOpenReadiness,
   onOpenAdministration,
   iersEnabled,
 }: {
   institutionId: number;
   onOpenLearning: () => void;
+  onOpenReadiness: () => void;
   onOpenAdministration: () => void;
   iersEnabled: boolean;
 }) {
@@ -40,6 +42,10 @@ export default function InstitutionHomePanel({
     isError: schedulesError,
   } = trpc.institution.getTrainingSchedules.useQuery(
     { institutionId },
+    { enabled: iersEnabled }
+  );
+  const { data: qiReports, isLoading: qiLoading, isError: qiError } = trpc.institutionalQi.listReports.useQuery(
+    { institutionalAccountId: institutionId, limit: 50 },
     { enabled: iersEnabled }
   );
 
@@ -60,6 +66,15 @@ export default function InstitutionHomePanel({
 
   const completionRate = stats?.completionRate ?? 0;
   const attentionItems = [
+    qiReports?.filter(report => ["severe", "critical"].includes(report.severity) && report.status !== "closed").length
+      ? {
+          label: "Review high-severity quality reports",
+          detail: `${qiReports.filter(report => ["severe", "critical"].includes(report.severity) && report.status !== "closed").length} report(s) need governed review or action tracking.`,
+          action: onOpenReadiness,
+          actionLabel: "Open QI review",
+          icon: AlertTriangle,
+        }
+      : null,
     stats && stats.totalStaff === 0
       ? {
           label: "Add your institutional roster",
@@ -109,7 +124,7 @@ export default function InstitutionHomePanel({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {statsError || (iersEnabled && schedulesError) ? (
+          {statsError || (iersEnabled && (schedulesError || qiError)) ? (
             <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-4 text-sm dark:border-amber-900 dark:bg-amber-950/20">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
               <div>
@@ -122,7 +137,7 @@ export default function InstitutionHomePanel({
                 </p>
               </div>
             </div>
-          ) : statsLoading || schedulesLoading ? (
+          ) : statsLoading || schedulesLoading || (iersEnabled && qiLoading) ? (
             <p className="text-sm text-muted-foreground">
               Loading current institutional signals…
             </p>
@@ -198,7 +213,7 @@ export default function InstitutionHomePanel({
             </p>
             <Progress value={completionRate} className="mt-3 h-2" />
             <p className="mt-2 text-xs text-muted-foreground">
-              completed roster learning records
+              completed roster learning records; not a competency or emergency authorization score
             </p>
           </CardContent>
         </Card>
