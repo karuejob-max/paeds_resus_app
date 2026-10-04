@@ -278,8 +278,10 @@ export const professionalProgressRouter = router({
     const snapshotJson = JSON.stringify(snapshot);
     const snapshotHash = createHash("sha256").update(snapshotJson).digest("hex");
     const verificationCode = `PPR-${randomBytes(12).toString("hex").toUpperCase()}`;
-    await db.insert(professionalProgressReports).values({ userId: ctx.user.id, reportType: input.reportType, reportScope: input.reportScope, periodStart: new Date(`${input.periodStart}T00:00:00.000Z`), periodEnd: new Date(`${input.periodEnd}T00:00:00.000Z`), snapshotJson, snapshotHash, verificationCode, publicExpiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000) });
-    return { verificationCode, snapshotHash, verificationUrl: `/verify-progress/${verificationCode}`, snapshot };
+    const result = await db.insert(professionalProgressReports).values({ userId: ctx.user.id, reportType: input.reportType, reportScope: input.reportScope, periodStart: new Date(`${input.periodStart}T00:00:00.000Z`), periodEnd: new Date(`${input.periodEnd}T00:00:00.000Z`), snapshotJson, snapshotHash, verificationCode, publicExpiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000) });
+    const reportId = Number(result[0].insertId);
+    const verificationUrl = `/verify-progress/${verificationCode}`;
+    return { reportId, verificationCode, snapshotHash, verificationUrl, pdfUrl: `/api/professional-progress/report/${verificationCode}.pdf`, snapshot };
   }),
 
   verifyReport: publicProcedure.input(z.object({ verificationCode: z.string().trim().min(8).max(64) })).query(async ({ input }) => {
@@ -288,7 +290,7 @@ export const professionalProgressRouter = router({
     const rows = await db.select({ report: professionalProgressReports, name: users.name, cadre: users.cadre }).from(professionalProgressReports).innerJoin(users, eq(users.id, professionalProgressReports.userId)).where(eq(professionalProgressReports.verificationCode, input.verificationCode)).limit(1);
     const row = rows[0];
     if (!row || row.report.status !== "active" || (row.report.publicExpiresAt && new Date(row.report.publicExpiresAt).getTime() < Date.now())) return { verified: false as const, reason: row?.report.status === "revoked" ? "revoked" : row?.report.status === "superseded" ? "superseded" : "expired" };
-    return { verified: true as const, verificationCode: row.report.verificationCode, snapshotHash: row.report.snapshotHash, generatedAt: row.report.generatedAt, reportType: row.report.reportType, periodStart: row.report.periodStart, periodEnd: row.report.periodEnd, subjectName: row.name, cadre: row.cadre, snapshot: JSON.parse(row.report.snapshotJson) };
+    return { verified: true as const, reportId: row.report.id, verificationCode: row.report.verificationCode, snapshotHash: row.report.snapshotHash, generatedAt: row.report.generatedAt, reportType: row.report.reportType, periodStart: row.report.periodStart, periodEnd: row.report.periodEnd, subjectName: row.name, cadre: row.cadre, snapshot: JSON.parse(row.report.snapshotJson) };
   }),
 
   revokeMyReport: protectedProcedure.input(z.object({ verificationCode: z.string().trim().min(8).max(64) })).mutation(async ({ ctx, input }) => {
