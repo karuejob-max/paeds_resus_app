@@ -7,7 +7,10 @@ if (!databaseUrl) throw new Error("DATABASE_URL is required");
 const db = await createMysqlConnection(databaseUrl, mysql);
 try {
   console.log("[0170] Preparing professional trust-closure schema...");
-  await db.query(`ALTER TABLE professionalProgressReports ADD COLUMN IF NOT EXISTS invalidatedAt TIMESTAMP NULL, ADD COLUMN IF NOT EXISTS invalidationReason TEXT NULL`);
+  const [reportColumns] = await db.query(`SHOW COLUMNS FROM professionalProgressReports`);
+  const existingReportColumns = new Set(reportColumns.map((column) => column.Field));
+  if (!existingReportColumns.has("invalidatedAt")) await db.query(`ALTER TABLE professionalProgressReports ADD COLUMN invalidatedAt TIMESTAMP NULL`);
+  if (!existingReportColumns.has("invalidationReason")) await db.query(`ALTER TABLE professionalProgressReports ADD COLUMN invalidationReason TEXT NULL`);
   await db.query(`CREATE TABLE IF NOT EXISTS professionalCompetenceEvidence (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     userId INT NOT NULL,
