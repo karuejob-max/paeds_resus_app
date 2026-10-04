@@ -149,6 +149,7 @@ const AdminCompletionRecords = lazy(() => import("./pages/AdminCompletionRecords
 const AdminNerpCampaign = lazy(() => import("./pages/AdminNerpCampaign"));
 const AdminPromotionalMessaging = lazy(() => import("./pages/AdminPromotionalMessaging"));
 const AdminProfessionalProgressCorrections = lazy(() => import("./pages/AdminProfessionalProgressCorrections"));
+const AdminProfessionalTruthAudit = lazy(() => import("./pages/AdminProfessionalTruthAudit"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 const AHACourses = lazy(() => import("./pages/AHACourses"));
 
@@ -405,6 +406,11 @@ function Router() {
           <Route path="/admin/professional-record-corrections">{() => (
             <AdminGate>
               <AdminProfessionalProgressCorrections />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin/professional-truth-audit">{() => (
+            <AdminGate>
+              <AdminProfessionalTruthAudit />
             </AdminGate>
           )}</Route>
           <Route path="/help" component={Help} />
