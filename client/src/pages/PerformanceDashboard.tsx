@@ -264,9 +264,9 @@ export function PerformanceDashboard({ embedded = false }: { embedded?: boolean 
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
             <Link href={blsContinuation?.destination ?? "/training/bls"} className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 transition hover:border-emerald-400">
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Life Support</p>
-              <p className="mt-1 text-lg font-bold text-emerald-900">{progressQuery.isLoading ? "…" : progressQuery.isError ? "Unavailable" : `${lifeSupportAverage}%`}</p>
-              <p className="text-xs text-emerald-800">{progressQuery.isError ? "Retry from Refresh" : `${blsContinuation?.label ?? "Open Life Support learning"} →`}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">AHA courses</p>
+              <p className="mt-1 text-lg font-bold text-emerald-900">{progressQuery.isLoading ? "…" : progressQuery.isError ? "Unavailable" : `${lifeSupportAverage}% avg`}</p>
+              <p className="text-xs text-emerald-800">{progressQuery.isError ? "Retry from Refresh" : `Next phase: ${blsContinuation?.label ?? "Open Life Support learning"} →`}</p>
             </Link>
             <Link href="/my-progress?section=records" className="rounded-lg border border-blue-200 bg-blue-50/60 p-3 transition hover:border-blue-400">
               <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">CPD</p>
