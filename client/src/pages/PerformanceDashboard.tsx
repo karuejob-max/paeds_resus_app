@@ -187,7 +187,8 @@ export function PerformanceDashboard({ embedded = false }: { embedded?: boolean 
   const lifeSupportAverage = lifeSupport.length
     ? Math.round(lifeSupport.reduce((sum, item) => sum + Number(item.percentage ?? 0), 0) / lifeSupport.length)
     : 0;
-  const blsContinuation = lifeSupport.find((item) => item.program === "BLS")?.nextAction;
+  const primaryLifeSupport = lifeSupport.find((item) => item.nextAction) ?? lifeSupport[0];
+  const blsContinuation = lifeSupport.find((item) => item.program === "BLS")?.nextAction ?? primaryLifeSupport?.nextAction;
   const pathways = (progressReport?.pathways ?? []) as Array<{ program: string; percentage: number; nextAction?: { destination: string; label: string; phase: string } }>;
   const nerpPathway = pathways.find((item) => item.program.includes("NERP"));
   const ierpPathway = pathways.find((item) => item.program.includes("IERP"));
@@ -215,9 +216,10 @@ export function PerformanceDashboard({ embedded = false }: { embedded?: boolean 
               onClick={() => {
                 void comparisonQuery.refetch();
                 void recentEventsQuery.refetch();
+                void progressQuery.refetch();
               }}
               disabled={
-                comparisonQuery.isFetching || recentEventsQuery.isFetching
+                comparisonQuery.isFetching || recentEventsQuery.isFetching || progressQuery.isFetching
               }
               className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -263,8 +265,8 @@ export function PerformanceDashboard({ embedded = false }: { embedded?: boolean 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
             <Link href={blsContinuation?.destination ?? "/training/bls"} className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 transition hover:border-emerald-400">
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Life Support</p>
-              <p className="mt-1 text-lg font-bold text-emerald-900">{progressQuery.isLoading ? "…" : `${lifeSupportAverage}%`}</p>
-              <p className="text-xs text-emerald-800">{blsContinuation?.label ?? "Open BLS / continue learning"} →</p>
+              <p className="mt-1 text-lg font-bold text-emerald-900">{progressQuery.isLoading ? "…" : progressQuery.isError ? "Unavailable" : `${lifeSupportAverage}%`}</p>
+              <p className="text-xs text-emerald-800">{progressQuery.isError ? "Retry from Refresh" : `${blsContinuation?.label ?? "Open Life Support learning"} →`}</p>
             </Link>
             <Link href="/my-progress?section=records" className="rounded-lg border border-blue-200 bg-blue-50/60 p-3 transition hover:border-blue-400">
               <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">CPD</p>

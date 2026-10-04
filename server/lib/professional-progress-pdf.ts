@@ -59,6 +59,8 @@ export function professionalProgressPdfFilename(data: Pick<ProfessionalProgressP
 function drawFooter(doc: PDFKit.PDFDocument, data: ProfessionalProgressPdfData, pageNumber: number) {
   const y = doc.page.height - 35;
   const originalBottomMargin = doc.page.margins.bottom;
+  const originalX = doc.x;
+  const originalY = doc.y;
   doc.page.margins.bottom = 0;
   doc.save();
   doc.strokeColor(COLORS.line).lineWidth(0.6).moveTo(42, y - 8).lineTo(doc.page.width - 42, y - 8).stroke();
@@ -67,6 +69,8 @@ function drawFooter(doc: PDFKit.PDFDocument, data: ProfessionalProgressPdfData, 
   doc.text(`Report ID ${data.reportId} · Page ${pageNumber}`, doc.page.width - 135, y, { width: 93, align: "right", lineBreak: false });
   doc.restore();
   doc.page.margins.bottom = originalBottomMargin;
+  doc.x = originalX;
+  doc.y = originalY;
 }
 
 function heading(doc: PDFKit.PDFDocument, title: string, subtitle?: string) {
