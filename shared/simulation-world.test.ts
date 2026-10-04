@@ -1,22 +1,42 @@
 import { describe, expect, it } from "vitest";
-import { calculateSimulationWorldAssessment, createSimulationWorld, parseSimulationWorldCommand, reduceSimulationWorld } from "./simulation-world";
+import { advanceSimulationWorld, calculateSimulationWorldAssessment, createSimulationWorld, isSimulationWorldCommandAllowed, parseSimulationWorldCommand, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_ASSESSMENT_VERSION, SIMULATION_ENGINE_VERSION, SIMULATION_SCENARIO_VERSION } from "./simulation-world";
 
-describe("simulation world", () => {
-  it("keeps physiology deterministic and exposes hidden observations through actions", () => {
+describe("simulation world V2", () => {
+  it("keeps physiology hidden until the learner obtains an observation", () => {
     const start = createSimulationWorld("septic-shock-arrest", "team_leader");
+    expect(start.observations.spo2).toBeUndefined();
     const assessed = reduceSimulationWorld(start, { type: "assess", target: "spo2" });
-    expect(assessed.patient.spo2).toBe(86);
+    expect(assessed.observations.spo2).toBe(86);
     expect(assessed.events.at(-1)?.description).toContain("SpO₂ 86%");
-    expect(assessed.elapsedSeconds).toBe(1);
   });
 
-  it("records delegation and closed-loop communication as separate observable behaviours", () => {
+  it("advances deterioration while the learner hesitates", () => {
+    const start = createSimulationWorld("septic-shock-arrest", "team_leader");
+    const waiting = advanceSimulationWorld(start, 20);
+    expect(waiting.elapsedSeconds).toBe(20);
+    expect(waiting.patient.spo2).toBeLessThan(start.patient.spo2);
+    expect(waiting.patient.trajectory).toBe("deteriorating");
+  });
+
+  it("separates delegation, NPC acknowledgement, execution, and closed loop", () => {
     const start = createSimulationWorld("septic-shock-arrest", "team_leader");
     const delegated = reduceSimulationWorld(start, { type: "delegate", target: "airway_ventilation", task: "Assess and support breathing" });
-    const closed = reduceSimulationWorld(delegated, { type: "acknowledge", target: "airway_ventilation" });
-    expect(closed.npcs[0].status).toBe("acknowledged");
+    expect(delegated.npcs[0].status).toBe("waiting");
+    const acknowledged = advanceSimulationWorld(delegated, 2);
+    expect(acknowledged.npcs[0].status).toBe("acknowledged");
+    const completed = advanceSimulationWorld(acknowledged, 3);
+    expect(completed.npcs[0].status).toBe("completed");
+    const closed = reduceSimulationWorld(completed, { type: "acknowledge", target: "airway_ventilation" });
     expect(closed.competencies.delegation).toBeGreaterThan(0);
     expect(closed.competencies.closedLoop).toBeGreaterThan(0);
+  });
+
+  it("constrains actions by role and penalises unsafe actions", () => {
+    const scribe = createSimulationWorld("septic-shock-arrest", "scribe");
+    expect(isSimulationWorldCommandAllowed("scribe", { type: "give_oxygen" })).toBe(false);
+    const next = reduceSimulationWorld(scribe, { type: "give_oxygen" });
+    expect(next.criticalFailures).toHaveLength(1);
+    expect(next.competencies.safety).toBeLessThan(60);
   });
 
   it("creates a critical safety failure for shocking a non-shockable rhythm", () => {
@@ -27,9 +47,43 @@ describe("simulation world", () => {
     expect(calculateSimulationWorldAssessment(next).evidenceEligible).toBe(false);
   });
 
-  it("parses natural language into structured commands without letting language change physiology", () => {
+  it("does not award repeated credit for the same assessment", () => {
+    const start = createSimulationWorld("septic-shock-arrest", "team_leader");
+    const once = reduceSimulationWorld(start, { type: "assess", target: "airway" });
+    const twice = reduceSimulationWorld(once, { type: "assess", target: "airway" });
+    expect(twice.competencies.recognition).toBe(12);
+    expect(twice.competencies.prioritisation).toBe(8);
+  });
+
+  it("provides a deterministic resuscitation pathway to ROSC", () => {
+    let state = createSimulationWorld("septic-shock-arrest", "team_leader");
+    state = advanceSimulationWorld(state, 43);
+    state = reduceSimulationWorld(state, { type: "assess", target: "circulation" });
+    state = reduceSimulationWorld(state, { type: "start_cpr" });
+    state = reduceSimulationWorld(state, { type: "give_fluid" });
+    state = reduceSimulationWorld(state, { type: "give_epinephrine" });
+    state = advanceSimulationWorld(state, 3);
+    state = reduceSimulationWorld(state, { type: "reassess" });
+    expect(state.patient.trajectory).toBe("rosc");
+    expect(calculateSimulationWorldAssessment(state).evidenceEligible).toBe(false); // behavioural domains still require demonstration
+  });
+
+  it("parses natural language into structured commands without changing physiology", () => {
     expect(parseSimulationWorldCommand("Mary, airway")).toEqual({ type: "delegate", target: "airway_ventilation", task: "Mary, airway" });
     expect(parseSimulationWorldCommand("start compressions")).toEqual({ type: "start_cpr" });
     expect(parseSimulationWorldCommand("check sats")).toEqual({ type: "assess", target: "spo2" });
+  });
+
+  it("replays a versioned event stream and rejects tampering", () => {
+    let state = createSimulationWorld("septic-shock-arrest", "team_leader");
+    state = reduceSimulationWorld(state, { type: "assess", target: "airway" });
+    state = reduceSimulationWorld(state, { type: "call_for_help" });
+    const meta = { timestamp: state.elapsedSeconds, type: "simulation_world_meta", description: JSON.stringify({ role: "team_leader", scenarioId: "septic-shock-arrest", engineVersion: SIMULATION_ENGINE_VERSION, scenarioVersion: SIMULATION_SCENARIO_VERSION, assessmentVersion: SIMULATION_ASSESSMENT_VERSION }) };
+    const eventLog = [...state.events, meta] as typeof state.events;
+    const replay = replaySimulationWorldAttempt({ scenarioId: "septic-shock-arrest", role: "team_leader", eventLog });
+    expect(replay.valid).toBe(true);
+    const tampered = [...eventLog];
+    tampered[1] = { ...tampered[1], description: "altered" };
+    expect(replaySimulationWorldAttempt({ scenarioId: "septic-shock-arrest", role: "team_leader", eventLog: tampered }).valid).toBe(false);
   });
 });

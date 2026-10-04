@@ -18,6 +18,7 @@ import {
   WEAK_DOMAIN_TO_TRACK,
   type PracticeLabTrackId,
 } from "../../shared/practice-lab-types";
+import { replaySimulationWorldAttempt, type SimulationWorldEvent, type SimulationWorldRole, type SimulationWorldScenarioId } from "../../shared/simulation-world";
 
 const AHA_PROGRAM_TYPES = ["bls", "acls", "pals", "heartsaver", "nrp"] as const;
 
@@ -77,7 +78,7 @@ export const practiceLabRouter = router({
             type: z.string(),
             description: z.string(),
             correct: z.boolean().optional(),
-          })
+          }).passthrough()
         ),
         isBooster: z.boolean().optional(),
         durationSeconds: z.number().optional(),
@@ -105,14 +106,32 @@ export const practiceLabRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Simulation program does not match this enrollment" });
       }
 
+      let authoritativeScore = input.score;
+      let authoritativePassed = input.passed;
+      if (input.trackId === "simulation_world") {
+        const metaEvent = input.eventLog.find((item) => item.type === "simulation_world_meta");
+        let role: SimulationWorldRole | undefined;
+        try { role = metaEvent?.description ? JSON.parse(metaEvent.description).role as SimulationWorldRole : undefined; } catch { role = undefined; }
+        const replay = replaySimulationWorldAttempt({
+          scenarioId: input.scenarioId as SimulationWorldScenarioId,
+          role: role as SimulationWorldRole,
+          eventLog: input.eventLog as SimulationWorldEvent[],
+        });
+        if (!replay.valid || !replay.assessment) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `Simulation replay rejected: ${replay.reason ?? "invalid evidence"}` });
+        }
+        authoritativeScore = replay.assessment.overall;
+        authoritativePassed = replay.assessment.evidenceEligible;
+      }
+
       await db.insert(ahaPracticeLabAttempts).values({
         userId: ctx.user.id,
         enrollmentId: input.enrollmentId,
         programType: input.programType,
         trackId: input.trackId,
         scenarioId: input.scenarioId,
-        score: isFormativePracticeLabTrack(input.trackId) ? 0 : input.score,
-        passed: isFormativePracticeLabTrack(input.trackId) ? false : input.passed,
+        score: isFormativePracticeLabTrack(input.trackId) ? 0 : authoritativeScore,
+        passed: isFormativePracticeLabTrack(input.trackId) ? false : authoritativePassed,
         eventLog: input.eventLog,
         isBooster: input.isBooster ?? false,
         durationSeconds: input.durationSeconds ?? null,
