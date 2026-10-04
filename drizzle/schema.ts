@@ -6770,6 +6770,59 @@ export type InsertAhaPracticeLabAttempt =
   typeof ahaPracticeLabAttempts.$inferInsert;
 
 /**
+ * Authoritative Simulation World session boundary (migration 0173).
+ * This is evidence infrastructure only; it does not grant an IERP Phase 2 completion.
+ */
+export const simulationWorldSessions = mysqlTable("simulationWorldSessions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  enrollmentId: int("enrollmentId").notNull(),
+  programType: mysqlEnum("programType", ["bls", "acls", "pals", "heartsaver", "nrp"]).notNull(),
+  scenarioId: varchar("scenarioId", { length: 64 }).notNull(),
+  role: varchar("role", { length: 64 }).notNull(),
+  sessionNonce: varchar("sessionNonce", { length: 128 }).notNull().unique(),
+  engineVersion: varchar("engineVersion", { length: 32 }).notNull(),
+  scenarioVersion: varchar("scenarioVersion", { length: 32 }).notNull(),
+  assessmentVersion: varchar("assessmentVersion", { length: 32 }).notNull(),
+  status: mysqlEnum("status", ["active", "completed", "expired", "abandoned"]).default("active").notNull(),
+  startedAt: timestamp("startedAt").defaultNow().notNull(),
+  lastReceiptAt: timestamp("lastReceiptAt"),
+  completedAt: timestamp("completedAt"),
+});
+
+export const simulationWorldCommandReceipts = mysqlTable("simulationWorldCommandReceipts", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull(),
+  sequence: int("sequence").notNull(),
+  commandType: varchar("commandType", { length: 64 }).notNull(),
+  commandJson: json("commandJson").notNull(),
+  receivedAt: timestamp("receivedAt").defaultNow().notNull(),
+  serverElapsedMs: int("serverElapsedMs").notNull(),
+  receiptHash: varchar("receiptHash", { length: 32 }).notNull(),
+}, (table) => ({
+  sessionSequence: uniqueIndex("simulationWorldCommandReceipts_session_sequence").on(table.sessionId, table.sequence),
+  sessionLookup: index("simulationWorldCommandReceipts_session_lookup").on(table.sessionId),
+}));
+
+export const simulationWorldEvidence = mysqlTable("simulationWorldEvidence", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionId: int("sessionId").notNull(),
+  userId: int("userId").notNull(),
+  enrollmentId: int("enrollmentId").notNull(),
+  role: varchar("role", { length: 64 }).notNull(),
+  scenarioId: varchar("scenarioId", { length: 64 }).notNull(),
+  evidenceStatus: mysqlEnum("evidenceStatus", ["review_required", "accepted", "rejected"]).default("review_required").notNull(),
+  assessmentJson: json("assessmentJson"),
+  reviewerId: int("reviewerId"),
+  reviewerReason: text("reviewerReason"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  reviewedAt: timestamp("reviewedAt"),
+}, (table) => ({
+  sessionUnique: uniqueIndex("simulationWorldEvidence_session_unique").on(table.sessionId),
+  userLookup: index("simulationWorldEvidence_user_lookup").on(table.userId, table.createdAt),
+}));
+
+/**
  * CPD (Continuous Professional Development) attendance automation service (migration 0078).
  * Multi-tenant: every event/attendee is scoped to an institutionalAccounts.id.
  * One open event per institution at a time (admin opens/closes; public registers while open).
