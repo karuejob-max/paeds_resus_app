@@ -10298,3 +10298,35 @@ export const professionalCompetenceEvidence = mysqlTable("professionalCompetence
 }));
 export type ProfessionalCompetenceEvidence = typeof professionalCompetenceEvidence.$inferSelect;
 export type InsertProfessionalCompetenceEvidence = typeof professionalCompetenceEvidence.$inferInsert;
+
+/** Immutable-ish control-room snapshots proving source-to-ledger coverage. */
+export const professionalEvidenceReconciliationRuns = mysqlTable("professionalEvidenceReconciliationRuns", {
+  id: int("id").autoincrement().primaryKey(),
+  runKey: varchar("runKey", { length: 96 }).notNull().unique(),
+  triggeredByUserId: int("triggeredByUserId"),
+  status: varchar("status", { length: 24 }).notNull().default("completed"),
+  summaryJson: text("summaryJson").notNull(),
+  startedAt: timestamp("startedAt").defaultNow().notNull(),
+  completedAt: timestamp("completedAt"),
+}, table => ({ runStatusIdx: index("professional_evidence_reconciliation_status_idx").on(table.status, table.completedAt) }));
+export type ProfessionalEvidenceReconciliationRun = typeof professionalEvidenceReconciliationRuns.$inferSelect;
+export type InsertProfessionalEvidenceReconciliationRun = typeof professionalEvidenceReconciliationRuns.$inferInsert;
+
+/** Source disagreements are explicit review work, never silently resolved. */
+export const professionalEvidenceConflicts = mysqlTable("professionalEvidenceConflicts", {
+  id: int("id").autoincrement().primaryKey(),
+  conflictKey: varchar("conflictKey", { length: 255 }).notNull().unique(),
+  userId: int("userId").notNull(),
+  evidenceType: varchar("evidenceType", { length: 48 }).notNull(),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  state: varchar("state", { length: 32 }).notNull().default("open"),
+  reason: text("reason").notNull(),
+  sourceRowsJson: text("sourceRowsJson").notNull(),
+  resolvedByUserId: int("resolvedByUserId"),
+  resolvedAt: timestamp("resolvedAt"),
+  resolutionNote: text("resolutionNote"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => ({ conflictUserStateIdx: index("professional_evidence_conflict_user_state_idx").on(table.userId, table.state), conflictTypeIdx: index("professional_evidence_conflict_type_idx").on(table.evidenceType, table.state) }));
+export type ProfessionalEvidenceConflict = typeof professionalEvidenceConflicts.$inferSelect;
+export type InsertProfessionalEvidenceConflict = typeof professionalEvidenceConflicts.$inferInsert;

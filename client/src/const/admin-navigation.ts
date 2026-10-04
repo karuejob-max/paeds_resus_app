@@ -229,6 +229,13 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
         risk: "read",
       },
       {
+        label: "Professional Truth Audit",
+        href: "/admin/professional-truth-audit",
+        description: "Reconcile source records against the Evidence Ledger and review conflicts, gaps, and public-report integrity.",
+        icon: ShieldCheck,
+        risk: "read",
+      },
+      {
         label: "Platform Ops",
         href: "/admin/ops",
         description: "Inspect errors, stuck workflows, and system health.",

@@ -80,3 +80,18 @@ Run them in that order on production after the code merge. The verifiers are rea
 - Goals use a controlled metric registry and persist actual value, progress value, and computed status (`active`, `at_risk`, `achieved`, or `expired`).
 - Source facts and platform interpretations are stored separately with an interpretation version.
 - IERP-to-AHA relationships are only claimed after an explicit pathway-course attribution exists; otherwise the course remains `Individual / unlinked`.
+
+## Professional Evidence Integrity Layer (0172)
+
+The admin **Professional Truth Audit** is the control room for whether the portfolio can honestly be described as complete. It reports:
+
+- source records, projected ledger records, missing records, and duplicates;
+- source adapters that are covered versus explicitly **not projected**;
+- conflicting statuses or validity dates that require review rather than silent precedence;
+- expired evidence, missing provenance, unverified competence, superseded reports, and active public reports.
+
+Evidence strength is controlled by ontology version `0172-v1`. It is not a free-text synonym for “good”: each strength maps to an authority level and an objective validity rule. When two sources disagree, the system creates a conflict record with `CONFLICT` semantics; it does not silently choose the highest-looking row.
+
+Migration: `pnpm run db:apply-0173` then `pnpm run db:verify-0173`.
+
+The 0169 sync now also backfills source facts and interpretation metadata. Re-run `pnpm run db:sync-0169` after 0172 so existing ledger rows can be audited for provenance completeness.
