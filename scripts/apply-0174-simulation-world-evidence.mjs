@@ -55,7 +55,7 @@ try {
       INDEX simulationWorldEvidence_user_lookup (userId, createdAt)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
-  console.log("[0173] Simulation World evidence tables are ready.");
+  console.log("[0174] Simulation World evidence tables are ready.");
 } finally {
   await connection.end();
 }

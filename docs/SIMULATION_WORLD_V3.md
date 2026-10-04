@@ -13,10 +13,11 @@ This is supplemental Life Support training infrastructure. It is not ResusGPS, l
 
 ## Migration reservation
 
-Migration **0173** is reserved for the three additive tables used by this slice:
+Migration **0174** is reserved for the three additive tables used by this slice:
 
 - `simulationWorldSessions`
 - `simulationWorldCommandReceipts`
 - `simulationWorldEvidence`
 
 The migration is idempotent. Production application and verification remain a post-merge operational gate.
+

@@ -6770,7 +6770,7 @@ export type InsertAhaPracticeLabAttempt =
   typeof ahaPracticeLabAttempts.$inferInsert;
 
 /**
- * Authoritative Simulation World session boundary (migration 0173).
+ * Authoritative Simulation World session boundary (migration 0174).
  * This is evidence infrastructure only; it does not grant an IERP Phase 2 completion.
  */
 export const simulationWorldSessions = mysqlTable("simulationWorldSessions", {
