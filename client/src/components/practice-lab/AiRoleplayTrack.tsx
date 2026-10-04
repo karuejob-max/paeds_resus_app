@@ -116,8 +116,6 @@ export function AiRoleplayTrack({ programType, enrollmentId, onBookSession }: Pr
   const [startTime, setStartTime] = useState<number>(0);
 
   const [evaluationResult, setEvaluationResult] = useState<{
-    score: number;
-    passed: boolean;
     debrief: string;
     events: any[];
   } | null>(null);
@@ -223,8 +221,6 @@ export function AiRoleplayTrack({ programType, enrollmentId, onBookSession }: Pr
 
       if (resp.success) {
         setEvaluationResult({
-          score: resp.score,
-          passed: resp.passed,
           debrief: resp.debrief,
           events: resp.events,
         });
@@ -236,8 +232,8 @@ export function AiRoleplayTrack({ programType, enrollmentId, onBookSession }: Pr
           programType,
           trackId: "ai_interactive_roleplay",
           scenarioId: activeScenario.id,
-          score: resp.score,
-          passed: resp.passed,
+          score: 0,
+          passed: false,
           eventLog: resp.events.map((e: any) => ({
             timestamp: e.timestamp || 0,
             type: e.type || "action",
@@ -259,16 +255,8 @@ export function AiRoleplayTrack({ programType, enrollmentId, onBookSession }: Pr
   };
 
   const getVitalsColor = (type: keyof Vitals, val: any) => {
-    if (type === "heartRate") {
-      const hr = Number(val);
-      if (hr > 150 || hr < 60) return "text-red-500 animate-pulse";
-      return "text-emerald-500";
-    }
-    if (type === "spo2") {
-      const ox = Number(val);
-      if (ox < 92) return "text-red-500 animate-pulse";
-      return "text-emerald-500";
-    }
+    void type;
+    void val;
     return "text-slate-700 dark:text-slate-350";
   };
 
@@ -277,8 +265,7 @@ export function AiRoleplayTrack({ programType, enrollmentId, onBookSession }: Pr
       <PracticeLabDebrief
         trackName="Paeds Resus Simulation Lab"
         scenarioName={activeScenario.name}
-        score={evaluationResult.score}
-        passed={evaluationResult.passed}
+        isFormative
         events={evaluationResult.events}
         onRetry={() => startSimulation(activeScenario)}
         onBack={() => setPhase("list")}
@@ -299,7 +286,7 @@ export function AiRoleplayTrack({ programType, enrollmentId, onBookSession }: Pr
                 Resus Room Vitals Monitor
               </CardTitle>
               <CardDescription className="text-slate-400 text-[10px] uppercase">
-                Patient: 18-month Infant • {activeScenario.name}
+                Patient context • {activeScenario.name}
               </CardDescription>
             </div>
             <Badge className="bg-slate-900 border border-slate-800 text-[10px] text-slate-400">
@@ -410,7 +397,7 @@ export function AiRoleplayTrack({ programType, enrollmentId, onBookSession }: Pr
             <div>
               <p className="font-bold text-sm">Resuscitation declared complete?</p>
               <p className="text-xs text-slate-500">
-                AI auditor will analyze the clinical log, compliance time gates, and assign your final lab attempt score.
+                The AI-generated debrief will summarize the recorded actions and possible gaps. It is experimental, formative coaching—not an assessment or competence result.
               </p>
             </div>
             <Button
@@ -469,7 +456,7 @@ export function AiRoleplayTrack({ programType, enrollmentId, onBookSession }: Pr
                 <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800/80 pt-3">
                   <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
                     <Award size={12} className="text-yellow-500" />
-                    <span>Eligible for Spaced Repetition Boosters</span>
+                    <span>Formative rehearsal · no mastery score</span>
                   </div>
                   <Button
                     onClick={() => startSimulation(scenario)}

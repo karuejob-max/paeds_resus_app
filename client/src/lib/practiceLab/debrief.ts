@@ -8,10 +8,15 @@ export function buildScriptedDebrief(params: {
   score: number;
   passed: boolean;
   events: PracticeLabEvent[];
+  isFormative?: boolean;
 }): string[] {
   const lines: string[] = [];
   lines.push(`Scenario: ${params.scenarioName} (${params.trackName})`);
-  lines.push(`Score: ${params.score}/100 — ${params.passed ? "Pass" : "Needs improvement"}`);
+  lines.push(
+    params.isFormative
+      ? "Status: Formative coaching only — no score, pass, or mastery claim."
+      : `Score: ${params.score}/100 — ${params.passed ? "Pass" : "Needs improvement"}`,
+  );
 
   const correctActions = params.events.filter((e) => e.correct === true);
   const incorrectActions = params.events.filter((e) => e.correct === false);
@@ -31,7 +36,9 @@ export function buildScriptedDebrief(params: {
   }
 
   lines.push(
-    "Remember: This is supplemental practice for your AHA course — not certification and not for live patient care."
+    params.isFormative
+      ? "Use the event timeline to choose your next rehearsal. This is not certification, competence evidence, or live patient-care guidance."
+      : "Remember: This is supplemental practice for your AHA course — not certification and not for live patient care.",
   );
 
   return lines;
@@ -44,6 +51,7 @@ export function buildNarrativeDebrief(params: {
   score: number;
   passed: boolean;
   events: PracticeLabEvent[];
+  isFormative?: boolean;
 }): string {
   const actionEvents = params.events.filter((e) => e.type === "action" || e.type === "abcde_action");
   const feedbackEvents = params.events.filter((e) => e.type === "feedback");
@@ -54,7 +62,9 @@ export function buildNarrativeDebrief(params: {
   return [
     `In this ${params.trackName} scenario ("${params.scenarioName}"), your recorded actions were: ${summary}.`,
     feedback ? `Guideline feedback: ${feedback}` : "",
-    params.passed
+    params.isFormative
+      ? "This is formative coaching only; use the recorded actions and feedback to choose the next rehearsal."
+      : params.passed
       ? "Your performance met the practice threshold. Consider repeating this scenario as a booster in a few days."
       : "Review the AHA algorithm for this presentation and retry when ready.",
     "This debrief is generated only from your simulation event log — not individualized clinical advice.",
@@ -74,6 +84,7 @@ export function buildCardiacArrestDebrief(
     score: metrics.overallScore,
     passed: metrics.overallScore >= 70,
     events,
+    isFormative: true,
   });
   return [...metrics.feedback, ...base];
 }
