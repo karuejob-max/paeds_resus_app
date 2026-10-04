@@ -563,7 +563,7 @@ async function loadProfessionalTruthAudit(db: any) {
     db.select({ sourceRecordId: enrollments.id, userId: enrollments.userId }).from(enrollments).where(inArray(enrollments.programType, ["bls", "acls", "pals", "nrp"])),
     db.select({ sourceRecordId: certificates.id, userId: certificates.userId }).from(certificates),
     db.select({ sourceRecordId: microCourseEnrollments.id, userId: microCourseEnrollments.userId }).from(microCourseEnrollments),
-    db.select({ sourceRecordId: externalTrainingCompletions.id, userId: externalTrainingCompletions.userId }).from(externalTrainingCompletions),
+    db.select({ sourceRecordId: sql<string>`CONCAT(${externalTrainingCompletions.id}, ':phase2')`, userId: externalTrainingCompletions.userId }).from(externalTrainingCompletions),
     db.select({ sourceRecordId: ierpProgramEnrollments.id, userId: ierpProgramEnrollments.userId }).from(ierpProgramEnrollments),
     db.select({ sourceRecordId: nerpOfferEnrollments.id, userId: nerpOfferEnrollments.userId }).from(nerpOfferEnrollments),
     db.select({ sourceRecordId: cpdAttendees.id, userId: cpdAttendees.userId }).from(cpdAttendees).where(sql`${cpdAttendees.userId} IS NOT NULL`),
