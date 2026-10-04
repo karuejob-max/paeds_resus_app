@@ -13,6 +13,8 @@ import {
 } from "../../drizzle/schema";
 import {
   PRACTICE_LAB_TRACKS,
+  FORMATIVE_PRACTICE_LAB_TRACKS,
+  isFormativePracticeLabTrack,
   WEAK_DOMAIN_TO_TRACK,
   type PracticeLabTrackId,
 } from "../../shared/practice-lab-types";
@@ -89,7 +91,7 @@ export const practiceLabRouter = router({
       }
 
       const [enrollment] = await db
-        .select({ id: enrollments.id, userId: enrollments.userId })
+        .select({ id: enrollments.id, userId: enrollments.userId, programType: enrollments.programType })
         .from(enrollments)
         .where(
           and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id))
@@ -99,6 +101,9 @@ export const practiceLabRouter = router({
       if (!enrollment) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Enrollment not found" });
       }
+      if (enrollment.programType !== input.programType) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Simulation program does not match this enrollment" });
+      }
 
       await db.insert(ahaPracticeLabAttempts).values({
         userId: ctx.user.id,
@@ -106,8 +111,8 @@ export const practiceLabRouter = router({
         programType: input.programType,
         trackId: input.trackId,
         scenarioId: input.scenarioId,
-        score: input.score,
-        passed: input.passed,
+        score: isFormativePracticeLabTrack(input.trackId) ? 0 : input.score,
+        passed: isFormativePracticeLabTrack(input.trackId) ? false : input.passed,
         eventLog: input.eventLog,
         isBooster: input.isBooster ?? false,
         durationSeconds: input.durationSeconds ?? null,
@@ -242,7 +247,8 @@ export const practiceLabRouter = router({
         conditions.push(lte(ahaPracticeLabAttempts.createdAt, end));
       }
 
-      const whereClause = conditions.length ? and(...conditions) : undefined;
+      conditions.push(sql`${ahaPracticeLabAttempts.trackId} NOT IN (${sql.join(FORMATIVE_PRACTICE_LAB_TRACKS.map((track) => sql`${track}`), sql`, `)})`);
+      const whereClause = and(...conditions);
 
       const [byProgram, byTrack, totalRow] = await Promise.all([
         db
@@ -379,17 +385,13 @@ Chat Log:
 ${formattedChat}
 
 Your task:
-1. Evaluate their clinical decisions, speed, and protocol compliance (PALS/NRP/ACLS).
-2. Grade the attempt on a score from 0 to 100.
-3. Determine if they passed (score >= 80).
-4. Generate a list of key events for their timeline.
-5. Create a structured debriefing summary with strengths and gaps.
+1. Review their clinical decisions, speed, and protocol compliance (PALS/NRP/ACLS) for coaching.
+2. Generate a list of key events for their timeline.
+3. Create a structured formative debriefing summary with strengths and gaps. Do not assign a score or pass/fail result.
 
 Respond ONLY with a JSON object matching this schema:
 {
-  "score": number,
-  "passed": boolean,
-  "debrief": "Detailed markdown debriefing showing strengths, delays, and critical protocol compliance issues",
+  "debrief": "Detailed markdown debriefing showing strengths, delays, and critical protocol compliance issues; no score or pass/fail result",
   "events": [
     {
       "timestamp": number,
@@ -414,8 +416,6 @@ Respond ONLY with a JSON object matching this schema:
 
       return {
         success: true,
-        score: parsed.score ?? 50,
-        passed: parsed.passed ?? false,
         debrief: parsed.debrief || "No debrief generated.",
         events: parsed.events || [],
       };

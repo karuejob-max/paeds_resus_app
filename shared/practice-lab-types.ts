@@ -11,6 +11,13 @@ export const PRACTICE_LAB_TRACKS = [
 
 export type PracticeLabTrackId = (typeof PRACTICE_LAB_TRACKS)[number];
 
+/** Tracks that are intentionally formative and must never produce a pass/mastery claim. */
+export const FORMATIVE_PRACTICE_LAB_TRACKS = ["cardiac_arrest", "ai_interactive_roleplay"] as const;
+
+export function isFormativePracticeLabTrack(trackId: PracticeLabTrackId): boolean {
+  return (FORMATIVE_PRACTICE_LAB_TRACKS as readonly string[]).includes(trackId);
+}
+
 export type PracticeLabProgramType = "bls" | "acls" | "pals" | "heartsaver" | "nrp";
 
 export type PracticeLabEvent = {

@@ -55,8 +55,8 @@ export function CardiacArrestTrack({ programType, enrollmentId, onBookSession, i
       programType,
       trackId: "cardiac_arrest",
       scenarioId: scenario.id,
-      score: metrics.overallScore,
-      passed: metrics.overallScore >= 70,
+      score: 0,
+      passed: false,
       eventLog: practiceEvents,
     });
   };
@@ -68,6 +68,7 @@ export function CardiacArrestTrack({ programType, enrollmentId, onBookSession, i
         scenarioName={debrief.scenarioName}
         score={debrief.score}
         passed={debrief.passed}
+        isFormative
         events={debrief.events}
         onRetry={() => {
           setDebrief(null);

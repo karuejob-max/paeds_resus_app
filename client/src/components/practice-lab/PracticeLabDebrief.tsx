@@ -10,8 +10,9 @@ import { useState } from "react";
 type Props = {
   trackName: string;
   scenarioName: string;
-  score: number;
-  passed: boolean;
+  score?: number;
+  passed?: boolean;
+  isFormative?: boolean;
   events: PracticeLabEvent[];
   onRetry: () => void;
   onBack: () => void;
@@ -24,6 +25,7 @@ export function PracticeLabDebrief({
   scenarioName,
   score,
   passed,
+  isFormative = false,
   events,
   onRetry,
   onBack,
@@ -31,8 +33,8 @@ export function PracticeLabDebrief({
   showNarrative = true,
 }: Props) {
   const [showAiNarrative, setShowAiNarrative] = useState(false);
-  const scripted = buildScriptedDebrief({ trackName, scenarioName, score, passed, events });
-  const narrative = buildNarrativeDebrief({ trackName, scenarioName, score, passed, events });
+  const scripted = buildScriptedDebrief({ trackName, scenarioName, score: score ?? 0, passed: passed ?? false, events, isFormative });
+  const narrative = buildNarrativeDebrief({ trackName, scenarioName, score: score ?? 0, passed: passed ?? false, events, isFormative });
   const domains = summarizeSimulationDomains(events);
   const nextRehearsal = getNextRehearsal(domains);
 
@@ -40,14 +42,18 @@ export function PracticeLabDebrief({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          {passed ? (
+          {!isFormative && passed ? (
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-          ) : (
+          ) : !isFormative ? (
             <XCircle className="h-5 w-5 text-amber-600" />
-          )}
+          ) : null}
           Debrief — {scenarioName}
         </CardTitle>
-        <Badge variant={passed ? "default" : "secondary"}>{score}/100</Badge>
+        {isFormative ? (
+          <Badge variant="secondary">Formative coaching · not assessed</Badge>
+        ) : (
+          <Badge variant={passed ? "default" : "secondary"}>{score}/100</Badge>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <ul className="text-sm space-y-2">
@@ -63,18 +69,29 @@ export function PracticeLabDebrief({
             <p className="text-sm font-semibold">Your performance map</p>
             <p className="text-xs text-muted-foreground">This is coaching evidence, not a public ranking.</p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {domains.map((domain) => (
-              <div key={domain.id} className="space-y-1">
-                <div className="flex items-center justify-between text-xs"><span>{domain.label}</span><span className="text-muted-foreground">{domain.score === null ? "No evidence yet" : `${domain.score}%`}</span></div>
-                <div className="h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${domain.score !== null && domain.score >= 70 ? "bg-emerald-500" : "bg-amber-500"}`} style={{ width: `${domain.score ?? 0}%` }} /></div>
+          {isFormative ? (
+            <div className="space-y-2 text-xs text-muted-foreground">
+              <p>Recorded coaching signals:</p>
+              <ul className="list-disc space-y-1 pl-5">
+                {events.filter((event) => event.description).slice(0, 6).map((event, index) => <li key={`${event.timestamp}-${index}`}>{event.description}</li>)}
+              </ul>
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {domains.map((domain) => (
+                  <div key={domain.id} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs"><span>{domain.label}</span><span className="text-muted-foreground">{domain.score === null ? "No evidence yet" : `${domain.score}%`}</span></div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${domain.score !== null && domain.score >= 70 ? "bg-emerald-500" : "bg-amber-500"}`} style={{ width: `${domain.score ?? 0}%` }} /></div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          {nextRehearsal && nextRehearsal.score !== null && nextRehearsal.score < 70 && <div className="border-t pt-3 text-xs"><span className="font-semibold">Next rehearsal: {nextRehearsal.label}.</span> {nextRehearsal.coaching}</div>}
+              {nextRehearsal && nextRehearsal.score !== null && nextRehearsal.score < 70 && <div className="border-t pt-3 text-xs"><span className="font-semibold">Next rehearsal: {nextRehearsal.label}.</span> {nextRehearsal.coaching}</div>}
+            </>
+          )}
         </div>
 
-        {showNarrative && (
+        {showNarrative && !isFormative && (
           <div className="border-t pt-4">
             <Button variant="ghost" size="sm" onClick={() => setShowAiNarrative(!showAiNarrative)}>
               {showAiNarrative ? "Hide" : "Show"} narrative summary

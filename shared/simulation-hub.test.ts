@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSimulationMasteryLabel, getSimulationMission, isSimulationMissionUnlocked, SIMULATION_MISSIONS } from "./simulation-hub";
+import { getSimulationMasteryLabel, getSimulationMission, isFormativeSimulationMission, isSimulationMissionUnlocked, SIMULATION_MISSIONS } from "./simulation-hub";
 
 describe("Simulation Hub mission model", () => {
   it("provides a progressive set of clinically meaningful missions", () => {
@@ -28,5 +28,11 @@ describe("Simulation Hub mission model", () => {
     expect(getSimulationMasteryLabel(1, 65)).toBe("Needs another rehearsal");
     expect(getSimulationMasteryLabel(2, 78)).toBe("Safe with coaching");
     expect(getSimulationMasteryLabel(3, 94)).toBe("Reliable under pressure");
+  });
+
+  it("keeps CPR and AI room missions formative rather than assessed", () => {
+    expect(isFormativeSimulationMission(getSimulationMission("first-minutes")!)).toBe(true);
+    expect(isFormativeSimulationMission(getSimulationMission("resus-room")!)).toBe(true);
+    expect(isFormativeSimulationMission(getSimulationMission("pals-capstone")!)).toBe(false);
   });
 });

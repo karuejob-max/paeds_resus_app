@@ -126,15 +126,11 @@ export function RhythmRecognitionTrack({ programType, enrollmentId, onBookSessio
             <Activity className="h-5 w-5" />
             Identify the rhythm
           </CardTitle>
-          <CardDescription>{activeStrip.description}</CardDescription>
+          <CardDescription>Study the illustrative strip and patient context, then commit to your interpretation.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <ECGVisuals rhythm={ecgKey(activeStrip.id)} size="large" />
-          <ul className="text-xs text-muted-foreground list-disc list-inside">
-            {activeStrip.ecgFeatures.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ul>
+          <p className="text-xs text-muted-foreground">Teaching features and explanation will be revealed after you submit.</p>
           <div>
             <p className="text-sm font-medium mb-2">Rhythm diagnosis</p>
             <div className="grid gap-1 max-h-48 overflow-y-auto">

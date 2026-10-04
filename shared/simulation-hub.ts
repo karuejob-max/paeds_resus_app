@@ -1,4 +1,4 @@
-import type { PracticeLabProgramType, PracticeLabTrackId } from "./practice-lab-types";
+import { isFormativePracticeLabTrack, type PracticeLabProgramType, type PracticeLabTrackId } from "./practice-lab-types";
 
 export type SimulationMissionId = "first-minutes" | "deteriorating-child" | "rhythm-decisions" | "pals-capstone" | "resus-room";
 
@@ -14,6 +14,7 @@ export type SimulationMission = {
   realism: string;
   unlocksAfter?: SimulationMissionId;
   supportedPrograms: readonly PracticeLabProgramType[];
+  isFormative?: boolean;
 };
 
 export const SIMULATION_MISSIONS: readonly SimulationMission[] = [
@@ -28,6 +29,7 @@ export const SIMULATION_MISSIONS: readonly SimulationMission[] = [
     objective: "Recognise arrest, lead high-quality CPR, and keep the algorithm moving.",
     realism: "Time pressure is visible, but speed never overrides a safe, deliberate action.",
     supportedPrograms: ["bls", "acls", "pals", "heartsaver", "nrp"],
+    isFormative: true,
   },
   {
     id: "deteriorating-child",
@@ -65,6 +67,7 @@ export const SIMULATION_MISSIONS: readonly SimulationMission[] = [
     realism: "The room is intentionally imperfect: interruptions, ambiguity, and competing priorities are part of the work.",
     unlocksAfter: "first-minutes",
     supportedPrograms: ["acls", "pals"],
+    isFormative: true,
   },
   {
     id: "pals-capstone",
@@ -83,6 +86,10 @@ export const SIMULATION_MISSIONS: readonly SimulationMission[] = [
 
 export function getSimulationMission(id: string): SimulationMission | undefined {
   return SIMULATION_MISSIONS.find((mission) => mission.id === id);
+}
+
+export function isFormativeSimulationMission(mission: SimulationMission): boolean {
+  return mission.isFormative ?? isFormativePracticeLabTrack(mission.trackId);
 }
 
 export function isSimulationMissionUnlocked(

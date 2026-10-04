@@ -100,11 +100,9 @@ describe("resus-simulation", () => {
   });
 
   describe("evaluateAiRoleplaySession", () => {
-    it("analyzes chat history and returns score, pass status, and events log", async () => {
+    it("analyzes chat history and returns formative debrief events without score or pass status", async () => {
       mockInvokeLLM.mockClear();
       const mockResponse = JSON.stringify({
-        score: 88,
-        passed: true,
         debrief: "Strengths: Prompt fluid resuscitation. Gaps: Slight lag in oxygen delivery.",
         events: [
           { timestamp: 15, type: "action", description: "Clinician requested IO access", correct: true },
@@ -135,8 +133,8 @@ describe("resus-simulation", () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.score).toBe(88);
-      expect(result.passed).toBe(true);
+      expect(result).not.toHaveProperty("score");
+      expect(result).not.toHaveProperty("passed");
       expect(result.events.length).toBe(2);
       expect(result.events[0].description).toBe("Clinician requested IO access");
 

@@ -11,7 +11,7 @@ import { CardiacArrestTrack } from "@/components/practice-lab/CardiacArrestTrack
 import { RhythmRecognitionTrack } from "@/components/practice-lab/RhythmRecognitionTrack";
 import { AiRoleplayTrack } from "@/components/practice-lab/AiRoleplayTrack";
 import { PalsCapstoneSimulation } from "@/components/PalsCapstoneSimulation";
-import { getSimulationMasteryLabel, getSimulationMission, isSimulationMissionUnlocked, SIMULATION_MISSIONS, type SimulationMissionId } from "@shared/simulation-hub";
+import { getSimulationMasteryLabel, getSimulationMission, isFormativeSimulationMission, isSimulationMissionUnlocked, SIMULATION_MISSIONS, type SimulationMissionId } from "@shared/simulation-hub";
 import type { PracticeLabProgramType } from "@shared/practice-lab-types";
 import { Activity, ArrowLeft, Brain, CheckCircle2, Clock3, Gamepad2, HeartPulse, Lock, RotateCcw, ShieldAlert, Sparkles, Target, Trophy, Users } from "lucide-react";
 
@@ -63,9 +63,12 @@ export default function SimulationHub() {
     }
     return next;
   }, [attempts]);
-  const completedMissionIds = SIMULATION_MISSIONS.filter((mission) => progress[mission.id]?.bestScore >= mission.masteryThreshold).map((mission) => mission.id);
+  const completedMissionIds = SIMULATION_MISSIONS.filter((mission) => {
+    const item = progress[mission.id];
+    return Boolean(item && (isFormativeSimulationMission(mission) ? item.attempts > 0 : item.bestScore >= mission.masteryThreshold));
+  }).map((mission) => mission.id);
   const missionProgress = progress[selectedMission.id];
-  const allCompleted = SIMULATION_MISSIONS.filter((mission) => progress[mission.id]?.bestScore >= mission.masteryThreshold).length;
+  const allCompleted = completedMissionIds.length;
 
   useEffect(() => {
     if (selectedEnrollment) {
@@ -151,7 +154,7 @@ export default function SimulationHub() {
                     const unlocked = isSimulationMissionUnlocked(mission, completedMissionIds);
                     const eligible = mission.supportedPrograms.some((program) => enrollments.some((enrollment) => enrollment.programType === program));
                     const selected = mission.id === selectedMissionId;
-                    return <button key={mission.id} type="button" disabled={!unlocked || !eligible} onClick={() => setSelectedMissionId(mission.id)} className={`w-full rounded-xl border p-4 text-left transition ${selected ? "border-cyan-400 bg-cyan-400/10" : "border-slate-800 bg-slate-950/40 hover:border-slate-600"} disabled:cursor-not-allowed disabled:opacity-50`}><div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{mission.title}</p><Badge variant="outline" className="border-slate-600 text-slate-300">{mission.difficulty}</Badge></div><p className="mt-1 text-sm text-slate-400">{mission.subtitle}</p></div>{unlocked ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" /> : <Lock className="h-5 w-5 shrink-0 text-slate-500" />}</div><div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500"><span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{mission.estimatedMinutes} min</span><span>{TRACK_LABELS[mission.trackId]}</span><span>Pass {mission.masteryThreshold}%</span>{item ? <span className="text-cyan-300">Best {item.bestScore}% · {getSimulationMasteryLabel(item.attempts, item.bestScore)}</span> : null}</div></button>;
+                    return <button key={mission.id} type="button" disabled={!unlocked || !eligible} onClick={() => setSelectedMissionId(mission.id)} className={`w-full rounded-xl border p-4 text-left transition ${selected ? "border-cyan-400 bg-cyan-400/10" : "border-slate-800 bg-slate-950/40 hover:border-slate-600"} disabled:cursor-not-allowed disabled:opacity-50`}><div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{mission.title}</p><Badge variant="outline" className="border-slate-600 text-slate-300">{mission.difficulty}</Badge></div><p className="mt-1 text-sm text-slate-400">{mission.subtitle}</p></div>{unlocked ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" /> : <Lock className="h-5 w-5 shrink-0 text-slate-500" />}</div><div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500"><span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{mission.estimatedMinutes} min</span><span>{TRACK_LABELS[mission.trackId]}</span>{mission.isFormative ? <span>Formative · not assessed</span> : <span>Pass {mission.masteryThreshold}%</span>}{item ? <span className="text-cyan-300">{mission.isFormative ? `${item.attempts} rehearsal${item.attempts === 1 ? "" : "s"}` : `Best ${item.bestScore}% · ${getSimulationMasteryLabel(item.attempts, item.bestScore)}`}</span> : null}</div></button>;
                   })}
                 </CardContent>
               </Card>
