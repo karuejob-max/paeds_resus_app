@@ -10119,6 +10119,8 @@ export const professionalProgressReports = mysqlTable("professionalProgressRepor
   verificationCode: varchar("verificationCode", { length: 64 }).notNull().unique(),
   status: mysqlEnum("status", ["active", "revoked", "superseded"]).default("active").notNull(),
   supersededByReportId: int("supersededByReportId"),
+  invalidatedAt: timestamp("invalidatedAt"),
+  invalidationReason: text("invalidationReason"),
   publicExpiresAt: timestamp("publicExpiresAt"),
   generatedAt: timestamp("generatedAt").defaultNow().notNull(),
 });
@@ -10182,3 +10184,27 @@ export const professionalEvidenceLedger = mysqlTable("professionalEvidenceLedger
 }));
 export type ProfessionalEvidenceLedger = typeof professionalEvidenceLedger.$inferSelect;
 export type InsertProfessionalEvidenceLedger = typeof professionalEvidenceLedger.$inferInsert;
+
+/** Authorised observed-competence assessments; never inferred from learning percentages. */
+export const professionalCompetenceEvidence = mysqlTable("professionalCompetenceEvidence", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  competencyDomain: varchar("competencyDomain", { length: 128 }).notNull(),
+  assessmentType: varchar("assessmentType", { length: 64 }).notNull(),
+  assessorUserId: int("assessorUserId").notNull(),
+  assessmentDate: date("assessmentDate").notNull(),
+  assessmentMethod: varchar("assessmentMethod", { length: 64 }).notNull(),
+  result: varchar("result", { length: 32 }).notNull(),
+  validityMonths: int("validityMonths"),
+  validUntil: date("validUntil"),
+  evidenceReference: varchar("evidenceReference", { length: 512 }),
+  status: varchar("status", { length: 32 }).notNull().default("current"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  userStatusIndex: index("professional_competence_user_status_idx").on(table.userId, table.status),
+  domainDateIndex: index("professional_competence_domain_date_idx").on(table.competencyDomain, table.assessmentDate),
+}));
+export type ProfessionalCompetenceEvidence = typeof professionalCompetenceEvidence.$inferSelect;
+export type InsertProfessionalCompetenceEvidence = typeof professionalCompetenceEvidence.$inferInsert;
