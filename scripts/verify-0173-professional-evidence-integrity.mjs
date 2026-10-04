@@ -19,7 +19,7 @@ async function scalar(query, params = []) {
   return Number(rows[0]?.count ?? 0);
 }
 function requireAll(actual, expected, label) {
-  const names = new Set(actual.map(row => row.Key_name));
+  const names = actual instanceof Set ? actual : new Set(actual.map(row => row.Key_name));
   for (const name of expected) if (!names.has(name)) throw new Error(`[0173-verify] FAIL: ${label} missing ${name}`);
 }
 function requireUniqueColumn(rows, column, label) {
