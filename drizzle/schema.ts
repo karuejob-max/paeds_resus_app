@@ -10144,3 +10144,41 @@ export const professionalProgressCorrectionCases = mysqlTable("professionalProgr
 }));
 export type ProfessionalProgressCorrectionCase = typeof professionalProgressCorrectionCases.$inferSelect;
 export type InsertProfessionalProgressCorrectionCase = typeof professionalProgressCorrectionCases.$inferInsert;
+
+/**
+ * Canonical professional evidence identity. Existing programme tables remain
+ * source systems; this ledger gives the portfolio one durable, auditable view.
+ */
+export const professionalEvidenceLedger = mysqlTable("professionalEvidenceLedger", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  sourceKey: varchar("sourceKey", { length: 255 }).notNull().unique(),
+  evidenceType: varchar("evidenceType", { length: 48 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  programme: varchar("programme", { length: 64 }),
+  competencyDomain: varchar("competencyDomain", { length: 128 }),
+  sourceSystem: varchar("sourceSystem", { length: 64 }).notNull(),
+  sourceRecordType: varchar("sourceRecordType", { length: 96 }).notNull(),
+  sourceRecordId: varchar("sourceRecordId", { length: 96 }).notNull(),
+  status: varchar("status", { length: 32 }).notNull(),
+  evidenceStrength: varchar("evidenceStrength", { length: 32 }).notNull().default("recorded"),
+  verificationMethod: varchar("verificationMethod", { length: 64 }),
+  verifiedByUserId: int("verifiedByUserId"),
+  verifiedAt: timestamp("verifiedAt"),
+  startedAt: timestamp("startedAt"),
+  completedAt: timestamp("completedAt"),
+  issuedAt: timestamp("issuedAt"),
+  expiresAt: timestamp("expiresAt"),
+  evidenceReference: text("evidenceReference"),
+  visibility: varchar("visibility", { length: 24 }).notNull().default("private"),
+  supersedesEvidenceId: int("supersedesEvidenceId"),
+  correctionCaseId: int("correctionCaseId"),
+  metadataJson: text("metadataJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  userStatusIdx: index("professional_evidence_ledger_user_status_idx").on(table.userId, table.status),
+  userTypeIdx: index("professional_evidence_ledger_user_type_idx").on(table.userId, table.evidenceType),
+}));
+export type ProfessionalEvidenceLedger = typeof professionalEvidenceLedger.$inferSelect;
+export type InsertProfessionalEvidenceLedger = typeof professionalEvidenceLedger.$inferInsert;
