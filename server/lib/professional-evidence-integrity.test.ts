@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { authorityForEvidence, classifyConflict, enrichEvidenceOntology } from "./professional-evidence-ontology";
-import { buildTruthAuditSummary, detectConflicts, reconcileSourceRows } from "./professional-evidence-integrity";
+import { buildTruthAuditSummary, detectConflicts, evidenceInstanceKey, reconcileSourceRows } from "./professional-evidence-integrity";
 import { effectiveCompetenceStatus, selectEvidenceForReport } from "./professional-evidence-ledger";
 
 const learningOnly = { userId: 1, evidenceType: "learning", programme: "BLS", status: "learning_complete", evidenceStrength: "recorded", sourceSystem: "aha_learning", sourceRecordType: "enrollments", sourceRecordId: "7", sourceFactJson: "{}" };
@@ -49,6 +49,26 @@ describe("Professional Truth invariants", () => {
     expect(result.wrongSourceSystem).toBe(2);
     expect(result.wrongSourceType).toBe(2);
     expect(result.complete).toBe(false);
+  });
+  it("does not classify sequential credential renewals as a conflict", () => {
+    const conflicts = detectConflicts([
+      { userId: 3, evidenceType: "credential", programme: "ACLS", status: "issued", issueDate: "2025-01-01", expiresAt: "2027-01-01", sourceSystem: "certificates", evidenceStrength: "credential" },
+      { userId: 3, evidenceType: "credential", programme: "ACLS", status: "issued", issueDate: "2026-01-01", expiresAt: "2028-01-01", sourceSystem: "certificates", evidenceStrength: "credential" },
+    ]);
+    expect(conflicts).toHaveLength(0);
+  });
+  it("does not classify separate CPD attendance records as a conflict", () => {
+    const conflicts = detectConflicts([
+      { userId: 3, evidenceType: "cpd", programme: "CPD", status: "attendance_verified", sourceSystem: "cpd_portal", sourceRecordType: "cpdAttendees", sourceRecordId: 10 },
+      { userId: 3, evidenceType: "cpd", programme: "CPD", status: "attendance_verified", sourceSystem: "cpd_portal", sourceRecordType: "cpdAttendees", sourceRecordId: 11 },
+    ]);
+    expect(conflicts).toHaveLength(0);
+  });
+  it("keeps same credential instance disagreements reviewable", () => {
+    const first = { userId: 3, evidenceType: "credential", programme: "ACLS", status: "issued", expiresAt: "2027-01-01", credentialNumber: "ACLS-123", sourceSystem: "certificates", evidenceStrength: "credential" };
+    const second = { ...first, status: "revoked", expiresAt: "2027-01-01", sourceSystem: "external_verification" };
+    expect(evidenceInstanceKey(first)).toBe("credential:ACLS-123");
+    expect(detectConflicts([first, second])).toHaveLength(1);
   });
   it("keeps activity reports inside the requested period", () => {
     expect(selectEvidenceForReport([{ sourceKey: "old", completedAt: "2026-01-01" }, { sourceKey: "new", completedAt: "2026-10-02" }], "activity", "2026-10-01", "2026-10-31").map(row => row.sourceKey)).toEqual(["new"]);
