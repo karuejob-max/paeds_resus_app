@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { createHash, randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
@@ -10,6 +11,9 @@ import {
   enrollments,
   userProgress,
   quizQuestions,
+  simulationWorldCommandReceipts,
+  simulationWorldEvidence,
+  simulationWorldSessions,
 } from "../../drizzle/schema";
 import {
   PRACTICE_LAB_TRACKS,
@@ -18,7 +22,7 @@ import {
   WEAK_DOMAIN_TO_TRACK,
   type PracticeLabTrackId,
 } from "../../shared/practice-lab-types";
-import { replaySimulationWorldAttempt, type SimulationWorldEvent, type SimulationWorldRole, type SimulationWorldScenarioId } from "../../shared/simulation-world";
+import { replaySimulationWorldAttempt, SIMULATION_WORLD_ROLES, SIMULATION_WORLD_SCENARIOS, type SimulationWorldEvent, type SimulationWorldRole, type SimulationWorldScenarioId } from "../../shared/simulation-world";
 
 const AHA_PROGRAM_TYPES = ["bls", "acls", "pals", "heartsaver", "nrp"] as const;
 
@@ -63,6 +67,47 @@ export const practiceLabRouter = router({
     };
   }),
 
+  startSimulationWorldSession: protectedProcedure
+    .input(z.object({
+      enrollmentId: z.number(),
+      programType: z.enum(AHA_PROGRAM_TYPES),
+      scenarioId: z.enum(SIMULATION_WORLD_SCENARIOS.map((item) => item.id) as [SimulationWorldScenarioId, ...SimulationWorldScenarioId[]]),
+      role: z.enum(SIMULATION_WORLD_ROLES),
+      engineVersion: z.string().max(32),
+      scenarioVersion: z.string().max(32),
+      assessmentVersion: z.string().max(32),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [enrollment] = await db.select({ id: enrollments.id, userId: enrollments.userId, programType: enrollments.programType })
+        .from(enrollments).where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id))).limit(1);
+      if (!enrollment || enrollment.programType !== input.programType) throw new TRPCError({ code: "FORBIDDEN", message: "Enrollment not found for this simulation" });
+      const sessionNonce = randomBytes(32).toString("hex");
+      const [created] = await db.insert(simulationWorldSessions).values({ ...input, userId: ctx.user.id, sessionNonce }).$returningId();
+      return { sessionId: created.id, sessionNonce };
+    }),
+
+  receiveSimulationWorldCommand: protectedProcedure
+    .input(z.object({ sessionId: z.number(), sessionNonce: z.string().length(64), sequence: z.number().int().nonnegative(), commandType: z.string().min(1).max(64), commandJson: z.record(z.string(), z.unknown()) }))
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [session] = await db.select().from(simulationWorldSessions).where(and(eq(simulationWorldSessions.id, input.sessionId), eq(simulationWorldSessions.userId, ctx.user.id), eq(simulationWorldSessions.sessionNonce, input.sessionNonce))).limit(1);
+      if (!session || session.status !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: "Simulation session is not active" });
+      const elapsedMs = Math.max(0, Math.min(30 * 60 * 1000, Date.now() - session.startedAt.getTime()));
+      if (elapsedMs >= 30 * 60 * 1000) throw new TRPCError({ code: "BAD_REQUEST", message: "Simulation session expired" });
+      const [previous] = await db.select({ sequence: simulationWorldCommandReceipts.sequence }).from(simulationWorldCommandReceipts).where(eq(simulationWorldCommandReceipts.sessionId, session.id)).orderBy(desc(simulationWorldCommandReceipts.sequence)).limit(1);
+      const expectedSequence = previous ? previous.sequence + 1 : 0;
+      if (input.sequence !== expectedSequence) throw new TRPCError({ code: "CONFLICT", message: `Expected command sequence ${expectedSequence}` });
+      const receiptHash = createHash("sha256").update(`${session.sessionNonce}|${input.sequence}|${input.commandType}|${JSON.stringify(input.commandJson)}|${elapsedMs}`).digest("hex").slice(0, 32);
+      await db.insert(simulationWorldCommandReceipts).values({ sessionId: session.id, sequence: input.sequence, commandType: input.commandType, commandJson: input.commandJson, serverElapsedMs: elapsedMs, receiptHash });
+      await db.update(simulationWorldSessions).set({ lastReceiptAt: new Date() }).where(eq(simulationWorldSessions.id, session.id));
+      return { accepted: true, sequence: input.sequence, serverElapsedMs: elapsedMs, receiptHash };
+    }),
+
   recordAttempt: protectedProcedure
     .input(
       z.object({
@@ -82,6 +127,8 @@ export const practiceLabRouter = router({
         ),
         isBooster: z.boolean().optional(),
         durationSeconds: z.number().optional(),
+        sessionId: z.number().optional(),
+        sessionNonce: z.string().length(64).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -106,6 +153,16 @@ export const practiceLabRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Simulation program does not match this enrollment" });
       }
 
+      let session: typeof simulationWorldSessions.$inferSelect | undefined;
+      if (input.trackId === "simulation_world") {
+        if (!input.sessionId || !input.sessionNonce) throw new TRPCError({ code: "BAD_REQUEST", message: "Simulation session is required" });
+        [session] = await db.select().from(simulationWorldSessions).where(and(eq(simulationWorldSessions.id, input.sessionId), eq(simulationWorldSessions.userId, ctx.user.id), eq(simulationWorldSessions.enrollmentId, input.enrollmentId), eq(simulationWorldSessions.sessionNonce, input.sessionNonce), eq(simulationWorldSessions.status, "active"))).limit(1);
+        if (!session || session.scenarioId !== input.scenarioId || session.programType !== input.programType) throw new TRPCError({ code: "BAD_REQUEST", message: "Simulation session does not match attempt" });
+        const receipts = await db.select({ sequence: simulationWorldCommandReceipts.sequence }).from(simulationWorldCommandReceipts).where(eq(simulationWorldCommandReceipts.sessionId, session.id)).orderBy(simulationWorldCommandReceipts.sequence);
+        const commandEvents = input.eventLog.filter((item) => item.type === "command");
+        if (receipts.length !== commandEvents.length || receipts.some((receipt, index) => receipt.sequence !== index)) throw new TRPCError({ code: "BAD_REQUEST", message: "Simulation evidence is missing server command receipts" });
+      }
+
       let authoritativeScore = input.score;
       let authoritativePassed = input.passed;
       if (input.trackId === "simulation_world") {
@@ -124,7 +181,7 @@ export const practiceLabRouter = router({
         authoritativePassed = replay.assessment.evidenceEligible;
       }
 
-      await db.insert(ahaPracticeLabAttempts).values({
+      const [attempt] = await db.insert(ahaPracticeLabAttempts).values({
         userId: ctx.user.id,
         enrollmentId: input.enrollmentId,
         programType: input.programType,
@@ -135,9 +192,21 @@ export const practiceLabRouter = router({
         eventLog: input.eventLog,
         isBooster: input.isBooster ?? false,
         durationSeconds: input.durationSeconds ?? null,
-      });
+      }).$returningId();
+      if (session) {
+        await db.insert(simulationWorldEvidence).values({
+          sessionId: session.id,
+          userId: ctx.user.id,
+          enrollmentId: input.enrollmentId,
+          role: session.role,
+          scenarioId: session.scenarioId,
+          evidenceStatus: "review_required",
+          assessmentJson: replaySimulationWorldAttempt({ scenarioId: session.scenarioId as SimulationWorldScenarioId, role: session.role as SimulationWorldRole, eventLog: input.eventLog as SimulationWorldEvent[] }).assessment ?? null,
+        });
+        await db.update(simulationWorldSessions).set({ status: "completed", completedAt: new Date() }).where(eq(simulationWorldSessions.id, session.id));
+      }
 
-      return { success: true };
+      return { success: true, attemptId: attempt.id, evidenceStatus: session ? "review_required" as const : null };
     }),
 
   getMyAttempts: protectedProcedure

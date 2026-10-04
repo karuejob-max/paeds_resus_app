@@ -127,6 +127,8 @@
     "db:verify-0170": "node scripts/verify-0170-professional-trust-closure.mjs",
     "db:apply-0172": "node scripts/apply-0172-institutional-trust-closure.mjs",
     "db:verify-0172": "node scripts/verify-0172-institutional-trust-closure.mjs",
+    "db:apply-0173": "node scripts/apply-0173-simulation-world-evidence.mjs",
+    "db:verify-0173": "node scripts/verify-0173-simulation-world-evidence.mjs",
     "db:verify-0148": "node scripts/verify-0148-promotional-messaging-governance.mjs",
     "db:verify-cpr-event-link": "node scripts/verify-cpr-event-link.mjs",
     "db:verify-cpr-event-loop": "node scripts/verify-cpr-event-loop.mjs",
