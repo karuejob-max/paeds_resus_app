@@ -19,6 +19,7 @@ import {
   professionalProgressCorrectionCases,
   professionalProgressReports,
   users,
+  professionalEvidenceLedger,
 } from "../../drizzle/schema";
 import { adminProcedure, publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -26,6 +27,7 @@ import { TRPCError } from "@trpc/server";
 import { phaseForEnrollment, progressForEnrollment, selectBestCurrentEnrollments, selectBestExternalCompletions } from "../lib/professional-progress-calculation";
 import { getAhaNextPhaseAction, getIerpNextAction, getNerpNextAction, type AhaProgramType } from "../../shared/provider-course-routes";
 import { isInstitutionAdmin } from "../lib/institution-access";
+import { evidenceRowsFromSnapshot, nextBestProfessionalAction } from "../lib/professional-evidence-ledger";
 
 const reportInput = z.object({
   reportType: z.enum(["monthly", "quarterly", "annual", "custom"]).default("monthly"),
@@ -55,7 +57,7 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
     db.select().from(nerpOfferEnrollments).where(and(eq(nerpOfferEnrollments.userId, userId), eq(nerpOfferEnrollments.offerKey, "nerp-acls-2026"))).limit(1),
     db.select().from(ierpProgramEnrollments).where(and(eq(ierpProgramEnrollments.userId, userId), eq(ierpProgramEnrollments.programKey, "ierp"))).limit(1),
     db.select().from(externalTrainingCompletions).where(eq(externalTrainingCompletions.userId, userId)).orderBy(desc(externalTrainingCompletions.recordedAt)),
-    db.select({ id: certificates.id, programType: certificates.programType, certificateNumber: certificates.certificateNumber, issueDate: certificates.issueDate, verificationCode: certificates.verificationCode }).from(certificates).where(eq(certificates.userId, userId)).orderBy(desc(certificates.issueDate)),
+    db.select({ id: certificates.id, programType: certificates.programType, certificateNumber: certificates.certificateNumber, issueDate: certificates.issueDate, expiryDate: certificates.expiryDate, verificationCode: certificates.verificationCode }).from(certificates).where(eq(certificates.userId, userId)).orderBy(desc(certificates.issueDate)),
     db.select().from(fellowshipProgress).where(eq(fellowshipProgress.userId, userId)).limit(1),
   ]);
   const user = userRow[0] ?? null;
@@ -205,7 +207,7 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
     cpd: {
       verifiedSessions: cpdRows.length,
       points: Number(cpdPoints.toFixed(1)),
-      sessions: cpdRows.map((row: any) => ({ title: row.event.name, date: row.event.eventDateAt ?? row.event.eventDate, points: Number(row.event.cpdPoints ?? 0), departmentId: row.event.facilityDepartmentId })),
+      sessions: cpdRows.map((row: any) => ({ eventId: row.event.id, title: row.event.name, date: row.event.eventDateAt ?? row.event.eventDate, points: Number(row.event.cpdPoints ?? 0), departmentId: row.event.facilityDepartmentId })),
     },
     fellowship,
     certificates: certRows.filter((row: any) => input.reportScope === "current_status" || (dateOnly(row.issueDate) >= input.periodStart && dateOnly(row.issueDate) <= input.periodEnd)).map((row: any) => ({ programType: row.programType, certificateNumber: row.certificateNumber, issueDate: row.issueDate, verificationCode: row.verificationCode })),
@@ -218,10 +220,39 @@ async function buildProgressSnapshot(db: any, userId: number, input: z.infer<typ
 }
 
 export const professionalProgressRouter = router({
+  getMyEvidenceLedger: protectedProcedure.input(reportInput).query(async ({ ctx, input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    const snapshot = await buildProgressSnapshot(db, ctx.user.id, input);
+    const rows = evidenceRowsFromSnapshot(snapshot, ctx.user.id);
+    return {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      evidence: rows,
+      nextBestAction: nextBestProfessionalAction(snapshot),
+      trustStatement: "Each item identifies its source system, evidence strength, and current status. Learning completion is not presented as observed clinical competence.",
+    };
+  }),
+
+  syncMyEvidenceLedger: protectedProcedure.input(reportInput).mutation(async ({ ctx, input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    const snapshot = await buildProgressSnapshot(db, ctx.user.id, input);
+    const rows = evidenceRowsFromSnapshot(snapshot, ctx.user.id);
+    if (rows.length) {
+      for (const row of rows) {
+        const values = { ...row, userId: ctx.user.id } as any;
+        await db.insert(professionalEvidenceLedger).values(values).onDuplicateKeyUpdate({ set: { ...values, updatedAt: new Date() } });
+      }
+    }
+    return { success: true as const, synchronized: rows.length, generatedAt: new Date().toISOString() };
+  }),
+
   getMyReport: protectedProcedure.input(reportInput).query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-    return buildProgressSnapshot(db, ctx.user.id, input);
+    const snapshot = await buildProgressSnapshot(db, ctx.user.id, input);
+    return { ...snapshot, nextBestAction: nextBestProfessionalAction(snapshot) };
   }),
 
   getInstitutionStaffProgress: protectedProcedure.input(z.object({ institutionId: z.number().int().positive(), periodStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), periodEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).query(async ({ ctx, input }) => {
@@ -233,7 +264,8 @@ export const professionalProgressRouter = router({
     for (const member of staff) {
       if (!member.userId) continue;
       const snapshot = await buildProgressSnapshot(db, member.userId, { reportType: "custom", reportScope: "current_status", periodStart: input.periodStart, periodEnd: input.periodEnd });
-      rows.push({ staffName: member.staffName, staffRole: member.staffRole, department: member.department, lifeSupport: snapshot.lifeSupport.map((item: any) => ({ program: item.program, percentage: item.percentage, recordStatus: item.recordStatus })), pathways: snapshot.pathways.map((item: any) => ({ program: item.program, percentage: item.percentage, status: item.status })), cpdVerifiedSessions: snapshot.cpd.verifiedSessions, dataQuality: snapshot.lifeSupport.filter((item: any) => item.dataQuality?.level !== "linked").map((item: any) => ({ program: item.program, reasons: item.dataQuality.reasons })) });
+      const evidence = evidenceRowsFromSnapshot(snapshot, member.userId);
+      rows.push({ staffName: member.staffName, staffRole: member.staffRole, department: member.department, lifeSupport: snapshot.lifeSupport.map((item: any) => ({ program: item.program, percentage: item.percentage, recordStatus: item.recordStatus })), pathways: snapshot.pathways.map((item: any) => ({ program: item.program, percentage: item.percentage, status: item.status })), cpdVerifiedSessions: snapshot.cpd.verifiedSessions, evidenceSummary: { total: evidence.length, verified: evidence.filter((item) => ["credential", "verified_external", "verified_attendance", "assessed"].includes(item.evidenceStrength)).length, gaps: evidence.filter((item) => item.status === "enrolled_not_started" || item.status === "learning_in_progress").map((item) => item.title) }, nextBestAction: nextBestProfessionalAction(snapshot), dataQuality: snapshot.lifeSupport.filter((item: any) => item.dataQuality?.level !== "linked").map((item: any) => ({ program: item.program, reasons: item.dataQuality.reasons })) });
     }
     return { institutionId: input.institutionId, generatedAt: new Date().toISOString(), privacy: "Names, role, department, learning status, and support signals only; no email, certificates, narratives, or clinical event content.", staff: rows };
   }),
