@@ -65,6 +65,18 @@ pnpm run db:verify-0169
 pnpm run db:sync-0169
 pnpm run db:apply-0170
 pnpm run db:verify-0170
+pnpm run db:apply-0171
+pnpm run db:verify-0171
 ```
 
 Run them in that order on production after the code merge. The verifiers are read-only; the sync only writes the ledger projection.
+
+## Governance closure (0171)
+
+- A signed report selects ledger evidence by scope: activity reports include evidence dated within the requested period; current-status reports include current evidence regardless of original date.
+- Competence validity is calculated from immutable `result` and `validUntil` values at read time. An expired date is displayed as `expired` even if an older administrative status says `current`.
+- Observed competence requires an active assessor authority for both the competency domain and assessment method. Platform administrator status alone is not clinical assessor authority.
+- Readiness is expressed as one unresolved bottleneck, never as a composite readiness score.
+- Goals use a controlled metric registry and persist actual value, progress value, and computed status (`active`, `at_risk`, `achieved`, or `expired`).
+- Source facts and platform interpretations are stored separately with an interpretation version.
+- IERP-to-AHA relationships are only claimed after an explicit pathway-course attribution exists; otherwise the course remains `Individual / unlinked`.
