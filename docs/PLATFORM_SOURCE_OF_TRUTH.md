@@ -761,6 +761,8 @@ Every strategic and operational document in this repository is listed here with 
 | [INSTITUTION_ACCOUNTABILITY_CREDENTIALS_SPEC.md](./INSTITUTION_ACCOUNTABILITY_CREDENTIALS_SPEC.md) | Active | Institution credential compliance, Life Support projections, CPD target accountability, and Departmental Head scope — expands §24 |
 | [IERP_IMPLEMENTATION_CONTRACT.md](./IERP_IMPLEMENTATION_CONTRACT.md) | Active — Engineering contract | IERP/IERS/NERP terminology, profile-first intern programme state, private evidence, payment reconciliation, collision boundary, and no-send email release gate |
 | [PAEDS_RESUS_CERTIFICATION_MODEL.md](./PAEDS_RESUS_CERTIFICATION_MODEL.md) | Active — Engineering contract | Universal Phase 2 and Phase 3 Paeds Resus certificates, IERP/NERP/Open Enrolment entry-path metadata, authoritative evidence, idempotency, and verification boundaries |
+| [INSTITUTIONAL_TRUST_CLOSURE_SPEC.md](./INSTITUTIONAL_TRUST_CLOSURE_SPEC.md) | Active — Engineering/operational contract | Institutional invariants, QI transition evidence, approved contract billing, settlement lifecycle, fail-closed degradation, and release status definitions |
+| [INSTITUTIONAL_SCENARIO_TEST_MATRIX.md](./INSTITUTIONAL_SCENARIO_TEST_MATRIX.md) | Active — Release evidence contract | Hospital workflow, tenant isolation, database degradation, and payment/QI scenario evidence required before external endorsement |
 
 ### 21.3 Audit and Status Documents
 

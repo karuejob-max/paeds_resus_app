@@ -9819,6 +9819,28 @@ export const institutionalQiReports = mysqlTable(
 export type InstitutionalQiReport = typeof institutionalQiReports.$inferSelect;
 export type InsertInstitutionalQiReport = typeof institutionalQiReports.$inferInsert;
 
+/** Immutable governance history for every QI report state transition. */
+export const institutionalQiReportEvents = mysqlTable(
+  "institutionalQiReportEvents",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    reportId: int("reportId").notNull(),
+    fromStatus: varchar("fromStatus", { length: 32 }),
+    toStatus: varchar("toStatus", { length: 32 }).notNull(),
+    actorUserId: int("actorUserId").notNull(),
+    actorRole: varchar("actorRole", { length: 64 }),
+    reason: text("reason").notNull(),
+    occurredAt: timestamp("occurredAt").defaultNow().notNull(),
+  },
+  table => ({
+    reportOccurredIdx: index("institutionalQiReportEvents_report_occurred_idx").on(table.reportId, table.occurredAt),
+    institutionOccurredIdx: index("institutionalQiReportEvents_institution_occurred_idx").on(table.institutionalAccountId, table.occurredAt),
+  })
+);
+export type InstitutionalQiReportEvent = typeof institutionalQiReportEvents.$inferSelect;
+export type InsertInstitutionalQiReportEvent = typeof institutionalQiReportEvents.$inferInsert;
+
 export const institutionalQiActions = mysqlTable(
   "institutionalQiActions",
   {
@@ -9914,12 +9936,13 @@ export const institutionalSubscriptionInvoices = mysqlTable(
     institutionalAccountId: int("institutionalAccountId").notNull(),
     productId: int("productId").notNull(),
     subscriptionId: int("subscriptionId"),
+    commercialContractId: int("commercialContractId"),
     invoiceNumber: varchar("invoiceNumber", { length: 64 }).notNull(),
     baseAmountUsdCents: int("baseAmountUsdCents").notNull(),
     amountCents: int("amountCents").notNull(),
     currency: varchar("currency", { length: 3 }).default("KES").notNull(),
     fxRateKesPerUsd: decimal("fxRateKesPerUsd", { precision: 14, scale: 6 }),
-    status: mysqlEnum("status", ["draft", "issued", "payment_pending", "paid", "void", "overdue", "cancelled"]).default("draft").notNull(),
+    status: mysqlEnum("status", ["draft", "issued", "payment_pending", "payment_received", "settlement_confirmed", "reconciled", "paid", "disputed", "refunded", "void", "overdue", "cancelled"]).default("draft").notNull(),
     issuedAt: timestamp("issuedAt"),
     dueAt: timestamp("dueAt"),
     paidAt: timestamp("paidAt"),
@@ -9989,7 +10012,7 @@ export const institutionalPaymentAttempts = mysqlTable(
     providerPaymentReference: varchar("providerPaymentReference", { length: 255 }),
     amountCents: int("amountCents").notNull(),
     currency: varchar("currency", { length: 3 }).notNull(),
-    status: mysqlEnum("status", ["created", "pending", "succeeded", "failed", "refunded", "disputed"]).default("created").notNull(),
+    status: mysqlEnum("status", ["created", "pending", "succeeded", "settled", "failed", "refunded", "disputed"]).default("created").notNull(),
     failureReason: text("failureReason"),
     reconciliationStatus: mysqlEnum("reconciliationStatus", ["unreconciled", "matched", "mismatch", "refunded", "disputed"]).default("unreconciled").notNull(),
     reconciliationNote: text("reconciliationNote"),
@@ -10065,6 +10088,39 @@ export const institutionalPricingAuditEvents = mysqlTable(
 );
 export type InstitutionalPricingAuditEvent = typeof institutionalPricingAuditEvents.$inferSelect;
 export type InsertInstitutionalPricingAuditEvent = typeof institutionalPricingAuditEvents.$inferInsert;
+
+/** Platform-approved commercial terms; invoices must reference one active contract. */
+export const institutionalCommercialContracts = mysqlTable(
+  "institutionalCommercialContracts",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    productKey: varchar("productKey", { length: 64 }).notNull(),
+    contractNumber: varchar("contractNumber", { length: 64 }).notNull(),
+    pricingTier: varchar("pricingTier", { length: 32 }).notNull(),
+    facilityLevel: varchar("facilityLevel", { length: 32 }),
+    verifiedStaffCount: int("verifiedStaffCount"),
+    termYears: int("termYears").notNull(),
+    currency: varchar("currency", { length: 3 }).notNull(),
+    amountCents: int("amountCents").notNull(),
+    fxRateKesPerUsd: decimal("fxRateKesPerUsd", { precision: 14, scale: 6 }),
+    dataSharingStatus: varchar("dataSharingStatus", { length: 32 }).notNull(),
+    status: mysqlEnum("status", ["draft", "approved", "expired", "cancelled"]).default("draft").notNull(),
+    approvedByUserId: int("approvedByUserId"),
+    approvedAt: timestamp("approvedAt"),
+    startsAt: timestamp("startsAt"),
+    endsAt: timestamp("endsAt"),
+    notes: text("notes"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    contractNumberUq: uniqueIndex("institutionalCommercialContracts_number_uq").on(table.contractNumber),
+    institutionStatusIdx: index("institutionalCommercialContracts_institution_status_idx").on(table.institutionalAccountId, table.status),
+  })
+);
+export type InstitutionalCommercialContract = typeof institutionalCommercialContracts.$inferSelect;
+export type InsertInstitutionalCommercialContract = typeof institutionalCommercialContracts.$inferInsert;
 
 // Pricing/consent inputs are nullable for legacy subscriptions and required for new quotes.
 export const institutionSubscriptionPricingFields = {

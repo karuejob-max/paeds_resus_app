@@ -302,6 +302,7 @@ export default function InstitutionWorkspace() {
               institutionId={institutionId}
               iersEnabled={iersEnabled}
               onOpenLearning={() => setSection("learning")}
+              onOpenReadiness={() => { setSection("iers"); setIersTab("report"); }}
               onOpenAdministration={() => setSection("administration")}
             />
             {(!iersEnabled || !cpdEnabled) && (
