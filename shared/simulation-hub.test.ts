@@ -4,6 +4,7 @@ import { getSimulationMasteryLabel, getSimulationMission, isFormativeSimulationM
 describe("Simulation Hub mission model", () => {
   it("provides a progressive set of clinically meaningful missions", () => {
     expect(SIMULATION_MISSIONS.map((mission) => mission.id)).toEqual([
+      "simulation-world",
       "first-minutes",
       "deteriorating-child",
       "rhythm-decisions",

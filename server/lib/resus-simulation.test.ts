@@ -55,7 +55,7 @@ function createAuthContext(): TrpcContext {
 
 describe("resus-simulation", () => {
   describe("sendAiRoleplayMessage", () => {
-    it("sends user orders to Gemini and returns nurse response + updated vitals", async () => {
+    it("sends user orders to Gemini and returns nurse response without allowing updated vitals", async () => {
       mockInvokeLLM.mockClear();
       const mockResponse = JSON.stringify({
         dialog: "Yes, doctor. Giving 20ml/kg normal saline now.",
@@ -91,7 +91,7 @@ describe("resus-simulation", () => {
 
       expect(result.success).toBe(true);
       expect(result.dialog).toContain("Giving 20ml/kg normal saline");
-      expect(result.vitals.heartRate).toBe(155);
+      expect(result.vitals.heartRate).toBe(175);
 
       const callArgs = mockInvokeLLM.mock.calls[0][0];
       expect(callArgs.messages[0].content).toContain("nurse assistant and parent roleplayer");
