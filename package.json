@@ -260,7 +260,9 @@
     "db:apply-0171": "node scripts/apply-0171-professional-evidence-governance.mjs",
     "db:verify-0171": "node scripts/verify-0171-professional-evidence-governance.mjs",
     "db:apply-0174": "node scripts/apply-0174-simulation-world-evidence.mjs",
-    "db:verify-0174": "node scripts/verify-0174-simulation-world-evidence.mjs"
+    "db:verify-0174": "node scripts/verify-0174-simulation-world-evidence.mjs",
+    "db:apply-0173": "node scripts/apply-0173-professional-evidence-integrity.mjs",
+    "db:verify-0173": "node scripts/verify-0173-professional-evidence-integrity.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
