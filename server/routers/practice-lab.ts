@@ -318,21 +318,15 @@ SpO2: ${input.vitals.spo2} %
 Temperature: ${input.vitals.temperature} C
 
 Your role:
-1. Actively roleplay as the nurse. Execute the clinician's orders realistically.
-2. Update the patient's vitals realistically based on the treatment or lack of treatment.
-3. Keep your dialog concise, medical, and realistic. Speak as a nurse in an emergency. E.g., "Yes, doctor, drawing up 20ml/kg normal saline now." or "IV access is established. Infusing saline."
-4. If the clinician overrides protocols or gives wrong dosages, note it internally or ask a clarifying question politely as a nurse would (e.g. "Doctor, you ordered 10mg adrenaline, is that correct? I want to double check the dose.").
+1. Actively roleplay as the nurse. Acknowledge or clarify the clinician's orders realistically.
+2. Do not invent, update, or estimate physiology. The deterministic Simulation World owns patient state and consequences.
+3. Keep your dialog concise, medical, and realistic. Speak as a nurse in an emergency. E.g., "Yes, doctor, drawing up the ordered fluid now." or "IV access is established."
+4. If the clinician overrides protocols or gives wrong dosages, ask a clarifying question politely as a nurse would.
 
 Respond ONLY with a JSON object matching this schema:
 {
   "dialog": "Nurse/parent response speech text",
-  "vitals": {
-    "heartRate": number,
-    "respiratoryRate": number,
-    "bloodPressure": "string",
-    "spo2": number,
-    "temperature": number
-  }
+  "dialog": "Nurse/parent response speech text"
 }`;
 
       const messagesPayload = [
@@ -353,7 +347,9 @@ Respond ONLY with a JSON object matching this schema:
       return {
         success: true,
         dialog: parsed.dialog || "Nurse acknowledges order.",
-        vitals: parsed.vitals || input.vitals,
+        // Backward-compatible response shape: physiology remains authoritative in the
+        // deterministic engine, so this endpoint always echoes the input snapshot.
+        vitals: input.vitals,
       };
     }),
 

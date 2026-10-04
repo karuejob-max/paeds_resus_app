@@ -17,6 +17,7 @@ import {
   Lock,
   Sparkles,
   GraduationCap,
+  Users,
 } from "lucide-react";
 import { PracticeLabGate } from "@/components/practice-lab/PracticeLabGate";
 import { ShockNoShockTrack } from "@/components/practice-lab/ShockNoShockTrack";
@@ -25,6 +26,7 @@ import { CardiacArrestTrack } from "@/components/practice-lab/CardiacArrestTrack
 import { RhythmRecognitionTrack } from "@/components/practice-lab/RhythmRecognitionTrack";
 import { AiRoleplayTrack } from "@/components/practice-lab/AiRoleplayTrack";
 import { PalsCapstoneSimulation } from "@/components/PalsCapstoneSimulation";
+import { SimulationWorldRoom } from "@/components/SimulationWorldRoom";
 import { PartnershipPlaceholders } from "@/components/practice-lab/PartnershipPlaceholders";
 import type { PracticeLabProgramType, PracticeLabTrackId } from "@shared/practice-lab-types";
 
@@ -61,6 +63,11 @@ const TRACK_META: Record<
     label: "PALS Capstone",
     icon: GraduationCap,
     description: "Full deterioration arc — ABCDE, shock, CPR, ROSC, and post-resuscitation care",
+  },
+  simulation_world: {
+    label: "Simulation World",
+    icon: Users,
+    description: "Role-based resuscitation room with deterministic patient state, NPC team, and replay evidence",
   },
 };
 
@@ -279,6 +286,7 @@ export default function AHAPracticeLab() {
                     onClose={() => setActiveTrack("cardiac_arrest")}
                   />
                 ) : <Card><CardContent className="pt-6 text-sm text-muted-foreground">The PALS capstone is available when the selected enrollment is PALS.</CardContent></Card>)}
+                {id === "simulation_world" && effectiveEnrollmentId && <SimulationWorldRoom enrollmentId={effectiveEnrollmentId} programType={effectiveProgram} />}
               </TabsContent>
             ))}
           </Tabs>

@@ -1,6 +1,6 @@
 import { isFormativePracticeLabTrack, type PracticeLabProgramType, type PracticeLabTrackId } from "./practice-lab-types";
 
-export type SimulationMissionId = "first-minutes" | "deteriorating-child" | "rhythm-decisions" | "pals-capstone" | "resus-room";
+export type SimulationMissionId = "simulation-world" | "first-minutes" | "deteriorating-child" | "rhythm-decisions" | "pals-capstone" | "resus-room";
 
 export type SimulationMission = {
   id: SimulationMissionId;
@@ -18,6 +18,18 @@ export type SimulationMission = {
 };
 
 export const SIMULATION_MISSIONS: readonly SimulationMission[] = [
+  {
+    id: "simulation-world",
+    title: "The resuscitation room",
+    subtitle: "Choose a role, lead a living team, and respond to deterministic patient deterioration.",
+    trackId: "simulation_world",
+    difficulty: "Applied",
+    estimatedMinutes: 12,
+    masteryThreshold: 70,
+    objective: "Demonstrate recognition, delegation, closed-loop communication, safe action, and reassessment in a team simulation.",
+    realism: "The team is imperfect, information is incomplete, and the patient changes after your actions.",
+    supportedPrograms: ["acls", "pals", "nrp"],
+  },
   {
     id: "first-minutes",
     title: "The first minutes",
