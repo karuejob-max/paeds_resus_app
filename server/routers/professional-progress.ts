@@ -558,46 +558,78 @@ async function buildProgressSnapshot(
   };
 }
 
+async function loadProfessionalTruthAudit(db: any) {
+  const [aha, certificatesRows, fellowship, externalRows, ierpRows, nerpRows, cpdRows, ledgerRows, conflictRows, reportRows] = await Promise.all([
+    db.select({ sourceRecordId: enrollments.id, userId: enrollments.userId }).from(enrollments).where(inArray(enrollments.programType, ["bls", "acls", "pals", "nrp"])),
+    db.select({ sourceRecordId: certificates.id, userId: certificates.userId }).from(certificates),
+    db.select({ sourceRecordId: microCourseEnrollments.id, userId: microCourseEnrollments.userId }).from(microCourseEnrollments),
+    db.select({ sourceRecordId: externalTrainingCompletions.id, userId: externalTrainingCompletions.userId }).from(externalTrainingCompletions),
+    db.select({ sourceRecordId: ierpProgramEnrollments.id, userId: ierpProgramEnrollments.userId }).from(ierpProgramEnrollments),
+    db.select({ sourceRecordId: nerpOfferEnrollments.id, userId: nerpOfferEnrollments.userId }).from(nerpOfferEnrollments),
+    db.select({ sourceRecordId: cpdAttendees.id, userId: cpdAttendees.userId }).from(cpdAttendees).where(sql`${cpdAttendees.userId} IS NOT NULL`),
+    db.select({ userId: professionalEvidenceLedger.userId, sourceRecordId: professionalEvidenceLedger.sourceRecordId, sourceSystem: professionalEvidenceLedger.sourceSystem, sourceRecordType: professionalEvidenceLedger.sourceRecordType, evidenceType: professionalEvidenceLedger.evidenceType, programme: professionalEvidenceLedger.programme, competencyDomain: professionalEvidenceLedger.competencyDomain, status: professionalEvidenceLedger.status, evidenceStrength: professionalEvidenceLedger.evidenceStrength, verificationMethod: professionalEvidenceLedger.verificationMethod, expiresAt: professionalEvidenceLedger.expiresAt, sourceFactJson: professionalEvidenceLedger.sourceFactJson, interpretationVersion: professionalEvidenceLedger.interpretationVersion }).from(professionalEvidenceLedger),
+    db.select().from(professionalEvidenceConflicts).where(eq(professionalEvidenceConflicts.state, "open")).orderBy(desc(professionalEvidenceConflicts.updatedAt)).limit(100),
+    db.select({ status: professionalProgressReports.status, publicExpiresAt: professionalProgressReports.publicExpiresAt }).from(professionalProgressReports),
+  ]);
+  const rawCount = async (table: string, predicate = "") => {
+    const result: any = await db.execute(sql.raw(`SELECT COUNT(*) AS count FROM \`${table}\`${predicate ? ` WHERE ${predicate}` : ""}`));
+    return Number(result[0]?.[0]?.count ?? result[0]?.count ?? 0);
+  };
+  const unlinkedCpd = await rawCount("cpdAttendees", "userId IS NULL");
+  const ledgerBy = (system: string, type: string) => ledgerRows.filter((row: any) => row.sourceSystem === system && row.sourceRecordType === type).map((row: any) => ({ userId: row.userId, sourceRecordId: row.sourceRecordId, sourceSystem: row.sourceSystem, sourceRecordType: row.sourceRecordType }));
+  const sources = [
+    reconcileSourceRows("AHA enrollments", aha, ledgerBy("aha_learning", "enrollments"), { sourceSystem: "aha_learning", sourceRecordType: "enrollments" }),
+    reconcileSourceRows("Certificates", certificatesRows, ledgerBy("certificates", "certificates"), { sourceSystem: "certificates", sourceRecordType: "certificates" }),
+    reconcileSourceRows("Fellowship micro-courses", fellowship, ledgerBy("fellowship", "microCourseEnrollments"), { sourceSystem: "fellowship", sourceRecordType: "microCourseEnrollments" }),
+    reconcileSourceRows("External completions", externalRows, ledgerBy("external_completion", "externalTrainingCompletions.phase2"), { sourceSystem: "external_completion", sourceRecordType: "externalTrainingCompletions.phase2" }),
+    reconcileSourceRows("IERP enrollments", ierpRows, ledgerBy("ierp", "ierpProgramEnrollments"), { sourceSystem: "ierp", sourceRecordType: "ierpProgramEnrollments" }),
+    reconcileSourceRows("NERP enrollments", nerpRows, ledgerBy("nerp", "nerp_offer_enrollments"), { sourceSystem: "nerp", sourceRecordType: "nerp_offer_enrollments" }),
+    reconcileSourceRows("CPD linked attendees", cpdRows, ledgerBy("cpd_portal", "cpdAttendees"), { sourceSystem: "cpd_portal", sourceRecordType: "cpdAttendees" }),
+    notProjectedSource("CPD attendees without account linkage", unlinkedCpd),
+  ];
+  const detected = detectConflicts(ledgerRows as any);
+  const summary = buildTruthAuditSummary({
+    sources,
+    ledgerRows,
+    conflicts: [...conflictRows, ...detected],
+    reports: {
+      superseded: reportRows.filter((row: any) => row.status === "superseded").length,
+      activePublic: reportRows.filter((row: any) => row.status === "active" && (!row.publicExpiresAt || new Date(row.publicExpiresAt).getTime() > Date.now())).length,
+    },
+  });
+  return { summary, detected };
+}
+
+async function persistProfessionalTruthAudit(db: any, userId: number, summary: any, detected: any[]) {
+  for (const conflict of detected) {
+    await db.insert(professionalEvidenceConflicts).values({
+      conflictKey: conflict.conflictKey,
+      userId: conflict.userId,
+      evidenceType: conflict.evidenceType,
+      subject: conflict.subject,
+      state: conflict.state,
+      reason: conflict.reason,
+      sourceRowsJson: JSON.stringify(conflict.sourceRows),
+    }).onDuplicateKeyUpdate({ set: { state: conflict.state, reason: conflict.reason, sourceRowsJson: JSON.stringify(conflict.sourceRows), updatedAt: new Date() } });
+  }
+  const runKey = `truth-audit:${new Date().toISOString().slice(0, 10)}:${userId}`;
+  await db.insert(professionalEvidenceReconciliationRuns).values({ runKey, triggeredByUserId: userId, status: "completed", summaryJson: JSON.stringify(summary), completedAt: new Date() }).onDuplicateKeyUpdate({ set: { summaryJson: JSON.stringify(summary), completedAt: new Date(), status: "completed" } });
+  return { ...summary, persisted: true, runKey };
+}
+
 export const professionalProgressRouter = router({
-  getProfessionalTruthAudit: adminProcedure.query(async ({ ctx }) => {
+  getProfessionalTruthAudit: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-    const [aha, certificatesRows, fellowship, ledgerRows, conflictRows, reportRows] = await Promise.all([
-      await db.select({ sourceRecordId: enrollments.id, userId: enrollments.userId }).from(enrollments).where(inArray(enrollments.programType, ["bls", "acls", "pals", "nrp"])),
-      await db.select({ sourceRecordId: certificates.id, userId: certificates.userId }).from(certificates),
-      await db.select({ sourceRecordId: microCourseEnrollments.id, userId: microCourseEnrollments.userId }).from(microCourseEnrollments),
-      await db.select({ userId: professionalEvidenceLedger.userId, sourceRecordId: professionalEvidenceLedger.sourceRecordId, sourceSystem: professionalEvidenceLedger.sourceSystem, sourceRecordType: professionalEvidenceLedger.sourceRecordType, evidenceType: professionalEvidenceLedger.evidenceType, programme: professionalEvidenceLedger.programme, competencyDomain: professionalEvidenceLedger.competencyDomain, status: professionalEvidenceLedger.status, evidenceStrength: professionalEvidenceLedger.evidenceStrength, verificationMethod: professionalEvidenceLedger.verificationMethod, expiresAt: professionalEvidenceLedger.expiresAt, sourceFactJson: professionalEvidenceLedger.sourceFactJson }).from(professionalEvidenceLedger),
-      await db.select().from(professionalEvidenceConflicts).where(eq(professionalEvidenceConflicts.state, "open")).orderBy(desc(professionalEvidenceConflicts.updatedAt)).limit(100),
-      await db.select({ status: professionalProgressReports.status, publicExpiresAt: professionalProgressReports.publicExpiresAt }).from(professionalProgressReports),
-    ]);
-    const rawCount = async (table: string) => { const result: any = await db.execute(sql.raw(`SELECT COUNT(*) AS count FROM \`${table}\``)); return Number(result[0]?.[0]?.count ?? result[0]?.count ?? 0); };
-    const [externalCount, ierpCount, nerpCount, cpdCount] = await Promise.all([rawCount("externalTrainingCompletions"), rawCount("ierpProgramEnrollments"), rawCount("nerp_offer_enrollments"), rawCount("cpdAttendees")]);
-    const ledgerBy = (system: string, type: string) => ledgerRows.filter(row => row.sourceSystem === system && row.sourceRecordType === type).map(row => ({ userId: row.userId, sourceRecordId: row.sourceRecordId }));
-    const sources = [
-      reconcileSourceRows("AHA enrollments", aha, ledgerBy("aha_learning", "enrollments")),
-      reconcileSourceRows("Certificates", certificatesRows, ledgerBy("certificates", "certificates")),
-      reconcileSourceRows("Fellowship micro-courses", fellowship, ledgerBy("fellowship", "microCourseEnrollments")),
-      notProjectedSource("External completions", externalCount),
-      notProjectedSource("IERP enrollments", ierpCount),
-      notProjectedSource("NERP enrollments", nerpCount),
-      notProjectedSource("CPD attendee records", cpdCount),
-    ];
-    const detected = detectConflicts(ledgerRows as any);
-    for (const conflict of detected) {
-      await db.insert(professionalEvidenceConflicts).values({
-        conflictKey: conflict.conflictKey,
-        userId: conflict.userId,
-        evidenceType: conflict.evidenceType,
-        subject: conflict.subject,
-        state: conflict.state,
-        reason: conflict.reason,
-        sourceRowsJson: JSON.stringify(conflict.sourceRows),
-      }).onDuplicateKeyUpdate({ set: { state: conflict.state, reason: conflict.reason, sourceRowsJson: JSON.stringify(conflict.sourceRows), updatedAt: new Date() } });
-    }
-    const summary = buildTruthAuditSummary({ sources, ledgerRows, conflicts: [...conflictRows, ...detected], reports: { superseded: reportRows.filter(row => row.status === "superseded").length, activePublic: reportRows.filter(row => row.status === "active" && (!row.publicExpiresAt || new Date(row.publicExpiresAt).getTime() > Date.now())).length } });
-    const runKey = `truth-audit:${new Date().toISOString().slice(0, 10)}:${ctx.user.id}`;
-    await db.insert(professionalEvidenceReconciliationRuns).values({ runKey, triggeredByUserId: ctx.user.id, status: "completed", summaryJson: JSON.stringify(summary), completedAt: new Date() }).onDuplicateKeyUpdate({ set: { summaryJson: JSON.stringify(summary), completedAt: new Date(), status: "completed" } });
-    return summary;
+    const { summary } = await loadProfessionalTruthAudit(db);
+    return { ...summary, persisted: false };
+  }),
+
+  persistProfessionalTruthAudit: adminProcedure.mutation(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    const { summary, detected } = await loadProfessionalTruthAudit(db);
+    return persistProfessionalTruthAudit(db, ctx.user.id, summary, detected);
   }),
 
   getMyEvidenceLedger: protectedProcedure
@@ -1066,7 +1098,7 @@ export const professionalProgressRouter = router({
           assessorUserId: ctx.user.id,
         }),
         interpretation: "effective_competence_status",
-        interpretationVersion: "0171-v1",
+        interpretationVersion: "0173-v1",
       });
       return { success: true as const, evidenceId: id };
     }),

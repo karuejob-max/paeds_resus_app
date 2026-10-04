@@ -1,3 +1,4 @@
+export const PROFESSIONAL_EVIDENCE_ONTOLOGY_VERSION = "0173-v1";
 export const EVIDENCE_TYPES = ["learning", "assessment", "credential", "competence", "cpd", "pathway"] as const;
 export type EvidenceType = (typeof EVIDENCE_TYPES)[number];
 
@@ -71,5 +72,5 @@ export function classifyConflict(rows: Array<{ status?: string | null; expiresAt
 
 export function enrichEvidenceOntology<T extends Record<string, any>>(row: T) {
   const authority = authorityForEvidence(row);
-  return { ...row, authorityLevel: authority, authorityRank: authorityRank(authority), evidenceStrengthRank: evidenceStrengthRank(row.evidenceStrength), validityRule: validityRule(row), ontologyVersion: "0173-v1" };
+  return { ...row, authorityLevel: authority, authorityRank: authorityRank(authority), evidenceStrengthRank: evidenceStrengthRank(row.evidenceStrength), validityRule: validityRule(row), ontologyVersion: PROFESSIONAL_EVIDENCE_ONTOLOGY_VERSION };
 }
