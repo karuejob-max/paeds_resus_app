@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useLocation, useRoute } from "wouter";
+import { Link, useRoute, useSearch } from "wouter";
 import { AlertCircle, CheckCircle2, FileCheck2, Printer, Target } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -25,14 +25,14 @@ function MetricCard({ title, value, detail, tone = "teal" }: { title: string; va
 
 type PortfolioSection = "overview" | "progress" | "records";
 
-function getPortfolioSection(location: string): PortfolioSection {
-  const value = new URLSearchParams(location.split("?")[1]?.split("#")[0] ?? "").get("section");
+function getPortfolioSection(search: string): PortfolioSection {
+  const value = new URLSearchParams(search).get("section");
   return value === "overview" || value === "records" ? value : "progress";
 }
 
 export default function ProfessionalProgressPage() {
-  const [location] = useLocation();
-  const section = getPortfolioSection(location);
+  const search = useSearch();
+  const section = getPortfolioSection(search);
   const sectionLink = (value: PortfolioSection) => `/my-progress?section=${value}`;
   const [, verifyParams] = useRoute("/verify-progress/:verificationCode");
   const { user, loading } = useAuth({ redirectOnUnauthenticated: !verifyParams, redirectPath: "/login?next=%2Fmy-progress" });
@@ -49,6 +49,7 @@ export default function ProfessionalProgressPage() {
   const [correctionSubject, setCorrectionSubject] = useState("");
   const [correctionEvidenceReference, setCorrectionEvidenceReference] = useState("");
   const [correctionDescription, setCorrectionDescription] = useState("");
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const reportInput = { reportType: periodType, reportScope, periodStart, periodEnd } as const;
   const reportQuery = trpc.professionalProgress.getMyReport.useQuery(reportInput, { enabled: Boolean(user && !verifyParams && section === "progress"), retry: false });
   const goalsQuery = trpc.professionalProgress.listMyGoals.useQuery(undefined, { enabled: Boolean(user && !verifyParams && section === "progress"), retry: false });
@@ -58,10 +59,25 @@ export default function ProfessionalProgressPage() {
   const createGoal = trpc.professionalProgress.createGoal.useMutation({ onSuccess: async () => { setGoalTitle(""); await goalsQuery.refetch(); } });
   const createCorrectionCase = trpc.professionalProgress.createCorrectionCase.useMutation({ onSuccess: async () => { setCorrectionSubject(""); setCorrectionEvidenceReference(""); setCorrectionDescription(""); await correctionCasesQuery.refetch(); } });
   const downloadProfessionalReport = async () => {
-    const result = await createReport.mutateAsync(reportInput);
-    setVerifiedCode(result.verificationCode);
-    setVerifiedReportId(result.reportId);
-    window.location.assign(result.pdfUrl);
+    setPdfError(null);
+    try {
+      const result = await createReport.mutateAsync(reportInput);
+      setVerifiedCode(result.verificationCode);
+      setVerifiedReportId(result.reportId);
+      const response = await fetch(result.pdfUrl, { credentials: "include" });
+      if (!response.ok) throw new Error(`The report PDF could not be downloaded (HTTP ${response.status}).`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `Paeds-Resus-Professional-Progress-${result.reportId}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setPdfError(error instanceof Error ? error.message : "The report PDF could not be downloaded. Please try again.");
+    }
   };
 
   if (section !== "progress" && !verifyParams) {
@@ -87,6 +103,7 @@ export default function ProfessionalProgressPage() {
     <Card className="print:hidden"><CardContent className="flex flex-wrap items-end gap-3 pt-5"><label className="text-sm">Report type<select className="mt-1 block h-10 rounded-md border bg-background px-3" value={periodType} onChange={e => setPeriodType(e.target.value as typeof periodType)}><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></label><label className="text-sm">What should this report show?<select className="mt-1 block h-10 rounded-md border bg-background px-3" value={reportScope} onChange={e => setReportScope(e.target.value as typeof reportScope)}><option value="activity">Activity during this period</option><option value="current_status">Current status now</option></select></label><label className="text-sm">From<Input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)} /></label><label className="text-sm">To<Input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} /></label><Button onClick={() => reportQuery.refetch()}>Refresh record</Button><Button variant="secondary" onClick={() => createReport.mutate(reportInput)} disabled={createReport.isPending}><FileCheck2 className="mr-2 h-4 w-4" />{createReport.isPending ? "Signing…" : "Create verifiable snapshot"}</Button></CardContent></Card>
     <Card className="print:break-inside-avoid print:border-slate-300 print:shadow-none"><CardContent className="pt-5 text-sm text-muted-foreground"><strong className="text-foreground">Report scope:</strong> {report.reportScope === "current_status" ? "Current status at the time of generation." : "Activity recorded during the selected period."}<br /><strong className="text-foreground">How to read this report:</strong> {report.periodSemantics}</CardContent></Card>
     {verifiedCode ? <Card className="border-emerald-200 bg-emerald-50 print:hidden"><CardContent className="pt-5"><p className="font-semibold text-emerald-900">Snapshot created and signed for verification.</p><p className="mt-1 text-xs text-emerald-900">Report ID: {verifiedReportId ?? "—"}</p><p className="mt-1 break-all font-mono text-xs">{window.location.origin}/verify-progress/{verifiedCode}</p><p className="mt-2 text-sm text-emerald-800">Print this page now, or share the verification link with an interviewer, appraiser, or recommender.</p></CardContent></Card> : null}
+    {pdfError ? <Card className="border-red-200 bg-red-50 print:hidden"><CardContent className="flex items-start gap-2 pt-5 text-sm text-red-800"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{pdfError}</CardContent></Card> : null}
     <div className="grid gap-4 md:grid-cols-4"><MetricCard title="Life-support courses" value={averageLifeSupport} detail={`${lifeSupport.length} current BLS/ACLS/PALS/NRP record(s)`} /><MetricCard title="NERP / IERP pathways" value={pathways.length ? Math.max(...pathways.map(pathway => pathway.percentage)) : 0} detail={`${pathways.length} pathway record(s), shown separately from courses`} tone="indigo" /><MetricCard title="Fellowship coursework" value={fellowship} detail="Fellowship progress remains separate from life-support certification" tone="indigo" /><MetricCard title="CPD participation" value={Math.min(100, report.cpd.verifiedSessions ? 100 : 0)} detail={`${report.cpd.verifiedSessions} verified session(s) · ${report.cpd.points} points`} tone="amber" /></div>
     <Card className="print:hidden"><CardHeader><CardTitle>Continue where you left off</CardTitle><CardDescription>Each AHA card opens the next unfinished phase: cognitive learning, practical booking, or certificates.</CardDescription></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Link href={continuationFor("BLS")?.destination ?? "/training/bls"} className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 transition hover:border-emerald-400"><p className="font-semibold text-emerald-900">BLS</p><p className="text-xs text-emerald-800">{continuationFor("BLS")?.label ?? "Open BLS learning"} →</p></Link><Link href={continuationFor("ACLS")?.destination ?? "/training/acls"} className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 transition hover:border-emerald-400"><p className="font-semibold text-emerald-900">ACLS</p><p className="text-xs text-emerald-800">{continuationFor("ACLS")?.label ?? "Open ACLS learning"} →</p></Link><Link href={continuationFor("PALS")?.destination ?? "/training/pals"} className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 transition hover:border-emerald-400"><p className="font-semibold text-emerald-900">PALS</p><p className="text-xs text-emerald-800">{continuationFor("PALS")?.label ?? "Open PALS learning"} →</p></Link><Link href={continuationFor("NRP")?.destination ?? "/training/nrp"} className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 transition hover:border-emerald-400"><p className="font-semibold text-emerald-900">NRP</p><p className="text-xs text-emerald-800">{continuationFor("NRP")?.label ?? "Open NRP learning"} →</p></Link><Link href={sectionLink("records")} className="rounded-lg border border-blue-200 bg-blue-50 p-3 transition hover:border-blue-400"><p className="font-semibold text-blue-900">CPD records</p><p className="text-xs text-blue-800">Open sessions and certificates →</p></Link><Link href={sectionLink("progress")} className="rounded-lg border border-violet-200 bg-violet-50 p-3 transition hover:border-violet-400"><p className="font-semibold text-violet-900">Fellowship</p><p className="text-xs text-violet-800">Continue Fellowship →</p></Link><Link href="/care-signal" className="rounded-lg border border-amber-200 bg-amber-50 p-3 transition hover:border-amber-400"><p className="font-semibold text-amber-900">Care Signal</p><p className="text-xs text-amber-800">Report and review clinical learning →</p></Link><Link href="/code-signal" className="rounded-lg border border-amber-200 bg-amber-50 p-3 transition hover:border-amber-400"><p className="font-semibold text-amber-900">Code Signal</p><p className="text-xs text-amber-800">Open code-event reporting →</p></Link></CardContent></Card>
     <Card><CardHeader><CardTitle>Life-support progress</CardTitle><CardDescription>Each record shows the programme source, phase, percentage, and why the status has been calculated that way.</CardDescription></CardHeader><CardContent className="space-y-4">{lifeSupport.length ? lifeSupport.map((item: any, index: number) => <div key={`${item.program}-${index}`} className="rounded-lg border p-4"><div className="flex flex-wrap justify-between gap-2"><div><p className="font-semibold">{item.program} · {item.source}</p><p className="text-sm text-muted-foreground">{item.phase} · {String(item.recordStatus).replaceAll("_", " ")}</p></div><Badge>{item.percentage}% complete</Badge></div><Progress value={item.percentage} className="mt-3 h-2" />{item.dataQuality?.reasons?.length ? <p className="mt-2 text-xs text-amber-800">Data note: {item.dataQuality.reasons.join(" ")}</p> : null}{item.nextAction ? <Link href={item.nextAction.destination} className="mt-2 inline-flex text-sm font-semibold text-teal-700 hover:underline">{item.nextAction.label} →</Link> : null}</div>) : <p className="text-sm text-muted-foreground">No life-support pathway record is linked to this account yet. If you completed training elsewhere, open a correction case below so the team can link the evidence.</p>}</CardContent></Card>
