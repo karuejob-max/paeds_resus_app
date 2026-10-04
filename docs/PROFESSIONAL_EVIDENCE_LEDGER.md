@@ -41,6 +41,18 @@ Every ledger row identifies:
 
 Evidence is private by default. Shareable evidence is limited to the minimum required record. Public verification must not expose email, payment, private reflections, or unrelated learning history.
 
+The public verifier uses an explicit allowlist projection. It never returns the signed internal snapshot.
+
+## Reports and corrections
+
+Reports are immutable snapshots, not permanent declarations. A material correction involving identity, certificate, status, date, or duplication automatically supersedes active reports for the affected owner. The correction response tells the user to generate a replacement report after the source evidence is corrected.
+
+The PDF states its status (`ACTIVE`, `REVOKED`, or `SUPERSEDED`), public validity, verification URL, verification code, and snapshot hash. It does not present an aggregate life-support percentage.
+
+## Observed competence
+
+Observed competence is a separate evidence object requiring an authorised assessor, competency domain, assessment type, date, method, result, validity, and evidence reference. Course completion and learning percentages cannot create an observed-competence record.
+
 ## Reconciliation
 
 `pnpm run db:sync-0169` is idempotent and append-safe. It projects existing source rows into the ledger and does not modify source records. Future adapters must preserve source identity, update status on repeat runs, and never merge records solely because names match.
@@ -51,6 +63,8 @@ Evidence is private by default. Shareable evidence is limited to the minimum req
 pnpm run db:apply-0169
 pnpm run db:verify-0169
 pnpm run db:sync-0169
+pnpm run db:apply-0170
+pnpm run db:verify-0170
 ```
 
-Run them in that order on production after the code merge. The verifier is read-only; the sync only writes the ledger projection.
+Run them in that order on production after the code merge. The verifiers are read-only; the sync only writes the ledger projection.

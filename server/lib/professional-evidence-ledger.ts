@@ -119,6 +119,25 @@ export function evidenceRowsFromSnapshot(snapshot: any, userId: number): Evidenc
       metadataJson: json({ points: item.points, departmentId: item.departmentId }),
     });
   }
+  for (const item of snapshot.competenceEvidence ?? []) {
+    rows.push({
+      sourceKey: `user:${userId}:competence:${item.id}`,
+      evidenceType: "competence",
+      title: item.competencyDomain,
+      programme: "Observed competence",
+      sourceSystem: "competence_assessment",
+      sourceRecordType: "professionalCompetenceEvidence",
+      sourceRecordId: String(item.id),
+      status: item.status,
+      evidenceStrength: "assessed",
+      verificationMethod: item.assessmentMethod,
+      completedAt: item.assessmentDate,
+      expiresAt: item.validUntil ?? null,
+      evidenceReference: item.evidenceReference ?? null,
+      visibility: "shareable",
+      metadataJson: json({ assessmentType: item.assessmentType, result: item.result, assessorUserId: item.assessorUserId }),
+    });
+  }
   return rows;
 }
 
@@ -127,8 +146,8 @@ export function nextBestProfessionalAction(snapshot: any) {
     ...(snapshot.lifeSupport ?? []).map((item: any) => item.nextAction ? { ...item.nextAction, priority: 100 } : null),
     ...(snapshot.pathways ?? []).map((item: any) => item.nextAction ? { ...item.nextAction, priority: 95 } : null),
   ].filter(Boolean).sort((a: any, b: any) => b.priority - a.priority);
-  if (candidates[0]) return candidates[0];
+  if (candidates[0]) return { ...candidates[0], why: candidates[0].reason, evidenceTrigger: "An unfinished or unverified professional learning/pathway record", outcome: "Completing this action advances the named learning or verification phase; it does not by itself establish competence." };
   const unfinished = (snapshot.coursework ?? []).find((item: any) => item.status !== "completed");
-  if (unfinished) return { label: `Continue ${unfinished.title}`, href: "/my-progress?section=development", reason: "An active Fellowship learning item is not complete." };
-  return { label: "Set a professional goal", href: "/my-progress?section=development", reason: "Your portfolio has no recorded next action." };
+  if (unfinished) return { label: `Continue ${unfinished.title}`, href: "/my-progress?section=development", reason: "An active Fellowship learning item is not complete.", why: "This is the earliest unfinished learning item in the current portfolio.", evidenceTrigger: unfinished.title, outcome: "Completing it will add a learning-completion record to the Evidence Ledger." };
+  return { label: "Set a professional goal", href: "/my-progress?section=development", reason: "Your portfolio has no recorded next action.", why: "No unfinished learning or pathway action is currently recorded.", evidenceTrigger: "No active next action", outcome: "A goal creates a measurable development target; it does not create evidence until completed." };
 }

@@ -50,13 +50,20 @@ export function registerProfessionalProgressRoutes(app: Express): void {
       return res.status(500).json({ error: "Stored report snapshot is invalid" });
     }
 
+    const evidence = Array.isArray(snapshot.evidence) ? snapshot.evidence as Array<Record<string, unknown>> : [];
+    const evidenceFor = (recordId: unknown) => evidence.find((item) => String(item.sourceRecordId) === String(recordId));
     const data: ProfessionalProgressPdfData = {
       ...(snapshot as ProfessionalProgressPdfData),
+      lifeSupport: Array.isArray(snapshot.lifeSupport) ? snapshot.lifeSupport.map((item: any) => ({ ...item, evidenceStrength: evidenceFor(item.enrollmentId)?.evidenceStrength as string | undefined, verificationMethod: evidenceFor(item.enrollmentId)?.verificationMethod as string | null | undefined, expiresAt: evidenceFor(item.enrollmentId)?.expiresAt as string | Date | null | undefined })) : [],
+      evidence: evidence.map((item) => ({ title: String(item.title), evidenceType: String(item.evidenceType), status: String(item.status), evidenceStrength: String(item.evidenceStrength), sourceSystem: String(item.sourceSystem), verificationMethod: item.verificationMethod as string | null | undefined, expiresAt: item.expiresAt as string | Date | null | undefined })),
       reportId: Number(row.report.id),
       verificationCode,
       verificationUrl: `${professionalProgressAppBase}/verify-progress/${verificationCode}`,
       snapshotHash: row.report.snapshotHash,
       generatedAt: row.report.generatedAt,
+      reportStatus: row.report.status,
+      publicExpiresAt: row.report.publicExpiresAt,
+      supersededByReportId: row.report.supersededByReportId,
       reportScope: row.report.reportScope,
       subject: {
         name: row.subject.name,
