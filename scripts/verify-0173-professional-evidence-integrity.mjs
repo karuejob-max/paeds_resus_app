@@ -70,7 +70,7 @@ try {
     ["enrollments", "aha_learning", "enrollments", "SELECT userId, CAST(id AS CHAR) AS sourceRecordId FROM enrollments WHERE programType IN ('bls','acls','pals','nrp')"],
     ["certificates", "certificates", "certificates", "SELECT userId, CAST(id AS CHAR) AS sourceRecordId FROM certificates"],
     ["microCourseEnrollments", "fellowship", "microCourseEnrollments", "SELECT userId, CAST(id AS CHAR) AS sourceRecordId FROM microCourseEnrollments"],
-    ["externalTrainingCompletions", "external_completion", "externalTrainingCompletions.phase2", "SELECT userId, CAST(id AS CHAR) AS sourceRecordId FROM externalTrainingCompletions"],
+    ["externalTrainingCompletions", "external_completion", "externalTrainingCompletions.phase2", "SELECT userId, CONCAT(CAST(id AS CHAR), ':phase2') AS sourceRecordId FROM externalTrainingCompletions"],
     ["ierpProgramEnrollments", "ierp", "ierpProgramEnrollments", "SELECT userId, CAST(id AS CHAR) AS sourceRecordId FROM ierpProgramEnrollments"],
     ["nerp_offer_enrollments", "nerp", "nerp_offer_enrollments", "SELECT user_id AS userId, CAST(id AS CHAR) AS sourceRecordId FROM nerp_offer_enrollments"],
     ["cpdAttendees", "cpd_portal", "cpdAttendees", "SELECT userId, CAST(id AS CHAR) AS sourceRecordId FROM cpdAttendees WHERE userId IS NOT NULL"],
