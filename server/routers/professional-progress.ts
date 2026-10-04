@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   cpdAttendees,
@@ -21,6 +21,8 @@ import {
   users,
   professionalEvidenceLedger,
   professionalCompetenceEvidence,
+  professionalAssessorAuthorities,
+  professionalPathwayCourseAttributions,
 } from "../../drizzle/schema";
 import {
   adminProcedure,
@@ -45,6 +47,12 @@ import {
 import { isInstitutionAdmin } from "../lib/institution-access";
 import {
   evidenceRowsFromSnapshot,
+  effectiveCompetenceStatus,
+  goalActualValue,
+  goalComputedStatus,
+  PROFESSIONAL_METRICS,
+  readinessBottleneck,
+  selectEvidenceForReport,
   nextBestProfessionalAction,
 } from "../lib/professional-evidence-ledger";
 import { publicVerificationSnapshot } from "../lib/professional-public-verification";
@@ -214,6 +222,23 @@ async function buildProgressSnapshot(
   const linkedEnrollmentIds = new Set<number>(
     nerpLinks.map((row: any) => Number(row.enrollmentId))
   );
+  const ierpAttributions = hasIerp
+    ? await db
+        .select()
+        .from(professionalPathwayCourseAttributions)
+        .where(
+          and(
+            eq(professionalPathwayCourseAttributions.pathwayType, "ierp"),
+            eq(
+              professionalPathwayCourseAttributions.pathwayEnrollmentId,
+              Number(ierpRows[0].id)
+            )
+          )
+        )
+    : [];
+  const ierpEnrollmentIds = new Set<number>(
+    ierpAttributions.map((row: any) => Number(row.courseEnrollmentId))
+  );
   const linkedAhaRows = linkedEnrollmentIds.size
     ? await db
         .select()
@@ -237,7 +262,9 @@ async function buildProgressSnapshot(
     // attribution for a course we cannot prove belongs to that pathway.
     source: nerpEnrollmentIds.has(Number(row.id))
       ? "NERP"
-      : "Individual / unlinked",
+      : ierpEnrollmentIds.has(Number(row.id))
+        ? "IERP"
+        : "Individual / unlinked",
     phase: phaseForEnrollment(row),
     percentage: progressForEnrollment(row),
     status: row.enrollmentStatus,
@@ -483,7 +510,10 @@ async function buildProgressSnapshot(
       })),
     },
     fellowship,
-    competenceEvidence: competenceRows,
+    competenceEvidence: competenceRows.map((row: any) => ({
+      ...row,
+      effectiveStatus: effectiveCompetenceStatus(row),
+    })),
     certificates: certRows
       .filter(
         (row: any) =>
@@ -507,7 +537,16 @@ async function buildProgressSnapshot(
       unlinkedAhaRecords: lifeSupport.filter(
         (item: any) => item.source === "Individual / unlinked"
       ).length,
+      ierpAttributedAhaRecords: lifeSupport.filter(
+        (item: any) => item.source === "IERP"
+      ).length,
     },
+    readinessBottleneck: readinessBottleneck({
+      lifeSupport,
+      pathways: pathwayRecords,
+      certificates: certRows,
+      competenceEvidence: competenceRows,
+    }),
     periodSemantics:
       input.reportScope === "activity"
         ? "Activity report: learning activity, verified attendance, and certificates issued between the selected dates. Current status is shown only in the clearly labelled contextual section and is not period activity."
@@ -535,7 +574,12 @@ export const professionalProgressRouter = router({
       return {
         schemaVersion: 1,
         generatedAt: new Date().toISOString(),
-        evidence: rows,
+        evidence: selectEvidenceForReport(
+          rows,
+          input.reportScope,
+          input.periodStart,
+          input.periodEnd
+        ),
         nextBestAction: nextBestProfessionalAction(snapshot),
         trustStatement:
           "Each item identifies its source system, evidence strength, and current status. Learning completion is not presented as observed clinical competence.",
@@ -560,6 +604,12 @@ export const professionalProgressRouter = router({
       return {
         success: true as const,
         synchronized: rows.length,
+        selected: selectEvidenceForReport(
+          rows,
+          input.reportScope,
+          input.periodStart,
+          input.periodEnd
+        ).length,
         generatedAt: new Date().toISOString(),
       };
     }),
@@ -667,6 +717,7 @@ export const professionalProgressRouter = router({
               .map((item: any) => item.title),
           },
           nextBestAction: nextBestProfessionalAction(snapshot),
+          readinessBottleneck: snapshot.readinessBottleneck,
           dataQuality: snapshot.lifeSupport
             .filter((item: any) => item.dataQuality?.level !== "linked")
             .map((item: any) => ({
@@ -843,6 +894,41 @@ export const professionalProgressRouter = router({
       .orderBy(desc(professionalCompetenceEvidence.assessmentDate));
   }),
 
+  grantAssessorAuthority: adminProcedure
+    .input(z.object({
+      assessorUserId: z.number().int().positive(),
+      competencyDomain: z.string().trim().min(2).max(128),
+      assessmentMethods: z.array(z.string().trim().min(2).max(64)).min(1).max(12),
+      expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const result = await db.insert(professionalAssessorAuthorities).values({
+        assessorUserId: input.assessorUserId,
+        competencyDomain: input.competencyDomain,
+        assessmentMethods: JSON.stringify(input.assessmentMethods),
+        approvedByUserId: ctx.user.id,
+        expiresAt: input.expiresAt ? new Date(`${input.expiresAt}T23:59:59.999Z`) : null,
+        status: "active",
+      });
+      return { success: true as const, authorityId: Number(result[0].insertId) };
+    }),
+
+  linkPathwayCourse: adminProcedure
+    .input(z.object({
+      pathwayType: z.enum(["ierp", "nerp"]),
+      pathwayEnrollmentId: z.number().int().positive(),
+      courseEnrollmentId: z.number().int().positive(),
+      attributionType: z.string().trim().min(2).max(32).default("pathway_component"),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await db.insert(professionalPathwayCourseAttributions).values({ ...input, createdByUserId: ctx.user.id });
+      return { success: true as const };
+    }),
+
   createObservedCompetenceEvidence: adminProcedure
     .input(
       z.object({
@@ -867,6 +953,32 @@ export const professionalProgressRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Database unavailable",
+        });
+      const authorityRows = await db
+        .select()
+        .from(professionalAssessorAuthorities)
+        .where(
+          and(
+            eq(professionalAssessorAuthorities.assessorUserId, ctx.user.id),
+            eq(professionalAssessorAuthorities.competencyDomain, input.competencyDomain),
+            eq(professionalAssessorAuthorities.status, "active"),
+            or(
+              sql`${professionalAssessorAuthorities.expiresAt} IS NULL`,
+              gt(professionalAssessorAuthorities.expiresAt, new Date())
+            )
+          )
+        )
+        .limit(1);
+      if (!authorityRows.length)
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "This assessor is not authorised for the selected competency domain.",
+        });
+      const allowedMethods = JSON.parse(authorityRows[0].assessmentMethods) as string[];
+      if (!allowedMethods.includes(input.assessmentMethod))
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "This assessor authority does not include the selected assessment method.",
         });
       const result = await db.insert(professionalCompetenceEvidence).values({
         ...input,
@@ -903,6 +1015,14 @@ export const professionalProgressRouter = router({
           assessmentType: input.assessmentType,
           result: input.result,
         }),
+        sourceFactJson: JSON.stringify({
+          result: input.result,
+          assessmentDate: input.assessmentDate,
+          validUntil: input.validUntil ?? null,
+          assessorUserId: ctx.user.id,
+        }),
+        interpretation: "effective_competence_status",
+        interpretationVersion: "0171-v1",
       });
       return { success: true as const, evidenceId: id };
     }),
@@ -914,22 +1034,34 @@ export const professionalProgressRouter = router({
         code: "INTERNAL_SERVER_ERROR",
         message: "Database unavailable",
       });
-    return db
+    const goals = await db
       .select()
       .from(professionalProgressGoals)
-      .where(
-        and(
-          eq(professionalProgressGoals.userId, ctx.user.id),
-          eq(professionalProgressGoals.status, "active")
-        )
-      )
+      .where(eq(professionalProgressGoals.userId, ctx.user.id))
       .orderBy(desc(professionalProgressGoals.periodStart));
+    const today = new Date().toISOString().slice(0, 10);
+    const snapshot = await buildProgressSnapshot(db, ctx.user.id, {
+      reportType: "custom",
+      reportScope: "current_status",
+      periodStart: today,
+      periodEnd: today,
+    });
+    return Promise.all(goals.map(async goal => {
+      if (!(PROFESSIONAL_METRICS as readonly string[]).includes(goal.metricKey)) return goal;
+      const actual = goalActualValue(goal.metricKey, snapshot);
+      if (actual == null) return goal;
+      const target = Number(goal.targetValue);
+      const progress = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
+      const computedStatus = goalComputedStatus(target, actual, String(goal.periodEnd).slice(0, 10));
+      await db.update(professionalProgressGoals).set({ actualValue: String(actual), progressValue: String(progress), computedStatus }).where(eq(professionalProgressGoals.id, goal.id));
+      return { ...goal, actualValue: String(actual), progressValue: String(progress), computedStatus };
+    }));
   }),
 
   createGoal: protectedProcedure
     .input(
       z.object({
-        metricKey: z.string().trim().min(2).max(64),
+        metricKey: z.enum(PROFESSIONAL_METRICS),
         title: z.string().trim().min(2).max(255),
         targetValue: z.number().positive(),
         unit: z.string().trim().min(1).max(32),
@@ -968,10 +1100,16 @@ export const professionalProgressRouter = router({
           message: "Database unavailable",
         });
       const snapshot = await buildProgressSnapshot(db, ctx.user.id, input);
-      (snapshot as any).evidence = await syncAndReadCanonicalEvidence(
+      const allEvidence = await syncAndReadCanonicalEvidence(
         db,
         ctx.user.id,
         snapshot
+      );
+      (snapshot as any).evidence = selectEvidenceForReport(
+        allEvidence,
+        input.reportScope,
+        input.periodStart,
+        input.periodEnd
       );
       const snapshotJson = JSON.stringify(snapshot);
       const snapshotHash = createHash("sha256")

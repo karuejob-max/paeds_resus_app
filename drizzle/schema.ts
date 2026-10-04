@@ -10154,6 +10154,9 @@ export const professionalProgressGoals = mysqlTable("professionalProgressGoals",
   periodStart: date("periodStart").notNull(),
   periodEnd: date("periodEnd").notNull(),
   status: mysqlEnum("status", ["active", "achieved", "archived"]).default("active").notNull(),
+  actualValue: decimal("actualValue", { precision: 10, scale: 2 }).default("0").notNull(),
+  progressValue: decimal("progressValue", { precision: 6, scale: 2 }).default("0").notNull(),
+  computedStatus: varchar("computedStatus", { length: 24 }).default("active").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => ({
@@ -10232,6 +10235,9 @@ export const professionalEvidenceLedger = mysqlTable("professionalEvidenceLedger
   supersedesEvidenceId: int("supersedesEvidenceId"),
   correctionCaseId: int("correctionCaseId"),
   metadataJson: text("metadataJson"),
+  sourceFactJson: text("sourceFactJson"),
+  interpretation: varchar("interpretation", { length: 64 }),
+  interpretationVersion: varchar("interpretationVersion", { length: 24 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => ({
@@ -10240,6 +10246,34 @@ export const professionalEvidenceLedger = mysqlTable("professionalEvidenceLedger
 }));
 export type ProfessionalEvidenceLedger = typeof professionalEvidenceLedger.$inferSelect;
 export type InsertProfessionalEvidenceLedger = typeof professionalEvidenceLedger.$inferInsert;
+
+/** Explicit authority grants for assessors; administrator status alone is insufficient. */
+export const professionalAssessorAuthorities = mysqlTable("professionalAssessorAuthorities", {
+  id: int("id").autoincrement().primaryKey(),
+  assessorUserId: int("assessorUserId").notNull(),
+  competencyDomain: varchar("competencyDomain", { length: 128 }).notNull(),
+  assessmentMethods: text("assessmentMethods").notNull(),
+  approvedByUserId: int("approvedByUserId").notNull(),
+  approvedAt: timestamp("approvedAt").defaultNow().notNull(),
+  expiresAt: timestamp("expiresAt"),
+  status: varchar("status", { length: 24 }).default("active").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => ({ assessorDomainIdx: index("professional_assessor_authority_idx").on(table.assessorUserId, table.competencyDomain, table.status) }));
+export type ProfessionalAssessorAuthority = typeof professionalAssessorAuthorities.$inferSelect;
+export type InsertProfessionalAssessorAuthority = typeof professionalAssessorAuthorities.$inferInsert;
+
+/** Proves which AHA course enrollment is a component of an IERP/NERP pathway. */
+export const professionalPathwayCourseAttributions = mysqlTable("professionalPathwayCourseAttributions", {
+  id: int("id").autoincrement().primaryKey(),
+  pathwayType: varchar("pathwayType", { length: 16 }).notNull(),
+  pathwayEnrollmentId: int("pathwayEnrollmentId").notNull(),
+  courseEnrollmentId: int("courseEnrollmentId").notNull(),
+  attributionType: varchar("attributionType", { length: 32 }).notNull().default("pathway_component"),
+  createdByUserId: int("createdByUserId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => ({ attributionUnique: uniqueIndex("professional_pathway_course_uq").on(table.pathwayType, table.pathwayEnrollmentId, table.courseEnrollmentId), courseIdx: index("professional_pathway_course_course_idx").on(table.courseEnrollmentId) }));
+export type ProfessionalPathwayCourseAttribution = typeof professionalPathwayCourseAttributions.$inferSelect;
+export type InsertProfessionalPathwayCourseAttribution = typeof professionalPathwayCourseAttributions.$inferInsert;
 
 /** Authorised observed-competence assessments; never inferred from learning percentages. */
 export const professionalCompetenceEvidence = mysqlTable("professionalCompetenceEvidence", {

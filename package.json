@@ -256,7 +256,9 @@
     "test:iers-verifier": "node --test scripts/verify-iers-readiness.test.mjs",
     "db:apply-iers": "node scripts/apply-iers-migrations.mjs",
     "verify:raw-narrative-immutable": "tsx -r dotenv/config scripts/verify-0061-raw-narrative-immutable.mjs",
-    "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs"
+    "db:seed-kenya-hospitals": "node scripts/seed-known-kenya-hospitals.mjs",
+    "db:apply-0171": "node scripts/apply-0171-professional-evidence-governance.mjs",
+    "db:verify-0171": "node scripts/verify-0171-professional-evidence-governance.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
