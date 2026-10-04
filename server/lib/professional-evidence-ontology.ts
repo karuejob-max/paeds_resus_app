@@ -51,8 +51,9 @@ export function validityRule(row: { evidenceType?: string | null; expiresAt?: st
   return "not_applicable";
 }
 
-export function conflictKey(row: { userId: number; programme?: string | null; competencyDomain?: string | null; evidenceType: string }) {
-  return `${row.userId}:${row.evidenceType}:${row.programme ?? row.competencyDomain ?? "unspecified"}`.toLowerCase();
+export function conflictKey(row: { userId: number; programme?: string | null; competencyDomain?: string | null; evidenceType: string; evidenceInstanceKey?: string | null }) {
+  const subject = `${row.userId}:${row.evidenceType}:${row.programme ?? row.competencyDomain ?? "unspecified"}`;
+  return `${subject}${row.evidenceInstanceKey ? `:instance:${row.evidenceInstanceKey}` : ""}`.toLowerCase();
 }
 
 export function classifyConflict(rows: Array<{ status?: string | null; expiresAt?: string | Date | null; sourceSystem?: string | null; evidenceStrength?: string | null; verificationMethod?: string | null }>) {

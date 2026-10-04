@@ -18,6 +18,10 @@ async function scalar(query, params = []) {
   const [rows] = await db.query(query, params);
   return Number(rows[0]?.count ?? 0);
 }
+async function resultRows(query, params = []) {
+  const [rows] = await db.query(query, params);
+  return rows;
+}
 function requireAll(actual, expected, label) {
   const names = actual instanceof Set ? actual : new Set(actual.map(row => row.Key_name));
   for (const name of expected) if (!names.has(name)) throw new Error(`[0173-verify] FAIL: ${label} missing ${name}`);
@@ -63,19 +67,26 @@ try {
   console.log("[0173-verify] PASS: existing ledger rows have provenance and one canonical source key.");
 
   const adapters = [
-    ["enrollments", "aha_learning", "enrollments", "programType IN ('bls','acls','pals','nrp')"],
-    ["certificates", "certificates", "certificates", "1=1"],
-    ["microCourseEnrollments", "fellowship", "microCourseEnrollments", "1=1"],
-    ["externalTrainingCompletions", "external_completion", "externalTrainingCompletions.phase2", "1=1"],
-    ["ierpProgramEnrollments", "ierp", "ierpProgramEnrollments", "1=1"],
-    ["nerp_offer_enrollments", "nerp", "nerp_offer_enrollments", "1=1"],
-    ["cpdAttendees", "cpd_portal", "cpdAttendees", "userId IS NOT NULL"],
+    ["enrollments", "aha_learning", "enrollments", "SELECT userId, CAST(id AS CHAR) AS sourceRecordId FROM enrollments WHERE programType IN ('bls','acls','pals','nrp')"],
+    ["certificates", "certificates", "certificates", "SELECT userId, CAST(id AS CHAR) AS sourceRecordId FROM certificates"],
+    ["microCourseEnrollments", "fellowship", "microCourseEnrollments", "SELECT userId, CAST(id AS CHAR) AS sourceRecordId FROM microCourseEnrollments"],
+    ["externalTrainingCompletions", "external_completion", "externalTrainingCompletions.phase2", "SELECT userId, CAST(id AS CHAR) AS sourceRecordId FROM externalTrainingCompletions"],
+    ["ierpProgramEnrollments", "ierp", "ierpProgramEnrollments", "SELECT userId, CAST(id AS CHAR) AS sourceRecordId FROM ierpProgramEnrollments"],
+    ["nerp_offer_enrollments", "nerp", "nerp_offer_enrollments", "SELECT user_id AS userId, CAST(id AS CHAR) AS sourceRecordId FROM nerp_offer_enrollments"],
+    ["cpdAttendees", "cpd_portal", "cpdAttendees", "SELECT userId, CAST(id AS CHAR) AS sourceRecordId FROM cpdAttendees WHERE userId IS NOT NULL"],
   ];
-  for (const [table, system, type, predicate] of adapters) {
-    const sourceCount = await scalar(`SELECT COUNT(*) AS count FROM \`${table}\` WHERE ${predicate}`);
-    const ledgerCount = await scalar("SELECT COUNT(*) AS count FROM professionalEvidenceLedger WHERE sourceSystem = ? AND sourceRecordType = ?", [system, type]);
-    if (ledgerCount < sourceCount) throw new Error(`[0173-verify] FAIL: adapter ${table} source=${sourceCount} ledger=${ledgerCount}`);
-    console.log(`[0173-verify] PASS: ${table} source=${sourceCount} ledger=${ledgerCount}`);
+  for (const [table, system, type, sourceQuery] of adapters) {
+    const sourceRows = await resultRows(sourceQuery);
+    const ledgerRows = await resultRows("SELECT userId, sourceRecordId FROM professionalEvidenceLedger WHERE sourceSystem = ? AND sourceRecordType = ?", [system, type]);
+    const sourceCounts = new Map();
+    const ledgerCounts = new Map();
+    for (const row of sourceRows) { const key = `${row.userId}:${String(row.sourceRecordId)}`; sourceCounts.set(key, (sourceCounts.get(key) ?? 0) + 1); }
+    for (const row of ledgerRows) { const key = `${row.userId}:${String(row.sourceRecordId)}`; ledgerCounts.set(key, (ledgerCounts.get(key) ?? 0) + 1); }
+    const missing = [...sourceCounts.keys()].filter(key => !ledgerCounts.has(key));
+    const extra = [...ledgerCounts.keys()].filter(key => !sourceCounts.has(key));
+    const duplicates = [...sourceCounts.values(), ...ledgerCounts.values()].filter(count => count !== 1).length;
+    if (missing.length || extra.length || duplicates) throw new Error(`[0173-verify] FAIL: adapter ${table} missing=${missing.length} extra=${extra.length} non_singleton=${duplicates}`);
+    console.log(`[0173-verify] PASS: ${table} identities=${sourceRows.length} exact canonical matches=${ledgerRows.length}`);
   }
   const conflictCount = await scalar("SELECT COUNT(*) AS count FROM professionalEvidenceConflicts");
   const runCount = await scalar("SELECT COUNT(*) AS count FROM professionalEvidenceReconciliationRuns");

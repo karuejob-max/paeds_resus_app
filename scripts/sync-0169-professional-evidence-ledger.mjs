@@ -27,7 +27,7 @@ try {
     SELECT c.userId, CONCAT('user:', c.userId, ':certificate:', c.id), 'credential',
       CONCAT(UPPER(c.programType), ' certificate'), c.programType, 'certificates', 'certificates', CAST(c.id AS CHAR), 'issued', 'credential',
       CASE WHEN c.verificationCode IS NULL THEN NULL ELSE 'platform_verification' END,
-      c.issueDate, c.issueDate, c.expiryDate, c.verificationCode, 'shareable', JSON_OBJECT('certificateNumber', c.certificateNumber), JSON_OBJECT('issueDate', c.issueDate, 'expiryDate', c.expiryDate, 'verificationCodePresent', c.verificationCode IS NOT NULL), 'credential_issued', '0173-v1'
+      c.issueDate, c.issueDate, c.expiryDate, c.verificationCode, 'shareable', JSON_OBJECT('certificateNumber', c.certificateNumber), JSON_OBJECT('certificateNumber', c.certificateNumber, 'issueDate', c.issueDate, 'expiryDate', c.expiryDate, 'verificationCodePresent', c.verificationCode IS NOT NULL), 'credential_issued', '0173-v1'
     FROM certificates c
     ON DUPLICATE KEY UPDATE status = VALUES(status), issuedAt = VALUES(issuedAt), expiresAt = VALUES(expiresAt), evidenceReference = VALUES(evidenceReference), metadataJson = VALUES(metadataJson), sourceFactJson = VALUES(sourceFactJson), interpretation = VALUES(interpretation), interpretationVersion = VALUES(interpretationVersion), updatedAt = CURRENT_TIMESTAMP
   `);

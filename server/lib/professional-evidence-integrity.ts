@@ -1,5 +1,39 @@
 import { conflictKey, classifyConflict, enrichEvidenceOntology } from "./professional-evidence-ontology";
 
+function sourceFacts(row: { sourceFactJson?: unknown; metadataJson?: unknown }) {
+  const value = row.sourceFactJson ?? row.metadataJson;
+  if (!value) return {} as Record<string, any>;
+  if (typeof value === "object") return value as Record<string, any>;
+  try { return JSON.parse(String(value)) as Record<string, any>; } catch { return {}; }
+}
+
+export function evidenceInstanceKey(row: {
+  evidenceType: string;
+  sourceSystem?: string | null;
+  sourceRecordType?: string | null;
+  sourceRecordId?: string | number | null;
+  programme?: string | null;
+  competencyDomain?: string | null;
+  evidenceInstanceKey?: string | null;
+  credentialNumber?: string | null;
+  issueDate?: string | Date | null;
+  issuedAt?: string | Date | null;
+  assessmentDate?: string | Date | null;
+  sourceFactJson?: unknown;
+  metadataJson?: unknown;
+}) {
+  if (row.evidenceInstanceKey) return String(row.evidenceInstanceKey);
+  const facts = sourceFacts(row);
+  const explicit = row.credentialNumber ?? facts.credentialNumber ?? facts.recordKey ?? null;
+  if (explicit) return `credential:${String(explicit)}`;
+  const date = row.issueDate ?? row.issuedAt ?? row.assessmentDate ?? facts.issueDate ?? facts.assessmentDate ?? null;
+  if (date) return `issued:${new Date(date).toISOString().slice(0, 10)}`;
+  if (row.evidenceType === "cpd" || row.sourceRecordType?.toLowerCase().includes("cpd")) {
+    return `source:${row.sourceSystem ?? "unknown"}:${String(row.sourceRecordType ?? "unknown")}:${String(row.sourceRecordId ?? "unknown")}`;
+  }
+  return null;
+}
+
 export type EvidenceIdentity = {
   sourceRecordId: string | number;
   userId: number;
@@ -128,10 +162,19 @@ export function detectConflicts(rows: Array<{
   sourceSystem?: string | null;
   evidenceStrength?: string | null;
   verificationMethod?: string | null;
+  evidenceInstanceKey?: string | null;
+  sourceRecordId?: string | number | null;
+  sourceRecordType?: string | null;
+  credentialNumber?: string | null;
+  issueDate?: string | Date | null;
+  issuedAt?: string | Date | null;
+  assessmentDate?: string | Date | null;
+  sourceFactJson?: unknown;
+  metadataJson?: unknown;
 }>) {
   const grouped = new Map<string, typeof rows>();
   for (const row of rows) {
-    const key = conflictKey(row);
+    const key = conflictKey({ ...row, evidenceInstanceKey: evidenceInstanceKey(row) });
     const bucket = grouped.get(key) ?? [];
     bucket.push(row);
     grouped.set(key, bucket);

@@ -97,9 +97,10 @@ Evidence strength is controlled by ontology version `0173-v1`. It is not a free-
 - Covered adapters project AHA enrollments, certificates, Fellowship micro-courses, external completions, IERP enrollments, NERP enrollments, and linked CPD attendance.
 - Each covered source identity is checked in both directions: missing ledger rows, duplicate source rows, duplicate canonical rows, wrong source system/type, and wrong user ownership are review failures.
 - Cross-source rows are compared by owner, evidence type, programme/domain, status, and validity date. Material disagreement creates an explicit conflict; authority ranking never silently resolves it.
+- Conflict comparison is scoped to the same evidence subject **and evidence instance**. Credential numbers, source record keys, issue dates, assessment dates, and CPD source identities separate legitimate renewals or repeated attendance from contradictory assertions.
 - CPD attendees without a stable account link remain explicitly unresolved and are not counted as canonical professional evidence.
 - `getProfessionalTruthAudit` is read-only. An administrator must explicitly invoke `persistProfessionalTruthAudit` to write conflicts and a reconciliation-run snapshot.
-- `db:verify-0173` checks required columns, indexes, provenance completeness, canonical-key uniqueness, adapter source-versus-ledger coverage, and read-only operation.
+- `db:verify-0173` checks required columns, index semantics, provenance completeness, canonical-key uniqueness, exact source-identity-to-ledger-identity reconciliation for every covered adapter, and read-only operation.
 
 All interpretation metadata uses the authoritative ontology version `0173-v1`. Migration numbers identify schema rollout; they are not independently valid ontology versions.
 
