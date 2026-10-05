@@ -4,6 +4,7 @@ export type EvidenceType = (typeof EVIDENCE_TYPES)[number];
 
 export const EVIDENCE_STRENGTH = [
   "self_reported",
+  "developing",
   "recorded",
   "verified_attendance",
   "verified_external",
@@ -47,6 +48,7 @@ export function validateProfessionalEvidenceRow(row: {
 
 const STRENGTH_RANK: Record<string, number> = {
   self_reported: 10,
+  developing: 15,
   recorded: 20,
   verified_attendance: 30,
   verified_external: 40,
