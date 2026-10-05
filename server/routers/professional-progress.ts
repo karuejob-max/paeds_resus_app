@@ -1076,6 +1076,7 @@ export const professionalProgressRouter = router({
         sourceSystem: "competence_assessment",
         sourceRecordType: "professionalCompetenceEvidence",
         sourceRecordId: String(id),
+        evidenceInstanceKey: `competence:assessment:${id}`,
         status: input.result === "competent" ? "competent" : "support_required",
         evidenceStrength: "assessed",
         verificationMethod: input.assessmentMethod,

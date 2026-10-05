@@ -10274,6 +10274,7 @@ export const professionalEvidenceLedger = mysqlTable("professionalEvidenceLedger
   sourceSystem: varchar("sourceSystem", { length: 64 }).notNull(),
   sourceRecordType: varchar("sourceRecordType", { length: 96 }).notNull(),
   sourceRecordId: varchar("sourceRecordId", { length: 96 }).notNull(),
+  evidenceInstanceKey: varchar("evidenceInstanceKey", { length: 192 }).notNull(),
   status: varchar("status", { length: 32 }).notNull(),
   evidenceStrength: varchar("evidenceStrength", { length: 32 }).notNull().default("recorded"),
   verificationMethod: varchar("verificationMethod", { length: 64 }),
@@ -10296,6 +10297,7 @@ export const professionalEvidenceLedger = mysqlTable("professionalEvidenceLedger
 }, table => ({
   userStatusIdx: index("professional_evidence_ledger_user_status_idx").on(table.userId, table.status),
   userTypeIdx: index("professional_evidence_ledger_user_type_idx").on(table.userId, table.evidenceType),
+  userInstanceIdx: index("professional_evidence_ledger_user_instance_idx").on(table.userId, table.evidenceType, table.evidenceInstanceKey),
 }));
 export type ProfessionalEvidenceLedger = typeof professionalEvidenceLedger.$inferSelect;
 export type InsertProfessionalEvidenceLedger = typeof professionalEvidenceLedger.$inferInsert;

@@ -32,6 +32,7 @@ Every ledger row identifies:
 - the owner;
 - the source system and source table;
 - the source record ID and user-scoped idempotency key;
+- a persisted evidence-instance key that distinguishes two enrolments, renewals, attendances, or assessments;
 - evidence type and strength;
 - verification method and actor where applicable;
 - completion, issue, and expiry dates;
@@ -42,6 +43,8 @@ Every ledger row identifies:
 Evidence is private by default. Shareable evidence is limited to the minimum required record. Public verification must not expose email, payment, private reflections, or unrelated learning history.
 
 The public verifier uses an explicit allowlist projection. It never returns the signed internal snapshot.
+
+The **professional report** is a user-approved, potentially comprehensive evidence record. The **public verifier** is a minimum-necessary proof surface and must not become a disguised portfolio endpoint.
 
 ## Reports and corrections
 
@@ -98,12 +101,16 @@ Evidence strength is controlled by ontology version `0173-v1`. It is not a free-
 - Each covered source identity is checked in both directions: missing ledger rows, duplicate source rows, duplicate canonical rows, wrong source system/type, and wrong user ownership are review failures.
 - Cross-source rows are compared by owner, evidence type, programme/domain, status, and validity date. Material disagreement creates an explicit conflict; authority ranking never silently resolves it.
 - Conflict comparison is scoped to the same evidence subject **and evidence instance**. Credential numbers, source record keys, issue dates, assessment dates, and CPD source identities separate legitimate renewals or repeated attendance from contradictory assertions.
+- `evidenceInstanceKey` is persisted on every canonical ledger row. Source identity, evidence instance, and professional claim remain separate concepts: the source row is immutable provenance; the instance is what that row represents; the current claim is a read-time interpretation.
 - CPD attendees without a stable account link remain explicitly unresolved and are not counted as canonical professional evidence.
 - `getProfessionalTruthAudit` is read-only. An administrator must explicitly invoke `persistProfessionalTruthAudit` to write conflicts and a reconciliation-run snapshot.
 - `db:verify-0173` checks required columns, index semantics, provenance completeness, canonical-key uniqueness, exact source-identity-to-ledger-identity reconciliation for every covered adapter, and read-only operation.
+- `db:apply-0175` adds and backfills persisted evidence-instance identity and an indexed owner/type/instance lookup. `db:verify-0175` rejects incomplete provenance and unknown ontology values.
 
 All interpretation metadata uses the authoritative ontology version `0173-v1`. Migration numbers identify schema rollout; they are not independently valid ontology versions.
 
-Migration: `pnpm run db:apply-0173` then `pnpm run db:verify-0173`.
+Migration: `pnpm run db:apply-0173`, `pnpm run db:verify-0173`, `pnpm run db:apply-0175`, then `pnpm run db:verify-0175`.
 
 The 0169 sync now also backfills source facts and interpretation metadata. Re-run `pnpm run db:sync-0169` after 0173 so existing ledger rows can be audited for provenance completeness.
+
+Production closure requires the idempotent 0169 sync, exact 0173 source reconciliation, 0175 instance/provenance verification, and an explicitly persisted Professional Truth Audit run. The read-only verifier does not create audit history; persistence is a deliberate administrator action.
