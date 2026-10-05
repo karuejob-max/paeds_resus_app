@@ -70,9 +70,15 @@ pnpm run db:apply-0170
 pnpm run db:verify-0170
 pnpm run db:apply-0171
 pnpm run db:verify-0171
+pnpm run db:apply-0172
+pnpm run db:verify-0172
+pnpm run db:apply-0173
+pnpm run db:verify-0173
+pnpm run db:apply-0175
+pnpm run db:verify-0175
 ```
 
-Run them in that order on production after the code merge. The verifiers are read-only; the sync only writes the ledger projection.
+Run them in that order on production after the code merge. Migration 0172 is the institutional trust-closure migration; migration 0173 is the professional evidence-integrity migration. The verifiers are read-only; the sync only writes the ledger projection.
 
 ## Governance closure (0171)
 
@@ -114,3 +120,21 @@ Migration: `pnpm run db:apply-0173`, `pnpm run db:verify-0173`, `pnpm run db:app
 The 0169 sync now also backfills source facts and interpretation metadata. Re-run `pnpm run db:sync-0169` after 0173 so existing ledger rows can be audited for provenance completeness.
 
 Production closure requires the idempotent 0169 sync, exact 0173 source reconciliation, 0175 instance/provenance verification, and an explicitly persisted Professional Truth Audit run. The read-only verifier does not create audit history; persistence is a deliberate administrator action.
+
+### Verified production audit — 2026-10-05
+
+The first production Truth Audit was explicitly persisted under run key `truth-audit:2026-10-05:68389`.
+
+- AHA enrollments: 217/217 reconciled
+- Certificates: 220/220 reconciled
+- Fellowship micro-courses: 145/145 reconciled
+- External completions: 17/17 reconciled
+- IERP enrollments: 5/5 reconciled
+- NERP enrollments: 5/5 reconciled
+- Linked CPD attendees: 147/147 reconciled
+- Evidence conflicts: 0
+- Ownership failures: 0
+- Missing provenance: 0
+- Open conflicts: 0
+
+The audit status is `review_required` because 369 historical CPD attendance rows have no stable account link. They remain explicitly **not projected** rather than being guessed into individual records. This is an explained identity-resolution queue, not a silent integrity failure.

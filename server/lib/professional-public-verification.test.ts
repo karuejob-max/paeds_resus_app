@@ -11,11 +11,19 @@ describe("public professional report verification", () => {
       certificates: [{ programType: "BLS", certificateNumber: "PRIVATE-CERT", verificationCode: "PUBLIC-CODE", verificationStatus: "verified" }],
       cpd: { verifiedSessions: 2, points: 4 },
       privateNarrative: "must not leak",
+      sourceFactJson: "{\"internal\":true}",
+      snapshotHash: "private-hash",
+      internalReportId: 99,
+      assessorEmail: "assessor@example.com",
     });
     expect(result.subject).toEqual({ name: "Job Karue", cadre: "PICU Nurse" });
     expect(result.subject).not.toHaveProperty("email");
     expect(result.lifeSupport[0]).not.toHaveProperty("percentage");
     expect(result.certificates[0]).not.toHaveProperty("certificateNumber");
     expect(result).not.toHaveProperty("privateNarrative");
+    expect(result).not.toHaveProperty("sourceFactJson");
+    expect(result).not.toHaveProperty("snapshotHash");
+    expect(result).not.toHaveProperty("internalReportId");
+    expect(result).not.toHaveProperty("assessorEmail");
   });
 });

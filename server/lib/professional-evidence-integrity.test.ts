@@ -86,6 +86,14 @@ describe("Professional Truth invariants", () => {
     expect(evidenceInstanceKey(rows[0])).toBe("credential:ACLS-2026-001");
     expect(detectConflicts(rows)).toHaveLength(1);
   });
+  it("allows matching cross-source assertions for one credential instance", () => {
+    const rows = [
+      { userId: 3, evidenceType: "credential", programme: "ACLS", status: "issued", issueDate: "2026-01-01", expiresAt: "2027-01-01", credentialNumber: "ACLS-2026-001", sourceSystem: "certificates", sourceRecordId: 1 },
+      { userId: 3, evidenceType: "credential", programme: "ACLS", status: "issued", issueDate: "2026-01-01", expiresAt: "2027-01-01", credentialNumber: "ACLS-2026-001", sourceSystem: "external_completion", sourceRecordId: 2 },
+    ];
+    expect(evidenceInstanceKey(rows[0])).toBe(evidenceInstanceKey(rows[1]));
+    expect(detectConflicts(rows)).toHaveLength(0);
+  });
   it("rejects unknown ontology and incomplete provenance values", () => {
     expect(validateProfessionalEvidenceRow({ userId: 3, sourceKey: "x", sourceSystem: "aha_learning", sourceRecordType: "enrollments", sourceRecordId: "1", evidenceInstanceKey: "aha:enrollment:1", evidenceType: "whatever", evidenceStrength: "super_verified", visibility: "public", interpretation: "x", interpretationVersion: "0171-v1", sourceFactJson: "{}", verificationMethod: "magic" })).toEqual(expect.arrayContaining(["evidenceType:value", "evidenceStrength:value", "visibility:value", "verificationMethod:value", "interpretationVersion:value"]));
   });
