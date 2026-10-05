@@ -6788,6 +6788,8 @@ export const simulationWorldSessions = mysqlTable("simulationWorldSessions", {
   startedAt: timestamp("startedAt").defaultNow().notNull(),
   lastReceiptAt: timestamp("lastReceiptAt"),
   completedAt: timestamp("completedAt"),
+  authorityState: mysqlEnum("authorityState", ["connected", "degraded", "offline", "recovering", "invalidated"]).default("connected").notNull(),
+  authoritativeStateJson: json("authoritativeStateJson"),
 });
 
 export const simulationWorldCommandReceipts = mysqlTable("simulationWorldCommandReceipts", {
@@ -6799,6 +6801,8 @@ export const simulationWorldCommandReceipts = mysqlTable("simulationWorldCommand
   receivedAt: timestamp("receivedAt").defaultNow().notNull(),
   serverElapsedMs: int("serverElapsedMs").notNull(),
   receiptHash: varchar("receiptHash", { length: 32 }).notNull(),
+  canonicalEventsJson: json("canonicalEventsJson"),
+  authoritativeStateJson: json("authoritativeStateJson"),
 }, (table) => ({
   sessionSequence: uniqueIndex("simulationWorldCommandReceipts_session_sequence").on(table.sessionId, table.sequence),
   sessionLookup: index("simulationWorldCommandReceipts_session_lookup").on(table.sessionId),
