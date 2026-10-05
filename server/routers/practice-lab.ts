@@ -22,7 +22,7 @@ import {
   WEAK_DOMAIN_TO_TRACK,
   type PracticeLabTrackId,
 } from "../../shared/practice-lab-types";
-import { replaySimulationWorldAttempt, SIMULATION_WORLD_ROLES, SIMULATION_WORLD_SCENARIOS, type SimulationWorldEvent, type SimulationWorldRole, type SimulationWorldScenarioId } from "../../shared/simulation-world";
+import { advanceSimulationWorld, createSimulationWorld, isSimulationWorldCommandAllowed, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_WORLD_ROLES, SIMULATION_WORLD_SCENARIOS, type SimulationWorldEvent, type SimulationWorldRole, type SimulationWorldScenarioId, type SimulationWorldState, type SimulationWorldCommand } from "../../shared/simulation-world";
 
 const AHA_PROGRAM_TYPES = ["bls", "acls", "pals", "heartsaver", "nrp"] as const;
 
@@ -85,8 +85,9 @@ export const practiceLabRouter = router({
         .from(enrollments).where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id))).limit(1);
       if (!enrollment || enrollment.programType !== input.programType) throw new TRPCError({ code: "FORBIDDEN", message: "Enrollment not found for this simulation" });
       const sessionNonce = randomBytes(32).toString("hex");
-      const [created] = await db.insert(simulationWorldSessions).values({ ...input, userId: ctx.user.id, sessionNonce }).$returningId();
-      return { sessionId: created.id, sessionNonce };
+      const authoritativeState = createSimulationWorld(input.scenarioId, input.role);
+      const [created] = await db.insert(simulationWorldSessions).values({ ...input, userId: ctx.user.id, sessionNonce, authorityState: "connected", authoritativeStateJson: authoritativeState }).$returningId();
+      return { sessionId: created.id, sessionNonce, authorityState: "connected" as const, authoritativeState };
     }),
 
   receiveSimulationWorldCommand: protectedProcedure
@@ -102,10 +103,16 @@ export const practiceLabRouter = router({
       const [previous] = await db.select({ sequence: simulationWorldCommandReceipts.sequence }).from(simulationWorldCommandReceipts).where(eq(simulationWorldCommandReceipts.sessionId, session.id)).orderBy(desc(simulationWorldCommandReceipts.sequence)).limit(1);
       const expectedSequence = previous ? previous.sequence + 1 : 0;
       if (input.sequence !== expectedSequence) throw new TRPCError({ code: "CONFLICT", message: `Expected command sequence ${expectedSequence}` });
-      const receiptHash = createHash("sha256").update(`${session.sessionNonce}|${input.sequence}|${input.commandType}|${JSON.stringify(input.commandJson)}|${elapsedMs}`).digest("hex").slice(0, 32);
-      await db.insert(simulationWorldCommandReceipts).values({ sessionId: session.id, sequence: input.sequence, commandType: input.commandType, commandJson: input.commandJson, serverElapsedMs: elapsedMs, receiptHash });
-      await db.update(simulationWorldSessions).set({ lastReceiptAt: new Date() }).where(eq(simulationWorldSessions.id, session.id));
-      return { accepted: true, sequence: input.sequence, serverElapsedMs: elapsedMs, receiptHash };
+      const stored = (session.authoritativeStateJson ?? createSimulationWorld(session.scenarioId as SimulationWorldScenarioId, session.role as SimulationWorldRole)) as unknown as SimulationWorldState;
+      const command = input.commandJson as unknown as SimulationWorldCommand;
+      if (command.type !== input.commandType || !isSimulationWorldCommandAllowed(session.role as SimulationWorldRole, command)) throw new TRPCError({ code: "BAD_REQUEST", message: "Command is not permitted for this simulation role" });
+      const advanced = advanceSimulationWorld(stored, Math.max(0, elapsedMs / 1000 - stored.elapsedSeconds));
+      const nextState = reduceSimulationWorld(advanced, command);
+      const canonicalEvents = nextState.events.slice(stored.events.length);
+      const receiptHash = createHash("sha256").update(`${session.sessionNonce}|${input.sequence}|${input.commandType}|${JSON.stringify(input.commandJson)}|${elapsedMs}|${JSON.stringify(canonicalEvents)}`).digest("hex").slice(0, 32);
+      await db.insert(simulationWorldCommandReceipts).values({ sessionId: session.id, sequence: input.sequence, commandType: input.commandType, commandJson: input.commandJson, serverElapsedMs: elapsedMs, receiptHash, canonicalEventsJson: canonicalEvents, authoritativeStateJson: nextState });
+      await db.update(simulationWorldSessions).set({ lastReceiptAt: new Date(), authoritativeStateJson: nextState, authorityState: "connected" }).where(eq(simulationWorldSessions.id, session.id));
+      return { accepted: true, sequence: input.sequence, serverElapsedMs: elapsedMs, receiptHash, authorityState: "connected" as const, authoritativeState: nextState };
     }),
 
   recordAttempt: protectedProcedure
@@ -154,25 +161,28 @@ export const practiceLabRouter = router({
       }
 
       let session: typeof simulationWorldSessions.$inferSelect | undefined;
+      let authoritativeEventLog = input.eventLog as SimulationWorldEvent[];
       if (input.trackId === "simulation_world") {
         if (!input.sessionId || !input.sessionNonce) throw new TRPCError({ code: "BAD_REQUEST", message: "Simulation session is required" });
         [session] = await db.select().from(simulationWorldSessions).where(and(eq(simulationWorldSessions.id, input.sessionId), eq(simulationWorldSessions.userId, ctx.user.id), eq(simulationWorldSessions.enrollmentId, input.enrollmentId), eq(simulationWorldSessions.sessionNonce, input.sessionNonce), eq(simulationWorldSessions.status, "active"))).limit(1);
         if (!session || session.scenarioId !== input.scenarioId || session.programType !== input.programType) throw new TRPCError({ code: "BAD_REQUEST", message: "Simulation session does not match attempt" });
-        const receipts = await db.select({ sequence: simulationWorldCommandReceipts.sequence }).from(simulationWorldCommandReceipts).where(eq(simulationWorldCommandReceipts.sessionId, session.id)).orderBy(simulationWorldCommandReceipts.sequence);
+        const receipts = await db.select({ sequence: simulationWorldCommandReceipts.sequence, canonicalEventsJson: simulationWorldCommandReceipts.canonicalEventsJson }).from(simulationWorldCommandReceipts).where(eq(simulationWorldCommandReceipts.sessionId, session.id)).orderBy(simulationWorldCommandReceipts.sequence);
         const commandEvents = input.eventLog.filter((item) => item.type === "command");
         if (receipts.length !== commandEvents.length || receipts.some((receipt, index) => receipt.sequence !== index)) throw new TRPCError({ code: "BAD_REQUEST", message: "Simulation evidence is missing server command receipts" });
+        const canonicalEvents = receipts.flatMap((receipt) => Array.isArray(receipt.canonicalEventsJson) ? receipt.canonicalEventsJson as SimulationWorldEvent[] : []);
+        authoritativeEventLog = [{ timestamp: 0, type: "simulation_world_meta", description: JSON.stringify({ role: session.role, scenarioId: session.scenarioId, engineVersion: session.engineVersion, scenarioVersion: session.scenarioVersion, assessmentVersion: session.assessmentVersion }) }, ...canonicalEvents];
       }
 
       let authoritativeScore = input.score;
       let authoritativePassed = input.passed;
       if (input.trackId === "simulation_world") {
-        const metaEvent = input.eventLog.find((item) => item.type === "simulation_world_meta");
+        const metaEvent = authoritativeEventLog.find((item) => item.type === "simulation_world_meta");
         let role: SimulationWorldRole | undefined;
         try { role = metaEvent?.description ? JSON.parse(metaEvent.description).role as SimulationWorldRole : undefined; } catch { role = undefined; }
         const replay = replaySimulationWorldAttempt({
           scenarioId: input.scenarioId as SimulationWorldScenarioId,
           role: role as SimulationWorldRole,
-          eventLog: input.eventLog as SimulationWorldEvent[],
+          eventLog: authoritativeEventLog,
         });
         if (!replay.valid || !replay.assessment) {
           throw new TRPCError({ code: "BAD_REQUEST", message: `Simulation replay rejected: ${replay.reason ?? "invalid evidence"}` });
@@ -189,7 +199,7 @@ export const practiceLabRouter = router({
         scenarioId: input.scenarioId,
         score: isFormativePracticeLabTrack(input.trackId) ? 0 : authoritativeScore,
         passed: isFormativePracticeLabTrack(input.trackId) ? false : authoritativePassed,
-        eventLog: input.eventLog,
+        eventLog: authoritativeEventLog,
         isBooster: input.isBooster ?? false,
         durationSeconds: input.durationSeconds ?? null,
       }).$returningId();
@@ -201,7 +211,7 @@ export const practiceLabRouter = router({
           role: session.role,
           scenarioId: session.scenarioId,
           evidenceStatus: "review_required",
-          assessmentJson: replaySimulationWorldAttempt({ scenarioId: session.scenarioId as SimulationWorldScenarioId, role: session.role as SimulationWorldRole, eventLog: input.eventLog as SimulationWorldEvent[] }).assessment ?? null,
+          assessmentJson: replaySimulationWorldAttempt({ scenarioId: session.scenarioId as SimulationWorldScenarioId, role: session.role as SimulationWorldRole, eventLog: authoritativeEventLog }).assessment ?? null,
         });
         await db.update(simulationWorldSessions).set({ status: "completed", completedAt: new Date() }).where(eq(simulationWorldSessions.id, session.id));
       }

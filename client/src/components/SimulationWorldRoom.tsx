@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Activity, AlertTriangle, CheckCircle2, Clock3, Mic, Radio, Users } from "lucide-react";
 import {
-  advanceSimulationWorld, calculateSimulationWorldAssessment, createSimulationWorld, getSimulationWorldRoleLabel,
-  isSimulationWorldCommandAllowed, parseSimulationWorldCommand, reduceSimulationWorld, SIMULATION_ASSESSMENT_VERSION,
+  calculateSimulationWorldAssessment, createSimulationWorld, getSimulationWorldRoleLabel,
+  isSimulationWorldCommandAllowed, parseSimulationWorldCommand, SIMULATION_ASSESSMENT_VERSION,
   SIMULATION_ENGINE_VERSION, SIMULATION_SCENARIO_VERSION, SIMULATION_WORLD_ROLES, SIMULATION_WORLD_SCENARIOS,
   type SimulationWorldCommand, type SimulationWorldRole, type SimulationWorldScenarioId,
 } from "@shared/simulation-world";
@@ -37,39 +37,27 @@ export function SimulationWorldRoom({ enrollmentId, programType, onComplete }: P
   const assessment = useMemo(() => calculateSimulationWorldAssessment(world), [world]);
   const scenario = SIMULATION_WORLD_SCENARIOS.find((item) => item.id === world.scenarioId) ?? SIMULATION_WORLD_SCENARIOS[0];
 
-  useEffect(() => {
-    if (!started || completed) return;
-    const timer = window.setInterval(() => {
-      setWorld((current) => {
-        const next = advanceSimulationWorld(current, 0.25);
-        if (next.elapsedSeconds >= 180 || next.patient.trajectory === "death") setCompleted(true);
-        return next;
-      });
-    }, 250);
-    return () => window.clearInterval(timer);
-  }, [started, completed]);
-
   const restart = (nextScenario = scenarioId, nextRole = role) => {
     setWorld(createSimulationWorld(nextScenario, nextRole)); setScenarioId(nextScenario); setRole(nextRole); setStarted(false); setCompleted(false); setCommand(""); setSession(null); commandSequenceRef.current = 0;
   };
-  const apply = (rawCommand: SimulationWorldCommand) => {
+  const apply = async (rawCommand: SimulationWorldCommand) => {
     if (!started || completed) return;
     if (!isSimulationWorldCommandAllowed(role, rawCommand)) return;
-    setWorld((current) => {
-      const next = reduceSimulationWorld(current, rawCommand);
-      if (session) {
-        const sequence = commandSequenceRef.current;
-        commandSequenceRef.current += 1;
-        void receiveCommand.mutateAsync({ sessionId: session.id, sessionNonce: session.nonce, sequence, commandType: rawCommand.type, commandJson: rawCommand as unknown as Record<string, unknown> }).catch(() => undefined);
-      }
-      if (next.criticalFailures.length > 0 || next.patient.trajectory === "death") setCompleted(true);
-      return next;
-    });
+    if (!session || receiveCommand.isPending) return;
+    try {
+      const result = await receiveCommand.mutateAsync({ sessionId: session.id, sessionNonce: session.nonce, sequence: commandSequenceRef.current, commandType: rawCommand.type, commandJson: rawCommand as unknown as Record<string, unknown> });
+      commandSequenceRef.current = result.sequence + 1;
+      setWorld(result.authoritativeState as ReturnType<typeof createSimulationWorld>);
+      if (result.authoritativeState.criticalFailures.length > 0 || result.authoritativeState.patient.trajectory === "death") setCompleted(true);
+    } catch {
+      setCompleted(true);
+    }
   };
-  const submitCommand = () => { const parsed = parseSimulationWorldCommand(command); if (parsed) apply(parsed); setCommand(""); };
+  const submitCommand = () => { const parsed = parseSimulationWorldCommand(command); if (parsed) void apply(parsed); setCommand(""); };
   const begin = async () => {
     const created = await startSession.mutateAsync({ enrollmentId, programType, scenarioId, role, engineVersion: SIMULATION_ENGINE_VERSION, scenarioVersion: SIMULATION_SCENARIO_VERSION, assessmentVersion: SIMULATION_ASSESSMENT_VERSION });
     setSession({ id: created.sessionId, nonce: created.sessionNonce });
+    setWorld(created.authoritativeState as ReturnType<typeof createSimulationWorld>);
     setStarted(true);
   };
   const finish = async () => {

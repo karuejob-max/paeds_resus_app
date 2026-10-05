@@ -265,7 +265,9 @@
     "db:verify-0173": "node scripts/verify-0173-professional-evidence-integrity.mjs",
     "db:apply-0175": "node scripts/apply-0175-professional-evidence-instance-identity.mjs",
     "db:verify-0175": "node scripts/verify-0175-professional-evidence-instance-identity.mjs",
-    "verify:professional-migration-pairs": "node scripts/verify-professional-migration-pairs.mjs"
+    "verify:professional-migration-pairs": "node scripts/verify-professional-migration-pairs.mjs",
+    "db:apply-0176": "node scripts/apply-0176-simulation-world-authority.mjs",
+    "db:verify-0176": "node scripts/verify-0176-simulation-world-authority.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
