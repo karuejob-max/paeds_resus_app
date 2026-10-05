@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PDFDocument } from "pdf-lib";
-import { generateProfessionalProgressPdf, professionalProgressPdfFilename, type ProfessionalProgressPdfData } from "./professional-progress-pdf";
+import { competenceValidityLabel, generateProfessionalProgressPdf, professionalProgressPdfFilename, type ProfessionalProgressPdfData } from "./professional-progress-pdf";
 
 function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -45,5 +45,10 @@ describe("professional progress PDF", () => {
 
   it("uses the stable report ID in the download filename", () => {
     expect(professionalProgressPdfFilename(sample)).toBe("Paeds-Resus-Professional-Progress-Job-Karue-42.pdf");
+  });
+
+  it("labels expired observed competence as expired even when the historical result was competent", () => {
+    expect(competenceValidityLabel({ result: "competent", effectiveStatus: "expired", assessmentMethod: "Megacode", assessmentDate: "2026-01-01", validUntil: "2026-09-30" })).toContain("Current validity: Expired");
+    expect(competenceValidityLabel({ result: "competent", effectiveStatus: "expired", assessmentMethod: "Megacode", assessmentDate: "2026-01-01", validUntil: "2026-09-30" })).toContain("Result: Competent");
   });
 });

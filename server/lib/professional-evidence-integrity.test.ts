@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authorityForEvidence, classifyConflict, enrichEvidenceOntology } from "./professional-evidence-ontology";
+import { authorityForEvidence, classifyConflict, enrichEvidenceOntology, validateProfessionalEvidenceRow } from "./professional-evidence-ontology";
 import { buildTruthAuditSummary, detectConflicts, evidenceInstanceKey, reconcileSourceRows } from "./professional-evidence-integrity";
 import { effectiveCompetenceStatus, selectEvidenceForReport } from "./professional-evidence-ledger";
 
@@ -69,6 +69,35 @@ describe("Professional Truth invariants", () => {
     const second = { ...first, status: "revoked", expiresAt: "2027-01-01", sourceSystem: "external_verification" };
     expect(evidenceInstanceKey(first)).toBe("credential:ACLS-123");
     expect(detectConflicts([first, second])).toHaveLength(1);
+  });
+  it("separates two same-course enrolments into two deterministic instances", () => {
+    const rows = [
+      { userId: 3, evidenceType: "learning", programme: "BLS", status: "learning_complete", sourceSystem: "aha_learning", sourceRecordType: "enrollments", sourceRecordId: 101 },
+      { userId: 3, evidenceType: "learning", programme: "BLS", status: "cancelled", sourceSystem: "aha_learning", sourceRecordType: "enrollments", sourceRecordId: 102 },
+    ];
+    expect(evidenceInstanceKey(rows[0])).toBe("source:aha_learning:enrollments:101");
+    expect(detectConflicts(rows)).toHaveLength(0);
+  });
+  it("treats the same credential number from two sources as one conflict subject", () => {
+    const rows = [
+      { userId: 3, evidenceType: "credential", programme: "ACLS", status: "issued", credentialNumber: "ACLS-2026-001", sourceSystem: "certificates", sourceRecordId: 1 },
+      { userId: 3, evidenceType: "credential", programme: "ACLS", status: "revoked", credentialNumber: "ACLS-2026-001", sourceSystem: "external_completion", sourceRecordId: 2 },
+    ];
+    expect(evidenceInstanceKey(rows[0])).toBe("credential:ACLS-2026-001");
+    expect(detectConflicts(rows)).toHaveLength(1);
+  });
+  it("rejects unknown ontology and incomplete provenance values", () => {
+    expect(validateProfessionalEvidenceRow({ userId: 3, sourceKey: "x", sourceSystem: "aha_learning", sourceRecordType: "enrollments", sourceRecordId: "1", evidenceInstanceKey: "aha:enrollment:1", evidenceType: "whatever", evidenceStrength: "super_verified", visibility: "public", interpretation: "x", interpretationVersion: "0171-v1", sourceFactJson: "{}", verificationMethod: "magic" })).toEqual(expect.arrayContaining(["evidenceType:value", "evidenceStrength:value", "visibility:value", "verificationMethod:value", "interpretationVersion:value"]));
+  });
+  it("keeps source identity and owner distinct during reconciliation", () => {
+    const result = reconcileSourceRows("AHA", [{ userId: 7, sourceRecordId: 9 }], [{ userId: 8, sourceRecordId: "9", sourceSystem: "aha_learning", sourceRecordType: "enrollments" }], { sourceSystem: "aha_learning", sourceRecordType: "enrollments" });
+    expect(result.missing).toBe(1);
+    expect(result.wrongUserOwnership).toBe(1);
+    expect(result.complete).toBe(false);
+  });
+  it("requires authorised-assessor authority for competence claims", () => {
+    expect(authorityForEvidence({ sourceSystem: "competence_assessment", evidenceStrength: "assessed", verificationMethod: "admin_review" })).not.toBe("authorised_assessor");
+    expect(authorityForEvidence({ sourceSystem: "competence_assessment", evidenceStrength: "observed_competence", verificationMethod: "authorised_assessor" })).toBe("authorised_assessor");
   });
   it("keeps activity reports inside the requested period", () => {
     expect(selectEvidenceForReport([{ sourceKey: "old", completedAt: "2026-01-01" }, { sourceKey: "new", completedAt: "2026-10-02" }], "activity", "2026-10-01", "2026-10-31").map(row => row.sourceKey)).toEqual(["new"]);

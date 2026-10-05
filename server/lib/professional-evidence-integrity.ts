@@ -26,12 +26,10 @@ export function evidenceInstanceKey(row: {
   const facts = sourceFacts(row);
   const explicit = row.credentialNumber ?? facts.credentialNumber ?? facts.recordKey ?? null;
   if (explicit) return `credential:${String(explicit)}`;
+  if (row.sourceRecordId != null && String(row.sourceRecordId) !== "") return `source:${row.sourceSystem ?? "unknown"}:${row.sourceRecordType ?? "unknown"}:${String(row.sourceRecordId)}`;
   const date = row.issueDate ?? row.issuedAt ?? row.assessmentDate ?? facts.issueDate ?? facts.assessmentDate ?? null;
   if (date) return `issued:${new Date(date).toISOString().slice(0, 10)}`;
-  if (row.evidenceType === "cpd" || row.sourceRecordType?.toLowerCase().includes("cpd")) {
-    return `source:${row.sourceSystem ?? "unknown"}:${String(row.sourceRecordType ?? "unknown")}:${String(row.sourceRecordId ?? "unknown")}`;
-  }
-  return null;
+  return `unresolved:${row.evidenceType}:${row.programme ?? row.competencyDomain ?? "unspecified"}`;
 }
 
 export type EvidenceIdentity = {

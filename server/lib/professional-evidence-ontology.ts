@@ -18,6 +18,33 @@ export type AuthorityLevel = (typeof AUTHORITY_LEVELS)[number];
 
 export const VERIFICATION_METHODS = ["none", "admin_review", "cpd_attendance", "platform_verification", "approved_instructor", "authorised_assessor", "issuing_body"] as const;
 
+export const VISIBILITY_VALUES = ["private", "shareable"] as const;
+
+export function validateProfessionalEvidenceRow(row: {
+  userId?: number | null;
+  sourceKey?: string | null;
+  sourceSystem?: string | null;
+  sourceRecordType?: string | null;
+  sourceRecordId?: string | null;
+  evidenceInstanceKey?: string | null;
+  evidenceType?: string | null;
+  evidenceStrength?: string | null;
+  visibility?: string | null;
+  interpretation?: string | null;
+  interpretationVersion?: string | null;
+  sourceFactJson?: string | null;
+  verificationMethod?: string | null;
+}) {
+  const errors: string[] = [];
+  for (const field of ["sourceKey", "sourceSystem", "sourceRecordType", "sourceRecordId", "evidenceInstanceKey", "evidenceType", "evidenceStrength", "visibility", "interpretation", "interpretationVersion", "sourceFactJson"] as const) if (!row[field]) errors.push(field);
+  if (row.evidenceType && !(EVIDENCE_TYPES as readonly string[]).includes(row.evidenceType)) errors.push("evidenceType:value");
+  if (row.evidenceStrength && !(EVIDENCE_STRENGTH as readonly string[]).includes(row.evidenceStrength)) errors.push("evidenceStrength:value");
+  if (row.visibility && !(VISIBILITY_VALUES as readonly string[]).includes(row.visibility)) errors.push("visibility:value");
+  if (row.verificationMethod && !(VERIFICATION_METHODS as readonly string[]).includes(row.verificationMethod)) errors.push("verificationMethod:value");
+  if (row.interpretationVersion && row.interpretationVersion !== PROFESSIONAL_EVIDENCE_ONTOLOGY_VERSION) errors.push("interpretationVersion:value");
+  return errors;
+}
+
 const STRENGTH_RANK: Record<string, number> = {
   self_reported: 10,
   recorded: 20,
