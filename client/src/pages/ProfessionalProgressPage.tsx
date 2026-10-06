@@ -66,17 +66,15 @@ export default function ProfessionalProgressPage() {
       const result = await createReport.mutateAsync(reportInput);
       setVerifiedCode(result.verificationCode);
       setVerifiedReportId(result.reportId);
-      const response = await fetch(result.pdfUrl, { credentials: "include" });
-      if (!response.ok) throw new Error(`The report PDF could not be downloaded (HTTP ${response.status}).`);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      // Let the browser handle the authenticated PDF response and its
+      // Content-Disposition header directly. This avoids blob downloads being
+      // blocked or discarded by mobile browsers after an awaited mutation.
       const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `Paeds-Resus-Professional-Progress-${result.reportId}.pdf`;
+      anchor.href = result.pdfUrl;
+      anchor.rel = "noreferrer";
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
-      URL.revokeObjectURL(url);
     } catch (error) {
       setPdfError(error instanceof Error ? error.message : "The report PDF could not be downloaded. Please try again.");
     }

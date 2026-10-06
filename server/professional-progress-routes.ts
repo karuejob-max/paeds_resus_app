@@ -76,6 +76,13 @@ export function registerProfessionalProgressRoutes(app: Express): void {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${professionalProgressPdfFilename(data)}"`);
     res.setHeader("Cache-Control", "private, no-store");
-    streamToResponse(generateProfessionalProgressPdf(data), res);
+    try {
+      streamToResponse(generateProfessionalProgressPdf(data), res);
+    } catch (error) {
+      console.error("[professional-progress-pdf] generation failed before stream", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Could not generate the report PDF" });
+      }
+    }
   });
 }
