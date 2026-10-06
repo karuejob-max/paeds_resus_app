@@ -50,6 +50,15 @@ describe("platform-search-index", () => {
     expect(results.some((r) => r.id === "resusgps")).toBe(true);
   });
 
+  it("keeps My CPD discoverable with claims and certificate actions", () => {
+    const provider = { isAuthenticated: true, isAdmin: false, role: "provider" as const };
+    const result = index.find((item) => item.id === "cpd-records");
+    expect(result).toEqual(expect.objectContaining({ label: "My CPD", href: "/my-cpd" }));
+    expect(filterPlatformSearchItems(index, "claim", provider)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "cpd-records", href: "/my-cpd" })])
+    );
+  });
+
   it("matches descriptions and includes live learning destinations", () => {
     const provider = { isAuthenticated: true, isAdmin: false, role: "provider" as const };
     const bedsideResults = filterPlatformSearchItems(index, "bedside", provider);

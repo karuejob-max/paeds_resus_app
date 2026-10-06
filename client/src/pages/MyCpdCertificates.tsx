@@ -91,6 +91,18 @@ export default function MyCpdCertificates() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-wide text-teal-700">Professional records</p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight">My CPD</h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            View your CPD attendance, claim eligible points, and download your CPD certificates.
+          </p>
+        </div>
+        <Button type="button" variant="outline" onClick={() => setLocation("/my-progress?section=records")}>
+          All professional records
+        </Button>
+      </div>
       {(facilityLinksQuery.data?.length ?? 0) > 0 && (
         <Card className="mb-6 border-blue-100 bg-blue-50/30 dark:border-blue-900/40 dark:bg-blue-950/20">
           <CardHeader>

@@ -416,6 +416,14 @@ export default function Header() {
                                 My Professional Portfolio
                               </div>
                             </Link>
+                            <Link href="/my-cpd">
+                              <div
+                                className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
+                                onClick={() => setAccountDropdownOpen(false)}
+                              >
+                                My CPD
+                              </div>
+                            </Link>
                           </>
                         )}
                         {effectiveRole === "institution" && (
@@ -598,6 +606,9 @@ export default function Header() {
                   </Link>
                   {effectiveRole === "provider" && (
                     <>
+                      <Link href="/my-cpd" onClick={() => setMobileMenuOpen(false)}>
+                        <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">My CPD</span>
+                      </Link>
                       <Link href="/provider-profile" onClick={() => setMobileMenuOpen(false)}>
                         <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">Professional profile</span>
                       </Link>

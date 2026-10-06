@@ -224,8 +224,9 @@ function Router() {
             </RoleGate>
           )}</Route>
           <Route path="/feedback" component={FeedbackPage} />
-          <Route path="/my-cpd-certificates">{() => <Redirect to="/my-progress?section=records" />}</Route>
-          <Route path="/my-cne-certificates">{() => <Redirect to="/my-cpd-certificates" />}</Route>
+          <Route path="/my-cpd" component={MyCpdCertificates} />
+          <Route path="/my-cpd-certificates" component={MyCpdCertificates} />
+          <Route path="/my-cne-certificates">{() => <Redirect to="/my-cpd" />}</Route>
           <Route path="/home" component={Home} />
           <Route path="/my-shift">{() => (
             <RoleGate allowed={["provider"]}>
