@@ -3,7 +3,7 @@ import path from "node:path";
 
 const root = process.cwd();
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-const required = ["0169", "0170", "0171", "0172", "0173", "0175"];
+const required = ["0169", "0170", "0171", "0172", "0173", "0175", "0177"];
 const failures = [];
 
 for (const number of required) {

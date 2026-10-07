@@ -150,6 +150,7 @@ const AdminNerpCampaign = lazy(() => import("./pages/AdminNerpCampaign"));
 const AdminPromotionalMessaging = lazy(() => import("./pages/AdminPromotionalMessaging"));
 const AdminProfessionalProgressCorrections = lazy(() => import("./pages/AdminProfessionalProgressCorrections"));
 const AdminProfessionalTruthAudit = lazy(() => import("./pages/AdminProfessionalTruthAudit"));
+const AdminProfessionalCpdIdentityResolution = lazy(() => import("./pages/AdminProfessionalCpdIdentityResolution"));
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 const AHACourses = lazy(() => import("./pages/AHACourses"));
 
@@ -412,6 +413,11 @@ function Router() {
           <Route path="/admin/professional-truth-audit">{() => (
             <AdminGate>
               <AdminProfessionalTruthAudit />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin/professional-cpd-identity">{() => (
+            <AdminGate>
+              <AdminProfessionalCpdIdentityResolution />
             </AdminGate>
           )}</Route>
           <Route path="/help" component={Help} />
