@@ -1,8 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq, gt, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   cpdAttendees,
+  cpdEventCoPresenters,
   cpdEvents,
   certificates,
   enrollments,
@@ -26,6 +27,8 @@ import {
   professionalPathwayCourseAttributions,
   professionalEvidenceReconciliationRuns,
   professionalEvidenceConflicts,
+  careSignalEvents,
+  codeSignalEvents,
 } from "../../drizzle/schema";
 import {
   adminProcedure,
@@ -456,6 +459,28 @@ async function buildProgressSnapshot(
     (sum: number, row: any) => sum + Number(row.event.cpdPoints ?? 0),
     0
   );
+  const activityDate = (column: any) => input.reportScope === "activity"
+    ? and(gte(column, input.periodStart), lte(column, input.periodEnd))
+    : undefined;
+  const [presentedEvents, coPresentedEvents, careReports, codeReports] = await Promise.all([
+    db.select({ id: cpdEvents.id })
+      .from(cpdEvents)
+      .where(and(eq(cpdEvents.presenterUserId, userId), activityDate(cpdEvents.eventDateAt))),
+    db.select({ id: cpdEventCoPresenters.cpdEventId })
+      .from(cpdEventCoPresenters)
+      .innerJoin(cpdEvents, eq(cpdEvents.id, cpdEventCoPresenters.cpdEventId))
+      .where(and(eq(cpdEventCoPresenters.userId, userId), activityDate(cpdEvents.eventDateAt))),
+    db.select({ id: careSignalEvents.id })
+      .from(careSignalEvents)
+      .where(and(eq(careSignalEvents.userId, userId), eq(careSignalEvents.status, "submitted"), activityDate(careSignalEvents.eventDate))),
+    db.select({ id: codeSignalEvents.id })
+      .from(codeSignalEvents)
+      .where(and(eq(codeSignalEvents.userId, userId), eq(codeSignalEvents.status, "submitted"), activityDate(codeSignalEvents.eventDate))),
+  ]);
+  const presentedEventIds = new Set([
+    ...presentedEvents.map((row: any) => Number(row.id)),
+    ...coPresentedEvents.map((row: any) => Number(row.id)),
+  ]);
   const fellowship = fellowshipRows[0]
     ? {
         overallPercentage: fellowshipRows[0].overallPercentage ?? 0,
@@ -503,6 +528,8 @@ async function buildProgressSnapshot(
       })),
     cpd: {
       verifiedSessions: cpdRows.length,
+      sessionsAttended: cpdRows.length,
+      sessionsPresented: presentedEventIds.size,
       points: Number(cpdPoints.toFixed(1)),
       sessions: cpdRows.map((row: any) => ({
         eventId: row.event.id,
@@ -511,6 +538,10 @@ async function buildProgressSnapshot(
         points: Number(row.event.cpdPoints ?? 0),
         departmentId: row.event.facilityDepartmentId,
       })),
+    },
+    qualityReports: {
+      careSignalSubmitted: careReports.length,
+      codeSignalSubmitted: codeReports.length,
     },
     fellowship,
     competenceEvidence: competenceRows.map((row: any) => ({
