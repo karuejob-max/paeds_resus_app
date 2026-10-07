@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advanceSimulationWorld, calculateSimulationWorldAssessment, createSimulationWorld, isSimulationWorldCommandAllowed, parseSimulationWorldCommand, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_ASSESSMENT_VERSION, SIMULATION_ENGINE_VERSION, SIMULATION_SCENARIO_VERSION } from "./simulation-world";
+import { advanceSimulationWorld, calculateSimulationWorldAssessment, createSimulationWorld, getSimulationWorldScenario, isSimulationWorldCommandAllowed, parseSimulationWorldCommand, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_ASSESSMENT_VERSION, SIMULATION_ENGINE_VERSION, SIMULATION_SCENARIO_VERSION } from "./simulation-world";
 
 describe("simulation world V2", () => {
   it("keeps physiology hidden until the learner obtains an observation", () => {
@@ -35,6 +35,22 @@ describe("simulation world V2", () => {
     expect(oxygen.patient.physiology.ventilation).toBeGreaterThan(start.patient.physiology.ventilation);
     expect(fluid.patient.physiology.circulatingVolume).toBeGreaterThan(start.patient.physiology.circulatingVolume);
     expect(fluid.patient.systolicBp).toBeGreaterThan(start.patient.systolicBp);
+  });
+
+  it("uses scenario-specific profiles and preserves their transition boundaries", () => {
+    const septic = getSimulationWorldScenario("septic-shock-arrest").physiology;
+    const respiratory = getSimulationWorldScenario("respiratory-bradycardia").physiology;
+    const postoperative = getSimulationWorldScenario("postop-equipment").physiology;
+    expect(respiratory.respiratoryFailureAfterSeconds).toBeLessThan(septic.respiratoryFailureAfterSeconds);
+    expect(postoperative.arrestAfterSeconds).toBeLessThan(septic.arrestAfterSeconds);
+    expect(respiratory.ventilationDeclinePerSecond).toBeGreaterThan(septic.ventilationDeclinePerSecond);
+
+    expect(advanceSimulationWorld(createSimulationWorld("septic-shock-arrest", "team_leader"), 41).patient.circulation).toBe("poor_perfusion");
+    expect(advanceSimulationWorld(createSimulationWorld("septic-shock-arrest", "team_leader"), 43).patient.circulation).toBe("pulseless");
+    expect(advanceSimulationWorld(createSimulationWorld("respiratory-bradycardia", "team_leader"), 35).patient.circulation).toBe("poor_perfusion");
+    expect(advanceSimulationWorld(createSimulationWorld("respiratory-bradycardia", "team_leader"), 37).patient.circulation).toBe("pulseless");
+    expect(advanceSimulationWorld(createSimulationWorld("postop-equipment", "team_leader"), 29).patient.circulation).toBe("poor_perfusion");
+    expect(advanceSimulationWorld(createSimulationWorld("postop-equipment", "team_leader"), 31).patient.circulation).toBe("pulseless");
   });
 
   it("separates delegation, NPC acknowledgement, execution, and closed loop", () => {
