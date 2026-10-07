@@ -1,8 +1,31 @@
 import type { PracticeLabEvent } from "./practice-lab-types";
 
 export const SIMULATION_ENGINE_VERSION = "3.0.0";
-export const SIMULATION_SCENARIO_VERSION = "1.0.0";
+export const SIMULATION_SCENARIO_VERSION = "1.1.0";
 export const SIMULATION_ASSESSMENT_VERSION = "2.0.0";
+
+export type ScenarioPhysiologyProfile = {
+  initial: {
+    oxygenation: number;
+    ventilation: number;
+    circulatingVolume: number;
+    myocardialFunction: number;
+    respiratoryDrive: number;
+    metabolicDebt: number;
+    ongoingLoss: number;
+  };
+  respiratoryFailureAfterSeconds: number;
+  arrestAfterSeconds: number;
+  ventilationDeclinePerSecond: number;
+  oxygenationDeclinePerSecond: number;
+  metabolicDebtIncreasePerSecond: number;
+  adequateVentilationRecoveryPerSecond: number;
+  adequateDebtRecoveryPerSecond: number;
+  pulselessOxygenationDeclinePerSecond: number;
+  pulselessDebtIncreasePerSecond: number;
+  volumeLossMultiplier: number;
+  baselineOxygenationRecoveryPerSecond: number;
+};
 
 export const SIMULATION_WORLD_ROLES = [
   "team_leader", "airway_ventilation", "compressor_1", "compressor_2",
@@ -11,11 +34,12 @@ export const SIMULATION_WORLD_ROLES = [
 export type SimulationWorldRole = (typeof SIMULATION_WORLD_ROLES)[number];
 
 export const SIMULATION_WORLD_SCENARIOS = [
-  { id: "septic-shock-arrest", title: "03:17 — Emergency Department", subtitle: "A 4-year-old arrives pale, tachypnoeic, and tiring.", initialRhythm: "sinus_tachycardia" as const, weightKg: 16, difficulty: "predictable" as const },
-  { id: "respiratory-bradycardia", title: "11:42 — Paediatric Ward", subtitle: "A child with worsening respiratory failure is becoming bradycardic.", initialRhythm: "sinus_bradycardia" as const, weightKg: 12, difficulty: "ambiguous" as const },
-  { id: "postop-equipment", title: "22:08 — Recovery Room", subtitle: "A postoperative child deteriorates while oxygen and IV access are under pressure.", initialRhythm: "ventricular_fibrillation" as const, weightKg: 20, difficulty: "chaotic" as const },
+  { id: "septic-shock-arrest", title: "03:17 — Emergency Department", subtitle: "A 4-year-old arrives pale, tachypnoeic, and tiring.", initialRhythm: "sinus_tachycardia" as const, weightKg: 16, difficulty: "predictable" as const, physiology: { initial: { oxygenation: 0.72, ventilation: 0.46, circulatingVolume: 0.48, myocardialFunction: 0.76, respiratoryDrive: 0.82, metabolicDebt: 24, ongoingLoss: 0.9 }, respiratoryFailureAfterSeconds: 18, arrestAfterSeconds: 42, ventilationDeclinePerSecond: 0.018, oxygenationDeclinePerSecond: 0.012, metabolicDebtIncreasePerSecond: 1.25, adequateVentilationRecoveryPerSecond: 0.006, adequateDebtRecoveryPerSecond: 0.18, pulselessOxygenationDeclinePerSecond: 0.02, pulselessDebtIncreasePerSecond: 1.8, volumeLossMultiplier: 0.002, baselineOxygenationRecoveryPerSecond: 0.002 } },
+  { id: "respiratory-bradycardia", title: "11:42 — Paediatric Ward", subtitle: "A child with worsening respiratory failure is becoming bradycardic.", initialRhythm: "sinus_bradycardia" as const, weightKg: 12, difficulty: "ambiguous" as const, physiology: { initial: { oxygenation: 0.66, ventilation: 0.38, circulatingVolume: 0.62, myocardialFunction: 0.58, respiratoryDrive: 0.58, metabolicDebt: 32, ongoingLoss: 0.35 }, respiratoryFailureAfterSeconds: 12, arrestAfterSeconds: 36, ventilationDeclinePerSecond: 0.026, oxygenationDeclinePerSecond: 0.016, metabolicDebtIncreasePerSecond: 1.55, adequateVentilationRecoveryPerSecond: 0.008, adequateDebtRecoveryPerSecond: 0.12, pulselessOxygenationDeclinePerSecond: 0.024, pulselessDebtIncreasePerSecond: 2.1, volumeLossMultiplier: 0.001, baselineOxygenationRecoveryPerSecond: 0.001 } },
+  { id: "postop-equipment", title: "22:08 — Recovery Room", subtitle: "A postoperative child deteriorates while oxygen and IV access are under pressure.", initialRhythm: "ventricular_fibrillation" as const, weightKg: 20, difficulty: "chaotic" as const, physiology: { initial: { oxygenation: 0.68, ventilation: 0.42, circulatingVolume: 0.62, myocardialFunction: 0.72, respiratoryDrive: 0.78, metabolicDebt: 28, ongoingLoss: 0.35 }, respiratoryFailureAfterSeconds: 10, arrestAfterSeconds: 30, ventilationDeclinePerSecond: 0.022, oxygenationDeclinePerSecond: 0.014, metabolicDebtIncreasePerSecond: 1.4, adequateVentilationRecoveryPerSecond: 0.007, adequateDebtRecoveryPerSecond: 0.14, pulselessOxygenationDeclinePerSecond: 0.022, pulselessDebtIncreasePerSecond: 2, volumeLossMultiplier: 0.0015, baselineOxygenationRecoveryPerSecond: 0.0015 } },
 ] as const;
 export type SimulationWorldScenarioId = (typeof SIMULATION_WORLD_SCENARIOS)[number]["id"];
+export function getSimulationWorldScenario(scenarioId: SimulationWorldScenarioId) { return SIMULATION_WORLD_SCENARIOS.find((item) => item.id === scenarioId) ?? SIMULATION_WORLD_SCENARIOS[0]; }
 
 type ObservableKey = "airway" | "breathing" | "circulation" | "rhythm" | "spo2" | "blood_pressure" | "heart_rate" | "etco2";
 export type PatientState = {
@@ -150,27 +174,28 @@ function derivePatientFromPhysiology(patient: PatientState, seconds: number): Pa
 
 function tick(state: SimulationWorldState, seconds: number): SimulationWorldState {
   if (seconds <= 0 || state.phase === "ended") return state;
+  const profile = getSimulationWorldScenario(state.scenarioId).physiology;
   let next = { ...state, elapsedSeconds: Number((state.elapsedSeconds + seconds).toFixed(2)) };
   if (next.patient.trajectory !== "rosc" && next.patient.trajectory !== "death") {
     const physiology = { ...next.patient.physiology };
     if (next.patient.breathing !== "adequate") {
-      physiology.ventilation = clamp(physiology.ventilation - seconds * 0.018, 0, 1);
-      physiology.oxygenation = clamp(physiology.oxygenation - seconds * 0.012, 0, 1);
-      physiology.metabolicDebt = clamp(physiology.metabolicDebt + seconds * 1.25, 0, 100);
+      physiology.ventilation = clamp(physiology.ventilation - seconds * profile.ventilationDeclinePerSecond, 0, 1);
+      physiology.oxygenation = clamp(physiology.oxygenation - seconds * profile.oxygenationDeclinePerSecond, 0, 1);
+      physiology.metabolicDebt = clamp(physiology.metabolicDebt + seconds * profile.metabolicDebtIncreasePerSecond, 0, 100);
     } else {
-      physiology.ventilation = clamp(physiology.ventilation + seconds * 0.006, 0, 1);
-      physiology.metabolicDebt = clamp(physiology.metabolicDebt - seconds * 0.18, 0, 100);
+      physiology.ventilation = clamp(physiology.ventilation + seconds * profile.adequateVentilationRecoveryPerSecond, 0, 1);
+      physiology.metabolicDebt = clamp(physiology.metabolicDebt - seconds * profile.adequateDebtRecoveryPerSecond, 0, 100);
     }
     if (next.patient.circulation === "pulseless") {
-      physiology.oxygenation = clamp(physiology.oxygenation - seconds * 0.02, 0, 1);
-      physiology.metabolicDebt = clamp(physiology.metabolicDebt + seconds * 1.8, 0, 100);
+      physiology.oxygenation = clamp(physiology.oxygenation - seconds * profile.pulselessOxygenationDeclinePerSecond, 0, 1);
+      physiology.metabolicDebt = clamp(physiology.metabolicDebt + seconds * profile.pulselessDebtIncreasePerSecond, 0, 100);
     } else {
-      physiology.circulatingVolume = clamp(physiology.circulatingVolume - seconds * physiology.ongoingLoss * 0.002, 0, 1);
-      physiology.oxygenation = clamp(physiology.oxygenation + seconds * 0.002 * physiology.myocardialFunction, 0, 1);
+      physiology.circulatingVolume = clamp(physiology.circulatingVolume - seconds * physiology.ongoingLoss * profile.volumeLossMultiplier, 0, 1);
+      physiology.oxygenation = clamp(physiology.oxygenation + seconds * profile.baselineOxygenationRecoveryPerSecond * physiology.myocardialFunction, 0, 1);
     }
     next = { ...next, patient: derivePatientFromPhysiology({ ...next.patient, physiology }, seconds) };
-    const respiratoryFailure = next.patient.breathing !== "adequate" && next.elapsedSeconds >= 18;
-    const arrest = next.elapsedSeconds >= 42 && next.patient.circulation !== "pulseless" && next.patient.breathing !== "adequate";
+    const respiratoryFailure = next.patient.breathing !== "adequate" && next.elapsedSeconds >= profile.respiratoryFailureAfterSeconds;
+    const arrest = next.elapsedSeconds >= profile.arrestAfterSeconds && next.patient.circulation !== "pulseless" && next.patient.breathing !== "adequate";
     if (respiratoryFailure) next = { ...next, patient: { ...next.patient, trajectory: "deteriorating" } };
     if (arrest) next = { ...next, patient: derivePatientFromPhysiology({ ...next.patient, circulation: "pulseless", rhythm: next.scenarioId === "postop-equipment" ? "ventricular_fibrillation" : "pulseless_electrical_activity", heartRate: 0, trajectory: "deteriorating" }, seconds) };
   }
@@ -200,10 +225,10 @@ export function verifySimulationWorldEventChain(events: readonly SimulationWorld
 }
 
 export function createSimulationWorld(scenarioId: SimulationWorldScenarioId, role: SimulationWorldRole): SimulationWorldState {
-  const scenario = SIMULATION_WORLD_SCENARIOS.find((item) => item.id === scenarioId) ?? SIMULATION_WORLD_SCENARIOS[0];
+  const scenario = getSimulationWorldScenario(scenarioId);
   return {
     scenarioId, role, elapsedSeconds: 0,
-    patient: { airway: "threatened", breathing: "distressed", circulation: "poor_perfusion", rhythm: scenario.initialRhythm, heartRate: scenario.initialRhythm === "sinus_bradycardia" ? 58 : 178, respiratoryRate: 52, systolicBp: 72, spo2: 86, etco2: 58, trajectory: "deteriorating", physiology: { oxygenation: 0.72, ventilation: 0.46, circulatingVolume: scenario.id === "septic-shock-arrest" ? 0.48 : 0.62, myocardialFunction: scenario.initialRhythm === "sinus_bradycardia" ? 0.58 : 0.76, respiratoryDrive: 0.82, metabolicDebt: 24, ongoingLoss: scenario.id === "septic-shock-arrest" ? 0.9 : 0.35 } },
+    patient: { airway: "threatened", breathing: "distressed", circulation: "poor_perfusion", rhythm: scenario.initialRhythm, heartRate: scenario.initialRhythm === "sinus_bradycardia" ? 58 : 178, respiratoryRate: 52, systolicBp: 72, spo2: 86, etco2: 58, trajectory: "deteriorating", physiology: { ...scenario.physiology.initial } },
     observations: {},
     npcs: [["airway_ventilation", "Mary", .82], ["compressor_1", "John", .86], ["compressor_2", "Amina", .7], ["monitor_defib_coach", "David", .8], ["iv_io_meds", "Ruth", .78], ["scribe", "Peter", .92]].map(([npcRole, name, competence]) => ({ role: npcRole as Exclude<SimulationWorldRole, "team_leader">, name: String(name), competence: Number(competence), latencySeconds: 2, currentTask: "waiting", taskAssignedAt: null, status: "waiting" })),
     environment: { oxygenAvailable: true, defibrillatorReady: false, ivAccess: false, monitorAttached: false }, events: [], phase: "assessment", criticalFailures: [], creditedSignals: [], lastInterventionAt: 0, lastReassessmentAt: 0,
