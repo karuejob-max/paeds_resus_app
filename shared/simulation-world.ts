@@ -1,6 +1,6 @@
 import type { PracticeLabEvent } from "./practice-lab-types";
 
-export const SIMULATION_ENGINE_VERSION = "2.0.0";
+export const SIMULATION_ENGINE_VERSION = "3.0.0";
 export const SIMULATION_SCENARIO_VERSION = "1.0.0";
 export const SIMULATION_ASSESSMENT_VERSION = "2.0.0";
 
@@ -29,6 +29,16 @@ export type PatientState = {
   spo2: number;
   etco2: number | null;
   trajectory: "improving" | "stable" | "deteriorating" | "rosc" | "death";
+  /** Hidden causal variables. Learners see derived observations, never these values. */
+  physiology: {
+    oxygenation: number;
+    ventilation: number;
+    circulatingVolume: number;
+    myocardialFunction: number;
+    respiratoryDrive: number;
+    metabolicDebt: number;
+    ongoingLoss: number;
+  };
 };
 
 export type NpcState = {
@@ -117,14 +127,52 @@ function awardOnce(state: SimulationWorldState, signal: string, patch: Partial<S
 }
 function npcFor(state: SimulationWorldState, role: Exclude<SimulationWorldRole, "team_leader">) { return state.npcs.find((npc) => npc.role === role); }
 
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function derivePatientFromPhysiology(patient: PatientState, seconds: number): PatientState {
+  const p = patient.physiology;
+  const perfusion = clamp((p.circulatingVolume * 0.62 + p.myocardialFunction * 0.38) * 100, 0, 100);
+  const spo2 = clamp(55 + p.oxygenation * 43 - p.metabolicDebt * 0.08, 35, 99);
+  const etco2 = patient.breathing === "apnoeic" ? clamp(35 + p.metabolicDebt * 0.55, 35, 95) : clamp(28 + (1 - p.ventilation) * 42 + p.metabolicDebt * 0.25, 25, 80);
+  const heartRate = patient.circulation === "pulseless"
+    ? 0
+    : Math.round(clamp(92 + p.respiratoryDrive * 54 + p.metabolicDebt * 1.6 - (1 - p.myocardialFunction) * 35, 40, 220));
+  const systolicBp = Math.round(clamp(48 + perfusion * 0.48, 35, 115));
+  const trajectory = patient.circulation === "pulseless" || p.metabolicDebt >= 85
+    ? "deteriorating"
+    : p.oxygenation >= 0.78 && perfusion >= 0.62 && p.metabolicDebt < 35
+      ? "improving"
+      : "deteriorating";
+  return { ...patient, spo2: Number(spo2.toFixed(1)), etco2: Number(etco2.toFixed(1)), heartRate, systolicBp, trajectory };
+}
+
 function tick(state: SimulationWorldState, seconds: number): SimulationWorldState {
   if (seconds <= 0 || state.phase === "ended") return state;
   let next = { ...state, elapsedSeconds: Number((state.elapsedSeconds + seconds).toFixed(2)) };
   if (next.patient.trajectory !== "rosc" && next.patient.trajectory !== "death") {
+    const physiology = { ...next.patient.physiology };
+    if (next.patient.breathing !== "adequate") {
+      physiology.ventilation = clamp(physiology.ventilation - seconds * 0.018, 0, 1);
+      physiology.oxygenation = clamp(physiology.oxygenation - seconds * 0.012, 0, 1);
+      physiology.metabolicDebt = clamp(physiology.metabolicDebt + seconds * 1.25, 0, 100);
+    } else {
+      physiology.ventilation = clamp(physiology.ventilation + seconds * 0.006, 0, 1);
+      physiology.metabolicDebt = clamp(physiology.metabolicDebt - seconds * 0.18, 0, 100);
+    }
+    if (next.patient.circulation === "pulseless") {
+      physiology.oxygenation = clamp(physiology.oxygenation - seconds * 0.02, 0, 1);
+      physiology.metabolicDebt = clamp(physiology.metabolicDebt + seconds * 1.8, 0, 100);
+    } else {
+      physiology.circulatingVolume = clamp(physiology.circulatingVolume - seconds * physiology.ongoingLoss * 0.002, 0, 1);
+      physiology.oxygenation = clamp(physiology.oxygenation + seconds * 0.002 * physiology.myocardialFunction, 0, 1);
+    }
+    next = { ...next, patient: derivePatientFromPhysiology({ ...next.patient, physiology }, seconds) };
     const respiratoryFailure = next.patient.breathing !== "adequate" && next.elapsedSeconds >= 18;
     const arrest = next.elapsedSeconds >= 42 && next.patient.circulation !== "pulseless" && next.patient.breathing !== "adequate";
-    if (respiratoryFailure) next = { ...next, patient: { ...next.patient, trajectory: "deteriorating", spo2: Math.max(45, next.patient.spo2 - seconds * 0.8), heartRate: Math.max(0, next.patient.heartRate - seconds * 0.6) } };
-    if (arrest) next = { ...next, patient: { ...next.patient, circulation: "pulseless", rhythm: next.scenarioId === "postop-equipment" ? "ventricular_fibrillation" : "pulseless_electrical_activity", heartRate: 0, trajectory: "deteriorating", spo2: Math.max(35, next.patient.spo2 - seconds * 1.2) } };
+    if (respiratoryFailure) next = { ...next, patient: { ...next.patient, trajectory: "deteriorating" } };
+    if (arrest) next = { ...next, patient: derivePatientFromPhysiology({ ...next.patient, circulation: "pulseless", rhythm: next.scenarioId === "postop-equipment" ? "ventricular_fibrillation" : "pulseless_electrical_activity", heartRate: 0, trajectory: "deteriorating" }, seconds) };
   }
   let npcs = next.npcs;
   for (const npc of npcs) {
@@ -155,7 +203,7 @@ export function createSimulationWorld(scenarioId: SimulationWorldScenarioId, rol
   const scenario = SIMULATION_WORLD_SCENARIOS.find((item) => item.id === scenarioId) ?? SIMULATION_WORLD_SCENARIOS[0];
   return {
     scenarioId, role, elapsedSeconds: 0,
-    patient: { airway: "threatened", breathing: "distressed", circulation: "poor_perfusion", rhythm: scenario.initialRhythm, heartRate: scenario.initialRhythm === "sinus_bradycardia" ? 58 : 178, respiratoryRate: 52, systolicBp: 72, spo2: 86, etco2: null, trajectory: "deteriorating" },
+    patient: { airway: "threatened", breathing: "distressed", circulation: "poor_perfusion", rhythm: scenario.initialRhythm, heartRate: scenario.initialRhythm === "sinus_bradycardia" ? 58 : 178, respiratoryRate: 52, systolicBp: 72, spo2: 86, etco2: 58, trajectory: "deteriorating", physiology: { oxygenation: 0.72, ventilation: 0.46, circulatingVolume: scenario.id === "septic-shock-arrest" ? 0.48 : 0.62, myocardialFunction: scenario.initialRhythm === "sinus_bradycardia" ? 0.58 : 0.76, respiratoryDrive: 0.82, metabolicDebt: 24, ongoingLoss: scenario.id === "septic-shock-arrest" ? 0.9 : 0.35 } },
     observations: {},
     npcs: [["airway_ventilation", "Mary", .82], ["compressor_1", "John", .86], ["compressor_2", "Amina", .7], ["monitor_defib_coach", "David", .8], ["iv_io_meds", "Ruth", .78], ["scribe", "Peter", .92]].map(([npcRole, name, competence]) => ({ role: npcRole as Exclude<SimulationWorldRole, "team_leader">, name: String(name), competence: Number(competence), latencySeconds: 2, currentTask: "waiting", taskAssignedAt: null, status: "waiting" })),
     environment: { oxygenAvailable: true, defibrillatorReady: false, ivAccess: false, monitorAttached: false }, events: [], phase: "assessment", criticalFailures: [], creditedSignals: [], lastInterventionAt: 0, lastReassessmentAt: 0,
@@ -203,19 +251,19 @@ export function reduceSimulationWorld(state: SimulationWorldState, command: Simu
     }
     case "shock": {
       if (next.patient.rhythm !== "ventricular_fibrillation" || !next.environment.defibrillatorReady) return criticalFailure(next, "Unsafe shock sequence", "shock");
-      return event({ ...next, patient: { ...next.patient, rhythm: "pulseless_electrical_activity", trajectory: "deteriorating" }, environment: { ...next.environment, defibrillatorReady: false }, lastInterventionAt: next.elapsedSeconds }, "shock_delivered", "Shock delivered; resume CPR and reassess rhythm.", true, { actor: "learner", role: next.role, action: "shock" });
+      return event({ ...next, patient: { ...next.patient, rhythm: "pulseless_electrical_activity", trajectory: "deteriorating", physiology: { ...next.patient.physiology, myocardialFunction: Math.min(1, next.patient.physiology.myocardialFunction + 0.12), metabolicDebt: Math.max(0, next.patient.physiology.metabolicDebt - 5) } }, environment: { ...next.environment, defibrillatorReady: false }, lastInterventionAt: next.elapsedSeconds }, "shock_delivered", "Shock delivered; resume CPR and reassess rhythm.", true, { actor: "learner", role: next.role, action: "shock" });
     }
     case "give_epinephrine": {
       if (next.patient.circulation !== "pulseless" || !next.environment.ivAccess) return criticalFailure(next, "Unsafe medication timing or access", "give_epinephrine");
       return event({ ...next, lastInterventionAt: next.elapsedSeconds }, "medication", `Epinephrine prepared for ${next.patient.rhythm}; scribe requested to record time.`, true, { actor: "learner", role: next.role, action: "give_epinephrine" });
     }
-    case "give_fluid": return event({ ...next, environment: { ...next.environment, ivAccess: true }, patient: { ...next.patient, systolicBp: Math.min(92, next.patient.systolicBp + 8), circulation: next.patient.circulation === "shock" ? "poor_perfusion" : next.patient.circulation, trajectory: "improving" }, lastInterventionAt: next.elapsedSeconds }, "fluid_bolus", "Fluid bolus administered through IV/IO access; reassess perfusion.", true, { actor: "learner", role: next.role, action: "give_fluid" });
-    case "give_oxygen": return event({ ...next, patient: { ...next.patient, airway: "patent", breathing: "adequate", spo2: Math.min(98, next.patient.spo2 + 8), trajectory: next.patient.circulation === "pulseless" ? "deteriorating" : "improving" }, environment: { ...next.environment, oxygenAvailable: true }, lastInterventionAt: next.elapsedSeconds }, "oxygen_applied", "Oxygen applied and ventilation supported; reassess response.", true, { actor: "learner", role: next.role, action: "give_oxygen" });
+    case "give_fluid": return event({ ...next, environment: { ...next.environment, ivAccess: true }, patient: { ...next.patient, circulation: next.patient.circulation === "shock" ? "poor_perfusion" : next.patient.circulation, physiology: { ...next.patient.physiology, circulatingVolume: clamp(next.patient.physiology.circulatingVolume + 0.16, 0, 1), metabolicDebt: Math.max(0, next.patient.physiology.metabolicDebt - 4) } }, lastInterventionAt: next.elapsedSeconds }, "fluid_bolus", "Fluid bolus administered through IV/IO access; reassess perfusion.", true, { actor: "learner", role: next.role, action: "give_fluid" });
+    case "give_oxygen": return event({ ...next, patient: { ...next.patient, airway: "patent", breathing: "adequate", physiology: { ...next.patient.physiology, oxygenation: clamp(next.patient.physiology.oxygenation + 0.2, 0, 1), ventilation: clamp(next.patient.physiology.ventilation + 0.28, 0, 1), metabolicDebt: Math.max(0, next.patient.physiology.metabolicDebt - 8) } }, environment: { ...next.environment, oxygenAvailable: true }, lastInterventionAt: next.elapsedSeconds }, "oxygen_applied", "Oxygen applied and ventilation supported; reassess response.", true, { actor: "learner", role: next.role, action: "give_oxygen" });
     case "reassess": {
       let result = event({ ...next, observations: { ...next.observations, rhythm: next.patient.rhythm, spo2: next.patient.spo2, heart_rate: next.patient.heartRate, blood_pressure: next.patient.systolicBp, airway: next.patient.airway, breathing: next.patient.breathing, circulation: next.patient.circulation }, lastReassessmentAt: next.elapsedSeconds }, "reassessment", `Reassessment: SpO₂ ${next.patient.spo2}%, HR ${next.patient.heartRate}, rhythm ${next.patient.rhythm}.`, true, { actor: "learner", role: next.role, action: "reassess" });
       const hasCpr = result.events.some((item) => item.type === "cpr_started");
       const hasEpi = result.events.some((item) => item.type === "medication");
-      if (hasCpr && hasEpi && result.patient.circulation === "pulseless" && result.elapsedSeconds - result.lastInterventionAt >= 3) result = event({ ...result, patient: { ...result.patient, circulation: "stable", rhythm: "sinus_rhythm", heartRate: 118, systolicBp: 82, trajectory: "rosc" }, phase: "post_resuscitation" }, "rosc", "ROSC achieved after CPR, rhythm management, medication, and reassessment.", true, { actor: "system", consequence: "ROSC" });
+      if (hasCpr && hasEpi && result.patient.circulation === "pulseless" && result.elapsedSeconds - result.lastInterventionAt >= 3) result = event({ ...result, patient: { ...result.patient, circulation: "stable", rhythm: "sinus_rhythm", heartRate: 118, systolicBp: 82, trajectory: "rosc", physiology: { ...result.patient.physiology, myocardialFunction: clamp(result.patient.physiology.myocardialFunction + 0.2, 0, 1), circulatingVolume: clamp(result.patient.physiology.circulatingVolume + 0.08, 0, 1), metabolicDebt: Math.max(0, result.patient.physiology.metabolicDebt - 18) } }, phase: "post_resuscitation" }, "rosc", "ROSC achieved after CPR, rhythm management, medication, and reassessment.", true, { actor: "system", consequence: "ROSC" });
       return awardOnce(result, `reassessment:${Math.floor(result.lastInterventionAt)}:${result.events.length}`, { reassessment: Math.min(100, result.competencies.reassessment + 18), recognition: Math.min(100, result.competencies.recognition + 5) });
     }
     case "report": return event(next, "communication", `Team report: ${command.text}`, true, { actor: "learner", role: next.role, action: "report", parameters: { text: command.text } });

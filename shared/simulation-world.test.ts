@@ -6,8 +6,8 @@ describe("simulation world V2", () => {
     const start = createSimulationWorld("septic-shock-arrest", "team_leader");
     expect(start.observations.spo2).toBeUndefined();
     const assessed = reduceSimulationWorld(start, { type: "assess", target: "spo2" });
-    expect(assessed.observations.spo2).toBe(86);
-    expect(assessed.events.at(-1)?.description).toContain("SpO₂ 86%");
+    expect(assessed.observations.spo2).toBeLessThan(86);
+    expect(assessed.events.at(-1)?.description).toContain("SpO₂");
   });
 
   it("advances deterioration while the learner hesitates", () => {
@@ -16,6 +16,25 @@ describe("simulation world V2", () => {
     expect(waiting.elapsedSeconds).toBe(20);
     expect(waiting.patient.spo2).toBeLessThan(start.patient.spo2);
     expect(waiting.patient.trajectory).toBe("deteriorating");
+  });
+
+  it("keeps causal physiology hidden while deriving worsening observations", () => {
+    const start = createSimulationWorld("septic-shock-arrest", "team_leader");
+    const waiting = advanceSimulationWorld(start, 20);
+    expect(waiting.observations.spo2).toBeUndefined();
+    expect(waiting.patient.physiology.ventilation).toBeLessThan(start.patient.physiology.ventilation);
+    expect(waiting.patient.physiology.metabolicDebt).toBeGreaterThan(start.patient.physiology.metabolicDebt);
+    expect(waiting.patient.etco2).toBeGreaterThan(start.patient.etco2 ?? 0);
+  });
+
+  it("makes oxygen and fluid act through physiology rather than direct vital edits", () => {
+    const start = createSimulationWorld("septic-shock-arrest", "team_leader");
+    const oxygen = reduceSimulationWorld(start, { type: "give_oxygen" });
+    const fluid = reduceSimulationWorld(start, { type: "give_fluid" });
+    expect(oxygen.patient.physiology.oxygenation).toBeGreaterThan(start.patient.physiology.oxygenation);
+    expect(oxygen.patient.physiology.ventilation).toBeGreaterThan(start.patient.physiology.ventilation);
+    expect(fluid.patient.physiology.circulatingVolume).toBeGreaterThan(start.patient.physiology.circulatingVolume);
+    expect(fluid.patient.systolicBp).toBeGreaterThan(start.patient.systolicBp);
   });
 
   it("separates delegation, NPC acknowledgement, execution, and closed loop", () => {
