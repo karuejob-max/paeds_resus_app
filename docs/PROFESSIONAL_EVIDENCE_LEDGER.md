@@ -76,6 +76,8 @@ pnpm run db:apply-0173
 pnpm run db:verify-0173
 pnpm run db:apply-0175
 pnpm run db:verify-0175
+pnpm run db:apply-0177
+pnpm run db:verify-0177
 ```
 
 Run them in that order on production after the code merge. Migration 0172 is the institutional trust-closure migration; migration 0173 is the professional evidence-integrity migration. The verifiers are read-only; the sync only writes the ledger projection.
@@ -118,6 +120,14 @@ All interpretation metadata uses the authoritative ontology version `0173-v1`. M
 Migration: `pnpm run db:apply-0173`, `pnpm run db:verify-0173`, `pnpm run db:apply-0175`, then `pnpm run db:verify-0175`.
 
 The 0169 sync now also backfills source facts and interpretation metadata. Re-run `pnpm run db:sync-0169` after 0173 so existing ledger rows can be audited for provenance completeness.
+
+### Report download and CPD identity boundary
+
+- `getLatestVerifiedReport` is read-only and returns the latest active signed snapshot for the exact report type, scope, and period. Downloading a PDF never creates a new snapshot.
+- Snapshot creation is an explicit provider action. After creation, the same signed snapshot can be downloaded repeatedly using its verification code and stable report ID.
+- CPD contributes to Professional Progress only when `cpdAttendees.userId` is explicitly linked and attendance is `attendance_verified`.
+- Historical CPD rows without stable linkage enter `professionalCpdIdentityResolutionCases`. An administrator must select and verify the owning account, record a review note, and approve the linkage. Name or email similarity never performs automatic linkage.
+- Migration `0177` creates the one-case-per-attendee review queue; its verifier is read-only.
 
 Production closure requires the idempotent 0169 sync, exact 0173 source reconciliation, 0175 instance/provenance verification, and an explicitly persisted Professional Truth Audit run. The read-only verifier does not create audit history; persistence is a deliberate administrator action.
 

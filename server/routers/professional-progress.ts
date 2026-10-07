@@ -18,6 +18,7 @@ import {
   professionalProgressGoals,
   professionalProgressCorrectionCases,
   professionalProgressReports,
+  professionalCpdIdentityResolutionCases,
   users,
   professionalEvidenceLedger,
   professionalCompetenceEvidence,
@@ -434,12 +435,11 @@ async function buildProgressSnapshot(
     externalCompletionRows
   );
 
+  // Only an explicit stable account linkage makes CPD canonical evidence.
+  // Email similarity remains useful for an administrator's identity-resolution
+  // queue, but must never silently enter a provider's signed report.
   const cpdFilters = [
-    sql`(${cpdAttendees.userId} = ${userId} OR LOWER(TRIM(${cpdAttendees.email})) = ${String(
-      user?.email ?? ""
-    )
-      .trim()
-      .toLowerCase()})`,
+    eq(cpdAttendees.userId, userId),
     eq(cpdAttendees.attendanceStatus, "attendance_verified"),
   ];
   if (input.reportScope === "activity") {
@@ -618,6 +618,75 @@ async function persistProfessionalTruthAudit(db: any, userId: number, summary: a
 }
 
 export const professionalProgressRouter = router({
+  listCpdIdentityResolutionCases: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    return db
+      .select({
+        case: professionalCpdIdentityResolutionCases,
+        attendee: cpdAttendees,
+        event: cpdEvents,
+      })
+      .from(professionalCpdIdentityResolutionCases)
+      .innerJoin(cpdAttendees, eq(cpdAttendees.id, professionalCpdIdentityResolutionCases.cpdAttendeeId))
+      .innerJoin(cpdEvents, eq(cpdEvents.id, cpdAttendees.cpdEventId))
+      .where(eq(professionalCpdIdentityResolutionCases.status, "open"))
+      .orderBy(desc(professionalCpdIdentityResolutionCases.updatedAt))
+      .limit(200);
+  }),
+
+  searchCpdIdentityUsers: adminProcedure
+    .input(z.object({ query: z.string().trim().min(2).max(120) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const query = `%${input.query.toLowerCase()}%`;
+      return db
+        .select({ id: users.id, name: users.name, email: users.email, cadre: users.cadre })
+        .from(users)
+        .where(sql`LOWER(${users.name}) LIKE ${query} OR LOWER(${users.email}) LIKE ${query}`)
+        .orderBy(users.name)
+        .limit(20);
+    }),
+
+  createCpdIdentityResolutionCase: adminProcedure
+    .input(z.object({ cpdAttendeeId: z.number().int().positive(), proposedUserId: z.number().int().positive().optional(), reviewerNote: z.string().trim().max(2000).optional() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const attendee = await db.select({ id: cpdAttendees.id, userId: cpdAttendees.userId }).from(cpdAttendees).where(eq(cpdAttendees.id, input.cpdAttendeeId)).limit(1);
+      if (!attendee[0]) throw new TRPCError({ code: "NOT_FOUND", message: "CPD attendee record not found" });
+      if (attendee[0].userId) throw new TRPCError({ code: "CONFLICT", message: "This CPD record is already linked to an account" });
+      await db.insert(professionalCpdIdentityResolutionCases).values({
+        cpdAttendeeId: input.cpdAttendeeId,
+        proposedUserId: input.proposedUserId,
+        reviewerNote: input.reviewerNote,
+        status: "open",
+      }).onDuplicateKeyUpdate({ set: { proposedUserId: input.proposedUserId, reviewerNote: input.reviewerNote, status: "open", reviewerUserId: null, resolvedAt: null, updatedAt: new Date() } });
+      return { success: true as const };
+    }),
+
+  resolveCpdIdentityResolutionCase: adminProcedure
+    .input(z.object({ caseId: z.number().int().positive(), decision: z.enum(["approved", "rejected"]), userId: z.number().int().positive().optional(), reviewerNote: z.string().trim().min(3).max(2000) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const rows = await db.select({ case: professionalCpdIdentityResolutionCases, attendee: cpdAttendees }).from(professionalCpdIdentityResolutionCases).innerJoin(cpdAttendees, eq(cpdAttendees.id, professionalCpdIdentityResolutionCases.cpdAttendeeId)).where(eq(professionalCpdIdentityResolutionCases.id, input.caseId)).limit(1);
+      const row = rows[0];
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Identity-resolution case not found" });
+      if (row.case.status !== "open") throw new TRPCError({ code: "CONFLICT", message: "This identity-resolution case is already resolved" });
+      if (input.decision === "approved") {
+        const resolvedUserId = input.userId ?? row.case.proposedUserId;
+        if (!resolvedUserId) throw new TRPCError({ code: "BAD_REQUEST", message: "Select the account that owns this CPD record before approving" });
+        if (row.attendee.userId && row.attendee.userId !== resolvedUserId) throw new TRPCError({ code: "CONFLICT", message: "The CPD record is already linked to a different account" });
+        const account = await db.select({ id: users.id }).from(users).where(eq(users.id, resolvedUserId)).limit(1);
+        if (!account[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Selected account not found" });
+        await db.update(cpdAttendees).set({ userId: resolvedUserId }).where(eq(cpdAttendees.id, row.attendee.id));
+      }
+      await db.update(professionalCpdIdentityResolutionCases).set({ status: input.decision, proposedUserId: input.userId ?? row.case.proposedUserId, reviewerUserId: ctx.user.id, reviewerNote: input.reviewerNote, resolvedAt: new Date(), updatedAt: new Date() }).where(eq(professionalCpdIdentityResolutionCases.id, input.caseId));
+      return { success: true as const, decision: input.decision };
+    }),
+
   getProfessionalTruthAudit: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
@@ -704,6 +773,56 @@ export const professionalProgressRouter = router({
         ...snapshot,
         nextBestAction: nextBestProfessionalAction(snapshot),
       };
+    }),
+
+  getLatestVerifiedReport: protectedProcedure
+    .input(reportInput)
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db)
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database unavailable",
+        });
+      const rows = await db
+        .select({
+          id: professionalProgressReports.id,
+          verificationCode: professionalProgressReports.verificationCode,
+          reportType: professionalProgressReports.reportType,
+          reportScope: professionalProgressReports.reportScope,
+          periodStart: professionalProgressReports.periodStart,
+          periodEnd: professionalProgressReports.periodEnd,
+          status: professionalProgressReports.status,
+          publicExpiresAt: professionalProgressReports.publicExpiresAt,
+          generatedAt: professionalProgressReports.generatedAt,
+        })
+        .from(professionalProgressReports)
+        .where(
+          and(
+            eq(professionalProgressReports.userId, ctx.user.id),
+            eq(professionalProgressReports.reportType, input.reportType),
+            eq(professionalProgressReports.reportScope, input.reportScope),
+            eq(
+              professionalProgressReports.periodStart,
+              new Date(`${input.periodStart}T00:00:00.000Z`)
+            ),
+            eq(
+              professionalProgressReports.periodEnd,
+              new Date(`${input.periodEnd}T00:00:00.000Z`)
+            ),
+            eq(professionalProgressReports.status, "active")
+          )
+        )
+        .orderBy(desc(professionalProgressReports.generatedAt))
+        .limit(1);
+      const report = rows[0];
+      return report
+        ? {
+            ...report,
+            pdfUrl: `/api/professional-progress/report/${report.verificationCode}.pdf`,
+            verificationUrl: `/verify-progress/${report.verificationCode}`,
+          }
+        : null;
     }),
 
   getInstitutionStaffProgress: protectedProcedure

@@ -10243,6 +10243,28 @@ export const professionalProgressReports = mysqlTable("professionalProgressRepor
 export type ProfessionalProgressReport = typeof professionalProgressReports.$inferSelect;
 export type InsertProfessionalProgressReport = typeof professionalProgressReports.$inferInsert;
 
+/**
+ * Explicit review queue for historical CPD rows with no stable account link.
+ * Email similarity may help a reviewer investigate, but never grants identity
+ * automatically. Approval writes the stable cpdAttendees.userId link.
+ */
+export const professionalCpdIdentityResolutionCases = mysqlTable("professionalCpdIdentityResolutionCases", {
+  id: int("id").autoincrement().primaryKey(),
+  cpdAttendeeId: int("cpdAttendeeId").notNull().unique(),
+  proposedUserId: int("proposedUserId"),
+  status: mysqlEnum("status", ["open", "approved", "rejected"]).default("open").notNull(),
+  reviewerUserId: int("reviewerUserId"),
+  reviewerNote: text("reviewerNote"),
+  resolvedAt: timestamp("resolvedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  statusIndex: index("professional_cpd_identity_cases_status_idx").on(table.status, table.updatedAt),
+  proposedUserIndex: index("professional_cpd_identity_cases_proposed_user_idx").on(table.proposedUserId, table.status),
+}));
+export type ProfessionalCpdIdentityResolutionCase = typeof professionalCpdIdentityResolutionCases.$inferSelect;
+export type InsertProfessionalCpdIdentityResolutionCase = typeof professionalCpdIdentityResolutionCases.$inferInsert;
+
 /** User-owned correction requests for missing, duplicate, or inaccurate professional evidence. */
 export const professionalProgressCorrectionCases = mysqlTable("professionalProgressCorrectionCases", {
   id: int("id").autoincrement().primaryKey(),

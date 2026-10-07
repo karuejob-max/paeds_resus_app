@@ -236,6 +236,13 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
         risk: "read",
       },
       {
+        label: "CPD identity resolution",
+        href: "/admin/professional-cpd-identity",
+        description: "Explicitly review historical CPD attendee records before linking them to provider accounts.",
+        icon: Users,
+        risk: "review",
+      },
+      {
         label: "Platform Ops",
         href: "/admin/ops",
         description: "Inspect errors, stuck workflows, and system health.",
