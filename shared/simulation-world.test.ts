@@ -53,6 +53,26 @@ describe("simulation world V2", () => {
     expect(advanceSimulationWorld(createSimulationWorld("postop-equipment", "team_leader"), 31).patient.circulation).toBe("pulseless");
   });
 
+  it("lets timely oxygen change the respiratory trajectory instead of merely changing a vital", () => {
+    const untreated = advanceSimulationWorld(createSimulationWorld("respiratory-bradycardia", "team_leader"), 40);
+    let treated = advanceSimulationWorld(createSimulationWorld("respiratory-bradycardia", "team_leader"), 8);
+    treated = reduceSimulationWorld(treated, { type: "give_oxygen" });
+    treated = advanceSimulationWorld(treated, 28);
+    expect(untreated.patient.circulation).toBe("pulseless");
+    expect(treated.patient.circulation).not.toBe("pulseless");
+    expect(treated.patient.trajectory).toBe("improving");
+    expect(treated.patient.physiology.metabolicDebt).toBeLessThan(untreated.patient.physiology.metabolicDebt);
+  });
+
+  it("keeps a mechanism-mismatched fluid intervention from fixing respiratory failure", () => {
+    let state = advanceSimulationWorld(createSimulationWorld("respiratory-bradycardia", "team_leader"), 8);
+    state = reduceSimulationWorld(state, { type: "give_fluid" });
+    state = advanceSimulationWorld(state, 28);
+    expect(state.patient.physiology.circulatingVolume).toBeGreaterThan(0.62);
+    expect(state.patient.physiology.ventilation).toBeLessThan(0.25);
+    expect(state.patient.circulation).toBe("pulseless");
+  });
+
   it("separates delegation, NPC acknowledgement, execution, and closed loop", () => {
     const start = createSimulationWorld("septic-shock-arrest", "team_leader");
     const delegated = reduceSimulationWorld(start, { type: "delegate", target: "airway_ventilation", task: "Assess and support breathing" });
