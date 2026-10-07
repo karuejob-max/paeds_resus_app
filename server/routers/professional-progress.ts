@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq, gt, gte, inArray, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   cpdAttendees,
@@ -459,24 +459,38 @@ async function buildProgressSnapshot(
     (sum: number, row: any) => sum + Number(row.event.cpdPoints ?? 0),
     0
   );
-  const activityDate = (column: any) => input.reportScope === "activity"
-    ? and(gte(column, input.periodStart), lte(column, input.periodEnd))
-    : undefined;
-  const [presentedEvents, coPresentedEvents, careReports, codeReports] = await Promise.all([
-    db.select({ id: cpdEvents.id })
-      .from(cpdEvents)
-      .where(and(eq(cpdEvents.presenterUserId, userId), activityDate(cpdEvents.eventDateAt))),
-    db.select({ id: cpdEventCoPresenters.cpdEventId })
-      .from(cpdEventCoPresenters)
-      .innerJoin(cpdEvents, eq(cpdEvents.id, cpdEventCoPresenters.cpdEventId))
-      .where(and(eq(cpdEventCoPresenters.userId, userId), activityDate(cpdEvents.eventDateAt))),
-    db.select({ id: careSignalEvents.id })
-      .from(careSignalEvents)
-      .where(and(eq(careSignalEvents.userId, userId), eq(careSignalEvents.status, "submitted"), activityDate(careSignalEvents.eventDate))),
-    db.select({ id: codeSignalEvents.id })
-      .from(codeSignalEvents)
-      .where(and(eq(codeSignalEvents.userId, userId), eq(codeSignalEvents.status, "submitted"), activityDate(codeSignalEvents.eventDate))),
-  ]);
+  const activityDate = (column: any) => {
+    if (input.reportScope !== "activity") return undefined;
+    const endExclusive = new Date(`${input.periodEnd}T00:00:00.000Z`);
+    endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+    return sql`${column} >= ${input.periodStart} AND ${column} < ${endExclusive.toISOString().slice(0, 10)}`;
+  };
+  let presentedEvents: Array<{ id: number }> = [];
+  let coPresentedEvents: Array<{ id: number }> = [];
+  let careReports: Array<{ id: number }> = [];
+  let codeReports: Array<{ id: number }> = [];
+  let optionalMetricsAvailable = true;
+  try {
+    [presentedEvents, coPresentedEvents, careReports, codeReports] = await Promise.all([
+      db.select({ id: cpdEvents.id })
+        .from(cpdEvents)
+        .where(and(eq(cpdEvents.presenterUserId, userId), activityDate(cpdEvents.eventDateAt))),
+      db.select({ id: cpdEventCoPresenters.cpdEventId })
+        .from(cpdEventCoPresenters)
+        .innerJoin(cpdEvents, eq(cpdEvents.id, cpdEventCoPresenters.cpdEventId))
+        .where(and(eq(cpdEventCoPresenters.userId, userId), activityDate(cpdEvents.eventDateAt))),
+      db.select({ id: careSignalEvents.id })
+        .from(careSignalEvents)
+        .where(and(eq(careSignalEvents.userId, userId), eq(careSignalEvents.status, "submitted"), activityDate(careSignalEvents.eventDate))),
+      db.select({ id: codeSignalEvents.id })
+        .from(codeSignalEvents)
+        .where(and(eq(codeSignalEvents.userId, userId), eq(codeSignalEvents.status, "submitted"), activityDate(codeSignalEvents.eventDate))),
+    ]);
+  } catch {
+    // These are supplementary report metrics. Never hide the user's core
+    // learning/evidence record because one optional source is unavailable.
+    optionalMetricsAvailable = false;
+  }
   const presentedEventIds = new Set([
     ...presentedEvents.map((row: any) => Number(row.id)),
     ...coPresentedEvents.map((row: any) => Number(row.id)),
@@ -529,7 +543,7 @@ async function buildProgressSnapshot(
     cpd: {
       verifiedSessions: cpdRows.length,
       sessionsAttended: cpdRows.length,
-      sessionsPresented: presentedEventIds.size,
+      sessionsPresented: optionalMetricsAvailable ? presentedEventIds.size : null,
       points: Number(cpdPoints.toFixed(1)),
       sessions: cpdRows.map((row: any) => ({
         eventId: row.event.id,
@@ -540,8 +554,9 @@ async function buildProgressSnapshot(
       })),
     },
     qualityReports: {
-      careSignalSubmitted: careReports.length,
-      codeSignalSubmitted: codeReports.length,
+      careSignalSubmitted: optionalMetricsAvailable ? careReports.length : null,
+      codeSignalSubmitted: optionalMetricsAvailable ? codeReports.length : null,
+      metricsStatus: optionalMetricsAvailable ? "complete" : "partial",
     },
     fellowship,
     competenceEvidence: competenceRows.map((row: any) => ({
