@@ -48,7 +48,11 @@ export default function SimulationHub() {
     () => enrollments.filter((enrollment) => selectedMission.supportedPrograms.includes(enrollment.programType as PracticeLabProgramType)),
     [enrollments, selectedMission],
   );
-  const selectedEnrollment = enrollments.find((enrollment) => enrollment.id === enrollmentId) ?? eligibleEnrollments[0] ?? enrollments[0];
+  // Keep the active enrollment aligned with the selected mission. Without this,
+  // switching from the default PALS/paediatric mission to Adult ACLS could leave
+  // a PALS enrollment selected, disabling the ACLS room entry button even when
+  // the learner has a valid ACLS enrollment.
+  const selectedEnrollment = eligibleEnrollments.find((enrollment) => enrollment.id === enrollmentId) ?? eligibleEnrollments[0] ?? enrollments[0];
   const effectiveProgram = (selectedEnrollment?.programType ?? programType) as PracticeLabProgramType;
   const effectiveEnrollmentId = selectedEnrollment?.id ?? enrollmentId;
   const { data: attempts = [], refetch: refetchAttempts } = trpc.practiceLab.getMyAttempts.useQuery(
