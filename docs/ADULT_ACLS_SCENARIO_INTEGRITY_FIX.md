@@ -61,3 +61,27 @@ selected scenario = server response = persisted session = room = physiology = ev
 ```
 
 Do not complete or review a rehearsal until this identity chain is demonstrated in production.
+
+## Post-merge verification
+
+- Protected PR [#967](https://github.com/karuejob-max/paeds_resus_app/pull/967) merged as `049f3e2b3b310a7c074d1e4a3190e0e761a4b44f`.
+- Authenticated My Browser production route: `https://www.paedsresus.com/simulation-hub?release=049f3e2b`.
+- Production smoke test: selected **Stable narrow-complex tachycardia**, entered the Adult ACLS room, and observed the server-projected findings `supraventricular_tachycardia`, adequate pulse, BP `118/72`, SpO₂ `97%`, adequate breathing, alert mental status, stable phase, time `0s`.
+- The rehearsal was exited without taking actions, completing, creating evidence, or testing review governance. This was deliberate: production integrity was verified without generating an artificial reviewed record.
+
+## Scenario matrix
+
+| Scenario ID | Scenario name | Engine identity + initial-finding regression | Production smoke | Evidence/review action |
+|---|---|---:|---:|---|
+| `unstable-bradycardia` | Unstable bradycardia | Pass | Not run | Not created |
+| `stable-narrow-tachycardia` | Stable narrow-complex tachycardia | Pass | Pass | Not created |
+| `unstable-tachycardia` | Unstable tachycardia | Pass | Not run | Not created |
+| `vf-pulseless-vt` | VF / pulseless VT | Pass | Not run | Not created |
+| `pea` | PEA | Pass | Not run | Not created |
+| `asystole` | Asystole | Pass | Not run | Not created |
+| `rosc-post-arrest` | ROSC and post-arrest deterioration | Pass | Not run | Not created |
+| `acs-to-vf` | ACS to VF arrest | Pass | Not run | Not created |
+| `hypoxia-to-arrest` | Hypoxia to arrest | Pass | Not run | Not created |
+| `reversible-cause-arrest` | Reversible-cause arrest | Pass | Not run | Not created |
+
+The full selector matrix is covered by deterministic tests. Production validation covered the representative stable scenario end-to-end through selection, authoritative session, room, and physiology. No claim is made that every scenario has been manually rehearsed in production.
