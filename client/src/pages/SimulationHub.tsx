@@ -12,6 +12,7 @@ import { RhythmRecognitionTrack } from "@/components/practice-lab/RhythmRecognit
 import { AiRoleplayTrack } from "@/components/practice-lab/AiRoleplayTrack";
 import { PalsCapstoneSimulation } from "@/components/PalsCapstoneSimulation";
 import { SimulationWorldRoom } from "@/components/SimulationWorldRoom";
+import { AdultAclsSimulationRoom } from "@/components/AdultAclsSimulationRoom";
 import { getSimulationMasteryLabel, getSimulationMission, isFormativeSimulationMission, isSimulationMissionUnlocked, SIMULATION_MISSIONS, type SimulationMissionId } from "@shared/simulation-hub";
 import type { PracticeLabProgramType } from "@shared/practice-lab-types";
 import { getSimulationWorldRoleLabel, getRoleEvidenceFromAttempt, SIMULATION_WORLD_ROLES } from "@shared/simulation-world";
@@ -25,9 +26,10 @@ const TRACK_LABELS: Record<string, string> = {
   abcde: "ABCDE",
   rhythm_recognition: "Rhythm decisions",
   ai_interactive_roleplay: "Resus room",
-  shock_no_shock: "Shock / no shock",
-  pals_capstone: "PALS capstone",
-};
+	  shock_no_shock: "Shock / no shock",
+	  pals_capstone: "PALS capstone",
+	  adult_acls_world: "Adult ACLS Simulation World",
+	};
 
 export default function SimulationHub() {
   const [, setLocation] = useLocation();
@@ -208,7 +210,7 @@ export default function SimulationHub() {
           )}
 
           {stage === "playing" && effectiveEnrollmentId && (
-            <div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"><div><p className="text-xs uppercase tracking-[0.16em] text-cyan-300">Live mission</p><p className="font-semibold">{selectedMission.title}</p></div><Button size="sm" variant="outline" className="gap-2 border-slate-600 text-slate-200" onClick={() => setStage("map")}><RotateCcw className="h-4 w-4" />Exit to map</Button></div><div className="rounded-xl bg-white p-3 text-slate-950">{selectedMission.trackId === "simulation_world" && <SimulationWorldRoom {...trackProps} onComplete={() => void refetchAttempts()} />}{selectedMission.trackId === "cardiac_arrest" && <CardiacArrestTrack {...trackProps} />}{selectedMission.trackId === "abcde" && <AbcdeTrack {...trackProps} />}{selectedMission.trackId === "rhythm_recognition" && <RhythmRecognitionTrack {...trackProps} />}{selectedMission.trackId === "ai_interactive_roleplay" && <AiRoleplayTrack {...trackProps} />}{selectedMission.trackId === "shock_no_shock" && <ShockNoShockTrack {...trackProps} />}{selectedMission.trackId === "pals_capstone" && <div className="space-y-4"><PalsCapstoneSimulation key={capstoneKey} patientAge={2} patientWeight={12} onComplete={handleCapstoneComplete} onClose={() => setStage("map")} />{capstoneResult && <Card className="border-emerald-200 bg-emerald-50"><CardContent className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-semibold text-emerald-900">{capstoneResult.simReady ? "Capstone passed — Sim-Ready" : "Capstone complete — another rehearsal recommended"}</p><p className="text-sm text-emerald-800">Score {capstoneResult.score}%. Use the debrief and repeat the weak phase before progressing.</p></div><Button size="sm" variant="outline" onClick={() => { setCapstoneResult(null); setCapstoneKey((key) => key + 1); }}>Repeat capstone</Button></CardContent></Card>}</div>}</div></div>
+            <div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"><div><p className="text-xs uppercase tracking-[0.16em] text-cyan-300">Live mission</p><p className="font-semibold">{selectedMission.title}</p></div><Button size="sm" variant="outline" className="gap-2 border-slate-600 text-slate-200" onClick={() => setStage("map")}><RotateCcw className="h-4 w-4" />Exit to map</Button></div><div className="rounded-xl bg-white p-3 text-slate-950">{selectedMission.trackId === "adult_acls_world" && effectiveProgram === "acls" && <AdultAclsSimulationRoom enrollmentId={effectiveEnrollmentId} onComplete={() => void refetchAttempts()} />}{selectedMission.trackId === "simulation_world" && <SimulationWorldRoom {...trackProps} onComplete={() => void refetchAttempts()} />}{selectedMission.trackId === "cardiac_arrest" && <CardiacArrestTrack {...trackProps} />}{selectedMission.trackId === "abcde" && <AbcdeTrack {...trackProps} />}{selectedMission.trackId === "rhythm_recognition" && <RhythmRecognitionTrack {...trackProps} />}{selectedMission.trackId === "ai_interactive_roleplay" && <AiRoleplayTrack {...trackProps} />}{selectedMission.trackId === "shock_no_shock" && <ShockNoShockTrack {...trackProps} />}{selectedMission.trackId === "pals_capstone" && <div className="space-y-4"><PalsCapstoneSimulation key={capstoneKey} patientAge={2} patientWeight={12} onComplete={handleCapstoneComplete} onClose={() => setStage("map")} />{capstoneResult && <Card className="border-emerald-200 bg-emerald-50"><CardContent className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-semibold text-emerald-900">{capstoneResult.simReady ? "Capstone passed — Sim-Ready" : "Capstone complete — another rehearsal recommended"}</p><p className="text-sm text-emerald-800">Score {capstoneResult.score}%. Use the debrief and repeat the weak phase before progressing.</p></div><Button size="sm" variant="outline" onClick={() => { setCapstoneResult(null); setCapstoneKey((key) => key + 1); }}>Repeat capstone</Button></CardContent></Card>}</div>}</div></div>
           )}
         </div>
       </div>

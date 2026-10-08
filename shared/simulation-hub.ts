@@ -1,6 +1,6 @@
 import { isFormativePracticeLabTrack, type PracticeLabProgramType, type PracticeLabTrackId } from "./practice-lab-types";
 
-export type SimulationMissionId = "simulation-world" | "first-minutes" | "deteriorating-child" | "rhythm-decisions" | "pals-capstone" | "resus-room";
+export type SimulationMissionId = "simulation-world" | "first-minutes" | "deteriorating-child" | "rhythm-decisions" | "pals-capstone" | "resus-room" | "adult-acls-world";
 
 export type SimulationMission = {
   id: SimulationMissionId;
@@ -18,6 +18,19 @@ export type SimulationMission = {
 };
 
 export const SIMULATION_MISSIONS: readonly SimulationMission[] = [
+  {
+    id: "adult-acls-world",
+    title: "Adult ACLS command room",
+    subtitle: "Rehearse adult rhythm recognition, resuscitation, and post-ROSC reassessment in a synthetic environment.",
+    trackId: "adult_acls_world",
+    difficulty: "Applied",
+    estimatedMinutes: 12,
+    masteryThreshold: 0,
+    objective: "Observe, prioritise, act, and reassess across adult ACLS deterioration and arrest states.",
+    realism: "The engine is deterministic and consequence-based; completion records simulation performance only.",
+    supportedPrograms: ["acls"],
+    isFormative: true,
+  },
   {
     id: "simulation-world",
     title: "The resuscitation room",

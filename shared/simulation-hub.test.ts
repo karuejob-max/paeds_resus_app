@@ -2,16 +2,18 @@ import { describe, expect, it } from "vitest";
 import { getSimulationMasteryLabel, getSimulationMission, isFormativeSimulationMission, isSimulationMissionUnlocked, SIMULATION_MISSIONS } from "./simulation-hub";
 
 describe("Simulation Hub mission model", () => {
-  it("provides a progressive set of clinically meaningful missions", () => {
-    expect(SIMULATION_MISSIONS.map((mission) => mission.id)).toEqual([
-      "simulation-world",
+	  it("provides a progressive set of clinically meaningful missions", () => {
+	    expect(SIMULATION_MISSIONS.map((mission) => mission.id)).toEqual([
+	      "adult-acls-world",
+	      "simulation-world",
       "first-minutes",
       "deteriorating-child",
       "rhythm-decisions",
       "resus-room",
       "pals-capstone",
     ]);
-    expect(getSimulationMission("deteriorating-child")?.trackId).toBe("abcde");
+	    expect(getSimulationMission("deteriorating-child")?.trackId).toBe("abcde");
+	    expect(getSimulationMission("adult-acls-world")?.supportedPrograms).toEqual(["acls"]);
     expect(getSimulationMission("pals-capstone")?.unlocksAfter).toBe("deteriorating-child");
     expect(getSimulationMission("pals-capstone")?.masteryThreshold).toBe(80);
   });
