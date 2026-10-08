@@ -144,6 +144,9 @@ export const practiceLabRouter = router({
       if (!enrollment || enrollment.programType !== "acls") throw new TRPCError({ code: "FORBIDDEN", message: "An Adult ACLS enrollment is required for this simulation" });
       const sessionNonce = randomBytes(32).toString("hex");
       const authoritativeState = createAdultAclsSimulation(input.scenarioId, input.role);
+      if (authoritativeState.scenarioId !== input.scenarioId) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Adult ACLS scenario resolution did not match the requested scenario" });
+      }
       const [created] = await db.insert(simulationWorldSessions).values({
         userId: ctx.user.id,
         enrollmentId: input.enrollmentId,
@@ -157,7 +160,24 @@ export const practiceLabRouter = router({
         authorityState: "connected",
         authoritativeStateJson: authoritativeState,
       }).$returningId();
-      return { sessionId: created.id, sessionNonce, authorityState: "connected" as const, authoritativeState, syntheticTrainingOnly: true };
+      return { sessionId: created.id, sessionNonce, scenarioId: authoritativeState.scenarioId, scenarioVersion: ADULT_ACLS_SCENARIO_VERSION, authorityState: "connected" as const, authoritativeState, syntheticTrainingOnly: true };
+    }),
+
+  invalidateAdultAclsSession: protectedProcedure
+    .input(z.object({ sessionId: z.number(), sessionNonce: z.string().length(64) }))
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [session] = await db.select({ id: simulationWorldSessions.id, status: simulationWorldSessions.status })
+        .from(simulationWorldSessions)
+        .where(and(eq(simulationWorldSessions.id, input.sessionId), eq(simulationWorldSessions.userId, ctx.user.id), eq(simulationWorldSessions.sessionNonce, input.sessionNonce), eq(simulationWorldSessions.programType, "acls")))
+        .limit(1);
+      if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "Adult ACLS simulation session not found" });
+      if (session.status === "active") {
+        await db.update(simulationWorldSessions).set({ status: "abandoned", authorityState: "invalidated" }).where(eq(simulationWorldSessions.id, session.id));
+      }
+      return { success: true, invalidated: session.status === "active" };
     }),
 
   receiveAdultAclsCommand: protectedProcedure
@@ -192,11 +212,16 @@ export const practiceLabRouter = router({
       const [session] = await db.select().from(simulationWorldSessions).where(and(eq(simulationWorldSessions.id, input.sessionId), eq(simulationWorldSessions.userId, ctx.user.id), eq(simulationWorldSessions.sessionNonce, input.sessionNonce), eq(simulationWorldSessions.programType, "acls"))).limit(1);
       if (!session || session.status !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: "Adult ACLS simulation session is not active" });
       const state = session.authoritativeStateJson as unknown as AdultAclsState;
+      if (!state || state.scenarioId !== session.scenarioId) {
+        await db.update(simulationWorldSessions).set({ status: "abandoned", authorityState: "invalidated" }).where(eq(simulationWorldSessions.id, session.id));
+        throw new TRPCError({ code: "CONFLICT", message: "Simulation scenario integrity could not be verified; no evidence was created" });
+      }
       const evidence = calculateAdultAclsTrainingEvidence(state);
+      const evidenceWithAuthority = { ...evidence, sessionId: session.id, scenarioVersion: session.scenarioVersion, learnerUserId: session.userId, enrollmentId: session.enrollmentId, role: session.role };
       await db.insert(ahaPracticeLabAttempts).values({ userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "acls", trackId: "adult_acls_world", scenarioId: session.scenarioId, score: 0, passed: false, eventLog: state.events, durationSeconds: Math.round(state.elapsedSeconds) });
-      await db.insert(simulationWorldEvidence).values({ sessionId: session.id, userId: ctx.user.id, enrollmentId: session.enrollmentId, role: session.role, scenarioId: session.scenarioId, evidenceStatus: "review_required", assessmentJson: evidence });
+      await db.insert(simulationWorldEvidence).values({ sessionId: session.id, userId: ctx.user.id, enrollmentId: session.enrollmentId, role: session.role, scenarioId: state.scenarioId, evidenceStatus: "review_required", assessmentJson: evidenceWithAuthority });
       await db.update(simulationWorldSessions).set({ status: "completed", completedAt: new Date() }).where(eq(simulationWorldSessions.id, session.id));
-      return { success: true, evidenceStatus: "review_required" as const, evidence, syntheticTrainingOnly: true };
+      return { success: true, evidenceStatus: "review_required" as const, evidence: evidenceWithAuthority, syntheticTrainingOnly: true };
     }),
 
   listAdultAclsEvidence: protectedProcedure

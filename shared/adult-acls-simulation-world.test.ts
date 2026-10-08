@@ -13,6 +13,18 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
     expect(ADULT_ACLS_SCENARIOS.every((scenario) => scenario.initial.hidden)).toBe(true);
   });
 
+  it("preserves one-to-one scenario identity and initial findings for every selector option", () => {
+    for (const scenario of ADULT_ACLS_SCENARIOS) {
+      const state = createAdultAclsSimulation(scenario.id);
+      expect(state.scenarioId).toBe(scenario.id);
+      expect(state.patient.rhythm).toBe(scenario.initial.rhythm);
+      expect(state.patient.pulse).toBe(scenario.initial.pulse);
+      expect(state.patient.systolicBp).toBe(scenario.initial.systolicBp);
+      expect(state.patient.diastolicBp).toBe(scenario.initial.diastolicBp);
+      expect(state.patient.mentalStatus).toBe(scenario.initial.mentalStatus);
+    }
+  });
+
   it("starts VF arrest pulseless and unresponsive", () => {
     const state = createAdultAclsSimulation("vf-pulseless-vt");
     expect(state.patient.phase).toBe("cardiac_arrest");
