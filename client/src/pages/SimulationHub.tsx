@@ -122,7 +122,9 @@ export default function SimulationHub() {
   }, [refetchAttempts, stage]);
 
   const startMission = () => {
-    if (!effectiveEnrollmentId || !eligibleEnrollments.some((enrollment) => enrollment.id === effectiveEnrollmentId)) return;
+    const missionEnrollment = eligibleEnrollments.find((enrollment) => enrollment.id === effectiveEnrollmentId) ?? eligibleEnrollments[0];
+    if (!missionEnrollment) return;
+    if (missionEnrollment.id !== enrollmentId) setEnrollmentId(missionEnrollment.id);
     setStage("playing");
   };
 
@@ -210,7 +212,7 @@ export default function SimulationHub() {
           )}
 
           {stage === "briefing" && (
-            <Card className="border-cyan-400/40 bg-slate-900 text-white"><CardHeader><Badge className="w-fit bg-cyan-400/15 text-cyan-200">Mission briefing · {selectedMission.difficulty}</Badge><CardTitle className="mt-2 text-2xl">{selectedMission.title}</CardTitle><CardDescription className="text-slate-300">{selectedMission.subtitle}</CardDescription></CardHeader><CardContent className="space-y-5"><div className="grid gap-3 md:grid-cols-3"><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Objective</p><p className="mt-1 text-sm">{selectedMission.objective}</p></div><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Reality rule</p><p className="mt-1 text-sm">{selectedMission.realism}</p></div><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Expected time</p><p className="mt-1 text-sm">{selectedMission.estimatedMinutes} minutes · {TRACK_LABELS[selectedMission.trackId]}</p></div></div><div className="flex flex-wrap gap-3"><Button className="bg-cyan-500 text-slate-950 hover:bg-cyan-400" disabled={!effectiveEnrollmentId || !eligibleEnrollments.some((enrollment) => enrollment.id === effectiveEnrollmentId)} onClick={startMission}>Enter simulation room</Button><Button variant="outline" className="border-slate-600 text-slate-200" onClick={() => setStage("map")}>Back to mission map</Button></div></CardContent></Card>
+            <Card className="border-cyan-400/40 bg-slate-900 text-white"><CardHeader><Badge className="w-fit bg-cyan-400/15 text-cyan-200">Mission briefing · {selectedMission.difficulty}</Badge><CardTitle className="mt-2 text-2xl">{selectedMission.title}</CardTitle><CardDescription className="text-slate-300">{selectedMission.subtitle}</CardDescription></CardHeader><CardContent className="space-y-5"><div className="grid gap-3 md:grid-cols-3"><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Objective</p><p className="mt-1 text-sm">{selectedMission.objective}</p></div><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Reality rule</p><p className="mt-1 text-sm">{selectedMission.realism}</p></div><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Expected time</p><p className="mt-1 text-sm">{selectedMission.estimatedMinutes} minutes · {TRACK_LABELS[selectedMission.trackId]}</p></div></div><div className="flex flex-wrap gap-3"><Button className="bg-cyan-500 text-slate-950 hover:bg-cyan-400" disabled={!eligibleEnrollments.length} onClick={startMission}>Enter simulation room</Button><Button variant="outline" className="border-slate-600 text-slate-200" onClick={() => setStage("map")}>Back to mission map</Button></div></CardContent></Card>
           )}
 
           {stage === "playing" && effectiveEnrollmentId && (
