@@ -22,7 +22,7 @@ import {
   WEAK_DOMAIN_TO_TRACK,
   type PracticeLabTrackId,
 } from "../../shared/practice-lab-types";
-import { advanceSimulationWorld, createSimulationWorld, isSimulationWorldCommandAllowed, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_WORLD_ROLES, SIMULATION_WORLD_SCENARIOS, type SimulationWorldEvent, type SimulationWorldRole, type SimulationWorldScenarioId, type SimulationWorldState, type SimulationWorldCommand } from "../../shared/simulation-world";
+import { advanceSimulationWorld, createSimulationWorld, isSimulationWorldCommandAllowed, isSimulationWorldScenarioCompatible, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_WORLD_ROLES, SIMULATION_WORLD_SCENARIOS, type SimulationWorldEvent, type SimulationWorldRole, type SimulationWorldScenarioId, type SimulationWorldState, type SimulationWorldCommand } from "../../shared/simulation-world";
 
 const AHA_PROGRAM_TYPES = ["bls", "acls", "pals", "heartsaver", "nrp"] as const;
 
@@ -84,6 +84,7 @@ export const practiceLabRouter = router({
       const [enrollment] = await db.select({ id: enrollments.id, userId: enrollments.userId, programType: enrollments.programType })
         .from(enrollments).where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id))).limit(1);
       if (!enrollment || enrollment.programType !== input.programType) throw new TRPCError({ code: "FORBIDDEN", message: "Enrollment not found for this simulation" });
+      if (!isSimulationWorldScenarioCompatible(input.scenarioId, input.programType as "acls" | "pals" | "nrp")) throw new TRPCError({ code: "BAD_REQUEST", message: "This scenario belongs to a different clinical pathway" });
       const sessionNonce = randomBytes(32).toString("hex");
       const authoritativeState = createSimulationWorld(input.scenarioId, input.role);
       const [created] = await db.insert(simulationWorldSessions).values({ ...input, userId: ctx.user.id, sessionNonce, authorityState: "connected", authoritativeStateJson: authoritativeState }).$returningId();

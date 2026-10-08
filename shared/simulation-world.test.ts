@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advanceSimulationWorld, calculateSimulationWorldAssessment, createSimulationWorld, getSimulationWorldScenario, isSimulationWorldCommandAllowed, parseSimulationWorldCommand, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_ASSESSMENT_VERSION, SIMULATION_ENGINE_VERSION, SIMULATION_SCENARIO_VERSION } from "./simulation-world";
+import { advanceSimulationWorld, calculateSimulationWorldAssessment, createSimulationWorld, getSimulationWorldScenario, isSimulationWorldCommandAllowed, isSimulationWorldScenarioCompatible, parseSimulationWorldCommand, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_ASSESSMENT_VERSION, SIMULATION_ENGINE_VERSION, SIMULATION_SCENARIO_VERSION } from "./simulation-world";
 
 describe("simulation world V2", () => {
   it("keeps physiology hidden until the learner obtains an observation", () => {
@@ -32,7 +32,11 @@ describe("simulation world V2", () => {
     const oxygen = reduceSimulationWorld(start, { type: "give_oxygen" });
     const fluid = reduceSimulationWorld(start, { type: "give_fluid" });
     expect(oxygen.patient.physiology.oxygenation).toBeGreaterThan(start.patient.physiology.oxygenation);
-    expect(oxygen.patient.physiology.ventilation).toBeGreaterThan(start.patient.physiology.ventilation);
+    expect(oxygen.patient.physiology.ventilation).toBeLessThan(start.patient.physiology.ventilation);
+    expect(oxygen.environment.ventilationAssisted).toBe(false);
+    const ventilated = reduceSimulationWorld(start, { type: "assist_ventilation" });
+    expect(ventilated.patient.physiology.ventilation).toBeGreaterThan(start.patient.physiology.ventilation);
+    expect(ventilated.environment.ventilationAssisted).toBe(true);
     expect(fluid.patient.physiology.circulatingVolume).toBeGreaterThan(start.patient.physiology.circulatingVolume);
     expect(fluid.patient.systolicBp).toBeGreaterThan(start.patient.systolicBp);
   });
@@ -51,17 +55,23 @@ describe("simulation world V2", () => {
     expect(advanceSimulationWorld(createSimulationWorld("respiratory-bradycardia", "team_leader"), 37).patient.circulation).toBe("pulseless");
     expect(advanceSimulationWorld(createSimulationWorld("postop-equipment", "team_leader"), 29).patient.circulation).toBe("poor_perfusion");
     expect(advanceSimulationWorld(createSimulationWorld("postop-equipment", "team_leader"), 31).patient.circulation).toBe("pulseless");
+    expect(getSimulationWorldScenario("postop-equipment").initialRhythm).toBe("sinus_tachycardia");
   });
 
-  it("lets timely oxygen change the respiratory trajectory instead of merely changing a vital", () => {
-    const untreated = advanceSimulationWorld(createSimulationWorld("respiratory-bradycardia", "team_leader"), 40);
-    let treated = advanceSimulationWorld(createSimulationWorld("respiratory-bradycardia", "team_leader"), 8);
-    treated = reduceSimulationWorld(treated, { type: "give_oxygen" });
-    treated = advanceSimulationWorld(treated, 28);
-    expect(untreated.patient.circulation).toBe("pulseless");
-    expect(treated.patient.circulation).not.toBe("pulseless");
-    expect(treated.patient.trajectory).toBe("improving");
-    expect(treated.patient.physiology.metabolicDebt).toBeLessThan(untreated.patient.physiology.metabolicDebt);
+  it("does not allow paediatric scenarios to be used as adult ACLS or neonatal NRP simulations", () => {
+    expect(isSimulationWorldScenarioCompatible("septic-shock-arrest", "pals")).toBe(true);
+    expect(isSimulationWorldScenarioCompatible("septic-shock-arrest", "acls")).toBe(false);
+    expect(isSimulationWorldScenarioCompatible("septic-shock-arrest", "nrp")).toBe(false);
+  });
+
+  it("requires both oxygenation and ventilation support before respiratory recovery is possible", () => {
+    const untreated = advanceSimulationWorld(createSimulationWorld("respiratory-bradycardia", "team_leader"), 8);
+    const oxygenOnly = reduceSimulationWorld(untreated, { type: "give_oxygen" });
+    const supported = reduceSimulationWorld(oxygenOnly, { type: "assist_ventilation" });
+    expect(oxygenOnly.patient.breathing).not.toBe("adequate");
+    expect(supported.environment.ventilationAssisted).toBe(true);
+    expect(supported.patient.physiology.oxygenation).toBeGreaterThan(untreated.patient.physiology.oxygenation);
+    expect(supported.patient.physiology.ventilation).toBeGreaterThan(oxygenOnly.patient.physiology.ventilation);
   });
 
   it("keeps a mechanism-mismatched fluid intervention from fixing respiratory failure", () => {

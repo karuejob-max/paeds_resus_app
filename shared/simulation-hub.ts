@@ -28,7 +28,7 @@ export const SIMULATION_MISSIONS: readonly SimulationMission[] = [
     masteryThreshold: 70,
     objective: "Demonstrate recognition, delegation, closed-loop communication, safe action, and reassessment in a team simulation.",
     realism: "The team is imperfect, information is incomplete, and the patient changes after your actions.",
-    supportedPrograms: ["acls", "pals", "nrp"],
+    supportedPrograms: ["pals"],
   },
   {
     id: "first-minutes",
@@ -40,7 +40,7 @@ export const SIMULATION_MISSIONS: readonly SimulationMission[] = [
     masteryThreshold: 70,
     objective: "Recognise arrest, lead high-quality CPR, and keep the algorithm moving.",
     realism: "Time pressure is visible, but speed never overrides a safe, deliberate action.",
-    supportedPrograms: ["bls", "acls", "pals", "heartsaver", "nrp"],
+    supportedPrograms: ["bls", "pals", "heartsaver"],
     isFormative: true,
   },
   {
@@ -53,7 +53,7 @@ export const SIMULATION_MISSIONS: readonly SimulationMission[] = [
     masteryThreshold: 70,
     objective: "Use ABCDE, treat the immediate threat, and reassess instead of waiting for certainty.",
     realism: "The patient responds to your decisions, including delayed or unsafe priorities.",
-    supportedPrograms: ["acls", "pals", "nrp"],
+    supportedPrograms: ["pals"],
   },
   {
     id: "rhythm-decisions",
