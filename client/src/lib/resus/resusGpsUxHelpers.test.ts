@@ -398,4 +398,49 @@ describe('resusGpsUxHelpers', () => {
     session = completeFluidReassessment(session);
     expect(session.pendingFluidReassessment).toBe(false);
   });
+
+  it('marks persistent shock only from documented perfusion findings, never volume alone', () => {
+    let session = startQuickAssessment(createSession(20, '8y 0m 0w', false));
+    session.pendingFluidReassessment = true;
+    session.fluidTracker.totalVolumePerKg = 60;
+    session.fluidReassessmentEvidence = {
+      flo_pulmonary_edema: { status: 'absent' },
+      flo_jvd: { status: 'absent' },
+      flo_creps: { status: 'absent' },
+      flo_gallop: { status: 'absent' },
+      flo_hepatomegaly: { status: 'absent' },
+      flo_peripheral_oedema: { status: 'absent' },
+      fls_crt: { status: 'value', value: '4' },
+      fls_hr: { status: 'value', value: '140' },
+      fls_sbp: { status: 'not_available' },
+      fls_temp_gradient: { status: 'value', value: 'cold' },
+      fls_pulse: { status: 'value', value: 'weak' },
+      fls_urine: { status: 'not_available' },
+    };
+    session = completeFluidReassessment(session);
+    expect(session.fluidTracker.disposition).toBe('persistent_shock');
+    expect(session.fluidTracker.isFluidRefractory).toBe(true);
+  });
+
+  it('prioritises explicit overload concern over persistent-shock escalation', () => {
+    let session = startQuickAssessment(createSession(20, '8y 0m 0w', false));
+    session.pendingFluidReassessment = true;
+    session.fluidReassessmentEvidence = {
+      flo_pulmonary_edema: { status: 'present' },
+      flo_jvd: { status: 'absent' },
+      flo_creps: { status: 'absent' },
+      flo_gallop: { status: 'absent' },
+      flo_hepatomegaly: { status: 'absent' },
+      flo_peripheral_oedema: { status: 'absent' },
+      fls_crt: { status: 'value', value: '4' },
+      fls_hr: { status: 'value', value: '140' },
+      fls_sbp: { status: 'not_available' },
+      fls_temp_gradient: { status: 'value', value: 'cold' },
+      fls_pulse: { status: 'value', value: 'weak' },
+      fls_urine: { status: 'not_available' },
+    };
+    session = completeFluidReassessment(session);
+    expect(session.fluidTracker.disposition).toBe('overload_concern');
+    expect(session.fluidTracker.isFluidRefractory).toBe(false);
+  });
 });

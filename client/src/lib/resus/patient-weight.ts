@@ -21,6 +21,11 @@ export interface ResolvedPatientWeight {
   requiresVerification: boolean;
 }
 
+/** Dose/energy/infusion calculations require an observed or explicitly entered weight. */
+export function isDoseWeightVerified(weight: Pick<ResolvedPatientWeight, 'source' | 'requiresVerification'> | null | undefined): boolean {
+  return Boolean(weight && (weight.source === 'measured' || weight.source === 'last_known'));
+}
+
 export interface WeightResolutionInput {
   age: string | null | undefined;
   measuredWeightKg?: number | null;

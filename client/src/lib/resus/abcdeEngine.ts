@@ -36,6 +36,7 @@ import {
   SPO2_TARGET_RESUS_DETAIL,
 } from '@shared/clinical-spo2-targets';
 import { applyVitalsAutofillToEvidence } from '@shared/clinical-evidence';
+import { FLUID_OVERLOAD_EVIDENCE } from '@shared/fellowship-clinical-rigor';
 import { getSecondarySurveyFields } from '@shared/secondary-survey-gating';
 import type { ResusSetting } from './cpr-pack-resolver';
 import {
@@ -219,7 +220,8 @@ export interface FluidTracker {
   totalVolumeMl: number;    // absolute mL given
   totalVolumePerKg: number; // mL/kg given (auto-calculated)
   fluidType: string;        // "Ringer's Lactate" or "Normal Saline 0.9%"
-  isFluidRefractory: boolean; // true when ≥60 mL/kg
+  isFluidRefractory: boolean; // true only after explicit persistent-shock reassessment
+  disposition?: 'not_assessed' | 'responding' | 'persistent_shock' | 'overload_concern';
   bolusHistory: { timestamp: number; volumeMl: number; fluidType: string }[];
 }
 
@@ -1864,6 +1866,7 @@ export function createSession(
       totalVolumePerKg: 0,
       fluidType: getDefaultFluid({ patientAge: age ?? null } as ResusSession).name,
       isFluidRefractory: false,
+      disposition: 'not_assessed',
       bolusHistory: [],
     },
     derivedPerfusion: null,
@@ -1907,6 +1910,7 @@ export function updatePatientInfo(
       next.fluidTracker.totalVolumePerKg = next.fluidTracker.totalVolumeMl / weight;
       // Volume alone does not establish fluid-refractory shock across ages or diagnoses. Set this only from an explicit protocol/clinical disposition in a governed pathway.
       next.fluidTracker.isFluidRefractory = false;
+      next.fluidTracker.disposition = 'not_assessed';
     }
   } else if (weight !== null && (weightSource !== next.patientWeightSource || weightMethod !== next.patientWeightMethod)) {
     changes.push(`Weight source/method: ${weightSource ?? next.patientWeightSource ?? 'not recorded'}`);
@@ -2186,6 +2190,7 @@ export function completeIntervention(session: ResusSession, interventionId: stri
           next.fluidTracker.totalVolumePerKg = next.fluidTracker.totalVolumeMl / next.patientWeight;
           // Volume alone does not establish fluid-refractory shock across ages or diagnoses. Set this only from an explicit protocol/clinical disposition in a governed pathway.
           next.fluidTracker.isFluidRefractory = false;
+          next.fluidTracker.disposition = 'not_assessed';
           next.fluidTracker.bolusHistory.push({
             timestamp: Date.now(),
             volumeMl,
@@ -2425,6 +2430,22 @@ export function setStructuredClinicalEvidence(
 export function completeFluidReassessment(session: ResusSession): ResusSession {
   const next = deepCopy(session);
   const interventionId = next.pendingFluidReassessmentInterventionId;
+  const evidence = next.fluidReassessmentEvidence ?? {};
+  const hasOverload = FLUID_OVERLOAD_EVIDENCE.some((field) => evidence[field.id]?.status === 'present');
+  const crt = Number(evidence.fls_crt?.status === 'value' ? evidence.fls_crt.value : NaN);
+  const urine = Number(evidence.fls_urine?.status === 'value' ? evidence.fls_urine.value : NaN);
+  const pulse = evidence.fls_pulse?.status === 'value' ? evidence.fls_pulse.value.toLowerCase() : '';
+  const persistentShock = !hasOverload && (
+    (Number.isFinite(crt) && crt > 3) ||
+    (Number.isFinite(urine) && urine < 1) ||
+    /weak|thready|absent|poor/.test(pulse)
+  );
+  next.fluidTracker.disposition = hasOverload
+    ? 'overload_concern'
+    : persistentShock
+      ? 'persistent_shock'
+      : 'responding';
+  next.fluidTracker.isFluidRefractory = persistentShock;
   next.pendingFluidReassessment = false;
   next.pendingFluidReassessmentInterventionId = undefined;
   if (interventionId) next.activeTimers = next.activeTimers.filter((timer) => timer.interventionId !== interventionId);

@@ -71,6 +71,17 @@ export type ProviderTodaySignals = {
   nextErtl: DutySummary | null;
 };
 
+export function buildProviderTodayUnverifiedAttention(): Attention {
+  return {
+    eyebrow: "Workplace status unverified",
+    title: "We could not verify workplace actions",
+    detail: "A workplace source failed to load. Retry My Shift before treating this as an empty action list.",
+    action: "Retry workplace status",
+    destination: "/my-shift",
+    tone: "amber",
+  };
+}
+
 export function buildProviderTodayAttention(signals: ProviderTodaySignals): Attention {
   const { activeActivation, pendingMembership, currentPendingRole, pendingReadiness, nextUtl, nextErtl } = signals;
   const nextDuty = nextUtl ?? nextErtl;
@@ -325,8 +336,17 @@ export default function ProviderToday() {
   const nextUtl = displayDuties?.nextUtl ?? null;
   const nextErtl = displayDuties?.nextErtl ?? null;
   const nextDuty = nextUtl ?? nextErtl;
+  const authoritativeWorkplaceError = [
+    membershipsQuery,
+    activationsQuery,
+    dutiesQuery,
+    teamsQuery,
+    readinessQuery,
+  ].some((query) => query.isError);
   const workplaceDataLoading = membershipsQuery.isLoading || (hasActiveMembership && (!secondaryQueriesReady || [activationsQuery, dutiesQuery, teamsQuery, readinessQuery].some((query) => query.isLoading && !hasOfflineSnapshot)));
-  const attention = workplaceDataLoading
+  const attention = authoritativeWorkplaceError
+    ? buildProviderTodayUnverifiedAttention()
+    : workplaceDataLoading
     ? {
         eyebrow: "Checking your workspace",
         title: "Checking for a provider action",
@@ -465,12 +485,12 @@ export default function ProviderToday() {
           </CardContent>
         </Card>
 
-        {membershipsQuery.isError || activationsQuery.isError || dutiesQuery.isError || teamsQuery.isError ? (
+        {authoritativeWorkplaceError ? (
           <Alert className="border-amber-200 bg-amber-50 text-amber-950">
             <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Some workplace details could not refresh</AlertTitle>
+            <AlertTitle>Workplace actions could not be verified</AlertTitle>
             <AlertDescription className="flex flex-wrap items-center gap-2 text-amber-900/80">
-              Your emergency tools remain available. Open My Shift to retry the relevant workspace.
+              Do not interpret the action list as empty until the failed source has refreshed. Your emergency tools remain available.
               <Button type="button" size="sm" variant="outline" onClick={() => { void membershipsQuery.refetch(); void activationsQuery.refetch(); void dutiesQuery.refetch(); void teamsQuery.refetch(); void utils.iers.getMyShiftReadiness.invalidate(); }}>
                 Retry
               </Button>
@@ -536,7 +556,7 @@ export default function ProviderToday() {
           </p>
         )}
 
-        {!workplaceDataLoading && !activeActivations.length && !currentPendingRole && !pendingReadiness && !nextDuty && !teams.length ? (
+        {!workplaceDataLoading && !authoritativeWorkplaceError && !activeActivations.length && !currentPendingRole && !pendingReadiness && !nextDuty && !teams.length ? (
           <div className="flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
             <CheckCircle2 className="h-4 w-4" /> No provider action is waiting right now.
           </div>
