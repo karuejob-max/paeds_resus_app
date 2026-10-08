@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
 import { invokeLLM } from "../_core/llm";
-import { getDb } from "../db";
+import { createAuditLog, getDb } from "../db";
 import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
 import {
   ahaPracticeLabAttempts,
@@ -14,6 +14,7 @@ import {
   simulationWorldCommandReceipts,
   simulationWorldEvidence,
   simulationWorldSessions,
+  users,
 } from "../../drizzle/schema";
 import {
   PRACTICE_LAB_TRACKS,
@@ -28,6 +29,17 @@ import { ADULT_ACLS_SCENARIOS, ADULT_ACLS_SCENARIO_VERSION, ADULT_ACLS_WORLD_VER
 const AHA_PROGRAM_TYPES = ["bls", "acls", "pals", "heartsaver", "nrp"] as const;
 
 const BOOSTER_INTERVALS_DAYS = [1, 3, 7, 14, 30];
+
+async function requireAdultAclsReviewer(ctx: { user: { id: number } }) {
+  const db = await getDb();
+  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+  const [reviewer] = await db.select({ role: users.role, instructorApprovedAt: users.instructorApprovedAt })
+    .from(users).where(eq(users.id, ctx.user.id)).limit(1);
+  if (!reviewer || (reviewer.role !== "admin" && !reviewer.instructorApprovedAt)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Only platform administrators or approved instructors can review Adult ACLS simulation evidence." });
+  }
+  return db;
+}
 
 async function fetchEligibleEnrollments(userId: number) {
   const db = await getDb();
@@ -185,6 +197,47 @@ export const practiceLabRouter = router({
       await db.insert(simulationWorldEvidence).values({ sessionId: session.id, userId: ctx.user.id, enrollmentId: session.enrollmentId, role: session.role, scenarioId: session.scenarioId, evidenceStatus: "review_required", assessmentJson: evidence });
       await db.update(simulationWorldSessions).set({ status: "completed", completedAt: new Date() }).where(eq(simulationWorldSessions.id, session.id));
       return { success: true, evidenceStatus: "review_required" as const, evidence, syntheticTrainingOnly: true };
+    }),
+
+  listAdultAclsEvidence: protectedProcedure
+    .input(z.object({ status: z.enum(["review_required", "accepted", "rejected"]).optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await requireAdultAclsReviewer(ctx);
+      return db.select({
+        id: simulationWorldEvidence.id,
+        userId: simulationWorldEvidence.userId,
+        learnerName: users.name,
+        enrollmentId: simulationWorldEvidence.enrollmentId,
+        sessionId: simulationWorldEvidence.sessionId,
+        role: simulationWorldEvidence.role,
+        scenarioId: simulationWorldEvidence.scenarioId,
+        evidenceStatus: simulationWorldEvidence.evidenceStatus,
+        assessmentJson: simulationWorldEvidence.assessmentJson,
+        reviewerId: simulationWorldEvidence.reviewerId,
+        reviewerReason: simulationWorldEvidence.reviewerReason,
+        createdAt: simulationWorldEvidence.createdAt,
+        reviewedAt: simulationWorldEvidence.reviewedAt,
+      })
+        .from(simulationWorldEvidence)
+        .leftJoin(users, eq(users.id, simulationWorldEvidence.userId))
+        .where(input?.status ? eq(simulationWorldEvidence.evidenceStatus, input.status) : undefined)
+        .orderBy(desc(simulationWorldEvidence.createdAt));
+    }),
+
+  reviewAdultAclsEvidence: protectedProcedure
+    .input(z.object({
+      evidenceId: z.number().int().positive(),
+      decision: z.enum(["accepted", "rejected"]),
+      reason: z.string().trim().min(10).max(2000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireAdultAclsReviewer(ctx);
+      const [evidence] = await db.select({ id: simulationWorldEvidence.id, evidenceStatus: simulationWorldEvidence.evidenceStatus, userId: simulationWorldEvidence.userId })
+        .from(simulationWorldEvidence).where(eq(simulationWorldEvidence.id, input.evidenceId)).limit(1);
+      if (!evidence) throw new TRPCError({ code: "NOT_FOUND", message: "Adult ACLS simulation evidence not found" });
+      await db.update(simulationWorldEvidence).set({ evidenceStatus: input.decision, reviewerId: ctx.user.id, reviewerReason: input.reason, reviewedAt: new Date() }).where(eq(simulationWorldEvidence.id, input.evidenceId));
+      await createAuditLog({ userId: ctx.user.id, action: "practiceLab.reviewAdultAclsEvidence", details: { evidenceId: input.evidenceId, learnerUserId: evidence.userId, previousStatus: evidence.evidenceStatus, decision: input.decision, reason: input.reason, doesNotGrantCredential: true } });
+      return { success: true, evidenceId: input.evidenceId, evidenceStatus: input.decision, doesNotGrantCredential: true, doesNotCompletePhase: true };
     }),
 
   recordAttempt: protectedProcedure

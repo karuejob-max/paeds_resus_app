@@ -146,6 +146,7 @@ const NerpCheckout = lazy(() => import("./pages/NerpCheckout"));
 const AdminNerpVerification = lazy(() => import("./pages/AdminNerpVerification"));
 const AdminAhaProofReview = lazy(() => import("./pages/AdminAhaProofReview"));
 const AdminCompletionRecords = lazy(() => import("./pages/AdminCompletionRecords"));
+const AdminAdultAclsEvidence = lazy(() => import("./pages/AdminAdultAclsEvidence"));
 const AdminNerpCampaign = lazy(() => import("./pages/AdminNerpCampaign"));
 const AdminPromotionalMessaging = lazy(() => import("./pages/AdminPromotionalMessaging"));
 const AdminProfessionalProgressCorrections = lazy(() => import("./pages/AdminProfessionalProgressCorrections"));
@@ -389,6 +390,11 @@ function Router() {
             <AdminGate>
               <AdminCompletionRecords />
             </AdminGate>
+          )}</Route>
+          <Route path="/admin/adult-acls-evidence">{() => (
+            <AdultAclsReviewerGate>
+              <AdminAdultAclsEvidence />
+            </AdultAclsReviewerGate>
           )}</Route>
           <Route path="/admin/nerp-campaign">{() => (
             <AdminGate>
@@ -955,6 +961,27 @@ function AdminGate({ children }: { children: ReactNode }) {
     );
   }
   return <AdminShell>{children}</AdminShell>;
+}
+
+function AdultAclsReviewerGate({ children }: { children: ReactNode }) {
+  const { user, isAuthenticated, loading } = useAuth();
+  const [, setLocation] = useLocation();
+  const defaultRole = mapUserTypeToRole(user?.userType);
+  const canReview = user?.role === "admin" || Boolean(user?.instructorApprovedAt);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!isAuthenticated) {
+      setLocation(buildLoginUrl(getCurrentAppPath()));
+      return;
+    }
+    if (!canReview) setLocation(getRoleHomePath(defaultRole));
+  }, [canReview, defaultRole, isAuthenticated, loading, setLocation]);
+
+  if (loading || !isAuthenticated || !canReview) {
+    return <RouteLoadingState title="Checking Adult ACLS reviewer access…" description="Only administrators and approved instructors can review simulation evidence." />;
+  }
+  return <>{children}</>;
 }
 
 function HomeEntry() {

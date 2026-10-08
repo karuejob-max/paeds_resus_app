@@ -105,7 +105,7 @@ export default function AdminCompletionRecords() {
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">Training records</p>
           <h1 className="mt-1 text-2xl font-bold text-slate-950">Life Support completion ledger</h1>
           <p className="mt-1 max-w-3xl text-sm text-slate-600">Review course progress and payment status, then record authorized off-platform Phase 2 or Phase 3 completion for a learner who has completed the cognitive coursework. Phase requirements are course-specific; this does not grant course access or bypass payment and entitlement rules.</p>
-          <a href="/admin/reports" className="mt-3 inline-flex text-sm font-semibold text-teal-700 underline-offset-4 hover:underline">Open Reports & insights enrollment ledger for payment and cohort-wide progress →</a>
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold"><a href="/admin/reports" className="text-teal-700 underline-offset-4 hover:underline">Open Reports & insights enrollment ledger for payment and cohort-wide progress →</a><a href="/admin/adult-acls-evidence" className="text-indigo-700 underline-offset-4 hover:underline">Review Adult ACLS simulation evidence →</a></div>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.8fr)] lg:items-start">
