@@ -64,12 +64,17 @@ const TRACK_META: Record<
     icon: GraduationCap,
     description: "Full deterioration arc — ABCDE, shock, CPR, ROSC, and post-resuscitation care",
   },
-  simulation_world: {
-    label: "Simulation World",
-    icon: Users,
-    description: "Role-based resuscitation room with deterministic patient state, NPC team, and replay evidence",
-  },
-};
+	  simulation_world: {
+	    label: "Simulation World",
+	    icon: Users,
+	    description: "Role-based resuscitation room with deterministic patient state, NPC team, and replay evidence",
+	  },
+	  adult_acls_world: {
+	    label: "Adult ACLS Simulation World",
+	    icon: Users,
+	    description: "Synthetic adult ACLS rhythm, arrest, intervention, and reassessment rehearsal",
+	  },
+	};
 
 export default function AHAPracticeLab() {
   const [, setLocation] = useLocation();
