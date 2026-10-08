@@ -36,4 +36,11 @@ describe("Simulation Hub mission model", () => {
     expect(isFormativeSimulationMission(getSimulationMission("resus-room")!)).toBe(true);
     expect(isFormativeSimulationMission(getSimulationMission("pals-capstone")!)).toBe(false);
   });
+
+  it("does not expose paediatric Simulation World missions to ACLS or NRP", () => {
+    expect(getSimulationMission("simulation-world")?.supportedPrograms).toEqual(["pals"]);
+    expect(getSimulationMission("deteriorating-child")?.supportedPrograms).toEqual(["pals"]);
+    expect(getSimulationMission("first-minutes")?.supportedPrograms).not.toContain("acls");
+    expect(getSimulationMission("first-minutes")?.supportedPrograms).not.toContain("nrp");
+  });
 });
