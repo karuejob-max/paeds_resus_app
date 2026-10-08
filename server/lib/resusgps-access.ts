@@ -16,7 +16,9 @@ function strictFellowshipWindow(): boolean {
 
 export type ResusGpsClientAccess = {
   canUse: boolean;
-  mode: "legacy_open" | "active" | "expired" | "strict_blocked";
+  /** Clinical reference remains available; this reports the separate learning window. */
+  learningAccess: boolean;
+  mode: "legacy_open" | "active" | "reference_only" | "strict_blocked";
   expiresAt: string | null;
   daysRemaining: number | null;
   headline: string;
@@ -28,6 +30,7 @@ export async function getResusGpsAccessForClient(userId: number): Promise<ResusG
   if (!database) {
     return {
       canUse: true,
+      learningAccess: false,
       mode: "legacy_open",
       expiresAt: null,
       daysRemaining: null,
@@ -45,17 +48,19 @@ export async function getResusGpsAccessForClient(userId: number): Promise<ResusG
   if (exp == null) {
     if (strictFellowshipWindow()) {
       return {
-        canUse: false,
+        canUse: true,
+        learningAccess: false,
         mode: "strict_blocked",
         expiresAt: null,
         daysRemaining: null,
         headline: "ResusGPS requires an active access window",
         detail:
-          "Complete a fellowship micro-course to unlock 30 days of ResusGPS. Each completed course extends your window.",
+          "Clinical reference remains available. Complete a fellowship micro-course to restore the separate learning-linked access window.",
       };
     }
     return {
       canUse: true,
+      learningAccess: true,
       mode: "legacy_open",
       expiresAt: null,
       daysRemaining: null,
@@ -69,6 +74,7 @@ export async function getResusGpsAccessForClient(userId: number): Promise<ResusG
     const daysRemaining = Math.max(0, Math.ceil((expMs - Date.now()) / DAY_MS));
     return {
       canUse: true,
+      learningAccess: true,
       mode: "active",
       expiresAt: new Date(exp).toISOString(),
       daysRemaining,
@@ -78,13 +84,14 @@ export async function getResusGpsAccessForClient(userId: number): Promise<ResusG
   }
 
   return {
-    canUse: false,
-    mode: "expired",
+    canUse: true,
+    learningAccess: false,
+    mode: "reference_only",
     expiresAt: new Date(exp).toISOString(),
     daysRemaining: 0,
     headline: "ResusGPS access paused",
     detail:
-      "Your 30-day window has ended. Complete another fellowship micro-course to restore ResusGPS access.",
+      "Your learning-linked window has ended. Clinical reference remains available; complete another fellowship micro-course to restore the separate learning window.",
   };
 }
 

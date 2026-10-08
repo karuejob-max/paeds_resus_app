@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmergencyProtocolViewer } from "@/components/EmergencyProtocolViewer";
 import { AlertCircle, BookOpen, Shield } from "lucide-react";
-import { BottomNav } from "@/components/BottomNav";
 
 export const EmergencyProtocols: React.FC = () => {
   const [selectedProtocol, setSelectedProtocol] = useState<string | null>(null);
@@ -76,8 +75,7 @@ export const EmergencyProtocols: React.FC = () => {
             setSelectedProtocol(null);
           }}
         />
-        <BottomNav />
-      </div>
+        </div>
     );
   }
 
@@ -215,7 +213,6 @@ export const EmergencyProtocols: React.FC = () => {
           </div>
         </Card>
       </div>
-      <BottomNav />
     </div>
   );
 };

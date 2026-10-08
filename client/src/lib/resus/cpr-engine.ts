@@ -96,7 +96,10 @@ export interface RhythmWindowDocumentation {
 export interface HyperkalemiaGuidanceInput {
   weightKg: number;
   potassiumMmolL: number;
-  hasEcgChanges: boolean;
+  /** Explicit bedside finding. Unknown must never be interpreted as present. */
+  ecgChanges?: 'present' | 'absent' | 'unknown';
+  /** Legacy compatibility for older callers; new callers should use ecgChanges. */
+  hasEcgChanges?: boolean;
   prolongedArrest?: boolean;
 }
 
@@ -450,7 +453,10 @@ export function getFluidBolusGuidance(
 }
 
 export function getHyperkalemiaGuidance(input: HyperkalemiaGuidanceInput): HyperkalemiaGuidance {
-  const { weightKg, potassiumMmolL, hasEcgChanges, prolongedArrest = false } = input;
+  const { weightKg, potassiumMmolL, prolongedArrest = false } = input;
+  const hasEcgChanges = input.ecgChanges !== undefined
+    ? input.ecgChanges === 'present'
+    : input.hasEcgChanges === true;
   const severity: HyperkalemiaGuidance['severity'] =
     potassiumMmolL >= 7 || hasEcgChanges ? 'severe' : potassiumMmolL >= 6 ? 'moderate' : 'mild';
 

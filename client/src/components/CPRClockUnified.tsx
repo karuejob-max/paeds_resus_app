@@ -40,6 +40,8 @@ interface Props {
   allowPatientInfoEdit?: boolean;
   /** Keep CPR state mounted while showing a deliberate non-terminal pause surface. */
   paused?: boolean;
+  /** Hide the console without stopping the arrest clock or event processing. */
+  hidden?: boolean;
 }
 
 function CPRClockUnifiedInner({
@@ -59,6 +61,7 @@ function CPRClockUnifiedInner({
   allowModeSwitch = false,
   allowPatientInfoEdit = true,
   paused = false,
+  hidden = false,
 }: Props) {
   const shared = useCprClockShared();
   const [mode, setMode] = useState<'solo' | 'team'>('solo');
@@ -86,7 +89,7 @@ function CPRClockUnifiedInner({
   };
 
   return (
-    <div className="relative h-full flex flex-col min-h-[80vh]">
+    <div className={hidden ? 'hidden' : 'relative h-full flex flex-col min-h-[80vh]'} aria-hidden={hidden || undefined}>
       {paused && (
         <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/95 p-4" role="dialog" aria-modal="true" aria-labelledby="cpr-paused-title">
           <div className="w-full max-w-md rounded-xl border border-amber-400/70 bg-slate-950 p-6 text-white shadow-2xl">

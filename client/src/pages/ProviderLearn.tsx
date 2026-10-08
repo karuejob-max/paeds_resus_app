@@ -31,7 +31,7 @@ export default function ProviderLearn() {
     staleTime: 30_000,
     retry: 1,
   });
-  const { data: nerpJourney } = trpc.nerp.getJourneyStatus.useQuery(undefined, {
+  const nerpJourneyQuery = trpc.nerp.getJourneyStatus.useQuery(undefined, {
     enabled: isAuthenticated,
     staleTime: 30_000,
     retry: 1,
@@ -76,7 +76,9 @@ export default function ProviderLearn() {
   const nerpPathwayComplete =
     nerpEnrollment?.offer?.status === "completed" ||
     (verifiedExternalPhases.has("phase_2") && verifiedExternalPhases.has("phase_3"));
-  const showNerpOffer = !nerpEnrollmentQuery.isLoading && !nerpPathwayComplete;
+  const nerpJourney = nerpJourneyQuery.data;
+  const learningSourceFailed = fellowshipQuery.isError || microEnrollmentsQuery.isError || ahaEnrollmentsQuery.isError || nerpEnrollmentQuery.isError || nerpJourneyQuery.isError || ierpEnrollmentQuery.isError || ierpSummaryQuery.isError;
+  const showNerpOffer = nerpEnrollmentQuery.isSuccess && !nerpPathwayComplete;
   const inProgressMicro = microEnrollments.find((enrollment) => enrollment.enrollmentStatus === "active" && Number(enrollment.progressPercentage ?? 0) < 100);
   const inProgressAha = ahaEnrollments.find((enrollment) => Number(enrollment.progressPercentage ?? 0) < 100 || !enrollment.practicalSkillsSignedOff);
   const coursesCompleted = fellowship?.coursesPillar?.completed ?? microEnrollments.filter((enrollment) => enrollment.enrollmentStatus === "completed").length;
@@ -113,13 +115,27 @@ export default function ProviderLearn() {
           </div>
         </div>
 
+        {learningSourceFailed ? (
+          <Card role="alert" className="border-red-200 bg-red-50">
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-red-950">Some learning records could not be loaded</p>
+                <p className="mt-1 text-xs text-red-900/80">Progress and offers are not being treated as zero or complete. Refresh and retry before choosing a next action.</p>
+              </div>
+              <Button type="button" size="sm" variant="outline" className="border-red-300 text-red-900" onClick={() => { void fellowshipQuery.refetch(); void microEnrollmentsQuery.refetch(); void ahaEnrollmentsQuery.refetch(); void nerpEnrollmentQuery.refetch(); void nerpJourneyQuery.refetch(); void ierpEnrollmentQuery.refetch(); if (ierpEnrollmentQuery.data) void ierpSummaryQuery.refetch(); }}>Retry</Button>
+            </CardContent>
+          </Card>
+        ) : null}
+
         <Card className="border-violet-200 bg-violet-50/60">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base text-violet-950"><GraduationCap className="h-5 w-5 text-violet-700" />Your next learning action</CardTitle>
             <CardDescription className="text-violet-900/75">Fellowship and Life Support certification are separate learning tracks. Choose the one you are currently pursuing.</CardDescription>
           </CardHeader>
           <CardContent>
-            {nextLearning ? (
+            {learningSourceFailed ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">Next action is temporarily unavailable because one or more learning sources failed.</div>
+            ) : nextLearning ? (
               <div className="rounded-lg border border-violet-200 bg-white p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>

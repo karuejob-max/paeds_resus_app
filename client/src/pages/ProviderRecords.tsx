@@ -79,6 +79,21 @@ function PhaseRow({ label, description, complete, applicable = true, certificate
   );
 }
 
+function SourceStateBanner({ failed, label, onRetry }: { failed: boolean; label: string; onRetry: () => void }) {
+  if (!failed) return null;
+  return (
+    <Card role="alert" className="border-red-200 bg-red-50">
+      <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-red-950">{label} could not be loaded</p>
+          <p className="mt-1 text-xs text-red-900/80">No zero or “not recorded” status is being inferred. Retry before relying on this record.</p>
+        </div>
+        <Button type="button" size="sm" variant="outline" className="border-red-300 text-red-900" onClick={onRetry}>Retry</Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ProviderRecords({ focusCertificates = false, embedded = false }: { focusCertificates?: boolean; embedded?: boolean }) {
   const { user, loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
@@ -170,13 +185,8 @@ export default function ProviderRecords({ focusCertificates = false, embedded = 
   const certificates = (certificatesQuery.data?.certificates?.length ? certificatesQuery.data.certificates : progressCertificates) as typeof certificatesPlaceholder;
   const phaseCertificates = phaseStatusQuery.data ?? [];
   const completionRecords = completionStatusQuery.data ?? [];
-  const cpdRecords: Array<any> = cpdQuery.data?.records?.length ? cpdQuery.data.records : (progressReport?.cpd?.sessions ?? []).map((session: any, index: number) => ({
-    attendeeId: `progress-${session.title ?? "session"}-${session.date ?? index}-${index}`,
-    eventName: session.title,
-    institutionName: "Paeds Resus",
-    eventDate: session.date,
-    cpdPoints: session.points,
-  }));
+  const cpdRecords: Array<any> = cpdQuery.isSuccess ? (cpdQuery.data?.records ?? []) : [];
+  const cpdFallbackNotice = !cpdQuery.isSuccess && !cpdQuery.isError && !cpdQuery.isLoading && Boolean(progressReport?.cpd?.sessions?.length);
   const activeMemberships = (membershipsQuery.data ?? []).filter((membership) => membership.membershipStatus === "active");
   const selectedPathway = LIFE_SUPPORT_COURSES.find((course) => course.key === selectedCourse) ?? LIFE_SUPPORT_COURSES[0];
   const progressCourse = (progressReport?.lifeSupport ?? []).find((record: any) => record.program === selectedCourse.toUpperCase());
@@ -256,6 +266,13 @@ export default function ProviderRecords({ focusCertificates = false, embedded = 
             <p className="mt-1 max-w-2xl text-sm text-slate-500">One place for your AHA certificates, CPD history, Fellowship progress, and downloadable completion evidence.</p>
           </div>
         </div>
+        <SourceStateBanner
+          failed={certificatesQuery.isError || phaseStatusQuery.isError || completionStatusQuery.isError || professionalProgressQuery.isError}
+          label="One or more professional record sources"
+          onRetry={() => { void certificatesQuery.refetch(); void phaseStatusQuery.refetch(); void completionStatusQuery.refetch(); void professionalProgressQuery.refetch(); }}
+        />
+        <SourceStateBanner failed={cpdQuery.isError} label="CPD records" onRetry={() => { void cpdQuery.refetch(); }} />
+        {cpdFallbackNotice ? <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">CPD records are still being confirmed by the dedicated CPD source. No CPD total is inferred from another report.</p> : null}
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-xl border border-emerald-200 bg-white p-4"><p className="text-2xl font-bold text-emerald-800">{ahaCertificates.length}</p><p className="mt-1 text-xs text-slate-500">AHA certificates</p></div>

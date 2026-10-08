@@ -39,10 +39,10 @@ function getResusGateCopy(role: UserRole) {
   }
 
   return {
-    errorFallback: "Try again or continue with fellowship courses while we re-check your access.",
+    errorFallback: "The learning access window could not be checked. Clinical reference remains available; retry later to refresh learning status.",
     unavailableCta: "Open Fellowship",
     unavailableDestination: "/fellowship",
-    accessAlert: "Fellowship micro-courses extend ResusGPS access by 30 days each time you complete one.",
+    accessAlert: "Fellowship micro-courses affect learning-linked access only. Clinical reference remains available.",
     accessCta: "Go to Fellowship micro-courses",
     accessDestination: "/fellowship",
   };
@@ -156,37 +156,20 @@ export default function ResusGated() {
 
   if (isError || !access) {
     return (
-      <div className="min-h-screen bg-background p-4 md:p-8">
-        <div className="max-w-lg mx-auto space-y-6">
-          <Button variant="ghost" size="sm" className="gap-2" onClick={() => setLocation(roleHomePath)}>
-            <ArrowLeft className="h-4 w-4" />
-            Back to hub
-          </Button>
-          <Card>
-            <CardHeader>
-              <CardTitle>ResusGPS temporarily unavailable</CardTitle>
-              <CardDescription>
-                {gateCopy.errorFallback}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error?.message || "Access check failed."}</AlertDescription>
-              </Alert>
-              <Button className="w-full" onClick={() => void refetch()}>
-                Retry ResusGPS
-              </Button>
-              <Button
-                className="w-full"
-                variant="outline"
-                onClick={() => setLocation(gateCopy.unavailableDestination)}
-              >
-                {gateCopy.unavailableCta}
-              </Button>
-            </CardContent>
-          </Card>
+      <div className="min-h-screen bg-background">
+        <div className="mx-auto max-w-5xl px-4 pt-4">
+          <Alert className="border-amber-200 bg-amber-50 text-amber-950">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="flex flex-wrap items-center gap-2">
+              <span>{gateCopy.errorFallback}</span>
+              <Button size="sm" variant="outline" onClick={() => void refetch()}>Retry learning status</Button>
+            </AlertDescription>
+          </Alert>
         </div>
+        <ResusGPS
+          hasActivationContext={Boolean(activationContext.activationId)}
+          activationEventId={activationContext.activationId ?? undefined}
+        />
       </div>
     );
   }
@@ -221,6 +204,16 @@ export default function ResusGated() {
 
   return (
     <div className="min-h-screen bg-background">
+      {!access.learningAccess ? (
+        <div className="mx-auto max-w-5xl px-4 pt-4">
+          <Alert className="border-blue-200 bg-blue-50 text-blue-950">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Clinical reference mode is available. Learning-linked access is currently inactive and does not affect bedside reference access.
+            </AlertDescription>
+          </Alert>
+        </div>
+      ) : null}
       {activationContext.activationId ? <div id="iers-activation-context" className="mx-auto max-w-5xl px-4 pt-4"><ProviderIersActivationCaseContext activationEventId={activationContext.activationId} /></div> : null}
       <ResusGPS
         hasActivationContext={Boolean(activationContext.activationId)}

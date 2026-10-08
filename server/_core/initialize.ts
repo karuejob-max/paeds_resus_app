@@ -17,8 +17,7 @@ export async function runMigrations() {
   try {
     const db = await getDb();
     if (!db) {
-      console.log('[Migrations] Database not available, skipping migrations');
-      return;
+      throw new Error('[Migrations] Database not available; refusing to start without required schema initialization');
     }
     // 0039: add microCourseEnrollmentId to certificates (idempotent column-existence check)
     const [cols] = await db.execute(sql`
@@ -344,8 +343,8 @@ export async function runMigrations() {
       );
     }
   } catch (error) {
-    console.error('[Migrations] Migration error (non-fatal):', error instanceof Error ? error.message : error);
-    // Don't throw — allow server to start even if a migration fails
+    console.error('[Migrations] Migration error (fatal):', error instanceof Error ? error.message : error);
+    throw error;
   }
 }
 
@@ -353,8 +352,7 @@ export async function initializeDatabase() {
   try {
     const db = await getDb();
     if (!db) {
-      console.log('[Initialize] Database not available, skipping seed');
-      return;
+      throw new Error('[Initialize] Database not available; refusing to start without required catalog initialization');
     }
 
     // Check if courses already exist
@@ -369,7 +367,7 @@ export async function initializeDatabase() {
     await ensureMicroCoursesCatalog();
     console.log(`[Initialize] ✓ Successfully seeded micro-course catalog`);
   } catch (error) {
-    console.error('[Initialize] Error seeding courses:', error instanceof Error ? error.message : error);
-    // Don't throw - allow server to continue even if seeding fails
+    console.error('[Initialize] Error seeding courses (fatal):', error instanceof Error ? error.message : error);
+    throw error;
   }
 }

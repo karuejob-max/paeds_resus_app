@@ -94,4 +94,10 @@ describe('CPR-GPS life-support pack behavior', () => {
     expect(result.epiEligible).toBe(true);
     expect(result.recommendation).toMatch(/adult ACLS epinephrine 1 mg/i);
   });
+
+  it('does not treat an unknown ECG as ECG-positive hyperkalaemia', async () => {
+    const { getHyperkalemiaGuidance } = await import('./cpr-engine');
+    expect(getHyperkalemiaGuidance({ weightKg: 20, potassiumMmolL: 6.2, ecgChanges: 'unknown' }).severity).toBe('moderate');
+    expect(getHyperkalemiaGuidance({ weightKg: 20, potassiumMmolL: 6.2, ecgChanges: 'present' }).severity).toBe('severe');
+  });
 });

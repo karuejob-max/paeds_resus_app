@@ -21,6 +21,7 @@ import { LegalReconsentGate } from "@/components/LegalReconsentGate";
 import { trpc } from "@/lib/trpc";
 import { AHA_HUB_STALE_MS } from "@/const/aha-hub-query";
 import AdminShell from "./components/AdminShell";
+import { BottomNav } from "./components/BottomNav";
 import NotFound from "./pages/NotFound";
 
 const Login = lazy(() => import("./pages/Login"));
@@ -201,6 +202,7 @@ function Router() {
         Skip to main content
       </a>
       <Header />
+      <ProviderBottomNav />
       <PlatformOfflineStatus />
       <PendingAdminInviteBanner />
       <ProviderActivationAlert />
@@ -765,6 +767,13 @@ function Router() {
       <PaedsAIAssistant />
     </div>
   );
+}
+
+function ProviderBottomNav() {
+  const { isAuthenticated } = useAuth();
+  const { role } = useUserRole();
+  if (!isAuthenticated || role !== "provider") return null;
+  return <BottomNav />;
 }
 
 function App() {

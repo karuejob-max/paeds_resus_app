@@ -30,6 +30,8 @@ import { registerNerpCampaignRoutes } from "../nerp-campaign-routes";
 import { registerPromotionalCampaignRoutes } from "../promotional-campaign-routes";
 import { registerProfessionalProgressRoutes } from "../professional-progress-routes";
 import { handleInstitutionalPaymentWebhook } from "../webhooks/institutional-payment";
+import { getDb } from "../db";
+import { sql } from "drizzle-orm";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -71,8 +73,29 @@ async function startServer() {
    * Keeps serverless-style hosts from cold-stopping between user sessions — the main lever for
    * sub-minute STK initiation (under ~10s when warm) vs multi-minute spin-up delays.
    */
-  app.get("/api/health", (_req, res) => {
+  app.get("/api/live", (_req, res) => {
     res.status(200).type("application/json").send(JSON.stringify({ ok: true }));
+  });
+  app.get("/api/health", (_req, res) => {
+    res.status(200).type("application/json").send(JSON.stringify({ ok: true, status: "live" }));
+  });
+  app.get("/api/ready", async (_req, res) => {
+    try {
+      const db = await getDb();
+      if (!db) return res.status(503).json({ ok: false, status: "not_ready", reason: "database_unavailable" });
+      const [tables] = await db.execute(sql`
+        SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME IN ('users', 'certificates', 'microCourses')
+      `);
+      const names = new Set((tables as unknown as Array<{ TABLE_NAME?: string }>).map((row) => row.TABLE_NAME));
+      const required = ['users', 'certificates', 'microCourses'];
+      const missing = required.filter((table) => !names.has(table));
+      if (missing.length > 0) return res.status(503).json({ ok: false, status: "not_ready", reason: "schema_incomplete", missing });
+      return res.status(200).json({ ok: true, status: "ready", schema: "core" });
+    } catch (error) {
+      return res.status(503).json({ ok: false, status: "not_ready", reason: "readiness_probe_failed", detail: error instanceof Error ? error.message : "unknown" });
+    }
   });
 
   // STK / Daraja callbacks (canonical path per Safaricom URL naming; legacy alias for old Daraja configs)
@@ -133,16 +156,18 @@ async function startServer() {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
 
+  await runMigrations();
+  await initializeDatabase();
+
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
-    // Apply pending DB migrations, then seed courses
-    runMigrations()
-      .then(() => initializeDatabase())
-      .catch(err => console.error('[Initialize] Failed:', err));
     if (process.env.NODE_ENV === "production" || process.env.ENABLE_SCHEDULER === "1") {
       initializeScheduler();
     }
   });
 }
 
-startServer().catch(console.error);
+startServer().catch((error) => {
+  console.error('[Server] Fatal startup failure:', error);
+  process.exitCode = 1;
+});

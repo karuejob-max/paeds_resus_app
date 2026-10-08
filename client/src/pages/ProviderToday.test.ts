@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildProviderTodayAttention, type ProviderTodaySignals } from "./ProviderToday";
+import { buildProviderTodayAttention, buildProviderTodayUnverifiedAttention, type ProviderTodaySignals } from "./ProviderToday";
 
 const baseSignals: ProviderTodaySignals = {
   activeActivation: null,
@@ -83,6 +83,15 @@ describe("buildProviderTodayAttention", () => {
       action: "Open ResusGPS",
       destination: "/resus",
       tone: "teal",
+    });
+  });
+
+  it("uses an explicit unverified state when workplace data failed", () => {
+    expect(buildProviderTodayUnverifiedAttention()).toMatchObject({
+      eyebrow: "Workplace status unverified",
+      action: "Retry workplace status",
+      destination: "/my-shift",
+      tone: "amber",
     });
   });
 });

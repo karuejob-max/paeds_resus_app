@@ -267,6 +267,7 @@ export function CPRClockStreamlined({
   const [editableAge, setEditableAge] = useState(patientAgeMonths || 0);
   const [intubationStartTime, setIntubationStartTime] = useState<number | null>(null);
   const [hyperKalemiaInput, setHyperKalemiaInput] = useState('');
+  const [hyperKalemiaEcgChanges, setHyperKalemiaEcgChanges] = useState<'present' | 'absent' | 'unknown'>('unknown');
   const [spo2Input, setSpo2Input] = useState('');
   const [fluidOverloadFindings, setFluidOverloadFindings] = useState({
     hepatomegaly: false,
@@ -1836,13 +1837,24 @@ export function CPRClockStreamlined({
                         onChange={(e) => setHyperKalemiaInput(e.target.value)}
                         className="bg-gray-900 border-gray-700 text-white"
                       />
+                      <label className="text-xs text-gray-200" htmlFor="hyperk-ecg-status">ECG changes</label>
+                      <select
+                        id="hyperk-ecg-status"
+                        value={hyperKalemiaEcgChanges}
+                        onChange={(e) => setHyperKalemiaEcgChanges(e.target.value as 'present' | 'absent' | 'unknown')}
+                        className="rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white"
+                      >
+                        <option value="unknown">Unknown — assess ECG</option>
+                        <option value="present">Present</option>
+                        <option value="absent">Absent</option>
+                      </select>
                       {hyperKalemiaInput && !Number.isNaN(Number(hyperKalemiaInput)) && (
                         <div className="text-xs text-blue-200 space-y-1">
                           {(() => {
                             const guidance = getHyperkalemiaGuidance({
                               weightKg: patientWeight,
                               potassiumMmolL: Number(hyperKalemiaInput),
-                              hasEcgChanges: true,
+                              ecgChanges: hyperKalemiaEcgChanges,
                               prolongedArrest: effectiveArrestDuration >= 600,
                             });
                             return (

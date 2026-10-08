@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   estimateEmergencyWeight,
+  isDoseWeightVerified,
   parseAgeToMonths,
   resolvePatientWeight,
 } from './patient-weight';
@@ -36,6 +37,12 @@ describe('patient weight resolution', () => {
       source: 'age_estimate',
       requiresVerification: true,
     });
+  });
+
+  it('blocks dose-bearing guidance for age-only estimates but permits entered weights', () => {
+    expect(isDoseWeightVerified({ source: 'age_estimate', requiresVerification: true })).toBe(false);
+    expect(isDoseWeightVerified({ source: 'last_known', requiresVerification: true })).toBe(true);
+    expect(isDoseWeightVerified({ source: 'measured', requiresVerification: false })).toBe(true);
   });
 
   it('uses bounded adult emergency weight instead of an unbounded age slope', () => {

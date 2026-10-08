@@ -12,7 +12,6 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
-import { BottomNav } from '@/components/BottomNav';
 import { RecommendationBanner } from '@/components/RecommendationBanner';
 import { CPRClockUnified } from '@/components/CPRClockUnified';
 import { type ResusSetting } from '@/lib/resus/cpr-pack-resolver';
@@ -35,7 +34,7 @@ import { ClinicalContentSafetyFooter } from '@/components/ClinicalContentSafetyF
 import { ClinicalUseDisclaimer } from '@/components/ClinicalUseDisclaimer';
 
 import { parseResusWeight, validateResusWeight } from '@/lib/resus/patientDemographics';
-import { resolvePatientWeight, parseAgeToMonths, type ResolvedPatientWeight } from '@/lib/resus/patient-weight';
+import { resolvePatientWeight, isDoseWeightVerified, parseAgeToMonths, type ResolvedPatientWeight } from '@/lib/resus/patient-weight';
 import { DiagnosisCard } from '@/components/DiagnosisCard';
 import { getDoseRationale } from '@/lib/resus/dose-rationale';
 import { DoseRationaleCard } from '@/components/DoseRationaleCard';
@@ -443,6 +442,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   const [showEventLog, setShowEventLog] = useState(false);
   const [showCPRClock, setShowCPRClock] = useState(false);
   const [cprPaused, setCprPaused] = useState(false);
+  const [cprHidden, setCprHidden] = useState(false);
   const [cprDebriefSessionId, setCprDebriefSessionId] = useState<number | null>(null);
   const [showCprDebrief, setShowCprDebrief] = useState(false);
   const cprEventLinkMutation = trpc.cprEventLink.linkSession.useMutation();
@@ -623,6 +623,10 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       toast.error(weightValidation.message ?? 'Verify the patient weight before starting.');
       return;
     }
+    if (!isDoseWeightVerified(resolution)) {
+      toast.error('Age-only weight estimates cannot unlock dose, infusion, shock-energy, or CPR guidance. Enter a measured or explicitly entered last-known weight first.');
+      return;
+    }
     if (context.status !== 'ready' || !context.pack || !context.setting) {
       toast.error(context.reason ?? 'Confirm the patient context before starting age-specific guidance.');
       return;
@@ -653,6 +657,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     setNumberInput2('');
     if (answer === 'cardiac_arrest') {
       setCprPaused(false);
+      setCprHidden(false);
       setShowCPRClock(true);
       if (!timer.running) timer.start();
       analytics.trackCardiacArrestTriggered();
@@ -709,6 +714,13 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
   const handleStartIntervention = (id: string) => {
     const intervention = session.threats.flatMap((t) => t.interventions).find((i) => i.id === id);
     if (!intervention) return;
+    if (intervention.dose && !isDoseWeightVerified({
+      source: session.patientWeightSource ?? 'age_estimate',
+      requiresVerification: session.patientWeightSource === 'age_estimate',
+    })) {
+      toast.error('Verify a measured or last-known weight before starting dose-bearing interventions.');
+      return;
+    }
     if (intervention.dose && session.doseReviewRequired) {
       toast.error('Review the displayed dose for the current patient weight and age before starting this medication action.');
       return;
@@ -797,7 +809,10 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       setDuplicateCheck(null);
       return;
     }
-    if (intervention.dose && session.doseReviewRequired) {
+    if (intervention.dose && (session.doseReviewRequired || !isDoseWeightVerified({
+      source: session.patientWeightSource ?? 'age_estimate',
+      requiresVerification: session.patientWeightSource === 'age_estimate',
+    }))) {
       toast.error('Review the displayed dose for the current patient weight and age before starting this medication action.');
       setDuplicateCheck(null);
       return;
@@ -849,6 +864,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
       timer.start();
     }
     setCprPaused(false);
+    setCprHidden(false);
     setShowCPRClock(true);
     analytics.trackCardiacArrestTriggered();
   };
@@ -863,7 +879,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     adultContentEnabled: false,
   });
   const patientAgeMonthsForCpr = currentContext.ageMonths;
-  const cprDemographicsReady = currentContext.status === 'ready' && currentContext.weight != null && patientAgeMonthsForCpr != null;
+  const cprDemographicsReady = currentContext.status === 'ready' && currentContext.weight != null && patientAgeMonthsForCpr != null && session.patientWeightSource !== 'age_estimate';
   const lifeSupportPack = cprDemographicsReady ? currentContext.pack : null;
 
   const handleCprSessionReady = useCallback((cprSessionId: number) => {
@@ -894,6 +910,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     timer.stop();
     setShowCPRClock(false);
     setCprPaused(false);
+    setCprHidden(false);
     // Track ROSC achieved
     analytics.trackROSCachieved();
   };
@@ -907,14 +924,15 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
     timer.stop();
     setShowCPRClock(false);
     setCprPaused(false);
+    setCprHidden(false);
   };
 
-  const pauseCprGps = () => {
-    timer.stop();
-    setCprPaused(true);
+  const hideCprGps = () => {
+    setCprHidden(true);
   };
 
   const resumeCprGps = () => {
+    setCprHidden(false);
     setCprPaused(false);
     timer.start();
   };
@@ -1340,7 +1358,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
 
   const handleDefinitiveCareStepChange = useCallback(
     (stepId: string, status: 'done') => {
-      if (session.patientWeight === null || !validateResusWeight(session.patientWeight).valid) {
+      if (session.patientWeight === null || !validateResusWeight(session.patientWeight).valid || session.patientWeightSource === 'age_estimate') {
         toast.error('Verify the patient weight before opening calculated definitive-care steps.', { duration: 4000 });
         return;
       }
@@ -1867,7 +1885,7 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
           </Card>
         ) : session.phase === 'CARDIAC_ARREST' && showCPRClock && lifeSupportPack?.pack === 'NRP' && cprDemographicsReady ? (
           <NeonatalResuscitationFlow birthWeightGrams={Math.round(weight! * 1000)} onClose={() => setShowCPRClock(false)} />
-        ) : session.phase === 'CARDIAC_ARREST' && (showCPRClock || cprPaused) && cprDemographicsReady ? (
+        ) : session.phase === 'CARDIAC_ARREST' && (showCPRClock || cprPaused || cprHidden) && cprDemographicsReady ? (
             <CPRClockUnified
             patientWeight={weight!}
             activationEventId={activationEventId}
@@ -1883,10 +1901,25 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
             allowModeSwitch={false}
             allowPatientInfoEdit={false}
             paused={cprPaused}
+            hidden={cprHidden}
             onResume={resumeCprGps}
-            onClose={pauseCprGps}
+            onClose={hideCprGps}
           />
         ) : null}
+
+        {session.phase === 'CARDIAC_ARREST' && cprHidden && cprDemographicsReady && (
+          <Card className="border-red-500/50 bg-red-950/30">
+            <CardContent className="flex items-center justify-between gap-3 p-4">
+              <div>
+                <p className="font-semibold text-red-100">CPR console hidden</p>
+                <p className="text-xs text-red-200/80">The arrest timer and alerts continue running.</p>
+              </div>
+              <Button onClick={() => setCprHidden(false)} className="min-h-11 bg-red-600 hover:bg-red-700">
+                Show CPR console
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {(session.phase === 'SECONDARY_SURVEY' || session.phase === 'DEFINITIVE_CARE' || session.phase === 'ONGOING') && (
           <PostPrimaryScreen
@@ -2348,7 +2381,6 @@ export default function ResusGPS({ hasActivationContext = false, activationEvent
         )}
       />
 
-      <BottomNav />
     </div>
   );
 }
@@ -2407,6 +2439,9 @@ function TopBar({
   onOpenMCIBoard: () => void;
 }) {
   const [showMore, setShowMore] = useState(false);
+  const activeCare = session.phase === 'PRIMARY_SURVEY'
+    || session.phase === 'INTERVENTION'
+    || session.phase === 'CARDIAC_ARREST';
 
   if (session.phase === 'IDLE') return null;
 
@@ -2540,7 +2575,7 @@ function TopBar({
           <Redo2 className="h-4 w-4" />
         </Button>
 
-        {!compact && (
+        {!compact && !activeCare && (
           <>
             <Button
               size="sm"
@@ -2608,7 +2643,7 @@ function TopBar({
             </Button>
           </>
         )}
-        {compact && (
+        {compact && !activeCare && (
           <Button
             size="sm"
             variant={showMore ? 'secondary' : 'ghost'}
@@ -2622,7 +2657,7 @@ function TopBar({
           </Button>
         )}
               </div>
-        {compact && showMore && (
+        {compact && !activeCare && showMore && (
           <div className="border-t border-border py-2">
             <div className="grid grid-cols-2 gap-2">
               <Button size="sm" variant="outline" onClick={() => { onShowLog(); setShowMore(false); }}>

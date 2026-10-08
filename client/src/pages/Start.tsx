@@ -9,7 +9,6 @@ import { Siren, Stethoscope, Heart, Building2, BookOpen, GraduationCap, ArrowRig
 import { getLoginUrl } from "@/const";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { usePageMeta } from "@/hooks/usePageMeta";
-import { BottomNav } from "@/components/BottomNav";
 
 const rolePaths = [
   {
@@ -164,7 +163,6 @@ export default function Start() {
           for bedside guidance.
         </p>
       </div>
-      <BottomNav />
     </div>
   );
 }
