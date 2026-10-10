@@ -28,6 +28,11 @@ describe("professional credential ERT safety policy", () => {
     expect(clinicalLicenceBlockMessage("missing")).toContain("Licence number");
   });
 
+  it("explains when a legacy profile licence must be resubmitted as structured evidence", () => {
+    expect(clinicalLicenceBlockMessage("legacy_profile")).toContain("older profile record");
+    expect(clinicalLicenceBlockMessage("legacy_profile")).toContain("Professional Credentials");
+  });
+
   it("requires verification, a licence number, and both dates", () => {
     expect(evaluateClinicalLicenceRows([row({ status: "pending" })], now)).toEqual({
       allowed: false,
