@@ -5,9 +5,10 @@ import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Award, BookOpen, Building2, CheckCircle2, Clock3, Download, FileText, GraduationCap, Loader2, UserRound } from "lucide-react";
+import { ArrowLeft, Award, BookOpen, Building2, CheckCircle2, Clock3, Download, FileLock2, FileText, GraduationCap, Loader2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
+import { ProviderCredentialsCard } from "@/components/ProviderCredentialsCard";
 import { getLifeSupportCognitiveProgramType, isLifeSupportCertificateProgramType, LIFE_SUPPORT_COURSES, getLifeSupportProgressRecordLabel, type LifeSupportCourseKey } from "@shared/life-support-pathways";
 
 function daysUntil(value: Date | string | null | undefined) {
@@ -18,7 +19,7 @@ function daysUntil(value: Date | string | null | undefined) {
 }
 
 type FeedbackState = { certificateId: number; sourceCertificateId: number; courseLabel: string } | null;
-type RecordsTab = "aha" | "cpd" | "fellowship";
+type RecordsTab = "aha" | "cpd" | "fellowship" | "credentials";
 
 type PhaseRowProps = {
   label: string;
@@ -288,11 +289,12 @@ export default function ProviderRecords({ focusCertificates = false, embedded = 
           </Card>
         )}
 
-        <div role="tablist" aria-label="My records categories" className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+        <div role="tablist" aria-label="My records categories" className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:grid-cols-4">
           {([
             { id: "aha", label: "My Life Support records", icon: Award, description: "Courses and phases" },
             { id: "cpd", label: "My CPD records", icon: FileText, description: "Sessions and points" },
             { id: "fellowship", label: "My Fellowship records", icon: GraduationCap, description: "Courses and diploma" },
+            { id: "credentials", label: "Professional Credentials", icon: FileLock2, description: "Licences and evidence" },
           ] as const).map((tab) => {
             const Icon = tab.icon;
             const selected = activeTab === tab.id;
@@ -331,6 +333,12 @@ export default function ProviderRecords({ focusCertificates = false, embedded = 
         {activeTab === "fellowship" && (
           <section role="tabpanel" aria-label="My Fellowship records" className="space-y-4">
             <Card className="border-violet-200 bg-white"><CardHeader><CardTitle className="flex items-center gap-2 text-base"><GraduationCap className="h-5 w-5 text-violet-700" />Fellowship learning records</CardTitle><CardDescription>Micro-course certificates and the overall Fellowship diploma are kept together here.</CardDescription></CardHeader><CardContent className="space-y-3">{fellowshipCertificates.length > 0 ? <div className="space-y-2">{fellowshipCertificates.map((certificate) => <div key={certificate.id} className="flex flex-col gap-3 rounded-xl border border-violet-100 bg-violet-50/30 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-slate-900">{certificate.programType === "fellowship_diploma" ? "Fellowship diploma" : certificate.courseTitle ?? "Fellowship micro-course"}</p><p className="mt-1 text-xs text-slate-500">Issued {certificate.issueDate ? new Date(certificate.issueDate).toLocaleDateString() : "date unavailable"}</p></div><Button type="button" size="sm" variant="outline" disabled={!certificate.certificateNumber || downloadingId === certificate.id} onClick={() => handleDownload(certificate)}><Download className="mr-1.5 h-4 w-4" />{downloadingId === certificate.id ? "Preparing…" : "Download"}</Button></div>)}</div> : <div className="rounded-xl border border-dashed border-violet-200 bg-violet-50/30 p-4 text-sm text-slate-500">No Fellowship certificates are recorded yet. Your completed micro-courses and overall diploma will appear here.</div>}<Button type="button" className="w-full justify-between" variant="outline" onClick={() => setLocation("/my-progress?section=progress")}><BookOpen className="mr-2 h-4 w-4" />Open Fellowship progress <span className="ml-auto">→</span></Button></CardContent></Card>
+          </section>
+        )}
+
+        {activeTab === "credentials" && (
+          <section role="tabpanel" aria-label="Professional Credentials" className="space-y-4">
+            <ProviderCredentialsCard />
           </section>
         )}
 

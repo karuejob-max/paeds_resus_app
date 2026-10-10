@@ -3,17 +3,14 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, TrendingUp } from "lucide-react";
-import { useState } from "react";
 import { Link } from "wouter";
 import { ProviderProfileForm } from "@/components/ProviderProfileForm";
 import { ProfessionalIdentityCard } from "@/components/ProfessionalIdentityCard";
-import { ProviderCredentialsCard } from "@/components/ProviderCredentialsCard";
 import { IerpInternProfileCard } from "@/components/IerpInternProfileCard";
 
 export default function ProviderProfile() {
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
   const profileQuery = trpc.provider.getProfile.useQuery();
-  const [experienceOverride, setExperienceOverride] = useState<number | null>(null);
 
   if (loading || profileQuery.isLoading) {
     return (
@@ -34,7 +31,7 @@ export default function ProviderProfile() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Professional profile</h1>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Keep your professional identity and provider information accurate. Choose cadre and specialization once in Professional Identity, record experience and optional language context in the smaller profile section, and use Professional Credentials for one evidence-backed Licence number, jurisdiction, regulator, and AHA certificate evidence. Account security and workplace access remain separate so one field is not mistaken for another.
+            Keep your professional identity and provider information accurate. Choose cadre and specialization once in Professional Identity, record experience and workplace context here, and use My Records for evidence-backed licences, certificates, and other professional records. Account security and workplace access remain separate so one field is not mistaken for another.
           </p>
           {profile?.department ? (
             <p className="mt-2 text-sm font-medium text-primary">Current workplace department: {profile.department}{" "}<Link href="/workplaces" className="underline">Change</Link></p>
@@ -59,8 +56,19 @@ export default function ProviderProfile() {
 
         <ProfessionalIdentityCard />
         <IerpInternProfileCard />
-        <ProviderCredentialsCard onExperienceDerived={setExperienceOverride} />
-        <ProviderProfileForm experienceOverride={experienceOverride} />
+        <ProviderProfileForm />
+
+        <Card className="border-blue-200 bg-blue-50/60 dark:border-blue-900/50 dark:bg-blue-950/20">
+          <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-semibold text-blue-950 dark:text-blue-100">Professional records</h2>
+              <p className="mt-1 text-sm text-blue-900/80 dark:text-blue-100/80">
+                Upload and manage regulatory licences, external certificates, Paeds Resus credentials, CPD, and Fellowship records in one place.
+              </p>
+            </div>
+            <Link href="/records"><Button type="button" variant="outline">Open My Records</Button></Link>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
