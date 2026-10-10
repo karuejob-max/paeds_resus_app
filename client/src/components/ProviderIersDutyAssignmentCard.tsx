@@ -101,8 +101,8 @@ export default function ProviderIersDutyAssignmentCard() {
                     </Badge>
                   </div>
                   <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-                    <div className="flex items-center gap-2"><UserRound className="h-3.5 w-3.5" />You are {isCoordinator ? "the named ERCo" : isAssistant ? "the named Assistant ERCo" : "linked to this appointment"}.</div>
-                    <div className="flex items-center gap-2"><CalendarClock className="h-3.5 w-3.5" />{assignment.backupUserId ? assignment.backupAcceptedAt ? "Assistant ERCo has accepted" : assignment.backupDeclinedAt ? "Assistant ERCo declined" : "Assistant ERCo response pending" : "No Assistant ERCo recorded"}</div>
+                    <div className="flex items-center gap-2"><UserRound className="h-3.5 w-3.5" />You are {isCoordinator ? "the named ERCo" : isAssistant ? "named additional ERCo cover (legacy)" : "linked to this appointment"}.</div>
+                    <div className="flex items-center gap-2"><CalendarClock className="h-3.5 w-3.5" />{assignment.backupUserId ? assignment.backupAcceptedAt ? "Additional ERCo cover has accepted" : assignment.backupDeclinedAt ? "Additional ERCo cover declined" : "Additional ERCo cover response pending" : "No additional ERCo cover recorded"}</div>
                   </div>
                   {canPrepareMonthlyRota && (
                     <div className="mt-4 flex flex-col gap-2 rounded-md border border-rose-200 bg-rose-50/50 p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -116,7 +116,7 @@ export default function ProviderIersDutyAssignmentCard() {
                       <AlertTitle>Confirm your governance appointment</AlertTitle>
                       <AlertDescription className="mt-2 flex flex-wrap gap-2">
                         {needsCoordinatorResponse && <><Button size="sm" onClick={() => respondCoordinator.mutate({ assignmentId: assignment.id, response: "accept" })} disabled={respondCoordinator.isPending}><CheckCircle2 className="mr-1.5 h-4 w-4" />Accept ERCo appointment</Button><Button size="sm" variant="outline" onClick={() => { const reason = responseReason(); if (reason) respondCoordinator.mutate({ assignmentId: assignment.id, response: "decline", declineReason: reason }); }} disabled={respondCoordinator.isPending}><XCircle className="mr-1.5 h-4 w-4" />Decline</Button></>}
-                        {needsAssistantResponse && <><Button size="sm" onClick={() => respondAssistant.mutate({ assignmentId: assignment.id, response: "accept" })} disabled={respondAssistant.isPending}><CheckCircle2 className="mr-1.5 h-4 w-4" />Accept Assistant ERCo</Button><Button size="sm" variant="outline" onClick={() => { const reason = responseReason(); if (reason) respondAssistant.mutate({ assignmentId: assignment.id, response: "decline", declineReason: reason }); }} disabled={respondAssistant.isPending}><XCircle className="mr-1.5 h-4 w-4" />Decline</Button></>}
+                        {needsAssistantResponse && <><Button size="sm" onClick={() => respondAssistant.mutate({ assignmentId: assignment.id, response: "accept" })} disabled={respondAssistant.isPending}><CheckCircle2 className="mr-1.5 h-4 w-4" />Accept additional cover</Button><Button size="sm" variant="outline" onClick={() => { const reason = responseReason(); if (reason) respondAssistant.mutate({ assignmentId: assignment.id, response: "decline", declineReason: reason }); }} disabled={respondAssistant.isPending}><XCircle className="mr-1.5 h-4 w-4" />Decline</Button></>}
                       </AlertDescription>
                     </Alert>
                   )}

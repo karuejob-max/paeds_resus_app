@@ -48,6 +48,25 @@ export async function assertCanManageArea(
     return { authority: "institution_admin" as const };
   }
 
+  // Departmental Heads must be recognized before product-role lookup. This prevents
+  // a department-scoped user from being sent through an institution-wide role path,
+  // and makes ERCo/CPD actions consistently resolve to the appointed department.
+  if (departmentId != null) {
+    const [head] = await db
+      .select({ id: institutionDepartmentHeads.id })
+      .from(institutionDepartmentHeads)
+      .where(and(
+        eq(institutionDepartmentHeads.institutionalAccountId, institutionId),
+        eq(institutionDepartmentHeads.departmentId, departmentId),
+        or(
+          and(eq(institutionDepartmentHeads.userId, user.id), eq(institutionDepartmentHeads.assignmentStatus, "active")),
+          and(eq(institutionDepartmentHeads.deputyUserId, user.id), eq(institutionDepartmentHeads.deputyAssignmentStatus, "active")),
+        ),
+      ))
+      .limit(1);
+    if (head) return { authority: "department_head" as const };
+  }
+
   if (area === "iers") {
     try {
       const role = await assertInstitutionProductRole(db, user, institutionId, "iers", ["iers_chair", "iers_governance", "iers_coordinator"]);
@@ -73,25 +92,10 @@ export async function assertCanManageArea(
     });
   }
 
-  const [head] = await db
-    .select({ id: institutionDepartmentHeads.id })
-    .from(institutionDepartmentHeads)
-    .where(and(
-      eq(institutionDepartmentHeads.institutionalAccountId, institutionId),
-      eq(institutionDepartmentHeads.departmentId, departmentId),
-      or(
-        and(eq(institutionDepartmentHeads.userId, user.id), eq(institutionDepartmentHeads.assignmentStatus, "active")),
-        and(eq(institutionDepartmentHeads.deputyUserId, user.id), eq(institutionDepartmentHeads.deputyAssignmentStatus, "active")),
-      ),
-    ))
-    .limit(1);
-  if (!head) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Departmental Head authority is limited to the appointed department.",
-    });
-  }
-  return { authority: "department_head" as const };
+  throw new TRPCError({
+    code: "FORBIDDEN",
+    message: "Departmental Head authority is limited to the appointed department.",
+  });
 }
 
 export async function assertCanManageDepartmentHead(

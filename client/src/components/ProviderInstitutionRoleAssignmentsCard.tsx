@@ -71,14 +71,15 @@ export default function ProviderInstitutionRoleAssignmentsCard() {
               {pending ? (
                 <div className="mt-3 flex flex-wrap gap-2 rounded-md border border-amber-200 bg-amber-50 p-3">
                   <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-                  <div className="min-w-0 flex-1"><p className="text-sm font-medium text-amber-950">Acceptance required</p><p className="text-xs text-amber-900/80">Accept to activate this role, or decline with a reason so the institution can arrange cover.</p>{row.kind === "erco" && <p className="mt-1 text-xs font-medium text-amber-950">ERCo is a clinical emergency-responsibility role. A current regulatory licence number and evidence are required before acceptance. <a className="underline" href="/provider-profile">Open Professional Credentials</a>.</p>}</div>
+                  <div className="min-w-0 flex-1"><p className="text-sm font-medium text-amber-950">Acceptance required</p><p className="text-xs text-amber-900/80">Accept to activate this role, or decline with a reason so the institution can arrange cover.</p>{row.kind === "erco" && <p className="mt-1 text-xs font-medium text-amber-950">ERCo is a clinical emergency-responsibility role. A current regulatory licence number and evidence are required before acceptance. <a className="underline" href="/provider-records?tab=credentials">Open My Records → Professional Credentials</a>.</p>}</div>
                   <div className="flex w-full flex-wrap gap-2 sm:w-auto"><Button size="sm" onClick={() => respond(row.kind, row.id, "accept", row.roleKey)} disabled={busyKey === key}><CheckCircle2 className="mr-1.5 h-4 w-4" />Accept</Button><Button size="sm" variant="outline" onClick={() => respond(row.kind, row.id, "decline", row.roleKey)} disabled={busyKey === key}><XCircle className="mr-1.5 h-4 w-4" />Decline</Button></div>
                 </div>
               ) : row.assignmentStatus === "active" ? (
                 <div className="mt-3 space-y-2">
                   <p className="text-xs text-emerald-800">Active role. Use the relevant workspace below to perform your assigned department responsibilities.</p>
                   <div className="flex flex-wrap gap-2">
-                    {row.kind === "head" && <Button asChild size="sm" variant="outline"><a href={`/institution?section=iers&iersTab=workforce&workforceTab=roster&institutionId=${row.institutionId}`}>Manage department ERCo roles</a></Button>}
+                    {row.kind === "head" && <Button asChild size="sm" variant="outline"><a href={`/institution?section=iers&iersTab=workforce&workforceTab=erco&institutionId=${row.institutionId}#team-setup-erco`}>Appoint department ERCo</a></Button>}
+                    {row.kind === "erco" && <Button asChild size="sm" variant="outline"><a href="/provider-iers-staffing">Manage department UTL staffing</a></Button>}
                     {row.kind === "head" && <Button asChild size="sm" variant="outline"><a href={`/institution?section=learning&learningTab=cpd&institutionId=${row.institutionId}`}>Manage department CPD role</a></Button>}
                     {row.kind === "education" && <Button asChild size="sm" variant="outline"><a href={`/institution?section=learning&learningTab=cpd&institutionId=${row.institutionId}`}>Open CPD Coordinator workspace</a></Button>}
                   </div>
