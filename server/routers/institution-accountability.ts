@@ -227,7 +227,7 @@ async function getCredentialAccess(
       role: "department_head" as const,
       departmentIds: headRows.map(row => row.departmentId),
       canViewIndividuals: true,
-      canViewEvidence: false,
+      canViewEvidence: true,
     };
   }
 
@@ -492,6 +492,8 @@ export const institutionAccountabilityRouter = router({
         if (
           !input.jurisdiction ||
           !input.credentialNumber ||
+          !input.issuedAt ||
+          !input.expiresAt ||
           !input.evidenceBase64 ||
           !input.evidenceFileName ||
           !input.evidenceContentType
@@ -499,7 +501,7 @@ export const institutionAccountabilityRouter = router({
           throw new TRPCError({
             code: "BAD_REQUEST",
             message:
-              "Licence jurisdiction, Licence number, and licence evidence are required. Issue date and Valid until may be left blank for NERP; both are required before ERT duties.",
+              "Licence jurisdiction, Licence number, first Licence issue date, Valid until, and licence evidence are required.",
           });
         }
       } else if (
@@ -611,6 +613,37 @@ export const institutionAccountabilityRouter = router({
       return storageGet(row.evidenceKey);
     }),
 
+  /** Scoped verifier may obtain a short-lived private evidence URL for review. */
+  getScopedCredentialEvidenceUrl: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), credentialId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      const access = await getCredentialAccess(db, ctx.user, input.institutionId);
+      if (!access.canViewEvidence) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Evidence verification is not available for your role." });
+      }
+      const [credential] = await db
+        .select({ userId: professionalCredentials.userId, evidenceKey: professionalCredentials.evidenceKey })
+        .from(professionalCredentials)
+        .where(eq(professionalCredentials.id, input.credentialId))
+        .limit(1);
+      if (!credential?.evidenceKey) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Credential evidence not found." });
+      }
+      const staffRows = await db
+        .select({ departmentId: institutionalStaffMembers.facilityDepartmentId })
+        .from(institutionalStaffMembers)
+        .where(and(
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+          eq(institutionalStaffMembers.userId, credential.userId),
+          isNull(institutionalStaffMembers.removedAt),
+        ));
+      if (!staffRows.length || (access.departmentIds && !staffRows.some(row => row.departmentId != null && access.departmentIds!.includes(row.departmentId)))) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "This credential is outside your institution or department scope." });
+      }
+      return storageGet(credential.evidenceKey);
+    }),
+
   /** Credential/compliance manager or institution admin verifies a scoped credential. */
   reviewCredential: protectedProcedure
     .input(
@@ -676,7 +709,21 @@ export const institutionAccountabilityRouter = router({
         throw new TRPCError({
           code: "FORBIDDEN",
           message:
-            "Evidence verification requires a credential manager or institution administrator.",
+            "Evidence verification requires an institution administrator, credential manager, or authorized Departmental Head.",
+        });
+      }
+      if (
+        input.decision === "verified" &&
+        credential.credentialType === "regulatory_license" &&
+        (!credential.evidenceKey ||
+          !credential.credentialNumber?.trim() ||
+          !credential.issuedAt ||
+          !credential.expiresAt)
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "A regulatory licence can only be verified when evidence, licence number, first issue date, and Valid until date are all present.",
         });
       }
       await db
@@ -873,6 +920,18 @@ export const institutionAccountabilityRouter = router({
           licenseExpiresAt: license?.expiresAt ?? null,
           ertClinicalDutyEligible: ertLicenceDecision.allowed,
           ertClinicalDutyBlockReason: ertLicenceDecision.allowed ? null : ertLicenceDecision.reason,
+          regulatoryCredential: access.canViewEvidence && license
+            ? {
+                id: license.id,
+                status: license.status,
+                evidenceUploaded: Boolean(license.evidenceKey),
+                credentialNumber: license.credentialNumber,
+                issuedAt: license.issuedAt,
+                expiresAt: license.expiresAt,
+                issuer: license.issuer,
+                reviewReason: license.reviewReason,
+              }
+            : null,
           lifeSupportStatus,
           lifeSupportSources: lifeRows.map(row =>
             credentialSourceLabel(row.sourceType, row.credentialType)

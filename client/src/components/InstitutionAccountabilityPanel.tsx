@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
   AlertCircle,
   BarChart3,
   CheckCircle2,
+  ExternalLink,
   ShieldCheck,
   Users,
 } from "lucide-react";
@@ -42,6 +43,7 @@ export function InstitutionAccountabilityPanel({
   const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
   const [message, setMessage] = useState("");
+  const [evidenceCredentialId, setEvidenceCredentialId] = useState<number | null>(null);
   const dashboardQuery =
     trpc.institutionAccountability.getComplianceDashboard.useQuery({
       institutionId,
@@ -70,6 +72,22 @@ export function InstitutionAccountabilityPanel({
     },
     onError: error => setMessage(error.message),
   });
+  const reviewCredential = trpc.institutionAccountability.reviewCredential.useMutation({
+    onSuccess: async result => {
+      setMessage(`Credential ${result.decision}.`);
+      await dashboardQuery.refetch();
+    },
+    onError: error => setMessage(error.message),
+  });
+  const evidenceQuery = trpc.institutionAccountability.getScopedCredentialEvidenceUrl.useQuery(
+    { institutionId, credentialId: evidenceCredentialId ?? 0 },
+    { enabled: evidenceCredentialId != null, retry: false },
+  );
+  useEffect(() => {
+    if (!evidenceQuery.data?.url) return;
+    window.open(evidenceQuery.data.url, "_blank", "noopener,noreferrer");
+    setEvidenceCredentialId(null);
+  }, [evidenceQuery.data]);
   const data = dashboardQuery.data;
 
   if (dashboardQuery.isLoading) {
@@ -277,6 +295,7 @@ export function InstitutionAccountabilityPanel({
                   <th className="px-3 py-2">Cadre</th>
                   <th className="px-3 py-2">Experience</th>
                   <th className="px-3 py-2">Licence</th>
+                  {data.access.canViewEvidence ? <th className="px-3 py-2">Licence review</th> : null}
                   <th className="px-3 py-2">ERT duty</th>
                   <th className="px-3 py-2">Life Support</th>
                   <th className="px-3 py-2">CPD attendance</th>
@@ -300,6 +319,40 @@ export function InstitutionAccountabilityPanel({
                         {label(row.licenseStatus)}
                       </Badge>
                     </td>
+                    {data.access.canViewEvidence ? (
+                      <td className="px-3 py-3">
+                        {row.regulatoryCredential ? (
+                          <div className="flex min-w-[190px] flex-col gap-2">
+                            <div className="text-xs text-muted-foreground">
+                              {row.regulatoryCredential.evidenceUploaded ? "Evidence uploaded" : "Evidence missing"}
+                              {row.regulatoryCredential.status !== "pending" ? ` · ${row.regulatoryCredential.status}` : " · awaiting review"}
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {row.regulatoryCredential.evidenceUploaded ? (
+                                <Button type="button" size="sm" variant="outline" disabled={evidenceCredentialId === row.regulatoryCredential.id} onClick={() => setEvidenceCredentialId(row.regulatoryCredential!.id)}>
+                                  <ExternalLink className="mr-1 h-3 w-3" /> View evidence
+                                </Button>
+                              ) : null}
+                              {row.regulatoryCredential.status === "pending" && row.regulatoryCredential.evidenceUploaded ? (
+                                <Button type="button" size="sm" disabled={reviewCredential.isPending} onClick={() => reviewCredential.mutate({ institutionId, credentialId: row.regulatoryCredential!.id, decision: "verified", reason: "Licence evidence reviewed by an authorised institutional verifier." })}>Verify</Button>
+                              ) : null}
+                              {row.regulatoryCredential.status === "pending" ? (
+                                <Button type="button" size="sm" variant="destructive" disabled={reviewCredential.isPending} onClick={() => {
+                                  const reason = window.prompt("Reason for rejecting this licence evidence:");
+                                  if (reason?.trim()) reviewCredential.mutate({ institutionId, credentialId: row.regulatoryCredential!.id, decision: "rejected", reason: reason.trim() });
+                                }}>Reject</Button>
+                              ) : null}
+                              {row.regulatoryCredential.status === "verified" ? (
+                                <Button type="button" size="sm" variant="destructive" disabled={reviewCredential.isPending} onClick={() => {
+                                  const reason = window.prompt("Reason for revoking this licence verification:");
+                                  if (reason?.trim()) reviewCredential.mutate({ institutionId, credentialId: row.regulatoryCredential!.id, decision: "revoked", reason: reason.trim() });
+                                }}>Revoke</Button>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : <span className="text-xs text-muted-foreground">No structured licence record</span>}
+                      </td>
+                    ) : null}
                     <td className="px-3 py-3">
                       <Badge
                         variant={row.ertClinicalDutyEligible ? "default" : "destructive"}

@@ -8,15 +8,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AlertCircle, ArrowRight, CheckCircle2, FileLock2, Upload } from "lucide-react";
-import { Link } from "wouter";
+import { AlertCircle, CheckCircle2, FileLock2, Upload } from "lucide-react";
 import { SearchableDropdown } from "./CadreProgressiveSelector";
 import {
   getDefaultLicensingBody,
   getCountryName,
   PROFESSIONAL_COUNTRIES,
 } from "@shared/professional-licensing";
-import { NERP_PATHWAY_ENTRY_PATH } from "@shared/nerp-pathway";
 
 const externalTypes = [
   ["external_aha_bls", "External AHA BLS"],
@@ -47,23 +45,7 @@ function statusLabel(value: string): string {
   return value.replaceAll("_", " ");
 }
 
-function completedYearsSince(dateValue: string): number | null {
-  if (!dateValue) return null;
-  const issued = new Date(`${dateValue}T00:00:00`);
-  if (Number.isNaN(issued.getTime())) return null;
-  const now = new Date();
-  if (issued > now) return null;
-  let years = now.getFullYear() - issued.getFullYear();
-  const anniversary = new Date(now.getFullYear(), issued.getMonth(), issued.getDate());
-  if (anniversary > now) years -= 1;
-  return Math.max(0, years);
-}
-
-type ProviderCredentialsCardProps = {
-  onExperienceDerived?: (years: number) => void;
-};
-
-export function ProviderCredentialsCard({ onExperienceDerived }: ProviderCredentialsCardProps) {
+export function ProviderCredentialsCard() {
   const credentialsQuery =
     trpc.institutionAccountability.getMyCredentials.useQuery();
   const { data: user } = trpc.auth.me.useQuery();
@@ -71,7 +53,6 @@ export function ProviderCredentialsCard({ onExperienceDerived }: ProviderCredent
     trpc.institutionAccountability.submitCredential.useMutation({
       onSuccess: async () => {
         setMessage("Credential submitted for verification.");
-        setShowNerpNextStep(isRegulatory && isNurseProfile);
         setEvidenceFile(null);
         await credentialsQuery.refetch();
       },
@@ -88,7 +69,6 @@ export function ProviderCredentialsCard({ onExperienceDerived }: ProviderCredent
   const [expiresAt, setExpiresAt] = useState("");
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
-  const [showNerpNextStep, setShowNerpNextStep] = useState(false);
 
   const isNurseProfile = useMemo(() => {
     const providerType = (user as { providerType?: string | null } | null | undefined)?.providerType;
@@ -161,7 +141,6 @@ export function ProviderCredentialsCard({ onExperienceDerived }: ProviderCredent
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
-    setShowNerpNextStep(false);
     if (isRegulatory && !countryCode) {
       setMessage("Select the country where your regulatory licence is held.");
       return;
@@ -207,12 +186,10 @@ export function ProviderCredentialsCard({ onExperienceDerived }: ProviderCredent
           Regulatory licences and external AHA evidence are private records and
           remain pending until an authorised verifier reviews them. Select the
           country where you are licensed; nurses in Kenya will see Nursing Council
-          of Kenya (NCK) prefilled. Use this section for your single regulatory
-          Licence number. Issue date and Valid until are optional for NERP, but
-          both become mandatory before you can accept or use an ERT clinical
-          responsibility. An expired licence blocks ERT duties. To add an AHA
-          certificate, choose an External AHA credential in the form below and
-          upload the certificate there. Your IERP intern profile remains a separate record.
+          of Kenya (NCK) prefilled. Use this section for your evidence-backed
+          regulatory licence or external certificate. A current licence requires
+          a number, first issue date, Valid until date, and evidence. An expired
+          licence blocks clinical duty responsibilities.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -256,11 +233,10 @@ export function ProviderCredentialsCard({ onExperienceDerived }: ProviderCredent
               For a regulatory licence, choose your jurisdiction first. The
               licensing body is suggested from your country and professional
               identity, but you can edit it when your regulator is regional or
-              profession-specific. Enter the Licence number once here and upload
-              evidence for review. NERP may proceed with missing dates, but ERT
-              clinical duties require a verified Licence number, Issue date, and
-              Valid until date. Maximum file size is 5 MB; PDF, JPG, and PNG are
-              accepted.
+              profession-specific. Enter the Licence number, the date your first
+              professional licence was issued, its Valid until date, and upload
+              evidence for review. Maximum file size is 5 MB; PDF, JPG, and PNG
+              are accepted.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -342,7 +318,7 @@ export function ProviderCredentialsCard({ onExperienceDerived }: ProviderCredent
             </label>
             <label className="space-y-1 text-sm">
               <span className="font-medium">
-                Issue date{isRegulatory ? " (optional for NERP)" : " *"}
+                {isRegulatory ? "First Licence issued on *" : "Issue date *"}
               </span>
               <input
                 className="w-full rounded-md border bg-background px-3 py-2"
@@ -351,29 +327,27 @@ export function ProviderCredentialsCard({ onExperienceDerived }: ProviderCredent
                 onChange={event => {
                   const nextIssuedAt = event.target.value;
                   setIssuedAt(nextIssuedAt);
-                  const derivedYears = completedYearsSince(nextIssuedAt);
-                  if (derivedYears !== null) onExperienceDerived?.(derivedYears);
                 }}
-                required={!isRegulatory}
+                required
               />
             </label>
             <label className="space-y-1 text-sm">
               <span className="font-medium">
-                Valid until{isRegulatory ? " (optional for NERP)" : " *"}
+                Valid until *
               </span>
               <input
                 className="w-full rounded-md border bg-background px-3 py-2"
                 type="date"
                 value={expiresAt}
                 onChange={event => setExpiresAt(event.target.value)}
-                required={!isRegulatory}
+                required
               />
             </label>
             {isRegulatory ? (
               <p className="md:col-span-2 text-xs text-muted-foreground">
-                NERP eligibility checks a verified current NCK licence. ERT
-                responsibilities are stricter: dates must be recorded and Valid
-                until must still be in the future.
+                Enter the date your first professional licence was issued—not the
+                date of your most recent renewal. The licence must be current on
+                the date of review.
               </p>
             ) : (
               <div className="md:col-span-2 rounded-lg border border-blue-200 bg-blue-50/70 p-3 text-sm dark:border-blue-900/50 dark:bg-blue-950/20">
@@ -402,21 +376,6 @@ export function ProviderCredentialsCard({ onExperienceDerived }: ProviderCredent
               {evidenceFile?.name ?? "No file selected"}
             </span>
           </label>
-          {isRegulatory && isNurseProfile ? (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20" role="status">
-              <p className="font-semibold text-emerald-950 dark:text-emerald-100">Next step: open your NERP pathway</p>
-              <p className="mt-1 text-sm text-emerald-900/80 dark:text-emerald-100/80">
-                {showNerpNextStep
-                  ? "Your Licence evidence is waiting for verification. Open the guided NERP pathway to start the first-payment step; after the first confirmed instalment, BLS cognitive coursework becomes available. If the submission is rejected or revoked, access pauses and the correction reason is shown."
-                  : "After submitting your Licence evidence, open the guided NERP pathway. You can start payment while review is pending; after the first confirmed instalment, BLS cognitive coursework becomes available."}
-              </p>
-              <Button asChild type="button" variant="cta" className="mt-3">
-                <Link href={NERP_PATHWAY_ENTRY_PATH}>
-                  Open NERP next step <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-          ) : null}
           {message ? (
             <p className="flex items-start gap-2 text-sm text-muted-foreground">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
