@@ -40,6 +40,7 @@ describe("professional progress PDF", () => {
     expect(buffer.subarray(0, 5).toString()).toBe("%PDF-");
     const document = await PDFDocument.load(buffer);
     expect(document.getPageCount()).toBeGreaterThan(1);
+    expect(document.getPageCount()).toBeLessThan(8);
     expect(document.getTitle()).toContain("Professional Progress Report");
     expect(document.getAuthor()).toBe("Paeds Resus");
   });
