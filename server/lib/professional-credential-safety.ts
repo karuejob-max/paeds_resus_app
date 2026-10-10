@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
-import { professionalCredentials } from "../../drizzle/schema";
+import { professionalCredentials, providerProfiles } from "../../drizzle/schema";
 import type { getDb } from "../db";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
@@ -22,7 +22,8 @@ export type ClinicalLicenceDecision =
         | "missing_number"
         | "missing_dates"
         | "future_issue_date"
-        | "expired";
+        | "expired"
+        | "legacy_profile";
     };
 
 /**
@@ -57,6 +58,8 @@ export function clinicalLicenceBlockMessage(reason: Exclude<ClinicalLicenceDecis
   switch (reason) {
     case "missing":
       return "Add your regulatory Licence number and evidence under Professional Credentials before accepting an ERT clinical responsibility.";
+    case "legacy_profile":
+      return "Your licence number is stored in your older profile record, but ERCo acceptance requires a verified regulatory licence with evidence under Professional Credentials. Open Professional Credentials and submit the licence there.";
     case "unverified":
       return "Your regulatory licence must be verified under Professional Credentials before accepting an ERT clinical responsibility.";
     case "missing_number":
@@ -90,7 +93,16 @@ export async function getClinicalLicenceDecision(
       ),
     )
     .orderBy(desc(professionalCredentials.updatedAt));
-  return evaluateClinicalLicenceRows(rows, now);
+  const decision = evaluateClinicalLicenceRows(rows, now);
+  if (decision.reason === "missing") {
+    const [profile] = await db
+      .select({ licenseNumber: providerProfiles.licenseNumber })
+      .from(providerProfiles)
+      .where(eq(providerProfiles.userId, userId))
+      .limit(1);
+    if (profile?.licenseNumber?.trim()) return { allowed: false, reason: "legacy_profile" };
+  }
+  return decision;
 }
 
 export async function assertCurrentClinicalLicence(
