@@ -9,6 +9,7 @@ import Header from "./components/Header";
 import { PendingAdminInviteBanner } from "./components/PendingAdminInviteBanner";
 import ProviderActivationAlert from "./components/ProviderActivationAlert";
 import PlatformOfflineStatus from "./components/PlatformOfflineStatus";
+import PWAInstallBanner from "./components/PWAInstallBanner";
 import PaedsAIAssistant from "./components/PaedsAIAssistant";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useUserRole, type UserRole } from "@/hooks/useUserRole";
@@ -204,6 +205,7 @@ function Router() {
       <Header />
       <ProviderBottomNav />
       <PlatformOfflineStatus />
+      <PWAInstallBanner />
       <PendingAdminInviteBanner />
       <ProviderActivationAlert />
       <main id="main-content" className="flex-1" role="main">

@@ -71,7 +71,7 @@ export default function ProfessionalProgressPage() {
   const triggerPdfDownload = (pdfUrl: string) => {
     const isAppleMobile = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
     if (isAppleMobile) {
-      setPdfReadyUrl(pdfUrl);
+      setPdfReadyUrl(`${pdfUrl}${pdfUrl.includes("?") ? "&" : "?"}view=1`);
       return;
     }
     const anchor = document.createElement("a");
