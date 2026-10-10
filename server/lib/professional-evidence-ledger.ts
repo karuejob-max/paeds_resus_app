@@ -83,11 +83,20 @@ export function readinessBottleneck(snapshot: any) {
   return { kind: "none", label: "No unresolved readiness bottleneck recorded", currentState: "No current bottleneck", evidence: "Evidence Ledger", nextAction: { label: "Set a professional goal", destination: "/my-progress?section=development" } };
 }
 
-export const PROFESSIONAL_METRICS = ["cpd_points", "cpd_sessions", "life_support_completed", "fellowship_completion"] as const;
+export const PROFESSIONAL_METRICS = [
+  "cpd_points",
+  "cpd_sessions_attended",
+  "cpd_sessions_presented",
+  "life_support_courses_completed",
+  "fellowship_completion",
+  "cpd_sessions",
+  "life_support_completed",
+] as const;
 export function goalActualValue(metricKey: string, snapshot: any) {
   if (metricKey === "cpd_points") return Number(snapshot.cpd?.points ?? 0);
-  if (metricKey === "cpd_sessions") return Number(snapshot.cpd?.verifiedSessions ?? 0);
-  if (metricKey === "life_support_completed") return (snapshot.lifeSupport ?? []).filter((item: any) => item.recordStatus === "completed").length;
+  if (metricKey === "cpd_sessions_attended" || metricKey === "cpd_sessions") return Number(snapshot.cpd?.sessionsAttended ?? snapshot.cpd?.verifiedSessions ?? 0);
+  if (metricKey === "cpd_sessions_presented") return Number(snapshot.cpd?.sessionsPresented ?? 0);
+  if (metricKey === "life_support_courses_completed" || metricKey === "life_support_completed") return (snapshot.lifeSupport ?? []).filter((item: any) => item.recordStatus === "completed").length;
   if (metricKey === "fellowship_completion") return Number(snapshot.fellowship?.overallPercentage ?? 0);
   return null;
 }
