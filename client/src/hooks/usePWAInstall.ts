@@ -15,13 +15,19 @@ export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [showInstallInstructions, setShowInstallInstructions] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
     // Check if already installed
-    if (window.matchMedia('(display-mode: standalone)').matches) {
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    setIsIOS(ios);
+    if (standalone) {
       setIsInstalled(true);
       return;
     }
+    if (ios) setIsInstallable(true);
 
     const handleBeforeInstallPrompt = (e: Event) => {
       // Prevent the mini-infobar from appearing on mobile
@@ -47,7 +53,10 @@ export function usePWAInstall() {
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      setShowInstallInstructions(true);
+      return;
+    }
 
     // Show the install prompt
     await deferredPrompt.prompt();
@@ -69,6 +78,9 @@ export function usePWAInstall() {
   return {
     isInstallable,
     isInstalled,
+    isIOS,
+    showInstallInstructions,
+    setShowInstallInstructions,
     handleInstallClick,
   };
 }

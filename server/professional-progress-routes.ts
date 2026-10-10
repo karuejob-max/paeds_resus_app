@@ -74,7 +74,8 @@ export function registerProfessionalProgressRoutes(app: Express): void {
 
     res.status(200);
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${professionalProgressPdfFilename(data)}"`);
+    const inlineView = String(req.query.view ?? "") === "1";
+    res.setHeader("Content-Disposition", `${inlineView ? "inline" : "attachment"}; filename="${professionalProgressPdfFilename(data)}"`);
     res.setHeader("Cache-Control", "private, no-store");
     try {
       streamToResponse(generateProfessionalProgressPdf(data), res);
