@@ -604,6 +604,24 @@ async function buildProgressSnapshot(
   };
 }
 
+async function getGoalProgress(db: any, userId: number, snapshot: any) {
+  const goals = await db
+    .select()
+    .from(professionalProgressGoals)
+    .where(eq(professionalProgressGoals.userId, userId))
+    .orderBy(desc(professionalProgressGoals.periodStart));
+  return Promise.all(goals.map(async (goal: any) => {
+    if (!(PROFESSIONAL_METRICS as readonly string[]).includes(goal.metricKey)) return goal;
+    const actual = goalActualValue(goal.metricKey, snapshot);
+    if (actual == null) return goal;
+    const target = Number(goal.targetValue);
+    const progress = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
+    const computedStatus = goalComputedStatus(target, actual, String(goal.periodEnd).slice(0, 10));
+    await db.update(professionalProgressGoals).set({ actualValue: String(actual), progressValue: String(progress), computedStatus }).where(eq(professionalProgressGoals.id, goal.id));
+    return { ...goal, actualValue: String(actual), progressValue: String(progress), computedStatus };
+  }));
+}
+
 async function loadProfessionalTruthAudit(db: any) {
   const [aha, certificatesRows, fellowship, externalRows, ierpRows, nerpRows, cpdRows, ledgerRows, conflictRows, reportRows] = await Promise.all([
     db.select({ sourceRecordId: enrollments.id, userId: enrollments.userId }).from(enrollments).where(inArray(enrollments.programType, ["bls", "acls", "pals", "nrp"])),
@@ -815,6 +833,7 @@ export const professionalProgressRouter = router({
           message: "Database unavailable",
         });
       const snapshot = await buildProgressSnapshot(db, ctx.user.id, input);
+      (snapshot as any).goals = await getGoalProgress(db, ctx.user.id, snapshot);
       return {
         ...snapshot,
         nextBestAction: nextBestProfessionalAction(snapshot),
@@ -1288,16 +1307,7 @@ export const professionalProgressRouter = router({
       periodStart: today,
       periodEnd: today,
     });
-    return Promise.all(goals.map(async goal => {
-      if (!(PROFESSIONAL_METRICS as readonly string[]).includes(goal.metricKey)) return goal;
-      const actual = goalActualValue(goal.metricKey, snapshot);
-      if (actual == null) return goal;
-      const target = Number(goal.targetValue);
-      const progress = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
-      const computedStatus = goalComputedStatus(target, actual, String(goal.periodEnd).slice(0, 10));
-      await db.update(professionalProgressGoals).set({ actualValue: String(actual), progressValue: String(progress), computedStatus }).where(eq(professionalProgressGoals.id, goal.id));
-      return { ...goal, actualValue: String(actual), progressValue: String(progress), computedStatus };
-    }));
+    return getGoalProgress(db, ctx.user.id, snapshot);
   }),
 
   createGoal: protectedProcedure
@@ -1342,6 +1352,7 @@ export const professionalProgressRouter = router({
           message: "Database unavailable",
         });
       const snapshot = await buildProgressSnapshot(db, ctx.user.id, input);
+      (snapshot as any).goals = await getGoalProgress(db, ctx.user.id, snapshot);
       const allEvidence = await syncAndReadCanonicalEvidence(
         db,
         ctx.user.id,
