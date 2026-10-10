@@ -132,7 +132,11 @@ export default function ProviderRecords({ focusCertificates = false, embedded = 
     staleTime: 30_000,
     retry: 1,
   });
-  const [activeTab, setActiveTab] = useState<RecordsTab>("aha");
+  const [activeTab, setActiveTab] = useState<RecordsTab>(() => {
+    if (typeof window === "undefined") return "aha";
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    return requested === "cpd" || requested === "fellowship" || requested === "credentials" ? requested : "aha";
+  });
   const [selectedCourse, setSelectedCourse] = useState<LifeSupportCourseKey>("bls");
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [feedbackState, setFeedbackState] = useState<FeedbackState>(null);
