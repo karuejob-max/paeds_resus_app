@@ -1062,7 +1062,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const { data: enrollment, isLoading } = trpc.ierp.getMyEnrollment.useQuery(undefined, { retry: false });
-  const { data: summary, isLoading: summaryLoading, isError: summaryError } = trpc.ierp.getSummary.useQuery(undefined, {
+  const { data: summary, isLoading: summaryLoading, isError: summaryError, refetch: refetchSummary } = trpc.ierp.getSummary.useQuery(undefined, {
     enabled: !!enrollment,
     retry: false,
   });
@@ -1244,8 +1244,8 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
                 {!blsEnrollment?.cognitiveModulesComplete ? "Start BLS cognitive learning" : !aclsEnrollment?.cognitiveModulesComplete ? "Continue with ACLS cognitive learning" : !phase1Done ? "Submit your two AHA certificates" : !phase2Done ? "Continue to online simulations" : "Review your hands-on assessment"}
               </h3>
             </div>
-            <Badge className="border-slate-200 bg-slate-50 text-slate-700" variant="outline">
-              {summaryLoading ? "Checking status" : summaryError ? "Status unavailable" : "Ready for your next step"}
+            <Badge className={`border-slate-200 ${summaryError ? "bg-amber-50 text-amber-900" : "bg-slate-50 text-slate-700"}`} variant="outline">
+              {summaryLoading ? "Checking learning access…" : summaryError ? "Learning access check failed" : "Ready for your next step"}
             </Badge>
           </div>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
@@ -1279,6 +1279,14 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
               <Button size="sm" variant="outline" onClick={() => document.getElementById("ierp-phase1-evidence")?.scrollIntoView({ behavior: "smooth" })}>Upload AHA certificates</Button>
             ) : null}
           </div>
+          {summaryError ? (
+            <div className="mt-3 flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+              <p>We could not confirm your latest IERP learning status. Your verified intern profile has not been changed.</p>
+              <Button type="button" size="sm" variant="outline" className="border-amber-300 bg-white text-amber-900" onClick={() => void refetchSummary()}>
+                Retry access check
+              </Button>
+            </div>
+          ) : null}
           {summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? <p className="mt-3 text-xs font-medium text-emerald-700">You may continue during the current deferred window. You can also pay early from the payment section below.</p> : null}
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">

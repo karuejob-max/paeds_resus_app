@@ -113,6 +113,14 @@ export function getSimulationMission(id: string): SimulationMission | undefined 
   return SIMULATION_MISSIONS.find((mission) => mission.id === id);
 }
 
+/**
+ * Simulation access follows the learner's course enrollment, not the commercial
+ * route used to create it (IERP, NERP, ILSP, self-pay, or an administrator grant).
+ */
+export function getEligibleSimulationMissions(programTypes: readonly PracticeLabProgramType[]): SimulationMission[] {
+  return SIMULATION_MISSIONS.filter((mission) => mission.supportedPrograms.some((program) => programTypes.includes(program)));
+}
+
 export function isFormativeSimulationMission(mission: SimulationMission): boolean {
   return mission.isFormative ?? isFormativePracticeLabTrack(mission.trackId);
 }

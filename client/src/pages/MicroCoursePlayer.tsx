@@ -32,16 +32,26 @@ export default function MicroCoursePlayer() {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
   const [issuedCertNumber, setIssuedCertNumber] = useState<string | null>(null);
+  const [courseLoadTimedOut, setCourseLoadTimedOut] = useState(false);
   // Track whether we've already seeded completedModules from DB enrollment status
   const [progressSeeded, setProgressSeeded] = useState(false);
 
   // ── Server queries ──────────────────────────────────────────────────────────
-  const { data: allCourses, isLoading: coursesLoading } = trpc.courses.listAll.useQuery(undefined, {
+  const { data: allCourses, isLoading: coursesLoading, isError: coursesError, refetch: refetchCourses } = trpc.courses.listAll.useQuery(undefined, {
     enabled: isAuthenticated,
   });
   const { data: myEnrollments } = trpc.courses.getUserEnrollments.useQuery(undefined, {
     enabled: isAuthenticated,
   });
+
+  useEffect(() => {
+    if (!coursesLoading) {
+      setCourseLoadTimedOut(false);
+      return;
+    }
+    const timeout = window.setTimeout(() => setCourseLoadTimedOut(true), 8_000);
+    return () => window.clearTimeout(timeout);
+  }, [coursesLoading]);
 
   // ── Derived data ────────────────────────────────────────────────────────────
   const currentCourse = useMemo(
@@ -211,12 +221,30 @@ export default function MicroCoursePlayer() {
     );
   }
 
-  if (coursesLoading) {
+  if (coursesLoading || coursesError) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">Loading course...</p>
+      <div className="min-h-screen bg-background p-4">
+        <div className="mx-auto flex min-h-[60vh] max-w-xl items-center justify-center">
+          <Card className="w-full">
+            <CardHeader className="text-center">
+              <Loader2 className={`mx-auto mb-2 h-8 w-8 ${coursesError || courseLoadTimedOut ? "text-amber-600" : "animate-spin"}`} />
+              <CardTitle>{coursesError ? "We could not open this course" : courseLoadTimedOut ? "The course is taking longer than expected" : "Opening your course"}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                {coursesError
+                  ? "Your progress is safe. Check your connection and try again."
+                  : courseLoadTimedOut
+                    ? "The course catalogue is still responding. You can retry without losing your enrolment or progress."
+                    : "Preparing the course shell and your saved progress. This usually takes a few seconds."}
+              </p>
+              {(coursesError || courseLoadTimedOut) ? (
+                <Button type="button" className="w-full" onClick={() => { setCourseLoadTimedOut(false); void refetchCourses(); }}>
+                  Try again
+                </Button>
+              ) : null}
+            </CardContent>
+          </Card>
         </div>
       </div>
     );

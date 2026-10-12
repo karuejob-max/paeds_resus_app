@@ -98,9 +98,10 @@ export default function ProviderTodayActivationCard({
           <p className="text-sm text-red-900/80">Checking the current dated ERT…</p>
         ) : !currentTeam ? (
           <div className="space-y-2">
-            <p className="text-sm text-red-900/80">No current published ERT is available for your pole, so an alert cannot be sent safely.</p>
+            <p className="text-sm text-red-900/80">No current dated ERT is published for your pole, so an alert cannot be sent safely.</p>
+            <p className="text-xs text-red-900/75">Ask your facility response lead or institutional administrator to publish today’s team in My Shift. Once published, return here to send the alert.</p>
             <Button type="button" variant="outline" className="border-red-300 bg-white text-red-800 hover:bg-red-100" onClick={() => setLocation("/my-shift?tab=team")}>
-              Open My Shift to resolve
+              Open My Shift → publish today’s ERT
             </Button>
           </div>
         ) : !isOnline ? (

@@ -13,7 +13,7 @@ import { AiRoleplayTrack } from "@/components/practice-lab/AiRoleplayTrack";
 import { PalsCapstoneSimulation } from "@/components/PalsCapstoneSimulation";
 import { SimulationWorldRoom } from "@/components/SimulationWorldRoom";
 import { AdultAclsSimulationRoom } from "@/components/AdultAclsSimulationRoom";
-import { getSimulationMasteryLabel, getSimulationMission, isFormativeSimulationMission, isSimulationMissionUnlocked, SIMULATION_MISSIONS, type SimulationMissionId } from "@shared/simulation-hub";
+import { getEligibleSimulationMissions, getSimulationMasteryLabel, getSimulationMission, isFormativeSimulationMission, isSimulationMissionUnlocked, SIMULATION_MISSIONS, type SimulationMissionId } from "@shared/simulation-hub";
 import type { PracticeLabProgramType } from "@shared/practice-lab-types";
 import { getSimulationWorldRoleLabel, getRoleEvidenceFromAttempt, SIMULATION_WORLD_ROLES } from "@shared/simulation-world";
 import { Activity, ArrowLeft, Brain, CheckCircle2, Clock3, Gamepad2, HeartPulse, Lock, RotateCcw, ShieldAlert, Sparkles, Target, Trophy, Users } from "lucide-react";
@@ -44,6 +44,10 @@ export default function SimulationHub() {
 
   const enrollments = access?.enrollments ?? [];
   const selectedMission = getSimulationMission(selectedMissionId) ?? SIMULATION_MISSIONS[0];
+  const eligibleMissions = useMemo(
+    () => getEligibleSimulationMissions(enrollments.map((enrollment) => enrollment.programType as PracticeLabProgramType)),
+    [enrollments],
+  );
   const eligibleEnrollments = useMemo(
     () => enrollments.filter((enrollment) => selectedMission.supportedPrograms.includes(enrollment.programType as PracticeLabProgramType)),
     [enrollments, selectedMission],
@@ -52,7 +56,7 @@ export default function SimulationHub() {
   // switching from the default PALS/paediatric mission to Adult ACLS could leave
   // a PALS enrollment selected, disabling the ACLS room entry button even when
   // the learner has a valid ACLS enrollment.
-  const selectedEnrollment = eligibleEnrollments.find((enrollment) => enrollment.id === enrollmentId) ?? eligibleEnrollments[0] ?? enrollments[0];
+  const selectedEnrollment = eligibleEnrollments.find((enrollment) => enrollment.id === enrollmentId) ?? eligibleEnrollments[0];
   const effectiveProgram = (selectedEnrollment?.programType ?? programType) as PracticeLabProgramType;
   const effectiveEnrollmentId = selectedEnrollment?.id ?? enrollmentId;
   const { data: attempts = [], refetch: refetchAttempts } = trpc.practiceLab.getMyAttempts.useQuery(
@@ -118,6 +122,12 @@ export default function SimulationHub() {
   }, [selectedEnrollment]);
 
   useEffect(() => {
+    if (eligibleMissions.some((mission) => mission.id === selectedMissionId)) return;
+    const firstEligible = eligibleMissions[0];
+    if (firstEligible) setSelectedMissionId(firstEligible.id);
+  }, [eligibleMissions, selectedMissionId]);
+
+  useEffect(() => {
     if (stage === "map") void refetchAttempts();
   }, [refetchAttempts, stage]);
 
@@ -173,7 +183,7 @@ export default function SimulationHub() {
               <div>
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-cyan-300"><Gamepad2 className="h-4 w-4" />Simulation Hub</div>
                 <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Train for the moment before it happens.</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">A consequence-based rehearsal room for emergency decisions. You will see incomplete information, changing physiology, team pressure, and a debrief that tells you what to rehearse next.</p>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">A consequence-based rehearsal room for emergency decisions. Your access follows the Life Support course enrollment you already hold — IERP, NERP, ILSP, self-pay, or administrator-granted access — not the way you paid or joined.</p>
               </div>
             </div>
             <div className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100"><p className="font-semibold">Mastery, not ranking</p><p className="mt-1 text-xs text-cyan-100/70">No public leaderboard. Your opponent is hesitation, not another learner.</p></div>
@@ -194,10 +204,11 @@ export default function SimulationHub() {
                   {SIMULATION_MISSIONS.map((mission) => {
                     const item = progress[mission.id];
                     const unlocked = isSimulationMissionUnlocked(mission, completedMissionIds);
-                    const eligible = mission.supportedPrograms.some((program) => enrollments.some((enrollment) => enrollment.programType === program));
+                    const eligible = eligibleMissions.some((item) => item.id === mission.id);
                     const selected = mission.id === selectedMissionId;
                     return <button key={mission.id} type="button" disabled={!unlocked || !eligible} onClick={() => setSelectedMissionId(mission.id)} className={`w-full rounded-xl border p-4 text-left transition ${selected ? "border-cyan-400 bg-cyan-400/10" : "border-slate-800 bg-slate-950/40 hover:border-slate-600"} disabled:cursor-not-allowed disabled:opacity-50`}><div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{mission.title}</p><Badge variant="outline" className="border-slate-600 text-slate-300">{mission.difficulty}</Badge></div><p className="mt-1 text-sm text-slate-400">{mission.subtitle}</p></div>{unlocked ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" /> : <Lock className="h-5 w-5 shrink-0 text-slate-500" />}</div><div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500"><span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{mission.estimatedMinutes} min</span><span>{TRACK_LABELS[mission.trackId]}</span>{mission.isFormative ? <span>Formative · not assessed</span> : <span>Pass {mission.masteryThreshold}%</span>}{item ? <span className="text-cyan-300">{mission.isFormative ? `${item.attempts} rehearsal${item.attempts === 1 ? "" : "s"}` : `Best ${item.bestScore}% · ${getSimulationMasteryLabel(item.attempts, item.bestScore)}`}</span> : null}</div></button>;
                   })}
+                  {!eligibleMissions.length ? <p className="rounded-lg border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-100">No compatible simulation pack is attached to your current course yet. Open Life Support Hub to confirm your course enrollment or contact your programme administrator.</p> : null}
                 </CardContent>
               </Card>
 
