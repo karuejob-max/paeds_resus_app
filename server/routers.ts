@@ -161,7 +161,11 @@ import { fpkbRouter } from "./routers/fpkb";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: publicProcedure.query(opts => {
+      if (!opts.ctx.user) return null;
+      const { passwordHash: _passwordHash, ...safeUser } = opts.ctx.user;
+      return safeUser;
+    }),
     logout: publicProcedure.mutation(async ({ ctx }) => {
       if (ctx.user) {
         await db.createAuditLog({
