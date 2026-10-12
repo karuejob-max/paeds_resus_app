@@ -20,6 +20,10 @@ function roleLabel(role: string) {
   return ROLE_LABELS[role] ?? "Institutional provider";
 }
 
+function pendingActionLabel(role: string) {
+  return role === "general_staff" ? "institution access" : "institution responsibility";
+}
+
 export default function ProviderInstitutionReadinessCard() {
   const utils = trpc.useUtils();
   const membershipsQuery = trpc.institution.getMyMemberships.useQuery(undefined, {
@@ -60,7 +64,7 @@ export default function ProviderInstitutionReadinessCard() {
               <div>
                 <p className="font-semibold text-amber-950 text-sm">Invitation from {membership.companyName}</p>
                 <p className="text-xs text-amber-900/80 mt-1">
-                  You have been nominated as {roleLabel(membership.responsibilityRole)}.
+                  You have been invited for {pendingActionLabel(membership.responsibilityRole)} as {roleLabel(membership.responsibilityRole)}.
                 </p>
               </div>
               <Badge variant="outline" className="border-amber-300 text-amber-800 shrink-0">
@@ -74,7 +78,7 @@ export default function ProviderInstitutionReadinessCard() {
               onClick={() => acceptInvite.mutate({ membershipId: membership.id })}
             >
               <UserCheck className="h-4 w-4 mr-2" />
-              Accept responsibility
+              {membership.responsibilityRole === "general_staff" ? "Accept institution access" : "Accept responsibility"}
             </Button>
           </div>
         ))}
