@@ -46,7 +46,7 @@ export function PracticeLabGate({ children }: Props) {
       <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/30">
         <ShieldAlert className="h-4 w-4 text-blue-600" />
         <AlertDescription className="text-sm">
-          Active or completed AHA enrollment is required to save attempts and receive booster reminders.
+          Active or completed Life Support enrollment is required to save attempts and receive booster reminders. This includes IERP, NERP, ILSP, self-pay, and administrator-granted access.
         </AlertDescription>
       </Alert>
       <Button

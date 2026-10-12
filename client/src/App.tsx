@@ -728,6 +728,7 @@ function Router() {
               <ResusGated />
             </RoleGate>
           )}</Route>
+          <Route path="/resusgps">{() => <Redirect to="/resus" />}</Route>
           <Route path="/join-cpr/:code" component={JoinSession} />
           <Route path="/admin/capstone-grading">{() => (
             <AdminGate>

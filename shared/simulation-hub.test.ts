@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSimulationMasteryLabel, getSimulationMission, isFormativeSimulationMission, isSimulationMissionUnlocked, SIMULATION_MISSIONS } from "./simulation-hub";
+import { getEligibleSimulationMissions, getSimulationMasteryLabel, getSimulationMission, isFormativeSimulationMission, isSimulationMissionUnlocked, SIMULATION_MISSIONS } from "./simulation-hub";
 
 describe("Simulation Hub mission model", () => {
 	  it("provides a progressive set of clinically meaningful missions", () => {
@@ -44,5 +44,12 @@ describe("Simulation Hub mission model", () => {
     expect(getSimulationMission("deteriorating-child")?.supportedPrograms).toEqual(["pals"]);
     expect(getSimulationMission("first-minutes")?.supportedPrograms).not.toContain("acls");
     expect(getSimulationMission("first-minutes")?.supportedPrograms).not.toContain("nrp");
+  });
+
+  it("uses the learner's life-support enrollment, not the commercial pathway, for access", () => {
+    expect(getEligibleSimulationMissions(["acls"]).map((mission) => mission.id)).toContain("adult-acls-world");
+    expect(getEligibleSimulationMissions(["bls"]).map((mission) => mission.id)).toContain("first-minutes");
+    expect(getEligibleSimulationMissions(["heartsaver"]).map((mission) => mission.id)).toContain("first-minutes");
+    expect(getEligibleSimulationMissions(["pals"]).map((mission) => mission.id)).toContain("simulation-world");
   });
 });
