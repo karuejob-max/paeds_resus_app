@@ -20,6 +20,8 @@ import type { PracticeLabProgramType } from "@shared/practice-lab-types";
 import { getSimulationWorldRoleLabel, getRoleEvidenceFromAttempt, SIMULATION_WORLD_ROLES } from "@shared/simulation-world";
 import { Activity, ArrowLeft, Brain, CheckCircle2, Clock3, Gamepad2, HeartPulse, Lock, RotateCcw, ShieldAlert, Sparkles, Target, Trophy, Users } from "lucide-react";
 import { CardiacArrestTrack } from "@/components/practice-lab/CardiacArrestTrack";
+import { SimulationMissionHud } from "@/components/SimulationMissionHud";
+import { getRecommendedSimulationMission, getSimulationPracticePoints } from "@shared/simulation-hub-mastery";
 
 type MissionProgress = Record<string, { attempts: number; bestScore: number; lastPlayedAt: string }>;
 
@@ -108,6 +110,18 @@ export default function SimulationHub() {
   const missionProgress = progress[selectedMission.id];
   const allCompleted = completedMissionIds.length;
   const activeMissionCount = eligibleMissions.length;
+  const attemptsByMission = useMemo(() => Object.fromEntries(Object.entries(progress).map(([missionId, item]) => [missionId, item.attempts])), [progress]);
+  const practicePoints = useMemo(
+    () => Object.entries(progress).reduce((total, [missionId, item]) => {
+      const mission = getSimulationMission(missionId);
+      return total + (mission ? getSimulationPracticePoints(item.attempts, item.bestScore, isFormativeSimulationMission(mission)) : 0);
+    }, 0),
+    [progress],
+  );
+  const recommendedMission = useMemo(
+    () => getRecommendedSimulationMission(eligibleMissions, completedMissionIds, attemptsByMission),
+    [eligibleMissions, completedMissionIds, attemptsByMission],
+  );
   const scenarioCatalog = useMemo(
     () => getSimulationScenarioCatalog(effectiveProgram).filter((scenario) => scenario.missionId === selectedMission.id),
     [effectiveProgram, selectedMission.id],
@@ -257,6 +271,15 @@ export default function SimulationHub() {
             </CardContent>
           </Card>
 
+          <SimulationMissionHud
+            pathway={effectiveProgram}
+            missionTitle={selectedMission.title}
+            objective={stage === "map" && recommendedMission ? `Recommended next: ${recommendedMission.title}. ${recommendedMission.objective}` : selectedMission.objective}
+            stage={stage}
+            practicePoints={practicePoints}
+            onExit={stage === "playing" ? () => setStage("map") : undefined}
+          />
+
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4"><Target className="h-4 w-4 text-cyan-300" /><p className="mt-2 text-xl font-bold sm:mt-3 sm:text-2xl">{allCompleted}/{activeMissionCount}</p><p className="text-[11px] leading-4 text-slate-400 sm:text-xs">missions completed in this course</p></div>
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4"><Trophy className="h-4 w-4 text-amber-300" /><p className="mt-2 text-xl font-bold sm:mt-3 sm:text-2xl">{Math.max(0, ...Object.values(progress).map((item) => item.bestScore))}%</p><p className="text-[11px] leading-4 text-slate-400 sm:text-xs">best observed score in this course</p></div>
@@ -267,7 +290,7 @@ export default function SimulationHub() {
           {stage === "map" && (
             <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
               <Card className="border-slate-800 bg-slate-900 text-white">
-                <CardHeader><CardTitle className="flex items-center gap-2"><HeartPulse className="h-5 w-5 text-rose-300" />Choose your next mission</CardTitle><CardDescription className="text-slate-400">Start with the first safe action. Increase uncertainty only after your basics are reliable.</CardDescription></CardHeader>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><HeartPulse className="h-5 w-5 text-rose-300" />Choose your next mission</CardTitle><CardDescription className="text-slate-400">Start with the first safe action. Increase uncertainty only after your basics are reliable. The Hub recommends a next mission so you do not have to manage the curriculum alone.</CardDescription></CardHeader>
                 <CardContent className="space-y-3">
                   <div className="sticky top-2 z-10 rounded-lg border border-cyan-400/30 bg-slate-900/95 p-3 shadow-lg shadow-slate-950/30 backdrop-blur sm:static sm:bg-cyan-400/10 sm:shadow-none"><p className="text-xs uppercase tracking-wide text-cyan-200">Selected mission</p><p className="mt-1 font-semibold text-white">{selectedMission.title}</p><Button className="mt-3 min-h-12 w-full bg-cyan-500 text-slate-950 hover:bg-cyan-400" size="lg" disabled={!eligibleEnrollments.length} onClick={() => setStage("briefing")}>Brief me for “{selectedMission.title}” <span className="ml-2">→</span></Button></div>
                   {eligibleMissions.map((mission) => {

@@ -1,4 +1,5 @@
 import type { PracticeLabEvent } from "./practice-lab-types";
+import type { SimulationMission } from "./simulation-hub";
 
 export type SimulationDomainId = "recognition" | "prioritisation" | "technical-action" | "communication" | "reassessment";
 
@@ -41,4 +42,43 @@ export function getNextRehearsal(summary: readonly SimulationDomainSummary[]): S
   return summary
     .filter((domain) => domain.score !== null)
     .sort((a, b) => (a.score ?? 100) - (b.score ?? 100))[0] ?? null;
+}
+
+/**
+ * Derived, non-competitive practice points. These are intentionally calculated
+ * from existing attempt records: no new entitlement, credential, or ranking is
+ * created, and a learner cannot buy or lose access through this value.
+ */
+export function getSimulationPracticePoints(attempts: number, bestScore: number, isFormative: boolean): number {
+  const rehearsalPoints = Math.max(0, attempts) * (isFormative ? 25 : 40);
+  const qualityPoints = Math.max(0, Math.min(100, bestScore)) === 0 ? 0 : Math.floor(Math.max(0, Math.min(100, bestScore)) / 10) * 5;
+  return rehearsalPoints + qualityPoints;
+}
+
+export function getSimulationPracticeRank(points: number): { title: string; nextThreshold: number | null } {
+  if (points >= 500) return { title: "Calm under pressure", nextThreshold: null };
+  if (points >= 250) return { title: "Reliable responder", nextThreshold: 500 };
+  if (points >= 100) return { title: "Building fluency", nextThreshold: 250 };
+  return { title: "First responder in training", nextThreshold: 100 };
+}
+
+export function getMissionJourneyStep(stage: "map" | "briefing" | "playing"): { label: string; index: number } {
+  if (stage === "briefing") return { label: "Brief", index: 2 };
+  if (stage === "playing") return { label: "Act and reassess", index: 3 };
+  return { label: "Choose mission", index: 1 };
+}
+
+export function getRecommendedSimulationMission(
+  missions: readonly SimulationMission[],
+  completedMissionIds: readonly string[],
+  attemptsByMission: Readonly<Record<string, number>>,
+): SimulationMission | null {
+  const available = missions.filter((mission) => !completedMissionIds.includes(mission.id));
+  return available.sort((a, b) => {
+    const aAttempts = attemptsByMission[a.id] ?? 0;
+    const bAttempts = attemptsByMission[b.id] ?? 0;
+    if (aAttempts !== bAttempts) return aAttempts - bAttempts;
+    if (a.difficulty !== b.difficulty) return a.difficulty === "Foundation" ? -1 : 1;
+    return a.estimatedMinutes - b.estimatedMinutes;
+  })[0] ?? missions[0] ?? null;
 }
