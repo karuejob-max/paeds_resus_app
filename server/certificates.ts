@@ -1184,20 +1184,28 @@ export async function submitCertificateDownloadFeedback(params: {
 /**
  * Get certificate by enrollment ID
  */
-export async function getCertificateByEnrollmentId(enrollmentId: number) {
+export async function getCertificateByEnrollmentId(
+  enrollmentId: number,
+  ownerUserId?: number
+) {
   try {
     const db = await getDb();
     if (!db) {
       throw new Error("Database not available");
     }
 
+    const predicates = [eq(certificates.enrollmentId, enrollmentId)];
+    if (ownerUserId != null) {
+      predicates.push(eq(enrollments.userId, ownerUserId));
+    }
     const result = await db
       .select()
       .from(certificates)
-      .where(eq(certificates.enrollmentId, enrollmentId))
+      .innerJoin(enrollments, eq(certificates.enrollmentId, enrollments.id))
+      .where(and(...predicates))
       .limit(1);
 
-    return result.length > 0 ? result[0] : null;
+    return result.length > 0 ? result[0].certificates : null;
   } catch (error) {
     console.error("[Certificates] Error getting certificate:", error);
     return null;

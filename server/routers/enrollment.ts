@@ -277,6 +277,17 @@ export const enrollmentRouter = router({
     .input(paymentSchema)
     .mutation(async ({ input, ctx }) => {
       assertTrainingWorkspaceOrAdmin(ctx.user);
+      const db = await getDb();
+      if (db && ctx.user.role !== "admin") {
+        const owned = await db
+          .select({ id: enrollments.id })
+          .from(enrollments)
+          .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id)))
+          .limit(1);
+        if (!owned.length) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Enrollment not found" });
+        }
+      }
       const result = await createPayment({
         enrollmentId: input.enrollmentId,
         userId: ctx.user.id,
@@ -329,23 +340,19 @@ export const enrollmentRouter = router({
       return await getPaymentsByEnrollmentId(input.enrollmentId);
     }),
 
-  // Verify M-Pesa payment (simulated)
+  // Public caller-authored M-Pesa verification is disabled. Payment truth must
+  // come from the provider callback/reconciliation path tied to a server order.
   verifyMpesaPayment: publicProcedure
     .input(z.object({
       transactionId: z.string(),
       amount: z.number(),
       phoneNumber: z.string(),
     }))
-    .mutation(async ({ input }) => {
-      // TODO: Integrate with M-Pesa API for actual verification
-      // For now, return a simulated success response
-      return {
-        success: true,
-        transactionId: input.transactionId,
-        amount: input.amount,
-        status: "completed",
-        message: "Payment verified successfully",
-      };
+    .mutation(async () => {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "Payment verification is only available through the signed provider callback or authenticated reconciliation flow.",
+      });
     }),
 
   /** Redeem a shareable, course-scoped admin access code without initiating M-Pesa. */

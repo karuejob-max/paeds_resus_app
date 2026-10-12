@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { inArray } from "drizzle-orm";
-import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { adminProcedure, protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import {
   saveCertificate,
   verifyCertificate,
@@ -40,8 +40,9 @@ const verifyCertificateSchema = z.object({
 });
 
 export const certificateRouter = router({
-  // Generate and save a new certificate
-  generate: protectedProcedure
+  // Legacy manual generation is intentionally admin-only. Learner-facing
+  // issuance must go through the gated, idempotent eligibility services.
+  generate: adminProcedure
     .input(certificateSchema)
     .mutation(async ({ input, ctx }) => {
       try {
@@ -161,9 +162,9 @@ export const certificateRouter = router({
   // Get certificate by enrollment ID
   getByEnrollmentId: protectedProcedure
     .input(z.object({ enrollmentId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       try {
-        const certificate = await getCertificateByEnrollmentId(input.enrollmentId);
+        const certificate = await getCertificateByEnrollmentId(input.enrollmentId, ctx.user.id);
 
         if (!certificate) {
           return {

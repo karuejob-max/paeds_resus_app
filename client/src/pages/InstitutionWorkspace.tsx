@@ -178,8 +178,12 @@ export default function InstitutionWorkspace() {
   }, [activeIersTab, legacyWorkforceTab]);
   const catalog = (myInstitution?.productAccess ?? []).filter(item => item.institutionId === institutionId);
   const isInstitutionAdmin = myInstitution?.isInstitutionAdmin === true;
+  const roleKeys = myInstitution?.roleKeys ?? [];
+  const hasIersRole = isInstitutionAdmin || roleKeys.some(key => key.startsWith("iers_"));
+  const hasCpdRole = isInstitutionAdmin || roleKeys.some(key => key.startsWith("cpd_"));
+  const canOperateIers = isInstitutionAdmin || roleKeys.some(key => ["iers_chair", "iers_coordinator", "iers_governance"].includes(key));
   const canViewAccountability = myInstitution?.canViewAccountability === true;
-  const visibleSection = (activeSection === "accountability" && !canViewAccountability) || (activeSection === "connected" && !isInstitutionAdmin) ? "overview" : activeSection;
+  const visibleSection = (activeSection === "accountability" && !canViewAccountability) || (activeSection === "connected" && !isInstitutionAdmin) || (activeSection === "iers" && !hasIersRole) || (activeSection === "learning" && !hasCpdRole && !hasIersRole) ? "overview" : activeSection;
   const { data: adminInstitutionDetails, isLoading: adminDetailsLoading } = trpc.institution.getMyInstitution.useQuery(undefined, {
     enabled: isAuthenticated && isInstitutionAdmin,
   });
@@ -222,8 +226,8 @@ export default function InstitutionWorkspace() {
   }
 
   const institutionName = myInstitution.institution.companyName || "Your institution";
-  const iersEnabled = canUseProduct(productStatus.iers);
-  const cpdEnabled = canUseProduct(productStatus.cpd_portal);
+  const iersEnabled = canUseProduct(productStatus.iers) && hasIersRole;
+  const cpdEnabled = canUseProduct(productStatus.cpd_portal) && hasCpdRole;
 
   return (
     <div className="min-h-screen bg-slate-50/70 dark:bg-slate-950/30">
@@ -278,6 +282,7 @@ export default function InstitutionWorkspace() {
               activeAdminTab={activeAdminTab}
               iersEnabled={iersEnabled}
               cpdEnabled={cpdEnabled}
+              canOperateIers={canOperateIers}
               canViewAccountability={canViewAccountability}
               isInstitutionAdmin={isInstitutionAdmin}
               onToggleSection={section => setExpandedPortalSection(current => current === section ? null : section)}
@@ -395,6 +400,7 @@ function InstitutionPortalNavigation({
   activeAdminTab,
   iersEnabled,
   cpdEnabled,
+  canOperateIers,
   canViewAccountability,
   isInstitutionAdmin,
   onToggleSection,
@@ -411,6 +417,7 @@ function InstitutionPortalNavigation({
   activeAdminTab: AdministrationNavigationTab;
   iersEnabled: boolean;
   cpdEnabled: boolean;
+  canOperateIers: boolean;
   canViewAccountability: boolean;
   isInstitutionAdmin: boolean;
   onToggleSection: (section: WorkspaceSection) => void;
@@ -441,15 +448,15 @@ function InstitutionPortalNavigation({
             { label: "Command centre", value: "command", kind: "iers" },
             { label: "Evidence & actions", value: "evidence", kind: "iers" },
             { label: "Drills & debriefs", value: "drills", kind: "iers" },
-            { label: "Team & shift setup", value: "workforce", kind: "iers" },
-            { label: "Equipment", value: "equipment", kind: "iers" },
-            { label: "Implementation plan", value: "plan", kind: "iers" },
-            { label: "Executive snapshot", value: "report", kind: "iers" },
+            ...(canOperateIers ? [{ label: "Team & shift setup", value: "workforce", kind: "iers" as const }] : []),
+            ...(canOperateIers ? [{ label: "Equipment", value: "equipment", kind: "iers" as const }] : []),
+            ...(canOperateIers ? [{ label: "Implementation plan", value: "plan", kind: "iers" as const }] : []),
+            ...(canOperateIers ? [{ label: "Executive snapshot", value: "report", kind: "iers" as const }] : []),
           ]
         : undefined,
     },
-    {
-      value: "learning",
+    ...(iersEnabled || cpdEnabled ? [{
+      value: "learning" as const,
       label: "Learning",
       description: "Cohorts, CPD, competency, and workforce insight",
       icon: ClipboardCheck,
@@ -466,8 +473,8 @@ function InstitutionPortalNavigation({
             ]
           : []),
         { label: "Institutional Life Support", href: "/training/institutional-life-support", kind: "external" },
-      ],
-    },
+      ] as PortalNavChild[],
+    }] : []),
     ...(canViewAccountability
       ? [{ value: "accountability" as const, label: "Accountability", description: "Shared responsibility and evidence", icon: ShieldCheck }]
       : []),
