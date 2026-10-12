@@ -1,6 +1,6 @@
 import { isFormativePracticeLabTrack, type PracticeLabProgramType, type PracticeLabTrackId } from "./practice-lab-types";
 
-export type SimulationMissionId = "simulation-world" | "first-minutes" | "deteriorating-child" | "rhythm-decisions" | "pals-capstone" | "resus-room" | "adult-acls-world" | "nrp-newborn-not-breathing";
+export type SimulationMissionId = "simulation-world" | "first-minutes" | "cardiac-arrest-scenarios" | "shock-no-shock" | "abcde-assessment" | "rhythm-recognition" | "deteriorating-child" | "rhythm-decisions" | "pals-capstone" | "resus-room" | "adult-acls-world" | "nrp-newborn-not-breathing";
 
 export type SimulationMission = {
   id: SimulationMissionId;
@@ -55,6 +55,55 @@ export const SIMULATION_MISSIONS: readonly SimulationMission[] = [
     objective: "Demonstrate recognition, delegation, closed-loop communication, safe action, and reassessment in a team simulation.",
     realism: "The team is imperfect, information is incomplete, and the patient changes after your actions.",
     supportedPrograms: ["pals"],
+  },
+  {
+    id: "cardiac-arrest-scenarios",
+    title: "Cardiac arrest scenario library",
+    subtitle: "Rehearse shockable and non-shockable arrest scenarios with reversible causes.",
+    trackId: "cardiac_arrest",
+    difficulty: "Applied",
+    estimatedMinutes: 10,
+    masteryThreshold: 0,
+    objective: "Recognise the rhythm, start the correct first actions, and learn from the patient response.",
+    realism: "Each run begins with a different patient story and rhythm; the debrief remains formative.",
+    supportedPrograms: ["bls", "pals", "heartsaver"],
+    isFormative: true,
+  },
+  {
+    id: "shock-no-shock",
+    title: "Shock or no shock",
+    subtitle: "Decide whether the patient needs defibrillation, synchronised cardioversion, CPR, or another first action.",
+    trackId: "shock_no_shock",
+    difficulty: "Applied",
+    estimatedMinutes: 7,
+    masteryThreshold: 70,
+    objective: "Match rhythm, perfusion, and clinical context to the safest immediate intervention.",
+    realism: "The same-looking rhythm can require a different action when the patient is stable or unstable.",
+    supportedPrograms: ["pals"],
+  },
+  {
+    id: "abcde-assessment",
+    title: "ABCDE deterioration library",
+    subtitle: "Assess unstable patients before they cross into arrest.",
+    trackId: "abcde",
+    difficulty: "Applied",
+    estimatedMinutes: 6,
+    masteryThreshold: 70,
+    objective: "Identify the immediate threat, intervene, and reassess before deterioration accelerates.",
+    realism: "Delayed or unsafe priorities can move the patient into arrest; correct priorities can stabilise them.",
+    supportedPrograms: ["pals"],
+  },
+  {
+    id: "rhythm-recognition",
+    title: "Rhythm recognition library",
+    subtitle: "Interpret rhythm strips and choose the first action in clinical context.",
+    trackId: "rhythm_recognition",
+    difficulty: "Applied",
+    estimatedMinutes: 5,
+    masteryThreshold: 70,
+    objective: "Name the rhythm and connect it to perfusion and the first treatment decision.",
+    realism: "Pattern recognition is not enough; patient stability changes the correct response.",
+    supportedPrograms: ["acls", "pals"],
   },
   {
     id: "first-minutes",

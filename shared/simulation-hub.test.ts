@@ -3,10 +3,14 @@ import { getEligibleSimulationMissions, getSimulationMasteryLabel, getSimulation
 
 describe("Simulation Hub mission model", () => {
 	  it("provides a progressive set of clinically meaningful missions", () => {
-	    expect(SIMULATION_MISSIONS.map((mission) => mission.id)).toEqual([
+    expect(SIMULATION_MISSIONS.map((mission) => mission.id)).toEqual([
       "adult-acls-world",
       "nrp-newborn-not-breathing",
-	      "simulation-world",
+      "simulation-world",
+      "cardiac-arrest-scenarios",
+      "shock-no-shock",
+      "abcde-assessment",
+      "rhythm-recognition",
       "first-minutes",
       "deteriorating-child",
       "rhythm-decisions",

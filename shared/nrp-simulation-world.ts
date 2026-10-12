@@ -5,7 +5,7 @@ export const NRP_SCENARIO_VERSION = "1.0.0";
 export const NRP_MAX_ACTION_ADVANCE_SECONDS = 5;
 export const NRP_CLINICAL_STATUS = "clinical_review" as const;
 
-export type NrpScenarioId = "newborn-not-breathing";
+export type NrpScenarioId = "newborn-not-breathing" | "newborn-apnoea-after-meconium" | "preterm-thermal-risk" | "newborn-persistent-bradycardia";
 export type NrpPhase = "initial_assessment" | "initial_steps" | "ppv" | "corrective_steps" | "compressions" | "post_resuscitation" | "ended";
 export type NrpBreathing = "breathing" | "apnoeic" | "gasping";
 export type NrpTone = "good" | "poor";
@@ -58,6 +58,24 @@ export const NRP_SCENARIOS: readonly { id: NrpScenarioId; title: string; subtitl
     title: "Newborn not breathing after birth",
     subtitle: "A term newborn is apnoeic with poor tone and a heart rate below 100/min.",
     initial: { gestationWeeks: 39, breathing: "apnoeic", heartRate: 70, tone: "poor", colour: "blue", phase: "initial_assessment", ventilationEffective: false },
+  },
+  {
+    id: "newborn-apnoea-after-meconium",
+    title: "Newborn apnoea after meconium-stained birth",
+    subtitle: "A term newborn is apnoeic with poor tone after a meconium-stained birth; effective ventilation is the priority.",
+    initial: { gestationWeeks: 40, breathing: "apnoeic", heartRate: 58, tone: "poor", colour: "blue", phase: "initial_assessment", ventilationEffective: false },
+  },
+  {
+    id: "preterm-thermal-risk",
+    title: "Preterm newborn with thermal risk",
+    subtitle: "A 29-week newborn has poor tone and inadequate breathing; protect temperature while starting the initial steps.",
+    initial: { gestationWeeks: 29, breathing: "gasping", heartRate: 76, tone: "poor", colour: "blue", phase: "initial_assessment", ventilationEffective: false },
+  },
+  {
+    id: "newborn-persistent-bradycardia",
+    title: "Persistent newborn bradycardia",
+    subtitle: "Heart rate remains below 60/min after ineffective ventilation, requiring corrective ventilation and escalation.",
+    initial: { gestationWeeks: 38, breathing: "gasping", heartRate: 52, tone: "poor", colour: "blue", phase: "initial_assessment", ventilationEffective: false },
   },
 ];
 

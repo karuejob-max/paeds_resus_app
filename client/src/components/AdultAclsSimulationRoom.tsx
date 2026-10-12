@@ -25,6 +25,7 @@ type Props = {
   enrollmentId: number;
   onComplete: () => void;
   onExit?: () => void;
+  initialScenarioId?: AdultAclsScenarioId;
 };
 
 const COMMANDS: readonly { label: string; command: AdultAclsCommand }[] = [
@@ -68,8 +69,8 @@ function directorFor(state: AdultAclsState) {
   return "The patient is currently stable. Choose the next appropriate action, then reassess the response.";
 }
 
-export function AdultAclsSimulationRoom({ enrollmentId, onComplete, onExit }: Props) {
-  const [scenarioId, setScenarioId] = useState<AdultAclsScenarioId>("unstable-bradycardia");
+export function AdultAclsSimulationRoom({ enrollmentId, onComplete, onExit, initialScenarioId }: Props) {
+  const [scenarioId, setScenarioId] = useState<AdultAclsScenarioId>(initialScenarioId ?? "unstable-bradycardia");
   const [session, setSession] = useState<{ id: number; nonce: string } | null>(null);
   const [state, setState] = useState<AdultAclsState | null>(null);
   const [completion, setCompletion] = useState<CompletionSummary | null>(null);
