@@ -4,7 +4,8 @@ import { getEligibleSimulationMissions, getSimulationMasteryLabel, getSimulation
 describe("Simulation Hub mission model", () => {
 	  it("provides a progressive set of clinically meaningful missions", () => {
 	    expect(SIMULATION_MISSIONS.map((mission) => mission.id)).toEqual([
-	      "adult-acls-world",
+      "adult-acls-world",
+      "nrp-newborn-not-breathing",
 	      "simulation-world",
       "first-minutes",
       "deteriorating-child",
@@ -13,7 +14,9 @@ describe("Simulation Hub mission model", () => {
       "pals-capstone",
     ]);
 	    expect(getSimulationMission("deteriorating-child")?.trackId).toBe("abcde");
-	    expect(getSimulationMission("adult-acls-world")?.supportedPrograms).toEqual(["acls"]);
+    expect(getSimulationMission("adult-acls-world")?.supportedPrograms).toEqual(["acls"]);
+    expect(getSimulationMission("nrp-newborn-not-breathing")?.supportedPrograms).toEqual(["nrp"]);
+    expect(getSimulationMission("nrp-newborn-not-breathing")?.trackId).toBe("nrp_world");
     expect(getSimulationMission("pals-capstone")?.unlocksAfter).toBe("deteriorating-child");
     expect(getSimulationMission("pals-capstone")?.masteryThreshold).toBe(80);
   });
@@ -51,5 +54,6 @@ describe("Simulation Hub mission model", () => {
     expect(getEligibleSimulationMissions(["bls"]).map((mission) => mission.id)).toContain("first-minutes");
     expect(getEligibleSimulationMissions(["heartsaver"]).map((mission) => mission.id)).toContain("first-minutes");
     expect(getEligibleSimulationMissions(["pals"]).map((mission) => mission.id)).toContain("simulation-world");
+    expect(getEligibleSimulationMissions(["nrp"]).map((mission) => mission.id)).toEqual(["nrp-newborn-not-breathing"]);
   });
 });
