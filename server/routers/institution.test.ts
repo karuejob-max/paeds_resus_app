@@ -206,7 +206,6 @@ describe("Institution Router", () => {
     it("accepts a blank optional registration number and links an existing second administrator", async () => {
       institutionDbMock.mockState.limitRows = [];
       institutionDbMock.mockState.limitQueue = [
-        [],
         [{ id: 2, name: "Second Admin", email: "second@new-test-hospital.example" }],
       ];
       const ctx = createAuthContext();
@@ -225,6 +224,35 @@ describe("Institution Router", () => {
         contactPhone: "+254700000001",
         contactDesignation: "Hospital Administrator",
         platformNeeds: ["cpd_portal", "iers_readiness"],
+        secondAdminUserId: 2,
+      });
+
+      expect(result).toMatchObject({
+        success: true,
+        institutionId: 1,
+        alreadyRegistered: false,
+      });
+    });
+
+    it("creates another institution for an administrator who already administers one", async () => {
+      institutionDbMock.mockState.limitRows = [];
+      institutionDbMock.mockState.limitQueue = [
+        [{ id: 2, name: "Second Admin", email: "second@new-test-hospital.example" }],
+      ];
+      const caller = appRouter.createCaller(createAuthContext());
+
+      const result = await caller.institution.completeOnboarding({
+        institutionName: "Second Test Institution",
+        organizationCategory: "healthcare_facility",
+        facilityOwnership: "private_for_profit",
+        facilityCareLevel: "primary_level_4",
+        healthcareStaffCount: 12,
+        country: "Kenya",
+        city: "Nairobi",
+        address: "2 Test Street",
+        contactPhone: "+254700000002",
+        contactDesignation: "Hospital Administrator",
+        platformNeeds: ["iers_readiness"],
         secondAdminUserId: 2,
       });
 
