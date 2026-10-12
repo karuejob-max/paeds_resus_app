@@ -41,6 +41,8 @@ interface Props {
   embedded?: boolean;
   /** Filter scenarios (e.g. PALS vs ACLS) */
   scenariosFilter?: (scenarios: SimulationScenario[]) => SimulationScenario[];
+  /** Display-only course label for the embedded CPR-GPS console. */
+  pathwayLabel?: string;
   initialScenarioId?: string;
   /** Called when simulation ends with performance metrics */
   onAttemptComplete?: (
@@ -56,6 +58,7 @@ export function CPRSimulation({
   onClose,
   embedded = false,
   scenariosFilter,
+  pathwayLabel,
   initialScenarioId,
   onAttemptComplete,
 }: Props) {
@@ -296,6 +299,7 @@ export function CPRSimulation({
           <CPRClockStreamlined
             patientWeight={selectedScenario.weight}
             patientAgeMonths={selectedScenario.ageMonths}
+            pathwayLabel={pathwayLabel}
             onClose={handleEndSimulation}
           />
         </div>
