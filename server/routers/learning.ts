@@ -142,6 +142,41 @@ async function assertAhaCognitiveAccess(
   await assertAhaAccess(db, userId, programType);
 }
 
+async function assertCourseEnrollmentAccess(
+  db: any,
+  userId: number | undefined,
+  courseId: number,
+  programType: string | null | undefined
+) {
+  if (isAhaProgramType(programType)) {
+    await assertAhaCognitiveAccess(db, userId, programType);
+    return;
+  }
+  if (!userId) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Sign in and complete an approved enrollment before opening course content.",
+    });
+  }
+  const rows = await db
+    .select({ id: enrollments.id })
+    .from(enrollments)
+    .where(
+      and(
+        eq(enrollments.userId, userId),
+        eq(enrollments.courseId, courseId),
+        eq(enrollments.paymentStatus, "completed")
+      )
+    )
+    .limit(1);
+  if (!rows.length) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Complete payment or redeem an approved access grant before opening this course.",
+    });
+  }
+}
+
 function synchronizeBlsCatalog(db: any): Promise<void> {
   if (!blsCatalogSyncPromise) {
     blsCatalogSyncPromise = ensureBlsCatalog(db).finally(() => {
@@ -400,7 +435,7 @@ export const learningRouter = router({
       }
 
       const pt = courseRow.programType as string;
-      await assertAhaCognitiveAccess(db, ctx.user?.id, pt, input.pathway);
+      await assertCourseEnrollmentAccess(db, ctx.user?.id, courseRow.id, pt);
       if (pt === "paeds_resus_ils") {
         if (!ctx.user?.id) {
           throw new TRPCError({
@@ -533,9 +568,10 @@ export const learningRouter = router({
         .from(courses)
         .where(eq(courses.id, module[0].courseId))
         .limit(1);
-      await assertAhaCognitiveAccess(
+      await assertCourseEnrollmentAccess(
         db,
         ctx.user?.id,
+        module[0].courseId,
         moduleCourse[0]?.programType
       );
       if (moduleCourse[0]?.programType === "paeds_resus_ils") {
@@ -685,39 +721,49 @@ export const learningRouter = router({
       };
     }),
 
-  // Get quiz questions
-  getQuizQuestions: publicProcedure
+  // Get quiz questions only for an authorized course learner.
+  getQuizQuestions: protectedProcedure
     .input(z.object({ quizId: z.number() }))
     .query(async ({ ctx, input }) => {
       const db = await getDb();
-      await assertAhaCognitiveAccess(
+      const quizRows = await (db as any)
+        .select({ moduleId: quizzes.moduleId })
+        .from(quizzes)
+        .where(eq(quizzes.id, input.quizId))
+        .limit(1);
+      const moduleId = Number(quizRows[0]?.moduleId ?? 0);
+      const moduleRows = await (db as any)
+        .select({ courseId: modules.courseId })
+        .from(modules)
+        .where(eq(modules.id, moduleId))
+        .limit(1);
+      const courseId = Number(moduleRows[0]?.courseId ?? 0);
+      if (!courseId) throw new TRPCError({ code: "NOT_FOUND", message: "Quiz course not found" });
+      await assertCourseEnrollmentAccess(
         db,
-        ctx.user?.id,
+        ctx.user.id,
+        courseId,
         await getProgramTypeForQuiz(db, input.quizId)
       );
-      return (db as any)
+      const rows = await (db as any)
         .select()
         .from(quizQuestions)
         .where(eq(quizQuestions.quizId, input.quizId))
         .orderBy(quizQuestions.order);
+      return rows.map((row: Record<string, unknown>) => {
+        const { correctAnswer: _correctAnswer, explanation: _explanation, ...safe } = row;
+        return safe;
+      });
     }),
 
   // Enroll in course
   enrollCourse: protectedProcedure
     .input(z.object({ courseId: z.number(), programType: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-
-      // Create enrollment
-      await (db as any).insert(enrollments).values({
-        // @ts-ignore
-        userId: ctx.user.id,
-        programType: input.programType,
-        trainingDate: new Date(),
-        paymentStatus: "completed",
+    .mutation(async () => {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "Direct free enrollment is disabled. Use the server-priced checkout or an approved access grant.",
       });
-
-      return { success: true, message: "Enrolled successfully" };
     }),
 
   // Get user progress

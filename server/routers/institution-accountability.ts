@@ -11,6 +11,7 @@ import {
   institutionalAccounts,
   institutionAccountScopes,
   institutionProductSubscriptions,
+  institutionProductRoles,
   institutionalProducts,
   institutionalStaffMembers,
   institutionMemberships,
@@ -357,6 +358,7 @@ export const institutionAccountabilityRouter = router({
         institution: null,
         institutions: [],
         productAccess: [],
+        roleKeys: [],
         isInstitutionAdmin: false,
         canViewAccountability: false,
       };
@@ -392,6 +394,23 @@ export const institutionAccountabilityRouter = router({
         )
       );
 
+    const activeRoleRows = await db
+      .select({
+        institutionalAccountId: institutionProductRoles.institutionalAccountId,
+        roleKey: institutionProductRoles.roleKey,
+      })
+      .from(institutionProductRoles)
+      .where(
+        and(
+          inArray(institutionProductRoles.institutionalAccountId, institutionIds),
+          eq(institutionProductRoles.roleStatus, "active"),
+          or(
+            eq(institutionProductRoles.userId, ctx.user.id),
+            email ? eq(institutionProductRoles.invitedEmail, email) : sql`1 = 0`,
+          ),
+        ),
+      );
+
     const first = input?.institutionId != null
       ? institutions.find(row => row.id === input.institutionId) ?? null
       : institutions[0] ?? null;
@@ -399,6 +418,9 @@ export const institutionAccountabilityRouter = router({
       institution: first,
       institutions,
       productAccess: productRows,
+      roleKeys: first
+        ? activeRoleRows.filter(row => row.institutionalAccountId === first.id).map(row => row.roleKey)
+        : [],
       isInstitutionAdmin: first ? administeredIds.includes(first.id) : false,
       canViewAccountability: first
         ? accountabilityInstitutionIds.has(first.id)
