@@ -14,6 +14,7 @@ import {
   institutionalAccountAdmins,
   institutionalAccounts,
   institutionalProducts,
+  institutionProductSubscriptions,
   institutionalStaffMembers,
   shiftUtlRosters,
   users,
@@ -454,6 +455,38 @@ async function main() {
     throw new Error(
       "The institutional IERS product registry entry is missing; run the current migrations/seed first."
     );
+  const [existingIersSubscription] = await db
+    .select({ id: institutionProductSubscriptions.id })
+    .from(institutionProductSubscriptions)
+    .where(
+      and(
+        eq(institutionProductSubscriptions.institutionalAccountId, institution.id),
+        eq(institutionProductSubscriptions.productId, iersProduct.id)
+      )
+    )
+    .limit(1);
+  if (existingIersSubscription) {
+    await db
+      .update(institutionProductSubscriptions)
+      .set({
+        subscriptionStatus: "active",
+        source: "pilot",
+        startsAt: new Date("2026-01-01T00:00:00.000Z"),
+        notes: "Local QA fixture; not a commercial entitlement.",
+      })
+      .where(eq(institutionProductSubscriptions.id, existingIersSubscription.id));
+  } else {
+    await db.insert(institutionProductSubscriptions).values({
+      institutionalAccountId: institution.id,
+      productId: iersProduct.id,
+      subscriptionStatus: "active",
+      source: "pilot",
+      startsAt: new Date("2026-01-01T00:00:00.000Z"),
+      pricingTier: "founding_partner",
+      dataSharingStatus: "consented",
+      notes: "Local QA fixture; not a commercial entitlement.",
+    });
+  }
   const roles = [
     [coordinatorId, SAMPLE_ACCOUNTS[0].email, "iers_coordinator"],
     [nurseId, SAMPLE_ACCOUNTS[1].email, "iers_responder"],
