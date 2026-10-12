@@ -3,6 +3,8 @@ import { searchKmhflFacilities } from "./institution-kmhfl-search";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
+import { sendEmail } from "../email-service";
+import { createCanonicalNotification } from "../lib/notifications";
 import {
   institutionalAccounts,
   institutionalInquiries,
@@ -1196,11 +1198,14 @@ export const institutionRouter = router({
 
     return rows.map((row) => ({
       ...row,
-      isPendingInvite: row.userId == null && row.membershipStatus === "invited",
+      // Existing Paeds Resus accounts are linked to the invitation before
+      // acceptance. The membership status, not userId nullability, is the
+      // source of truth for pending provider access.
+      isPendingInvite: row.membershipStatus === "invited",
     }));
   }),
 
-  /** Institution admin: invite or link a provider into the shared IERS model. */
+  /** Institution admin: invite general institution access; operational roles are separate workflows. */
   inviteProvider: protectedProcedure
     .input(z.object({
       institutionId: z.number().int().positive(),
@@ -1208,6 +1213,8 @@ export const institutionRouter = router({
       staffName: z.string().trim().min(2).max(255),
       staffPhone: z.string().trim().max(20).optional(),
       staffRole: z.enum(["doctor", "nurse", "paramedic", "midwife", "lab_tech", "respiratory_therapist", "support_staff", "other"]).default("other"),
+      // Accepted for backwards compatibility, but deliberately ignored. A membership invitation
+      // must never appoint an emergency responsibility.
       responsibilityRole: z.enum(["executive", "erc_chair", "erc_member", "er_coordinator", "unit_team_leader", "ert_leader", "ert_responder", "general_staff"]).default("general_staff"),
       department: z.string().trim().max(255).optional(),
     }))
@@ -1215,121 +1222,83 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-
       const email = input.email.trim().toLowerCase();
-      const [existingUser] = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.email, email))
-        .limit(1);
-
-      const [existingStaff] = await db
-        .select({ id: institutionalStaffMembers.id })
-        .from(institutionalStaffMembers)
-        .where(and(
-          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
-          eq(institutionalStaffMembers.staffEmail, email),
-        ))
-        .limit(1);
-
-      let staffMemberId = existingStaff?.id;
-      if (!staffMemberId) {
-        const staffInsert = await db.insert(institutionalStaffMembers).values({
-          institutionalAccountId: input.institutionId,
-          userId: existingUser?.id ?? null,
-          staffName: input.staffName,
-          staffEmail: email,
-          staffPhone: input.staffPhone || null,
-          staffRole: input.staffRole,
-          department: input.department || null,
-          governanceRole: input.responsibilityRole,
-          enrollmentStatus: "pending",
-          facilityLinkStatus: "pending",
-        });
-        staffMemberId = (staffInsert as unknown as { insertId: number }).insertId;
-      }
-
-      const [existingMembership] = await db
-        .select({ id: institutionMemberships.id })
-        .from(institutionMemberships)
-        .where(and(
-          eq(institutionMemberships.institutionalAccountId, input.institutionId),
-          eq(institutionMemberships.invitedEmail, email),
-        ))
-        .limit(1);
-
-      if (existingMembership) {
-        await db
-          .update(institutionMemberships)
-          .set({
+      const [account] = await db.select({ companyName: institutionalAccounts.companyName }).from(institutionalAccounts).where(eq(institutionalAccounts.id, input.institutionId)).limit(1);
+      if (!account) throw new TRPCError({ code: "NOT_FOUND", message: "Institution not found." });
+      const [existingUser] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+      const [result, staffName] = await db.transaction(async tx => {
+        const [existingStaff] = await tx.select({ id: institutionalStaffMembers.id }).from(institutionalStaffMembers).where(and(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId), eq(institutionalStaffMembers.staffEmail, email))).limit(1);
+        let staffMemberId = existingStaff?.id;
+        if (!staffMemberId) {
+          const staffInsert = await tx.insert(institutionalStaffMembers).values({
+            institutionalAccountId: input.institutionId,
             userId: existingUser?.id ?? null,
-            staffMemberId,
-            responsibilityRole: input.responsibilityRole,
-            membershipStatus: "invited",
-            invitedByUserId: ctx.user.id,
-            invitedAt: new Date(),
-            acceptedAt: null,
-            suspendedAt: null,
-            endedAt: null,
-            updatedAt: new Date(),
-          })
-          .where(eq(institutionMemberships.id, existingMembership.id));
-        return { success: true, membershipId: existingMembership.id, status: "reinvited" as const };
-      }
-
-      const membershipInsert = await db.insert(institutionMemberships).values({
-        institutionalAccountId: input.institutionId,
-        userId: existingUser?.id ?? null,
-        invitedEmail: email,
-        staffMemberId,
-        responsibilityRole: input.responsibilityRole,
-        membershipStatus: "invited",
-        invitedByUserId: ctx.user.id,
+            staffName: input.staffName,
+            staffEmail: email,
+            staffPhone: input.staffPhone || null,
+            staffRole: input.staffRole,
+            department: input.department || null,
+            governanceRole: "general_staff",
+            enrollmentStatus: "pending",
+            facilityLinkStatus: "pending",
+          });
+          staffMemberId = (staffInsert as unknown as { insertId: number }).insertId;
+        } else {
+          await tx.update(institutionalStaffMembers).set({ userId: existingUser?.id ?? null, staffName: input.staffName, staffPhone: input.staffPhone || null, staffRole: input.staffRole, department: input.department || null, governanceRole: "general_staff", facilityLinkStatus: "pending", updatedAt: new Date() }).where(eq(institutionalStaffMembers.id, staffMemberId));
+        }
+        const [existingMembership] = await tx.select({ id: institutionMemberships.id, membershipStatus: institutionMemberships.membershipStatus }).from(institutionMemberships).where(and(eq(institutionMemberships.institutionalAccountId, input.institutionId), eq(institutionMemberships.invitedEmail, email))).limit(1);
+        const now = new Date();
+        if (existingMembership) {
+          await tx.update(institutionMemberships).set({ userId: existingUser?.id ?? null, staffMemberId, responsibilityRole: "general_staff", membershipStatus: "invited", invitedByUserId: ctx.user.id, invitedAt: now, acceptedAt: null, suspendedAt: null, endedAt: null, updatedAt: now }).where(eq(institutionMemberships.id, existingMembership.id));
+          await tx.insert(institutionMembershipEvents).values({ institutionalAccountId: input.institutionId, membershipId: existingMembership.id, staffMemberId, userId: existingUser?.id ?? null, eventType: "reinvited", previousMembershipStatus: existingMembership.membershipStatus, currentMembershipStatus: "invited", actorUserId: ctx.user.id, reason: "Institution access invitation sent again.", occurredAt: now });
+          return [{ membershipId: existingMembership.id, status: "reinvited" as const }, input.staffName];
+        }
+        const membershipInsert = await tx.insert(institutionMemberships).values({ institutionalAccountId: input.institutionId, userId: existingUser?.id ?? null, invitedEmail: email, staffMemberId, responsibilityRole: "general_staff", membershipStatus: "invited", invitedByUserId: ctx.user.id });
+        const membershipId = (membershipInsert as unknown as { insertId: number }).insertId;
+        await tx.insert(institutionMembershipEvents).values({ institutionalAccountId: input.institutionId, membershipId, staffMemberId, userId: existingUser?.id ?? null, eventType: "invited", previousMembershipStatus: null, currentMembershipStatus: "invited", actorUserId: ctx.user.id, reason: "General institution access invitation sent.", occurredAt: now });
+        return [{ membershipId, status: "invited" as const }, input.staffName];
       });
-
-      return {
-        success: true,
-        membershipId: (membershipInsert as unknown as { insertId: number }).insertId,
-        status: "invited" as const,
-      };
+      const actionUrl = "/workplaces-and-access";
+      const notification = existingUser ? await createCanonicalNotification({ userId: existingUser.id, type: "institution_membership_invitation", domain: "role", severity: "action_required", requiresAction: true, title: `Invitation to join ${account.companyName}`, body: "Review and accept institution access. This is not an emergency role or dated duty.", actionUrl, relatedId: result.membershipId, data: { institutionId: input.institutionId, membershipId: result.membershipId, action: "accept_or_decline" }, dedupeKey: `institution-membership-invitation:${result.membershipId}` }) : null;
+      const delivery = await sendEmail(email, "institutionProviderInvitation", { providerName: staffName, inviterName: ctx.user.name?.trim() || "Your institution administrator", institutionName: account.companyName, actionUrl });
+      return { success: true, membershipId: result.membershipId, status: result.status, membershipScope: "general_staff" as const, inAppNotification: notification?.created || notification?.duplicate ? "created" as const : "not_applicable" as const, emailDelivery: delivery.success ? "sent" as const : "not_configured_or_failed" as const, emailError: delivery.success ? undefined : delivery.error };
     }),
-
-  /** Provider: accept an invitation addressed to the authenticated email. */
+  /** Provider: accept an institution-access invitation addressed to the authenticated email. */
   acceptMembershipInvite: protectedProcedure
     .input(z.object({ membershipId: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       if (!ctx.user.email) throw new TRPCError({ code: "BAD_REQUEST", message: "Your account has no email address." });
-
       const email = ctx.user.email.trim().toLowerCase();
-      const [membership] = await db
-        .select()
-        .from(institutionMemberships)
-        .where(and(
-          eq(institutionMemberships.id, input.membershipId),
-          eq(institutionMemberships.invitedEmail, email),
-          eq(institutionMemberships.membershipStatus, "invited"),
-        ))
-        .limit(1);
-
-      if (!membership) throw new TRPCError({ code: "NOT_FOUND", message: "No matching institution invitation found." });
-
-      await db
-        .update(institutionMemberships)
-        .set({ userId: ctx.user.id, membershipStatus: "active", acceptedAt: new Date(), updatedAt: new Date() })
-        .where(eq(institutionMemberships.id, membership.id));
-
-      if (membership.staffMemberId) {
-        await db
-          .update(institutionalStaffMembers)
-          .set({ userId: ctx.user.id, facilityLinkStatus: "linked", updatedAt: new Date() })
-          .where(eq(institutionalStaffMembers.id, membership.staffMemberId));
-      }
-
-      return { success: true, institutionalAccountId: membership.institutionalAccountId };
+      const result = await db.transaction(async tx => {
+        const [membership] = await tx.select().from(institutionMemberships).where(and(eq(institutionMemberships.id, input.membershipId), eq(institutionMemberships.invitedEmail, email), eq(institutionMemberships.membershipStatus, "invited"))).limit(1);
+        if (!membership) throw new TRPCError({ code: "NOT_FOUND", message: "No matching institution invitation found." });
+        const now = new Date();
+        await tx.update(institutionMemberships).set({ userId: ctx.user.id, membershipStatus: "active", acceptedAt: now, updatedAt: now }).where(and(eq(institutionMemberships.id, membership.id), eq(institutionMemberships.membershipStatus, "invited")));
+        if (membership.staffMemberId) await tx.update(institutionalStaffMembers).set({ userId: ctx.user.id, facilityLinkStatus: "linked", updatedAt: now }).where(eq(institutionalStaffMembers.id, membership.staffMemberId));
+        await tx.insert(institutionMembershipEvents).values({ institutionalAccountId: membership.institutionalAccountId, membershipId: membership.id, staffMemberId: membership.staffMemberId, userId: ctx.user.id, eventType: "accepted", previousMembershipStatus: "invited", currentMembershipStatus: "active", actorUserId: ctx.user.id, reason: "Provider accepted general institution access.", occurredAt: now });
+        return membership.institutionalAccountId;
+      });
+      return { success: true, institutionalAccountId: result, membershipScope: "general_staff" as const, nextStep: "Institution access accepted. Standing roles and dated duties require separate assignment and acceptance." };
     }),
-
+  /** Provider: decline institution access without deleting the invitation history. */
+  declineMembershipInvite: protectedProcedure
+    .input(z.object({ membershipId: z.number().int().positive(), reason: z.string().trim().min(3).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      if (!ctx.user.email) throw new TRPCError({ code: "BAD_REQUEST", message: "Your account has no email address." });
+      const email = ctx.user.email.trim().toLowerCase();
+      return db.transaction(async tx => {
+        const [membership] = await tx.select().from(institutionMemberships).where(and(eq(institutionMemberships.id, input.membershipId), eq(institutionMemberships.invitedEmail, email), eq(institutionMemberships.membershipStatus, "invited"))).limit(1);
+        if (!membership) throw new TRPCError({ code: "NOT_FOUND", message: "No matching institution invitation found." });
+        const now = new Date();
+        await tx.update(institutionMemberships).set({ userId: ctx.user.id, membershipStatus: "declined", endedAt: now, updatedAt: now }).where(eq(institutionMemberships.id, membership.id));
+        await tx.insert(institutionMembershipEvents).values({ institutionalAccountId: membership.institutionalAccountId, membershipId: membership.id, staffMemberId: membership.staffMemberId, userId: ctx.user.id, eventType: "declined", previousMembershipStatus: "invited", currentMembershipStatus: "declined", actorUserId: ctx.user.id, reason: input.reason, occurredAt: now });
+        return { success: true, status: "declined" as const };
+      });
+    }),
   /** Institution admin: change a provider's IERS responsibility role. */
   updateProviderResponsibilityRole: protectedProcedure
     .input(z.object({

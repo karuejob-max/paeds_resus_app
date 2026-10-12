@@ -397,7 +397,7 @@ export type CpdFacilityLinkResult = {
   relationship: CpdFacilityRelationship;
   status: "linked" | "admin_review_required";
   membershipId: number | null;
-  membershipStatus: "active" | "invited" | "suspended" | "ended" | null;
+  membershipStatus: "active" | "invited" | "suspended" | "ended" | "declined" | null;
   staffMemberId: number | null;
 };
 

@@ -46,8 +46,6 @@ import { liveTrainingRouter } from "./routers/live-training";
 import { cmsRouter } from "./routers/cms";
 import { emailAutomationRouter } from "./routers/email-automation";
 import { emailCampaignsRouter } from "./routers/email-campaigns";
-// import { institutionOnboardingRouter } from "./routers/institution-onboarding"; // Replaced by institution router
-// Remove this import - we'll use the new institution router instead
 import { chatSupportRouter } from "./routers/chat-support";
 import { aiAssistantRouter } from "./routers/ai-assistant";
 import { careSignalEventsRouter } from "./routers/care-signal-events";
