@@ -28,6 +28,7 @@ import { AiRoleplayTrack } from "@/components/practice-lab/AiRoleplayTrack";
 import { PalsCapstoneSimulation } from "@/components/PalsCapstoneSimulation";
 import { SimulationWorldRoom } from "@/components/SimulationWorldRoom";
 import { PartnershipPlaceholders } from "@/components/practice-lab/PartnershipPlaceholders";
+import { NrpSimulationRoom } from "@/components/NrpSimulationRoom";
 import type { PracticeLabProgramType, PracticeLabTrackId } from "@shared/practice-lab-types";
 
 const TRACK_META: Record<
@@ -73,6 +74,11 @@ const TRACK_META: Record<
 	    label: "Adult ACLS Simulation World",
 	    icon: Users,
 	    description: "Synthetic adult ACLS rhythm, arrest, intervention, and reassessment rehearsal",
+	  },
+	  nrp_world: {
+	    label: "NRP Newborn Simulation",
+	    icon: Heart,
+	    description: "Newborn initial steps, effective ventilation, heart-rate reassessment, and indicated escalation",
 	  },
 	};
 
@@ -292,6 +298,7 @@ export default function AHAPracticeLab() {
                   />
                 ) : <Card><CardContent className="pt-6 text-sm text-muted-foreground">The PALS capstone is available when the selected enrollment is PALS.</CardContent></Card>)}
                 {id === "simulation_world" && effectiveEnrollmentId && <SimulationWorldRoom enrollmentId={effectiveEnrollmentId} programType={effectiveProgram} />}
+                {id === "nrp_world" && effectiveEnrollmentId && (effectiveProgram === "nrp" ? <NrpSimulationRoom enrollmentId={effectiveEnrollmentId} onComplete={() => undefined} /> : <Card><CardContent className="pt-6 text-sm text-muted-foreground">The NRP newborn simulation is available when the selected enrollment is NRP.</CardContent></Card>)}
               </TabsContent>
             ))}
           </Tabs>

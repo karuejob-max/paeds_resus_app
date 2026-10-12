@@ -25,6 +25,7 @@ import {
 } from "../../shared/practice-lab-types";
 import { advanceSimulationWorld, createSimulationWorld, isSimulationWorldCommandAllowed, isSimulationWorldScenarioCompatible, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_WORLD_ROLES, SIMULATION_WORLD_SCENARIOS, type SimulationWorldEvent, type SimulationWorldRole, type SimulationWorldScenarioId, type SimulationWorldState, type SimulationWorldCommand } from "../../shared/simulation-world";
 import { ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS, ADULT_ACLS_SCENARIOS, ADULT_ACLS_SCENARIO_VERSION, ADULT_ACLS_WORLD_VERSION, advanceAdultAclsSimulation, calculateAdultAclsTrainingEvidence, createAdultAclsSimulation, reduceAdultAclsSimulation, type AdultAclsCommand, type AdultAclsScenarioId, type AdultAclsState } from "../../shared/adult-acls-simulation-world";
+import { NRP_MAX_ACTION_ADVANCE_SECONDS, NRP_SCENARIOS, NRP_SCENARIO_VERSION, NRP_WORLD_VERSION, advanceNrpSimulation, calculateNrpTrainingEvidence, createNrpSimulation, reduceNrpSimulation, type NrpCommand, type NrpScenarioId, type NrpState } from "../../shared/nrp-simulation-world";
 
 const AHA_PROGRAM_TYPES = ["bls", "acls", "pals", "heartsaver", "nrp"] as const;
 
@@ -251,8 +252,95 @@ export const practiceLabRouter = router({
       return { success: true, evidenceStatus: "review_required" as const, evidence: evidenceWithAuthority, syntheticTrainingOnly: true };
     }),
 
+  startNrpSession: protectedProcedure
+    .input(z.object({
+      enrollmentId: z.number(),
+      scenarioId: z.enum(NRP_SCENARIOS.map((item) => item.id) as [NrpScenarioId, ...NrpScenarioId[]]),
+      role: z.enum(SIMULATION_WORLD_ROLES),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [enrollment] = await db.select({ id: enrollments.id, userId: enrollments.userId, programType: enrollments.programType })
+        .from(enrollments).where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id))).limit(1);
+      if (!enrollment || enrollment.programType !== "nrp") throw new TRPCError({ code: "FORBIDDEN", message: "An NRP enrollment is required for this simulation" });
+      const sessionNonce = randomBytes(32).toString("hex");
+      const authoritativeState = createNrpSimulation(input.scenarioId, input.role);
+      const [created] = await db.insert(simulationWorldSessions).values({ userId: ctx.user.id, enrollmentId: input.enrollmentId, programType: "nrp", scenarioId: input.scenarioId, role: input.role, sessionNonce, engineVersion: NRP_WORLD_VERSION, scenarioVersion: NRP_SCENARIO_VERSION, assessmentVersion: "training-only", authorityState: "connected", authoritativeStateJson: authoritativeState }).$returningId();
+      return { sessionId: created.id, sessionNonce, scenarioId: authoritativeState.scenarioId, scenarioVersion: NRP_SCENARIO_VERSION, authorityState: "connected" as const, authoritativeState, syntheticTrainingOnly: true };
+    }),
+
+  getActiveNrpSession: protectedProcedure
+    .input(z.object({ enrollmentId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      const db = await getDb();
+      if (!db) return null;
+      const [session] = await db.select({ id: simulationWorldSessions.id, sessionNonce: simulationWorldSessions.sessionNonce, scenarioId: simulationWorldSessions.scenarioId, authoritativeStateJson: simulationWorldSessions.authoritativeStateJson })
+        .from(simulationWorldSessions).where(and(eq(simulationWorldSessions.userId, ctx.user.id), eq(simulationWorldSessions.enrollmentId, input.enrollmentId), eq(simulationWorldSessions.programType, "nrp"), eq(simulationWorldSessions.status, "active"))).orderBy(desc(simulationWorldSessions.startedAt)).limit(1);
+      if (!session) return null;
+      const [lastReceipt] = await db.select({ sequence: simulationWorldCommandReceipts.sequence }).from(simulationWorldCommandReceipts).where(eq(simulationWorldCommandReceipts.sessionId, session.id)).orderBy(desc(simulationWorldCommandReceipts.sequence)).limit(1);
+      return { sessionId: session.id, sessionNonce: session.sessionNonce, scenarioId: session.scenarioId, nextSequence: (lastReceipt?.sequence ?? -1) + 1, authoritativeState: session.authoritativeStateJson as NrpState };
+    }),
+
+  invalidateNrpSession: protectedProcedure
+    .input(z.object({ sessionId: z.number(), sessionNonce: z.string().length(64) }))
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [session] = await db.select({ id: simulationWorldSessions.id, status: simulationWorldSessions.status }).from(simulationWorldSessions).where(and(eq(simulationWorldSessions.id, input.sessionId), eq(simulationWorldSessions.userId, ctx.user.id), eq(simulationWorldSessions.sessionNonce, input.sessionNonce), eq(simulationWorldSessions.programType, "nrp"))).limit(1);
+      if (!session) throw new TRPCError({ code: "NOT_FOUND", message: "NRP simulation session not found" });
+      if (session.status === "active") await db.update(simulationWorldSessions).set({ status: "abandoned", authorityState: "invalidated" }).where(eq(simulationWorldSessions.id, session.id));
+      return { success: true, invalidated: session.status === "active" };
+    }),
+
+  receiveNrpCommand: protectedProcedure
+    .input(z.object({ sessionId: z.number(), sessionNonce: z.string().length(64), sequence: z.number().int().nonnegative(), commandJson: z.record(z.string(), z.unknown()) }))
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [session] = await db.select().from(simulationWorldSessions).where(and(eq(simulationWorldSessions.id, input.sessionId), eq(simulationWorldSessions.userId, ctx.user.id), eq(simulationWorldSessions.sessionNonce, input.sessionNonce), eq(simulationWorldSessions.programType, "nrp"))).limit(1);
+      if (!session || session.status !== "active" || session.engineVersion !== NRP_WORLD_VERSION) throw new TRPCError({ code: "BAD_REQUEST", message: "NRP simulation session is not active" });
+      const [previous] = await db.select({ sequence: simulationWorldCommandReceipts.sequence }).from(simulationWorldCommandReceipts).where(eq(simulationWorldCommandReceipts.sessionId, session.id)).orderBy(desc(simulationWorldCommandReceipts.sequence)).limit(1);
+      const expectedSequence = previous ? previous.sequence + 1 : 0;
+      if (input.sequence !== expectedSequence) throw new TRPCError({ code: "CONFLICT", message: `Expected command sequence ${expectedSequence}` });
+      const stored = (session.authoritativeStateJson ?? createNrpSimulation(session.scenarioId as NrpScenarioId, session.role as SimulationWorldRole)) as unknown as NrpState;
+      const command = input.commandJson as unknown as NrpCommand;
+      const wallElapsedMs = Math.max(0, Math.min(30 * 60 * 1000, Date.now() - session.startedAt.getTime()));
+      const actionAdvanceSeconds = Math.min(NRP_MAX_ACTION_ADVANCE_SECONDS, Math.max(0, wallElapsedMs / 1000 - stored.elapsedSeconds));
+      const elapsedMs = Math.round((stored.elapsedSeconds + actionAdvanceSeconds) * 1000);
+      const advanced = advanceNrpSimulation(stored, actionAdvanceSeconds);
+      const nextState = reduceNrpSimulation(advanced, command);
+      const canonicalEvents = nextState.events.slice(stored.events.length);
+      const receiptHash = createHash("sha256").update(`${session.sessionNonce}|${input.sequence}|nrp|${JSON.stringify(input.commandJson)}|${elapsedMs}|${JSON.stringify(canonicalEvents)}`).digest("hex").slice(0, 32);
+      await db.insert(simulationWorldCommandReceipts).values({ sessionId: session.id, sequence: input.sequence, commandType: String(command.type ?? "unknown"), commandJson: input.commandJson, serverElapsedMs: elapsedMs, receiptHash, canonicalEventsJson: canonicalEvents, authoritativeStateJson: nextState });
+      await db.update(simulationWorldSessions).set({ lastReceiptAt: new Date(), authoritativeStateJson: nextState, authorityState: "connected" }).where(eq(simulationWorldSessions.id, session.id));
+      return { accepted: true, sequence: input.sequence, serverElapsedMs: elapsedMs, receiptHash, authorityState: "connected" as const, authoritativeState: nextState, syntheticTrainingOnly: true };
+    }),
+
+  completeNrpSession: protectedProcedure
+    .input(z.object({ sessionId: z.number(), sessionNonce: z.string().length(64) }))
+    .mutation(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [session] = await db.select().from(simulationWorldSessions).where(and(eq(simulationWorldSessions.id, input.sessionId), eq(simulationWorldSessions.userId, ctx.user.id), eq(simulationWorldSessions.sessionNonce, input.sessionNonce), eq(simulationWorldSessions.programType, "nrp"))).limit(1);
+      if (!session || session.status !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: "NRP simulation session is not active" });
+      const state = session.authoritativeStateJson as unknown as NrpState;
+      if (!state || state.scenarioId !== session.scenarioId || state.patient.phase !== "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "Reach the valid post-resuscitation endpoint before saving NRP rehearsal evidence" });
+      const evidence = calculateNrpTrainingEvidence(state);
+      const evidenceWithAuthority = { ...evidence, sessionId: session.id, scenarioVersion: session.scenarioVersion, learnerUserId: session.userId, enrollmentId: session.enrollmentId, role: session.role };
+      await db.insert(ahaPracticeLabAttempts).values({ userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "nrp", trackId: "nrp_world", scenarioId: session.scenarioId, score: 0, passed: false, eventLog: state.events, durationSeconds: Math.round(state.elapsedSeconds) });
+      await db.insert(simulationWorldEvidence).values({ sessionId: session.id, userId: ctx.user.id, enrollmentId: session.enrollmentId, role: session.role, scenarioId: state.scenarioId, evidenceStatus: "review_required", assessmentJson: evidenceWithAuthority });
+      await db.update(simulationWorldSessions).set({ status: "completed", completedAt: new Date() }).where(eq(simulationWorldSessions.id, session.id));
+      return { success: true, evidenceStatus: "review_required" as const, evidence: evidenceWithAuthority, syntheticTrainingOnly: true };
+    }),
+
   listAdultAclsEvidence: protectedProcedure
-    .input(z.object({ status: z.enum(["review_required", "accepted", "rejected"]).optional() }).optional())
+    .input(z.object({ status: z.enum(["review_required", "accepted", "rejected"]).optional(), programType: z.enum(["acls", "nrp"]).default("acls") }).optional())
     .query(async ({ ctx, input }) => {
       const db = await requireAdultAclsReviewer(ctx);
       return db.select({
@@ -271,8 +359,9 @@ export const practiceLabRouter = router({
         reviewedAt: simulationWorldEvidence.reviewedAt,
       })
         .from(simulationWorldEvidence)
+        .innerJoin(simulationWorldSessions, eq(simulationWorldSessions.id, simulationWorldEvidence.sessionId))
         .leftJoin(users, eq(users.id, simulationWorldEvidence.userId))
-        .where(input?.status ? eq(simulationWorldEvidence.evidenceStatus, input.status) : undefined)
+        .where(and(eq(simulationWorldSessions.programType, input?.programType ?? "acls"), input?.status ? eq(simulationWorldEvidence.evidenceStatus, input.status) : undefined))
         .orderBy(desc(simulationWorldEvidence.createdAt));
     }),
 

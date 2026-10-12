@@ -1,6 +1,6 @@
 import { isFormativePracticeLabTrack, type PracticeLabProgramType, type PracticeLabTrackId } from "./practice-lab-types";
 
-export type SimulationMissionId = "simulation-world" | "first-minutes" | "deteriorating-child" | "rhythm-decisions" | "pals-capstone" | "resus-room" | "adult-acls-world";
+export type SimulationMissionId = "simulation-world" | "first-minutes" | "deteriorating-child" | "rhythm-decisions" | "pals-capstone" | "resus-room" | "adult-acls-world" | "nrp-newborn-not-breathing";
 
 export type SimulationMission = {
   id: SimulationMissionId;
@@ -29,6 +29,19 @@ export const SIMULATION_MISSIONS: readonly SimulationMission[] = [
     objective: "Observe, prioritise, act, and reassess across adult ACLS deterioration and arrest states.",
     realism: "The engine is deterministic and consequence-based; completion records simulation performance only.",
     supportedPrograms: ["acls"],
+    isFormative: true,
+  },
+  {
+    id: "nrp-newborn-not-breathing",
+    title: "Newborn not breathing after birth",
+    subtitle: "Complete initial newborn steps, provide effective ventilation, and reassess the heart rate.",
+    trackId: "nrp_world",
+    difficulty: "Foundation",
+    estimatedMinutes: 10,
+    masteryThreshold: 0,
+    objective: "Recognise inadequate transition, provide effective ventilation, escalate only when indicated, and protect the post-resuscitation period.",
+    realism: "The newborn responds to ventilation and reassessment; this is a scripted learning simulation, not a credential assessment.",
+    supportedPrograms: ["nrp"],
     isFormative: true,
   },
   {
