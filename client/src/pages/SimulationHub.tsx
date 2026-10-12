@@ -21,6 +21,13 @@ import { Activity, ArrowLeft, Brain, CheckCircle2, Clock3, Gamepad2, HeartPulse,
 
 type MissionProgress = Record<string, { attempts: number; bestScore: number; lastPlayedAt: string }>;
 
+const PATHWAY_OPTIONS: readonly { programType: PracticeLabProgramType; label: string; description: string; accent: string }[] = [
+  { programType: "bls", label: "BLS", description: "First response, CPR, and defibrillation fundamentals.", accent: "border-blue-400/40 bg-blue-400/10" },
+  { programType: "acls", label: "ACLS", description: "Adult rhythms, arrest, interventions, and post-ROSC care.", accent: "border-rose-400/40 bg-rose-400/10" },
+  { programType: "pals", label: "PALS", description: "Paediatric arrest, deterioration, and team decisions.", accent: "border-violet-400/40 bg-violet-400/10" },
+  { programType: "nrp", label: "NRP", description: "Newborn transition, ventilation, and reassessment.", accent: "border-cyan-400/40 bg-cyan-400/10" },
+];
+
 const TRACK_LABELS: Record<string, string> = {
   simulation_world: "Simulation World",
   cardiac_arrest: "Cardiac arrest",
@@ -39,6 +46,11 @@ export default function SimulationHub() {
   const [selectedMissionId, setSelectedMissionId] = useState<SimulationMissionId>("simulation-world");
   const [stage, setStage] = useState<"map" | "briefing" | "playing">("map");
   const [programType, setProgramType] = useState<PracticeLabProgramType>("pals");
+  const [selectedProgram, setSelectedProgram] = useState<PracticeLabProgramType>(() => {
+    if (typeof window === "undefined") return "pals";
+    const requested = new URLSearchParams(window.location.search).get("pathway");
+    return PATHWAY_OPTIONS.some((option) => option.programType === requested) ? requested as PracticeLabProgramType : "pals";
+  });
   const [enrollmentId, setEnrollmentId] = useState<number | null>(null);
   const [capstoneKey, setCapstoneKey] = useState(0);
   const [capstoneResult, setCapstoneResult] = useState<{ score: number; simReady: boolean } | null>(null);
@@ -46,13 +58,10 @@ export default function SimulationHub() {
 
   const enrollments = access?.enrollments ?? [];
   const selectedMission = getSimulationMission(selectedMissionId) ?? SIMULATION_MISSIONS[0];
-  const activeEnrollment = enrollments.find((enrollment) => enrollment.id === enrollmentId) ?? enrollments[0];
-  // The Hub is a course lane, not a catalogue of every course the learner has ever touched.
-  // Keep the mission list and its progress tied to one active enrollment; otherwise a PALS
-  // learner can be shown Adult ACLS/NRP missions and aggregate scores from unrelated courses.
-  const selectedEnrollment = activeEnrollment && selectedMission.supportedPrograms.includes(activeEnrollment.programType as PracticeLabProgramType)
-    ? activeEnrollment
-    : enrollments.find((enrollment) => selectedMission.supportedPrograms.includes(enrollment.programType as PracticeLabProgramType)) ?? activeEnrollment;
+  // The Hub is an explicit course lane, not a catalogue of every course the learner has ever touched.
+  // Progress and mission visibility must follow the pathway the learner selected.
+  const selectedEnrollment = enrollments.find((enrollment) => enrollment.programType === selectedProgram)
+    ?? enrollments.find((enrollment) => selectedMission.supportedPrograms.includes(enrollment.programType as PracticeLabProgramType));
   const eligibleMissions = useMemo(
     () => getEligibleSimulationMissions(selectedEnrollment ? [selectedEnrollment.programType as PracticeLabProgramType] : []),
     [selectedEnrollment],
@@ -128,11 +137,29 @@ export default function SimulationHub() {
   }, [activeAttempts]);
 
   useEffect(() => {
+    if (enrollments.length && !enrollments.some((enrollment) => enrollment.programType === selectedProgram)) {
+      setSelectedProgram(enrollments[0].programType as PracticeLabProgramType);
+      return;
+    }
     if (selectedEnrollment) {
       setEnrollmentId(selectedEnrollment.id);
       setProgramType(selectedEnrollment.programType as PracticeLabProgramType);
+      if (selectedEnrollment.programType !== selectedProgram) setSelectedProgram(selectedEnrollment.programType as PracticeLabProgramType);
     }
-  }, [selectedEnrollment]);
+  }, [enrollments, selectedEnrollment, selectedProgram]);
+
+  const changePathway = (nextProgram: PracticeLabProgramType) => {
+    if (stage === "playing") return;
+    setSelectedProgram(nextProgram);
+    setStage("map");
+    const nextMission = getEligibleSimulationMissions(enrollments.filter((enrollment) => enrollment.programType === nextProgram).map((enrollment) => enrollment.programType as PracticeLabProgramType))[0];
+    if (nextMission) setSelectedMissionId(nextMission.id);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("pathway", nextProgram);
+      window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  };
 
   useEffect(() => {
     if (eligibleMissions.some((mission) => mission.id === selectedMissionId)) return;
@@ -199,8 +226,19 @@ export default function SimulationHub() {
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">A consequence-based rehearsal room for emergency decisions. Your access follows the Life Support course enrollment you already hold — IERP, NERP, ILSP, self-pay, or administrator-granted access — not the way you paid or joined.</p>
               </div>
             </div>
-            <div className="space-y-2"><div className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100"><p className="font-semibold">Mastery, not ranking</p><p className="mt-1 text-xs text-cyan-100/70">No public leaderboard. Your opponent is hesitation, not another learner.</p></div>{selectedEnrollment && <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-xs text-emerald-100"><strong>Current course lane:</strong> {selectedEnrollment.programType.toUpperCase()} · progress below is for this enrollment</div>}</div>
+            <div className="space-y-2"><div className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100"><p className="font-semibold">Mastery, not ranking</p><p className="mt-1 text-xs text-cyan-100/70">No public leaderboard. Your opponent is hesitation, not another learner.</p></div>{selectedEnrollment && <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-xs text-emerald-100"><strong>Current pathway:</strong> {selectedEnrollment.programType.toUpperCase()} · progress below is for this enrollment</div>}</div>
           </header>
+
+          <Card className="border-slate-800 bg-slate-900 text-white">
+            <CardHeader className="pb-3"><CardTitle className="text-base">Choose your simulation pathway</CardTitle><CardDescription className="text-slate-400">Choose BLS, ACLS, PALS, or NRP first. Your progress stays attached to the selected course enrollment.</CardDescription></CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {PATHWAY_OPTIONS.map((option) => {
+                const enrollment = enrollments.find((item) => item.programType === option.programType);
+                const selected = selectedProgram === option.programType;
+                return <button key={option.programType} type="button" onClick={() => enrollment ? changePathway(option.programType) : setLocation("/aha-courses")} disabled={stage === "playing"} className={`rounded-xl border p-4 text-left transition ${selected ? "border-cyan-300 ring-2 ring-cyan-300/30" : "border-slate-700 hover:border-slate-500"} ${option.accent} disabled:cursor-not-allowed disabled:opacity-60`}><div className="flex items-center justify-between gap-2"><span className="font-bold tracking-wide">{option.label}</span><Badge variant="outline" className={selected ? "border-cyan-200 text-cyan-100" : "border-slate-500 text-slate-300"}>{enrollment ? "Available" : "Not enrolled"}</Badge></div><p className="mt-2 text-xs leading-5 text-slate-200/80">{option.description}</p><p className="mt-3 text-xs font-semibold text-slate-200">{selected ? "Selected pathway" : enrollment ? "Open pathway →" : "View course options →"}</p></button>;
+              })}
+            </CardContent>
+          </Card>
 
           <div className="grid gap-3 sm:grid-cols-4">
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><Target className="h-4 w-4 text-cyan-300" /><p className="mt-3 text-2xl font-bold">{allCompleted}/{activeMissionCount}</p><p className="text-xs text-slate-400">course-lane missions safe on repeat</p></div>
@@ -236,11 +274,11 @@ export default function SimulationHub() {
           )}
 
           {stage === "briefing" && (
-            <Card className="border-cyan-400/40 bg-slate-900 text-white"><CardHeader><Badge className="w-fit bg-cyan-400/15 text-cyan-200">Mission briefing · {selectedMission.difficulty}</Badge><CardTitle className="mt-2 text-2xl">{selectedMission.title}</CardTitle><CardDescription className="text-slate-300">{selectedMission.subtitle}</CardDescription></CardHeader><CardContent className="space-y-5"><div className="grid gap-3 md:grid-cols-3"><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Objective</p><p className="mt-1 text-sm">{selectedMission.objective}</p></div><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Reality rule</p><p className="mt-1 text-sm">{selectedMission.realism}</p></div><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Expected time</p><p className="mt-1 text-sm">{selectedMission.estimatedMinutes} minutes · {TRACK_LABELS[selectedMission.trackId]}</p></div></div><div className="flex flex-wrap gap-3"><Button className="bg-cyan-500 text-slate-950 hover:bg-cyan-400" disabled={!eligibleEnrollments.length} onClick={startMission}>Enter simulation room</Button><Button variant="outline" className="border-slate-600 text-slate-200" onClick={() => setStage("map")}>Back to mission map</Button></div></CardContent></Card>
+            <Card className="border-cyan-400/40 bg-slate-900 text-white"><CardHeader><Badge className="w-fit bg-cyan-400/15 text-cyan-200">Mission briefing · {selectedMission.difficulty}</Badge><CardTitle className="mt-2 text-2xl">{selectedMission.title}</CardTitle><CardDescription className="text-slate-300">{selectedMission.subtitle}</CardDescription></CardHeader><CardContent className="space-y-5"><div className="grid gap-3 md:grid-cols-4"><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Objective</p><p className="mt-1 text-sm">{selectedMission.objective}</p></div><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Reality rule</p><p className="mt-1 text-sm">{selectedMission.realism}</p></div><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Simulation room</p><p className="mt-1 text-sm">{selectedMission.trackId === "cardiac_arrest" ? "PALS/BLS CPR-GPS" : TRACK_LABELS[selectedMission.trackId]}</p></div><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">What counts</p><p className="mt-1 text-sm">{selectedMission.isFormative ? "Practice only — does not unlock Phase 2 or issue a credential." : `Formative mastery marker — target ${selectedMission.masteryThreshold}%.`}</p></div></div><div className="flex flex-wrap gap-3"><Button className="bg-cyan-500 text-slate-950 hover:bg-cyan-400" disabled={!eligibleEnrollments.length} onClick={startMission}>Enter {selectedMission.trackId === "cardiac_arrest" ? "the selected CPR scenario" : "simulation room"}</Button><Button variant="outline" className="border-slate-600 text-slate-200" onClick={() => setStage("map")}>Back to mission map</Button></div></CardContent></Card>
           )}
 
           {stage === "playing" && effectiveEnrollmentId && (
-            <div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"><div><p className="text-xs uppercase tracking-[0.16em] text-cyan-300">Live mission</p><p className="font-semibold">{selectedMission.title}</p></div>{selectedMission.trackId === "adult_acls_world" ? <span className="text-xs text-slate-400">Use “Exit without saving” below to close this session safely.</span> : <Button size="sm" variant="outline" className="gap-2 border-slate-600 text-slate-200" onClick={() => setStage("map")}><RotateCcw className="h-4 w-4" />Exit to map</Button>}</div><div className="rounded-xl bg-white p-3 text-slate-950">{selectedMission.trackId === "adult_acls_world" && effectiveProgram === "acls" && <AdultAclsSimulationRoom enrollmentId={effectiveEnrollmentId} onComplete={() => void refetchAttempts()} onExit={() => setStage("map")} />}{selectedMission.trackId === "nrp_world" && effectiveProgram === "nrp" && <NrpSimulationRoom enrollmentId={effectiveEnrollmentId} onComplete={() => void refetchAttempts()} onExit={() => setStage("map")} />}{selectedMission.trackId === "simulation_world" && <SimulationWorldRoom {...trackProps} onComplete={() => void refetchAttempts()} />}{selectedMission.trackId === "cardiac_arrest" && <CardiacArrestTrack {...trackProps} />}{selectedMission.trackId === "abcde" && <AbcdeTrack {...trackProps} />}{selectedMission.trackId === "rhythm_recognition" && <RhythmRecognitionTrack {...trackProps} />}{selectedMission.trackId === "ai_interactive_roleplay" && <AiRoleplayTrack {...trackProps} />}{selectedMission.trackId === "shock_no_shock" && <ShockNoShockTrack {...trackProps} />}{selectedMission.trackId === "pals_capstone" && <div className="space-y-4"><PalsCapstoneSimulation key={capstoneKey} patientAge={2} patientWeight={12} onComplete={handleCapstoneComplete} onClose={() => setStage("map")} />{capstoneResult && <Card className="border-emerald-200 bg-emerald-50"><CardContent className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-semibold text-emerald-900">{capstoneResult.simReady ? "Capstone passed — Sim-Ready" : "Capstone complete — another rehearsal recommended"}</p><p className="text-sm text-emerald-800">Score {capstoneResult.score}%. Use the debrief and repeat the weak phase before progressing.</p></div><Button size="sm" variant="outline" onClick={() => { setCapstoneResult(null); setCapstoneKey((key) => key + 1); }}>Repeat capstone</Button></CardContent></Card>}</div>}</div></div>
+            <div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"><div><p className="text-xs uppercase tracking-[0.16em] text-cyan-300">Live {effectiveProgram.toUpperCase()} mission</p><p className="font-semibold">{selectedMission.title}</p><p className="mt-1 text-xs text-slate-400" aria-live="polite">Action feedback and patient response appear inside the room. This rehearsal is formative and does not issue a credential.</p></div>{selectedMission.trackId === "adult_acls_world" || selectedMission.trackId === "nrp_world" ? <span className="text-xs text-slate-400">Use “Exit without saving” below to close this session safely.</span> : <Button size="sm" variant="outline" className="gap-2 border-slate-600 text-slate-200" onClick={() => setStage("map")}><RotateCcw className="h-4 w-4" />Exit to map</Button>}</div><div className="rounded-xl bg-white p-3 text-slate-950">{selectedMission.trackId === "adult_acls_world" && effectiveProgram === "acls" && <AdultAclsSimulationRoom enrollmentId={effectiveEnrollmentId} onComplete={() => void refetchAttempts()} onExit={() => setStage("map")} />}{selectedMission.trackId === "nrp_world" && effectiveProgram === "nrp" && <NrpSimulationRoom enrollmentId={effectiveEnrollmentId} onComplete={() => void refetchAttempts()} onExit={() => setStage("map")} />}{selectedMission.trackId === "simulation_world" && <SimulationWorldRoom {...trackProps} onComplete={() => void refetchAttempts()} />}{selectedMission.trackId === "cardiac_arrest" && <CardiacArrestTrack {...trackProps} initialScenarioId="vf_witnessed" onExit={() => setStage("map")} />}{selectedMission.trackId === "abcde" && <AbcdeTrack {...trackProps} />}{selectedMission.trackId === "rhythm_recognition" && <RhythmRecognitionTrack {...trackProps} />}{selectedMission.trackId === "ai_interactive_roleplay" && <AiRoleplayTrack {...trackProps} />}{selectedMission.trackId === "shock_no_shock" && <ShockNoShockTrack {...trackProps} />}{selectedMission.trackId === "pals_capstone" && <div className="space-y-4"><PalsCapstoneSimulation key={capstoneKey} patientAge={2} patientWeight={12} onComplete={handleCapstoneComplete} onClose={() => setStage("map")} />{capstoneResult && <Card className="border-emerald-200 bg-emerald-50"><CardContent className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-semibold text-emerald-900">{capstoneResult.simReady ? "Capstone passed — Sim-Ready" : "Capstone complete — another rehearsal recommended"}</p><p className="text-sm text-emerald-800">Score {capstoneResult.score}%. Use the debrief and repeat the weak phase before progressing.</p></div><Button size="sm" variant="outline" onClick={() => { setCapstoneResult(null); setCapstoneKey((key) => key + 1); }}>Repeat capstone</Button></CardContent></Card>}</div>}</div></div>
           )}
         </div>
       </div>
