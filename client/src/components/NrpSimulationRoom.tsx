@@ -7,7 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { canEndNrpSimulation, NRP_SCENARIOS, type NrpCommand, type NrpScenarioId, type NrpState } from "@shared/nrp-simulation-world";
 import type { SimulationWorldRole } from "@shared/simulation-world";
 
-type Props = { enrollmentId: number; onComplete: () => void; onExit?: () => void };
+type Props = { enrollmentId: number; onComplete: () => void; onExit?: () => void; initialScenarioId?: NrpScenarioId };
 
 type Summary = { durationSeconds: number; score: number; criticalFailures: number; evidenceStatus: string };
 
@@ -36,8 +36,8 @@ function directorFor(state: NrpState) {
   return "The newborn needs effective ventilation. Your team is watching for the heart-rate response.";
 }
 
-export function NrpSimulationRoom({ enrollmentId, onComplete, onExit }: Props) {
-  const [scenarioId, setScenarioId] = useState<NrpScenarioId>("newborn-not-breathing");
+export function NrpSimulationRoom({ enrollmentId, onComplete, onExit, initialScenarioId }: Props) {
+  const [scenarioId, setScenarioId] = useState<NrpScenarioId>(initialScenarioId ?? "newborn-not-breathing");
   const [session, setSession] = useState<{ id: number; nonce: string } | null>(null);
   const [state, setState] = useState<NrpState | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
