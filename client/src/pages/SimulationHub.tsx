@@ -44,19 +44,25 @@ export default function SimulationHub() {
 
   const enrollments = access?.enrollments ?? [];
   const selectedMission = getSimulationMission(selectedMissionId) ?? SIMULATION_MISSIONS[0];
+  const activeEnrollment = enrollments.find((enrollment) => enrollment.id === enrollmentId) ?? enrollments[0];
+  // The Hub is a course lane, not a catalogue of every course the learner has ever touched.
+  // Keep the mission list and its progress tied to one active enrollment; otherwise a PALS
+  // learner can be shown Adult ACLS/NRP missions and aggregate scores from unrelated courses.
+  const selectedEnrollment = activeEnrollment && selectedMission.supportedPrograms.includes(activeEnrollment.programType as PracticeLabProgramType)
+    ? activeEnrollment
+    : enrollments.find((enrollment) => selectedMission.supportedPrograms.includes(enrollment.programType as PracticeLabProgramType)) ?? activeEnrollment;
   const eligibleMissions = useMemo(
-    () => getEligibleSimulationMissions(enrollments.map((enrollment) => enrollment.programType as PracticeLabProgramType)),
-    [enrollments],
+    () => getEligibleSimulationMissions(selectedEnrollment ? [selectedEnrollment.programType as PracticeLabProgramType] : []),
+    [selectedEnrollment],
   );
   const eligibleEnrollments = useMemo(
-    () => enrollments.filter((enrollment) => selectedMission.supportedPrograms.includes(enrollment.programType as PracticeLabProgramType)),
-    [enrollments, selectedMission],
+    () => selectedEnrollment ? [selectedEnrollment] : [],
+    [selectedEnrollment],
   );
   // Keep the active enrollment aligned with the selected mission. Without this,
   // switching from the default PALS/paediatric mission to Adult ACLS could leave
   // a PALS enrollment selected, disabling the ACLS room entry button even when
   // the learner has a valid ACLS enrollment.
-  const selectedEnrollment = eligibleEnrollments.find((enrollment) => enrollment.id === enrollmentId) ?? eligibleEnrollments[0];
   const effectiveProgram = (selectedEnrollment?.programType ?? programType) as PracticeLabProgramType;
   const effectiveEnrollmentId = selectedEnrollment?.id ?? enrollmentId;
   const { data: attempts = [], refetch: refetchAttempts } = trpc.practiceLab.getMyAttempts.useQuery(
