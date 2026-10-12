@@ -101,7 +101,7 @@ export default function SimulationHub() {
     }
     return next;
   }, [activeAttempts]);
-  const completedMissionIds = SIMULATION_MISSIONS.filter((mission) => {
+  const completedMissionIds = SIMULATION_MISSIONS.filter((mission) => mission.supportedPrograms.includes(effectiveProgram)).filter((mission) => {
     const item = progress[mission.id];
     return Boolean(item && (isFormativeSimulationMission(mission) ? item.attempts > 0 : item.bestScore >= mission.masteryThreshold));
   }).map((mission) => mission.id);
@@ -247,7 +247,7 @@ export default function SimulationHub() {
           </header>
 
           <Card className="border-slate-800 bg-slate-900 text-white">
-            <CardHeader className="pb-3"><CardTitle className="text-base">Choose your simulation pathway</CardTitle><CardDescription className="text-slate-400">Choose BLS, ACLS, PALS, or NRP first. Your progress stays attached to the selected course enrollment.</CardDescription></CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="text-base">Choose your simulation pathway</CardTitle><CardDescription className="text-slate-400">Choose BLS, ACLS, PALS, NRP, or Heartsaver first. Your progress stays attached to the selected course enrollment.</CardDescription></CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {PATHWAY_OPTIONS.map((option) => {
                 const enrollment = enrollments.find((item) => item.programType === option.programType);
@@ -258,7 +258,7 @@ export default function SimulationHub() {
           </Card>
 
           <div className="grid gap-3 sm:grid-cols-4">
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><Target className="h-4 w-4 text-cyan-300" /><p className="mt-3 text-2xl font-bold">{allCompleted}/{activeMissionCount}</p><p className="text-xs text-slate-400">course-lane missions safe on repeat</p></div>
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><Target className="h-4 w-4 text-cyan-300" /><p className="mt-3 text-2xl font-bold">{allCompleted}/{activeMissionCount}</p><p className="text-xs text-slate-400">missions completed in this course</p></div>
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><Trophy className="h-4 w-4 text-amber-300" /><p className="mt-3 text-2xl font-bold">{Math.max(0, ...Object.values(progress).map((item) => item.bestScore))}%</p><p className="text-xs text-slate-400">best observed score in this course</p></div>
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><Brain className="h-4 w-4 text-violet-300" /><p className="mt-3 text-2xl font-bold">{Object.values(progress).reduce((total, item) => total + item.attempts, 0)}</p><p className="text-xs text-slate-400">course rehearsals completed</p></div>
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><ShieldAlert className="h-4 w-4 text-rose-300" /><p className="mt-3 text-2xl font-bold">Safe to fail</p><p className="text-xs text-slate-400">errors become coaching</p></div>
@@ -269,6 +269,7 @@ export default function SimulationHub() {
               <Card className="border-slate-800 bg-slate-900 text-white">
                 <CardHeader><CardTitle className="flex items-center gap-2"><HeartPulse className="h-5 w-5 text-rose-300" />Choose your next mission</CardTitle><CardDescription className="text-slate-400">Start with the first safe action. Increase uncertainty only after your basics are reliable.</CardDescription></CardHeader>
                 <CardContent className="space-y-3">
+                  <div className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 p-3"><p className="text-xs uppercase tracking-wide text-cyan-200">Selected mission</p><p className="mt-1 font-semibold text-white">{selectedMission.title}</p><Button className="mt-3 w-full bg-cyan-500 text-slate-950 hover:bg-cyan-400" size="lg" disabled={!eligibleEnrollments.length} onClick={() => setStage("briefing")}>Brief me for “{selectedMission.title}” <span className="ml-2">→</span></Button></div>
                   {eligibleMissions.map((mission) => {
                     const item = progress[mission.id];
                     const scenarioCount = getSimulationScenarioCatalog(effectiveProgram).filter((scenario) => scenario.missionId === mission.id).length;
@@ -293,7 +294,7 @@ export default function SimulationHub() {
           )}
 
           {stage === "briefing" && (
-            <Card className="border-cyan-400/40 bg-slate-900 text-white"><CardHeader><Badge className="w-fit bg-cyan-400/15 text-cyan-200">Mission briefing · {selectedMission.difficulty}</Badge><CardTitle className="mt-2 text-2xl">{selectedMission.title}</CardTitle><CardDescription className="text-slate-300">{selectedMission.subtitle}</CardDescription></CardHeader><CardContent className="space-y-5"><div className="grid gap-3 md:grid-cols-4"><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Objective</p><p className="mt-1 text-sm">{selectedMission.objective}</p></div><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Reality rule</p><p className="mt-1 text-sm">{selectedMission.realism}</p></div><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Simulation room</p><p className="mt-1 text-sm">{selectedMission.trackId === "cardiac_arrest" ? "Instructor-led assessment loop" : TRACK_LABELS[selectedMission.trackId]}</p></div><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">What counts</p><p className="mt-1 text-sm">{selectedMission.isFormative ? "Practice only — does not unlock Phase 2 or issue a credential." : `Formative mastery marker — target ${selectedMission.masteryThreshold}%.`}</p></div></div><div className="flex flex-wrap gap-3"><Button className="bg-cyan-500 text-slate-950 hover:bg-cyan-400" disabled={!eligibleEnrollments.length} onClick={startMission}>Enter {selectedMission.trackId === "cardiac_arrest" ? "the iterative assessment room" : "simulation room"}</Button><Button variant="outline" className="border-slate-600 text-slate-200" onClick={() => setStage("map")}>Back to mission map</Button></div></CardContent></Card>
+            <Card className="border-cyan-400/40 bg-slate-900 text-white"><CardHeader><Badge className="w-fit bg-cyan-400/15 text-cyan-200">Mission briefing · {selectedMission.difficulty}</Badge><CardTitle className="mt-2 text-2xl">{selectedMission.title}</CardTitle><CardDescription className="text-slate-300">{selectedMission.subtitle}</CardDescription></CardHeader><CardContent className="space-y-5"><div className="grid gap-3 md:grid-cols-4"><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Objective</p><p className="mt-1 text-sm">{selectedMission.objective}</p></div><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Reality rule</p><p className="mt-1 text-sm">{selectedMission.realism}</p></div><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">Simulation room</p><p className="mt-1 text-sm">{selectedMission.id === "first-minutes" ? "Instructor-led assessment loop" : selectedMission.id === "cardiac-arrest-scenarios" ? "CPR-GPS console" : TRACK_LABELS[selectedMission.trackId]}</p></div><div className="rounded-lg bg-slate-950 p-3"><p className="text-xs uppercase tracking-wide text-slate-500">What counts</p><p className="mt-1 text-sm">{selectedMission.isFormative ? "Practice only — does not unlock Phase 2 or issue a credential." : `Formative mastery marker — target ${selectedMission.masteryThreshold}%.`}</p></div></div><div className="flex flex-wrap gap-3"><Button className="bg-cyan-500 text-slate-950 hover:bg-cyan-400" disabled={!eligibleEnrollments.length} onClick={startMission}>Enter {selectedMission.id === "first-minutes" ? "the iterative assessment room" : selectedMission.id === "cardiac-arrest-scenarios" ? "the CPR-GPS console" : "the simulation room"}</Button><Button variant="outline" className="border-slate-600 text-slate-200" onClick={() => setStage("map")}>Back to mission map</Button></div></CardContent></Card>
           )}
 
           {stage === "playing" && effectiveEnrollmentId && (

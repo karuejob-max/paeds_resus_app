@@ -85,6 +85,8 @@ import {
 interface Props {
   patientWeight: number;
   patientAgeMonths?: number;
+  /** Display-only course label for embedded simulation rooms. */
+  pathwayLabel?: string;
   /** Parent case key used only for local recovery; never a patient identifier. */
   caseKey?: string;
   onClose: () => void;
@@ -157,6 +159,7 @@ const ROLE_COLORS: Record<TeamRole, string> = {
 export function CPRClockStreamlined({
   patientWeight,
   patientAgeMonths,
+  pathwayLabel,
   caseKey,
   onClose,
   externalElapsed,
@@ -1486,6 +1489,7 @@ export function CPRClockStreamlined({
         effectiveArrestDuration={effectiveArrestDuration}
         patientWeight={patientWeight}
         lifeSupportPack={lifeSupportPack}
+        pathwayLabel={pathwayLabel}
         compressionCycle={compressionCycle}
         reassessmentTime={reassessmentTime}
         rhythmWindowElapsed={rhythmWindowElapsed}

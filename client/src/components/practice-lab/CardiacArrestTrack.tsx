@@ -98,6 +98,7 @@ export function CardiacArrestTrack({ programType, enrollmentId, onBookSession, o
         embedded
         initialScenarioId={initialScenarioId}
         scenariosFilter={scenariosFilter}
+        pathwayLabel={programType === "heartsaver" ? "Heartsaver" : programType.toUpperCase()}
         onClose={() => onExit?.()}
         onAttemptComplete={handleComplete}
       />

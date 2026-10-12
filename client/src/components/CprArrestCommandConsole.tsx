@@ -25,6 +25,8 @@ interface Props {
   effectiveArrestDuration: number;
   patientWeight: number;
   lifeSupportPack?: LifeSupportPackResult;
+  /** Learner-facing course label; does not change the clinical pack or dosing rules. */
+  pathwayLabel?: string;
   compressionCycle: CompressionCycleStatus;
   reassessmentTime: number;
   rhythmWindowElapsed: number | null;
@@ -139,6 +141,7 @@ export function CprArrestCommandConsole({
   effectiveArrestDuration,
   patientWeight,
   lifeSupportPack,
+  pathwayLabel,
   compressionCycle,
   reassessmentTime,
   rhythmWindowElapsed,
@@ -239,7 +242,7 @@ export function CprArrestCommandConsole({
           </div>
           <div className="shrink-0 text-right">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Patient context</p>
-            <p className="mt-1 text-[11px] text-slate-300">{patientWeight} kg · {lifeSupportPack?.pack ?? 'PALS'} pathway</p>
+            <p className="mt-1 text-[11px] text-slate-300">{patientWeight} kg · {pathwayLabel ?? lifeSupportPack?.pack ?? 'Governed'} pathway</p>
           </div>
         </div>
 
