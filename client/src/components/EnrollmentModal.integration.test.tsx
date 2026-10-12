@@ -1,5 +1,5 @@
 /**
- * Integration tests for EnrollmentModal (free instant enrollment flow)
+ * Integration tests for EnrollmentModal (explicit payment-start flow)
  */
 
 import "@testing-library/jest-dom/vitest";
@@ -60,7 +60,7 @@ describe("EnrollmentModal Integration Tests", () => {
     } as ReturnType<typeof useAuth>);
   });
 
-  it("shows free enrollment confirm step with course details", () => {
+  it("shows payment confirm step with course details", () => {
     render(
       <EnrollmentModal
         course={mockCourse}
@@ -70,14 +70,18 @@ describe("EnrollmentModal Integration Tests", () => {
       />
     );
 
-    expect(screen.getByText(/Enroll in Asthma Management I/i)).toBeInTheDocument();
-    expect(screen.getByText(/Free access/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Enroll in Asthma Management I/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/KES 200/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/M-Pesa phone number/i)).toBeInTheDocument();
     expect(screen.getByText(/foundational/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Enroll Now — Free/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Read assessment policy/i })).toHaveAttribute(
-      "href",
-      "/learning/exam-policy#fellowship-microcourses"
-    );
+    expect(
+      screen.getByRole("button", { name: /Start M-Pesa payment/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Read assessment policy/i })
+    ).toHaveAttribute("href", "/learning/exam-policy#fellowship-microcourses");
   });
 
   it("enrolls via enrollWithPayment and shows success", async () => {
@@ -99,11 +103,19 @@ describe("EnrollmentModal Integration Tests", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /Enroll Now — Free/i }));
+    await user.type(
+      screen.getByLabelText(/M-Pesa phone number/i),
+      "0712345678"
+    );
+    await user.click(
+      screen.getByRole("button", { name: /Start M-Pesa payment/i })
+    );
 
     await waitFor(() => {
       expect(mockEnrollWithPayment.mutateAsync).toHaveBeenCalledWith({
         courseId: "asthma-i",
+        phoneNumber: "0712345678",
+        paymentPath: "stk_push",
       });
     });
 
@@ -130,11 +142,24 @@ describe("EnrollmentModal Integration Tests", () => {
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /Enroll Now — Free/i }));
+    await user.type(
+      screen.getByLabelText(/M-Pesa phone number/i),
+      "0712345678"
+    );
+    await user.click(
+      screen.getByRole("button", { name: /Start M-Pesa payment/i })
+    );
 
     await waitFor(() => {
-      expect(screen.getByText(/Enrollment failed/i)).toBeInTheDocument();
+      expect(mockEnrollWithPayment.mutateAsync).toHaveBeenCalledWith({
+        courseId: "asthma-i",
+        phoneNumber: "0712345678",
+        paymentPath: "stk_push",
+      });
     });
+    expect(document.body.textContent).toContain(
+      "Enrollment failed. Please try again."
+    );
   });
 
   it("does not render when closed", () => {
@@ -147,7 +172,9 @@ describe("EnrollmentModal Integration Tests", () => {
       />
     );
 
-    expect(screen.queryByText(/Enroll in Asthma Management I/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Enroll in Asthma Management I/i)
+    ).not.toBeInTheDocument();
   });
 
   it("requires signed-in user before enrolling", async () => {
@@ -162,7 +189,9 @@ describe("EnrollmentModal Integration Tests", () => {
       />
     );
 
-    await userEvent.setup().click(screen.getByRole("button", { name: /Enroll Now — Free/i }));
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: /Start M-Pesa payment/i }));
 
     expect(mockEnrollWithPayment.mutateAsync).not.toHaveBeenCalled();
   });

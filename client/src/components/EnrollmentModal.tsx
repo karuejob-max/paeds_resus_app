@@ -1,14 +1,24 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/useAuth";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import { cn } from "@/lib/utils";
-import { microCourseTrackLabel, type MicroCourseTier } from "@shared/micro-course-display";
+import {
+  microCourseTrackLabel,
+  type MicroCourseTier,
+} from "@shared/micro-course-display";
 import { examPolicyHref } from "@shared/exam-policy-learner-content";
 
 /** High-contrast panels — readable on light and dark backgrounds (no pastel-on-pastel). */
@@ -48,7 +58,9 @@ export function EnrollmentModal({
 }: EnrollmentModalProps) {
   const { user } = useAuth();
   const utils = trpc.useUtils();
-  const { track } = useProviderConversionAnalytics("/fellowship/enrollment-modal");
+  const { track } = useProviderConversionAnalytics(
+    "/fellowship/enrollment-modal"
+  );
 
   // Steps: "confirm" (default) | "success"
   const [step, setStep] = useState<"confirm" | "success">("confirm");
@@ -57,8 +69,10 @@ export function EnrollmentModal({
   const [enrollmentId, setEnrollmentId] = useState<number>(0);
   const [launchEnrollmentId, setLaunchEnrollmentId] = useState<number>(0);
   const [enrollmentDate, setEnrollmentDate] = useState<string>("");
+  const [phoneNumber, setPhoneNumber] = useState("");
 
-  const enrollWithPaymentMutation = trpc.enrollment.enrollWithPayment.useMutation();
+  const enrollWithPaymentMutation =
+    trpc.enrollment.enrollWithPayment.useMutation();
 
   // Reset state when modal opens
   useEffect(() => {
@@ -67,40 +81,53 @@ export function EnrollmentModal({
     setStatusMessage("");
     setEnrollmentId(0);
     setLaunchEnrollmentId(0);
+    setPhoneNumber("");
 
     track("enrollment_started", "micro_course_enrollment_modal_opened", {
       courseId: course.courseId,
       courseTitle: course.title,
       source: "fellowship_dashboard",
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, course?.courseId]);
 
-  // ── Enroll immediately (free) ──────────────────────────────────────────────
+  // ── Start the server-priced payment flow ───────────────────────────────────
   const handleEnroll = async () => {
     if (!course || !user) return;
+    if (!phoneNumber.trim()) {
+      setStatusMessage("Enter the M-Pesa phone number to start payment.");
+      return;
+    }
     setIsLoading(true);
     setStatusMessage("");
     try {
       const result = await enrollWithPaymentMutation.mutateAsync({
         courseId: course.courseId,
+        phoneNumber: phoneNumber.trim(),
+        paymentPath: "stk_push",
       });
       if (result.success) {
-        track("provider_conversion", "free_enrollment_completed", {
+        track("provider_conversion", "paid_enrollment_started", {
           courseId: course.courseId,
-          paymentMethod: "admin-free",
+          paymentMethod: result.paymentMethod ?? "m-pesa",
         });
         setEnrollmentId(Number(result.enrollmentId || 0));
-        setLaunchEnrollmentId(Number(result.learningEnrollmentId || result.enrollmentId || 0));
+        setLaunchEnrollmentId(
+          Number(result.learningEnrollmentId || result.enrollmentId || 0)
+        );
         setEnrollmentDate(new Date().toLocaleDateString());
         setStep("success");
         await utils.courses.getUserEnrollments.invalidate();
         onEnrollmentSuccess();
       } else {
-        setStatusMessage(result.error || "Enrollment failed. Please try again.");
+        setStatusMessage(
+          result.error || "Enrollment failed. Please try again."
+        );
       }
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : "Error during enrollment");
+      setStatusMessage(
+        error instanceof Error ? error.message : "Error during enrollment"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -110,7 +137,10 @@ export function EnrollmentModal({
   const handleGoToCourse = () => {
     if (!course) return;
     const targetEnrollmentId = launchEnrollmentId || enrollmentId;
-    const destination = getProviderCourseDestination(course.courseId, targetEnrollmentId || undefined);
+    const destination = getProviderCourseDestination(
+      course.courseId,
+      targetEnrollmentId || undefined
+    );
     track("provider_conversion", "enrollment_success_primary_cta_clicked", {
       courseId: course.courseId,
       enrollmentId: targetEnrollmentId || null,
@@ -126,43 +156,77 @@ export function EnrollmentModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[440px]">
         <DialogHeader>
-          <DialogTitle className="text-foreground">Enroll in {course.title}</DialogTitle>
+          <DialogTitle className="text-foreground">
+            Enroll in {course.title}
+          </DialogTitle>
           <DialogDescription>
-            {step === "confirm" && "Free enrollment — get instant access"}
+            {step === "confirm" &&
+              "Start payment — access follows confirmation"}
             {step === "success" && "Enrollment confirmed"}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-
           {/* ── CONFIRM STEP ─────────────────────────────────────────────── */}
           {step === "confirm" && (
             <div className="space-y-4">
               <div className={panelInfo}>
                 <p className="font-semibold text-foreground">{course.title}</p>
                 <p className="mt-0.5 text-muted-foreground">
-                  {microCourseTrackLabel(course.level as MicroCourseTier)} · 1 month access
+                  {microCourseTrackLabel(course.level as MicroCourseTier)} · 1
+                  month access
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground">
                   Part of the{" "}
-                  <Link href="/fellowship/about" className="text-primary underline-offset-2 hover:underline">
+                  <Link
+                    href="/fellowship/about"
+                    className="text-primary underline-offset-2 hover:underline"
+                  >
                     Paeds Resus Fellowship
                   </Link>{" "}
                   — not AHA certification.{" "}
-                  <Link href={examPolicyHref("fellowship")} className="text-primary underline-offset-2 hover:underline">
+                  <Link
+                    href={examPolicyHref("fellowship")}
+                    className="text-primary underline-offset-2 hover:underline"
+                  >
                     Assessment policy
                   </Link>
                 </p>
               </div>
 
-              <div className={cn(panelSuccess, "flex items-start gap-2")}>
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-700 dark:text-green-300" />
-                <p className="text-foreground">
-                  <span className="font-semibold">Free access</span>
-                  {" — "}
-                  no payment required. Click below to enroll instantly.
+              <div className={panelInfo}>
+                <p className="font-semibold text-foreground">
+                  KES {Math.ceil(course.price / 100).toLocaleString()}
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  Payment is reconciled before course access or certificate
+                  eligibility is granted.
                 </p>
               </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="enrollment-mpesa-phone"
+                  className="text-sm font-medium"
+                >
+                  M-Pesa phone number
+                </label>
+                <Input
+                  id="enrollment-mpesa-phone"
+                  value={phoneNumber}
+                  onChange={event => setPhoneNumber(event.target.value)}
+                  placeholder="0712345678 or 254712345678"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  disabled={isLoading}
+                />
+              </div>
+
+              {statusMessage && (
+                <p className="text-sm text-destructive" role="alert">
+                  {statusMessage}
+                </p>
+              )}
 
               <p className="text-center text-sm text-muted-foreground">
                 <Link
@@ -170,8 +234,7 @@ export function EnrollmentModal({
                   className="text-primary font-medium underline-offset-2 hover:underline"
                 >
                   Read assessment policy
-                </Link>
-                {" "}
+                </Link>{" "}
                 before you enroll.
               </p>
 
@@ -187,11 +250,16 @@ export function EnrollmentModal({
                     Enrolling…
                   </>
                 ) : (
-                  "Enroll Now — Free"
+                  "Start M-Pesa payment"
                 )}
               </Button>
 
-              <Button onClick={onClose} variant="ghost" className="w-full text-sm" disabled={isLoading}>
+              <Button
+                onClick={onClose}
+                variant="ghost"
+                className="w-full text-sm"
+                disabled={isLoading}
+              >
                 Cancel
               </Button>
             </div>
@@ -205,13 +273,18 @@ export function EnrollmentModal({
                   className="mx-auto mb-2 h-12 w-12 text-green-700 dark:text-green-400"
                   aria-hidden
                 />
-                <p className="text-lg font-semibold text-foreground">Enrollment Confirmed!</p>
+                <p className="text-lg font-semibold text-foreground">
+                  Enrollment Confirmed!
+                </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   You now have access to this micro-course.
                 </p>
               </div>
 
-              <div className={cn(panelSuccess, "space-y-1.5")} data-testid="enrollment-receipt">
+              <div
+                className={cn(panelSuccess, "space-y-1.5")}
+                data-testid="enrollment-receipt"
+              >
                 <p>
                   <span className="font-semibold text-foreground">Course:</span>{" "}
                   <span className="text-foreground">{course.title}</span>
@@ -226,19 +299,27 @@ export function EnrollmentModal({
                 </p>
                 {enrollmentId > 0 && (
                   <p>
-                    <span className="font-semibold text-foreground">Enrollment ID:</span>{" "}
-                    <span className="font-mono text-foreground">{enrollmentId}</span>
+                    <span className="font-semibold text-foreground">
+                      Enrollment ID:
+                    </span>{" "}
+                    <span className="font-mono text-foreground">
+                      {enrollmentId}
+                    </span>
                   </p>
                 )}
               </div>
 
               <div className={panelMuted}>
                 <p>
-                  <span className="font-semibold text-foreground">Access period:</span>{" "}
+                  <span className="font-semibold text-foreground">
+                    Access period:
+                  </span>{" "}
                   <span className="text-foreground">1 month from today</span>
                 </p>
                 <p className="mt-1">
-                  <span className="font-semibold text-foreground">Duration:</span>{" "}
+                  <span className="font-semibold text-foreground">
+                    Duration:
+                  </span>{" "}
                   <span className="text-foreground">Estimated 2–4 hours</span>
                 </p>
               </div>
