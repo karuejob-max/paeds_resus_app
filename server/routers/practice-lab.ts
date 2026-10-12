@@ -163,6 +163,28 @@ export const practiceLabRouter = router({
       return { sessionId: created.id, sessionNonce, scenarioId: authoritativeState.scenarioId, scenarioVersion: ADULT_ACLS_SCENARIO_VERSION, authorityState: "connected" as const, authoritativeState, syntheticTrainingOnly: true };
     }),
 
+  getActiveAdultAclsSession: protectedProcedure
+    .input(z.object({ enrollmentId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      const db = await getDb();
+      if (!db) return null;
+      const [session] = await db.select({
+        id: simulationWorldSessions.id,
+        sessionNonce: simulationWorldSessions.sessionNonce,
+        scenarioId: simulationWorldSessions.scenarioId,
+        authoritativeStateJson: simulationWorldSessions.authoritativeStateJson,
+      }).from(simulationWorldSessions).where(and(
+        eq(simulationWorldSessions.userId, ctx.user.id),
+        eq(simulationWorldSessions.enrollmentId, input.enrollmentId),
+        eq(simulationWorldSessions.programType, "acls"),
+        eq(simulationWorldSessions.status, "active"),
+      )).orderBy(desc(simulationWorldSessions.startedAt)).limit(1);
+      if (!session) return null;
+      const [lastReceipt] = await db.select({ sequence: simulationWorldCommandReceipts.sequence }).from(simulationWorldCommandReceipts).where(eq(simulationWorldCommandReceipts.sessionId, session.id)).orderBy(desc(simulationWorldCommandReceipts.sequence)).limit(1);
+      return { sessionId: session.id, sessionNonce: session.sessionNonce, scenarioId: session.scenarioId, nextSequence: (lastReceipt?.sequence ?? -1) + 1, authoritativeState: session.authoritativeStateJson as AdultAclsState };
+    }),
+
   invalidateAdultAclsSession: protectedProcedure
     .input(z.object({ sessionId: z.number(), sessionNonce: z.string().length(64) }))
     .mutation(async ({ ctx, input }) => {

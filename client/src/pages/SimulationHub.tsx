@@ -63,10 +63,14 @@ export default function SimulationHub() {
     { limit: 100 },
     { enabled: Boolean(access?.hasAccess), staleTime: 15_000 },
   );
+  const activeAttempts = useMemo(
+    () => effectiveEnrollmentId ? attempts.filter((attempt) => attempt.enrollmentId === effectiveEnrollmentId) : [],
+    [attempts, effectiveEnrollmentId],
+  );
   const progress = useMemo<MissionProgress>(() => {
     const next: MissionProgress = {};
     for (const mission of SIMULATION_MISSIONS) {
-      const missionAttempts = attempts.filter((attempt) => attempt.trackId === mission.trackId);
+      const missionAttempts = activeAttempts.filter((attempt) => attempt.trackId === mission.trackId);
       if (!missionAttempts.length) continue;
       next[mission.id] = {
         attempts: missionAttempts.length,
@@ -75,17 +79,18 @@ export default function SimulationHub() {
       };
     }
     return next;
-  }, [attempts]);
+  }, [activeAttempts]);
   const completedMissionIds = SIMULATION_MISSIONS.filter((mission) => {
     const item = progress[mission.id];
     return Boolean(item && (isFormativeSimulationMission(mission) ? item.attempts > 0 : item.bestScore >= mission.masteryThreshold));
   }).map((mission) => mission.id);
   const missionProgress = progress[selectedMission.id];
   const allCompleted = completedMissionIds.length;
+  const activeMissionCount = eligibleMissions.length;
   const roleEvidence = useMemo(() => {
     const map = new Map<string, { attempts: number; eligible: number }>();
     for (const role of SIMULATION_WORLD_ROLES) map.set(role, { attempts: 0, eligible: 0 });
-    for (const attempt of attempts) {
+    for (const attempt of activeAttempts) {
       if (attempt.trackId !== "simulation_world") continue;
       const evidence = getRoleEvidenceFromAttempt(attempt.eventLog);
       if (!evidence.role) continue;
@@ -95,10 +100,10 @@ export default function SimulationHub() {
       map.set(evidence.role, current);
     }
     return map;
-  }, [attempts]);
+  }, [activeAttempts]);
   const recommendedRole = useMemo(() => {
     const eligibleByRole = new Map<string, Set<string>>();
-    for (const attempt of attempts) {
+    for (const attempt of activeAttempts) {
       if (attempt.trackId !== "simulation_world") continue;
       const evidence = getRoleEvidenceFromAttempt(attempt.eventLog);
       if (!evidence.role || !evidence.evidenceEligible) continue;
@@ -112,7 +117,7 @@ export default function SimulationHub() {
     const leadershipScenarios = eligibleByRole.get("team_leader")?.size ?? 0;
     if (leadershipScenarios < 3) return { role: "team_leader" as const, reason: `${leadershipScenarios}/3 distinct leadership scenarios are evidence-ready.` };
     return null;
-  }, [attempts]);
+  }, [activeAttempts]);
 
   useEffect(() => {
     if (selectedEnrollment) {
@@ -186,13 +191,13 @@ export default function SimulationHub() {
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">A consequence-based rehearsal room for emergency decisions. Your access follows the Life Support course enrollment you already hold — IERP, NERP, ILSP, self-pay, or administrator-granted access — not the way you paid or joined.</p>
               </div>
             </div>
-            <div className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100"><p className="font-semibold">Mastery, not ranking</p><p className="mt-1 text-xs text-cyan-100/70">No public leaderboard. Your opponent is hesitation, not another learner.</p></div>
+            <div className="space-y-2"><div className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100"><p className="font-semibold">Mastery, not ranking</p><p className="mt-1 text-xs text-cyan-100/70">No public leaderboard. Your opponent is hesitation, not another learner.</p></div>{selectedEnrollment && <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-xs text-emerald-100"><strong>Current course lane:</strong> {selectedEnrollment.programType.toUpperCase()} · progress below is for this enrollment</div>}</div>
           </header>
 
           <div className="grid gap-3 sm:grid-cols-4">
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><Target className="h-4 w-4 text-cyan-300" /><p className="mt-3 text-2xl font-bold">{allCompleted}/{SIMULATION_MISSIONS.length}</p><p className="text-xs text-slate-400">missions safe on repeat</p></div>
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><Trophy className="h-4 w-4 text-amber-300" /><p className="mt-3 text-2xl font-bold">{Math.max(0, ...Object.values(progress).map((item) => item.bestScore))}%</p><p className="text-xs text-slate-400">best observed score</p></div>
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><Brain className="h-4 w-4 text-violet-300" /><p className="mt-3 text-2xl font-bold">{Object.values(progress).reduce((total, item) => total + item.attempts, 0)}</p><p className="text-xs text-slate-400">rehearsals completed</p></div>
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><Target className="h-4 w-4 text-cyan-300" /><p className="mt-3 text-2xl font-bold">{allCompleted}/{activeMissionCount}</p><p className="text-xs text-slate-400">course-lane missions safe on repeat</p></div>
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><Trophy className="h-4 w-4 text-amber-300" /><p className="mt-3 text-2xl font-bold">{Math.max(0, ...Object.values(progress).map((item) => item.bestScore))}%</p><p className="text-xs text-slate-400">best observed score in this course</p></div>
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><Brain className="h-4 w-4 text-violet-300" /><p className="mt-3 text-2xl font-bold">{Object.values(progress).reduce((total, item) => total + item.attempts, 0)}</p><p className="text-xs text-slate-400">course rehearsals completed</p></div>
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><ShieldAlert className="h-4 w-4 text-rose-300" /><p className="mt-3 text-2xl font-bold">Safe to fail</p><p className="text-xs text-slate-400">errors become coaching</p></div>
           </div>
 
@@ -201,22 +206,22 @@ export default function SimulationHub() {
               <Card className="border-slate-800 bg-slate-900 text-white">
                 <CardHeader><CardTitle className="flex items-center gap-2"><HeartPulse className="h-5 w-5 text-rose-300" />Choose your next mission</CardTitle><CardDescription className="text-slate-400">Start with the first safe action. Increase uncertainty only after your basics are reliable.</CardDescription></CardHeader>
                 <CardContent className="space-y-3">
-                  {SIMULATION_MISSIONS.map((mission) => {
+                  {eligibleMissions.map((mission) => {
                     const item = progress[mission.id];
                     const unlocked = isSimulationMissionUnlocked(mission, completedMissionIds);
                     const eligible = eligibleMissions.some((item) => item.id === mission.id);
                     const selected = mission.id === selectedMissionId;
                     return <button key={mission.id} type="button" disabled={!unlocked || !eligible} onClick={() => setSelectedMissionId(mission.id)} className={`w-full rounded-xl border p-4 text-left transition ${selected ? "border-cyan-400 bg-cyan-400/10" : "border-slate-800 bg-slate-950/40 hover:border-slate-600"} disabled:cursor-not-allowed disabled:opacity-50`}><div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{mission.title}</p><Badge variant="outline" className="border-slate-600 text-slate-300">{mission.difficulty}</Badge></div><p className="mt-1 text-sm text-slate-400">{mission.subtitle}</p></div>{unlocked ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-300" /> : <Lock className="h-5 w-5 shrink-0 text-slate-500" />}</div><div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500"><span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{mission.estimatedMinutes} min</span><span>{TRACK_LABELS[mission.trackId]}</span>{mission.isFormative ? <span>Formative · not assessed</span> : <span>Pass {mission.masteryThreshold}%</span>}{item ? <span className="text-cyan-300">{mission.isFormative ? `${item.attempts} rehearsal${item.attempts === 1 ? "" : "s"}` : `Best ${item.bestScore}% · ${getSimulationMasteryLabel(item.attempts, item.bestScore)}`}</span> : null}</div></button>;
                   })}
-                  {!eligibleMissions.length ? <p className="rounded-lg border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-100">No compatible simulation pack is attached to your current course yet. Open Life Support Hub to confirm your course enrollment or contact your programme administrator.</p> : null}
+                  {!eligibleMissions.length ? <p className="rounded-lg border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-100">No simulation mission is attached to this course yet. Open Life Support Hub to confirm your enrollment or contact your programme administrator.</p> : null}
                 </CardContent>
               </Card>
 
               <div className="space-y-4">
                 <Card className="border-cyan-400/30 bg-cyan-400/10 text-white"><CardHeader><CardTitle className="text-base">Why this feels real</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-slate-200"><p className="flex gap-2"><Users className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />Team members create pressure, but do not replace your clinical reasoning.</p><p className="flex gap-2"><Activity className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />Vitals and patient state change after decisions, so you must reassess.</p><p className="flex gap-2"><Brain className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />Debrief separates knowledge, recognition, action, and communication.</p><p className="flex gap-2"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />You can retry immediately, then return later for spaced rehearsal.</p></CardContent></Card>
                 <Card className="border-amber-400/30 bg-amber-400/10 text-white"><CardContent className="p-4 text-xs leading-5 text-amber-100"><strong>Training boundary:</strong> This is a scripted learning simulation. It does not replace local protocols, an instructor-led skills session, or ResusGPS during live patient care.</CardContent></Card>
-                <Card className="border-violet-400/30 bg-violet-400/10 text-white"><CardHeader><CardTitle className="text-base">Role evidence</CardTitle><CardDescription className="text-violet-100/70">Your Simulation World attempts are tracked by role, not attendance alone.</CardDescription></CardHeader><CardContent className="space-y-2">{SIMULATION_WORLD_ROLES.map((role) => { const item = roleEvidence.get(role)!; return <div key={role} className="flex items-center justify-between rounded-lg bg-slate-950/50 px-3 py-2 text-xs"><span>{getSimulationWorldRoleLabel(role)}</span><span className={item.eligible > 0 ? "text-emerald-300" : "text-slate-400"}>{item.eligible > 0 ? `${item.eligible} evidence-ready` : `${item.attempts} rehearsal${item.attempts === 1 ? "" : "s"}`}</span></div>; })}</CardContent></Card>
-                {recommendedRole && <Card className="border-emerald-400/30 bg-emerald-400/10 text-white"><CardHeader><CardTitle className="text-base">Next required experience</CardTitle><CardDescription className="text-emerald-100/80">The Mission Director selects the next gap instead of making you manage the curriculum.</CardDescription></CardHeader><CardContent><p className="font-semibold">{getSimulationWorldRoleLabel(recommendedRole.role)}</p><p className="mt-1 text-xs text-emerald-100/80">{recommendedRole.reason}</p></CardContent></Card>}
+                {effectiveProgram === "pals" && <Card className="border-violet-400/30 bg-violet-400/10 text-white"><CardHeader><CardTitle className="text-base">Role evidence</CardTitle><CardDescription className="text-violet-100/70">Your Simulation World attempts are tracked by role, not attendance alone.</CardDescription></CardHeader><CardContent className="space-y-2">{SIMULATION_WORLD_ROLES.map((role) => { const item = roleEvidence.get(role)!; return <div key={role} className="flex items-center justify-between rounded-lg bg-slate-950/50 px-3 py-2 text-xs"><span>{getSimulationWorldRoleLabel(role)}</span><span className={item.eligible > 0 ? "text-emerald-300" : "text-slate-400"}>{item.eligible > 0 ? `${item.eligible} evidence-ready` : `${item.attempts} rehearsal${item.attempts === 1 ? "" : "s"}`}</span></div>; })}</CardContent></Card>}
+                {effectiveProgram === "pals" && recommendedRole && <Card className="border-emerald-400/30 bg-emerald-400/10 text-white"><CardHeader><CardTitle className="text-base">Next required experience</CardTitle><CardDescription className="text-emerald-100/80">The Mission Director selects the next gap instead of making you manage the curriculum.</CardDescription></CardHeader><CardContent><p className="font-semibold">{getSimulationWorldRoleLabel(recommendedRole.role)}</p><p className="mt-1 text-xs text-emerald-100/80">{recommendedRole.reason}</p></CardContent></Card>}
                 <Button className="w-full bg-cyan-500 text-slate-950 hover:bg-cyan-400" size="lg" disabled={!eligibleEnrollments.length} onClick={() => setStage("briefing")}>Brief me for “{selectedMission.title}” <span className="ml-2">→</span></Button>
               </div>
             </div>
@@ -227,7 +232,7 @@ export default function SimulationHub() {
           )}
 
           {stage === "playing" && effectiveEnrollmentId && (
-            <div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"><div><p className="text-xs uppercase tracking-[0.16em] text-cyan-300">Live mission</p><p className="font-semibold">{selectedMission.title}</p></div><Button size="sm" variant="outline" className="gap-2 border-slate-600 text-slate-200" onClick={() => setStage("map")}><RotateCcw className="h-4 w-4" />Exit to map</Button></div><div className="rounded-xl bg-white p-3 text-slate-950">{selectedMission.trackId === "adult_acls_world" && effectiveProgram === "acls" && <AdultAclsSimulationRoom enrollmentId={effectiveEnrollmentId} onComplete={() => void refetchAttempts()} />}{selectedMission.trackId === "simulation_world" && <SimulationWorldRoom {...trackProps} onComplete={() => void refetchAttempts()} />}{selectedMission.trackId === "cardiac_arrest" && <CardiacArrestTrack {...trackProps} />}{selectedMission.trackId === "abcde" && <AbcdeTrack {...trackProps} />}{selectedMission.trackId === "rhythm_recognition" && <RhythmRecognitionTrack {...trackProps} />}{selectedMission.trackId === "ai_interactive_roleplay" && <AiRoleplayTrack {...trackProps} />}{selectedMission.trackId === "shock_no_shock" && <ShockNoShockTrack {...trackProps} />}{selectedMission.trackId === "pals_capstone" && <div className="space-y-4"><PalsCapstoneSimulation key={capstoneKey} patientAge={2} patientWeight={12} onComplete={handleCapstoneComplete} onClose={() => setStage("map")} />{capstoneResult && <Card className="border-emerald-200 bg-emerald-50"><CardContent className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-semibold text-emerald-900">{capstoneResult.simReady ? "Capstone passed — Sim-Ready" : "Capstone complete — another rehearsal recommended"}</p><p className="text-sm text-emerald-800">Score {capstoneResult.score}%. Use the debrief and repeat the weak phase before progressing.</p></div><Button size="sm" variant="outline" onClick={() => { setCapstoneResult(null); setCapstoneKey((key) => key + 1); }}>Repeat capstone</Button></CardContent></Card>}</div>}</div></div>
+            <div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"><div><p className="text-xs uppercase tracking-[0.16em] text-cyan-300">Live mission</p><p className="font-semibold">{selectedMission.title}</p></div>{selectedMission.trackId === "adult_acls_world" ? <span className="text-xs text-slate-400">Use “Exit without saving” below to close this session safely.</span> : <Button size="sm" variant="outline" className="gap-2 border-slate-600 text-slate-200" onClick={() => setStage("map")}><RotateCcw className="h-4 w-4" />Exit to map</Button>}</div><div className="rounded-xl bg-white p-3 text-slate-950">{selectedMission.trackId === "adult_acls_world" && effectiveProgram === "acls" && <AdultAclsSimulationRoom enrollmentId={effectiveEnrollmentId} onComplete={() => void refetchAttempts()} onExit={() => setStage("map")} />}{selectedMission.trackId === "simulation_world" && <SimulationWorldRoom {...trackProps} onComplete={() => void refetchAttempts()} />}{selectedMission.trackId === "cardiac_arrest" && <CardiacArrestTrack {...trackProps} />}{selectedMission.trackId === "abcde" && <AbcdeTrack {...trackProps} />}{selectedMission.trackId === "rhythm_recognition" && <RhythmRecognitionTrack {...trackProps} />}{selectedMission.trackId === "ai_interactive_roleplay" && <AiRoleplayTrack {...trackProps} />}{selectedMission.trackId === "shock_no_shock" && <ShockNoShockTrack {...trackProps} />}{selectedMission.trackId === "pals_capstone" && <div className="space-y-4"><PalsCapstoneSimulation key={capstoneKey} patientAge={2} patientWeight={12} onComplete={handleCapstoneComplete} onClose={() => setStage("map")} />{capstoneResult && <Card className="border-emerald-200 bg-emerald-50"><CardContent className="flex flex-wrap items-center justify-between gap-3 p-4"><div><p className="font-semibold text-emerald-900">{capstoneResult.simReady ? "Capstone passed — Sim-Ready" : "Capstone complete — another rehearsal recommended"}</p><p className="text-sm text-emerald-800">Score {capstoneResult.score}%. Use the debrief and repeat the weak phase before progressing.</p></div><Button size="sm" variant="outline" onClick={() => { setCapstoneResult(null); setCapstoneKey((key) => key + 1); }}>Repeat capstone</Button></CardContent></Card>}</div>}</div></div>
           )}
         </div>
       </div>
