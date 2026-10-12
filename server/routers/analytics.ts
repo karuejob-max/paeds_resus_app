@@ -12,7 +12,13 @@ export const analyticsRouter = router({
         name: z.string(),
         value: z.number(),
         unit: z.string(),
-        category: z.enum(["enrollment", "completion", "engagement", "impact", "revenue"]),
+        category: z.enum([
+          "enrollment",
+          "completion",
+          "engagement",
+          "impact",
+          "revenue",
+        ]),
         metadata: z.record(z.string(), z.unknown()).optional(),
       })
     )
@@ -21,7 +27,12 @@ export const analyticsRouter = router({
         input.name,
         input.value,
         input.unit,
-        input.category as "enrollment" | "completion" | "engagement" | "impact" | "revenue",
+        input.category as
+          | "enrollment"
+          | "completion"
+          | "engagement"
+          | "impact"
+          | "revenue",
         input.metadata || {}
       );
 
@@ -37,7 +48,6 @@ export const analyticsRouter = router({
   updateUserAnalytics: protectedProcedure
     .input(
       z.object({
-        userId: z.number().optional(),
         coursesCompleted: z.number().optional(),
         certificatesEarned: z.number().optional(),
         totalLearningHours: z.number().optional(),
@@ -46,8 +56,7 @@ export const analyticsRouter = router({
       })
     )
     .mutation(({ ctx, input }) => {
-      const userId = input.userId || ctx.user.id;
-      const analytics = analyticsService.updateUserAnalytics(userId, {
+      const analytics = analyticsService.updateUserAnalytics(ctx.user.id, {
         coursesCompleted: input.coursesCompleted,
         certificatesEarned: input.certificatesEarned,
         totalLearningHours: input.totalLearningHours,
@@ -65,14 +74,9 @@ export const analyticsRouter = router({
    * Get user analytics
    */
   getUserAnalytics: protectedProcedure
-    .input(
-      z.object({
-        userId: z.number().optional(),
-      })
-    )
+    .input(z.object({}))
     .query(({ ctx, input }) => {
-      const userId = input.userId || ctx.user.id;
-      const analytics = analyticsService.getUserAnalytics(userId);
+      const analytics = analyticsService.getUserAnalytics(ctx.user.id);
 
       return {
         success: !!analytics,
@@ -104,7 +108,11 @@ export const analyticsRouter = router({
       })
     )
     .mutation(({ input }) => {
-      const cohort = analyticsService.createCohort(input.cohortId, input.startDate, input.enrollmentCount);
+      const cohort = analyticsService.createCohort(
+        input.cohortId,
+        input.startDate,
+        input.enrollmentCount
+      );
 
       return {
         success: true,
