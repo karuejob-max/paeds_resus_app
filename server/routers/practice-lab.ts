@@ -24,7 +24,7 @@ import {
   type PracticeLabTrackId,
 } from "../../shared/practice-lab-types";
 import { advanceSimulationWorld, createSimulationWorld, isSimulationWorldCommandAllowed, isSimulationWorldScenarioCompatible, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_WORLD_ROLES, SIMULATION_WORLD_SCENARIOS, type SimulationWorldEvent, type SimulationWorldRole, type SimulationWorldScenarioId, type SimulationWorldState, type SimulationWorldCommand } from "../../shared/simulation-world";
-import { ADULT_ACLS_SCENARIOS, ADULT_ACLS_SCENARIO_VERSION, ADULT_ACLS_WORLD_VERSION, advanceAdultAclsSimulation, calculateAdultAclsTrainingEvidence, createAdultAclsSimulation, reduceAdultAclsSimulation, type AdultAclsCommand, type AdultAclsScenarioId, type AdultAclsState } from "../../shared/adult-acls-simulation-world";
+import { ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS, ADULT_ACLS_SCENARIOS, ADULT_ACLS_SCENARIO_VERSION, ADULT_ACLS_WORLD_VERSION, advanceAdultAclsSimulation, calculateAdultAclsTrainingEvidence, createAdultAclsSimulation, reduceAdultAclsSimulation, type AdultAclsCommand, type AdultAclsScenarioId, type AdultAclsState } from "../../shared/adult-acls-simulation-world";
 
 const AHA_PROGRAM_TYPES = ["bls", "acls", "pals", "heartsaver", "nrp"] as const;
 
@@ -193,8 +193,10 @@ export const practiceLabRouter = router({
       if (input.sequence !== expectedSequence) throw new TRPCError({ code: "CONFLICT", message: `Expected command sequence ${expectedSequence}` });
       const stored = (session.authoritativeStateJson ?? createAdultAclsSimulation(session.scenarioId as AdultAclsScenarioId, session.role as SimulationWorldRole)) as unknown as AdultAclsState;
       const command = input.commandJson as unknown as AdultAclsCommand;
-      const elapsedMs = Math.max(0, Math.min(30 * 60 * 1000, Date.now() - session.startedAt.getTime()));
-      const advanced = advanceAdultAclsSimulation(stored, Math.max(0, elapsedMs / 1000 - stored.elapsedSeconds));
+      const wallElapsedMs = Math.max(0, Math.min(30 * 60 * 1000, Date.now() - session.startedAt.getTime()));
+      const actionAdvanceSeconds = Math.min(ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS, Math.max(0, wallElapsedMs / 1000 - stored.elapsedSeconds));
+      const elapsedMs = Math.round((stored.elapsedSeconds + actionAdvanceSeconds) * 1000);
+      const advanced = advanceAdultAclsSimulation(stored, actionAdvanceSeconds);
       const nextState = reduceAdultAclsSimulation(advanced, command);
       const canonicalEvents = nextState.events.slice(stored.events.length);
       const receiptHash = createHash("sha256").update(`${session.sessionNonce}|${input.sequence}|adult_acls|${JSON.stringify(input.commandJson)}|${elapsedMs}|${JSON.stringify(canonicalEvents)}`).digest("hex").slice(0, 32);
@@ -215,6 +217,9 @@ export const practiceLabRouter = router({
       if (!state || state.scenarioId !== session.scenarioId) {
         await db.update(simulationWorldSessions).set({ status: "abandoned", authorityState: "invalidated" }).where(eq(simulationWorldSessions.id, session.id));
         throw new TRPCError({ code: "CONFLICT", message: "Simulation scenario integrity could not be verified; no evidence was created" });
+      }
+      if (state.patient.phase !== "ended") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Complete the scenario and reach a stable or post-ROSC terminal state before saving rehearsal evidence" });
       }
       const evidence = calculateAdultAclsTrainingEvidence(state);
       const evidenceWithAuthority = { ...evidence, sessionId: session.id, scenarioVersion: session.scenarioVersion, learnerUserId: session.userId, enrollmentId: session.enrollmentId, role: session.role };
