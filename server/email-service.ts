@@ -29,6 +29,27 @@ export interface EmailOptions {
 
 // Email templates for different scenarios
 export const emailTemplates: Record<string, EmailTemplate> = {
+  institutionProviderInvitation: {
+    id: "institution-provider-invitation",
+    name: "Institution Provider Invitation",
+    subject: "You have been invited to join {{institutionName}} on Paeds Resus",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #1a4d4d; color: white; padding: 24px; text-align: center;">
+          <h1 style="margin: 0;">Paeds Resus institution invitation</h1>
+        </div>
+        <div style="padding: 28px; background: #f9f9f9;">
+          <p>Hello {{providerName}},</p>
+          <p>{{inviterName}} invited you to join <strong>{{institutionName}}</strong> as a general institution member.</p>
+          <p>This invitation grants institution access only. It does <strong>not</strong> prove competency, assign emergency authority, or accept a dated duty.</p>
+          <p style="text-align: center; margin: 28px 0;"><a href="{{actionUrl}}" style="background: #ff6633; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Review invitation</a></p>
+          <p style="font-size: 12px; color: #666;">Sign in using this invited email address. If this was sent in error, decline the invitation or contact your institution administrator.</p>
+        </div>
+      </div>
+    `,
+    text: `Paeds Resus institution invitation\n\nHello {{providerName}},\n\n{{inviterName}} invited you to join {{institutionName}} as a general institution member.\n\nThis grants institution access only. It does not prove competency, assign emergency authority, or accept a dated duty.\n\nReview the invitation: {{actionUrl}}\n\nSign in using this invited email address.`,
+    variables: ["providerName", "inviterName", "institutionName", "actionUrl"],
+  },
   providerActivation: {
     id: "provider-activation",
     name: "Provider Account Activation",

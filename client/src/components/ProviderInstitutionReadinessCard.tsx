@@ -1,4 +1,4 @@
-import { Building2, CheckCircle2, Clock3, ShieldCheck, UserCheck } from "lucide-react";
+import { Building2, CheckCircle2, Clock3, ShieldCheck, UserCheck, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,10 +20,6 @@ function roleLabel(role: string) {
   return ROLE_LABELS[role] ?? "Institutional provider";
 }
 
-function pendingActionLabel(role: string) {
-  return role === "general_staff" ? "institution access" : "institution responsibility";
-}
-
 export default function ProviderInstitutionReadinessCard() {
   const utils = trpc.useUtils();
   const membershipsQuery = trpc.institution.getMyMemberships.useQuery(undefined, {
@@ -32,10 +28,17 @@ export default function ProviderInstitutionReadinessCard() {
   });
   const acceptInvite = trpc.institution.acceptMembershipInvite.useMutation({
     onSuccess: async () => {
-      toast.success("Institutional readiness responsibility accepted.");
+      toast.success("Institution access accepted. Any standing role or dated duty requires a separate response.");
       await utils.institution.getMyMemberships.invalidate();
     },
     onError: (error) => toast.error(error.message || "Could not accept the institution invitation."),
+  });
+  const declineInvite = trpc.institution.declineMembershipInvite.useMutation({
+    onSuccess: async () => {
+      toast.success("Institution invitation declined.");
+      await utils.institution.getMyMemberships.invalidate();
+    },
+    onError: (error) => toast.error(error.message || "Could not decline the institution invitation."),
   });
 
   if (membershipsQuery.isLoading || membershipsQuery.isError) return null;
@@ -64,22 +67,36 @@ export default function ProviderInstitutionReadinessCard() {
               <div>
                 <p className="font-semibold text-amber-950 text-sm">Invitation from {membership.companyName}</p>
                 <p className="text-xs text-amber-900/80 mt-1">
-                  You have been invited for {pendingActionLabel(membership.responsibilityRole)} as {roleLabel(membership.responsibilityRole)}.
+                  You have been invited for institution access as {roleLabel(membership.responsibilityRole)}. This does not assign an emergency role or dated duty.
                 </p>
               </div>
               <Badge variant="outline" className="border-amber-300 text-amber-800 shrink-0">
                 <Clock3 className="h-3 w-3 mr-1" /> Pending
               </Badge>
             </div>
-            <Button
-              size="sm"
-              className="bg-teal-700 hover:bg-teal-800 text-white"
-              disabled={acceptInvite.isPending}
-              onClick={() => acceptInvite.mutate({ membershipId: membership.id })}
-            >
-              <UserCheck className="h-4 w-4 mr-2" />
-              {membership.responsibilityRole === "general_staff" ? "Accept institution access" : "Accept responsibility"}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                className="bg-teal-700 hover:bg-teal-800 text-white"
+                disabled={acceptInvite.isPending || declineInvite.isPending}
+                onClick={() => acceptInvite.mutate({ membershipId: membership.id })}
+              >
+                <UserCheck className="h-4 w-4 mr-2" />
+                Accept institution access
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={acceptInvite.isPending || declineInvite.isPending}
+                onClick={() => {
+                  const reason = window.prompt("Why are you declining this institution invitation?")?.trim();
+                  if (reason && reason.length >= 3) declineInvite.mutate({ membershipId: membership.id, reason });
+                }}
+              >
+                <X className="h-4 w-4 mr-2" />
+                Decline
+              </Button>
+            </div>
           </div>
         ))}
 

@@ -3468,6 +3468,7 @@ export const institutionMemberships = mysqlTable(
       "active",
       "suspended",
       "ended",
+      "declined",
     ])
       .default("invited")
       .notNull(),
@@ -3517,6 +3518,11 @@ export const institutionMembershipEvents = mysqlTable(
     staffMemberId: int("staff_member_id"),
     userId: int("user_id"),
     eventType: mysqlEnum("event_type", [
+      "invited",
+      "reinvited",
+      "accepted",
+      "declined",
+      "cancelled",
       "removed",
       "restored",
       "suspended",

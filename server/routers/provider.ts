@@ -20,7 +20,7 @@ type ProviderFacilityHistoryEntry = {
   institutionId: number;
   institutionName: string;
   relationship: "permanent_facility" | "locum_outreach";
-  membershipStatus: "invited" | "active" | "suspended" | "ended" | null;
+  membershipStatus: "invited" | "active" | "suspended" | "ended" | "declined" | null;
   lastAttendedAt: Date | null;
   departments: string[];
 };
