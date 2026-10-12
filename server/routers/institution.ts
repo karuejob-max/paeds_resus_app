@@ -2197,7 +2197,9 @@ export const institutionRouter = router({
 
   /**
    * Persist multi-step institutional onboarding for the signed-in user.
-   * Creates institutionalAccounts + institutionalInquiries (detail). Idempotent if user already has an account.
+   * Creates a new institutional account for every completed onboarding flow.
+   * A person may administer more than one institution; the selected institution
+   * is carried by the returned institutionId and the workspace URL.
    */
   completeOnboarding: protectedProcedure
     .input(
@@ -2272,21 +2274,6 @@ export const institutionRouter = router({
           throw new TRPCError({ code: "BAD_REQUEST", message: "The selected facility is not an active registry record. Search again or choose manual entry." });
         }
         selectedKmhflFacility = facility;
-      }
-
-      const existing = await db
-        .select()
-        .from(institutionalAccounts)
-        .where(eq(institutionalAccounts.userId, ctx.user.id))
-        .orderBy(desc(institutionalAccounts.id))
-        .limit(1);
-
-      if (existing.length) {
-        return {
-          success: true,
-          institutionId: existing[0].id,
-          alreadyRegistered: true as const,
-        };
       }
 
       const primaryAdminEmail = ctx.user.email?.trim().toLowerCase();

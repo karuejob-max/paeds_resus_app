@@ -33,6 +33,35 @@ async function columnExists(conn, table, column) {
   return rows.length > 0;
 }
 
+async function renameOrPreserveTable(conn, legacyTable, canonicalTable) {
+  const legacyExists = await tableExists(conn, legacyTable);
+  const canonicalExists = await tableExists(conn, canonicalTable);
+  if (!legacyExists) {
+    console.log(`[0078] Table ${legacyTable} does not exist — skip.`);
+    return;
+  }
+  if (canonicalExists) {
+    console.log(`[0078] Tables ${legacyTable} and ${canonicalTable} both exist — preserving both and using ${canonicalTable} as canonical.`);
+    return;
+  }
+  await conn.query(`RENAME TABLE \`${legacyTable}\` TO \`${canonicalTable}\``);
+  console.log(`[0078] Table ${legacyTable} renamed to ${canonicalTable}.`);
+}
+
+async function renameOrCopyColumn(conn, table, legacyColumn, canonicalColumn) {
+  const legacyExists = await columnExists(conn, table, legacyColumn);
+  const canonicalExists = await columnExists(conn, table, canonicalColumn);
+  if (!legacyExists || canonicalExists) {
+    if (legacyExists && canonicalExists) {
+      await conn.query(`UPDATE \`${table}\` SET \`${canonicalColumn}\` = COALESCE(\`${canonicalColumn}\`, \`${legacyColumn}\`) WHERE \`${legacyColumn}\` IS NOT NULL`);
+      console.log(`[0078] Columns ${table}.${legacyColumn} and ${canonicalColumn} both exist — copied missing canonical values and preserved legacy data.`);
+    }
+    return;
+  }
+  await conn.query(`ALTER TABLE \`${table}\` RENAME COLUMN \`${legacyColumn}\` TO \`${canonicalColumn}\``);
+  console.log(`[0078] Column ${table}.${legacyColumn} renamed to ${canonicalColumn}.`);
+}
+
 async function main() {
   const databaseUrl = process.env.DATABASE_URL?.trim();
   if (!databaseUrl) {
@@ -43,23 +72,12 @@ async function main() {
   console.log("[0078] Connecting to database...");
   const conn = await createMysqlConnection(databaseUrl, mysql);
 
-  // 1. Rename cneEvents to cpdEvents
-  if (await tableExists(conn, "cneEvents")) {
-    console.log("[0078] Renaming table cneEvents to cpdEvents...");
-    await conn.query("RENAME TABLE `cneEvents` TO `cpdEvents`");
-    console.log("[0078] Table cneEvents renamed successfully.");
-  } else {
-    console.log("[0078] Table cneEvents does not exist (already renamed or never created) — skip.");
-  }
+  // 1. Rename cneEvents to cpdEvents, or preserve both if a prior partial/manual
+  // migration already created the canonical table.
+  await renameOrPreserveTable(conn, "cneEvents", "cpdEvents");
 
-  // 2. Rename cneAttendees to cpdAttendees
-  if (await tableExists(conn, "cneAttendees")) {
-    console.log("[0078] Renaming table cneAttendees to cpdAttendees...");
-    await conn.query("RENAME TABLE `cneAttendees` TO `cpdAttendees`");
-    console.log("[0078] Table cneAttendees renamed successfully.");
-  } else {
-    console.log("[0078] Table cneAttendees does not exist (already renamed or never created) — skip.");
-  }
+  // 2. Rename cneAttendees to cpdAttendees using the same safe rule.
+  await renameOrPreserveTable(conn, "cneAttendees", "cpdAttendees");
 
   // Verify cpdEvents table exists before performing modifications
   if (!(await tableExists(conn, "cpdEvents"))) {
@@ -89,40 +107,18 @@ async function main() {
   }
 
   // 4. Rename cneEventId column in cpdAttendees
-  if (await columnExists(conn, "cpdAttendees", "cneEventId")) {
-    console.log("[0078] Renaming column cpdAttendees.cneEventId to cpdEventId...");
-    await conn.query("ALTER TABLE `cpdAttendees` RENAME COLUMN `cneEventId` TO `cpdEventId`");
-    console.log("[0078] Column cpdAttendees.cneEventId renamed successfully.");
-  } else {
-    console.log("[0078] Column cpdAttendees.cneEventId does not exist — skip.");
-  }
+  await renameOrCopyColumn(conn, "cpdAttendees", "cneEventId", "cpdEventId");
 
   // 5. Rename columns in cpdCodeRevealLogs
   if (await tableExists(conn, "cpdCodeRevealLogs")) {
-    if (await columnExists(conn, "cpdCodeRevealLogs", "cneAttendeeId")) {
-      console.log("[0078] Renaming column cpdCodeRevealLogs.cneAttendeeId to cpdAttendeeId...");
-      await conn.query("ALTER TABLE `cpdCodeRevealLogs` RENAME COLUMN `cneAttendeeId` TO `cpdAttendeeId`");
-      console.log("[0078] Column cpdCodeRevealLogs.cneAttendeeId renamed successfully.");
-    }
-    if (await columnExists(conn, "cpdCodeRevealLogs", "cneEventId")) {
-      console.log("[0078] Renaming column cpdCodeRevealLogs.cneEventId to cpdEventId...");
-      await conn.query("ALTER TABLE `cpdCodeRevealLogs` RENAME COLUMN `cneEventId` TO `cpdEventId`");
-      console.log("[0078] Column cpdCodeRevealLogs.cneEventId renamed successfully.");
-    }
+    await renameOrCopyColumn(conn, "cpdCodeRevealLogs", "cneAttendeeId", "cpdAttendeeId");
+    await renameOrCopyColumn(conn, "cpdCodeRevealLogs", "cneEventId", "cpdEventId");
   }
 
   // 6. Rename coordinator columns in institutionalAccounts
   if (await tableExists(conn, "institutionalAccounts")) {
-    if (await columnExists(conn, "institutionalAccounts", "cneCoordinatorName")) {
-      console.log("[0078] Renaming column institutionalAccounts.cneCoordinatorName to cpdCoordinatorName...");
-      await conn.query("ALTER TABLE `institutionalAccounts` RENAME COLUMN `cneCoordinatorName` TO `cpdCoordinatorName`");
-      console.log("[0078] Column institutionalAccounts.cneCoordinatorName renamed successfully.");
-    }
-    if (await columnExists(conn, "institutionalAccounts", "cneCoordinatorSignature")) {
-      console.log("[0078] Renaming column institutionalAccounts.cneCoordinatorSignature to cpdCoordinatorSignature...");
-      await conn.query("ALTER TABLE `institutionalAccounts` RENAME COLUMN `cneCoordinatorSignature` TO `cpdCoordinatorSignature`");
-      console.log("[0078] Column institutionalAccounts.cneCoordinatorSignature renamed successfully.");
-    }
+    await renameOrCopyColumn(conn, "institutionalAccounts", "cneCoordinatorName", "cpdCoordinatorName");
+    await renameOrCopyColumn(conn, "institutionalAccounts", "cneCoordinatorSignature", "cpdCoordinatorSignature");
   }
 
   console.log("[0078] CPD database rename and points migration completed successfully.");

@@ -40,10 +40,10 @@ export default function InstitutionalOnboarding() {
   const acceptB2b = trpc.legal.acceptInstitutionalB2b.useMutation();
 
   const completeOnboarding = trpc.institution.completeOnboarding.useMutation({
-    onSuccess: () => {
+    onSuccess: (result) => {
       setSuccess(true);
       sessionStorage.setItem("institutionalPortalWelcome", "1");
-      setTimeout(() => navigate("/institution"), 2000);
+      setTimeout(() => navigate(`/institution?institutionId=${result.institutionId}`), 2000);
     },
     onError: (err) => {
       setError(err.message || "Failed to create account");

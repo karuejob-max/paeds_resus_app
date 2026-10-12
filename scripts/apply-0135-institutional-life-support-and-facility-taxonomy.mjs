@@ -43,7 +43,28 @@ const certificateProgramTypes = [
 ];
 
 function enumSql(values) {
-  return values.map(value => `'${value}'`).join(", ");
+  return values.map(value => `'${String(value).replace(/'/g, "''")}'`).join(", ");
+}
+
+async function existingEnumValues(conn, tableName, columnName) {
+  const [rows] = await conn.query(
+    `SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1`,
+    [tableName, columnName]
+  );
+  const columnType = rows?.[0]?.COLUMN_TYPE;
+  if (typeof columnType !== "string" || !columnType.startsWith("enum(")) return [];
+  return [...columnType.matchAll(/'((?:''|[^'])*)'/g)].map(match => match[1].replace(/''/g, "'"));
+}
+
+async function ensureEnumContains(conn, tableName, columnName, requiredValues) {
+  const existingValues = await existingEnumValues(conn, tableName, columnName);
+  const values = [...new Set([...existingValues, ...requiredValues])];
+  if (values.length === 0) return;
+  await conn.query(
+    `ALTER TABLE \`${tableName}\` MODIFY COLUMN \`${columnName}\` ENUM(${enumSql(values)}) NOT NULL`
+  );
+  console.log(`[0135] Ensured ${tableName}.${columnName} preserves ${values.length} enum values.`);
 }
 
 async function hasColumn(conn, tableName, columnName) {
@@ -70,15 +91,9 @@ async function main() {
       "[0135] Preparing Institutional Life Support and facility taxonomy schema..."
     );
 
-    await conn.query(
-      `ALTER TABLE \`courses\` MODIFY COLUMN \`programType\` ENUM(${enumSql(courseProgramTypes)}) NOT NULL`
-    );
-    await conn.query(
-      `ALTER TABLE \`enrollments\` MODIFY COLUMN \`programType\` ENUM(${enumSql(enrollmentProgramTypes)}) NOT NULL`
-    );
-    await conn.query(
-      `ALTER TABLE \`certificates\` MODIFY COLUMN \`programType\` ENUM(${enumSql(certificateProgramTypes)}) NOT NULL`
-    );
+    await ensureEnumContains(conn, "courses", "programType", courseProgramTypes);
+    await ensureEnumContains(conn, "enrollments", "programType", enrollmentProgramTypes);
+    await ensureEnumContains(conn, "certificates", "programType", certificateProgramTypes);
 
     await addColumnIfMissing(
       conn,

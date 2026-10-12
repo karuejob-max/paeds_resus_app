@@ -271,7 +271,8 @@
     "db:apply-0177": "node scripts/apply-0177-professional-cpd-identity-resolution.mjs",
     "db:verify-0177": "node scripts/verify-0177-professional-cpd-identity-resolution.mjs",
     "db:apply-0178": "node scripts/apply-0178-institution-membership-invitation-events.mjs",
-    "db:verify-0178": "node scripts/verify-0178-institution-membership-invitation-events.mjs"
+    "db:verify-0178": "node scripts/verify-0178-institution-membership-invitation-events.mjs",
+    "seed:qa-institution": "tsx --import dotenv/config scripts/seed-qa-institution.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
