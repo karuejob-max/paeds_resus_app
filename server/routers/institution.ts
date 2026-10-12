@@ -1196,7 +1196,10 @@ export const institutionRouter = router({
 
     return rows.map((row) => ({
       ...row,
-      isPendingInvite: row.userId == null && row.membershipStatus === "invited",
+      // Existing Paeds Resus accounts are linked to the invitation before
+      // acceptance. The membership status, not userId nullability, is the
+      // source of truth for pending provider access.
+      isPendingInvite: row.membershipStatus === "invited",
     }));
   }),
 
