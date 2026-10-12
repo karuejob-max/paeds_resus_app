@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ADULT_ACLS_SCENARIOS,
+  canEndAdultAclsSimulation,
   calculateAdultAclsTrainingEvidence,
   createAdultAclsSimulation,
   advanceAdultAclsSimulation,
@@ -66,6 +67,29 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
     const synchronised = { ...state, environment: { ...state.environment, synchronized: true } };
     const converted = reduceAdultAclsSimulation(synchronised, { type: "synchronized_cardioversion" });
     expect(converted.patient.rhythm).toBe("sinus_rhythm");
+  });
+
+  it("supports an explicit synchronized-cardioversion preparation step", () => {
+    const state = createAdultAclsSimulation("unstable-tachycardia");
+    const prepared = reduceAdultAclsSimulation(state, { type: "prepare_synchronized_cardioversion" });
+    expect(prepared.environment.synchronized).toBe(true);
+    const converted = reduceAdultAclsSimulation(prepared, { type: "synchronized_cardioversion" });
+    expect(converted.patient.rhythm).toBe("sinus_rhythm");
+  });
+
+  it("only ends a rehearsal from a stable or post-ROSC state", () => {
+    const unstable = createAdultAclsSimulation("unstable-bradycardia");
+    const blocked = reduceAdultAclsSimulation(unstable, { type: "end_rehearsal" });
+    expect(blocked.patient.phase).not.toBe("ended");
+    expect(blocked.criticalFailures).toHaveLength(1);
+
+    let stable = createAdultAclsSimulation("stable-narrow-tachycardia");
+    stable = reduceAdultAclsSimulation(stable, { type: "give_adenosine" });
+    stable = reduceAdultAclsSimulation(stable, { type: "reassess" });
+    expect(canEndAdultAclsSimulation(stable)).toBe(true);
+    const ended = reduceAdultAclsSimulation(stable, { type: "end_rehearsal" });
+    expect(ended.patient.phase).toBe("ended");
+    expect(ended.events.at(-1)?.type).toBe("terminal_state");
   });
 
   it("keeps electrical pacing distinct from mechanical capture", () => {

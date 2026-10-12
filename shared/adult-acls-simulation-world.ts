@@ -4,6 +4,8 @@ import { getSimulationClinicalPackage } from "./simulation-clinical-packages";
 export const ADULT_ACLS_WORLD_VERSION = "1.0.0";
 export const ADULT_ACLS_SCENARIO_VERSION = "1.0.0";
 export const ADULT_ACLS_CLINICAL_STATUS = "clinical_review" as const;
+/** Browser/network delay is bounded so manual interaction is not itself a clinical error. */
+export const ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS = 5;
 
 export type AdultAclsScenarioId =
   | "unstable-bradycardia"
@@ -78,7 +80,9 @@ export type AdultAclsCommand =
   | { type: "give_antiarrhythmic" }
   | { type: "give_adenosine" }
   | { type: "give_atropine" }
-  | { type: "treat_reversible_cause" };
+  | { type: "treat_reversible_cause" }
+  | { type: "prepare_synchronized_cardioversion" }
+  | { type: "end_rehearsal" };
 
 export type AdultAclsEvent = {
   timestamp: number;
@@ -152,6 +156,10 @@ export function advanceAdultAclsSimulation(state: AdultAclsState, seconds: numbe
   return addEvent(next, "time_advanced", `${seconds} seconds elapsed`);
 }
 
+export function canEndAdultAclsSimulation(state: AdultAclsState): boolean {
+  return state.patient.phase === "stable" || state.patient.phase === "post_rosc" || state.patient.phase === "ended";
+}
+
 export function reduceAdultAclsSimulation(state: AdultAclsState, command: AdultAclsCommand): AdultAclsState {
   let next = advanceAdultAclsSimulation(state, command.type === "assess" || command.type === "reassess" ? 2 : 5);
   const p = next.patient;
@@ -212,6 +220,13 @@ export function reduceAdultAclsSimulation(state: AdultAclsState, command: AdultA
       next.patient.hidden.causeLoad = clamp(next.patient.hidden.causeLoad - 0.35);
       next.patient.hidden.probabilityOfRosc = clamp(next.patient.hidden.probabilityOfRosc + 0.18);
       return addEvent(next, "cause_treatment", "Cause-specific treatment attempted; observe for delayed physiological response", true);
+    case "prepare_synchronized_cardioversion":
+      if (p.phase === "cardiac_arrest" || p.pulse === "absent") return fail(next, "Synchronization requires a perfusing patient and an appropriate rhythm");
+      next.environment.synchronized = true;
+      return addEvent(next, "synchronization", "Defibrillator synchronized; confirm rhythm, pulse, and instability before shock", true);
+    case "end_rehearsal":
+      if (!canEndAdultAclsSimulation(next)) return fail(next, "Rehearsal cannot end until the patient is stable or post-ROSC and reassessed");
+      return addEvent({ ...next, patient: { ...next.patient, phase: "ended" } }, "terminal_state", "Rehearsal ended after a stable or post-ROSC reassessment", true);
   }
 }
 
