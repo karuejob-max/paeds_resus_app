@@ -1386,6 +1386,39 @@ export const learningRouter = router({
           message: "Database unavailable",
         });
 
+      const [enrollmentScope] = await (db as any)
+        .select({
+          userId: enrollments.userId,
+          courseId: enrollments.courseId,
+          enrollmentStatus: enrollments.enrollmentStatus,
+        })
+        .from(enrollments)
+        .where(
+          and(
+            eq(enrollments.id, input.enrollmentId),
+            eq(enrollments.userId, ctx.user.id)
+          )
+        )
+        .limit(1);
+      if (!enrollmentScope || enrollmentScope.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Enrollment is not owned by the current user" });
+      }
+      if (enrollmentScope.enrollmentStatus !== "active") {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Enrollment is not active" });
+      }
+
+      const [moduleScope] = await (db as any)
+        .select({ courseId: modules.courseId })
+        .from(modules)
+        .where(eq(modules.id, input.moduleId))
+        .limit(1);
+      if (!moduleScope) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Module not found" });
+      }
+      if (enrollmentScope.courseId != null && enrollmentScope.courseId !== moduleScope.courseId) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Module is not part of this enrollment" });
+      }
+
       await assertAhaCognitiveAccess(
         db,
         ctx.user.id,

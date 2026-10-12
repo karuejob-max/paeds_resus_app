@@ -279,7 +279,7 @@ export const parentSafeTruthRouter = router({
     }),
 
   // Get hospital improvement metrics
-  getHospitalMetrics: protectedProcedure
+  getHospitalMetrics: adminProcedure
     .input(z.object({ hospitalId: z.number() }))
     .query(async ({ input }) => {
       const db = await getDb();
@@ -294,7 +294,7 @@ export const parentSafeTruthRouter = router({
     }),
 
   // Get delay analysis for hospital
-  getHospitalDelayAnalysis: protectedProcedure
+  getHospitalDelayAnalysis: adminProcedure
     .input(z.object({ hospitalId: z.number() }))
     .query(async ({ input }) => {
       const db = await getDb();
@@ -338,7 +338,7 @@ export const parentSafeTruthRouter = router({
     }),
 
   // Hospital Admin: get Safe-Truth summary for their facility
-  getHospitalSafeTruthSummary: protectedProcedure
+  getHospitalSafeTruthSummary: adminProcedure
     .input(z.object({ hospitalId: z.number(), months: z.number().default(3) }))
     .query(async ({ input }) => {
       const db = await getDb();
