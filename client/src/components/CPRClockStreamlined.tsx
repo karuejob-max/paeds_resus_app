@@ -1303,12 +1303,12 @@ export function CPRClockStreamlined({
         </div>
       )}
       {/* Header - Mobile Optimized */}
-      <div className="bg-gray-900 border-b border-gray-700 px-3 py-2 md:px-6 md:py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2 md:gap-4">
+      <div className="bg-gray-900 border-b border-gray-700 px-2 py-2 sm:px-3 md:px-6 md:py-4 flex items-center justify-between">
+        <div className="flex min-w-0 items-center gap-2 md:gap-4">
           <Heart className="h-5 w-5 md:h-8 md:w-8 text-red-500" />
           <div>
-            <h1 className="text-base md:text-2xl font-bold text-white">CPR-GPS</h1>
-            <p className="text-gray-400 text-xs md:text-sm">{patientWeight}kg • {formatTime(arrestDuration)}</p>
+            <h1 className="text-sm font-bold text-white sm:text-base md:text-2xl">CPR-GPS</h1>
+            <p className="text-gray-400 text-[11px] md:text-sm">{patientWeight}kg • {formatTime(arrestDuration)}</p>
           </div>
           
           {/* Demographics are edited in the parent ResusGPS flow when embedded. */}
@@ -1325,7 +1325,7 @@ export function CPRClockStreamlined({
           )}
         </div>
         
-        <div className="relative flex items-center gap-1 md:gap-2">
+        <div className="relative flex shrink-0 items-center gap-0.5 md:gap-2">
           {/* Audio cues stay visible because they are part of the primary arrest safety loop. */}
           <Button
             variant="ghost"
@@ -1352,7 +1352,7 @@ export function CPRClockStreamlined({
             variant="ghost"
             size="sm"
             onClick={() => setShowTools((current) => !current)}
-            className="text-white h-8 px-2 gap-1"
+            className="min-h-10 min-w-10 px-2 text-white"
             aria-expanded={showTools}
             aria-label="Open CPR-GPS tools"
           >
@@ -1361,7 +1361,7 @@ export function CPRClockStreamlined({
           </Button>
 
           {showTools && (
-            <div className="absolute right-0 top-10 z-40 w-64 rounded-xl border border-gray-700 bg-gray-900 p-2 shadow-xl">
+            <div className="absolute right-0 top-11 z-40 w-[min(16rem,calc(100vw-1rem))] rounded-xl border border-gray-700 bg-gray-900 p-2 shadow-xl">
               <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-400">CPR-GPS tools</p>
               <div className="grid grid-cols-2 gap-2">
                 <Button
@@ -1460,7 +1460,7 @@ export function CPRClockStreamlined({
           )}
           
           {/* Close */}
-          <Button variant="ghost" size="icon" onClick={onClose} className="text-white">
+          <Button variant="ghost" size="icon" onClick={onClose} className="min-h-10 min-w-10 text-white">
             <X className="h-5 w-5" />
           </Button>
         </div>
