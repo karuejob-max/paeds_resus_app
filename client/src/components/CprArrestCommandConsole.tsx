@@ -235,14 +235,14 @@ export function CprArrestCommandConsole({
   return (
     <main className="min-h-0 flex-1 overflow-y-auto bg-slate-950 p-3 sm:p-5">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 pb-6">
-        <div className="flex items-start justify-between gap-3 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 sm:px-4">
+        <div className="flex flex-col gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:px-4">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Current action</p>
             <p className="truncate text-sm font-semibold text-white sm:text-base">{rhythmLabel(effectiveRhythmType)}</p>
           </div>
-          <div className="shrink-0 text-right">
+          <div className="shrink-0 text-left sm:text-right">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Patient context</p>
-            <p className="mt-1 text-[11px] text-slate-300">{patientWeight} kg · {pathwayLabel ?? lifeSupportPack?.pack ?? 'Governed'} pathway</p>
+            <p className="mt-1 text-xs text-slate-300 sm:text-[11px]">{patientWeight} kg · {pathwayLabel ?? lifeSupportPack?.pack ?? 'Governed'} pathway</p>
           </div>
         </div>
 
@@ -280,13 +280,13 @@ export function CprArrestCommandConsole({
 
         <Card className={`border-2 shadow-lg ${toneClasses[action.tone]}`} role="status" aria-live="assertive">
           <CardContent className="space-y-3 p-4 sm:p-6">
-            <div className="flex items-start gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-80">Do this now</p>
-                <h2 className="mt-1 text-3xl font-black leading-tight sm:text-5xl">{action.title}</h2>
+                <h2 className="mt-1 text-2xl font-black leading-tight sm:text-5xl">{action.title}</h2>
                 <p className="mt-2 max-w-2xl text-sm font-medium leading-6 sm:text-base">{action.instruction}</p>
               </div>
-              <div className="shrink-0 rounded-lg border border-current/30 px-2 py-1 text-right">
+              <div className="self-end rounded-lg border border-current/30 px-2 py-1 text-right sm:shrink-0">
                 <p className="text-[10px] uppercase tracking-wide opacity-75">Cycle</p>
                 <p className="font-mono text-2xl font-bold">{effectiveCycleNumber}</p>
               </div>
@@ -322,10 +322,10 @@ export function CprArrestCommandConsole({
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-3 gap-2" aria-label="Arrest summary">
-          <Card className="border-slate-700 bg-slate-900 text-white"><CardContent className="p-3 text-center"><p className="font-mono text-2xl font-bold">{effectiveShockCount}</p><p className="text-[11px] uppercase tracking-wide text-slate-400">Shocks</p></CardContent></Card>
-          <Card className="border-slate-700 bg-slate-900 text-white"><CardContent className="p-3 text-center"><p className="font-mono text-2xl font-bold">{effectiveEpiDoses}</p><p className="text-[11px] uppercase tracking-wide text-slate-400">Epi doses</p></CardContent></Card>
-          <Card className="border-slate-700 bg-slate-900 text-white"><CardContent className="p-3 text-center"><p className="font-mono text-2xl font-bold">{formatTime(compressionCycle.countdownToRhythmCheck)}</p><p className="text-[11px] uppercase tracking-wide text-slate-400">Next check</p></CardContent></Card>
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2" aria-label="Arrest summary">
+          <Card className="border-slate-700 bg-slate-900 text-white"><CardContent className="p-2 text-center sm:p-3"><p className="font-mono text-xl font-bold sm:text-2xl">{effectiveShockCount}</p><p className="text-[10px] uppercase leading-3 tracking-wide text-slate-400 sm:text-[11px]">Shocks</p></CardContent></Card>
+          <Card className="border-slate-700 bg-slate-900 text-white"><CardContent className="p-2 text-center sm:p-3"><p className="font-mono text-xl font-bold sm:text-2xl">{effectiveEpiDoses}</p><p className="text-[10px] uppercase leading-3 tracking-wide text-slate-400 sm:text-[11px]">Epi doses</p></CardContent></Card>
+          <Card className="border-slate-700 bg-slate-900 text-white"><CardContent className="p-2 text-center sm:p-3"><p className="font-mono text-xl font-bold sm:text-2xl">{formatTime(compressionCycle.countdownToRhythmCheck)}</p><p className="text-[10px] uppercase leading-3 tracking-wide text-slate-400 sm:text-[11px]">Next check</p></CardContent></Card>
         </div>
 
         {visibleAlert && (
@@ -344,37 +344,37 @@ export function CprArrestCommandConsole({
 
         <div className="grid gap-2 sm:grid-cols-2" aria-label="Essential arrest actions">
           <div className={`rounded-xl border p-3 ${ivIoSecured ? 'border-emerald-500/60 bg-emerald-950/30' : 'border-sky-400/70 bg-sky-950/30'}`}>
-            <div className="flex items-start gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
               <Syringe className={`mt-0.5 h-5 w-5 shrink-0 ${ivIoSecured ? 'text-emerald-300' : 'text-sky-300'}`} aria-hidden />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-white">IV / IO access</p>
                 <p className="mt-1 text-xs text-slate-200">{ivIoSecured ? 'Access recorded' : 'Secure early for medication and fluids'}</p>
               </div>
-              {!ivIoSecured && onMarkIvIoSecured && <Button onClick={onMarkIvIoSecured} className="min-h-10 shrink-0 bg-sky-600 px-3 text-xs font-bold hover:bg-sky-500">Secured</Button>}
+              {!ivIoSecured && onMarkIvIoSecured && <Button onClick={onMarkIvIoSecured} className="min-h-11 w-full shrink-0 bg-sky-600 px-3 text-xs font-bold hover:bg-sky-500 sm:w-auto">Secured</Button>}
             </div>
           </div>
           <div className={`rounded-xl border p-3 ${airwayStatus === 'advanced' || airwayStatus === 'adjunct' ? 'border-emerald-500/60 bg-emerald-950/30' : 'border-amber-400/70 bg-amber-950/30'}`}>
-            <div className="flex items-start gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
               <Wind className={`mt-0.5 h-5 w-5 shrink-0 ${airwayStatus === 'advanced' || airwayStatus === 'adjunct' ? 'text-emerald-300' : 'text-amber-300'}`} aria-hidden />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-white">Airway / ventilation</p>
                 <p className="mt-1 text-xs text-slate-200">{airwayStatus === 'advanced' ? `Advanced airway · ${ventilationRatioLabel}` : airwayStatus === 'adjunct' ? `OPA/NPA adjunct · ${ventilationRatioLabel}` : `Secure airway · ${ventilationRatioLabel}`}</p>
               </div>
-              {airwayStatus !== 'advanced' && airwayStatus !== 'adjunct' && onOpenAirway && <Button onClick={onOpenAirway} className="min-h-10 shrink-0 bg-amber-600 px-3 text-xs font-bold hover:bg-amber-500">Open</Button>}
+              {airwayStatus !== 'advanced' && airwayStatus !== 'adjunct' && onOpenAirway && <Button onClick={onOpenAirway} className="min-h-11 w-full shrink-0 bg-amber-600 px-3 text-xs font-bold hover:bg-amber-500 sm:w-auto">Open</Button>}
             </div>
           </div>
         </div>
 
         {epiState !== 'not_due' && (
           <div className={`rounded-xl border-2 p-3 ${epiState === 'overdue' ? 'border-red-500/80 bg-red-950/60' : 'border-amber-400/80 bg-amber-950/50'}`} role="alert" aria-live={epiState === 'overdue' ? 'assertive' : 'polite'}>
-            <div className="flex items-start gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
               <Syringe className={`mt-0.5 h-5 w-5 shrink-0 ${epiState === 'overdue' ? 'text-red-300' : 'text-amber-300'}`} aria-hidden />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-white">EPINEPHRINE — {epiState === 'overdue' ? 'GIVE NOW' : 'PREPARE'}</p>
                 <p className="mt-1 text-sm font-semibold text-white">{epiDose} mg IV/IO per {lifeSupportPack?.pack ?? 'governed'} pathway</p>
                 <p className="mt-1 text-xs text-slate-200">This reminder stays until administration is confirmed. Closing a prompt does not clear it.</p>
               </div>
-              <Button onClick={onGiveEpinephrine} className={`min-h-11 shrink-0 px-3 text-xs font-bold ${epiState === 'overdue' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'}`}>
+              <Button onClick={onGiveEpinephrine} className={`min-h-11 w-full shrink-0 px-3 text-xs font-bold sm:w-auto ${epiState === 'overdue' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'}`}>
                 Given now
               </Button>
             </div>
@@ -383,14 +383,14 @@ export function CprArrestCommandConsole({
 
         {antiarrhythmicDue && (
           <div className="rounded-xl border-2 border-purple-400/80 bg-purple-950/50 p-3" role="alert" aria-live="assertive">
-            <div className="flex items-start gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
               <Syringe className="mt-0.5 h-5 w-5 shrink-0 text-purple-300" aria-hidden />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-white">Medication reminder — antiarrhythmic</p>
                 <p className="mt-1 text-sm font-semibold text-white">{antiarrhythmicMessage ?? 'Select amiodarone or lidocaine after the indicated shock.'}</p>
                 <p className="mt-1 text-xs text-slate-200">This reminder stays until amiodarone or lidocaine is recorded.</p>
               </div>
-              {onShowAntiarrhythmic && <Button onClick={onShowAntiarrhythmic} className="min-h-11 shrink-0 bg-purple-600 px-3 text-xs font-bold hover:bg-purple-700">Choose</Button>}
+              {onShowAntiarrhythmic && <Button onClick={onShowAntiarrhythmic} className="min-h-11 w-full shrink-0 bg-purple-600 px-3 text-xs font-bold hover:bg-purple-700 sm:w-auto">Choose</Button>}
             </div>
           </div>
         )}
