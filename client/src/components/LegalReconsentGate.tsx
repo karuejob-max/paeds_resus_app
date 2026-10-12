@@ -15,10 +15,17 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useAfterFirstPaint } from "@/hooks/useAfterFirstPaint";
 import { LegalExternalLink } from "@/components/LegalExternalLink";
 import { isLegalDocumentPath } from "@/lib/legal-routes";
-import { LEGAL_CHANGE_SUMMARY, LEGAL_DOCUMENT_VERSIONS } from "@shared/legal-versions";
+import {
+  LEGAL_CHANGE_SUMMARY,
+  LEGAL_DOCUMENT_VERSIONS,
+} from "@shared/legal-versions";
 
 /** Blocks stale Terms/Privacy until user re-accepts current versions. */
-export function LegalReconsentGate({ children }: { children: React.ReactNode }) {
+export function LegalReconsentGate({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { isAuthenticated, loading, sessionSettled } = useAuth();
   const afterPaint = useAfterFirstPaint();
   const [location] = useLocation();
@@ -27,12 +34,16 @@ export function LegalReconsentGate({ children }: { children: React.ReactNode }) 
   const [submitting, setSubmitting] = useState(false);
   const utils = trpc.useUtils();
 
-  const { data: status, isLoading } = trpc.legal.getMyConsentStatus.useQuery(undefined, {
-    enabled: isAuthenticated && sessionSettled && afterPaint,
-  });
+  const { data: status, isLoading } = trpc.legal.getMyConsentStatus.useQuery(
+    undefined,
+    {
+      enabled: isAuthenticated && sessionSettled && afterPaint,
+    }
+  );
 
   const acceptTermsAndPrivacy = trpc.legal.acceptTermsAndPrivacy.useMutation();
-  const acceptResusGpsDisclaimer = trpc.legal.acceptResusGpsDisclaimer.useMutation();
+  const acceptResusGpsDisclaimer =
+    trpc.legal.acceptResusGpsDisclaimer.useMutation();
 
   const handleAccept = async () => {
     if (!agreed || submitting) return;
@@ -63,7 +74,7 @@ export function LegalReconsentGate({ children }: { children: React.ReactNode }) 
         <DialogContent
           className="max-w-md sm:max-w-md"
           showCloseButton={false}
-          onPointerDownOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={e => e.preventDefault()}
         >
           <DialogHeader className="text-left">
             <DialogTitle>Updated legal terms</DialogTitle>
@@ -74,32 +85,50 @@ export function LegalReconsentGate({ children }: { children: React.ReactNode }) 
               "Our Terms of Use or Privacy Policy were updated. Please review and re-accept to continue."}
           </p>
 
-          <ul className="space-y-2 text-sm font-medium">
-            <li>
-              <LegalExternalLink href="/terms" className="text-primary underline">
-                Terms of Use
-              </LegalExternalLink>
-            </li>
-            <li>
-              <LegalExternalLink href="/privacy" className="text-primary underline">
-                Privacy Policy
-              </LegalExternalLink>
-            </li>
-            <li>
-              <LegalExternalLink href="/legal/clinical-use" className="text-primary underline">
-                ResusGPS Intended Use
-              </LegalExternalLink>
-            </li>
-          </ul>
+          <details className="rounded-md border border-border px-3 py-2 text-sm">
+            <summary className="cursor-pointer font-medium">
+              Review the full documents
+            </summary>
+            <ul className="mt-3 space-y-2 font-medium">
+              <li>
+                <LegalExternalLink
+                  href="/terms"
+                  className="text-primary underline"
+                >
+                  Terms of Use
+                </LegalExternalLink>
+              </li>
+              <li>
+                <LegalExternalLink
+                  href="/privacy"
+                  className="text-primary underline"
+                >
+                  Privacy Policy
+                </LegalExternalLink>
+              </li>
+              <li>
+                <LegalExternalLink
+                  href="/legal/clinical-use"
+                  className="text-primary underline"
+                >
+                  ResusGPS Intended Use
+                </LegalExternalLink>
+              </li>
+            </ul>
+          </details>
 
           <div className="flex items-start gap-3 rounded-md border border-border p-3">
             <Checkbox
               id="reconsent-all"
               checked={agreed}
-              onCheckedChange={(v) => setAgreed(v === true)}
+              onCheckedChange={v => setAgreed(v === true)}
             />
-            <Label htmlFor="reconsent-all" className="cursor-pointer text-sm font-normal leading-snug">
-              I have read and agree
+            <Label
+              htmlFor="reconsent-all"
+              className="cursor-pointer text-sm font-normal leading-snug"
+            >
+              I have reviewed the summary and agree to the current Terms of Use,
+              Privacy Policy, and ResusGPS Intended Use
             </Label>
           </div>
 
