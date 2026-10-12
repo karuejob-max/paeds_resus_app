@@ -6243,8 +6243,14 @@ export const institutionRouter = router({
           return new Date(`${day}T${time?.slice(0, 8) ?? "00:00:00"}`).getTime();
         };
         const now = Date.now();
-        const upcomingUtl = visibleUtl.filter((assignment) => assignment.assignmentStatus !== "ended" && dateTimeKey(assignment.shiftDate, assignment.shiftStartTime) >= now).sort((a, b) => dateTimeKey(a.shiftDate, a.shiftStartTime) - dateTimeKey(b.shiftDate, b.shiftStartTime));
-        const upcomingErtl = visibleErtl.filter((assignment) => assignment.assignmentStatus !== "ended" && dateTimeKey(assignment.startDate, "00:00:00") >= now).sort((a, b) => dateTimeKey(a.startDate, "00:00:00") - dateTimeKey(b.startDate, "00:00:00"));
+        const shiftEndKey = (assignment: (typeof visibleUtl)[number]) => {
+          if (!assignment.shiftDate) return Number.MIN_SAFE_INTEGER;
+          const day = new Date(assignment.shiftDate).toISOString().slice(0, 10);
+          return new Date(`${day}T${assignment.shiftEndTime?.slice(0, 8) ?? "23:59:59"}`).getTime() + ((assignment.shiftEndDayOffset ?? 0) * 24 * 60 * 60 * 1000);
+        };
+        const rotationEndKey = (assignment: (typeof visibleErtl)[number]) => assignment.endDate ? new Date(assignment.endDate).getTime() : Number.MAX_SAFE_INTEGER;
+        const upcomingUtl = visibleUtl.filter((assignment) => assignment.assignmentStatus !== "ended" && shiftEndKey(assignment) >= now).sort((a, b) => dateTimeKey(a.shiftDate, a.shiftStartTime) - dateTimeKey(b.shiftDate, b.shiftStartTime));
+        const upcomingErtl = visibleErtl.filter((assignment) => assignment.assignmentStatus !== "ended" && rotationEndKey(assignment) >= today.getTime()).sort((a, b) => dateTimeKey(a.startDate, "00:00:00") - dateTimeKey(b.startDate, "00:00:00"));
         return {
           ertl: visibleErtl,
           utl: visibleUtl,
