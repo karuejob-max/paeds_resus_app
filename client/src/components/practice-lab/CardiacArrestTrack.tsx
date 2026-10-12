@@ -10,12 +10,13 @@ type Props = {
   programType: PracticeLabProgramType;
   enrollmentId: number;
   onBookSession: () => void;
+  onExit?: () => void;
   initialScenarioId?: string;
 };
 
 type Phase = "sim" | "debrief";
 
-export function CardiacArrestTrack({ programType, enrollmentId, onBookSession, initialScenarioId }: Props) {
+export function CardiacArrestTrack({ programType, enrollmentId, onBookSession, onExit, initialScenarioId }: Props) {
   const [phase, setPhase] = useState<Phase>("sim");
   const [debrief, setDebrief] = useState<{
     scenarioName: string;
@@ -79,6 +80,7 @@ export function CardiacArrestTrack({ programType, enrollmentId, onBookSession, i
           setDebrief(null);
           setSimKey((k) => k + 1);
           setPhase("sim");
+          onExit?.();
         }}
         onBookSession={onBookSession}
       />
@@ -86,13 +88,19 @@ export function CardiacArrestTrack({ programType, enrollmentId, onBookSession, i
   }
 
   return (
-    <CPRSimulation
-      key={simKey}
-      embedded
-      initialScenarioId={initialScenarioId}
-      scenariosFilter={scenariosFilter}
-      onClose={() => {}}
-      onAttemptComplete={handleComplete}
-    />
+    <div className="space-y-3">
+      <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-950">
+        <p className="font-semibold">{programType.toUpperCase()} CPR-GPS simulation</p>
+        <p className="mt-1 text-xs">You are practising one selected arrest scenario inside the Simulation Hub. The timer and patient response are training signals; this rehearsal does not issue a credential or complete a course phase.</p>
+      </div>
+      <CPRSimulation
+        key={simKey}
+        embedded
+        initialScenarioId={initialScenarioId}
+        scenariosFilter={scenariosFilter}
+        onClose={() => onExit?.()}
+        onAttemptComplete={handleComplete}
+      />
+    </div>
   );
 }
