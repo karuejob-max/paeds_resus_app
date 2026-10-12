@@ -10,12 +10,15 @@ import {
   facilityDepartments,
   facilityPoles,
   institutionMemberships,
+  institutionProductEntitlements,
   institutionProductRoles,
+  institutionalProductCapabilities,
   institutionalAccountAdmins,
   institutionalAccounts,
   institutionalProducts,
   institutionProductSubscriptions,
   institutionalStaffMembers,
+  professionalCredentials,
   shiftUtlRosters,
   users,
 } from "../drizzle/schema";
@@ -124,6 +127,53 @@ async function ensureQaUser(
       `QA user could not be created or read back: ${account.email}`
     );
   return created.id;
+}
+
+async function ensureQaLicence(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  institutionId: number,
+  userId: number,
+  providerType: string,
+  verifiedByUserId: number
+) {
+  const [existing] = await db
+    .select({ id: professionalCredentials.id })
+    .from(professionalCredentials)
+    .where(
+      and(
+        eq(professionalCredentials.userId, userId),
+        eq(professionalCredentials.credentialType, "regulatory_license"),
+        eq(professionalCredentials.sourceRecordType, "qa_fixture"),
+        eq(professionalCredentials.sourceRecordId, institutionId)
+      )
+    )
+    .limit(1);
+  const values = {
+    sourceType: "regulatory" as const,
+    issuer: "QA fixture regulator (non-clinical test data)",
+    jurisdiction: "KE",
+    cadre: providerType,
+    credentialNumber: `QA-${institutionId}-${userId}`,
+    issuedAt: new Date("2026-01-01T00:00:00.000Z"),
+    expiresAt: new Date("2027-12-31T23:59:59.000Z"),
+    status: "verified" as const,
+    verifiedByUserId,
+    verifiedAt: new Date(),
+    sourceRecordType: "qa_fixture",
+    sourceRecordId: institutionId,
+    reviewReason: "QA fixture only; not evidence of real clinical licensure.",
+    updatedAt: new Date(),
+  };
+  if (existing) {
+    await db
+      .update(professionalCredentials)
+      .set(values)
+      .where(eq(professionalCredentials.id, existing.id));
+  } else {
+    await db
+      .insert(professionalCredentials)
+      .values({ userId, credentialType: "regulatory_license", ...values });
+  }
 }
 
 async function ensureAdminLink(
@@ -376,6 +426,15 @@ async function main() {
   const nurseId = sampleUsers.get("nurse")!;
   const doctorId = sampleUsers.get("doctor")!;
   const reviewerId = sampleUsers.get("reviewer")!;
+  for (const account of SAMPLE_ACCOUNTS) {
+    await ensureQaLicence(
+      db,
+      institution.id,
+      sampleUsers.get(account.key)!,
+      account.providerType,
+      primary.id
+    );
+  }
   const coordinatorStaffId = await ensureStaff(
     db,
     institution.id,
@@ -460,7 +519,10 @@ async function main() {
     .from(institutionProductSubscriptions)
     .where(
       and(
-        eq(institutionProductSubscriptions.institutionalAccountId, institution.id),
+        eq(
+          institutionProductSubscriptions.institutionalAccountId,
+          institution.id
+        ),
         eq(institutionProductSubscriptions.productId, iersProduct.id)
       )
     )
@@ -474,7 +536,9 @@ async function main() {
         startsAt: new Date("2026-01-01T00:00:00.000Z"),
         notes: "Local QA fixture; not a commercial entitlement.",
       })
-      .where(eq(institutionProductSubscriptions.id, existingIersSubscription.id));
+      .where(
+        eq(institutionProductSubscriptions.id, existingIersSubscription.id)
+      );
   } else {
     await db.insert(institutionProductSubscriptions).values({
       institutionalAccountId: institution.id,
@@ -486,6 +550,68 @@ async function main() {
       dataSharingStatus: "consented",
       notes: "Local QA fixture; not a commercial entitlement.",
     });
+  }
+  const [qaIersSubscription] = await db
+    .select({ id: institutionProductSubscriptions.id })
+    .from(institutionProductSubscriptions)
+    .where(
+      and(
+        eq(
+          institutionProductSubscriptions.institutionalAccountId,
+          institution.id
+        ),
+        eq(institutionProductSubscriptions.productId, iersProduct.id)
+      )
+    )
+    .limit(1);
+  if (!qaIersSubscription)
+    throw new Error("The QA IERS subscription could not be read back.");
+  const iersCapabilities = await db
+    .select({ capabilityKey: institutionalProductCapabilities.capabilityKey })
+    .from(institutionalProductCapabilities)
+    .where(
+      and(
+        eq(institutionalProductCapabilities.productId, iersProduct.id),
+        eq(institutionalProductCapabilities.status, "active")
+      )
+    );
+  for (const capability of iersCapabilities) {
+    const [existingEntitlement] = await db
+      .select({ id: institutionProductEntitlements.id })
+      .from(institutionProductEntitlements)
+      .where(
+        and(
+          eq(
+            institutionProductEntitlements.institutionalAccountId,
+            institution.id
+          ),
+          eq(institutionProductEntitlements.productId, iersProduct.id),
+          eq(
+            institutionProductEntitlements.capabilityKey,
+            capability.capabilityKey
+          )
+        )
+      )
+      .limit(1);
+    const entitlement = {
+      subscriptionId: qaIersSubscription.id,
+      entitlementStatus: "active" as const,
+      startsAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date(),
+    };
+    if (existingEntitlement) {
+      await db
+        .update(institutionProductEntitlements)
+        .set(entitlement)
+        .where(eq(institutionProductEntitlements.id, existingEntitlement.id));
+    } else {
+      await db.insert(institutionProductEntitlements).values({
+        institutionalAccountId: institution.id,
+        productId: iersProduct.id,
+        capabilityKey: capability.capabilityKey,
+        ...entitlement,
+      });
+    }
   }
   const roles = [
     [coordinatorId, SAMPLE_ACCOUNTS[0].email, "iers_coordinator"],
