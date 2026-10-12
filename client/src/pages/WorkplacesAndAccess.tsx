@@ -154,10 +154,11 @@ export default function WorkplacesAndAccess() {
                       >
                         {membershipLabel(membership.membershipStatus)}
                       </span>
-                      {membership.isPendingInvite ? (
+                      {membership.membershipStatus === "invited" ? (
                         <p className="mt-2 text-xs text-amber-800">
-                          Accept the invitation from your provider dashboard
-                          before institutional operations become available.
+                          Accept this institution invitation from your provider
+                          dashboard before institutional operations become
+                          available.
                         </p>
                       ) : null}
                       {membership.membershipStatus === "active" ? (
