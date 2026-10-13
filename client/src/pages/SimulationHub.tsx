@@ -139,8 +139,11 @@ export default function SimulationHub() {
     () => getSimulationScenarioCatalog(effectiveProgram).filter((scenario) => scenario.missionId === selectedMission.id),
     [effectiveProgram, selectedMission.id],
   );
-  const effectiveScenarioId = selectedScenarioId && scenarioCatalog.some((scenario) => scenario.id === selectedScenarioId)
-    ? selectedScenarioId
+  const requestedScenarioId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("scenario") : null;
+  const effectiveScenarioId = requestedScenarioId && scenarioCatalog.some((scenario) => scenario.id === requestedScenarioId)
+    ? requestedScenarioId
+    : selectedScenarioId && scenarioCatalog.some((scenario) => scenario.id === selectedScenarioId)
+      ? selectedScenarioId
     : scenarioCatalog[0]?.id ?? null;
   const roleEvidence = useMemo(() => {
     const map = new Map<string, { attempts: number; eligible: number }>();
@@ -209,14 +212,13 @@ export default function SimulationHub() {
     // Access/enrollment data arrives asynchronously. Do not erase a URL-backed
     // handoff while the initial (default-lane) catalog is still empty.
     if (!scenarioCatalog.length) return;
-    const requestedScenarioId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("scenario") : null;
-    const preferredScenarioId = selectedScenarioId ?? requestedScenarioId;
+    const preferredScenarioId = requestedScenarioId ?? selectedScenarioId;
     if (preferredScenarioId && scenarioCatalog.some((scenario) => scenario.id === preferredScenarioId)) {
       if (selectedScenarioId !== preferredScenarioId) setSelectedScenarioId(preferredScenarioId);
       return;
     }
     setSelectedScenarioId(scenarioCatalog[0]?.id ?? null);
-  }, [scenarioCatalog, selectedScenarioId]);
+  }, [requestedScenarioId, scenarioCatalog, selectedScenarioId]);
 
   useEffect(() => {
     if (stage === "map") void refreshLearningState();
