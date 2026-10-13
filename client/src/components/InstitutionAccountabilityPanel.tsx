@@ -42,6 +42,8 @@ export function InstitutionAccountabilityPanel({
 }) {
   const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [peopleFilter, setPeopleFilter] = useState<"all" | "action" | "expiring" | "learning">("all");
+  const [cadreFilter, setCadreFilter] = useState("all");
   const [message, setMessage] = useState("");
   const [evidenceCredentialId, setEvidenceCredentialId] = useState<number | null>(null);
   const dashboardQuery =
@@ -115,6 +117,14 @@ export function InstitutionAccountabilityPanel({
   const staff = (staffQuery.data ?? []).filter(
     row => row.userId != null && row.removedAt == null
   );
+  const cadres = Array.from(new Set(data.people.map(row => row.cadre).filter((value): value is NonNullable<typeof value> => Boolean(value)))).sort();
+  const filteredPeople = data.people.filter(row => {
+    if (cadreFilter !== "all" && row.cadre !== cadreFilter) return false;
+    if (peopleFilter === "action") return row.licenseStatus === "missing" || row.licenseStatus === "expired" || row.lifeSupportStatus === "missing" || row.lifeSupportStatus === "expired";
+    if (peopleFilter === "expiring") return row.licenseStatus === "expiring" || row.lifeSupportStatus === "expiring";
+    if (peopleFilter === "learning") return row.cpdStatus === "needs_support" || row.cpdStatus === "no_data" || row.lifeSupportStatus === "missing";
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -173,6 +183,18 @@ export function InstitutionAccountabilityPanel({
           tone="text-amber-700"
         />
       </div>
+
+      <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><AlertCircle className="h-5 w-5 text-amber-700" />Action queue</CardTitle>
+          <CardDescription>Start with the people and departments that need a decision, evidence request, or learning intervention.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-3">
+          <QueueCard label="Credential / Life Support action" value={data.people.filter(row => ["missing", "expired"].includes(row.licenseStatus) || ["missing", "expired"].includes(row.lifeSupportStatus)).length} onClick={() => setPeopleFilter("action")} />
+          <QueueCard label="Expiring soon" value={data.people.filter(row => row.licenseStatus === "expiring" || row.lifeSupportStatus === "expiring").length} onClick={() => setPeopleFilter("expiring")} />
+          <QueueCard label="Learning follow-up" value={data.people.filter(row => ["needs_support", "no_data"].includes(row.cpdStatus) || row.lifeSupportStatus === "missing").length} onClick={() => setPeopleFilter("learning")} />
+        </CardContent>
+      </Card>
 
       <Card className="border-rose-200 bg-rose-50/40 dark:border-rose-900/50 dark:bg-rose-950/20">
         <CardHeader>
@@ -287,6 +309,19 @@ export function InstitutionAccountabilityPanel({
             </CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
+            <div className="mb-4 flex flex-wrap gap-2 rounded-lg border bg-muted/20 p-3">
+              <select className="rounded-md border bg-background px-3 py-2 text-sm" value={peopleFilter} onChange={event => setPeopleFilter(event.target.value as typeof peopleFilter)} aria-label="Workforce review queue">
+                <option value="all">All staff</option>
+                <option value="action">Credential or Life Support action</option>
+                <option value="expiring">Expiring soon</option>
+                <option value="learning">Learning follow-up</option>
+              </select>
+              <select className="rounded-md border bg-background px-3 py-2 text-sm" value={cadreFilter} onChange={event => setCadreFilter(event.target.value)} aria-label="Filter by cadre">
+                <option value="all">All cadres</option>
+                {cadres.map(cadre => <option key={cadre} value={cadre}>{cadre}</option>)}
+              </select>
+              {peopleFilter !== "all" || cadreFilter !== "all" ? <Button type="button" size="sm" variant="ghost" onClick={() => { setPeopleFilter("all"); setCadreFilter("all"); }}>Clear filters</Button> : null}
+            </div>
             <table className="w-full min-w-[980px] text-sm">
               <thead>
                 <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -303,7 +338,7 @@ export function InstitutionAccountabilityPanel({
                 </tr>
               </thead>
               <tbody>
-                {data.people.map(row => (
+                {filteredPeople.map(row => (
                   <tr key={row.staffId} className="border-b last:border-0">
                     <td className="px-3 py-3 font-medium">{row.fullName}</td>
                     <td className="px-3 py-3">{row.department}</td>
@@ -394,6 +429,7 @@ export function InstitutionAccountabilityPanel({
                 ))}
               </tbody>
             </table>
+            {!filteredPeople.length ? <p className="py-4 text-sm text-muted-foreground">No staff match this review queue in your authorised scope.</p> : null}
             <p className="mt-4 text-xs text-muted-foreground">
               This data supports coaching and appraisal. It must not be used as
               a standalone measure of bedside competence, disciplinary action,
@@ -537,5 +573,23 @@ function MetricCard({
         <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
       </CardContent>
     </Card>
+  );
+}
+
+function QueueCard({
+  label: title,
+  value,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" className="rounded-lg border bg-background p-3 text-left transition hover:border-amber-500 hover:shadow-sm" onClick={onClick}>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{title}</p>
+      <p className="mt-1 text-2xl font-semibold text-amber-700">{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">Show in people queue</p>
+    </button>
   );
 }
