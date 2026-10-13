@@ -249,8 +249,16 @@ async function getCredentialAccess(
           institutionEducationCoordinators.institutionalAccountId,
           institutionId
         ),
-        eq(institutionEducationCoordinators.userId, user.id),
-        eq(institutionEducationCoordinators.assignmentStatus, "active")
+        or(
+          and(
+            eq(institutionEducationCoordinators.userId, user.id),
+            eq(institutionEducationCoordinators.assignmentStatus, "active")
+          ),
+          and(
+            eq(institutionEducationCoordinators.deputyUserId, user.id),
+            eq(institutionEducationCoordinators.deputyAssignmentStatus, "active")
+          )
+        )
       )
     );
   if (educationRows.length) {
@@ -389,8 +397,16 @@ export const institutionAccountabilityRouter = router({
       .from(institutionEducationCoordinators)
       .where(
         and(
-          eq(institutionEducationCoordinators.userId, ctx.user.id),
-          eq(institutionEducationCoordinators.assignmentStatus, "active")
+          or(
+            and(
+              eq(institutionEducationCoordinators.userId, ctx.user.id),
+              eq(institutionEducationCoordinators.assignmentStatus, "active")
+            ),
+            and(
+              eq(institutionEducationCoordinators.deputyUserId, ctx.user.id),
+              eq(institutionEducationCoordinators.deputyAssignmentStatus, "active")
+            )
+          )
         )
       );
     const credentialScopeRows = await db
