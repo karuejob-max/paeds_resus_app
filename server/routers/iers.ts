@@ -1407,6 +1407,7 @@ export const iersRouter = router({
         eq(institutionMemberships.membershipStatus, "active"),
       )).limit(1);
       if (!membership) throw new TRPCError({ code: "FORBIDDEN", message: "An active institutional membership is required to join this case." });
+      await assertCurrentClinicalLicence(db, ctx.user.id);
       const [snapshot] = await db.select().from(iersActivationTeamSnapshots).where(and(
         eq(iersActivationTeamSnapshots.activationEventId, row.event.id),
         eq(iersActivationTeamSnapshots.providerUserId, ctx.user.id),
@@ -1502,6 +1503,7 @@ export const iersRouter = router({
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "No responder assignment found for this activation." });
       const continuityDecision = await assertInstitutionProductCapability(db, assignment.event.institutionalAccountId, "iers", "iers.activation.respond");
       assertIersActivationContinuity(continuityDecision);
+      await assertCurrentClinicalLicence(db, ctx.user.id);
       if (["closed", "cancelled", "false_alarm"].includes(assignment.event.status)) {
         throw new TRPCError({ code: "CONFLICT", message: "This activation is already terminal; receipt cannot be added." });
       }

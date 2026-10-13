@@ -748,6 +748,25 @@ export const institutionAccountabilityRouter = router({
             "A regulatory licence can only be verified when evidence, licence number, first issue date, and Valid until date are all present.",
         });
       }
+      if (input.decision === "verified" && credential.expiresAt && credential.expiresAt <= new Date()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "An expired credential cannot be verified. Request current evidence or record it as rejected.",
+        });
+      }
+      const allowedTransitions: Record<string, string[]> = {
+        pending: ["verified", "rejected"],
+        rejected: ["verified"],
+        verified: ["revoked"],
+        revoked: [],
+        superseded: [],
+      };
+      if (!allowedTransitions[credential.status]?.includes(input.decision)) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `A ${credential.status} credential cannot be changed directly to ${input.decision}.`,
+        });
+      }
       await db
         .update(professionalCredentials)
         .set({
@@ -1486,7 +1505,11 @@ export const institutionAccountabilityRouter = router({
             endedAt: new Date(),
             updatedAt: new Date(),
           })
-          .where(eq(institutionDepartmentHeads.id, assignment.id));
+          .where(and(
+            eq(institutionDepartmentHeads.id, assignment.id),
+            eq(institutionDepartmentHeads.institutionalAccountId, input.institutionId),
+            eq(institutionDepartmentHeads.assignmentStatus, "active"),
+          ));
         await tx.insert(institutionDepartmentHeadEvents).values({
           institutionalAccountId: input.institutionId,
           departmentId: assignment.departmentId,
