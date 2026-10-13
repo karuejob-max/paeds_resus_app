@@ -2136,24 +2136,27 @@ export const cpdRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "This CPD event is no longer open for check-in." });
       }
       if (row.attendanceStatus === "attendance_verified") return { success: true as const, attendanceStatus: row.attendanceStatus };
+      if (["checked_in", "excused", "cancelled"].includes(row.attendanceStatus)) {
+        return { success: true as const, attendanceStatus: row.attendanceStatus };
+      }
       const now = new Date();
       await db.update(cpdAttendees).set({
-        attendanceStatus: "attendance_verified",
+        attendanceStatus: "checked_in",
         checkedInAt: now,
-        attendanceVerifiedAt: now,
-        attendanceVerifiedByUserId: ctx.user.id,
-        attendanceReviewReason: "System verified through authenticated self-service event check-in",
+        attendanceVerifiedAt: null,
+        attendanceVerifiedByUserId: null,
+        attendanceReviewReason: "Authenticated self-service check-in recorded; coordinator verification required",
       }).where(eq(cpdAttendees.id, input.attendeeId));
       await db.insert(cpdAttendanceAuditEvents).values({
         institutionalAccountId: row.institutionalAccountId,
         cpdEventId: row.eventId,
         cpdAttendeeId: row.attendeeId,
         previousStatus: row.attendanceStatus,
-        nextStatus: "attendance_verified",
-        reason: "System verified through authenticated self-service event check-in",
+        nextStatus: "checked_in",
+        reason: "Authenticated self-service check-in recorded; coordinator verification required",
         actorUserId: ctx.user.id,
       });
-      return { success: true as const, attendanceStatus: "attendance_verified" as const };
+      return { success: true as const, attendanceStatus: "checked_in" as const };
     }),
 
   /** Admin/reviewer: review one attendance record; verified is the only countable state. */
