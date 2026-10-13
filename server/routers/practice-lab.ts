@@ -144,6 +144,12 @@ export const practiceLabRouter = router({
       const [enrollment] = await db.select({ id: enrollments.id, userId: enrollments.userId, programType: enrollments.programType })
         .from(enrollments).where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id))).limit(1);
       if (!enrollment || enrollment.programType !== "acls") throw new TRPCError({ code: "FORBIDDEN", message: "An Adult ACLS enrollment is required for this simulation" });
+      await db.update(simulationWorldSessions).set({ status: "abandoned", authorityState: "invalidated" }).where(and(
+        eq(simulationWorldSessions.userId, ctx.user.id),
+        eq(simulationWorldSessions.enrollmentId, input.enrollmentId),
+        eq(simulationWorldSessions.programType, "acls"),
+        eq(simulationWorldSessions.status, "active"),
+      ));
       const sessionNonce = randomBytes(32).toString("hex");
       const authoritativeState = createAdultAclsSimulation(input.scenarioId, input.role);
       if (authoritativeState.scenarioId !== input.scenarioId) {

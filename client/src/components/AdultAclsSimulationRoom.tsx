@@ -11,6 +11,7 @@ import {
   type AdultAclsScenarioId,
   type AdultAclsState,
 } from "@shared/adult-acls-simulation-world";
+import { decideAdultAclsResume } from "@shared/adult-acls-session-policy";
 import type { SimulationWorldRole } from "@shared/simulation-world";
 
 type CompletionSummary = {
@@ -79,7 +80,7 @@ export function AdultAclsSimulationRoom({ enrollmentId, onComplete, onExit, init
   const [exitRequested, setExitRequested] = useState(false);
   const sequence = useRef(0);
   const start = trpc.practiceLab.startAdultAclsSession.useMutation();
-  const activeSession = trpc.practiceLab.getActiveAdultAclsSession.useQuery({ enrollmentId }, { staleTime: 10_000 });
+  const activeSession = trpc.practiceLab.getActiveAdultAclsSession.useQuery({ enrollmentId }, { staleTime: 10_000, refetchOnMount: "always" });
   const invalidate = trpc.practiceLab.invalidateAdultAclsSession.useMutation();
   const receive = trpc.practiceLab.receiveAdultAclsCommand.useMutation();
   const complete = trpc.practiceLab.completeAdultAclsSession.useMutation();
@@ -89,8 +90,18 @@ export function AdultAclsSimulationRoom({ enrollmentId, onComplete, onExit, init
   const commandByLabel = useMemo(() => new Map(COMMANDS.map((item) => [item.label, item])), []);
 
   useEffect(() => {
-    if (session || completion || !activeSession.data) return;
+    if (session || completion) return;
     const resumed = activeSession.data;
+    const decision = decideAdultAclsResume({
+      isFetching: activeSession.isFetching,
+      activeScenarioId: resumed?.scenarioId ?? null,
+      selectedScenarioId: scenarioId,
+    });
+    if (decision === "wait" || !resumed) return;
+    if (decision === "start_selected") {
+      setLaunchError(`An unfinished ${ADULT_ACLS_SCENARIOS.find((item) => item.id === resumed.scenarioId)?.title ?? "Adult ACLS"} rehearsal was found. Choose Enter adult ACLS room to start the selected ${scenario.title} scenario; the stale session will be closed safely.`);
+      return;
+    }
     setScenarioId(resumed.scenarioId as AdultAclsScenarioId);
     setSession({ id: resumed.sessionId, nonce: resumed.sessionNonce });
     setState(resumed.authoritativeState);
