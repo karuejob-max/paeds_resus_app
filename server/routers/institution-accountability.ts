@@ -34,6 +34,7 @@ import { evaluateClinicalLicenceRows } from "../lib/professional-credential-safe
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { loadInstitutionLearningDashboard } from "../lib/institution-learning-dashboard";
 import { storageGet, storagePut } from "../storage";
+import { sendEmail } from "../email-service";
 import {
   syncDerivedCredentialsForUser,
   syncDerivedCredentialsForUsers,
@@ -639,6 +640,12 @@ export const institutionAccountabilityRouter = router({
           message: "Valid until must be after the Issue date.",
         });
       }
+      if (issuedAt && issuedAt > new Date()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Issue date cannot be in the future.",
+        });
+      }
 
       let evidenceKey: string | undefined;
       let evidenceSizeBytes: number | undefined;
@@ -875,6 +882,34 @@ export const institutionAccountabilityRouter = router({
           updatedAt: new Date(),
         })
         .where(eq(professionalCredentials.id, credential.id));
+      const [recipient] = await db
+        .select({ name: users.name, email: users.email })
+        .from(users)
+        .where(eq(users.id, credential.userId))
+        .limit(1);
+      const decisionLabel = input.decision === "verified" ? "verified" : input.decision;
+      const credentialLabel = credential.credentialType.replaceAll("_", " ");
+      const notificationBody = `Your ${credentialLabel} was ${decisionLabel}. Feedback: ${input.reason}`;
+      await db.insert(inAppNotifications).values({
+        userId: credential.userId,
+        type: "credential_review_decision",
+        domain: "professional_credentials",
+        severity: input.decision === "verified" ? "success" : "warning",
+        requiresAction: input.decision !== "verified",
+        title: `Credential ${decisionLabel}`,
+        body: notificationBody,
+        actionUrl: "/provider-profile",
+        relatedId: credential.id,
+        dataJson: JSON.stringify({ decision: input.decision, reason: input.reason }),
+      });
+      if (recipient?.email) {
+        void sendEmail(recipient.email, "credentialReviewDecision", {
+          userName: recipient.name?.trim() || "Provider",
+          credentialType: credentialLabel,
+          decision: decisionLabel,
+          reason: input.reason,
+        }, "ses").catch(error => console.warn("[credential-review] email delivery failed", error));
+      }
       return { success: true as const, decision: input.decision };
     }),
 

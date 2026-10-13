@@ -1332,6 +1332,25 @@ export const cpdRouter = router({
         relationship: input.facilityRelationship,
       });
 
+      // Background facility reconciliation preserves conflicting department
+      // data for safety. This is different: a signed-in provider has just
+      // explicitly declared a permanent department for this institution, so
+      // update the institution-scoped projection used by the homepage too.
+      if (input.facilityRelationship === "permanent_facility") {
+        await db
+          .update(institutionalStaffMembers)
+          .set({
+            department: resolvedDepartment,
+            facilityDepartmentId: resolvedFacilityDepartmentId,
+            updatedAt: new Date(),
+          })
+          .where(and(
+            eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+            eq(institutionalStaffMembers.userId, ctx.user.id),
+            sql`${institutionalStaffMembers.removedAt} IS NULL`,
+          ));
+      }
+
       return {
         success: true as const,
         attendeeId: registrationResult.insertId,
