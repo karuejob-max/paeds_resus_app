@@ -86,13 +86,13 @@ async function startServer() {
       const [tables] = await db.execute(sql`
         SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
         WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME IN ('users', 'certificates', 'microCourses')
+          AND TABLE_NAME IN ('users', 'certificates', 'microCourses', 'enrollments', 'payments', 'institutionalAccounts', 'institutionMemberships', 'institutionProductEntitlements', 'inAppNotifications', 'userNotificationPreferences', 'mpesaWebhookLog')
       `);
       const names = new Set((tables as unknown as Array<{ TABLE_NAME?: string }>).map((row) => row.TABLE_NAME));
-      const required = ['users', 'certificates', 'microCourses'];
+      const required = ['users', 'certificates', 'microCourses', 'enrollments', 'payments', 'institutionalAccounts', 'institutionMemberships', 'institutionProductEntitlements', 'inAppNotifications', 'userNotificationPreferences', 'mpesaWebhookLog'];
       const missing = required.filter((table) => !names.has(table));
-      if (missing.length > 0) return res.status(503).json({ ok: false, status: "not_ready", reason: "schema_incomplete", missing });
-      return res.status(200).json({ ok: true, status: "ready", schema: "core" });
+      if (missing.length > 0) return res.status(503).json({ ok: false, status: "not_ready", reason: "critical_schema_incomplete", missing });
+      return res.status(200).json({ ok: true, status: "ready", schema: "critical-platform" });
     } catch (error) {
       return res.status(503).json({ ok: false, status: "not_ready", reason: "readiness_probe_failed", detail: error instanceof Error ? error.message : "unknown" });
     }

@@ -56,6 +56,9 @@ jobs:
       - name: Shape CI database schema (drizzle-kit push, not migrate -- see WORK_STATUS.md for why)
         run: npx drizzle-kit push --force
 
+      - name: Verify critical platform schema contract
+        run: pnpm run db:verify-critical-schema
+
       - name: Typecheck, clinical lint (app + service worker)
         run: pnpm run check
 
