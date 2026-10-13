@@ -206,9 +206,16 @@ export default function SimulationHub() {
   }, [eligibleMissions, selectedMissionId]);
 
   useEffect(() => {
-    if (!scenarioCatalog.some((scenario) => scenario.id === selectedScenarioId)) {
-      setSelectedScenarioId(scenarioCatalog[0]?.id ?? null);
+    // Access/enrollment data arrives asynchronously. Do not erase a URL-backed
+    // handoff while the initial (default-lane) catalog is still empty.
+    if (!scenarioCatalog.length) return;
+    const requestedScenarioId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("scenario") : null;
+    const preferredScenarioId = selectedScenarioId ?? requestedScenarioId;
+    if (preferredScenarioId && scenarioCatalog.some((scenario) => scenario.id === preferredScenarioId)) {
+      if (selectedScenarioId !== preferredScenarioId) setSelectedScenarioId(preferredScenarioId);
+      return;
     }
+    setSelectedScenarioId(scenarioCatalog[0]?.id ?? null);
   }, [scenarioCatalog, selectedScenarioId]);
 
   useEffect(() => {
