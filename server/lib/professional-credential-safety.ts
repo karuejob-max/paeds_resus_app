@@ -7,9 +7,11 @@ type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
 type ClinicalLicenceRow = {
   status: string;
+  jurisdiction: string | null;
   credentialNumber: string | null;
   issuedAt: Date | null;
   expiresAt: Date | null;
+  evidenceKey: string | null;
 };
 
 export type ClinicalLicenceDecision =
@@ -19,6 +21,8 @@ export type ClinicalLicenceDecision =
       reason:
         | "missing"
         | "unverified"
+        | "missing_evidence"
+        | "missing_jurisdiction"
         | "missing_number"
         | "missing_dates"
         | "future_issue_date"
@@ -39,6 +43,8 @@ export function evaluateClinicalLicenceRows(
 
   const verified = rows.find(row => row.status === "verified");
   if (!verified) return { allowed: false, reason: "unverified" };
+  if (!verified.evidenceKey) return { allowed: false, reason: "missing_evidence" };
+  if (!verified.jurisdiction?.trim()) return { allowed: false, reason: "missing_jurisdiction" };
   if (!verified.credentialNumber?.trim()) {
     return { allowed: false, reason: "missing_number" };
   }
@@ -62,6 +68,10 @@ export function clinicalLicenceBlockMessage(reason: Exclude<ClinicalLicenceDecis
       return "Your licence number is stored in your older profile record, but ERCo acceptance requires a verified regulatory licence with evidence under Professional Credentials. Open Professional Credentials and submit the licence there.";
     case "unverified":
       return "Your regulatory licence must be verified under Professional Credentials before accepting an ERT clinical responsibility.";
+    case "missing_evidence":
+      return "Attach regulatory licence evidence under Professional Credentials before accepting an ERT clinical responsibility.";
+    case "missing_jurisdiction":
+      return "Add the licence jurisdiction under Professional Credentials before accepting an ERT clinical responsibility.";
     case "missing_number":
       return "Your verified regulatory licence must include a Licence number before accepting an ERT clinical responsibility.";
     case "missing_dates":
@@ -81,9 +91,11 @@ export async function getClinicalLicenceDecision(
   const rows = await db
     .select({
       status: professionalCredentials.status,
+      jurisdiction: professionalCredentials.jurisdiction,
       credentialNumber: professionalCredentials.credentialNumber,
       issuedAt: professionalCredentials.issuedAt,
       expiresAt: professionalCredentials.expiresAt,
+      evidenceKey: professionalCredentials.evidenceKey,
     })
     .from(professionalCredentials)
     .where(
