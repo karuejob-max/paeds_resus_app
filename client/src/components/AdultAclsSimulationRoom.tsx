@@ -90,7 +90,17 @@ export function AdultAclsSimulationRoom({ enrollmentId, onComplete, onExit, init
   const commandByLabel = useMemo(() => new Map(COMMANDS.map((item) => [item.label, item])), []);
 
   useEffect(() => {
+    // The Hub can mount this room while the handoff prop is settling. Synchronize
+    // the explicit choice before the resume effect is allowed to inspect an
+    // existing session; otherwise a default/stale scenario can win the race.
+    if (session || completion || !initialScenarioId || initialScenarioId === scenarioId) return;
+    setScenarioId(initialScenarioId);
+    setLaunchError(null);
+  }, [completion, initialScenarioId, scenarioId, session]);
+
+  useEffect(() => {
     if (session || completion) return;
+    if (initialScenarioId && scenarioId !== initialScenarioId) return;
     const resumed = activeSession.data;
     const decision = decideAdultAclsResume({
       isFetching: activeSession.isFetching,
@@ -106,7 +116,7 @@ export function AdultAclsSimulationRoom({ enrollmentId, onComplete, onExit, init
     setSession({ id: resumed.sessionId, nonce: resumed.sessionNonce });
     setState(resumed.authoritativeState);
     sequence.current = resumed.nextSequence;
-  }, [activeSession.data, completion, session]);
+  }, [activeSession.data, activeSession.isFetching, completion, initialScenarioId, scenarioId, scenario.title, session]);
 
   const begin = async () => {
     setLaunchError(null);

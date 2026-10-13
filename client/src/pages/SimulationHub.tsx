@@ -216,7 +216,12 @@ export default function SimulationHub() {
     const missionEnrollment = eligibleEnrollments.find((enrollment) => enrollment.id === effectiveEnrollmentId) ?? eligibleEnrollments[0];
     if (!missionEnrollment) return;
     if (missionEnrollment.id !== enrollmentId) setEnrollmentId(missionEnrollment.id);
-    setPlayingScenarioId(effectiveScenarioId);
+    // Capture the learner's explicit choice at the handoff boundary. Do not rely
+    // on a derived fallback that may still reflect the previous mission render.
+    const handoffScenarioId = selectedScenarioId && scenarioCatalog.some((scenario) => scenario.id === selectedScenarioId)
+      ? selectedScenarioId
+      : effectiveScenarioId;
+    setPlayingScenarioId(handoffScenarioId);
     setStage("playing");
   };
 
