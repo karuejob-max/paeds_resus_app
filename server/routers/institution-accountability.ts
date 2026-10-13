@@ -606,6 +606,7 @@ export const institutionAccountabilityRouter = router({
         }
         if (
           !input.jurisdiction ||
+          !input.cadre ||
           !input.credentialNumber ||
           !input.issuedAt ||
           !input.expiresAt ||
@@ -616,7 +617,7 @@ export const institutionAccountabilityRouter = router({
           throw new TRPCError({
             code: "BAD_REQUEST",
             message:
-              "Licence jurisdiction, Licence number, first Licence issue date, Valid until, and licence evidence are required.",
+              "Licence jurisdiction, professional cadre, Licence number, first Licence issue date, Valid until, and licence evidence are required.",
           });
         }
       } else if (

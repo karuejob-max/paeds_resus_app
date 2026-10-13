@@ -64,6 +64,7 @@ export function ProviderCredentialsCard() {
   const [issuerTouched, setIssuerTouched] = useState(false);
   const [countryCode, setCountryCode] = useState("");
   const [jurisdiction, setJurisdiction] = useState("");
+  const [cadre, setCadre] = useState("");
   const [credentialNumber, setCredentialNumber] = useState("");
   const [issuedAt, setIssuedAt] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
@@ -123,6 +124,13 @@ export function ProviderCredentialsCard() {
     }
   }, [credentialsQuery.data, issuer, jurisdiction]);
 
+  useEffect(() => {
+    if (!cadre) {
+      const profileCadre = (user as { cadre?: string | null } | null | undefined)?.cadre?.trim();
+      if (profileCadre) setCadre(profileCadre);
+    }
+  }, [cadre, user]);
+
   const derived = useMemo(
     () =>
       (credentialsQuery.data ?? []).filter(
@@ -147,6 +155,7 @@ export function ProviderCredentialsCard() {
     }
     const missing = [
       !issuer.trim() && "issuing organisation",
+      isRegulatory && !cadre.trim() && "professional cadre",
       isRegulatory && !credentialNumber.trim() && "licence number",
       !issuedAt && (isRegulatory ? "first licence issue date" : "issue date"),
       !expiresAt && "Valid until date",
@@ -187,7 +196,8 @@ export function ProviderCredentialsCard() {
           isNurse: isNurseProfile,
         }),
         jurisdiction: selectedCountryName || jurisdiction || undefined,
-        credentialNumber: credentialNumber || undefined,
+        cadre: cadre.trim() || undefined,
+        credentialNumber: credentialNumber.trim() || undefined,
         issuedAt: issuedAt || undefined,
         expiresAt: expiresAt || undefined,
         evidenceBase64,
@@ -263,8 +273,10 @@ export function ProviderCredentialsCard() {
               For a regulatory licence, choose your jurisdiction first. The
               licensing body is suggested from your country and professional
               identity, but you can edit it when your regulator is regional or
-              profession-specific. Enter the Licence number, the date your first
-              professional licence was issued, its Valid until date, and upload
+              profession-specific. Enter your professional cadre separately from
+              the current regulator-issued Licence number. Do not enter a cadre,
+              registration, index, degree, or qualification number in the Licence
+              number field. Add the first licence date, Valid until date, and
               evidence for review. Maximum file size is 5 MB; PDF, JPG, and PNG
               are accepted.
             </p>
@@ -306,6 +318,21 @@ export function ProviderCredentialsCard() {
                 required
               />
             </label>
+            {isRegulatory && (
+              <label className="space-y-1 text-sm">
+                <span className="font-medium">Professional cadre *</span>
+                <input
+                  className="w-full rounded-md border bg-background px-3 py-2"
+                  value={cadre}
+                  onChange={event => setCadre(event.target.value)}
+                  placeholder="e.g., KRCHN, KRPCCN, KRN, BScN"
+                  required
+                />
+                <span className="block text-xs text-muted-foreground">
+                  Use one cadre per licence record. Submit separate records when each cadre has a separate current licence.
+                </span>
+              </label>
+            )}
             {isRegulatory ? (
               <label className="space-y-1 text-sm">
                 <span className="font-medium">Licence jurisdiction / country *</span>
@@ -342,7 +369,7 @@ export function ProviderCredentialsCard() {
                 className="w-full rounded-md border bg-background px-3 py-2"
                 value={credentialNumber}
                 onChange={event => setCredentialNumber(event.target.value)}
-                placeholder={isRegulatory ? "Enter your regulatory licence number" : "Optional course reference"}
+                placeholder={isRegulatory ? "Number printed as Licence Number on the current regulator licence" : "Optional course reference"}
                 required={isRegulatory}
               />
             </label>
