@@ -82,6 +82,10 @@ export default function SimulationHub() {
   // the learner has a valid ACLS enrollment.
   const effectiveProgram = (selectedEnrollment?.programType ?? programType) as PracticeLabProgramType;
   const effectiveEnrollmentId = selectedEnrollment?.id ?? enrollmentId;
+  const { data: phase2Status } = trpc.practiceLab.getPhase2AutomationStatus.useQuery(
+    { enrollmentId: effectiveEnrollmentId ?? 0 },
+    { enabled: Boolean(effectiveEnrollmentId && access?.hasAccess), staleTime: 10_000 },
+  );
   const { data: attempts = [], refetch: refetchAttempts } = trpc.practiceLab.getMyAttempts.useQuery(
     { limit: 100 },
     { enabled: Boolean(access?.hasAccess), staleTime: 15_000 },
@@ -286,6 +290,11 @@ export default function SimulationHub() {
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4"><Brain className="h-4 w-4 text-violet-300" /><p className="mt-2 text-xl font-bold sm:mt-3 sm:text-2xl">{Object.values(progress).reduce((total, item) => total + item.attempts, 0)}</p><p className="text-[11px] leading-4 text-slate-400 sm:text-xs">course rehearsals completed</p></div>
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4"><ShieldAlert className="h-4 w-4 text-rose-300" /><p className="mt-2 text-xl font-bold sm:mt-3 sm:text-2xl">Safe to fail</p><p className="text-[11px] leading-4 text-slate-400 sm:text-xs">errors become coaching</p></div>
           </div>
+
+          {phase2Status && <Card className={`border ${phase2Status.phase2Ready ? "border-emerald-400/50 bg-emerald-400/10" : "border-cyan-400/30 bg-cyan-400/10"} text-white`}>
+            <CardHeader className="pb-2"><CardTitle className="flex items-center justify-between gap-3 text-base"><span>Phase 2 automated mastery</span><Badge className={phase2Status.phase2Ready ? "bg-emerald-400/20 text-emerald-100" : "bg-cyan-400/20 text-cyan-100"}>{phase2Status.completedRequirements}/{phase2Status.totalRequirements} requirements</Badge></CardTitle><CardDescription className="text-slate-300">The server evaluates your saved simulation rehearsals for this course. No instructor is needed to facilitate Phase 2.</CardDescription></CardHeader>
+            <CardContent className="space-y-3"><p className="text-sm text-slate-100">{phase2Status.nextAction}</p><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{phase2Status.requirements.map((requirement) => <div key={requirement.id} className="rounded-lg bg-slate-950/60 p-3 text-xs"><div className="flex items-start justify-between gap-2"><span className="font-semibold text-slate-100">{requirement.label}</span><span className={requirement.complete ? "text-emerald-300" : "text-amber-200"}>{requirement.complete ? "Complete" : `${requirement.attempts}/${requirement.requiredAttempts}`}</span></div><p className="mt-1 text-slate-400">Best qualifying score: {requirement.bestScore}% · target {requirement.minimumScore}%</p></div>)}</div><p className="text-[11px] leading-5 text-slate-400">Automated mastery makes you eligible for the governed next step; it does not issue an AHA credential or approve Phase 3 practical skills.</p></CardContent>
+          </Card>}
 
           {stage === "map" && (
             <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
