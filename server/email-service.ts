@@ -29,6 +29,14 @@ export interface EmailOptions {
 
 // Email templates for different scenarios
 export const emailTemplates: Record<string, EmailTemplate> = {
+  credentialReviewDecision: {
+    id: "credential-review-decision",
+    name: "Professional Credential Review Decision",
+    subject: "Your Paeds Resus credential review is {{decision}}",
+    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;"><h2>Professional credential review</h2><p>Hello {{userName}},</p><p>Your {{credentialType}} submitted to Paeds Resus has been <strong>{{decision}}</strong>.</p><p><strong>Reviewer feedback:</strong> {{reason}}</p><p>Sign in to your Professional Profile to review the credential status and next steps. A verified credential may still be subject to expiry and role-specific safety requirements.</p><p>Paeds Resus Team</p></div>`,
+    text: `Professional credential review\n\nHello {{userName}},\n\nYour {{credentialType}} submitted to Paeds Resus has been {{decision}}.\n\nReviewer feedback: {{reason}}\n\nSign in to your Professional Profile to review the credential status and next steps.\n\nPaeds Resus Team`,
+    variables: ["userName", "credentialType", "decision", "reason"],
+  },
   institutionProviderInvitation: {
     id: "institution-provider-invitation",
     name: "Institution Provider Invitation",

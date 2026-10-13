@@ -22,6 +22,10 @@ export const GLOBAL_DEPARTMENTS: ParentDepartmentOption[] = [
     subs: ["Male Surgical", "Female Surgical", "Private Ward", "Theatre"]
   },
   {
+    name: "Surgical Department",
+    subs: ["Male Surgical", "Female Surgical", "Private Ward", "Theatre"]
+  },
+  {
     name: "Obstetrics and Gyenocology (Maternity)",
     subs: ["Maternity"]
   },
@@ -82,6 +86,7 @@ export const CANONICAL_CLINICAL_DEPARTMENTS: ClinicalDepartmentOption[] = [
   { id: "nbu", name: "New Born Unit (NBU)", category: "clinical" },
   { id: "internal_medicine", name: "Internal Medicine", category: "clinical" },
   { id: "surgery", name: "Surgery", category: "clinical" },
+  { id: "surgical_department", name: "Surgical Department", category: "clinical" },
   { id: "male_surgical", name: "Male Surgical", category: "clinical" },
   { id: "female_surgical", name: "Female Surgical", category: "clinical" },
   { id: "theatre", name: "Theatre", category: "clinical" },

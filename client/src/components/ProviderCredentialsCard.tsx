@@ -145,6 +145,36 @@ export function ProviderCredentialsCard() {
       setMessage("Select the country where your regulatory licence is held.");
       return;
     }
+    const missing = [
+      !issuer.trim() && "issuing organisation",
+      isRegulatory && !credentialNumber.trim() && "licence number",
+      !issuedAt && (isRegulatory ? "first licence issue date" : "issue date"),
+      !expiresAt && "Valid until date",
+      !evidenceFile && "evidence file",
+    ].filter(Boolean) as string[];
+    if (missing.length) {
+      setMessage(`Complete the following before submitting: ${missing.join(", ")}.`);
+      return;
+    }
+    if (issuedAt && expiresAt && issuedAt >= expiresAt) {
+      setMessage("The Valid until date must be after the issue date.");
+      return;
+    }
+    if (issuedAt && new Date(`${issuedAt}T00:00:00`) > new Date()) {
+      setMessage("The issue date cannot be in the future.");
+      return;
+    }
+    if (evidenceFile) {
+      const allowedTypes = new Set(["application/pdf", "image/jpeg", "image/png"]);
+      if (!allowedTypes.has(evidenceFile.type)) {
+        setMessage("Evidence must be a PDF, JPG, or PNG file.");
+        return;
+      }
+      if (evidenceFile.size > 5 * 1024 * 1024) {
+        setMessage("Evidence files must be 5 MB or smaller.");
+        return;
+      }
+    }
     try {
       const evidenceBase64 = evidenceFile
         ? await asDataUrl(evidenceFile)
