@@ -5,6 +5,7 @@ import { trpc } from "@/lib/trpc";
 import { getOfflineSnapshot, getOfflineSnapshotFreshness, offlineStoreKeys, saveOfflineSnapshot, type OfflineSnapshotFreshness } from "@/lib/offline/platformOfflineStore";
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import ProviderTodayActivationCard from "@/components/ProviderTodayActivationCard";
+import { ProviderOrientationActionCentre } from "@/components/OrientationActionCentre";
 import IersNotificationSetup from "@/components/IersNotificationSetup";
 import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
 import { Badge } from "@/components/ui/badge";
@@ -406,6 +407,18 @@ export default function ProviderToday() {
             {activeMemberships.length > 1 && <Badge variant="outline" className="ml-auto shrink-0">Review in Records</Badge>}
           </div>
         ) : null}
+
+        <ProviderOrientationActionCentre
+          attention={attention}
+          hasActiveMembership={hasActiveMembership}
+          activeMembershipCount={activeMemberships.length}
+          hasPendingMembership={Boolean(pendingMembership)}
+          onOpenProfile={() => setLocation("/provider-profile")}
+          onOpenShift={() => setLocation("/my-shift")}
+          onOpenLearn={() => setLocation("/learn")}
+          onOpenRecords={() => setLocation("/workplaces")}
+          onOpenResus={() => setLocation("/resus")}
+        />
 
         {hasOfflineSnapshot && (
           <Alert className="border-amber-200 bg-amber-50 text-amber-950">

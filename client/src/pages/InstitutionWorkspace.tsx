@@ -306,9 +306,14 @@ export default function InstitutionWorkspace() {
               <InstitutionHomePanel
               institutionId={institutionId}
               iersEnabled={iersEnabled}
+              isInstitutionAdmin={isInstitutionAdmin}
+              roleKeys={roleKeys}
+              canViewAccountability={canViewAccountability}
+              hasCpdRole={hasCpdRole}
               onOpenLearning={() => setSection("learning")}
               onOpenReadiness={() => { setSection("iers"); setIersTab("report"); }}
               onOpenAdministration={() => setSection("administration")}
+              onOpenAccountability={() => setSection("accountability")}
             />
             {(!iersEnabled || !cpdEnabled) && (
               <Alert>
