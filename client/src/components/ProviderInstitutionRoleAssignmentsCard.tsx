@@ -82,6 +82,7 @@ export default function ProviderInstitutionRoleAssignmentsCard() {
                     {row.kind === "erco" && <Button asChild size="sm" variant="outline"><a href="/provider-iers-staffing">Manage department UTL staffing</a></Button>}
                     {row.kind === "head" && <Button asChild size="sm" variant="outline"><a href={`/institution?section=learning&learningTab=cpd&institutionId=${row.institutionId}`}>Manage department CPD role</a></Button>}
                     {row.kind === "education" && <Button asChild size="sm" variant="outline"><a href={`/institution?section=learning&learningTab=cpd&institutionId=${row.institutionId}`}>Open CPD Coordinator workspace</a></Button>}
+                    {(row.kind === "head" || row.kind === "education") && <Button asChild size="sm"><a href={`/institution?section=accountability&institutionId=${row.institutionId}`}>Open staff review queue</a></Button>}
                   </div>
                 </div>
               ) : row.declineReason ? <p className="mt-2 text-xs text-red-800">Declined: {row.declineReason}</p> : null}
