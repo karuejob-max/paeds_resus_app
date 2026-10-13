@@ -7,6 +7,7 @@ import { Link } from "wouter";
 import { ProviderProfileForm } from "@/components/ProviderProfileForm";
 import { ProfessionalIdentityCard } from "@/components/ProfessionalIdentityCard";
 import { IerpInternProfileCard } from "@/components/IerpInternProfileCard";
+import { ProviderCredentialsCard } from "@/components/ProviderCredentialsCard";
 
 export default function ProviderProfile() {
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
@@ -31,7 +32,7 @@ export default function ProviderProfile() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Professional profile</h1>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Keep your professional identity and provider information accurate. Choose cadre and specialization once in Professional Identity, record experience and workplace context here, and use My Records for evidence-backed licences, certificates, and other professional records. Account security and workplace access remain separate so one field is not mistaken for another.
+            Keep your professional identity, licence evidence, and provider information accurate in one place. Account security and workplace access remain separate so one field is not mistaken for another.
           </p>
           {profile?.department ? (
             <p className="mt-2 text-sm font-medium text-primary">Current workplace department: {profile.department}{" "}<Link href="/workplaces" className="underline">Change</Link></p>
@@ -58,12 +59,20 @@ export default function ProviderProfile() {
         <IerpInternProfileCard />
         <ProviderProfileForm />
 
+        <section id="professional-credentials" aria-labelledby="professional-credentials-heading" className="space-y-3">
+          <div>
+            <h2 id="professional-credentials-heading" className="text-xl font-semibold text-foreground">Professional credentials</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Enter your regulatory licence here. The same verified record is used when you accept clinical institutional roles.</p>
+          </div>
+          <ProviderCredentialsCard />
+        </section>
+
         <Card className="border-blue-200 bg-blue-50/60 dark:border-blue-900/50 dark:bg-blue-950/20">
           <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="font-semibold text-blue-950 dark:text-blue-100">Professional records</h2>
               <p className="mt-1 text-sm text-blue-900/80 dark:text-blue-100/80">
-                Upload and manage regulatory licences, external certificates, Paeds Resus credentials, CPD, and Fellowship records in one place.
+                Certificates, CPD, and Fellowship records remain available in My Records. Regulatory licences are managed above in your Professional Profile.
               </p>
             </div>
             <Link href="/records"><Button type="button" variant="outline">Open My Records</Button></Link>
