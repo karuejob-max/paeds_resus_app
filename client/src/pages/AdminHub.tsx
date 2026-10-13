@@ -85,9 +85,16 @@ export default function AdminHub() {
       </header>
 
       <section
-        className="grid gap-4 md:grid-cols-3"
+        className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"
         aria-label="Priority admin actions"
       >
+        <PriorityCard
+          title="Credential verification"
+          description="Review professional licences and external clinical evidence awaiting a decision."
+          href="/admin/credential-verification"
+          icon={<Shield className="h-5 w-5 text-indigo-600" />}
+          action="Open verification"
+        />
         <PriorityCard
           title="Access grants"
           description="Issue named, auditable free or discounted programme access."

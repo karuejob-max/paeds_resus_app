@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   cpdEvents,
@@ -19,7 +19,7 @@ import {
   professionalCredentials,
   users,
 } from "../../drizzle/schema";
-import { protectedProcedure, router } from "../_core/trpc";
+import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import {
   assertInstitutionAccess,
@@ -269,6 +269,56 @@ function activeAssignmentKey(
 }
 
 export const institutionAccountabilityRouter = router({
+  /** Platform-admin queue for professional evidence that still needs a decision. */
+  listCredentialReviewQueue: adminProcedure
+    .input(z.object({ search: z.string().trim().max(120).optional(), limit: z.number().int().min(1).max(200).default(100) }))
+    .query(async ({ input }) => {
+      const db = await requireDb();
+      const search = input.search ? `%${input.search}%` : undefined;
+      const rows = await db
+        .select({
+          credential: professionalCredentials,
+          userName: users.name,
+          userEmail: users.email,
+          institutionId: institutionalAccounts.id,
+          institutionName: institutionalAccounts.companyName,
+          departmentId: institutionalStaffMembers.facilityDepartmentId,
+        })
+        .from(professionalCredentials)
+        .innerJoin(users, eq(users.id, professionalCredentials.userId))
+        .leftJoin(institutionalStaffMembers, and(
+          eq(institutionalStaffMembers.userId, professionalCredentials.userId),
+          isNull(institutionalStaffMembers.removedAt),
+        ))
+        .leftJoin(institutionalAccounts, eq(institutionalAccounts.id, institutionalStaffMembers.institutionalAccountId))
+        .where(and(
+          eq(professionalCredentials.status, "pending"),
+          search ? or(like(users.name, search), like(users.email, search), like(professionalCredentials.issuer, search), like(professionalCredentials.credentialNumber, search)) : undefined,
+        ))
+        .orderBy(asc(professionalCredentials.createdAt))
+        .limit(input.limit);
+      return rows.map(row => ({
+        id: row.credential.id,
+        userId: row.credential.userId,
+        userName: row.userName,
+        userEmail: row.userEmail,
+        institutionId: row.institutionId,
+        institutionName: row.institutionName,
+        departmentId: row.departmentId,
+        credentialType: row.credential.credentialType,
+        sourceType: row.credential.sourceType,
+        issuer: row.credential.issuer,
+        jurisdiction: row.credential.jurisdiction,
+        cadre: row.credential.cadre,
+        credentialNumber: row.credential.credentialNumber,
+        issuedAt: row.credential.issuedAt,
+        expiresAt: row.credential.expiresAt,
+        status: row.credential.status,
+        evidenceUploaded: row.credential.evidenceKey != null,
+        createdAt: row.credential.createdAt,
+      }));
+    }),
+
   /** Workspace entry projection: institution admins and active linked members only. */
   getMyWorkspace: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive().optional() }).optional())

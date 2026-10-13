@@ -146,6 +146,7 @@ const NerpOfferPage = lazy(() => import("./pages/NerpOfferPage"));
 const NerpPathwayEntry = lazy(() => import("./pages/NerpPathwayEntry"));
 const NerpCheckout = lazy(() => import("./pages/NerpCheckout"));
 const AdminNerpVerification = lazy(() => import("./pages/AdminNerpVerification"));
+const AdminCredentialVerification = lazy(() => import("./pages/AdminCredentialVerification"));
 const AdminAhaProofReview = lazy(() => import("./pages/AdminAhaProofReview"));
 const AdminCompletionRecords = lazy(() => import("./pages/AdminCompletionRecords"));
 const AdminAdultAclsEvidence = lazy(() => import("./pages/AdminAdultAclsEvidence"));
@@ -383,6 +384,11 @@ function Router() {
           <Route path="/admin/nerp-verification">{() => (
             <AdminGate>
               <AdminNerpVerification />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin/credential-verification">{() => (
+            <AdminGate>
+              <AdminCredentialVerification />
             </AdminGate>
           )}</Route>
           <Route path="/admin/aha-proof-review">{() => (
