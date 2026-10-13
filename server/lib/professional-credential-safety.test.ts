@@ -8,15 +8,19 @@ const now = new Date("2026-08-28T00:00:00.000Z");
 
 function row(overrides: Partial<{
   status: string;
+  jurisdiction: string | null;
   credentialNumber: string | null;
   issuedAt: Date | null;
   expiresAt: Date | null;
+  evidenceKey: string | null;
 }> = {}) {
   return {
     status: "verified",
+    jurisdiction: "Kenya",
     credentialNumber: "NCK-12345",
     issuedAt: new Date("2024-01-01T00:00:00.000Z"),
     expiresAt: new Date("2027-01-01T00:00:00.000Z"),
+    evidenceKey: "qa/licence.pdf",
     ...overrides,
   };
 }
@@ -33,10 +37,18 @@ describe("professional credential ERT safety policy", () => {
     expect(clinicalLicenceBlockMessage("legacy_profile")).toContain("Professional Credentials");
   });
 
-  it("requires verification, a licence number, and both dates", () => {
+  it("requires verification, evidence, jurisdiction, a licence number, and both dates", () => {
     expect(evaluateClinicalLicenceRows([row({ status: "pending" })], now)).toEqual({
       allowed: false,
       reason: "unverified",
+    });
+    expect(evaluateClinicalLicenceRows([row({ evidenceKey: null })], now)).toEqual({
+      allowed: false,
+      reason: "missing_evidence",
+    });
+    expect(evaluateClinicalLicenceRows([row({ jurisdiction: "" })], now)).toEqual({
+      allowed: false,
+      reason: "missing_jurisdiction",
     });
     expect(evaluateClinicalLicenceRows([row({ credentialNumber: "" })], now)).toEqual({
       allowed: false,
@@ -67,7 +79,7 @@ describe("professional credential ERT safety policy", () => {
     ).toEqual({ allowed: false, reason: "expired" });
   });
 
-  it("allows a verified licence with a number and current dates", () => {
+  it("allows a verified licence with complete evidence and current dates", () => {
     expect(evaluateClinicalLicenceRows([row()], now)).toEqual({
       allowed: true,
       reason: null,
