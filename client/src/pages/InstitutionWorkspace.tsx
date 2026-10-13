@@ -295,11 +295,11 @@ export default function InstitutionWorkspace() {
             <div className="min-w-0">
               <TabsList className="sr-only">
                 <TabsTrigger value="overview">Home</TabsTrigger>
-                <TabsTrigger value="iers">Readiness</TabsTrigger>
-                <TabsTrigger value="learning">Learning</TabsTrigger>
-                <TabsTrigger value="accountability">Accountability</TabsTrigger>
-                <TabsTrigger value="administration">Administration</TabsTrigger>
-                <TabsTrigger value="connected">Connected</TabsTrigger>
+                {hasIersRole ? <TabsTrigger value="iers">Readiness</TabsTrigger> : null}
+                {hasCpdRole || hasIersRole ? <TabsTrigger value="learning">Learning</TabsTrigger> : null}
+                {canViewAccountability ? <TabsTrigger value="accountability">Accountability</TabsTrigger> : null}
+                {isInstitutionAdmin ? <TabsTrigger value="administration">Administration</TabsTrigger> : null}
+                {isInstitutionAdmin ? <TabsTrigger value="connected">Connected</TabsTrigger> : null}
               </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
