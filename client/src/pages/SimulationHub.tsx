@@ -66,8 +66,10 @@ export default function SimulationHub() {
   const selectedMission = getSimulationMission(selectedMissionId) ?? SIMULATION_MISSIONS[0];
   // The Hub is an explicit course lane, not a catalogue of every course the learner has ever touched.
   // Progress and mission visibility must follow the pathway the learner selected.
-  const selectedEnrollment = enrollments.find((enrollment) => enrollment.programType === selectedProgram)
-    ?? enrollments.find((enrollment) => selectedMission.supportedPrograms.includes(enrollment.programType as PracticeLabProgramType));
+  // An explicit pathway selection must never silently fall back to another course.
+  // That would display another course's progress and could make an unenrolled learner
+  // believe that the selected pathway is ready for Phase 2.
+  const selectedEnrollment = enrollments.find((enrollment) => enrollment.programType === selectedProgram);
   const eligibleMissions = useMemo(
     () => getEligibleSimulationMissions(selectedEnrollment ? [selectedEnrollment.programType as PracticeLabProgramType] : []),
     [selectedEnrollment],
@@ -80,7 +82,7 @@ export default function SimulationHub() {
   // switching from the default PALS/paediatric mission to Adult ACLS could leave
   // a PALS enrollment selected, disabling the ACLS room entry button even when
   // the learner has a valid ACLS enrollment.
-  const effectiveProgram = (selectedEnrollment?.programType ?? programType) as PracticeLabProgramType;
+  const effectiveProgram = (selectedEnrollment?.programType ?? selectedProgram ?? programType) as PracticeLabProgramType;
   const effectiveEnrollmentId = selectedEnrollment?.id ?? enrollmentId;
   const { data: phase2Status } = trpc.practiceLab.getPhase2AutomationStatus.useQuery(
     { enrollmentId: effectiveEnrollmentId ?? 0 },
@@ -275,6 +277,11 @@ export default function SimulationHub() {
             </CardContent>
           </Card>
 
+          {!selectedEnrollment && <Card className="border-amber-400/40 bg-amber-400/10 text-white">
+            <CardHeader className="pb-2"><CardTitle className="text-base">Choose a course before starting simulations</CardTitle><CardDescription className="text-slate-300">This pathway is not enrolled on your account yet. Your attempts and Phase 2 mastery can only be saved against an active Life Support course enrollment.</CardDescription></CardHeader>
+            <CardContent><Button className="bg-cyan-500 text-slate-950 hover:bg-cyan-400" onClick={() => setLocation("/aha-courses")}>View Life Support course options</Button></CardContent>
+          </Card>}
+
           <SimulationMissionHud
             pathway={effectiveProgram}
             missionTitle={selectedMission.title}
@@ -296,7 +303,7 @@ export default function SimulationHub() {
             <CardContent className="space-y-3"><p className="text-sm text-slate-100">{phase2Status.nextAction}</p><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{phase2Status.requirements.map((requirement) => <div key={requirement.id} className="rounded-lg bg-slate-950/60 p-3 text-xs"><div className="flex items-start justify-between gap-2"><span className="font-semibold text-slate-100">{requirement.label}</span><span className={requirement.complete ? "text-emerald-300" : "text-amber-200"}>{requirement.complete ? "Complete" : `${requirement.attempts}/${requirement.requiredAttempts}`}</span></div><p className="mt-1 text-slate-400">Best qualifying score: {requirement.bestScore}% · target {requirement.minimumScore}%</p></div>)}</div><p className="text-[11px] leading-5 text-slate-400">Automated mastery makes you eligible for the governed next step; it does not issue an AHA credential or approve Phase 3 practical skills.</p></CardContent>
           </Card>}
 
-          {stage === "map" && (
+          {stage === "map" && selectedEnrollment && (
             <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
               <Card className="border-slate-800 bg-slate-900 text-white">
                   <CardHeader><CardTitle className="flex items-center gap-2"><HeartPulse className="h-5 w-5 text-rose-300" />Choose your next mission</CardTitle><CardDescription className="text-slate-400">Start with the first safe action. Increase uncertainty only after your basics are reliable. The Hub recommends a next mission so you do not have to manage the curriculum alone.</CardDescription></CardHeader>
