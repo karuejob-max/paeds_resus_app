@@ -26,6 +26,7 @@ import {
 import { advanceSimulationWorld, createSimulationWorld, isSimulationWorldCommandAllowed, isSimulationWorldScenarioCompatible, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_WORLD_ROLES, SIMULATION_WORLD_SCENARIOS, type SimulationWorldEvent, type SimulationWorldRole, type SimulationWorldScenarioId, type SimulationWorldState, type SimulationWorldCommand } from "../../shared/simulation-world";
 import { ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS, ADULT_ACLS_SCENARIOS, ADULT_ACLS_SCENARIO_VERSION, ADULT_ACLS_WORLD_VERSION, advanceAdultAclsSimulation, calculateAdultAclsTrainingEvidence, createAdultAclsSimulation, reduceAdultAclsSimulation, type AdultAclsCommand, type AdultAclsScenarioId, type AdultAclsState } from "../../shared/adult-acls-simulation-world";
 import { NRP_MAX_ACTION_ADVANCE_SECONDS, NRP_SCENARIOS, NRP_SCENARIO_VERSION, NRP_WORLD_VERSION, advanceNrpSimulation, calculateNrpTrainingEvidence, createNrpSimulation, reduceNrpSimulation, type NrpCommand, type NrpScenarioId, type NrpState } from "../../shared/nrp-simulation-world";
+import { calculatePhase2AutomationStatus, scoreDedicatedSimulation, scoreFormativeEventLog } from "../../shared/phase2-automation";
 
 const AHA_PROGRAM_TYPES = ["bls", "acls", "pals", "heartsaver", "nrp"] as const;
 
@@ -246,7 +247,8 @@ export const practiceLabRouter = router({
       }
       const evidence = calculateAdultAclsTrainingEvidence(state);
       const evidenceWithAuthority = { ...evidence, sessionId: session.id, scenarioVersion: session.scenarioVersion, learnerUserId: session.userId, enrollmentId: session.enrollmentId, role: session.role };
-      await db.insert(ahaPracticeLabAttempts).values({ userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "acls", trackId: "adult_acls_world", scenarioId: session.scenarioId, score: 0, passed: false, eventLog: state.events, durationSeconds: Math.round(state.elapsedSeconds) });
+      const automatedScore = scoreDedicatedSimulation(state.competencies, state.criticalFailures.length);
+      await db.insert(ahaPracticeLabAttempts).values({ userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "acls", trackId: "adult_acls_world", scenarioId: session.scenarioId, score: automatedScore, passed: automatedScore >= 70, eventLog: state.events, durationSeconds: Math.round(state.elapsedSeconds) });
       await db.insert(simulationWorldEvidence).values({ sessionId: session.id, userId: ctx.user.id, enrollmentId: session.enrollmentId, role: session.role, scenarioId: state.scenarioId, evidenceStatus: "review_required", assessmentJson: evidenceWithAuthority });
       await db.update(simulationWorldSessions).set({ status: "completed", completedAt: new Date() }).where(eq(simulationWorldSessions.id, session.id));
       return { success: true, evidenceStatus: "review_required" as const, evidence: evidenceWithAuthority, syntheticTrainingOnly: true };
@@ -333,7 +335,7 @@ export const practiceLabRouter = router({
       if (!state || state.scenarioId !== session.scenarioId || state.patient.phase !== "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "Reach the valid post-resuscitation endpoint before saving NRP rehearsal evidence" });
       const evidence = calculateNrpTrainingEvidence(state);
       const evidenceWithAuthority = { ...evidence, sessionId: session.id, scenarioVersion: session.scenarioVersion, learnerUserId: session.userId, enrollmentId: session.enrollmentId, role: session.role };
-      await db.insert(ahaPracticeLabAttempts).values({ userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "nrp", trackId: "nrp_world", scenarioId: session.scenarioId, score: 0, passed: false, eventLog: state.events, durationSeconds: Math.round(state.elapsedSeconds) });
+      await db.insert(ahaPracticeLabAttempts).values({ userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "nrp", trackId: "nrp_world", scenarioId: session.scenarioId, score: evidence.score, passed: evidence.score >= 70, eventLog: state.events, durationSeconds: Math.round(state.elapsedSeconds) });
       await db.insert(simulationWorldEvidence).values({ sessionId: session.id, userId: ctx.user.id, enrollmentId: session.enrollmentId, role: session.role, scenarioId: state.scenarioId, evidenceStatus: "review_required", assessmentJson: evidenceWithAuthority });
       await db.update(simulationWorldSessions).set({ status: "completed", completedAt: new Date() }).where(eq(simulationWorldSessions.id, session.id));
       return { success: true, evidenceStatus: "review_required" as const, evidence: evidenceWithAuthority, syntheticTrainingOnly: true };
@@ -456,6 +458,11 @@ export const practiceLabRouter = router({
         authoritativeScore = replay.assessment.overall;
         authoritativePassed = replay.assessment.evidenceEligible;
       }
+      if (input.trackId === "cardiac_arrest" || input.trackId === "abcde" || input.trackId === "rhythm_recognition" || input.trackId === "shock_no_shock" || input.trackId === "pals_capstone") {
+        const formativeScore = scoreFormativeEventLog(authoritativeEventLog);
+        authoritativeScore = formativeScore.score;
+        authoritativePassed = formativeScore.passed;
+      }
 
       const [attempt] = await db.insert(ahaPracticeLabAttempts).values({
         userId: ctx.user.id,
@@ -463,8 +470,8 @@ export const practiceLabRouter = router({
         programType: input.programType,
         trackId: input.trackId,
         scenarioId: input.scenarioId,
-        score: isFormativePracticeLabTrack(input.trackId) ? 0 : authoritativeScore,
-        passed: isFormativePracticeLabTrack(input.trackId) ? false : authoritativePassed,
+        score: authoritativeScore,
+        passed: authoritativePassed,
         eventLog: authoritativeEventLog,
         isBooster: input.isBooster ?? false,
         durationSeconds: input.durationSeconds ?? null,
@@ -503,6 +510,23 @@ export const practiceLabRouter = router({
         .where(and(...conditions))
         .orderBy(desc(ahaPracticeLabAttempts.createdAt))
         .limit(input.limit);
+    }),
+
+  /** Server-computed Phase 2 mastery status. It never issues a credential or signs off Phase 3. */
+  getPhase2AutomationStatus: protectedProcedure
+    .input(z.object({ enrollmentId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      assertTrainingWorkspaceOrAdmin(ctx.user);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [enrollment] = await db.select({ id: enrollments.id, userId: enrollments.userId, programType: enrollments.programType })
+        .from(enrollments).where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id))).limit(1);
+      if (!enrollment || !AHA_PROGRAM_TYPES.includes(enrollment.programType as (typeof AHA_PROGRAM_TYPES)[number])) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Life Support enrollment not found" });
+      }
+      const attempts = await db.select({ trackId: ahaPracticeLabAttempts.trackId, scenarioId: ahaPracticeLabAttempts.scenarioId, score: ahaPracticeLabAttempts.score, passed: ahaPracticeLabAttempts.passed })
+        .from(ahaPracticeLabAttempts).where(and(eq(ahaPracticeLabAttempts.userId, ctx.user.id), eq(ahaPracticeLabAttempts.enrollmentId, input.enrollmentId)));
+      return calculatePhase2AutomationStatus(enrollment.programType as (typeof AHA_PROGRAM_TYPES)[number], attempts.map((attempt) => ({ trackId: attempt.trackId, scenarioId: attempt.scenarioId, score: Number(attempt.score ?? 0), passed: Boolean(attempt.passed) })));
     }),
 
   getDueBoosters: protectedProcedure
