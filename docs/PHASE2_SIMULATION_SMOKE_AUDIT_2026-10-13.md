@@ -29,3 +29,14 @@ NRP loaded successfully and showed the Phase 2 automated mastery card with 0/2 r
 
 ## Heartsaver result
 Heartsaver loaded successfully and showed the Phase 2 automated mastery card with 0/2 requirements. The cardiac-arrest mission and six scenarios were visible.
+
+## Post-merge verification
+PR #1018 was merged to protected `main` at commit `3c252d0f`. After Render rollout and a safe browser bundle reload, the authenticated production BLS pathway showed:
+
+- `Current pathway: BLS · progress below is for this enrollment`
+- BLS marked `Available` and `Selected pathway`
+- BLS-specific mission progress and rehearsal counts
+- `Phase 2 automated mastery` with `0/2 requirements`
+- No cross-course fallback or misleading alternative pathway state
+
+The production bundle reload prompt appeared during rollout and correctly explained that reload was safe; the learner could continue by pressing `Reload page`. This is expected deployment behavior, not a clinical or data-loss issue.
