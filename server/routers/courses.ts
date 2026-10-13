@@ -325,6 +325,14 @@ export const coursesRouter = router({
           return { success: false, message: 'Course not found', enrolled: false };
         }
 
+        if (course.price > 0) {
+          return {
+            success: false,
+            message: 'Payment is required before enrolling in this course.',
+            enrolled: false,
+          };
+        }
+
         // Check if already enrolled
         const existing = await database.query.microCourseEnrollments.findFirst({
           where: (enrollments) =>
@@ -372,6 +380,13 @@ export const coursesRouter = router({
         });
         if (!course) {
           return { success: false, enrollmentId: 0, error: 'Course not found' };
+        }
+        if (course.price > 0) {
+          return {
+            success: false,
+            enrollmentId: 0,
+            error: 'Payment is required before enrolling in this course.',
+          };
         }
 
         const existing = await database.query.microCourseEnrollments.findFirst({
