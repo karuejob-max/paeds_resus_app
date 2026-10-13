@@ -828,16 +828,22 @@ export const institutionAccountabilityRouter = router({
       }
       if (
         input.decision === "verified" &&
-        credential.credentialType === "regulatory_license" &&
-        (!credential.evidenceKey ||
-          !credential.credentialNumber?.trim() ||
-          !credential.issuedAt ||
-          !credential.expiresAt)
+        (!credential.evidenceKey || !credential.issuedAt || !credential.expiresAt ||
+          (credential.credentialType === "regulatory_license" &&
+            (!credential.jurisdiction?.trim() || !credential.credentialNumber?.trim())))
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message:
-            "A regulatory licence can only be verified when evidence, licence number, first issue date, and Valid until date are all present.",
+            credential.credentialType === "regulatory_license"
+              ? "A regulatory licence can only be verified when jurisdiction, licence number, first issue date, Valid until date, and evidence are all present."
+              : "An external credential can only be verified when issue date, Valid until date, and certificate evidence are all present.",
+        });
+      }
+      if (input.decision === "verified" && credential.issuedAt && credential.issuedAt > new Date()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "A credential with a future issue date cannot be verified.",
         });
       }
       if (input.decision === "verified" && credential.expiresAt && credential.expiresAt <= new Date()) {

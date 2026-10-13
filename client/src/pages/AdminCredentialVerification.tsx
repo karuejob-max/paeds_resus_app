@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 import {
   ClipboardCheck,
   ExternalLink,
@@ -26,6 +27,7 @@ function credentialLabel(value: string) {
 
 export default function AdminCredentialVerification() {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"pending" | "verified" | "rejected" | "revoked" | "all">("pending");
   const [evidenceTarget, setEvidenceTarget] = useState<{
@@ -38,7 +40,14 @@ export default function AdminCredentialVerification() {
       { retry: false }
     );
   const review = trpc.institutionAccountability.reviewCredential.useMutation({
-    onSuccess: () => void queue.refetch(),
+    onSuccess: result => {
+      toast({
+        title: result.decision === "verified" ? "Credential verified successfully." : `Credential ${result.decision}.`,
+        description: "The decision is recorded and visible in the corresponding status filter.",
+      });
+      void queue.refetch();
+    },
+    onError: error => toast({ title: "Credential review failed", description: error.message, variant: "destructive" }),
   });
   const evidence =
     trpc.institutionAccountability.getScopedCredentialEvidenceUrl.useQuery(
