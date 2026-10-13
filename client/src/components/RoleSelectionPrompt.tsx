@@ -19,8 +19,8 @@ export default function RoleSelectionPrompt({ onRoleSelected, onClose }: RoleSel
       setSelectedRole(role);
       
       const routeMap: Record<string, string> = {
-        provider: "/providers",
-        institution: "/institutional",
+        provider: "/home",
+        institution: "/institution",
       };
       
       setTimeout(() => {
@@ -60,7 +60,7 @@ export default function RoleSelectionPrompt({ onRoleSelected, onClose }: RoleSel
             <div>
               <CardTitle className="text-2xl">Welcome to Paeds Resus</CardTitle>
               <CardDescription className="mt-2">
-                Help us personalize your experience. What best describes you?
+                Choose the workspace that matches what you need to do now. You can switch between Individual and Institution views later.
               </CardDescription>
             </div>
             {onClose && (
@@ -74,7 +74,7 @@ export default function RoleSelectionPrompt({ onRoleSelected, onClose }: RoleSel
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {roles.map((role) => {
               const Icon = role.icon;
               const isSelected = selectedRole === role.id;

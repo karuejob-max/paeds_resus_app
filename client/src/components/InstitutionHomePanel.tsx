@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { InstitutionOrientationActionCentre } from "@/components/OrientationActionCentre";
 
 export default function InstitutionHomePanel({
   institutionId,
@@ -24,12 +25,22 @@ export default function InstitutionHomePanel({
   onOpenReadiness,
   onOpenAdministration,
   iersEnabled,
+  onOpenAccountability,
+  isInstitutionAdmin,
+  roleKeys,
+  canViewAccountability,
+  hasCpdRole,
 }: {
   institutionId: number;
   onOpenLearning: () => void;
   onOpenReadiness: () => void;
   onOpenAdministration: () => void;
   iersEnabled: boolean;
+  onOpenAccountability: () => void;
+  isInstitutionAdmin: boolean;
+  roleKeys: string[];
+  canViewAccountability: boolean;
+  hasCpdRole: boolean;
 }) {
   const {
     data: stats,
@@ -114,6 +125,17 @@ export default function InstitutionHomePanel({
 
   return (
     <div className="space-y-6">
+      <InstitutionOrientationActionCentre
+        isInstitutionAdmin={isInstitutionAdmin}
+        roleKeys={roleKeys}
+        canViewAccountability={canViewAccountability}
+        hasIersRole={iersEnabled}
+        hasCpdRole={hasCpdRole}
+        onOpenAccountability={onOpenAccountability}
+        onOpenLearning={onOpenLearning}
+        onOpenReadiness={onOpenReadiness}
+        onOpenAdministration={onOpenAdministration}
+      />
       <Card>
         <CardHeader>
           <CardTitle>Institutional attention</CardTitle>
