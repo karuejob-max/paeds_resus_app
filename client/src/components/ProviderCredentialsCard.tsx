@@ -329,7 +329,7 @@ export function ProviderCredentialsCard() {
                   required
                 />
                 <span className="block text-xs text-muted-foreground">
-                  Use one cadre per licence record. Submit separate records when each cadre has a separate current licence.
+                  Enter the cadre shown on your evidence. For NCK, keep one current licence record even when you hold multiple cadres; do not replace the licence number with a cadre number.
                 </span>
               </label>
             )}
@@ -360,6 +360,14 @@ export function ProviderCredentialsCard() {
                   onChange={event => setJurisdiction(event.target.value)}
                 />
               </label>
+            )}
+            {isRegulatory && isNurseProfile && countryCode === "KE" && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs md:col-span-2">
+                <p className="font-semibold">Kenya Nursing Council: one practice-licence number</p>
+                <p className="mt-1 text-muted-foreground">
+                  NCK uses one current practice-licence number for you, even if you hold more than one cadre. Enter your cadre above (for example KRCHN or KRPCCN), but enter the single number printed as <strong>Licence Number</strong> on your current NCK practice licence below. Do not enter a cadre, registration, index, degree, or qualification number here.
+                </p>
+              </div>
             )}
             <label className="space-y-1 text-sm">
               <span className="font-medium">
