@@ -27,13 +27,14 @@ function credentialLabel(value: string) {
 export default function AdminCredentialVerification() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<"pending" | "verified" | "rejected" | "revoked" | "all">("pending");
   const [evidenceTarget, setEvidenceTarget] = useState<{
     institutionId: number;
     credentialId: number;
   } | null>(null);
   const queue =
     trpc.institutionAccountability.listCredentialReviewQueue.useQuery(
-      { search: search.trim() || undefined, limit: 100 },
+      { search: search.trim() || undefined, status, limit: 100 },
       { retry: false }
     );
   const review = trpc.institutionAccountability.reviewCredential.useMutation({
@@ -84,11 +85,11 @@ export default function AdminCredentialVerification() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ClipboardCheck className="h-5 w-5" />
-            Pending review queue
+            Professional credential review
           </CardTitle>
           <CardDescription>
-            Oldest submissions appear first. Institution and department context
-            is shown so platform decisions can be handed off safely.
+            Pending submissions and recent decisions are shown here. Institution
+            and department context is retained so verification is auditable.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -100,6 +101,19 @@ export default function AdminCredentialVerification() {
               value={search}
               onChange={event => setSearch(event.target.value)}
             />
+          </div>
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Credential review status">
+            {([
+              ["pending", "Pending review"],
+              ["verified", "Verified"],
+              ["rejected", "Rejected"],
+              ["revoked", "Revoked"],
+              ["all", "All decisions"],
+            ] as const).map(([value, label]) => (
+              <Button key={value} type="button" size="sm" variant={status === value ? "default" : "outline"} onClick={() => setStatus(value)} role="tab" aria-selected={status === value}>
+                {label}
+              </Button>
+            ))}
           </div>
           {queue.isLoading ? (
             <p className="text-sm text-muted-foreground">
@@ -113,7 +127,7 @@ export default function AdminCredentialVerification() {
           ) : null}
           {!queue.isLoading && !queue.isError && !queue.data?.length ? (
             <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-              No pending professional credentials match this search.
+              No {status === "pending" ? "pending" : status === "all" ? "professional credential" : status} credentials match this search.
             </p>
           ) : null}
           <div className="space-y-3">
@@ -141,7 +155,9 @@ export default function AdminCredentialVerification() {
                         : ""}
                     </p>
                   </div>
-                  <Badge variant="secondary">Pending</Badge>
+                  <Badge variant={item.status === "verified" ? "default" : item.status === "rejected" || item.status === "revoked" ? "destructive" : "secondary"}>
+                    {credentialLabel(item.status)}
+                  </Badge>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
                   <span>Source: {credentialLabel(item.sourceType)}</span>
@@ -156,7 +172,9 @@ export default function AdminCredentialVerification() {
                   ) : (
                     <span>Valid until: not provided</span>
                   )}
+                  {item.verifiedAt ? <span>Reviewed: {new Date(item.verifiedAt).toLocaleDateString()}</span> : null}
                 </div>
+                {item.reviewReason ? <p className="mt-2 rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">Review note: {item.reviewReason}</p> : null}
                 <div className="mt-4 flex flex-wrap gap-2">
                   {item.evidenceUploaded && item.institutionId ? (
                     <Button
@@ -172,7 +190,7 @@ export default function AdminCredentialVerification() {
                       View evidence
                     </Button>
                   ) : null}
-                  {item.institutionId ? (
+                  {item.institutionId && item.status === "pending" ? (
                     <Button
                       type="button"
                       size="sm"
@@ -190,7 +208,7 @@ export default function AdminCredentialVerification() {
                       Verify
                     </Button>
                   ) : null}
-                  {item.institutionId ? (
+                  {item.institutionId && item.status === "pending" ? (
                     <Button
                       type="button"
                       size="sm"

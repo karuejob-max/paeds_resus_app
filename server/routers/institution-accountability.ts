@@ -285,12 +285,17 @@ function activeAssignmentKey(
 }
 
 export const institutionAccountabilityRouter = router({
-  /** Platform-admin queue for professional evidence that still needs a decision. */
+  /** Platform-admin queue and recent decision history for professional evidence. */
   listCredentialReviewQueue: adminProcedure
-    .input(z.object({ search: z.string().trim().max(120).optional(), limit: z.number().int().min(1).max(200).default(100) }))
+    .input(z.object({
+      search: z.string().trim().max(120).optional(),
+      status: z.enum(["pending", "verified", "rejected", "revoked", "all"]).default("pending"),
+      limit: z.number().int().min(1).max(200).default(100),
+    }))
     .query(async ({ input }) => {
       const db = await requireDb();
       const search = input.search ? `%${input.search}%` : undefined;
+      const statusFilter = input.status === "all" ? undefined : eq(professionalCredentials.status, input.status);
       const rows = await db
         .select({
           credential: professionalCredentials,
@@ -308,10 +313,10 @@ export const institutionAccountabilityRouter = router({
         ))
         .leftJoin(institutionalAccounts, eq(institutionalAccounts.id, institutionalStaffMembers.institutionalAccountId))
         .where(and(
-          eq(professionalCredentials.status, "pending"),
+          statusFilter,
           search ? or(like(users.name, search), like(users.email, search), like(professionalCredentials.issuer, search), like(professionalCredentials.credentialNumber, search)) : undefined,
         ))
-        .orderBy(asc(professionalCredentials.createdAt))
+        .orderBy(input.status === "pending" ? asc(professionalCredentials.createdAt) : desc(professionalCredentials.updatedAt))
         .limit(input.limit);
       return rows.map(row => ({
         id: row.credential.id,
@@ -331,6 +336,9 @@ export const institutionAccountabilityRouter = router({
         expiresAt: row.credential.expiresAt,
         status: row.credential.status,
         evidenceUploaded: row.credential.evidenceKey != null,
+        verifiedAt: row.credential.verifiedAt,
+        verifiedByUserId: row.credential.verifiedByUserId,
+        reviewReason: row.credential.reviewReason,
         createdAt: row.credential.createdAt,
       }));
     }),
