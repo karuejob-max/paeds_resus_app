@@ -49,7 +49,10 @@ export default function SimulationHub() {
   const [, setLocation] = useLocation();
   const { data: access, isLoading } = trpc.practiceLab.getAccess.useQuery();
   const [selectedMissionId, setSelectedMissionId] = useState<SimulationMissionId>("simulation-world");
-  const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null);
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("scenario");
+  });
   const [stage, setStage] = useState<"map" | "briefing" | "playing">("map");
   const [playingScenarioId, setPlayingScenarioId] = useState<string | null>(null);
   const [programType, setProgramType] = useState<PracticeLabProgramType>("pals");
@@ -218,10 +221,14 @@ export default function SimulationHub() {
     if (missionEnrollment.id !== enrollmentId) setEnrollmentId(missionEnrollment.id);
     // Capture the learner's explicit choice at the handoff boundary. Do not rely
     // on a derived fallback that may still reflect the previous mission render.
-    const handoffScenarioId = selectedScenarioId && scenarioCatalog.some((scenario) => scenario.id === selectedScenarioId)
-      ? selectedScenarioId
-      : effectiveScenarioId;
+    const requestedScenarioId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("scenario") : null;
+    const handoffScenarioId = [selectedScenarioId, requestedScenarioId].find((scenarioId) => scenarioId && scenarioCatalog.some((scenario) => scenario.id === scenarioId)) ?? effectiveScenarioId;
     setPlayingScenarioId(handoffScenarioId);
+    if (typeof window !== "undefined" && handoffScenarioId) {
+      const params = new URLSearchParams(window.location.search);
+      params.set("scenario", handoffScenarioId);
+      window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+    }
     setStage("playing");
   };
 
@@ -336,7 +343,7 @@ export default function SimulationHub() {
                 <Card className="border-amber-400/30 bg-amber-400/10 text-white"><CardContent className="p-4 text-xs leading-5 text-amber-100"><strong>Training boundary:</strong> This is a scripted learning simulation. It does not replace local protocols, an instructor-led skills session, or ResusGPS during live patient care.</CardContent></Card>
                 {effectiveProgram === "pals" && <Card className="border-violet-400/30 bg-violet-400/10 text-white"><CardHeader><CardTitle className="text-base">Role evidence</CardTitle><CardDescription className="text-violet-100/70">Your Simulation World attempts are tracked by role, not attendance alone.</CardDescription></CardHeader><CardContent className="space-y-2">{SIMULATION_WORLD_ROLES.map((role) => { const item = roleEvidence.get(role)!; return <div key={role} className="flex items-center justify-between rounded-lg bg-slate-950/50 px-3 py-2 text-xs"><span>{getSimulationWorldRoleLabel(role)}</span><span className={item.eligible > 0 ? "text-emerald-300" : "text-slate-400"}>{item.eligible > 0 ? `${item.eligible} evidence-ready` : `${item.attempts} rehearsal${item.attempts === 1 ? "" : "s"}`}</span></div>; })}</CardContent></Card>}
                 {effectiveProgram === "pals" && recommendedRole && <Card className="border-emerald-400/30 bg-emerald-400/10 text-white"><CardHeader><CardTitle className="text-base">Next required experience</CardTitle><CardDescription className="text-emerald-100/80">The Mission Director selects the next gap instead of making you manage the curriculum.</CardDescription></CardHeader><CardContent><p className="font-semibold">{getSimulationWorldRoleLabel(recommendedRole.role)}</p><p className="mt-1 text-xs text-emerald-100/80">{recommendedRole.reason}</p></CardContent></Card>}
-                  {scenarioCatalog.length > 0 && <div className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 p-3"><label htmlFor="scenario-choice" className="text-xs font-semibold uppercase tracking-wide text-cyan-200">Choose a scenario</label><select id="scenario-choice" aria-label="Simulation scenario" className="mt-2 min-h-11 w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-white" value={effectiveScenarioId ?? ""} onChange={(event) => setSelectedScenarioId(event.target.value)}>{scenarioCatalog.map((scenario) => <option key={scenario.id} value={scenario.id}>{scenario.title}</option>)}</select><p className="mt-2 text-xs text-cyan-100/80">{scenarioCatalog.find((scenario) => scenario.id === effectiveScenarioId)?.clinicalFocus}</p></div>}
+                  {scenarioCatalog.length > 0 && <div className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 p-3"><label htmlFor="scenario-choice" className="text-xs font-semibold uppercase tracking-wide text-cyan-200">Choose a scenario</label><select id="scenario-choice" aria-label="Simulation scenario" className="mt-2 min-h-11 w-full rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-white" value={effectiveScenarioId ?? ""} onChange={(event) => { const nextScenarioId = event.target.value; setSelectedScenarioId(nextScenarioId); if (typeof window !== "undefined") { const params = new URLSearchParams(window.location.search); params.set("scenario", nextScenarioId); window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`); } }}>{scenarioCatalog.map((scenario) => <option key={scenario.id} value={scenario.id}>{scenario.title}</option>)}</select><p className="mt-2 text-xs text-cyan-100/80">{scenarioCatalog.find((scenario) => scenario.id === effectiveScenarioId)?.clinicalFocus}</p></div>}
                   <Button className="w-full bg-cyan-500 text-slate-950 hover:bg-cyan-400" size="lg" disabled={!eligibleEnrollments.length} onClick={() => setStage("briefing")}>Brief me for “{selectedMission.title}” <span className="ml-2">→</span></Button>
               </div>
             </div>
