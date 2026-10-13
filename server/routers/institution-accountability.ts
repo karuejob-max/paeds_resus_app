@@ -216,8 +216,16 @@ async function getCredentialAccess(
       .where(
         and(
           eq(institutionDepartmentHeads.institutionalAccountId, institutionId),
-          eq(institutionDepartmentHeads.userId, user.id),
-          eq(institutionDepartmentHeads.assignmentStatus, "active")
+          or(
+            and(
+              eq(institutionDepartmentHeads.userId, user.id),
+              eq(institutionDepartmentHeads.assignmentStatus, "active")
+            ),
+            and(
+              eq(institutionDepartmentHeads.deputyUserId, user.id),
+              eq(institutionDepartmentHeads.deputyAssignmentStatus, "active")
+            )
+          )
         )
       );
   } catch (error) {
@@ -358,8 +366,16 @@ export const institutionAccountabilityRouter = router({
         .from(institutionDepartmentHeads)
         .where(
           and(
-            eq(institutionDepartmentHeads.userId, ctx.user.id),
-            eq(institutionDepartmentHeads.assignmentStatus, "active")
+            or(
+              and(
+                eq(institutionDepartmentHeads.userId, ctx.user.id),
+                eq(institutionDepartmentHeads.assignmentStatus, "active")
+              ),
+              and(
+                eq(institutionDepartmentHeads.deputyUserId, ctx.user.id),
+                eq(institutionDepartmentHeads.deputyAssignmentStatus, "active")
+              )
+            )
           )
         );
     } catch (error) {
@@ -411,6 +427,7 @@ export const institutionAccountabilityRouter = router({
         roleKeys: [],
         isInstitutionAdmin: false,
         canViewAccountability: false,
+        accountabilityInstitutionIds: [],
       };
 
     const institutions = await db
@@ -475,6 +492,7 @@ export const institutionAccountabilityRouter = router({
       canViewAccountability: first
         ? accountabilityInstitutionIds.has(first.id)
         : false,
+      accountabilityInstitutionIds: Array.from(accountabilityInstitutionIds),
     };
   }),
 

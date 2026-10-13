@@ -2,7 +2,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, TrendingUp } from "lucide-react";
+import { AlertCircle, ClipboardCheck, TrendingUp } from "lucide-react";
 import { Link } from "wouter";
 import { ProviderProfileForm } from "@/components/ProviderProfileForm";
 import { ProfessionalIdentityCard } from "@/components/ProfessionalIdentityCard";
@@ -12,6 +12,10 @@ import { ProviderCredentialsCard } from "@/components/ProviderCredentialsCard";
 export default function ProviderProfile() {
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
   const profileQuery = trpc.provider.getProfile.useQuery();
+  const workspaceQuery = trpc.institutionAccountability.getMyWorkspace.useQuery(undefined, {
+    enabled: Boolean(user),
+    staleTime: 30_000,
+  });
 
   if (loading) {
     return (
@@ -25,6 +29,9 @@ export default function ProviderProfile() {
   }
 
   const profile = profileQuery.data;
+  const reviewInstitutions = (workspaceQuery.data?.institutions ?? []).filter(institution =>
+    (workspaceQuery.data?.accountabilityInstitutionIds ?? []).includes(institution.id)
+  );
 
   return (
     <div className="min-h-screen bg-muted/30 p-4 md:p-8">
@@ -68,6 +75,33 @@ export default function ProviderProfile() {
           </div>
           <ProviderCredentialsCard />
         </section>
+
+        {reviewInstitutions.length > 0 ? (
+          <Card className="border-indigo-200 bg-indigo-50/60 dark:border-indigo-900/50 dark:bg-indigo-950/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-indigo-950 dark:text-indigo-100">
+                <ClipboardCheck className="h-5 w-5 text-indigo-700" />
+                Your institutional review work
+              </CardTitle>
+              <CardDescription>
+                Open the staff credential and learning queue for an institution where you are an administrator, Departmental Head, deputy, CPD lead, or credential manager. The workspace will automatically limit results to your authorised scope.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {reviewInstitutions.map(institution => (
+                <div key={institution.id} className="flex flex-col gap-3 rounded-lg border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-medium">{institution.companyName || "Institution"}</p>
+                    <p className="text-xs text-muted-foreground">Credential status, learning progress, and priority workforce actions</p>
+                  </div>
+                  <Link href={`/institution?section=accountability&institutionId=${institution.id}`}>
+                    <Button type="button" variant="outline" size="sm">Open review queue</Button>
+                  </Link>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card className="border-blue-200 bg-blue-50/60 dark:border-blue-900/50 dark:bg-blue-950/20">
           <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
