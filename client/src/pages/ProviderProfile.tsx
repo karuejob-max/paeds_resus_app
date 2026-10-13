@@ -13,7 +13,7 @@ export default function ProviderProfile() {
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
   const profileQuery = trpc.provider.getProfile.useQuery();
 
-  if (loading || profileQuery.isLoading) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
@@ -29,6 +29,8 @@ export default function ProviderProfile() {
   return (
     <div className="min-h-screen bg-muted/30 p-4 md:p-8">
       <div className="mx-auto max-w-5xl space-y-6">
+        {profileQuery.isLoading ? <p className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">Loading your professional profile details…</p> : null}
+        {profileQuery.isError ? <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Some profile details could not be loaded. You can still review and update your professional credentials below.</p> : null}
         <div>
           <h1 className="text-3xl font-bold text-foreground">Professional profile</h1>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
