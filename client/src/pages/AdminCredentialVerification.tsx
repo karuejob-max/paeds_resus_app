@@ -11,6 +11,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   ClipboardCheck,
@@ -34,6 +42,12 @@ export default function AdminCredentialVerification() {
     institutionId: number;
     credentialId: number;
   } | null>(null);
+  const [rejectionTarget, setRejectionTarget] = useState<{
+    institutionId: number;
+    credentialId: number;
+    providerName: string;
+  } | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
   const queue =
     trpc.institutionAccountability.listCredentialReviewQueue.useQuery(
       { search: search.trim() || undefined, status, limit: 100 },
@@ -57,6 +71,24 @@ export default function AdminCredentialVerification() {
 
   const openEvidence = (institutionId: number | null, credentialId: number) => {
     if (institutionId) setEvidenceTarget({ institutionId, credentialId });
+  };
+
+  const submitRejection = () => {
+    if (!rejectionTarget || rejectionReason.trim().length < 3) return;
+    review.mutate(
+      {
+        institutionId: rejectionTarget.institutionId,
+        credentialId: rejectionTarget.credentialId,
+        decision: "rejected",
+        reason: rejectionReason.trim(),
+      },
+      {
+        onSuccess: () => {
+          setRejectionTarget(null);
+          setRejectionReason("");
+        },
+      }
+    );
   };
 
   useEffect(() => {
@@ -223,16 +255,12 @@ export default function AdminCredentialVerification() {
                       size="sm"
                       variant="destructive"
                       onClick={() => {
-                        const reason = window.prompt(
-                          "Reason for rejecting this credential:"
-                        );
-                        if (reason?.trim())
-                          review.mutate({
-                            institutionId: item.institutionId!,
-                            credentialId: item.id,
-                            decision: "rejected",
-                            reason: reason.trim(),
-                          });
+                        setRejectionReason("");
+                        setRejectionTarget({
+                          institutionId: item.institutionId!,
+                          credentialId: item.id,
+                          providerName: item.userName || "this provider",
+                        });
                       }}
                       disabled={review.isPending}
                     >
@@ -245,6 +273,54 @@ export default function AdminCredentialVerification() {
           </div>
         </CardContent>
       </Card>
+      <Dialog
+        open={rejectionTarget !== null}
+        onOpenChange={open => {
+          if (!open && !review.isPending) {
+            setRejectionTarget(null);
+            setRejectionReason("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject professional credential</DialogTitle>
+            <DialogDescription>
+              Give {rejectionTarget?.providerName ?? "the provider"} a clear reason
+              so they know what to correct before resubmitting.
+            </DialogDescription>
+          </DialogHeader>
+          <textarea
+            className="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm"
+            value={rejectionReason}
+            onChange={event => setRejectionReason(event.target.value)}
+            placeholder="For example: The current NCK practice licence number and Valid until date are missing. Please resubmit using the number printed as Licence Number on the current licence."
+            aria-label="Reason for rejecting this credential"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setRejectionTarget(null);
+                setRejectionReason("");
+              }}
+              disabled={review.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={submitRejection}
+              disabled={review.isPending || rejectionReason.trim().length < 3}
+            >
+              {review.isPending ? "Recording…" : "Record rejection"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
