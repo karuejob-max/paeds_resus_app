@@ -7975,6 +7975,34 @@ export type ProfessionalCredentialReminderEvent =
 export type InsertProfessionalCredentialReminderEvent =
   typeof professionalCredentialReminderEvents.$inferInsert;
 
+/** Provider-linked delivery ledger for credential review and expiry emails. */
+export const professionalCredentialEmailDeliveries = mysqlTable(
+  "professionalCredentialEmailDeliveries",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    credentialId: int("credentialId").notNull(),
+    userId: int("userId").notNull(),
+    recipientEmail: varchar("recipientEmail", { length: 320 }).notNull(),
+    emailType: mysqlEnum("emailType", ["review_decision", "expiry_reminder"]).notNull(),
+    decision: varchar("decision", { length: 32 }),
+    provider: varchar("provider", { length: 32 }).notNull().default("ses"),
+    providerMessageId: varchar("providerMessageId", { length: 255 }),
+    deliveryStatus: mysqlEnum("deliveryStatus", ["queued", "accepted", "delivered", "bounced", "complained", "rejected", "delayed", "failed", "unknown"]).notNull().default("queued"),
+    providerEventType: varchar("providerEventType", { length: 64 }),
+    providerEventAt: timestamp("providerEventAt"),
+    errorMessage: text("errorMessage"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    messageIndex: index("professional_credential_email_message_idx").on(table.providerMessageId),
+    credentialIndex: index("professional_credential_email_credential_idx").on(table.credentialId, table.createdAt),
+    userIndex: index("professional_credential_email_user_idx").on(table.userId, table.createdAt),
+  })
+);
+export type ProfessionalCredentialEmailDelivery = typeof professionalCredentialEmailDeliveries.$inferSelect;
+export type InsertProfessionalCredentialEmailDelivery = typeof professionalCredentialEmailDeliveries.$inferInsert;
+
 /** One active Departmental Head appointment per institution and canonical department. */
 export const institutionDepartmentHeads = mysqlTable(
   "institutionDepartmentHeads",

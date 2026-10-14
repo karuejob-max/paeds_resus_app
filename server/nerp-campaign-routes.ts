@@ -13,6 +13,7 @@ import {
   nerpPromotionCampaigns,
   nerpPromotionDeliveryEvents,
   nerpPromotionRecipients,
+  professionalCredentialEmailDeliveries,
 } from "../drizzle/schema";
 import { getDb } from "./db";
 import { normalizedEmail } from "./lib/nerp-campaign-controls";
@@ -60,6 +61,22 @@ export function registerNerpCampaignRoutes(app: Express) {
       if (!db) return res.status(503).json({ error: "Database unavailable." });
       let recorded = 0;
       for (const event of events) {
+        await db
+          .update(professionalCredentialEmailDeliveries)
+          .set({
+            deliveryStatus: event.outcome === "suppressed" ? "rejected" : event.outcome,
+            providerEventType: event.eventType,
+            providerEventAt: event.eventAt,
+            updatedAt: new Date(),
+          })
+          .where(
+            event.recipientEmail
+              ? and(
+                  eq(professionalCredentialEmailDeliveries.providerMessageId, event.providerMessageId),
+                  eq(professionalCredentialEmailDeliveries.recipientEmail, event.recipientEmail)
+                )
+              : eq(professionalCredentialEmailDeliveries.providerMessageId, event.providerMessageId)
+          );
         const [existing] = await db
           .select({ id: nerpPromotionDeliveryEvents.id })
           .from(nerpPromotionDeliveryEvents)

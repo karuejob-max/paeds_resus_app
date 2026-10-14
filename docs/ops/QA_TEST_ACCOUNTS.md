@@ -12,6 +12,14 @@ This is a **non-clinical test fixture** for validating institution workspaces, m
   - `qa.duty.nurse@paedsresus.test` — active IERS responder and pending-acceptance rota duty
   - `qa.doctor@paedsresus.test` — general institution staff
   - `qa.reviewer@paedsresus.test` — active IERS reviewer
+  - `qa.no.workplace@paedsresus.test` — provider without an institutional workplace
+  - `qa.multi.institution@paedsresus.test` — provider fixture for institution switching
+  - `qa.department.head@paedsresus.test` — active Departmental Head, department-scoped
+  - `qa.deputy.department.head@paedsresus.test` — active Deputy Departmental Head, department-scoped
+  - `qa.institutional.erco@paedsresus.test` — institutional ERCo
+  - `qa.institutional.cpdco@paedsresus.test` — institutional CPD Coordinator
+  - `qa.finance@paedsresus.test` — finance officer
+  - `qa.general.staff@paedsresus.test` — general institutional staff
 
 The fixture is idempotent. Re-running it updates the sample account passwords and restores the intended membership, role, department, and rota state. It does not store passwords in Git.
 
@@ -43,6 +51,19 @@ Do **not** run this against production. The script refuses to create the fixture
 5. As `qa.iers.coordinator@paedsresus.test`, confirm the institution is visible but institution-wide administration remains unavailable; verify only the assigned IERS operations are writable.
 6. Create a rota change as the admin or IERS coordinator, then confirm the assigned provider sees the new dated duty and acceptance state.
 7. Exercise cross-tenant protection by opening another institution ID while signed in as a non-member; the server must return `FORBIDDEN` or `NOT_FOUND`, never another institution's data.
+
+## Orientation smoke-test matrix
+
+| Account | Should see | Must not see |
+|---|---|---|
+| No workplace | Provider profile, learning and personal actions | Institutional administration |
+| Departmental Head / Deputy | Department-scoped workforce, credential and learning queues | Other departments' records |
+| Institutional ERCo | IERS operational actions and ERCo duties | Finance and unrelated CPD administration |
+| Institutional CPD Coordinator | Learning/accountability actions | Finance and rota administration |
+| Finance officer | Billing, subscription and finance actions | UTL/ERCo staffing and credential decisions |
+| General staff | Personal provider actions and assigned duties | Institutional leadership queues |
+
+The multi-institution account is a stable named fixture. Attach it to a second **disposable QA institution** before running a switcher smoke test; never attach it to a real facility.
 
 ## Cleanup
 
