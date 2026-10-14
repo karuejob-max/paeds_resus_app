@@ -231,7 +231,10 @@ export default function SimulationHub() {
     // Capture the learner's explicit choice at the handoff boundary. Do not rely
     // on a derived fallback that may still reflect the previous mission render.
     const requestedScenarioId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("scenario") : null;
-    const handoffScenarioId = [selectedScenarioId, requestedScenarioId].find((scenarioId) => scenarioId && scenarioCatalog.some((scenario) => scenario.id === scenarioId)) ?? effectiveScenarioId;
+    // A URL-backed handoff is an explicit learner choice. It must win over a
+    // stale React value left by the previous mission/session during hydration.
+    // This protects NRP/PALS/Heartsaver as well as the Adult ACLS path.
+    const handoffScenarioId = [requestedScenarioId, selectedScenarioId].find((scenarioId) => scenarioId && scenarioCatalog.some((scenario) => scenario.id === scenarioId)) ?? effectiveScenarioId;
     setPlayingScenarioId(handoffScenarioId);
     if (typeof window !== "undefined" && handoffScenarioId) {
       const params = new URLSearchParams(window.location.search);
