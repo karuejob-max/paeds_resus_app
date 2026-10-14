@@ -154,7 +154,17 @@ export function reduceNrpSimulation(state: NrpState, command: NrpCommand): NrpSt
 
 export function canEndNrpSimulation(state: NrpState) { return state.patient.phase === "post_resuscitation"; }
 export function calculateNrpTrainingEvidence(state: NrpState) {
-  const values = Object.values(state.competencies);
-  const score = Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+  // Score the completed clinical pathway, not the raw partial competency points.
+  // The previous average treated the non-indicated escalation bucket as a zero,
+  // so a correct ventilation-and-recovery run could never reach the 70% target.
+  const checkpoints = [
+    state.observations.assessed,
+    state.observations.initialStepsCompleted,
+    state.observations.airwayPositioned && state.observations.ppvStarted,
+    state.observations.heartRateReassessed,
+    state.patient.phase === "ended",
+  ];
+  const checkpointScore = Math.round((checkpoints.filter(Boolean).length / checkpoints.length) * 100);
+  const score = Math.max(0, checkpointScore - state.criticalFailures.length * 15);
   return { scenarioId: state.scenarioId, phase: state.patient.phase, durationSeconds: state.elapsedSeconds, heartRateAtEndpoint: state.patient.heartRate, criticalFailures: state.criticalFailures.length, score, formative: true, evidenceEligible: state.patient.phase === "ended", clinicalStatus: NRP_CLINICAL_STATUS, doesNotIssueCredential: true };
 }
