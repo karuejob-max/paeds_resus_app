@@ -102,3 +102,23 @@ export function scoreFormativeEventLog(eventLog: readonly unknown[]): { score: n
   const score = Math.round((correct / decisions.length) * 100);
   return { score, passed: score >= 70 };
 }
+
+/**
+ * CPR-GPS emits clinical action events rather than quiz-style correct flags.
+ * Keep the rehearsal formative, but derive a conservative server score from
+ * the observable terminal sequence when the course policy uses arrest evidence.
+ */
+export function scoreCardiacArrestEventLog(eventLog: readonly unknown[]): { score: number; passed: boolean } {
+  const descriptions = eventLog
+    .filter((event): event is { description?: unknown } => Boolean(event && typeof event === "object"))
+    .map((event) => String(event.description ?? "").toLowerCase());
+  const has = (pattern: RegExp) => descriptions.some((description) => pattern.test(description));
+  const evidence = [
+    has(/cardiac arrest recognized|cpr started/),
+    has(/vf|pvt|pea|asystole/),
+    has(/shock delivered|defibrillator charged|compressions/),
+    has(/rosc achieved|code complete|outcome/),
+  ];
+  const score = Math.round((evidence.filter(Boolean).length / evidence.length) * 100);
+  return { score, passed: score >= 70 };
+}

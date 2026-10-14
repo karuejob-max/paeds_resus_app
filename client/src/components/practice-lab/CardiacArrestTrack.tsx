@@ -35,14 +35,21 @@ export function CardiacArrestTrack({ programType, enrollmentId, onBookSession, o
   const handleComplete = (
     metrics: PerformanceMetrics,
     scenario: SimulationScenario,
-    state: SimulationState
+    state: SimulationState,
+    cprEvents?: readonly { timestamp: number; action: string; details?: string }[],
   ) => {
-    const practiceEvents: PracticeLabEvent[] = state.events.map((e) => ({
-      timestamp: e.timestamp,
-      type: e.type,
-      description: e.description,
-      correct: e.correct,
-    }));
+    const practiceEvents: PracticeLabEvent[] = cprEvents?.length
+      ? cprEvents.map((event) => ({
+          timestamp: event.timestamp,
+          type: "cpr_gps_action",
+          description: event.details ? `${event.action}: ${event.details}` : event.action,
+        }))
+      : state.events.map((e) => ({
+          timestamp: e.timestamp,
+          type: e.type,
+          description: e.description,
+          correct: e.correct,
+        }));
     setDebrief({
       scenarioName: scenario.name,
       score: metrics.overallScore,
@@ -50,15 +57,16 @@ export function CardiacArrestTrack({ programType, enrollmentId, onBookSession, o
       events: practiceEvents,
       lines: buildCardiacArrestDebrief(metrics, scenario.name, practiceEvents),
     });
-    setPhase("debrief");
-    void recordAttempt.mutateAsync({
+    return recordAttempt.mutateAsync({
       enrollmentId,
       programType,
       trackId: "cardiac_arrest",
       scenarioId: scenario.id,
-      score: 0,
-      passed: false,
+      score: metrics.overallScore,
+      passed: metrics.overallScore >= 70,
       eventLog: practiceEvents,
+    }).then(() => {
+      setPhase("debrief");
     });
   };
 
@@ -91,7 +99,7 @@ export function CardiacArrestTrack({ programType, enrollmentId, onBookSession, o
     <div className="space-y-3">
       <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-950">
         <p className="font-semibold">{programType.toUpperCase()} CPR-GPS simulation</p>
-        <p className="mt-1 text-xs">You are practising one selected arrest scenario inside the Simulation Hub. The timer and patient response are training signals; this rehearsal does not issue a credential or complete a course phase.</p>
+        <p className="mt-1 text-xs">This is formative coaching. When the selected course requires an arrest sequence, the saved event log is also scored as Phase 2 evidence; it never issues a credential.</p>
       </div>
       <CPRSimulation
         key={simKey}

@@ -79,7 +79,7 @@ export const LIFE_SUPPORT_PATHWAYS: Record<LifeSupportCourseKey, LifeSupportPath
   acls: { key: "acls", label: "ACLS", subtitle: "Advanced Cardiovascular Life Support", phases: withPhase2("ACLS") },
   pals: { key: "pals", label: "PALS", subtitle: "Pediatric Advanced Life Support", phases: withPhase2("PALS") },
   nrp: { key: "nrp", label: "NRP", subtitle: "Neonatal Resuscitation", phases: withPhase2("NRP") },
-  heartsaver: { key: "heartsaver", label: "Heartsaver", subtitle: "Heartsaver pathway", phases: noPhase2("Heartsaver") },
+  heartsaver: { key: "heartsaver", label: "Heartsaver", subtitle: "Heartsaver pathway", phases: withPhase2("Heartsaver") },
   instructor: { key: "instructor", label: "Instructor", subtitle: "Instructor development", phases: withPhase2("Instructor") },
 };
 
