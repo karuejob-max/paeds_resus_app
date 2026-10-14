@@ -179,7 +179,7 @@ export async function runScheduledProfessionalCredentialReminders(): Promise<{
     const body = overdue
       ? `Your ${label} expired on ${dateKey(expiry)}. Renew and submit current evidence to restore verified status.`
       : `Your ${label} expires on ${dateKey(expiry)}. Submit renewal evidence before the expiry date.`;
-    const actionUrl = `${(process.env.APP_BASE_URL?.trim() || "https://www.paedsresus.com").replace(/\/$/, "")}/provider-profile#credentials`;
+    const actionUrl = `${(process.env.APP_BASE_URL?.trim() || "https://www.paedsresus.com").replace(/\/$/, "")}/provider-profile#professional-credentials`;
 
     if (
       !(await hasReminder(

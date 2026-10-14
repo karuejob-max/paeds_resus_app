@@ -33,6 +33,7 @@ import {
   institutionDepartmentResponseCoordinators,
   institutionDepartmentResponseCoordinatorEvents,
   institutionDepartmentHeads,
+  institutionEducationCoordinators,
   ertlWeeklyRotations,
   monthlyUtlRotations,
   institutionShiftTemplates,
@@ -319,6 +320,55 @@ async function assertIersDepartmentRotaWriteAccess(
     if (!assignment) throw error;
     return { roleKey: "accepted_department_erco" as const };
   }
+}
+
+async function assertDepartmentConflictReportAccess(
+  db: DbClient,
+  user: Pick<typeof users.$inferSelect, "id" | "role" | "email">,
+  institutionId: number,
+  departmentId: number,
+) {
+  if (await isInstitutionAdmin(db, user.id, institutionId)) {
+    return { roleKey: "institution_admin" as const };
+  }
+  try {
+    return await assertIersDepartmentRotaWriteAccess(db, user, institutionId, departmentId);
+  } catch (error) {
+    if (!(error instanceof TRPCError) || error.code !== "FORBIDDEN") throw error;
+  }
+
+  const [head] = await db
+    .select({ id: institutionDepartmentHeads.id })
+    .from(institutionDepartmentHeads)
+    .where(and(
+      eq(institutionDepartmentHeads.institutionalAccountId, institutionId),
+      eq(institutionDepartmentHeads.departmentId, departmentId),
+      or(
+        and(eq(institutionDepartmentHeads.userId, user.id), eq(institutionDepartmentHeads.assignmentStatus, "active")),
+        and(eq(institutionDepartmentHeads.deputyUserId, user.id), eq(institutionDepartmentHeads.deputyAssignmentStatus, "active")),
+      ),
+    ))
+    .limit(1);
+  if (head) return { roleKey: "department_head" as const };
+
+  const [coordinator] = await db
+    .select({ id: institutionEducationCoordinators.id })
+    .from(institutionEducationCoordinators)
+    .where(and(
+      eq(institutionEducationCoordinators.institutionalAccountId, institutionId),
+      eq(institutionEducationCoordinators.departmentId, departmentId),
+      or(
+        and(eq(institutionEducationCoordinators.userId, user.id), eq(institutionEducationCoordinators.assignmentStatus, "active")),
+        and(eq(institutionEducationCoordinators.deputyUserId, user.id), eq(institutionEducationCoordinators.deputyAssignmentStatus, "active")),
+      ),
+    ))
+    .limit(1);
+  if (coordinator) return { roleKey: "department_cpd_coordinator" as const };
+
+  throw new TRPCError({
+    code: "FORBIDDEN",
+    message: "Only an institutional administrator or an active departmental role holder can report a conflict for that department.",
+  });
 }
 
 async function assertIersInstitutionReadAccess(
@@ -4834,6 +4884,12 @@ export const institutionRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      if (!(await isInstitutionAdmin(db, ctx.user.id, input.institutionId))) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only an institutional administrator can resolve department conflict reports.",
+        });
+      }
       const [report] = await db
         .select({ id: institutionalActionLogs.id, notes: institutionalActionLogs.notes })
         .from(institutionalActionLogs)
@@ -4868,7 +4924,7 @@ export const institutionRouter = router({
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
-      await assertIersDepartmentRotaWriteAccess(db, ctx.user, input.institutionId, input.departmentId);
+      await assertDepartmentConflictReportAccess(db, ctx.user, input.institutionId, input.departmentId);
 
       const [department] = await db
         .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
