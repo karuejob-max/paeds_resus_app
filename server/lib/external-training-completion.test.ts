@@ -19,9 +19,12 @@ describe("external training completion safeguards", () => {
     expect(validateExternalCompletionInput({ courseProgramType: "pals", phase2Completed: true, phase3Completed: false })).toBeNull();
   });
 
-  it("does not invent Phase 2 for BLS or Heartsaver", () => {
+  it("does not invent Phase 2 for BLS but requires it for Heartsaver", () => {
     expect(validateExternalCompletionInput({ courseProgramType: "bls", phase2Completed: false, phase3Completed: true })).toBeNull();
-    expect(validateExternalCompletionInput({ courseProgramType: "heartsaver", phase2Completed: false, phase3Completed: true })).toBeNull();
+    expect(validateExternalCompletionInput({ courseProgramType: "heartsaver", phase2Completed: false, phase3Completed: true })).toBe(
+      "Phase 2 must be recorded before Phase 3 for this course.",
+    );
+    expect(validateExternalCompletionInput({ courseProgramType: "heartsaver", phase2Completed: true, phase3Completed: true })).toBeNull();
     expect(validateExternalCompletionInput({ courseProgramType: "bls", phase2Completed: true, phase3Completed: false })).toBe(
       "Phase 2 is not applicable to this course.",
     );

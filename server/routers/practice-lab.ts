@@ -26,7 +26,7 @@ import {
 import { advanceSimulationWorld, createSimulationWorld, isSimulationWorldCommandAllowed, isSimulationWorldScenarioCompatible, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_WORLD_ROLES, SIMULATION_WORLD_SCENARIOS, type SimulationWorldEvent, type SimulationWorldRole, type SimulationWorldScenarioId, type SimulationWorldState, type SimulationWorldCommand } from "../../shared/simulation-world";
 import { ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS, ADULT_ACLS_SCENARIOS, ADULT_ACLS_SCENARIO_VERSION, ADULT_ACLS_WORLD_VERSION, advanceAdultAclsSimulation, calculateAdultAclsTrainingEvidence, createAdultAclsSimulation, reduceAdultAclsSimulation, type AdultAclsCommand, type AdultAclsScenarioId, type AdultAclsState } from "../../shared/adult-acls-simulation-world";
 import { NRP_MAX_ACTION_ADVANCE_SECONDS, NRP_SCENARIOS, NRP_SCENARIO_VERSION, NRP_WORLD_VERSION, advanceNrpSimulation, calculateNrpTrainingEvidence, createNrpSimulation, reduceNrpSimulation, type NrpCommand, type NrpScenarioId, type NrpState } from "../../shared/nrp-simulation-world";
-import { calculatePhase2AutomationStatus, scoreDedicatedSimulation, scoreFormativeEventLog } from "../../shared/phase2-automation";
+import { calculatePhase2AutomationStatus, scoreCardiacArrestEventLog, scoreDedicatedSimulation, scoreFormativeEventLog } from "../../shared/phase2-automation";
 
 const AHA_PROGRAM_TYPES = ["bls", "acls", "pals", "heartsaver", "nrp"] as const;
 
@@ -465,7 +465,9 @@ export const practiceLabRouter = router({
         authoritativePassed = replay.assessment.evidenceEligible;
       }
       if (input.trackId === "cardiac_arrest" || input.trackId === "abcde" || input.trackId === "rhythm_recognition" || input.trackId === "shock_no_shock" || input.trackId === "pals_capstone") {
-        const formativeScore = scoreFormativeEventLog(authoritativeEventLog);
+        const formativeScore = input.trackId === "cardiac_arrest" && authoritativeEventLog.some((event) => event.type === "cpr_gps_action")
+          ? scoreCardiacArrestEventLog(authoritativeEventLog)
+          : scoreFormativeEventLog(authoritativeEventLog);
         authoritativeScore = formativeScore.score;
         authoritativePassed = formativeScore.passed;
       }

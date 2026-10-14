@@ -8,11 +8,11 @@ import {
 } from "./life-support-pathways";
 
 describe("Life Support pathway definitions", () => {
-  it("does not include Phase 2 for BLS or Heartsaver", () => {
+  it("does not include Phase 2 for BLS but does for Heartsaver", () => {
     expect(requiresLifeSupportPhase("bls", "phase2")).toBe(false);
-    expect(requiresLifeSupportPhase("heartsaver", "phase2")).toBe(false);
+    expect(requiresLifeSupportPhase("heartsaver", "phase2")).toBe(true);
     expect(getLifeSupportRequiredPhases("bls")).toEqual(["phase1", "phase3", "final"]);
-    expect(getLifeSupportRequiredPhases("heartsaver")).toEqual(["phase1", "phase3", "final"]);
+    expect(getLifeSupportRequiredPhases("heartsaver")).toEqual(["phase1", "phase2", "phase3", "final"]);
   });
 
   it("requires Phase 2 for advanced pathways", () => {

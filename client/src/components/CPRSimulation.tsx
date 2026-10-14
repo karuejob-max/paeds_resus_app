@@ -48,8 +48,9 @@ interface Props {
   onAttemptComplete?: (
     metrics: PerformanceMetrics,
     scenario: SimulationScenario,
-    state: SimulationState
-  ) => void;
+    state: SimulationState,
+    cprEvents?: readonly { timestamp: number; action: string; details?: string }[]
+  ) => void | Promise<void>;
 }
 
 type SimulationPhase = 'scenario_selection' | 'active' | 'debriefing';
@@ -80,6 +81,8 @@ export function CPRSimulation({
   const [showHints, setShowHints] = useState(true);
   const [currentHint, setCurrentHint] = useState<string | null>(null);
   const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetrics | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Update hint every 15 seconds during active simulation
   useEffect(() => {
@@ -108,12 +111,21 @@ export function CPRSimulation({
   };
 
   // Handle simulation end
-  const handleEndSimulation = () => {
+  const handleEndSimulation = async (cprEvents?: readonly { timestamp: number; action: string; details?: string }[]) => {
+    if (isSaving) return;
     if (simulationState && selectedScenario) {
       const metrics = calculatePerformanceMetrics(simulationState);
       setPerformanceMetrics(metrics);
-      onAttemptComplete?.(metrics, selectedScenario, simulationState);
-      setPhase('debriefing');
+      setIsSaving(true);
+      setSaveError(null);
+      try {
+        await onAttemptComplete?.(metrics, selectedScenario, simulationState, cprEvents);
+        setPhase('debriefing');
+      } catch (error) {
+        setSaveError(error instanceof Error ? error.message : 'The rehearsal could not be saved. Please retry.');
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -242,7 +254,7 @@ export function CPRSimulation({
     return (
       <div className={embedded ? "relative" : "fixed inset-0 bg-black z-50"}>
         {/* Simulation Banner */}
-        <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-blue-600 to-purple-600 p-3 z-50">
+        <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-blue-600 to-purple-600 p-3 z-[100]">
           <div className="container mx-auto flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Badge variant="secondary" className="bg-white/20 text-white border-0">
@@ -260,15 +272,15 @@ export function CPRSimulation({
               </Button>
             </div>
             <div className="flex items-center gap-2">
-              <Button
+              {!isSaving && <Button
                 size="sm"
                 variant="ghost"
-                onClick={handleEndSimulation}
+                onClick={() => void handleEndSimulation()}
                 className="text-white hover:bg-white/20"
               >
                 <TrendingUp className="w-4 h-4 mr-1" />
                 End & Review
-              </Button>
+              </Button>}
               <Button
                 size="sm"
                 variant="ghost"
@@ -300,9 +312,12 @@ export function CPRSimulation({
             patientWeight={selectedScenario.weight}
             patientAgeMonths={selectedScenario.ageMonths}
             pathwayLabel={pathwayLabel}
-            onClose={handleEndSimulation}
+            onClose={() => void handleEndSimulation()}
+            onReview={(events) => handleEndSimulation(events)}
           />
         </div>
+        {isSaving && <div className="absolute left-1/2 top-20 z-[110] -translate-x-1/2 rounded-lg border border-emerald-300 bg-emerald-950 px-4 py-3 text-sm font-semibold text-emerald-100 shadow-xl" role="status">Saving rehearsal evidence before exit…</div>}
+        {saveError && <div className="absolute left-1/2 top-20 z-[110] -translate-x-1/2 rounded-lg border border-rose-300 bg-rose-950 px-4 py-3 text-sm font-semibold text-rose-100 shadow-xl" role="alert">{saveError}</div>}
       </div>
     );
   }

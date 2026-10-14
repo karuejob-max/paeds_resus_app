@@ -98,6 +98,8 @@ interface Props {
   onROSC?: (cprSessionId?: number) => void;
   /** Open the parent completion/debrief path after a deliberate terminal outcome. */
   onCodeComplete?: (cprSessionId: number | undefined, outcome: 'mortality' | 'transferred' | 'unknown') => void;
+  /** Persist the CPR-GPS event log before the learner leaves the rehearsal. */
+  onReview?: (events: readonly ArrestEvent[]) => void | Promise<void>;
   /** Notify the parent when the server CPR session exists so an IERS link can be created. */
   onSessionReady?: (cprSessionId: number) => void;
   /** The integrated flow owns demographics in ResusGPS; standalone mode may edit them locally. */
@@ -168,6 +170,7 @@ export function CPRClockStreamlined({
   lifeSupportPack,
   onROSC,
   onCodeComplete,
+  onReview,
   onSessionReady,
   allowPatientInfoEdit = true,
   useSharedState,
@@ -1459,6 +1462,18 @@ export function CPRClockStreamlined({
             </div>
           )}
           
+          {onReview && (
+            <Button
+              size="sm"
+              onClick={() => void onReview(effectiveEvents)}
+              className="min-h-10 bg-emerald-600 px-2 text-white hover:bg-emerald-500 sm:px-3"
+              aria-label={effectiveRoscAchieved ? 'Save rehearsal and view debrief' : 'End rehearsal and view debrief'}
+            >
+              <CheckCircle2 className="mr-1 h-4 w-4" />
+              <span className="hidden sm:inline">{effectiveRoscAchieved ? 'Save rehearsal and view debrief' : 'End & Review'}</span>
+              <span className="sm:hidden">Review</span>
+            </Button>
+          )}
           {/* Close */}
           <Button variant="ghost" size="icon" onClick={onClose} className="min-h-10 min-w-10 text-white">
             <X className="h-5 w-5" />
