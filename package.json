@@ -273,6 +273,7 @@
     "db:verify-0177": "node scripts/verify-0177-professional-cpd-identity-resolution.mjs",
     "db:apply-0178": "node scripts/apply-0178-institution-membership-invitation-events.mjs",
     "db:verify-0178": "node scripts/verify-0178-institution-membership-invitation-events.mjs",
+    "db:apply-0179": "node scripts/apply-0179-professional-credential-email-delivery.mjs",
     "seed:qa-institution": "tsx --import dotenv/config scripts/seed-qa-institution.ts"
   },
   "dependencies": {

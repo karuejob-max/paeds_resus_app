@@ -10,6 +10,9 @@ import {
   facilityDepartments,
   facilityPoles,
   institutionMemberships,
+  institutionDepartmentHeads,
+  institutionEducationCoordinators,
+  institutionDepartmentResponseCoordinators,
   institutionProductEntitlements,
   institutionProductRoles,
   institutionalProductCapabilities,
@@ -25,6 +28,7 @@ import {
 import { getDb } from "../server/db";
 
 const QA_INSTITUTION_NAME = "Paeds Resus QA Test Institution";
+const QA_SECONDARY_INSTITUTION_NAME = "Paeds Resus QA Secondary Test Institution";
 const PRIMARY_ADMIN_EMAIL = (
   process.env.QA_PRIMARY_ADMIN_EMAIL ?? "karuejob@gmail.com"
 )
@@ -62,6 +66,14 @@ const SAMPLE_ACCOUNTS = [
     name: "QA IERS Reviewer",
     providerType: "nurse" as const,
   },
+  { key: "no_workplace", email: "qa.no.workplace@paedsresus.test", name: "QA Provider Without Workplace", providerType: "nurse" as const },
+  { key: "multi_institution", email: "qa.multi.institution@paedsresus.test", name: "QA Multi-Institution Provider", providerType: "doctor" as const },
+  { key: "department_head", email: "qa.department.head@paedsresus.test", name: "QA Departmental Head", providerType: "nurse" as const },
+  { key: "deputy_department_head", email: "qa.deputy.department.head@paedsresus.test", name: "QA Deputy Departmental Head", providerType: "nurse" as const },
+  { key: "institutional_erco", email: "qa.institutional.erco@paedsresus.test", name: "QA Institutional ERCo", providerType: "nurse" as const },
+  { key: "institutional_cpdco", email: "qa.institutional.cpdco@paedsresus.test", name: "QA Institutional CPD Coordinator", providerType: "nurse" as const },
+  { key: "finance", email: "qa.finance@paedsresus.test", name: "QA Finance Officer", providerType: "other" as const },
+  { key: "general_staff", email: "qa.general.staff@paedsresus.test", name: "QA General Institutional Staff", providerType: "other" as const },
 ];
 
 function requirePassword() {
@@ -250,7 +262,7 @@ async function ensureStaff(
   userId: number,
   email: string,
   name: string,
-  staffRole: "nurse" | "doctor",
+  staffRole: "nurse" | "doctor" | "other",
   departmentId: number
 ) {
   const [existing] = await db
@@ -307,6 +319,37 @@ async function ensureStaff(
       `QA staff member could not be created or read back: ${email}`
     );
   return created.id;
+}
+
+async function ensureLeadershipFixtures(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  institutionId: number,
+  departmentId: number,
+  adminId: number,
+  ids: Map<string, number>
+) {
+  const headId = ids.get("department_head")!;
+  const deputyId = ids.get("deputy_department_head")!;
+  const ercoId = ids.get("institutional_erco")!;
+  const cpdcoId = ids.get("institutional_cpdco")!;
+  const now = new Date();
+  const [head] = await db.select({ id: institutionDepartmentHeads.id }).from(institutionDepartmentHeads).where(and(
+    eq(institutionDepartmentHeads.institutionalAccountId, institutionId),
+    eq(institutionDepartmentHeads.departmentId, departmentId),
+  )).limit(1);
+  if (head) {
+    await db.update(institutionDepartmentHeads).set({ userId: headId, assignmentStatus: "active", deputyUserId: deputyId, deputyAssignmentStatus: "active", updatedAt: now }).where(eq(institutionDepartmentHeads.id, head.id));
+  } else {
+    await db.insert(institutionDepartmentHeads).values({ institutionalAccountId: institutionId, departmentId, userId: headId, assignmentStatus: "active", deputyUserId: deputyId, deputyAssignmentStatus: "active", assignedByUserId: adminId, assignedAt: now, deputyAssignedByUserId: adminId, deputyAssignedAt: now });
+  }
+  const [erco] = await db.select({ id: institutionDepartmentResponseCoordinators.id }).from(institutionDepartmentResponseCoordinators).where(and(eq(institutionDepartmentResponseCoordinators.institutionId, institutionId), eq(institutionDepartmentResponseCoordinators.departmentId, departmentId))).limit(1);
+  const ercoValues = { coordinatorUserId: ercoId, assignmentStatus: "active" as const, effectiveFrom: "2026-01-01", assignedByUserId: adminId, acceptedAt: now, updatedAt: now };
+  if (erco) await db.update(institutionDepartmentResponseCoordinators).set(ercoValues).where(eq(institutionDepartmentResponseCoordinators.id, erco.id));
+  else await db.insert(institutionDepartmentResponseCoordinators).values({ institutionId, departmentId, ...ercoValues });
+  const [cpd] = await db.select({ id: institutionEducationCoordinators.id }).from(institutionEducationCoordinators).where(and(eq(institutionEducationCoordinators.institutionalAccountId, institutionId), eq(institutionEducationCoordinators.departmentId, departmentId))).limit(1);
+  const cpdValues = { userId: cpdcoId, assignmentStatus: "active" as const, deputyUserId: null, updatedAt: now };
+  if (cpd) await db.update(institutionEducationCoordinators).set(cpdValues).where(eq(institutionEducationCoordinators.id, cpd.id));
+  else await db.insert(institutionEducationCoordinators).values({ institutionalAccountId: institutionId, departmentId, ...cpdValues, assignedByUserId: adminId });
 }
 
 async function main() {
@@ -504,6 +547,38 @@ async function main() {
     reviewerStaffId,
     "general_staff"
   );
+
+  for (const account of SAMPLE_ACCOUNTS.slice(4)) {
+    if (account.key === "no_workplace") continue;
+    const userId = sampleUsers.get(account.key)!;
+    const staffRole = account.providerType === "doctor" ? "doctor" : account.providerType === "nurse" ? "nurse" : "other";
+    const staffId = await ensureStaff(db, institution.id, userId, account.email, account.name, staffRole, department.id);
+    await ensureMembership(db, institution.id, userId, account.email, staffId, account.key === "institutional_erco" ? "er_coordinator" : "general_staff");
+    await ensureQaLicence(db, institution.id, userId, account.providerType, primary.id);
+  }
+  await ensureLeadershipFixtures(db, institution.id, department.id, primary.id, sampleUsers);
+
+  let [secondary] = await db.select().from(institutionalAccounts).where(eq(institutionalAccounts.companyName, QA_SECONDARY_INSTITUTION_NAME)).limit(1);
+  if (!secondary) {
+    await db.insert(institutionalAccounts).values({ userId: primary.id, companyName: QA_SECONDARY_INSTITUTION_NAME, industry: "healthcare_facility", organizationCategory: "healthcare_facility", facilityOwnership: "public", facilityCareLevel: "primary_level_3", staffCount: 1, contactName: primary.name?.trim() || PRIMARY_ADMIN_EMAIL, contactEmail: PRIMARY_ADMIN_EMAIL, contactPhone: "+254700000001", registrationNumber: "QA-SECONDARY-NOT-FOR-PRODUCTION", status: "active" });
+    [secondary] = await db.select().from(institutionalAccounts).where(eq(institutionalAccounts.companyName, QA_SECONDARY_INSTITUTION_NAME)).limit(1);
+  }
+  if (!secondary) throw new Error("QA secondary institution could not be created or read back");
+  let [secondaryPole] = await db.select().from(facilityPoles).where(eq(facilityPoles.institutionId, secondary.id)).limit(1);
+  if (!secondaryPole) {
+    await db.insert(facilityPoles).values({ institutionId: secondary.id, poleName: "Secondary QA Pole", poleOrder: 1, rotationAnchorDate: "2026-01-05" });
+    [secondaryPole] = await db.select().from(facilityPoles).where(eq(facilityPoles.institutionId, secondary.id)).limit(1);
+  }
+  if (!secondaryPole) throw new Error("QA secondary pole could not be created or read back");
+  let [secondaryDepartment] = await db.select().from(facilityDepartments).where(and(eq(facilityDepartments.institutionId, secondary.id), eq(facilityDepartments.departmentName, "Emergency Department"))).limit(1);
+  if (!secondaryDepartment) {
+    await db.insert(facilityDepartments).values({ institutionId: secondary.id, poleId: secondaryPole.id, departmentName: "Emergency Department", isActive: true, requiresPole: true, poleSequence: 1, confirmedAt: new Date(), confirmedByUserId: primary.id });
+    [secondaryDepartment] = await db.select().from(facilityDepartments).where(and(eq(facilityDepartments.institutionId, secondary.id), eq(facilityDepartments.departmentName, "Emergency Department"))).limit(1);
+  }
+  if (!secondaryDepartment) throw new Error("QA secondary department could not be created or read back");
+  const multiId = sampleUsers.get("multi_institution")!;
+  const multiStaffId = await ensureStaff(db, secondary.id, multiId, "qa.multi.institution@paedsresus.test", "QA Multi-Institution Provider", "doctor", secondaryDepartment.id);
+  await ensureMembership(db, secondary.id, multiId, "qa.multi.institution@paedsresus.test", multiStaffId, "general_staff");
 
   const [iersProduct] = await db
     .select({ id: institutionalProducts.id })

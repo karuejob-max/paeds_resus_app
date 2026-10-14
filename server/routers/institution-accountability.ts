@@ -16,6 +16,7 @@ import {
   institutionalStaffMembers,
   institutionMemberships,
   inAppNotifications,
+  professionalCredentialEmailDeliveries,
   professionalCredentials,
   users,
 } from "../../drizzle/schema";
@@ -904,12 +905,35 @@ export const institutionAccountabilityRouter = router({
         dataJson: JSON.stringify({ decision: input.decision, reason: input.reason }),
       });
       if (recipient?.email) {
+        const [delivery] = await db.insert(professionalCredentialEmailDeliveries).values({
+          credentialId: credential.id,
+          userId: credential.userId,
+          recipientEmail: recipient.email,
+          emailType: "review_decision",
+          decision: input.decision,
+          deliveryStatus: "queued",
+        }).$returningId();
         void sendEmail(recipient.email, "credentialReviewDecision", {
           userName: recipient.name?.trim() || "Provider",
           credentialType: credentialLabel,
           decision: decisionLabel,
           reason: input.reason,
-        }, "ses").catch(error => console.warn("[credential-review] email delivery failed", error));
+        }, "ses").then(async result => {
+          if (!delivery?.id) return;
+          await db.update(professionalCredentialEmailDeliveries).set({
+            providerMessageId: result.messageId ?? null,
+            deliveryStatus: result.success ? "accepted" : "failed",
+            errorMessage: result.success ? null : result.error ?? "SES delivery failed",
+            updatedAt: new Date(),
+          }).where(eq(professionalCredentialEmailDeliveries.id, delivery.id));
+        }).catch(async error => {
+          if (delivery?.id) await db.update(professionalCredentialEmailDeliveries).set({
+            deliveryStatus: "failed",
+            errorMessage: error instanceof Error ? error.message : String(error),
+            updatedAt: new Date(),
+          }).where(eq(professionalCredentialEmailDeliveries.id, delivery.id));
+          console.warn("[credential-review] email delivery failed", error);
+        });
       }
       return { success: true as const, decision: input.decision };
     }),

@@ -1,6 +1,7 @@
 import { and, eq, isNotNull, lte } from "drizzle-orm";
 import {
   inAppNotifications,
+  professionalCredentialEmailDeliveries,
   professionalCredentialReminderEvents,
   professionalCredentials,
   userNotificationPreferences,
@@ -178,7 +179,7 @@ export async function runScheduledProfessionalCredentialReminders(): Promise<{
     const body = overdue
       ? `Your ${label} expired on ${dateKey(expiry)}. Renew and submit current evidence to restore verified status.`
       : `Your ${label} expires on ${dateKey(expiry)}. Submit renewal evidence before the expiry date.`;
-    const actionUrl = "/provider-profile#credentials";
+    const actionUrl = `${(process.env.APP_BASE_URL?.trim() || "https://www.paedsresus.com").replace(/\/$/, "")}/provider-profile#credentials`;
 
     if (
       !(await hasReminder(
@@ -237,6 +238,15 @@ export async function runScheduledProfessionalCredentialReminders(): Promise<{
         subject: title,
         htmlBody: `<p>${body}</p><p><a href="${actionUrl}">Open Professional Profile credentials</a></p>`,
         textBody: `${body}\nOpen ${actionUrl}`,
+      });
+      await db.insert(professionalCredentialEmailDeliveries).values({
+        credentialId: row.credential.id,
+        userId: row.credential.userId,
+        recipientEmail: row.email,
+        emailType: "expiry_reminder",
+        deliveryStatus: result.success ? "accepted" : "failed",
+        providerMessageId: result.success ? result.messageId : null,
+        errorMessage: result.success ? null : result.error ?? "SES delivery failed",
       });
       await recordReminder(db, {
         credentialId: row.credential.id,
