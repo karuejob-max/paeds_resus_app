@@ -22,7 +22,26 @@ describe("NRP newborn simulation world", () => {
     expect(canEndNrpSimulation(state)).toBe(true);
     state = reduceNrpSimulation(state, { type: "end_rehearsal" });
     expect(state.patient.phase).toBe("ended");
-    expect(calculateNrpTrainingEvidence(state)).toMatchObject({ formative: true, evidenceEligible: true, doesNotIssueCredential: true });
+    expect(calculateNrpTrainingEvidence(state)).toMatchObject({ formative: true, evidenceEligible: true, doesNotIssueCredential: true, score: 100 });
+  });
+
+  it("scores a completed safe pathway as qualifying evidence", () => {
+    let state = createNrpSimulation("newborn-not-breathing");
+    for (const command of [
+      { type: "assess_newborn" },
+      { type: "warm_dry_stimulate" },
+      { type: "position_airway" },
+      { type: "start_ppv" },
+      { type: "reassess_heart_rate" },
+      { type: "end_rehearsal" },
+    ] as const) state = reduceNrpSimulation(state, command);
+    expect(calculateNrpTrainingEvidence(state)).toMatchObject({ score: 100, criticalFailures: 0 });
+  });
+
+  it("penalises unsafe actions without letting raw partial points decide the score", () => {
+    let state = createNrpSimulation("newborn-not-breathing");
+    state = reduceNrpSimulation(state, { type: "start_ppv" });
+    expect(calculateNrpTrainingEvidence({ ...state, patient: { ...state.patient, phase: "ended" } })).toMatchObject({ score: 5, criticalFailures: 1 });
   });
 
   it("blocks unsafe shortcuts and explains the correction", () => {
