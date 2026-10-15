@@ -393,6 +393,12 @@ export const iersRouter = router({
       const continuityDecision = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.activation.operate");
       assertIersActivationContinuity(continuityDecision);
       const access = await assertActivationActor(db, ctx.user, input.institutionId, input.teamId);
+      if (access.kind === "institution_admin" && !input.teamId) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Select the currently published ERT team before triggering an IERS activation. Untargeted institution-wide escalation is disabled.",
+        });
+      }
       if (access.kind === "provider") {
         await assertCurrentClinicalLicence(db, ctx.user.id);
       }
