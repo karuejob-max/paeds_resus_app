@@ -54,7 +54,7 @@ const TRACK_LABELS: Record<string, string> = {
 	};
 
 export default function SimulationHub() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { data: access, isLoading } = trpc.practiceLab.getAccess.useQuery();
   const [selectedMissionId, setSelectedMissionId] = useState<SimulationMissionId>("simulation-world");
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(() => {
@@ -66,6 +66,10 @@ export default function SimulationHub() {
     if (typeof window === "undefined") return "selector";
     return new URLSearchParams(window.location.search).get("view") === "missions" ? "missions" : "selector";
   });
+  useEffect(() => {
+    const query = location.includes("?") ? location.slice(location.indexOf("?") + 1) : "";
+    setHubView(new URLSearchParams(query).get("view") === "missions" ? "missions" : "selector");
+  }, [location]);
   const [playingScenarioId, setPlayingScenarioId] = useState<string | null>(null);
   const [programType, setProgramType] = useState<PracticeLabProgramType>("pals");
   const [selectedProgram, setSelectedProgram] = useState<PracticeLabProgramType>(() => {
