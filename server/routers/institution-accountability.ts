@@ -445,6 +445,15 @@ export const institutionAccountabilityRouter = router({
         ...coordinatorRows.map(row => row.institutionId),
       ])
     );
+    if (
+      input?.institutionId != null &&
+      !institutionIds.includes(input.institutionId)
+    ) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "You do not have access to this institution workspace.",
+      });
+    }
     if (!institutionIds.length)
       return {
         institution: null,
