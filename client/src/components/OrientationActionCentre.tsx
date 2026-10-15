@@ -152,6 +152,7 @@ function institutionRoleLabel(isInstitutionAdmin: boolean, roleKeys: string[]) {
 }
 
 export function InstitutionOrientationActionCentre({
+  institutionId,
   isInstitutionAdmin,
   roleKeys,
   canViewAccountability,
@@ -162,6 +163,7 @@ export function InstitutionOrientationActionCentre({
   onOpenReadiness,
   onOpenAdministration,
 }: {
+  institutionId: number;
   isInstitutionAdmin: boolean;
   roleKeys: string[];
   canViewAccountability: boolean;
@@ -174,6 +176,10 @@ export function InstitutionOrientationActionCentre({
 }) {
   const roleLabel = institutionRoleLabel(isInstitutionAdmin, roleKeys);
   const items: ActionItem[] = [];
+  const hasDepartmentLeadership = isInstitutionAdmin || roleKeys.some(key => ["department_head", "deputy_department_head"].includes(key));
+  const hasDepartmentCpd = roleKeys.some(key => ["cpd_education_coordinator", "deputy_department_cpd_coordinator"].includes(key));
+  const hasInstitutionCpd = isInstitutionAdmin || roleKeys.some(key => ["cpd_coordinator", "institutional_cpd_coordinator"].includes(key));
+  const hasInstitutionIers = isInstitutionAdmin || roleKeys.some(key => ["iers_chair", "iers_coordinator", "iers_governance", "institutional_erco"].includes(key));
 
   if (canViewAccountability) {
     items.push({ title: "Review staff credentials and readiness gaps", detail: "Start with missing, rejected, expiring, or unverified credentials in your authorised institution scope.", actionLabel: "Open accountability", status: "required", onClick: onOpenAccountability });
@@ -207,6 +213,36 @@ export function InstitutionOrientationActionCentre({
             <div><p className="font-semibold">Your institutional access is being prepared</p><p className="mt-1 text-muted-foreground">You can view the institution overview. An administrator must assign a product role before operational lanes become available.</p></div>
           </div>
         )}
+        <div className="grid gap-2 border-t pt-3 sm:grid-cols-2 lg:grid-cols-4" data-role-task-links>
+          {hasDepartmentLeadership && (
+            <Button asChild type="button" variant="outline" className="h-auto justify-start bg-white py-3 text-left">
+              <a href={`/institution?section=accountability&institutionId=${institutionId}`}>
+                <span><span className="block text-xs font-semibold">Review department staff</span><span className="block text-[11px] font-normal text-muted-foreground">Credentials, learning, conflicts</span></span>
+              </a>
+            </Button>
+          )}
+          {hasDepartmentLeadership && (
+            <Button asChild type="button" variant="outline" className="h-auto justify-start bg-white py-3 text-left">
+              <a href={`/institution?section=iers&iersTab=workforce&workforceTab=erco&institutionId=${institutionId}#team-setup-erco`}>
+                <span><span className="block text-xs font-semibold">Appoint department roles</span><span className="block text-[11px] font-normal text-muted-foreground">ERCo and CPD Coordinator</span></span>
+              </a>
+            </Button>
+          )}
+          {(hasDepartmentCpd || hasInstitutionCpd) && (
+            <Button asChild type="button" variant="outline" className="h-auto justify-start bg-white py-3 text-left">
+              <a href={`/institution?section=learning&learningTab=cpd&cpdTab=new_session&institutionId=${institutionId}`}>
+                <span><span className="block text-xs font-semibold">Create CPD session</span><span className="block text-[11px] font-normal text-muted-foreground">Start with the presenter search</span></span>
+              </a>
+            </Button>
+          )}
+          {hasInstitutionIers && (
+            <Button asChild type="button" variant="outline" className="h-auto justify-start bg-white py-3 text-left">
+              <a href={`/institution?section=iers&iersTab=workforce&institutionId=${institutionId}`}>
+                <span><span className="block text-xs font-semibold">Manage readiness teams</span><span className="block text-[11px] font-normal text-muted-foreground">Staffing and emergency roles</span></span>
+              </a>
+            </Button>
+          )}
+        </div>
         <div className="grid gap-2 border-t pt-3 sm:grid-cols-3">
           <div className="flex items-start gap-2 text-xs text-muted-foreground"><ClipboardCheck className="mt-0.5 h-4 w-4 shrink-0 text-indigo-700" /><span><strong className="text-foreground">Credentials</strong> are reviewed by authorised platform or institution verifiers.</span></div>
           <div className="flex items-start gap-2 text-xs text-muted-foreground"><HeartPulse className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" /><span><strong className="text-foreground">Readiness</strong> supports operations; it does not replace bedside judgement.</span></div>
