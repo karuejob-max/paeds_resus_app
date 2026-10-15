@@ -31,10 +31,9 @@ export type Phase2AutomationStatus = {
 };
 
 const COMMON_REQUIREMENTS: Record<string, Phase2Requirement[]> = {
-  bls: [
-    { id: "first-minutes", label: "First-minutes assessment loop", trackIds: ["cardiac_arrest"], scenarioIds: ["first-minutes-instructor-loop"], minimumScore: 70, requiredAttempts: 1 },
-    { id: "arrest-sequence", label: "Arrest recognition and first actions", trackIds: ["cardiac_arrest"], minimumScore: 70, requiredAttempts: 2 },
-  ],
+  // BLS simulations remain available as formative practice, but BLS has no
+  // Phase 2 gate in the canonical Life Support pathway.
+  bls: [],
   heartsaver: [
     { id: "first-minutes", label: "First-minutes assessment loop", trackIds: ["cardiac_arrest"], scenarioIds: ["first-minutes-instructor-loop"], minimumScore: 70, requiredAttempts: 1 },
     { id: "arrest-sequence", label: "Arrest recognition and first actions", trackIds: ["cardiac_arrest"], minimumScore: 70, requiredAttempts: 1 },

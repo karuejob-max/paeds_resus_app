@@ -51,4 +51,15 @@ describe("automated Phase 2 mastery", () => {
     ]);
     expect(result).toEqual({ score: 100, passed: true });
   });
+
+  it("keeps BLS simulations formative without inventing a Phase 2 gate", () => {
+    expect(getLifeSupportRequiredPhases("bls")).not.toContain("phase2");
+    expect(getPhase2Requirements("bls")).toEqual([]);
+    const status = calculatePhase2AutomationStatus("bls", [
+      { trackId: "cardiac_arrest", scenarioId: "first-minutes-instructor-loop", score: 100, passed: true },
+    ]);
+    expect(status.phase2Ready).toBe(false);
+    expect(status.totalRequirements).toBe(0);
+    expect(status.governanceBoundary).toBe("does_not_issue_credential");
+  });
 });
