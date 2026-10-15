@@ -188,6 +188,18 @@ export default function InstitutionWorkspace() {
     enabled: isAuthenticated && isInstitutionAdmin,
   });
 
+  const workspaceLoading = institutionLoading || (isInstitutionAdmin && adminDetailsLoading);
+  const [slowWorkspaceLoad, setSlowWorkspaceLoad] = useState(false);
+
+  useEffect(() => {
+    if (!workspaceLoading) {
+      setSlowWorkspaceLoad(false);
+      return;
+    }
+    const timeout = window.setTimeout(() => setSlowWorkspaceLoad(true), 8_000);
+    return () => window.clearTimeout(timeout);
+  }, [workspaceLoading]);
+
   const productStatus = useMemo(() => {
     const getStatus = (key: ProductKey): ProductStatus | undefined => {
       const row = catalog?.find((item) => item.productKey === key);
@@ -196,13 +208,34 @@ export default function InstitutionWorkspace() {
     return { iers: getStatus("iers"), cpd_portal: getStatus("cpd_portal"), ils_program: "available" as ProductStatus };
   }, [catalog]);
 
-  if (institutionLoading || (isInstitutionAdmin && adminDetailsLoading)) {
+  if (workspaceLoading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-10">
         <Card>
-          <CardContent className="flex items-center gap-3 py-10 text-muted-foreground">
-            <Activity className="h-5 w-5 animate-pulse" />
-            Loading the institution workspace…
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <Activity className="h-5 w-5 animate-pulse" />
+              Loading the institution workspace…
+            </CardTitle>
+            <CardDescription>
+              Checking your institution access and preparing the facility workspace.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="h-20 rounded-lg bg-muted animate-pulse" />
+            {slowWorkspaceLoad ? (
+              <Alert className="border-amber-200 bg-amber-50 text-amber-950">
+                <AlertDescription className="flex flex-wrap items-center gap-3">
+                  <span>This is taking longer than expected. The workspace has not changed.</span>
+                  <Button type="button" size="sm" variant="outline" onClick={() => window.location.reload()}>
+                    Retry workspace check
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => navigate("/home")}>
+                    Open individual workspace
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ) : null}
           </CardContent>
         </Card>
       </div>
