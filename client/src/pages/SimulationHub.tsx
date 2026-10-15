@@ -84,6 +84,7 @@ export default function SimulationHub() {
   const [enrollmentId, setEnrollmentId] = useState<number | null>(null);
   const [capstoneKey, setCapstoneKey] = useState(0);
   const [capstoneResult, setCapstoneResult] = useState<{ score: number; simReady: boolean } | null>(null);
+  const utils = trpc.useUtils();
   const recordAttempt = trpc.practiceLab.recordAttempt.useMutation();
 
   const enrollments = access?.enrollments ?? [];
@@ -117,7 +118,14 @@ export default function SimulationHub() {
     { enabled: Boolean(access?.hasAccess), staleTime: 15_000 },
   );
   const refreshLearningState = async () => {
-    await Promise.all([refetchAttempts(), refetchPhase2Status()]);
+    // Rehearsal completion writes the attempt first, then calls this callback.
+    // Invalidate both views before refetching so a stale 10-second query result
+    // cannot leave the learner looking at an outdated Phase 2 card.
+    if (effectiveEnrollmentId) {
+      await utils.practiceLab.getPhase2AutomationStatus.invalidate({ enrollmentId: effectiveEnrollmentId });
+    }
+    await refetchAttempts();
+    await refetchPhase2Status();
   };
   const activeAttempts = useMemo(
     () => effectiveEnrollmentId ? attempts.filter((attempt) => attempt.enrollmentId === effectiveEnrollmentId) : [],
