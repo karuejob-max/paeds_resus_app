@@ -539,8 +539,10 @@ export const iersRouter = router({
           userId: responder.userId,
           assignmentType,
           responsibilityRole: responderRole,
-          notificationStatus: "sent",
-          notifiedAt: new Date(),
+          // In-app assignment creation is not proof that Web Push was accepted.
+          // Keep the responder pending until the provider explicitly receives it.
+          notificationStatus: "pending",
+          notifiedAt: null,
         });
         await db.insert(inAppNotifications).values({
           userId: responder.userId,
