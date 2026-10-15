@@ -110,6 +110,45 @@ async function assertProviderCanOperate(db: DbClient, user: { id: number; role?:
   return membership;
 }
 
+async function hasInstitutionAdminAccess(db: DbClient, user: { id: number; role?: string | null; email?: string | null }, institutionId: number) {
+  try {
+    await assertInstitutionAccess(db, user as any, institutionId);
+    return true;
+  } catch (error) {
+    if (error instanceof TRPCError && error.code === "FORBIDDEN") return false;
+    throw error;
+  }
+}
+
+async function assertActivationEventOperator(
+  db: DbClient,
+  user: { id: number; role?: string | null; email?: string | null },
+  institutionId: number,
+  activationEventId: number,
+) {
+  const [event] = await db.select().from(iersActivationEvents).where(and(
+    eq(iersActivationEvents.id, activationEventId),
+    eq(iersActivationEvents.institutionalAccountId, institutionId),
+  )).limit(1);
+  if (!event) throw new TRPCError({ code: "NOT_FOUND", message: "Activation not found." });
+  const isInstitutionAdmin = await hasInstitutionAdminAccess(db, user, institutionId);
+  if (isInstitutionAdmin && event.activatedByUserId === user.id) return event;
+
+  const [responder] = await db.select({ responsibilityRole: iersActivationResponders.responsibilityRole }).from(iersActivationResponders).where(and(
+    eq(iersActivationResponders.activationEventId, activationEventId),
+    eq(iersActivationResponders.institutionalAccountId, institutionId),
+    eq(iersActivationResponders.userId, user.id),
+  )).limit(1);
+  const [snapshot] = await db.select({ roleScope: iersActivationTeamSnapshots.roleScope }).from(iersActivationTeamSnapshots).where(and(
+    eq(iersActivationTeamSnapshots.activationEventId, activationEventId),
+    eq(iersActivationTeamSnapshots.providerUserId, user.id),
+  )).orderBy(desc(iersActivationTeamSnapshots.id)).limit(1);
+  const assignedLead = Boolean(responder && LEAD_ROLES.includes(responder.responsibilityRole as ResponsibilityRole))
+    || Boolean(snapshot && ["ertl", "utl", "erc", "lead"].includes(snapshot.roleScope ?? ""));
+  if (!assignedLead) throw new TRPCError({ code: "FORBIDDEN", message: "You are not assigned as a lead to this activation." });
+  return event;
+}
+
 async function assertInstitutionOrMember(
   db: DbClient,
   user: { id: number; role?: string | null; email?: string | null },
@@ -1663,20 +1702,9 @@ export const iersRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       const continuityDecision = await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.activation.operate");
       assertIersActivationContinuity(continuityDecision);
-      const access = await assertInstitutionOrMember(db, ctx.user, input.institutionId);
-      if (access.kind === "provider" && !LEAD_ROLES.includes(access.membership?.responsibilityRole as ResponsibilityRole)) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Only an ERTL, UTL, coordinator, or institution admin can advance this activation." });
-      }
-      if (access.kind === "provider") {
-        await assertCurrentClinicalLicence(db, ctx.user.id);
-      }
-
-      const [event] = await db
-        .select()
-        .from(iersActivationEvents)
-        .where(and(eq(iersActivationEvents.id, input.activationEventId), eq(iersActivationEvents.institutionalAccountId, input.institutionId)))
-        .limit(1);
-      if (!event) throw new TRPCError({ code: "NOT_FOUND", message: "Activation not found." });
+      const event = await assertActivationEventOperator(db, ctx.user, input.institutionId, input.activationEventId);
+      const isInstitutionAdmin = await hasInstitutionAdminAccess(db, ctx.user, input.institutionId);
+      if (!isInstitutionAdmin) await assertCurrentClinicalLicence(db, ctx.user.id);
       if (!canAdvanceIersActivation(event.status, input.state)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: `Cannot move activation from ${event.status} to ${input.state}.` });
       }
@@ -1729,7 +1757,7 @@ export const iersRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       await assertInstitutionProductCapability(db, input.institutionId, "iers", "iers.workspace.read");
-      await assertInstitutionOrMember(db, ctx.user, input.institutionId);
+      await assertActivationEventOperator(db, ctx.user, input.institutionId, input.activationEventId);
       return db
         .select()
         .from(iersActivationTimeline)
