@@ -16,6 +16,8 @@ type ActionItem = {
   detail: string;
   actionLabel: string;
   status: TaskPriority;
+  scope?: string;
+  source?: string;
   onClick: () => void;
 };
 type Shortcut = {
@@ -72,6 +74,8 @@ function Queue({
         detail: item.detail,
         actionLabel: item.actionLabel,
         priority: item.status,
+        scope: item.scope,
+        source: item.source,
         onAction: item.onClick,
       }))}
       title={title}
@@ -112,6 +116,8 @@ export function ProviderOrientationActionCentre({
         attention.tone === "red" || attention.tone === "amber"
           ? "required"
           : "available",
+      scope: "Personal workspace",
+      source: "Today",
       onClick: () => window.location.assign(attention.destination),
     },
   ];
@@ -122,6 +128,8 @@ export function ProviderOrientationActionCentre({
         "Add your cadre, workplace context, and professional credentials before accepting clinical or institutional responsibilities.",
       actionLabel: "Open profile",
       status: "required",
+      scope: "Personal profile",
+      source: "Credentials",
       onClick: onOpenProfile,
     });
   else if (activeMembershipCount > 1)
@@ -131,6 +139,8 @@ export function ProviderOrientationActionCentre({
         "You have multiple active facilities. Open Workplaces & access before acting so your staff, duties, and approvals stay in the correct institution.",
       actionLabel: "Review workplaces",
       status: "waiting",
+      scope: "Institution selection",
+      source: "Workplaces & access",
       onClick: onOpenRecords,
     });
   return (
@@ -260,6 +270,8 @@ export function InstitutionOrientationActionCentre({
         "Start with missing, rejected, expiring, or unverified credentials in your authorised institution scope.",
       actionLabel: "Open accountability",
       status: "required",
+      scope: "Selected institution",
+      source: "Staff & standards",
       onClick: onOpenAccountability,
     });
   if (hasIersRole)
@@ -269,6 +281,8 @@ export function InstitutionOrientationActionCentre({
         "Use the Readiness lane for response teams, duties, equipment, and operational exceptions.",
       actionLabel: "Open readiness",
       status: items.length ? "available" : "required",
+      scope: "Selected institution",
+      source: "Response system",
       onClick: onOpenReadiness,
     });
   if (hasCpdRole)
@@ -278,6 +292,8 @@ export function InstitutionOrientationActionCentre({
         "Use Learning for competency sessions, attendance, CPD coordination, and synthesized progress.",
       actionLabel: "Open learning",
       status: items.length ? "available" : "required",
+      scope: "Selected institution",
+      source: "Learning operations",
       onClick: onOpenLearning,
     });
   if (isInstitutionAdmin)
@@ -287,6 +303,8 @@ export function InstitutionOrientationActionCentre({
         "Administrators own staff linking, role appointments, institution settings, and access operations.",
       actionLabel: "Open administration",
       status: items.length ? "available" : "required",
+      scope: "Selected institution",
+      source: "Administration",
       onClick: onOpenAdministration,
     });
   const shortcuts: Shortcut[] = [];
