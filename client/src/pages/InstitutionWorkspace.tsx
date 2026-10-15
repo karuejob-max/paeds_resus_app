@@ -247,10 +247,15 @@ export default function InstitutionWorkspace() {
                   value={institutionId ?? ""}
                   onChange={event => {
                     const nextId = Number(event.target.value);
+                    if (!availableInstitutions.some(item => item.id === nextId)) return;
                     setSelectedInstitutionId(nextId);
                     const params = new URLSearchParams(window.location.search);
                     params.set("institutionId", String(nextId));
-                    window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+                    // Use the application router, not history.replaceState alone.
+                    // The router update refreshes the tenant-scoped tRPC query and
+                    // prevents a misleading state where the selector changes but
+                    // the heading/data still belong to the previous institution.
+                    navigate(`/institution?${params.toString()}`);
                   }}
                 >
                   {availableInstitutions.map(item => <option key={item.id} value={item.id}>{item.companyName}</option>)}
