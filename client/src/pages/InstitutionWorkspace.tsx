@@ -48,6 +48,7 @@ import InstitutionHomePanel from "@/components/InstitutionHomePanel";
 import { InstitutionAccountabilityPanel } from "@/components/InstitutionAccountabilityPanel";
 import { InstitutionalQualityBillingPanel } from "@/components/InstitutionalQualityBillingPanel";
 import { IersWorkforceTab, resolveIersTab, workforceAnchor } from "@/lib/institution-readiness-navigation";
+import { deriveInstitutionWorkspaceAccess } from "@/lib/institution-workspace-access";
 
 type ProductKey = "iers" | "cpd_portal" | "ils_program";
 type WorkspaceSection = "overview" | "iers" | "learning" | "accountability" | "administration" | "connected";
@@ -180,15 +181,7 @@ export default function InstitutionWorkspace() {
   const catalog = (myInstitution?.productAccess ?? []).filter(item => item.institutionId === institutionId);
   const isInstitutionAdmin = myInstitution?.isInstitutionAdmin === true;
   const roleKeys = myInstitution?.roleKeys ?? [];
-  const hasDepartmentLeadership = roleKeys.some(key => ["department_head", "deputy_department_head"].includes(key));
-  const hasDepartmentCpd = roleKeys.some(key => ["cpd_education_coordinator", "deputy_department_cpd_coordinator"].includes(key));
-  const hasInstitutionCpd = roleKeys.some(key => ["cpd_coordinator", "institutional_cpd_coordinator"].includes(key));
-  const hasInstitutionIers = roleKeys.some(key => ["iers_chair", "iers_coordinator", "iers_governance", "institutional_erco"].includes(key));
-  // Departmental leadership needs a visible route to its own appointment and
-  // accountability work, but must not inherit institution-wide IERS controls.
-  const hasIersRole = isInstitutionAdmin || hasInstitutionIers || hasDepartmentLeadership || roleKeys.some(key => key.startsWith("iers_"));
-  const hasCpdRole = isInstitutionAdmin || hasInstitutionCpd || hasDepartmentCpd || roleKeys.some(key => key.startsWith("cpd_"));
-  const canOperateIers = isInstitutionAdmin || hasInstitutionIers || roleKeys.some(key => ["iers_chair", "iers_coordinator", "iers_governance"].includes(key));
+  const { hasIersRole, hasCpdRole, canOperateIers } = deriveInstitutionWorkspaceAccess(isInstitutionAdmin, roleKeys);
   const canViewAccountability = myInstitution?.canViewAccountability === true;
   const visibleSection = (activeSection === "accountability" && !canViewAccountability) || (activeSection === "connected" && !isInstitutionAdmin) || (activeSection === "iers" && !hasIersRole) || (activeSection === "learning" && !hasCpdRole && !hasIersRole) ? "overview" : activeSection;
   const { data: adminInstitutionDetails, isLoading: adminDetailsLoading } = trpc.institution.getMyInstitution.useQuery(undefined, {
@@ -331,7 +324,6 @@ export default function InstitutionWorkspace() {
               iersEnabled={iersEnabled}
               cpdEnabled={cpdEnabled}
               canOperateIers={canOperateIers}
-              canManageDepartmentIers={hasDepartmentLeadership}
               canViewAccountability={canViewAccountability}
               isInstitutionAdmin={isInstitutionAdmin}
               onToggleSection={section => setExpandedPortalSection(current => current === section ? null : section)}
@@ -455,7 +447,6 @@ function InstitutionPortalNavigation({
   iersEnabled,
   cpdEnabled,
   canOperateIers,
-  canManageDepartmentIers,
   canViewAccountability,
   isInstitutionAdmin,
   onToggleSection,
@@ -473,7 +464,6 @@ function InstitutionPortalNavigation({
   iersEnabled: boolean;
   cpdEnabled: boolean;
   canOperateIers: boolean;
-  canManageDepartmentIers: boolean;
   canViewAccountability: boolean;
   isInstitutionAdmin: boolean;
   onToggleSection: (section: WorkspaceSection) => void;
@@ -504,7 +494,7 @@ function InstitutionPortalNavigation({
             { label: "Command centre", value: "command", kind: "iers" },
             { label: "Evidence & actions", value: "evidence", kind: "iers" },
             { label: "Drills & debriefs", value: "drills", kind: "iers" },
-            ...(canOperateIers || canManageDepartmentIers ? [{ label: canManageDepartmentIers && !canOperateIers ? "Department team & role setup" : "Team & shift setup", value: "workforce", kind: "iers" as const }] : []),
+            ...(canOperateIers ? [{ label: "Team & shift setup", value: "workforce", kind: "iers" as const }] : []),
             ...(canOperateIers ? [{ label: "Equipment", value: "equipment", kind: "iers" as const }] : []),
             ...(canOperateIers ? [{ label: "Implementation plan", value: "plan", kind: "iers" as const }] : []),
             ...(canOperateIers ? [{ label: "Executive snapshot", value: "report", kind: "iers" as const }] : []),
