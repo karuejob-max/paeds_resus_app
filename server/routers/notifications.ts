@@ -839,6 +839,27 @@ export const notificationsRouter = router({
       };
     }),
 
+  updateTaskStatus: protectedProcedure
+    .input(z.object({
+      notificationId: z.number().int().positive(),
+      taskStatus: z.enum(["open", "in_progress", "waiting", "completed"]),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) return { success: false, message: "Database unavailable" };
+      const now = new Date();
+      const result = await db
+        .update(inAppNotifications)
+        .set({
+          taskStatus: input.taskStatus,
+          acknowledgedAt: input.taskStatus === "open" ? null : now,
+          ...(input.taskStatus === "completed" ? { read: true, readAt: now } : {}),
+        })
+        .where(and(eq(inAppNotifications.id, input.notificationId), eq(inAppNotifications.userId, ctx.user.id)));
+      const success = result[0].affectedRows > 0;
+      return { success, message: success ? "Task status updated" : "Notification not found" };
+    }),
+
   /**
    * Mark all notifications as read
    */
