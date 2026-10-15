@@ -528,36 +528,55 @@ export const iersRouter = router({
 
       const resourceLabels = teamContext ? (await db.select({ label: iersActivationResources.label }).from(iersActivationResources).where(eq(iersActivationResources.activationEventId, activationEventId))).map((item) => item.label) : input.resourceNeeds.map((item) => item.label);
       let notifiedCount = 0;
-      for (const responder of responders) {
-        if (!responder.userId) continue;
-        const responderRole = responder.responsibilityRole === "ert_leader" ? "ert_leader" : responder.responsibilityRole === "unit_team_leader" ? "unit_team_leader" : "ert_responder";
-        const assignmentType = responderRole === "ert_leader" || responderRole === "unit_team_leader" ? "primary" : "backup";
-        await db.insert(iersActivationResponders).values({
+      try {
+        await db.transaction(async tx => {
+          for (const responder of responders) {
+            if (!responder.userId) continue;
+            const responderRole = responder.responsibilityRole === "ert_leader" ? "ert_leader" : responder.responsibilityRole === "unit_team_leader" ? "unit_team_leader" : "ert_responder";
+            const assignmentType = responderRole === "ert_leader" || responderRole === "unit_team_leader" ? "primary" : "backup";
+            await tx.insert(iersActivationResponders).values({
+              activationEventId,
+              institutionalAccountId: input.institutionId,
+              membershipId: responder.membershipId,
+              userId: responder.userId,
+              assignmentType,
+              responsibilityRole: responderRole,
+              // In-app assignment creation is not proof that Web Push was accepted.
+              // Keep the responder pending until the provider explicitly receives it.
+              notificationStatus: "pending",
+              notifiedAt: null,
+            });
+            await tx.insert(inAppNotifications).values({
+              userId: responder.userId,
+              type: "iers_activation",
+              domain: "clinical",
+              severity: "urgent",
+              requiresAction: true,
+              title: `${input.activationType.replaceAll("_", " ")} activation — ${input.location}${input.bedNumber ? ` · Bed ${input.bedNumber}` : ""}`,
+              body: `A ${input.priority} activation is active for your dated ERT. Location: ${input.location}${input.bedNumber ? `, bed ${input.bedNumber}` : ""}.${resourceLabels.length ? ` Needed resources: ${resourceLabels.join(", ")}.` : ""} Acknowledge immediately if you can respond.`,
+              actionUrl: `/resus?activationId=${activationEventId}`,
+              relatedId: activationEventId,
+              dataJson: JSON.stringify({ activationEventId, priority: input.priority, action: "acknowledge" }),
+              dedupeKey: `iers-activation:${activationEventId}:${responder.userId}`,
+            });
+            notifiedCount += 1;
+          }
+        });
+      } catch {
+        await db
+          .update(iersActivationEvents)
+          .set({ status: "failed_escalation", updatedAt: new Date() })
+          .where(eq(iersActivationEvents.id, activationEventId));
+        await appendTimeline(db, {
           activationEventId,
           institutionalAccountId: input.institutionId,
-          membershipId: responder.membershipId,
-          userId: responder.userId,
-          assignmentType,
-          responsibilityRole: responderRole,
-          // In-app assignment creation is not proof that Web Push was accepted.
-          // Keep the responder pending until the provider explicitly receives it.
-          notificationStatus: "pending",
-          notifiedAt: null,
+          actorUserId: ctx.user.id,
+          eventType: "escalation_failed",
+          fromStatus: "notifying",
+          toStatus: "failed_escalation",
+          note: "Responder fan-out failed and was rolled back; no partial responder notifications were retained.",
         });
-        await db.insert(inAppNotifications).values({
-          userId: responder.userId,
-          type: "iers_activation",
-          domain: "clinical",
-          severity: "urgent",
-          requiresAction: true,
-          title: `${input.activationType.replaceAll("_", " ")} activation — ${input.location}${input.bedNumber ? ` · Bed ${input.bedNumber}` : ""}`,
-          body: `A ${input.priority} activation is active for your dated ERT. Location: ${input.location}${input.bedNumber ? `, bed ${input.bedNumber}` : ""}.${resourceLabels.length ? ` Needed resources: ${resourceLabels.join(", ")}.` : ""} Acknowledge immediately if you can respond.`,
-          actionUrl: `/resus?activationId=${activationEventId}`,
-          relatedId: activationEventId,
-          dataJson: JSON.stringify({ activationEventId, priority: input.priority, action: "acknowledge" }),
-          dedupeKey: `iers-activation:${activationEventId}:${responder.userId}`,
-        });
-        notifiedCount += 1;
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Activation created but responder notification fan-out failed. The activation is marked failed for escalation." });
       }
 
       void dispatchIersActivationPush(
