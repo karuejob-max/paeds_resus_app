@@ -176,15 +176,14 @@ export default function SimulationHub() {
     : scenarioCatalog[0]?.id ?? null;
   const selectedScenario = scenarioCatalog.find((scenario) => scenario.id === effectiveScenarioId);
   const liveScenarioTitle = scenarioCatalog.find((scenario) => scenario.id === (playingScenarioId ?? effectiveScenarioId))?.title ?? selectedScenario?.title ?? selectedMission.title;
-  const selectedScenarioPhase2Requirement = (phase2Status?.requirements ?? []).find((requirement) => {
+  const phase2RequirementDefinitions = phase2Status?.requirements ?? getPhase2Requirements(effectiveProgram);
+  const matchesSelectedScenario = (requirement: (typeof phase2RequirementDefinitions)[number]) => {
     const trackMatches = !requirement.trackIds || requirement.trackIds.includes(selectedMission.trackId);
     const scenarioMatches = !requirement.scenarioIds || Boolean(effectiveScenarioId && requirement.scenarioIds.includes(effectiveScenarioId));
     return trackMatches && scenarioMatches;
-  }) ?? getPhase2Requirements(effectiveProgram).find((requirement) => {
-    const trackMatches = !requirement.trackIds || requirement.trackIds.includes(selectedMission.trackId);
-    const scenarioMatches = !requirement.scenarioIds || Boolean(effectiveScenarioId && requirement.scenarioIds.includes(effectiveScenarioId));
-    return trackMatches && scenarioMatches;
-  });
+  };
+  const selectedScenarioPhase2Requirement = phase2RequirementDefinitions.find((requirement) => Boolean(effectiveScenarioId && requirement.scenarioIds?.includes(effectiveScenarioId)) && matchesSelectedScenario(requirement))
+    ?? phase2RequirementDefinitions.find(matchesSelectedScenario);
   const selectedScenarioCanQualifyForPhase2 = Boolean(selectedScenarioPhase2Requirement);
   const selectedScenarioEvidenceLabel = selectedScenarioCanQualifyForPhase2
     ? `Qualifying Phase 2 evidence when passed · target ${selectedScenarioPhase2Requirement?.minimumScore}%`
