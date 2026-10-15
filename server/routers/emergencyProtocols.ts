@@ -1,4 +1,5 @@
 import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { getDb } from "../db";
 import {
@@ -11,9 +12,21 @@ import {
 } from "../../drizzle/schema";
 import { eq, and, desc, gte, lte, inArray } from "drizzle-orm";
 
+/**
+ * Legacy emergency API quarantine. IERS is the only supported source of truth for
+ * emergency activation, response, and protocol guidance.
+ */
+function legacyEmergencyApiDisabled(): void {
+  throw new TRPCError({
+    code: "PRECONDITION_FAILED",
+    message: "This legacy emergency API is retired. Use the IERS emergency workflow instead.",
+  });
+}
+
 export const emergencyProtocolsRouter = router({
   // Get all protocols
   getAllProtocols: publicProcedure.query(async () => {
+    legacyEmergencyApiDisabled();
     const db = await getDb();
     if (!db) throw new Error("Database connection failed");
 
@@ -29,6 +42,7 @@ export const emergencyProtocolsRouter = router({
   getProtocol: publicProcedure
     .input(z.object({ protocolId: z.number() }))
     .query(async ({ input }) => {
+      legacyEmergencyApiDisabled();
       const db = await getDb();
       if (!db) throw new Error("Database connection failed");
 
@@ -62,6 +76,7 @@ export const emergencyProtocolsRouter = router({
   getProtocolByCategory: publicProcedure
     .input(z.object({ category: z.enum(["diarrhea", "pneumonia", "malaria", "meningitis", "shock"]) }))
     .query(async ({ input }) => {
+      legacyEmergencyApiDisabled();
       const db = await getDb();
       if (!db) throw new Error("Database connection failed");
 
@@ -102,6 +117,7 @@ export const emergencyProtocolsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      legacyEmergencyApiDisabled();
       if (!ctx.user) throw new Error("Unauthorized");
 
       const db = await getDb();
@@ -133,6 +149,7 @@ export const emergencyProtocolsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      legacyEmergencyApiDisabled();
       if (!ctx.user) throw new Error("Unauthorized");
 
       const db = await getDb();
@@ -176,6 +193,7 @@ export const emergencyProtocolsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      legacyEmergencyApiDisabled();
       if (!ctx.user) throw new Error("Unauthorized");
 
       const db = await getDb();
@@ -214,6 +232,7 @@ export const emergencyProtocolsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
+      legacyEmergencyApiDisabled();
       if (!ctx.user) throw new Error("Unauthorized");
 
       const db = await getDb();
@@ -323,6 +342,7 @@ export const emergencyProtocolsRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
+      legacyEmergencyApiDisabled();
       if (!ctx.user) throw new Error("Unauthorized");
 
       const db = await getDb();
@@ -341,6 +361,7 @@ export const emergencyProtocolsRouter = router({
 
   // Get protocol adherence statistics
   getAdherenceStats: protectedProcedure.query(async ({ ctx }) => {
+    legacyEmergencyApiDisabled();
     if (!ctx.user) throw new Error("Unauthorized");
 
     const db = await getDb();
@@ -381,6 +402,7 @@ export const emergencyProtocolsRouter = router({
       })
     )
     .query(async ({ input }) => {
+      legacyEmergencyApiDisabled();
       const db = await getDb();
       if (!db) throw new Error("Database connection failed");
 
@@ -406,6 +428,7 @@ export const emergencyProtocolsRouter = router({
       })
     )
     .query(async ({ input }) => {
+      legacyEmergencyApiDisabled();
       const db = await getDb();
       if (!db) throw new Error("Database connection failed");
 
