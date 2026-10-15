@@ -10,6 +10,20 @@ function label(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function notificationStageCopy(status: string) {
+  const copy: Record<string, string> = {
+    pending: "Assignment created. Delivery has not been confirmed.",
+    sent: "A delivery attempt was accepted by the push service; receipt is still unconfirmed.",
+    delivered: "The notification was delivered by the configured channel; confirm receipt before responding.",
+    failed: "Delivery failed. Keep this page open and follow the escalation instructions from your team.",
+    received: "You confirmed receipt. Choose whether you can respond.",
+    acknowledged: "You accepted the assignment and can now record movement to the scene.",
+    declined: "You declined this assignment. The response team can measure and escalate the gap.",
+    timed_out: "No response was recorded within the response window.",
+  };
+  return copy[status] ?? "The current notification stage is recorded in the response timeline.";
+}
+
 export default function ProviderIersActivationCard() {
   const utils = trpc.useUtils();
   const [, setLocation] = useLocation();
@@ -73,6 +87,16 @@ export default function ProviderIersActivationCard() {
                 <Badge variant="outline" className="border-red-200 text-red-700 shrink-0">
                   {label(activation.status)}
                 </Badge>
+              </div>
+
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2" role="status" aria-label={`Notification stage: ${label(activation.responderStatus)}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Notification stage</span>
+                  <Badge variant={activation.responderStatus === "failed" || activation.responderStatus === "timed_out" ? "destructive" : "secondary"}>
+                    {label(activation.responderStatus)}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-xs text-slate-600">{notificationStageCopy(activation.responderStatus)}</p>
               </div>
 
               {pending && (
