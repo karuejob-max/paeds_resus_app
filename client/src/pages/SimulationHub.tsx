@@ -62,7 +62,7 @@ export default function SimulationHub() {
     return new URLSearchParams(window.location.search).get("scenario");
   });
   const [stage, setStage] = useState<"map" | "briefing" | "playing">("map");
-  const [hubView, setHubView] = useState<"selector" | "missions">(() => {
+  const [, setHubView] = useState<"selector" | "missions">(() => {
     if (typeof window === "undefined") return "selector";
     return new URLSearchParams(window.location.search).get("view") === "missions" ? "missions" : "selector";
   });
@@ -70,6 +70,10 @@ export default function SimulationHub() {
     const query = location.includes("?") ? location.slice(location.indexOf("?") + 1) : "";
     setHubView(new URLSearchParams(query).get("view") === "missions" ? "missions" : "selector");
   }, [location]);
+  const activeHubView: "selector" | "missions" =
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "missions"
+      ? "missions"
+      : "selector";
   const [playingScenarioId, setPlayingScenarioId] = useState<string | null>(null);
   const [programType, setProgramType] = useState<PracticeLabProgramType>("pals");
   const [selectedProgram, setSelectedProgram] = useState<PracticeLabProgramType>(() => {
@@ -335,7 +339,7 @@ export default function SimulationHub() {
             </CardContent>
           </Card>
 
-          {hubView === "selector" && <Card className="overflow-hidden border-slate-700 bg-slate-900/95 text-white shadow-2xl">
+          {activeHubView === "selector" && <Card className="overflow-hidden border-slate-700 bg-slate-900/95 text-white shadow-2xl">
             <CardContent className="p-6 sm:p-8">
               <p className={`text-xs font-bold uppercase tracking-[0.22em] ${selectedTheme.eyebrow}`}>Your training lane</p>
               <h2 className="mt-2 text-2xl font-bold sm:text-3xl">{selectedPathwayOption.label} simulations</h2>
@@ -347,7 +351,7 @@ export default function SimulationHub() {
             </CardContent>
           </Card>}
 
-          {hubView === "missions" && <>
+          {activeHubView === "missions" && <>
           {!selectedEnrollment && <Card className="border-amber-400/40 bg-amber-400/10 text-white">
             <CardHeader className="pb-2"><CardTitle className="text-base">Choose a course before starting simulations</CardTitle><CardDescription className="text-slate-300">This pathway is not enrolled on your account yet. Your attempts and Phase 2 mastery can only be saved against an active Life Support course enrollment.</CardDescription></CardHeader>
             <CardContent><Button className="bg-cyan-500 text-slate-950 hover:bg-cyan-400" onClick={() => setLocation("/aha-courses")}>View Life Support course options</Button></CardContent>
