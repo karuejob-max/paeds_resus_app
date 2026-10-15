@@ -74,5 +74,5 @@ The Simulation Hub is **public-launch ready** only when all blocking gates above
 - **Engineering:** release candidate; automated checks and local build pass.
 - **Clinical-owner review:** pending evidence in this task.
 - **Two-device labelled validation:** pending physical-device evidence.
-- **Complete authenticated PALS → NRP → Heartsaver production matrix:** pending final saved server-authoritative records.
-- **CEO/public launch sign-off:** pending.
+- **Complete authenticated PALS → NRP → Heartsaver production matrix:** passed on 2026-10-15 in the authenticated `karuejob@gmail.com` session. Fresh production reloads reported PALS `3/3 Ready`, NRP `2/2 Ready`, and Heartsaver `2/2 Ready`; the fresh Heartsaver first-minutes rehearsal was server-saved at `94%`. Earlier NRP `26%` below-threshold evidence did not make the card Ready.
+- **CEO/public launch sign-off:** pending, together with the clinical-owner, two-device labelled validation, accessibility/reliability, and operations gates above.
