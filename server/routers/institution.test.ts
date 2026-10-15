@@ -106,12 +106,12 @@ describe("Institution Router", () => {
   });
 
   describe("register", () => {
-    it("should register a new institution successfully", async () => {
+    it("should reject the retired legacy registration endpoint", async () => {
       institutionDbMock.mockState.limitRows = [];
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
-      const result = await caller.institution.register({
+      await expect(caller.institution.register({
         hospitalName: "Test Hospital",
         hospitalType: "private",
         county: "Nairobi",
@@ -126,12 +126,7 @@ describe("Institution Router", () => {
         planId: "plan_basic",
         planPrice: 50000,
         maxStaff: 100,
-      });
-
-      expect(result).toBeDefined();
-      expect(result.success).toBe(true);
-      expect(result.institutionId).toBeDefined();
-      expect(result.nextStep).toBe("payment");
+      })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
     });
 
     it("should reject invalid hospital name", async () => {
