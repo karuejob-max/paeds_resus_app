@@ -2141,63 +2141,12 @@ export const institutionRouter = router({
         maxStaff: z.number(),
       })
     )
-    .mutation(async ({ input, ctx }) => {
-      try {
-        const db = await getDb();
-        if (!db) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Database connection failed",
-          });
-        }
-
-        const existing = await db
-          .select({ id: institutionalAccounts.id })
-          .from(institutionalAccounts)
-          .where(eq(institutionalAccounts.userId, ctx.user.id))
-          .orderBy(desc(institutionalAccounts.id))
-          .limit(1);
-
-        if (existing.length) {
-          return {
-            success: true,
-            institutionId: existing[0].id,
-            message: "You already have an institutional account.",
-            nextStep: "portal" as const,
-            alreadyRegistered: true as const,
-          };
-        }
-
-                const result = await db.insert(institutionalAccounts).values({
-          userId: ctx.user.id,
-          companyName: input.hospitalName,
-          industry: input.hospitalType,
-          staffCount: input.maxStaff,
-          contactName: `${input.adminFirstName} ${input.adminLastName}`,
-          contactEmail: input.adminEmail,
-          contactPhone: input.adminPhone,
-          status: "active",
-        });
-        const institutionId = (result as unknown as { insertId: number }).insertId;
-        try {
-          await ensureDefaultUtlReadinessTemplate(db, { institutionId, fallbackActorUserId: ctx.user.id });
-        } catch (error) {
-          if (!isMissingTableError(error)) throw error;
-        }
-        return {
-          success: true,
-          institutionId: institutionId || 1,
-          message: "Institution registered successfully. Proceeding to payment...",
-          nextStep: "payment" as const,
-          alreadyRegistered: false as const,
-        };
-      } catch (error) {
-        console.error("Institution registration error:", error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to register institution",
-        });
-      }
+    .mutation(async () => {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message:
+          "This legacy registration endpoint is retired. Use the institution onboarding workflow, which requires a second administrator and payment/entitlement checks.",
+      });
     }),
 
   /**
@@ -4182,7 +4131,7 @@ export const institutionRouter = router({
   // Get staff roles for an institution
   getStaffRoles: protectedProcedure
     .input(z.object({ institutionId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       try {
         const db = await getDb();
         if (!db) {
@@ -4191,6 +4140,8 @@ export const institutionRouter = router({
             message: "Database connection failed",
           });
         }
+
+        await assertInstitutionAccess(db, ctx.user, input.institutionId);
 
         const staffMembers = await db
           .select({

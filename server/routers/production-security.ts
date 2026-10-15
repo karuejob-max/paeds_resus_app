@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
+import { sql } from "drizzle-orm";
 
 /**
  * Production Security & Compliance Router
@@ -180,84 +181,47 @@ export const productionSecurityRouter = router({
    */
   verifyDeploymentReadiness: adminProcedure
     .query(async () => {
-      try {
-        const checks = [
-          {
-            category: "Build & Compilation",
-            items: [
-              { name: "TypeScript Compilation", status: "passed" },
-              { name: "Production Build", status: "passed" },
-              { name: "Bundle Size", status: "passed" },
-            ],
-          },
-          {
-            category: "Database",
-            items: [
-              { name: "Database Connection", status: "passed" },
-              { name: "Migrations Applied", status: "passed" },
-              { name: "Backup Strategy", status: "passed" },
-            ],
-          },
-          {
-            category: "API & Services",
-            items: [
-              { name: "API Endpoints", status: "passed" },
-              { name: "External Services", status: "passed" },
-              { name: "Error Handling", status: "passed" },
-            ],
-          },
-          {
-            category: "Security",
-            items: [
-              { name: "Environment Variables", status: "passed" },
-              { name: "Secrets Management", status: "passed" },
-              { name: "SSL/TLS Certificates", status: "passed" },
-            ],
-          },
-          {
-            category: "Monitoring & Logging",
-            items: [
-              { name: "Application Logging", status: "passed" },
-              { name: "Error Tracking", status: "passed" },
-              { name: "Performance Monitoring", status: "passed" },
-            ],
-          },
-          {
-            category: "Testing",
-            items: [
-              { name: "Unit Tests", status: "passed" },
-              { name: "Integration Tests", status: "passed" },
-              { name: "E2E Tests", status: "passed" },
-            ],
-          },
-        ];
-
-        const totalChecks = checks.reduce((acc, cat) => acc + cat.items.length, 0);
-        const passedChecks = checks.reduce(
-          (acc, cat) => acc + cat.items.filter((item) => item.status === "passed").length,
-          0
-        );
-
-        return {
-          success: true,
-          readiness: {
-            checks,
-            summary: {
-              totalChecks,
-              passed: passedChecks,
-              failed: totalChecks - passedChecks,
-              readyForDeployment: passedChecks === totalChecks,
-              readinessScore: Math.round((passedChecks / totalChecks) * 100),
-            },
-          },
-        };
-      } catch (error: any) {
-        console.error("Error verifying deployment readiness:", error);
-        return {
-          success: false,
-          error: error.message,
-        };
+      const checks: Array<{ category: string; items: Array<{ name: string; status: "passed" | "failed"; details: string }> }> = [];
+      const databaseItems: Array<{ name: string; status: "passed" | "failed"; details: string }> = [];
+      const db = await getDb();
+      if (!db) {
+        databaseItems.push({ name: "Database connection", status: "failed", details: "The application database is unavailable." });
+      } else {
+        try {
+          await db.execute(sql`SELECT 1`);
+          databaseItems.push({ name: "Database connection", status: "passed", details: "Database query succeeded." });
+          const requiredTables = ["users", "institutionalAccounts", "institutionMemberships", "professionalCredentials", "inAppNotifications"];
+          const result = await db.execute(sql`SELECT TABLE_NAME AS tableName FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (${sql.join(requiredTables.map((table) => sql`${table}`), sql`, `)})`);
+          const rows = Array.isArray(result) ? result[0] : [];
+          const present = new Set((rows as Array<{ tableName?: string }>).map((row) => row.tableName));
+          const missing = requiredTables.filter((table) => !present.has(table));
+          databaseItems.push({
+            name: "Required schema",
+            status: missing.length === 0 ? "passed" : "failed",
+            details: missing.length === 0 ? "Critical application tables are present." : `Missing critical tables: ${missing.join(", ")}`,
+          });
+        } catch (error) {
+          databaseItems.push({ name: "Required schema", status: "failed", details: error instanceof Error ? error.message : "Schema verification failed." });
+        }
       }
+      checks.push({ category: "Database", items: databaseItems });
+      checks.push({
+        category: "Configuration",
+        items: [
+          { name: "DATABASE_URL", status: process.env.DATABASE_URL ? "passed" : "failed", details: process.env.DATABASE_URL ? "Configured." : "DATABASE_URL is missing." },
+          { name: "SESSION_SECRET", status: process.env.SESSION_SECRET ? "passed" : "failed", details: process.env.SESSION_SECRET ? "Configured." : "SESSION_SECRET is missing." },
+        ],
+      });
+      const items = checks.flatMap((category) => category.items);
+      const passed = items.filter((item) => item.status === "passed").length;
+      const failed = items.length - passed;
+      return {
+        success: failed === 0,
+        readiness: {
+          checks,
+          summary: { totalChecks: items.length, passed, failed, readyForDeployment: failed === 0, readinessScore: items.length ? Math.round((passed / items.length) * 100) : 0 },
+        },
+      };
     }),
 
   /**
