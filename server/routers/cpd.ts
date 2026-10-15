@@ -30,7 +30,7 @@ import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { applyCpdFacilityRelationship, autoLinkCpdFacilitiesForUser } from "../services/facility-registry.service";
 import { canRegisterForEvent, canReviewAttendanceTransition, countsAsVerifiedAttendance, isAudienceEligible } from "../lib/cpd-contract";
 import { bestCpdQuizAttemptPassed, scoreCpdQuiz, type CpdQuizAnswer } from "../lib/cpd-quiz";
-import { getCpdPresenterSearchScope } from "../lib/cpd-presenter-search";
+import { getCpdPresenterSearchScope, matchesScopedPresenterDepartment } from "../lib/cpd-presenter-search";
 
 /** Shared cadre validator for input validation, matching the cpdAttendees.cadre column. */
 const cadreEnum = z.string().trim().min(1, "Please select or specify your cadre").max(128);
@@ -405,6 +405,10 @@ export const cpdRouter = router({
       const escapedQuery = escapeSearchLike(normalizedQuery);
       const q = `%${escapedQuery}%`;
       const prefix = `${escapedQuery}%`;
+      const facilityDepartmentNames = await loadFacilityDepartmentNames(db, institutionId);
+      const scopedDepartmentNames = access.departmentIds
+        ? access.departmentIds.map(id => facilityDepartmentNames.get(id)).filter((name): name is string => Boolean(name))
+        : [];
       const searchCondition = normalizedQuery
         ? or(
             like(sql`LOWER(${users.name})`, q),
@@ -448,9 +452,6 @@ export const cpdRouter = router({
             eq(institutionMemberships.institutionalAccountId, institutionId),
             eq(institutionMemberships.membershipStatus, "active"),
             searchCondition,
-            access.departmentIds
-              ? inArray(institutionalStaffMembers.facilityDepartmentId, access.departmentIds)
-              : undefined
           )
         )
         .orderBy(
@@ -464,7 +465,7 @@ export const cpdRouter = router({
           asc(users.name),
           asc(users.id),
         )
-        .limit(50);
+        .limit(200);
 
       const staffMatches = await db
         .select({
@@ -492,9 +493,6 @@ export const cpdRouter = router({
             eq(institutionalStaffMembers.institutionalAccountId, institutionId),
             sql`${institutionalStaffMembers.removedAt} IS NULL`,
             searchCondition,
-            access.departmentIds
-              ? inArray(institutionalStaffMembers.facilityDepartmentId, access.departmentIds)
-              : undefined,
           ),
         )
         .orderBy(
@@ -502,14 +500,13 @@ export const cpdRouter = router({
           asc(users.name),
           asc(users.id),
         )
-        .limit(50);
+        .limit(200);
 
-      const facilityDepartmentNames = await loadFacilityDepartmentNames(db, institutionId);
       const memberRows = Array.from(
         new Map(
           [...userMatches, ...staffMatches].map(row => [row.id, row]),
         ).values(),
-      );
+      ).filter(row => matchesScopedPresenterDepartment(row, access.departmentIds, scopedDepartmentNames));
       const memberResults = memberRows.map((u) => ({
         id: u.id,
         fullName: u.staffName || u.userName || u.staffEmail || u.userEmail || "Unknown Clinician",
@@ -521,6 +518,9 @@ export const cpdRouter = router({
           : u.department || null,
         facilityDepartmentId: u.facilityDepartmentId ?? null,
         isInstitutionMember: true as const,
+        departmentLinkStatus: u.facilityDepartmentId == null && access.departmentIds !== null
+          ? "legacy_label_match" as const
+          : "canonical" as const,
       }));
       if (getCpdPresenterSearchScope(access.departmentIds) === "department") return memberResults;
 
@@ -551,8 +551,64 @@ export const cpdRouter = router({
           department: null,
           facilityDepartmentId: null,
           isInstitutionMember: false as const,
+          departmentLinkStatus: "not_applicable" as const,
         }));
       return [...memberResults, ...platformResults].slice(0, 100);
+    }),
+
+  /** Explain an empty presenter search without exposing out-of-scope staff records. */
+  searchPresenterDiagnostics: protectedProcedure
+    .input(
+      z.object({
+        query: z.string().trim().min(2).max(100),
+        institutionId: z.number().int().positive(),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await requireDb();
+      await assertInstitutionProductCapability(db, input.institutionId, "cpd_portal", "cpd.sessions.operate");
+      const access = await assertCpdInstitutionAccess(db, ctx.user, input.institutionId, ["cpd_coordinator", "cpd_education_coordinator"]);
+      const normalizedQuery = input.query.trim().toLowerCase();
+      const escapedQuery = escapeSearchLike(normalizedQuery);
+      const searchCondition = or(
+        like(sql`LOWER(${users.name})`, `%${escapedQuery}%`),
+        like(sql`LOWER(${users.email})`, `%${escapedQuery}%`),
+        like(sql`LOWER(${institutionalStaffMembers.staffName})`, `%${escapedQuery}%`),
+        like(sql`LOWER(${institutionalStaffMembers.staffEmail})`, `%${escapedQuery}%`),
+      );
+      const rows = await db
+        .select({
+          facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+          department: institutionalStaffMembers.department,
+        })
+        .from(institutionalStaffMembers)
+        .leftJoin(users, or(
+          eq(users.id, institutionalStaffMembers.userId),
+          sql`LOWER(${users.email}) = LOWER(${institutionalStaffMembers.staffEmail})`,
+        ))
+        .where(and(
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+          sql`${institutionalStaffMembers.removedAt} IS NULL`,
+          searchCondition,
+        ))
+        .limit(501);
+      const departmentNames = access.departmentIds
+        ? (await loadFacilityDepartmentNames(db, input.institutionId))
+        : new Map<number, string>();
+      const allowedNames = access.departmentIds
+        ? access.departmentIds.map((id: number) => departmentNames.get(id)).filter((name: string | undefined): name is string => Boolean(name))
+        : [];
+      const inScopeRows = rows.filter(row => matchesScopedPresenterDepartment(row, access.departmentIds, allowedNames));
+      const legacyLabelMatches = inScopeRows.filter(row => row.facilityDepartmentId == null && allowedNames.some((name: string) => departmentLabelsMatch(row.department ?? "", name))).length;
+      return {
+        scope: getCpdPresenterSearchScope(access.departmentIds),
+        authorizedDepartmentNames: allowedNames,
+        matchedStaffRows: rows.length,
+        inScopeRows: inScopeRows.length,
+        excludedByDepartmentScope: Math.max(0, rows.length - inScopeRows.length),
+        missingCanonicalDepartmentLinkRows: legacyLabelMatches,
+        truncated: rows.length > 500,
+      };
     }),
 
   /** Admin: open a new event. Closes any currently open event for this institution first. */

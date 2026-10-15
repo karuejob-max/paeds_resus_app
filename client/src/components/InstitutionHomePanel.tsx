@@ -126,6 +126,7 @@ export default function InstitutionHomePanel({
   return (
     <div className="space-y-6">
       <InstitutionOrientationActionCentre
+        institutionId={institutionId}
         isInstitutionAdmin={isInstitutionAdmin}
         roleKeys={roleKeys}
         canViewAccountability={canViewAccountability}
