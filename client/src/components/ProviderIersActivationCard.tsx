@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock3, MapPin, Siren } from "lucide-react";
+import { AlertTriangle, Building2, CheckCircle2, Clock3, MapPin, Siren } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,9 @@ export default function ProviderIersActivationCard() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-slate-900 text-sm">{label(activation.activationType)}</p>
+                  <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-700">
+                    <Building2 className="h-3 w-3" /> {activation.companyName}
+                  </p>
                   <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
                     <MapPin className="h-3 w-3" /> {activation.location}
                     {activation.bedNumber ? ` · Bed ${activation.bedNumber}` : ""}
