@@ -275,6 +275,10 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
     { query: debouncedPresenterSearch, institutionId },
     { enabled: debouncedPresenterSearch.length >= 2, staleTime: 15_000 }
   );
+  const presenterSearchDiagnosticsQuery = trpc.cpd.searchPresenterDiagnostics.useQuery(
+    { query: debouncedPresenterSearch, institutionId },
+    { enabled: debouncedPresenterSearch.length >= 2, staleTime: 15_000 }
+  );
 
   const editPresenterSearchQuery = trpc.cpd.searchPresenters.useQuery(
     { query: debouncedEditPresenterSearch, institutionId },
@@ -1349,16 +1353,32 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                         user.department || "Department not set",
                         user.cadre || "Cadre not set",
                         user.isInstitutionMember ? "Institution member" : "Paeds Resus account · not an institution member",
+                        user.departmentLinkStatus === "legacy_label_match" ? "Department link needs reconciliation" : null,
                       ].join(" · "),
                       searchText: [user.fullName, user.email, user.department, user.cadre].filter(Boolean).join(" "),
                     }))}
                     onSearchChange={setPresenterSearch}
                     placeholder="Choose lead presenter"
                     searchPlaceholder="Type name or email to search..."
-                    emptyText="No eligible Paeds Resus account found."
+                    emptyText={debouncedPresenterSearch.length < 2 ? "Type at least 2 characters." : "No eligible presenter found in your authorised scope."}
                     clearable
                     searchAlwaysVisible
                   />
+                  {debouncedPresenterSearch.length >= 2 && !presenterSearchQuery.isLoading && (presenterSearchQuery.data ?? []).length === 0 && presenterSearchDiagnosticsQuery.data && (
+                    <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-950">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" />
+                      <div>
+                        <p className="font-medium">No eligible presenter was found in this search scope.</p>
+                        {presenterSearchDiagnosticsQuery.data.missingCanonicalDepartmentLinkRows > 0 ? (
+                          <p className="mt-1">A matching staff record has a legacy department label without a canonical department link. It is shown only after safe label reconciliation; an administrator should repair the staff record.</p>
+                        ) : presenterSearchDiagnosticsQuery.data.excludedByDepartmentScope > 0 ? (
+                          <p className="mt-1">Matching staff exist outside your authorised department. Ask an institutional administrator to confirm the person’s department or appoint you to the correct scope.</p>
+                        ) : (
+                          <p className="mt-1">Confirm that the person has an active institution membership and a linked staff record. Do not broaden the search to another department.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="cpd-presenter-cadre">Lead presenter cadre</Label>
