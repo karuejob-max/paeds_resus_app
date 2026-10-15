@@ -474,7 +474,9 @@ export const institutionProductsRouter = router({
           userId: input.userId ?? null,
           invitedEmail,
           roleKey: input.roleKey,
-          roleStatus: "active",
+          // High-impact product roles remain pending until a different authorised
+          // reviewer explicitly activates them through setProductRoleStatus.
+          roleStatus: "invited",
           grantedByUserId: ctx.user.id,
           grantedAt: new Date(),
           endedAt: null,
@@ -482,7 +484,7 @@ export const institutionProductsRouter = router({
         .onDuplicateKeyUpdate({
           set: {
             userId: input.userId ?? null,
-            roleStatus: "active",
+            roleStatus: "invited",
             grantedByUserId: ctx.user.id,
             grantedAt: new Date(),
             endedAt: null,
@@ -514,7 +516,7 @@ export const institutionProductsRouter = router({
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const [role] = await db
-        .select({ id: institutionProductRoles.id, productId: institutionProductRoles.productId, roleKey: institutionProductRoles.roleKey })
+        .select({ id: institutionProductRoles.id, productId: institutionProductRoles.productId, roleKey: institutionProductRoles.roleKey, grantedByUserId: institutionProductRoles.grantedByUserId })
         .from(institutionProductRoles)
         .where(and(eq(institutionProductRoles.id, input.roleId), eq(institutionProductRoles.institutionalAccountId, input.institutionId)))
         .limit(1);
@@ -525,6 +527,9 @@ export const institutionProductsRouter = router({
         .where(eq(institutionalProducts.id, role.productId))
         .limit(1);
       if (!product) throw new TRPCError({ code: "NOT_FOUND", message: "Institutional product is not registered." });
+      if (input.roleStatus === "active" && role.grantedByUserId === ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Four-eyes control: the person who requested this role change cannot activate it. Ask another authorised reviewer." });
+      }
       if (product.productKey === "iers" || product.productKey === "cpd_portal") {
         await assertCanManageProductRoles(db, ctx.user, input.institutionId, product.productKey);
       } else {
@@ -719,27 +724,45 @@ export const institutionProductsRouter = router({
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin", "finance_officer"], { allowInstitutionAdmin: true });
       const productKey = validLifecycleProductKey(input.productKey);
-      await db.insert(institutionDataLifecyclePolicies).values({
-        institutionalAccountId: input.institutionId,
-        productKey,
-        retentionDays: input.retentionDays,
-        legalHold: input.legalHold,
-        updatedByUserId: ctx.user.id,
-      }).onDuplicateKeyUpdate({
-        set: { retentionDays: input.retentionDays, legalHold: input.legalHold, updatedByUserId: ctx.user.id, updatedAt: new Date() },
-      });
-      await db.insert(institutionDataLifecycleRequests).values({
+      const result = await db.insert(institutionDataLifecycleRequests).values({
         institutionalAccountId: input.institutionId,
         productKey,
         requestType: "retention_change",
-        status: "completed",
+        status: "requested",
         requestedByUserId: ctx.user.id,
-        reviewedByUserId: ctx.user.id,
         reason: input.reason,
         metadata: JSON.stringify({ retentionDays: input.retentionDays, legalHold: input.legalHold }),
-        completedAt: new Date(),
       });
-      return { success: true as const, productKey, retentionDays: input.retentionDays, legalHold: input.legalHold };
+      return { success: true as const, productKey, retentionDays: input.retentionDays, legalHold: input.legalHold, requestId: (result as unknown as { insertId: number }).insertId, status: "requested" as const, reviewRequired: true as const };
+    }),
+
+  /** Platform administrator: independently apply a requested retention-policy change. */
+  reviewDataLifecyclePolicy: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      requestId: z.number().int().positive(),
+      status: z.enum(["approved", "cancelled"]),
+      reviewNote: z.string().trim().min(3).max(2000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Only Paeds Resus platform administrators can review retention-policy changes." });
+      const db = await requireDb();
+      const [request] = await db.select().from(institutionDataLifecycleRequests).where(and(
+        eq(institutionDataLifecycleRequests.id, input.requestId),
+        eq(institutionDataLifecycleRequests.institutionalAccountId, input.institutionId),
+        eq(institutionDataLifecycleRequests.requestType, "retention_change"),
+      )).limit(1);
+      if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "Retention-policy request not found." });
+      if (request.status !== "requested") throw new TRPCError({ code: "BAD_REQUEST", message: "This retention-policy request has already been reviewed." });
+      if (request.requestedByUserId === ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "Four-eyes control: the requester cannot review their own retention-policy change." });
+      const metadata = typeof request.metadata === "string" ? JSON.parse(request.metadata) as { retentionDays?: number; legalHold?: boolean } : (request.metadata as { retentionDays?: number; legalHold?: boolean } | null);
+      if (input.status === "approved" && (!metadata?.retentionDays || typeof metadata.legalHold !== "boolean")) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "The retention-policy request is missing a complete policy payload." });
+      const now = new Date();
+      if (input.status === "approved") {
+        await db.insert(institutionDataLifecyclePolicies).values({ institutionalAccountId: input.institutionId, productKey: request.productKey, retentionDays: metadata!.retentionDays!, legalHold: metadata!.legalHold!, updatedByUserId: ctx.user.id }).onDuplicateKeyUpdate({ set: { retentionDays: metadata!.retentionDays!, legalHold: metadata!.legalHold!, updatedByUserId: ctx.user.id, updatedAt: now } });
+      }
+      await db.update(institutionDataLifecycleRequests).set({ status: input.status === "approved" ? "completed" : "cancelled", reviewedByUserId: ctx.user.id, reason: `${request.reason} Reviewer note: ${input.reviewNote}`, completedAt: input.status === "approved" ? now : null, updatedAt: now }).where(eq(institutionDataLifecycleRequests.id, request.id));
+      return { success: true as const, status: input.status === "approved" ? "completed" as const : "cancelled" as const };
     }),
 
   /** Create a deliberate, reviewable recovery or offboarding request. No data is deleted automatically. */
@@ -778,7 +801,7 @@ export const institutionProductsRouter = router({
     .mutation(async ({ ctx, input }) => {
       if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Only Paeds Resus platform administrators can review lifecycle requests." });
       const db = await requireDb();
-      const [request] = await db.select({ id: institutionDataLifecycleRequests.id, status: institutionDataLifecycleRequests.status, requestType: institutionDataLifecycleRequests.requestType })
+      const [request] = await db.select({ id: institutionDataLifecycleRequests.id, status: institutionDataLifecycleRequests.status, requestType: institutionDataLifecycleRequests.requestType, requestedByUserId: institutionDataLifecycleRequests.requestedByUserId })
         .from(institutionDataLifecycleRequests)
         .where(and(
           eq(institutionDataLifecycleRequests.id, input.requestId),
@@ -786,6 +809,7 @@ export const institutionProductsRouter = router({
         ))
         .limit(1);
       if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "Lifecycle request not found for this institution." });
+      if (request.requestedByUserId === ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "Four-eyes control: the requester cannot review their own lifecycle request." });
       if (request.status === "completed" && input.status !== "completed") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A completed lifecycle request cannot be reopened or cancelled." });
       }
