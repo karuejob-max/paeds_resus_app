@@ -1,10 +1,22 @@
 import { z } from "zod";
 import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
+import { TRPCError } from "@trpc/server";
 
 /**
  * Real-Time Incident Alerts & Emergency Response Router
  * WebSocket-based incident notifications, severity classification, and escalation workflows
  */
+
+/**
+ * Legacy emergency API quarantine. IERS is the only supported source of truth for
+ * emergency activation, response, and protocol guidance.
+ */
+function legacyEmergencyApiDisabled(): void {
+  throw new TRPCError({
+    code: "PRECONDITION_FAILED",
+    message: "This legacy emergency API is retired. Use the IERS emergency workflow instead.",
+  });
+}
 
 export const incidentAlertsRouter = router({
   /**
@@ -32,6 +44,7 @@ export const incidentAlertsRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      legacyEmergencyApiDisabled();
       try {
         const incidentId = `incident_${Date.now()}`;
 
@@ -82,6 +95,7 @@ export const incidentAlertsRouter = router({
       })
     )
     .query(async ({ input }) => {
+      legacyEmergencyApiDisabled();
       try {
         // ML-based severity classification
         let baseScore = 50;
@@ -150,6 +164,7 @@ export const incidentAlertsRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      legacyEmergencyApiDisabled();
       try {
         // Determine routing based on incident type and severity
         const routing = getIncidentRouting(input.incidentType, input.severity);
@@ -195,6 +210,7 @@ export const incidentAlertsRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      legacyEmergencyApiDisabled();
       try {
         console.log(`Incident ${input.incidentId} acknowledged by responder ${input.responderId}`);
 
@@ -226,6 +242,7 @@ export const incidentAlertsRouter = router({
       })
     )
     .query(async ({ input }) => {
+      legacyEmergencyApiDisabled();
       try {
         const dashboard = {
           activeIncidents: 3,
@@ -283,6 +300,7 @@ export const incidentAlertsRouter = router({
       })
     )
     .query(async ({ input }) => {
+      legacyEmergencyApiDisabled();
       try {
         const trends = [];
 
@@ -343,6 +361,7 @@ export const incidentAlertsRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      legacyEmergencyApiDisabled();
       try {
         console.log(`Incident ${input.incidentId} closed with outcome: ${input.outcome}`);
 
@@ -373,6 +392,7 @@ export const incidentAlertsRouter = router({
       })
     )
     .query(async ({ input }) => {
+      legacyEmergencyApiDisabled();
       try {
         const checklist = [
           {
