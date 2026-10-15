@@ -31,6 +31,9 @@ type Item = {
   domain: string;
   severity: string;
   requiresAction: boolean;
+  taskStatus?: "open" | "in_progress" | "waiting" | "completed";
+  institutionId?: number | null;
+  departmentId?: number | null;
   computed?: boolean;
 };
 
@@ -165,6 +168,9 @@ export function NotificationBell() {
       domain: notification.domain ?? "system",
       severity: notification.severity ?? "info",
       requiresAction: notification.requiresAction,
+      taskStatus: notification.taskStatus,
+      institutionId: notification.institutionId,
+      departmentId: notification.departmentId,
     })),
   [inboxQuery.data?.notifications]);
 
@@ -252,6 +258,8 @@ export function NotificationBell() {
                         <div className="mt-1 flex flex-wrap items-center gap-2">
                           <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(item.createdAt, { addSuffix: true })}</span>
                           {item.requiresAction && <span className="text-[10px] font-medium text-indigo-600">Action required</span>}
+                          {item.taskStatus && item.taskStatus !== "completed" && <span className="text-[10px] font-medium text-slate-600">{item.taskStatus === "in_progress" ? "In progress" : item.taskStatus === "waiting" ? "Waiting" : "Open"}</span>}
+                          {(item.institutionId || item.departmentId) && <span className="text-[10px] text-slate-600">{item.departmentId ? `Department ${item.departmentId}` : `Institution ${item.institutionId}`}</span>}
                           {item.actionUrl && <span className="flex items-center gap-0.5 text-[10px] text-blue-600"><ExternalLink className="h-2.5 w-2.5" /> Open</span>}
                         </div>
                       </div>
