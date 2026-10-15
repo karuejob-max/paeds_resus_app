@@ -537,6 +537,29 @@ export default function MicroCoursePlayerDB() {
     setHasResumed(true);
   }, [resumeQuery.data, hasResumed, examState, isAhaCourse, courseDetails?.modules?.length]);
 
+  useEffect(() => {
+    if (!hasResumed || isReviewMode || !user?.id || !slug || !currentModuleId) return;
+    try {
+      const raw = localStorage.getItem(`${progressKey}-section-${currentModuleIndex}`);
+      const savedSection = raw == null ? 0 : Number.parseInt(raw, 10);
+      if (Number.isFinite(savedSection) && savedSection >= 0) {
+        setCurrentSectionIndex(savedSection);
+        setMaxReachedSectionIndex(savedSection);
+      }
+    } catch {
+      // Resume is a convenience; an unavailable local store must not block learning.
+    }
+  }, [currentModuleId, currentModuleIndex, hasResumed, isReviewMode, progressKey, slug, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !slug) return;
+    try {
+      localStorage.setItem(`${progressKey}-section-${currentModuleIndex}`, String(currentSectionIndex));
+    } catch {
+      // Best-effort persistence only.
+    }
+  }, [currentModuleIndex, currentSectionIndex, progressKey, slug, user?.id]);
+
   // ── Mutations ──────────────────────────────────────────────────────────────
   const utils = trpc.useUtils();
   const ensureMicroEnrollment = trpc.courses.ensureMicroCourseEnrollment.useMutation({
@@ -1292,6 +1315,14 @@ export default function MicroCoursePlayerDB() {
                   >
                     {downloadCert.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
                     Download Paeds Resus {dbCourse.title} Certificate
+                  </Button>
+                )}
+                {isAhaCourse && ahaProgramForUi && (
+                  <Button
+                    className="w-full py-6 bg-violet-600 hover:bg-violet-700 text-white font-bold"
+                    onClick={() => navigate(`/simulation-hub?pathway=${encodeURIComponent(ahaProgramForUi)}&view=missions`)}
+                  >
+                    Continue to {ahaProgramForUi.toUpperCase()} simulations
                   </Button>
                 )}
                 {/* Review Course — re-enters the player from module 1 in review mode */}
