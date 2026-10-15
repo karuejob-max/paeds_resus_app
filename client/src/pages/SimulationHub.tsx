@@ -22,6 +22,7 @@ import { Activity, ArrowLeft, Brain, CheckCircle2, Clock3, Gamepad2, HeartPulse,
 import { CardiacArrestTrack } from "@/components/practice-lab/CardiacArrestTrack";
 import { SimulationMissionHud } from "@/components/SimulationMissionHud";
 import { getRecommendedSimulationMission, getSimulationPracticePoints } from "@shared/simulation-hub-mastery";
+import { getPhase2Requirements } from "@shared/phase2-automation";
 
 type MissionProgress = Record<string, { attempts: number; bestScore: number; lastPlayedAt: string }>;
 
@@ -175,7 +176,11 @@ export default function SimulationHub() {
     : scenarioCatalog[0]?.id ?? null;
   const selectedScenario = scenarioCatalog.find((scenario) => scenario.id === effectiveScenarioId);
   const liveScenarioTitle = scenarioCatalog.find((scenario) => scenario.id === (playingScenarioId ?? effectiveScenarioId))?.title ?? selectedScenario?.title ?? selectedMission.title;
-  const selectedScenarioPhase2Requirement = phase2Status?.requirements.find((requirement) => {
+  const selectedScenarioPhase2Requirement = (phase2Status?.requirements ?? []).find((requirement) => {
+    const trackMatches = !requirement.trackIds || requirement.trackIds.includes(selectedMission.trackId);
+    const scenarioMatches = !requirement.scenarioIds || Boolean(effectiveScenarioId && requirement.scenarioIds.includes(effectiveScenarioId));
+    return trackMatches && scenarioMatches;
+  }) ?? getPhase2Requirements(effectiveProgram).find((requirement) => {
     const trackMatches = !requirement.trackIds || requirement.trackIds.includes(selectedMission.trackId);
     const scenarioMatches = !requirement.scenarioIds || Boolean(effectiveScenarioId && requirement.scenarioIds.includes(effectiveScenarioId));
     return trackMatches && scenarioMatches;
