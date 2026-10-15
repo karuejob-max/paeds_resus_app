@@ -6,6 +6,7 @@ import { getOfflineSnapshot, getOfflineSnapshotFreshness, offlineStoreKeys, save
 import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import ProviderTodayActivationCard from "@/components/ProviderTodayActivationCard";
 import { ProviderOrientationActionCentre } from "@/components/OrientationActionCentre";
+import { ContextHeader } from "@/components/ContextHeader";
 import IersNotificationSetup from "@/components/IersNotificationSetup";
 import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
 import { Badge } from "@/components/ui/badge";
@@ -392,21 +393,15 @@ export default function ProviderToday() {
           {isRefreshing && <Loader2 className="mt-2 h-4 w-4 shrink-0 animate-spin text-slate-400" aria-label="Refreshing" />}
         </header>
 
-        {primaryMembership ? (
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
-            <Building2 className="h-4 w-4 shrink-0 text-teal-700" />
-            {activeMemberships.length === 1 ? (
-              <span className="min-w-0 truncate">
-                {primaryMembership.companyName}
-                {primaryMembership.department ? ` · ${primaryMembership.department}` : ""}
-                {primaryMembership.staffRole ? ` · ${primaryMembership.staffRole}` : ""}
-              </span>
-            ) : (
-              <span className="min-w-0 truncate">{activeMemberships.length} active facilities linked · exact scope appears in each workspace</span>
-            )}
-            {activeMemberships.length > 1 && <Badge variant="outline" className="ml-auto shrink-0">Review in Records</Badge>}
-          </div>
-        ) : null}
+        <ContextHeader
+          workspace="Today"
+          title={`Welcome back${user.name ? `, ${user.name.split(" ")[0]}` : ""}`}
+          description="Your personal starting point for duty, readiness, credentials, learning, and safe response."
+          institution={primaryMembership?.companyName ?? (activeMemberships.length > 1 ? `${activeMemberships.length} active institutions` : null)}
+          department={activeMemberships.length === 1 ? primaryMembership?.department : null}
+          scope={activeMemberships.length === 1 ? primaryMembership?.staffRole : "Confirm scope before institution-sensitive actions"}
+          status={isRefreshing ? "Refreshing" : activeMemberships.length > 1 ? "Multiple institutions" : primaryMembership ? "Current workplace" : "No workplace linked"}
+        />
 
         <ProviderOrientationActionCentre
           attention={attention}
