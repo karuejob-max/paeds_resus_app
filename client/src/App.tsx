@@ -720,7 +720,7 @@ function Router() {
             </RoleGate>
           )}</Route>
           <Route path="/simulation-hub">{() => (
-            <RoleGate allowed={["provider"]}>
+            <RoleGate allowed={["provider"]} preferredRole="provider">
               <SimulationHub />
             </RoleGate>
           )}</Route>
@@ -895,7 +895,7 @@ function SuspenseRouteFallback() {
   return <RouteLoadingState title={loadingCopy.title} description={loadingCopy.description} />;
 }
 
-function RoleGate({ allowed, children }: { allowed: UserRole[]; children: ReactNode }) {
+function RoleGate({ allowed, children, preferredRole }: { allowed: UserRole[]; children: ReactNode; preferredRole?: UserRole }) {
   const { isAuthenticated, loading } = useAuth();
   const { effectiveWorkspace, hasInstitutionAccess, isInstitutionAccessKnown } = useWorkspaceAccess();
   const [location, setLocation] = useLocation();
@@ -903,7 +903,7 @@ function RoleGate({ allowed, children }: { allowed: UserRole[]; children: ReactN
   const routeRequestsInstitution =
     location.startsWith("/institution") || location.startsWith("/hospital-admin-dashboard");
   const effectiveRole: UserRole =
-    routeRequestsInstitution && hasInstitutionAccess ? "institution" : effectiveWorkspace;
+    routeRequestsInstitution && hasInstitutionAccess ? "institution" : preferredRole ?? effectiveWorkspace;
   const institutionAccessPending =
     isAuthenticated && allowed.includes("institution") && !isInstitutionAccessKnown;
 
