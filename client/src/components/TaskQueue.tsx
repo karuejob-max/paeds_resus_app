@@ -18,6 +18,8 @@ export type TaskQueueItem = {
   detail: string;
   actionLabel: string;
   priority: TaskPriority;
+  scope?: string;
+  source?: string;
   onAction: () => void;
 };
 
@@ -60,6 +62,13 @@ function QueueRow({ item }: { item: TaskQueueItem }) {
           </Badge>
         </div>
         <p className="mt-1 text-sm opacity-80">{item.detail}</p>
+        {item.scope || item.source ? (
+          <p className="mt-2 text-[11px] font-medium uppercase tracking-wide opacity-70">
+            {item.scope ? `Scope: ${item.scope}` : null}
+            {item.scope && item.source ? " · " : null}
+            {item.source ? `Source: ${item.source}` : null}
+          </p>
+        ) : null}
       </div>
       <Button
         type="button"
