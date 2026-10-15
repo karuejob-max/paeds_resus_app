@@ -81,7 +81,7 @@ export function InteractiveResuscitationTrack({ programType, enrollmentId, onExi
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle className="text-cyan-950">Instructor-led resuscitation loop</CardTitle>
-            <Badge variant="outline">Iterative formative practice</Badge>
+            <Badge variant="outline">Iterative qualifying practice</Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-cyan-950">
@@ -89,7 +89,7 @@ export function InteractiveResuscitationTrack({ programType, enrollmentId, onExi
           <div className="grid gap-2 sm:grid-cols-5 text-xs">
             {["Observe", "Ask / assess", "Receive finding", "Act", "Reassess"].map((label, index) => <div key={label} className={`rounded-md border p-2 ${index === 0 ? "border-cyan-400 bg-white" : "border-cyan-200 bg-cyan-100/60"}`}><strong>{index + 1}.</strong> {label}</div>)}
           </div>
-          <p className="text-xs text-cyan-800"><strong>Governance:</strong> This rehearsal is training evidence only. It does not issue a credential, complete a course phase, or replace instructor assessment.</p>
+          <p className="text-xs text-cyan-800"><strong>Governance:</strong> The server records this rehearsal as training evidence; a passing score can count toward Heartsaver Phase 2 automated mastery. It does not issue a credential, approve Phase 3 practical skills, or replace instructor assessment.</p>
         </CardContent>
       </Card>
 
@@ -129,8 +129,8 @@ export function InteractiveResuscitationTrack({ programType, enrollmentId, onExi
       {recentEvents.length > 0 && <Card><CardHeader><CardTitle className="text-base">Live rehearsal record</CardTitle></CardHeader><CardContent className="space-y-2">{recentEvents.map((event, index) => <div key={`${event.timestamp}-${index}`} className="flex gap-3 rounded-md border border-slate-200 p-2 text-xs"><span className="min-w-10 text-slate-500">{event.timestamp}s</span><span className={event.correct === false ? "text-amber-800" : "text-slate-700"}>{event.description}</span></div>)}</CardContent></Card>}
 
       {lastFeedback && wrongChoiceId && <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />A wrong choice does not end the scenario. The instructor pauses the scene, gives coaching, and lets you choose again.</div>}
-      {saved && <div className="flex items-start gap-2 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-950"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />The formative rehearsal record has been saved. No credential or course-phase completion was created.</div>}
-      {recordAttempt.error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-300 bg-rose-50 p-3 text-xs text-rose-950"><XCircle className="mt-0.5 h-4 w-4 shrink-0" />The rehearsal ended locally, but its formative record could not be saved. No credential was issued.</div>}
+      {saved && <div className="flex items-start gap-2 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-950"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />The server-authoritative rehearsal record has been saved. A passing score contributes to Heartsaver Phase 2 mastery; no credential or Phase 3 completion was created.</div>}
+      {recordAttempt.error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-300 bg-rose-50 p-3 text-xs text-rose-950"><XCircle className="mt-0.5 h-4 w-4 shrink-0" />The rehearsal ended locally, but its server-authoritative record could not be saved. No credential or Phase 2 evidence was created.</div>}
     </div>
   );
 }
