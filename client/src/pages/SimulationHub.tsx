@@ -186,7 +186,7 @@ export default function SimulationHub() {
     ?? phase2RequirementDefinitions.find(matchesSelectedScenario);
   const selectedScenarioCanQualifyForPhase2 = Boolean(selectedScenarioPhase2Requirement);
   const selectedScenarioEvidenceLabel = selectedScenarioCanQualifyForPhase2
-    ? `Qualifying Phase 2 evidence when passed · target ${selectedScenarioPhase2Requirement?.minimumScore}%`
+    ? `Qualifying Phase 2 requirement: ${selectedScenarioPhase2Requirement?.label} · target ${selectedScenarioPhase2Requirement?.minimumScore}%`
     : "Formative · not assessed";
   const liveEvidenceCopy = selectedScenarioCanQualifyForPhase2
     ? "This rehearsal can contribute to automated Phase 2 mastery when the server records a passing score; it does not issue a credential."
