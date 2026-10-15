@@ -4,6 +4,11 @@ import { inAppNotifications } from "../../drizzle/schema";
 
 export type NotificationDomain = "clinical" | "role" | "learning" | "finance" | "system";
 export type NotificationSeverity = "info" | "action_required" | "urgent";
+export type NotificationTaskStatus =
+  | "open"
+  | "in_progress"
+  | "waiting"
+  | "completed";
 
 export type CreateNotificationInput = {
   userId: number;
@@ -11,6 +16,10 @@ export type CreateNotificationInput = {
   domain: NotificationDomain;
   severity?: NotificationSeverity;
   requiresAction?: boolean;
+  taskStatus?: NotificationTaskStatus;
+  institutionId?: number | null;
+  departmentId?: number | null;
+  dueAt?: Date | null;
   title: string;
   body: string;
   actionUrl?: string | null;
@@ -37,9 +46,12 @@ function parseData(dataJson: string | null): Record<string, unknown> | null {
 export function toCanonicalNotification(
   row: typeof inAppNotifications.$inferSelect,
 ): CanonicalNotification {
+  const data = parseData(row.dataJson ?? null);
+  const metadataInstitutionId = typeof data?.institutionId === "number" ? data.institutionId : null;
+  const metadataDepartmentId = typeof data?.departmentId === "number" ? data.departmentId : null;
   const domain = row.domain ?? (row.type.includes("role") || row.type.includes("institution") ? "role" : row.type.includes("course") || row.type.includes("certificate") || row.type.includes("quiz") ? "learning" : row.type.includes("payment") || row.type.includes("renewal") ? "finance" : row.type.startsWith("iers_") || row.type.includes("care_signal") ? "clinical" : "system");
   const severity = row.severity ?? (row.type.startsWith("iers_") ? "urgent" : row.requiresAction || row.type.includes("role") || row.type.includes("deadline") || row.type.includes("renewal") ? "action_required" : "info");
-  return { ...row, domain, severity, requiresAction: row.requiresAction || severity !== "info", data: parseData(row.dataJson ?? null) };
+  return { ...row, domain, severity, requiresAction: row.requiresAction || severity !== "info", taskStatus: row.taskStatus ?? (row.read ? "completed" : "open"), institutionId: row.institutionId ?? metadataInstitutionId, departmentId: row.departmentId ?? metadataDepartmentId, data };
 }
 
 export async function createCanonicalNotification(input: CreateNotificationInput) {
@@ -63,6 +75,10 @@ export async function createCanonicalNotification(input: CreateNotificationInput
     domain: input.domain,
     severity: input.severity ?? "info",
     requiresAction: input.requiresAction ?? false,
+    taskStatus: input.taskStatus ?? "open",
+    institutionId: input.institutionId ?? null,
+    departmentId: input.departmentId ?? null,
+    dueAt: input.dueAt ?? null,
     title: input.title,
     body: input.body,
     actionUrl: input.actionUrl ?? null,

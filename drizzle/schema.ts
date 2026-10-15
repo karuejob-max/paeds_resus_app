@@ -6487,6 +6487,18 @@ export const inAppNotifications = mysqlTable("inAppNotifications", {
   domain: varchar("domain", { length: 32 }),
   severity: varchar("severity", { length: 32 }),
   requiresAction: boolean("requiresAction").notNull().default(false),
+  taskStatus: mysqlEnum("taskStatus", [
+    "open",
+    "in_progress",
+    "waiting",
+    "completed",
+  ])
+    .notNull()
+    .default("open"),
+  institutionId: int("institutionId"),
+  departmentId: int("departmentId"),
+  dueAt: timestamp("dueAt"),
+  acknowledgedAt: timestamp("acknowledgedAt"),
   title: varchar("title", { length: 256 }).notNull(),
   body: text("body").notNull(),
   actionUrl: varchar("actionUrl", { length: 512 }),

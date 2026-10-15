@@ -44,4 +44,26 @@ describe("canonical notifications", () => {
     expect(notification.requiresAction).toBe(false);
     expect(notification.data).toBeNull();
   });
+
+  it("preserves durable task lifecycle and explicit tenant scope", () => {
+    const notification = toCanonicalNotification({
+      ...base,
+      taskStatus: "in_progress",
+      institutionId: 5,
+      departmentId: 12,
+      acknowledgedAt: new Date("2026-09-27T20:05:00.000Z"),
+    });
+    expect(notification.taskStatus).toBe("in_progress");
+    expect(notification.institutionId).toBe(5);
+    expect(notification.departmentId).toBe(12);
+  });
+
+  it("uses structured legacy metadata as a safe scope fallback", () => {
+    const notification = toCanonicalNotification({
+      ...base,
+      dataJson: JSON.stringify({ institutionId: 8, departmentId: 21 }),
+    });
+    expect(notification.institutionId).toBe(8);
+    expect(notification.departmentId).toBe(21);
+  });
 });
