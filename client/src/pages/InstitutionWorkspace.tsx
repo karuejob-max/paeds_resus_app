@@ -43,6 +43,7 @@ import { IersDepartmentSetupPanel } from "@/components/IersDepartmentSetupPanel"
 import InstitutionAdministrationPanel from "@/components/InstitutionAdministrationPanel";
 import InstitutionConnectedServicesPanel from "@/components/InstitutionConnectedServicesPanel";
 import InstitutionLearningOperationsPanel from "@/components/InstitutionLearningOperationsPanel";
+import { ContextHeader } from "@/components/ContextHeader";
 import InstitutionHomePanel from "@/components/InstitutionHomePanel";
 import { InstitutionAccountabilityPanel } from "@/components/InstitutionAccountabilityPanel";
 import { InstitutionalQualityBillingPanel } from "@/components/InstitutionalQualityBillingPanel";
@@ -267,11 +268,14 @@ export default function InstitutionWorkspace() {
       <div className="mx-auto min-w-0 max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
         <div className="mb-4 flex min-w-0 flex-col justify-between gap-3 md:mb-6 md:flex-row md:items-start md:gap-4">
           <div className="min-w-0">
-            <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
-              <Building2 className="h-4 w-4" />
-              Institution Workspace
-            </div>
-            <h1 className="break-words text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{institutionName}</h1>
+            <ContextHeader
+              workspace="Facility workspace"
+              title={institutionName}
+              description="Your institutional operations are scoped to this facility and the responsibilities attached to your role."
+              institution={institutionName}
+              scope={isInstitutionAdmin ? "Institution-wide administration" : "Assigned institutional responsibilities"}
+              status={isInstitutionAdmin ? "Administrator" : "Scoped access"}
+            />
             {availableInstitutions.length > 1 ? (
               <label className="mt-3 flex max-w-md items-center gap-2 text-sm text-muted-foreground">
                 <span className="shrink-0">Switch institution</span>
