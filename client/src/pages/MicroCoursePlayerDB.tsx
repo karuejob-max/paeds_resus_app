@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { sanitizeCourseHtml } from "@/lib/sanitizeCourseHtml";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
-import { isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
+import { getIerpAclsContinuationRoute, isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { PAEDS_RESUS_ILS_PROGRAM_TYPE } from "@shared/institutional-life-support";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
 import { UniversalCapstone } from "@/components/UniversalCapstone";
@@ -490,6 +490,11 @@ export default function MicroCoursePlayerDB() {
   const [hasResumed, setHasResumed] = useState(false);
   const [diagnosticPrompted, setDiagnosticPrompted] = useState(false);
   const isReviewMode = enrollment?.enrollmentStatus === 'completed' || location.includes('review=true');
+  const isIerpBlsCompletion = requestedPathway === "ierp" && ahaProgramForUi === "bls";
+  const ierpAclsContinuationRoute = useMemo(() => {
+    const aclsEnrollment = myAhaEnrollments?.find((row: any) => row.programType === "acls");
+    return getIerpAclsContinuationRoute(aclsEnrollment?.id, aclsEnrollment?.courseId ?? undefined);
+  }, [myAhaEnrollments]);
 
   useEffect(() => {
     if (isReviewMode || diagnosticPrompted || !examState) return;
@@ -658,6 +663,12 @@ export default function MicroCoursePlayerDB() {
       toast.error(error.message || "Could not issue certificate. Please try again.");
     },
   });
+
+  useEffect(() => {
+    if (!markAhaCognitive.isSuccess || !isIerpBlsCompletion || isReviewMode) return;
+    const timer = window.setTimeout(() => navigate(ierpAclsContinuationRoute), 2500);
+    return () => window.clearTimeout(timer);
+  }, [ierpAclsContinuationRoute, isIerpBlsCompletion, isReviewMode, markAhaCognitive.isSuccess, navigate]);
 
   const downloadCert = trpc.certificates.download.useMutation();
   const submitFeedbackMutation = trpc.certificates.submitDownloadFeedback.useMutation();
@@ -1293,6 +1304,8 @@ export default function MicroCoursePlayerDB() {
               <p className="text-slate-600 mb-8">
                 {isIlsCourse
                   ? <>You passed the cognitive requirements for <strong>{dbCourse.title}</strong>. Complete the approved practical assessment before claiming the Paeds Resus competency certificate.</>
+                  : isIerpBlsCompletion
+                    ? <>You have completed the IERP BLS cognitive refresh. ACLS is the next learning step and will open automatically in a moment.</>
                   : <>Congratulations! You have successfully completed <strong>{dbCourse.title}</strong>.</>}
               </p>
               {issuedCertNumber && (
@@ -1302,6 +1315,15 @@ export default function MicroCoursePlayerDB() {
                 </div>
               )}
               <div className="flex flex-col gap-3">
+                {isIerpBlsCompletion && (
+                  <Button
+                    className="w-full py-6 bg-indigo-700 hover:bg-indigo-800 text-white font-bold"
+                    onClick={() => navigate(ierpAclsContinuationRoute)}
+                  >
+                    Continue to ACLS cognitive learning
+                    <ChevronRight className="ml-2 h-5 w-5" />
+                  </Button>
+                )}
                 {isIlsCourse && !issuedCertNumber && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-950">
                     <strong>Practical assessment required.</strong> Your online learning is recorded. Attend an approved Paeds Resus practical session and ask the instructor to sign off your skills; the certificate will then become available in your certificate records.
