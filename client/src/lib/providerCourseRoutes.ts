@@ -3,6 +3,8 @@ export {
   getAhaContinueRoute,
   getAhaPathwayPortalRoute,
   getIerpAclsContinuationRoute,
+  getIerpNextAction,
+  getIerpPhase1EvidenceRoute,
   getProviderCourseDestination,
   isAhaProgramSlug,
   type AhaProgramType,
