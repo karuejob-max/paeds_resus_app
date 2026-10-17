@@ -1,9 +1,9 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, ArrowLeft, ClipboardCheck, CalendarPlus, Award, FlaskConical } from "lucide-react";
+import { BookOpen, ArrowLeft, ClipboardCheck, CalendarPlus, Award, FlaskConical, X } from "lucide-react";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
 import { getAhaContinueRoute, getAhaPathwayPortalRoute, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { AHA_COURSE_ORDER } from "@/const/aha-course-metadata";
@@ -16,6 +16,7 @@ import { toast } from "sonner";
 
 export default function AHACourses() {
   const [, setLocation] = useLocation();
+  const [showSimulationHint, setShowSimulationHint] = useState(false);
   const { track } = useProviderConversionAnalytics("/aha-courses");
   const { data: ierpSummary } = trpc.ierp.getSummary.useQuery(undefined, { retry: false });
   const utils = trpc.useUtils();
@@ -119,6 +120,23 @@ export default function AHACourses() {
 
   const goToCertificates = useCallback(() => setLocation("/certificates"), [setLocation]);
 
+  useEffect(() => {
+    try {
+      setShowSimulationHint(window.localStorage.getItem("paeds-resus.simulation-hub-intro-dismissed") !== "1");
+    } catch {
+      setShowSimulationHint(true);
+    }
+  }, []);
+
+  const dismissSimulationHint = useCallback(() => {
+    setShowSimulationHint(false);
+    try {
+      window.localStorage.setItem("paeds-resus.simulation-hub-intro-dismissed", "1");
+    } catch {
+      // A storage failure should never block access to the course hub.
+    }
+  }, []);
+
   const primaryAction = useMemo(() => {
     if (enrollmentsPending) return null;
     for (const pt of AHA_COURSE_ORDER) {
@@ -191,6 +209,26 @@ export default function AHACourses() {
         </div>
 
         <AssessmentPolicyBanner track="aha" />
+
+        {showSimulationHint && (
+          <Card className="border-violet-300 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800" role="status">
+            <CardContent className="flex items-start gap-3 p-4">
+              <FlaskConical className="mt-0.5 h-5 w-5 shrink-0 text-violet-700" />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-violet-950 dark:text-violet-100">New here? Practise in the Simulation Hub.</p>
+                <p className="mt-1 text-sm text-violet-900/80 dark:text-violet-200/80">
+                  Choose your Life Support course and rehearse changing emergency decisions before your practical session. This is training practice, not a certificate.
+                </p>
+                <Button type="button" className="mt-3 bg-violet-700 text-white hover:bg-violet-800" onClick={() => setLocation("/simulation-hub")}>
+                  Open Simulation Hub
+                </Button>
+              </div>
+              <Button type="button" variant="ghost" size="icon" className="shrink-0 text-violet-800" aria-label="Dismiss Simulation Hub introduction" onClick={dismissSimulationHint}>
+                <X className="h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {anyEnrolled && (
           <Card className="border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800">

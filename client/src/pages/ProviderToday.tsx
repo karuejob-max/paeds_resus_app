@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   FileText,
+  FlaskConical,
   HeartPulse,
   Loader2,
   Siren,
@@ -200,6 +201,11 @@ export default function ProviderToday() {
     staleTime: 30_000,
     retry: 1,
   });
+  const ahaEnrollmentsQuery = trpc.courses.getMyAhaEnrollments.useQuery(undefined, {
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+    retry: 1,
+  });
 
   const membershipsQuery = trpc.institution.getMyMemberships.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -373,6 +379,12 @@ export default function ProviderToday() {
     ? `${getProviderCourseDestination("bls", ierpBlsEnrollment.id, "/learner-dashboard", ierpBlsEnrollment.courseId ?? undefined)}&pathway=ierp`
     : null;
   const ierpAccessLocked = ierpDashboardAccess?.payment.cognitiveAccessLocked ?? false;
+  const activeSimulationEnrollment = (ahaEnrollmentsQuery.data ?? []).find(
+    (enrollment) => Number(enrollment.progressPercentage ?? 0) < 100 || !enrollment.practicalSkillsSignedOff,
+  );
+  const simulationCourseLabel = activeSimulationEnrollment
+    ? activeSimulationEnrollment.programType.toUpperCase()
+    : null;
 
   const isRefreshing =
     membershipsQuery.isFetching ||
@@ -467,6 +479,28 @@ export default function ProviderToday() {
                 Open IERP programme <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-violet-300 bg-violet-50 shadow-sm">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <FlaskConical className="mt-0.5 h-5 w-5 shrink-0 text-violet-700" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
+                  {simulationCourseLabel ? `${simulationCourseLabel} simulation` : "Simulation practice"}
+                </p>
+                <p className="font-semibold text-violet-950">
+                  {simulationCourseLabel ? `Continue your ${simulationCourseLabel} simulation` : "Explore the Simulation Hub"}
+                </p>
+                <p className="mt-0.5 text-xs text-violet-900/75">
+                  Practise changing emergency scenarios before your practical session. Saved attempts stay attached to the selected course.
+                </p>
+              </div>
+            </div>
+            <Button type="button" className="shrink-0 bg-violet-700 text-white hover:bg-violet-800" onClick={() => setLocation("/simulation-hub")}>
+              {simulationCourseLabel ? "Continue mission" : "Explore simulations"} <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
           </CardContent>
         </Card>
 
