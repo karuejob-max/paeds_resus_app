@@ -37,6 +37,7 @@ export const adminNavItems: NavItem[] = [
 export const learningNavItems: NavItem[] = [
   { label: "Learning guide", href: "/learning/guide", description: "How to use individual and institutional Learning" },
   { label: "Care Signal", href: "/care-signal", description: "Provider incident & near-miss reporting" },
+  { label: "Simulation Hub", href: "/simulation-hub", description: "Practise emergency decisions through interactive scenarios" },
   { label: "BLS Course", href: "/course/bls", description: "Basic Life Support training" },
 ];
 
@@ -86,6 +87,7 @@ export const footerSections = {
 export const dashboardNavItems: NavItem[] = [
   { label: "Learner Dashboard", href: "/home", icon: "📊" },
   { label: "Learning guide", href: "/learning/guide", icon: "🧭" },
+  { label: "Simulation Hub", href: "/simulation-hub", icon: "🎮" },
   { label: "Payment", href: "/payment", icon: "💳" },
   { label: "Care Signal", href: "/care-signal", icon: "🔍" },
   { label: "BLS Course", href: "/course/bls", icon: "❤️" },
