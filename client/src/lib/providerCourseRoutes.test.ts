@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getAhaContinueRoute, getProviderCourseDestination } from "./providerCourseRoutes";
+import { getAhaContinueRoute, getIerpAclsContinuationRoute, getProviderCourseDestination } from "./providerCourseRoutes";
 
 describe("getProviderCourseDestination", () => {
   it("returns BLS route with enrollment context and DB course id", () => {
@@ -78,5 +78,19 @@ describe("getAhaContinueRoute", () => {
       destination: "/micro-course/8?programType=pals&enrollmentId=303",
       ctaLabel: "Start course",
     });
+  });
+});
+
+describe("getIerpAclsContinuationRoute", () => {
+  it("preserves IERP pathway context when an ACLS enrollment is known", () => {
+    expect(getIerpAclsContinuationRoute(302, 52)).toBe(
+      "/micro-course/52?programType=acls&enrollmentId=302&pathway=ierp",
+    );
+  });
+
+  it("resolves the ACLS anchor when the linked enrollment does not exist yet", () => {
+    expect(getIerpAclsContinuationRoute()).toBe(
+      "/micro-course/acls?programType=acls&pathway=ierp",
+    );
   });
 });

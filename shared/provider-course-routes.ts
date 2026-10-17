@@ -134,6 +134,14 @@ export function getProviderCourseDestination(
     : `/micro-course/${courseId}`;
 }
 
+/** Keep IERP context on the BLS → ACLS handoff. */
+export function getIerpAclsContinuationRoute(enrollmentId?: number, courseDbId?: number): string {
+  return addPathwayQuery(
+    getProviderCourseDestination("acls", enrollmentId, "/programs/ierp/enroll#ierp-program", courseDbId),
+    "ierp",
+  );
+}
+
 export function getAhaContinueRoute(
   programType: AhaProgramType,
   enrollmentId: number,
