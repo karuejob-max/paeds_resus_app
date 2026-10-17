@@ -142,6 +142,11 @@ export function getIerpAclsContinuationRoute(enrollmentId?: number, courseDbId?:
   );
 }
 
+/** Return the owning IERP portal after ACLS cognitive completion. */
+export function getIerpPhase1EvidenceRoute(): string {
+  return "/programs/ierp/enroll#ierp-phase1-evidence";
+}
+
 export function getAhaContinueRoute(
   programType: AhaProgramType,
   enrollmentId: number,
@@ -235,7 +240,7 @@ export function getIerpNextAction(input: {
     return { phase: "phase_1", destination: addPathwayQuery(getProviderCourseDestination("acls", input.acls.id, "/programs/ierp/enroll#ierp-program", input.acls.courseId ?? undefined), "ierp"), label: "Continue IERP ACLS learning" };
   }
   if (!input.phase1Complete) {
-    return { phase: "phase_1", destination: "/programs/ierp/enroll#ierp-phase1-evidence", label: "Submit IERP Phase 1 evidence" };
+    return { phase: "phase_1", destination: getIerpPhase1EvidenceRoute(), label: "Submit IERP Phase 1 evidence" };
   }
   if (input.phaseStatus === "phase_1" || input.phaseStatus === "phase_2") {
     return { phase: "phase_2", destination: "/programs/ierp/enroll#ierp-phase2-simulations", label: "Continue IERP Phase 2 simulations" };

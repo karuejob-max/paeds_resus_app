@@ -25,7 +25,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { CertificateDownloadFeedbackDialog } from "@/components/CertificateDownloadFeedbackDialog";
 import { useProviderConversionAnalytics } from "@/hooks/useProviderConversionAnalytics";
-import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
+import { getIerpNextAction, getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import { IerpJourneyCard } from "@/components/IerpJourneyCard";
 import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
 import { calculateProgramJourney } from "@shared/program-journey";
@@ -1184,6 +1184,20 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
   const phase3Unlocked = !!summary?.phase3GateUnlocked;
   const blsEnrollment = summary?.aha.find((row) => row.programType === "bls");
   const aclsEnrollment = summary?.aha.find((row) => row.programType === "acls");
+  const ierpLearningAction = summary
+    ? getIerpNextAction({
+        bls: blsEnrollment
+          ? { id: blsEnrollment.id, courseId: blsEnrollment.courseId, cognitiveComplete: !!blsEnrollment.cognitiveModulesComplete }
+          : undefined,
+        acls: aclsEnrollment
+          ? { id: aclsEnrollment.id, courseId: aclsEnrollment.courseId, cognitiveComplete: !!aclsEnrollment.cognitiveModulesComplete }
+          : undefined,
+        phaseStatus: summary.phaseStatus,
+        phase1Complete: phase1Done,
+        paymentComplete: summary.payment.status === "paid_in_full",
+        lifecycleStatus: summary.lifecycleStatus,
+      })
+    : null;
   const phase2Progress = summary?.phase2
     ? Math.min(
         summary.phase2.teamLeaderCount / Math.max(1, summary.phase2.teamLeaderRequired),
@@ -1198,7 +1212,9 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
     phase2Progress,
     paymentProgress: ierpLedger ? ierpLedger.totalPaidKsh / Math.max(1, ierpLedger.feeKsh) : 0,
     phase3Complete: enrollment.lifecycleStatus === "completed",
-    phase1Action: { label: "Start BLS coursework", destination: `${getProviderCourseDestination("bls", blsEnrollment?.id, "/learner-dashboard", blsEnrollment?.courseId ?? undefined)}&pathway=ierp` },
+    phase1Action: ierpLearningAction?.phase === "phase_1"
+      ? { label: ierpLearningAction.label, destination: ierpLearningAction.destination }
+      : undefined,
     phase2Action: { label: "Open Phase 2", destination: "/ierp" },
     paymentAction: { label: "Open IERP payment", destination: "/programs/ierp" },
     phase3Action: { label: "Open Phase 3", destination: "/ierp" },

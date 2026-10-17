@@ -3,7 +3,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { getOfflineSnapshot, getOfflineSnapshotFreshness, offlineStoreKeys, saveOfflineSnapshot, type OfflineSnapshotFreshness } from "@/lib/offline/platformOfflineStore";
-import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
+import { getIerpNextAction, getProviderCourseDestination } from "@/lib/providerCourseRoutes";
 import ProviderTodayActivationCard from "@/components/ProviderTodayActivationCard";
 import { ProviderOrientationActionCentre } from "@/components/OrientationActionCentre";
 import { ContextHeader } from "@/components/ContextHeader";
@@ -375,9 +375,35 @@ export default function ProviderToday() {
   const ierpSummary = ierpSummaryQuery.data;
   const ierpDashboardAccess = ierpDashboardAccessQuery.data;
   const ierpBlsEnrollment = ierpDashboardAccess?.bls ?? ierpSummary?.aha.find((entry) => entry.programType === "bls");
-  const ierpCoursePath = ierpBlsEnrollment
-    ? `${getProviderCourseDestination("bls", ierpBlsEnrollment.id, "/learner-dashboard", ierpBlsEnrollment.courseId ?? undefined)}&pathway=ierp`
+  const ierpAclsEnrollment = ierpSummary?.aha.find((entry) => entry.programType === "acls");
+  const ierpNextAction = ierpSummary
+    ? getIerpNextAction({
+        bls: ierpBlsEnrollment
+          ? { id: ierpBlsEnrollment.id, courseId: ierpBlsEnrollment.courseId, cognitiveComplete: !!ierpBlsEnrollment.cognitiveModulesComplete }
+          : undefined,
+        acls: ierpAclsEnrollment
+          ? { id: ierpAclsEnrollment.id, courseId: ierpAclsEnrollment.courseId, cognitiveComplete: !!ierpAclsEnrollment.cognitiveModulesComplete }
+          : undefined,
+        phaseStatus: ierpSummary.phaseStatus,
+        phase1Complete: ierpSummary.phase1Complete,
+        paymentComplete: ierpSummary.payment.status === "paid_in_full",
+        lifecycleStatus: ierpSummary.lifecycleStatus,
+      })
     : null;
+  const ierpCoursePath = ierpNextAction?.destination ?? (ierpBlsEnrollment
+    ? `${getProviderCourseDestination("bls", ierpBlsEnrollment.id, "/learner-dashboard", ierpBlsEnrollment.courseId ?? undefined)}&pathway=ierp`
+    : null);
+  const ierpCourseLabel = ierpNextAction?.label === "Continue IERP ACLS learning"
+    ? "Continue ACLS coursework"
+    : ierpNextAction?.label === "Submit IERP Phase 1 evidence"
+      ? "Upload AHA certificates"
+      : ierpNextAction?.label === "Continue IERP Phase 2 simulations"
+        ? "Open IERP simulations"
+        : ierpBlsEnrollment?.cognitiveModulesComplete
+          ? "Continue ACLS coursework"
+          : ierpBlsEnrollment
+            ? "Continue BLS coursework"
+            : "Start BLS coursework";
   const ierpAccessLocked = ierpDashboardAccess?.payment.cognitiveAccessLocked ?? false;
   const activeSimulationEnrollment = (ahaEnrollmentsQuery.data ?? []).find(
     (enrollment) => Number(enrollment.progressPercentage ?? 0) < 100 || !enrollment.practicalSkillsSignedOff,
@@ -448,7 +474,7 @@ export default function ProviderToday() {
             <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Intern Emergency Readiness</p>
             <CardTitle className="text-lg text-indigo-950">IERP coursework</CardTitle>
             <CardDescription className="text-indigo-900/75">
-              Your quickest route to the intern BLS refresh. BLS comes first; ACLS opens after BLS cognitive completion.
+              One guided route: BLS → ACLS → AHA evidence → online simulations.
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
@@ -472,7 +498,7 @@ export default function ProviderToday() {
               </div>
             ) : ierpCoursePath ? (
               <Button type="button" className="bg-indigo-700 text-white hover:bg-indigo-800" onClick={() => setLocation(ierpCoursePath)}>
-                Start BLS coursework <ArrowRight className="ml-2 h-4 w-4" />
+                {ierpCourseLabel} <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             ) : (
               <Button type="button" className="bg-indigo-700 text-white hover:bg-indigo-800" onClick={() => setLocation("/programs/ierp/enroll")}>

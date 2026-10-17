@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { sanitizeCourseHtml } from "@/lib/sanitizeCourseHtml";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
-import { getIerpAclsContinuationRoute, isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
+import { getIerpAclsContinuationRoute, getIerpPhase1EvidenceRoute, isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
 import { PAEDS_RESUS_ILS_PROGRAM_TYPE } from "@shared/institutional-life-support";
 import { AhaCertificationPath } from "@/components/AhaCertificationPath";
 import { UniversalCapstone } from "@/components/UniversalCapstone";
@@ -489,8 +489,11 @@ export default function MicroCoursePlayerDB() {
   // so the user can browse freely instead of landing on the final exam.
   const [hasResumed, setHasResumed] = useState(false);
   const [diagnosticPrompted, setDiagnosticPrompted] = useState(false);
-  const isReviewMode = enrollment?.enrollmentStatus === 'completed' || location.includes('review=true');
+  const isReviewModeRequested = location.includes('review=true');
+  const isCompletedAhaCourse = isAhaCourse && Boolean((enrollment as { cognitiveModulesComplete?: boolean } | undefined)?.cognitiveModulesComplete);
+  const isReviewMode = enrollment?.enrollmentStatus === 'completed' || isCompletedAhaCourse || isReviewModeRequested;
   const isIerpBlsCompletion = requestedPathway === "ierp" && ahaProgramForUi === "bls";
+  const isIerpAclsCompletion = requestedPathway === "ierp" && ahaProgramForUi === "acls";
   const ierpAclsContinuationRoute = useMemo(() => {
     const aclsEnrollment = myAhaEnrollments?.find((row: any) => row.programType === "acls");
     return getIerpAclsContinuationRoute(aclsEnrollment?.id, aclsEnrollment?.courseId ?? undefined);
@@ -531,16 +534,16 @@ export default function MicroCoursePlayerDB() {
     const { resumeIndex, allCompleted } = resumeQuery.data as { resumeIndex: number; totalModules: number; allCompleted?: boolean };
     // Skip the resume jump when the course is fully completed — review mode
     // always begins at module 1 (index 0) so the user can read from the start.
-    if (!allCompleted && resumeIndex > 0) {
+    if (!isReviewMode && !allCompleted && resumeIndex > 0) {
       setCurrentModuleIndex(resumeIndex);
       setMaxReachedModuleIndex(resumeIndex);
     }
     // In review mode, unlock all modules so the step-nav is fully clickable.
-    if (allCompleted) {
+    if (allCompleted || isReviewMode) {
       setMaxReachedModuleIndex(Infinity);
     }
     setHasResumed(true);
-  }, [resumeQuery.data, hasResumed, examState, isAhaCourse, courseDetails?.modules?.length]);
+  }, [resumeQuery.data, hasResumed, examState, isAhaCourse, isReviewMode, courseDetails?.modules?.length]);
 
   useEffect(() => {
     if (!hasResumed || isReviewMode || !user?.id || !slug || !currentModuleId) return;
@@ -665,10 +668,12 @@ export default function MicroCoursePlayerDB() {
   });
 
   useEffect(() => {
-    if (!markAhaCognitive.isSuccess || !isIerpBlsCompletion || isReviewMode) return;
-    const timer = window.setTimeout(() => navigate(ierpAclsContinuationRoute), 2500);
+    if (!markAhaCognitive.isSuccess || isReviewModeRequested) return;
+    if (!isIerpBlsCompletion && !isIerpAclsCompletion) return;
+    const destination = isIerpBlsCompletion ? ierpAclsContinuationRoute : getIerpPhase1EvidenceRoute();
+    const timer = window.setTimeout(() => navigate(destination), 2500);
     return () => window.clearTimeout(timer);
-  }, [ierpAclsContinuationRoute, isIerpBlsCompletion, isReviewMode, markAhaCognitive.isSuccess, navigate]);
+  }, [ierpAclsContinuationRoute, isIerpAclsCompletion, isIerpBlsCompletion, isReviewModeRequested, markAhaCognitive.isSuccess, navigate]);
 
   const downloadCert = trpc.certificates.download.useMutation();
   const submitFeedbackMutation = trpc.certificates.submitDownloadFeedback.useMutation();
@@ -1234,7 +1239,8 @@ export default function MicroCoursePlayerDB() {
   }
 
   // ── Completion View ────────────────────────────────────────────────────────
-  if (completeCourse.isSuccess || markAhaCognitive.isSuccess || markIlsCognitive.isSuccess) {
+  const showAhaCompletionHub = isCompletedAhaCourse && !isReviewModeRequested;
+  if (completeCourse.isSuccess || markAhaCognitive.isSuccess || markIlsCognitive.isSuccess || showAhaCompletionHub) {
     const submitFeedbackAndDownload = () => {
       if (!feedbackGate) return;
       if (feedbackRating === 0) { toast.error('Please select a star rating.'); return; }
@@ -1306,7 +1312,11 @@ export default function MicroCoursePlayerDB() {
                   ? <>You passed the cognitive requirements for <strong>{dbCourse.title}</strong>. Complete the approved practical assessment before claiming the Paeds Resus competency certificate.</>
                   : isIerpBlsCompletion
                     ? <>You have completed the IERP BLS cognitive refresh. ACLS is the next learning step and will open automatically in a moment.</>
-                  : <>Congratulations! You have successfully completed <strong>{dbCourse.title}</strong>.</>}
+                    : isIerpAclsCompletion
+                      ? <>You have completed the IERP ACLS cognitive learning. Upload your two AHA certificates next to unlock IERP online simulations.</>
+                      : showAhaCompletionHub
+                        ? <>You have already completed the cognitive requirements for <strong>{dbCourse.title}</strong>. You can download your certificate or review any part of the course without changing your completion record.</>
+                        : <>Congratulations! You have successfully completed <strong>{dbCourse.title}</strong>.</>}
               </p>
               {issuedCertNumber && (
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-8">
@@ -1321,6 +1331,15 @@ export default function MicroCoursePlayerDB() {
                     onClick={() => navigate(ierpAclsContinuationRoute)}
                   >
                     Continue to ACLS cognitive learning
+                    <ChevronRight className="ml-2 h-5 w-5" />
+                  </Button>
+                )}
+                {isIerpAclsCompletion && (
+                  <Button
+                    className="w-full py-6 bg-indigo-700 hover:bg-indigo-800 text-white font-bold"
+                    onClick={() => navigate(getIerpPhase1EvidenceRoute())}
+                  >
+                    Continue to IERP Phase 1 evidence
                     <ChevronRight className="ml-2 h-5 w-5" />
                   </Button>
                 )}

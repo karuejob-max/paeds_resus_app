@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getAhaNextPhaseAction,
   getIerpNextAction,
+  getIerpPhase1EvidenceRoute,
   getNerpNextAction,
   getProviderCourseDestination,
   isProviderProgramSlug,
@@ -68,5 +69,6 @@ describe("pathway next actions", () => {
     expect(getIerpNextAction({ bls: { cognitiveComplete: true }, acls: { cognitiveComplete: true }, phaseStatus: "phase_2", phase1Complete: true, paymentComplete: false }).phase).toBe("phase_2");
     expect(getIerpNextAction({ bls: { cognitiveComplete: true }, acls: { cognitiveComplete: true }, phaseStatus: "phase_3", phase1Complete: true, paymentComplete: false }).phase).toBe("payment");
     expect(getIerpNextAction({ bls: { cognitiveComplete: true }, acls: { cognitiveComplete: true }, phaseStatus: "phase_3", phase1Complete: true, paymentComplete: true }).phase).toBe("phase_3");
+    expect(getIerpPhase1EvidenceRoute()).toBe("/programs/ierp/enroll#ierp-phase1-evidence");
   });
 });
