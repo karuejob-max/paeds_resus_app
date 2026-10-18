@@ -106,8 +106,11 @@ export default function NerpPathwayEntry() {
   const blsComplete = bls.cognitiveModulesComplete;
   const nextLearningHref = journey?.nextAction?.destination ?? null;
   const nextLearningLabel = journey?.nextAction?.label ?? null;
-  const nextStepHeading = nextLearningLabel
-    ? `Your next step: ${nextLearningLabel}`
+  const visibleNextStepLabel = !paymentConfirmed
+    ? "Make your first NERP payment"
+    : nextLearningLabel;
+  const nextStepHeading = visibleNextStepLabel
+    ? `Your next step: ${visibleNextStepLabel}`
     : "Your NERP next step is being confirmed";
 
   return (
