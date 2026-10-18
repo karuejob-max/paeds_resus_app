@@ -20,6 +20,16 @@ describe("professional progress calculation", () => {
     expect(records.map(record => [record.programType, record.id])).toEqual([["acls", 4], ["bls", 2]]);
   });
 
+  it("does not let a newer pathway draft hide a completed shared course", () => {
+    const records = selectBestCurrentEnrollments([
+      { id: 101, programType: "bls", enrollmentStatus: "active", cognitiveModulesComplete: true, courseId: 7, updatedAt: "2026-08-01" },
+      { id: 202, programType: "bls", enrollmentStatus: "active", cognitiveModulesComplete: false, courseId: 8, updatedAt: "2026-08-10" },
+    ]);
+
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({ id: 101, courseId: 7, cognitiveModulesComplete: true });
+  });
+
   it("deduplicates external completion evidence by programme and keeps the strongest record", () => {
     const records = selectBestExternalCompletions([
       { program: "BLS", percentage: 50, updatedAt: "2026-01-01" },

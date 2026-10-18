@@ -264,14 +264,12 @@ async function buildProgressSnapshot(
   );
   const lifeSupport = allAhaRows.map((row: any) => ({
     program: String(row.programType).toUpperCase(),
-    // NERP has an explicit course-link ledger. IERP currently stores pathway
-    // state but does not store an AHA enrollment link, so do not claim IERP
-    // attribution for a course we cannot prove belongs to that pathway.
-    source: nerpEnrollmentIds.has(Number(row.id))
-      ? "NERP"
-      : ierpEnrollmentIds.has(Number(row.id))
-        ? "IERP"
-        : "Individual / unlinked",
+    // A single AHA completion may satisfy more than one programme. Preserve
+    // every proven attribution instead of selecting one pathway.
+    source: sourceLabel(
+      nerpEnrollmentIds.has(Number(row.id)),
+      ierpEnrollmentIds.has(Number(row.id)),
+    ),
     phase: phaseForEnrollment(row),
     percentage: progressForEnrollment(row),
     status: row.enrollmentStatus,

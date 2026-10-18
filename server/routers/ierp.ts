@@ -24,6 +24,7 @@ import { getPaedsResusCertificateStatusForUser } from "../lib/paeds-resus-certif
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { notifyIerpInternProfileDecision, notifyIerpPhase1Decision } from "../lib/cohort-program-notifications";
 import { consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
+import { canonicalAhaEnrollmentMap, getCanonicalAhaEnrollments } from "../lib/aha-learning-records";
 
 function parseDateOnly(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -354,15 +355,12 @@ export const ierpRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: `Complete the IERP programme payment of KES ${payment.requiredFeeKes.toLocaleString()} before accessing or submitting Phase 1 coursework.` });
       }
 
-      const ahaRows = await db
-        .select({ programType: enrollments.programType, cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
-        .from(enrollments)
-        .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, [...IERP_COGNITIVE_PROGRAMS])));
-      const cognitive = new Map(ahaRows.map((row) => [row.programType, !!row.cognitiveModulesComplete]));
-      if (!cognitive.get("bls")) {
+      const ahaRows = await getCanonicalAhaEnrollments(db, ctx.user.id, IERP_COGNITIVE_PROGRAMS);
+      const cognitive = canonicalAhaEnrollmentMap(ahaRows);
+      if (!cognitive.get("bls")?.cognitiveModulesComplete) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Complete the platform BLS cognitive modules before uploading Phase 1 evidence." });
       }
-      const hasAdvancedCognitive = IERP_COGNITIVE_PROGRAMS.filter((programType) => programType !== "bls").some((programType) => cognitive.get(programType));
+      const hasAdvancedCognitive = IERP_COGNITIVE_PROGRAMS.filter((programType) => programType !== "bls").some((programType) => cognitive.get(programType)?.cognitiveModulesComplete);
       if (!hasAdvancedCognitive) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Complete the platform ACLS, PALS, or NRP cognitive modules before uploading Phase 1 evidence." });
       }
@@ -525,12 +523,7 @@ export const ierpRouter = router({
     const program = await getIerpEnrollment(db, ctx.user.id);
     if (!program) return null;
     const [ahaRows, payment] = await Promise.all([
-      db
-        .select({ id: enrollments.id, courseId: enrollments.courseId, programType: enrollments.programType, cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
-        .from(enrollments)
-        .where(and(eq(enrollments.userId, ctx.user.id), eq(enrollments.programType, "bls")))
-        .orderBy(desc(enrollments.createdAt))
-        .limit(1),
+      getCanonicalAhaEnrollments(db, ctx.user.id, ["bls"]),
       getIerpPaymentAccessForUser(db, ctx.user.id),
     ]);
     return {
@@ -552,18 +545,7 @@ export const ierpRouter = router({
     if (!program) return null;
 
     const [ahaRows, evidence, phase2, payment, universalCertificates] = await Promise.all([
-      db
-        .select({
-          id: enrollments.id,
-          courseId: enrollments.courseId,
-          programType: enrollments.programType,
-          cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
-          practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
-          paymentStatus: enrollments.paymentStatus,
-        })
-        .from(enrollments)
-        .where(and(eq(enrollments.userId, ctx.user.id), inArray(enrollments.programType, [...IERP_COGNITIVE_PROGRAMS])))
-        .orderBy(desc(enrollments.createdAt)),
+      getCanonicalAhaEnrollments(db, ctx.user.id, IERP_COGNITIVE_PROGRAMS),
       db
         .select({
           id: ierpPhase1Evidence.id,

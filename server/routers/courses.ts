@@ -43,41 +43,24 @@ import {
 } from "../lib/ierp-program-state";
 import { getAhaAccessDecision } from "../lib/aha-access";
 import { ensurePhase2CompletionCertificateForUser } from "../lib/paeds-resus-certificate-issuance";
+import { getCanonicalAhaEnrollment } from "../lib/aha-learning-records";
+import { selectBestCurrentEnrollments } from "../lib/professional-progress-calculation";
 
 const AHA_PROGRAM_TYPES = ['bls', 'acls', 'pals', 'heartsaver', 'nrp', 'instructor'] as const;
 
 const MAX_AHA_PROOF_BYTES = 10 * 1024 * 1024;
 
 async function getAclsElearningProof(db: any, userId: number) {
-  const [row] = await db
-    .select({
-      id: enrollments.id,
-      cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
-      videoPreworkCertificateUrl: enrollments.videoPreworkCertificateUrl,
-      precourseAssessmentCertificateUrl: enrollments.precourseAssessmentCertificateUrl,
-      precourseAssessmentPassed: enrollments.precourseAssessmentPassed,
-      elearningProofSubmittedAt: enrollments.elearningProofSubmittedAt,
-      elearningProofVerifiedAt: enrollments.elearningProofVerifiedAt,
-      elearningProofRejectedAt: enrollments.elearningProofRejectedAt,
-      elearningProofRejectionReason: enrollments.elearningProofRejectionReason,
-    })
-    .from(enrollments)
-    .where(and(eq(enrollments.userId, userId), eq(enrollments.programType, "acls"), eq(enrollments.enrollmentStatus, "active")))
-    .orderBy(desc(enrollments.createdAt))
-    .limit(1);
-  const [bls] = await db
-    .select({ cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
-    .from(enrollments)
-    .where(and(eq(enrollments.userId, userId), eq(enrollments.programType, "bls"), eq(enrollments.enrollmentStatus, "active")))
-    .orderBy(desc(enrollments.createdAt))
-    .limit(1);
+  const [row, bls] = await Promise.all([
+    getCanonicalAhaEnrollment(db, userId, "acls"),
+    getCanonicalAhaEnrollment(db, userId, "bls"),
+  ]);
   const blsCognitiveComplete = !!bls?.cognitiveModulesComplete;
   const courseCognitiveComplete = !!row?.cognitiveModulesComplete;
   const proofSubmitted = !!row?.elearningProofSubmittedAt;
   const proofComplete = !!row?.videoPreworkCertificateUrl && !!row?.precourseAssessmentCertificateUrl && row?.precourseAssessmentPassed === true && !!row?.elearningProofVerifiedAt;
   return { row, blsCognitiveComplete, courseCognitiveComplete, proofSubmitted, proofComplete };
 }
-
 async function assertAclsElearningProof(db: any, userId: number) {
   const proof = await getAclsElearningProof(db, userId);
   if (!proof.blsCognitiveComplete) {
@@ -118,7 +101,7 @@ async function fetchMyAhaEnrollments(userId: number) {
       )
     )
     .orderBy(desc(enrollments.createdAt));
-  return enrichAhaEnrollmentsWithProgress(database, userId, rows);
+  return enrichAhaEnrollmentsWithProgress(database, userId, selectBestCurrentEnrollments(rows));
 }
 
 async function fetchMicroCourseEnrollmentsWithCourses(userId: number) {
