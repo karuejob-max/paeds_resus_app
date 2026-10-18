@@ -12,8 +12,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
-import { getProviderCourseDestination } from "@/lib/providerCourseRoutes";
-import { getNerpNextStep } from "@shared/nerp-pathway";
 import { AclsElearningProofCard } from "@/components/AclsElearningProofCard";
 import { ProgramJourneyCard } from "@/components/ProgramJourneyCard";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -27,7 +25,7 @@ export default function NerpPathwayEntry() {
     enabled: Boolean(user),
     retry: false,
   });
-  const { data: journey } = trpc.nerp.getJourneyStatus.useQuery(undefined, {
+  const { data: journey, isError: journeyError } = trpc.nerp.getJourneyStatus.useQuery(undefined, {
     enabled: Boolean(user),
     retry: false,
   });
@@ -106,16 +104,8 @@ export default function NerpPathwayEntry() {
   const paymentComplete = paymentState.status === "completed";
   const paymentConfirmed = paymentComplete || paymentState.amountPaidKes > 0;
   const blsComplete = bls.cognitiveModulesComplete;
-  const nextStep = getNerpNextStep({
-    paymentConfirmed,
-    blsCognitiveComplete: blsComplete,
-  });
-  const nextLearningHref = blsComplete
-    ? getProviderCourseDestination("acls", acls.enrollmentId, "/learner-dashboard", acls.courseId ?? undefined)
-    : getProviderCourseDestination("bls", bls.enrollmentId, "/learner-dashboard", bls.courseId ?? undefined);
-  const nextLearningLabel = nextStep === "acls_cognitive"
-    ? "Continue to ACLS cognitive learning"
-    : "Start BLS cognitive learning";
+  const nextLearningHref = journey?.nextAction?.destination ?? null;
+  const nextLearningLabel = journey?.nextAction?.label ?? null;
 
   return (
     <div className="min-h-screen bg-muted/20 px-4 py-10 md:px-8">
@@ -214,13 +204,17 @@ export default function NerpPathwayEntry() {
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
-              ) : (
+              ) : nextLearningHref && nextLearningLabel ? (
                 <Button asChild variant="cta">
                   <Link href={nextLearningHref}>
                     {nextLearningLabel}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
+              ) : (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                  {journeyError ? "We could not confirm your next NERP step. Refresh before opening coursework." : "Your NERP next step is being confirmed."}
+                </div>
               )}
               <Button asChild variant="outline">
                 <Link href="/programs/nerp-acls/enroll">

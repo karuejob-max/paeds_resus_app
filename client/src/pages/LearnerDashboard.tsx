@@ -1175,6 +1175,25 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
     );
   }
 
+  if (summaryError) {
+    return (
+      <Card id="ierp-program" className="mt-6 md:col-span-3 border-amber-200 bg-amber-50/40">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-amber-950">
+            <GraduationCap className="h-5 w-5 text-amber-700" />
+            IERP learning status unavailable
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-amber-950">
+          <p>We could not confirm your latest BLS or ACLS progress. No course access or progress has been changed.</p>
+          <Button type="button" variant="outline" className="border-amber-300 bg-white text-amber-900" onClick={() => void refetchSummary()}>
+            Retry learning status
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const internReviewBlocked = internProfile?.status === "rejected" || internProfile?.status === "revoked";
   const internReviewPending = internProfile?.status === "pending";
   const internReviewReason = internProfile?.reviewReason?.trim();
@@ -1295,14 +1314,6 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
               <Button size="sm" variant="outline" onClick={() => document.getElementById("ierp-phase1-evidence")?.scrollIntoView({ behavior: "smooth" })}>Upload AHA certificates</Button>
             ) : null}
           </div>
-          {summaryError ? (
-            <div className="mt-3 flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between">
-              <p>We could not confirm your latest IERP learning status. Your verified intern profile has not been changed.</p>
-              <Button type="button" size="sm" variant="outline" className="border-amber-300 bg-white text-amber-900" onClick={() => void refetchSummary()}>
-                Retry access check
-              </Button>
-            </div>
-          ) : null}
           {summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? <p className="mt-3 text-xs font-medium text-emerald-700">You may continue during the current deferred window. You can also pay early from the payment section below.</p> : null}
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">

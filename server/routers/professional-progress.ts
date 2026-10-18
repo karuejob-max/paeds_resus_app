@@ -347,6 +347,7 @@ async function buildProgressSnapshot(
         nerpRows[0]?.status === "completed" ||
         Number(nerpRows[0]?.amountPaidKes ?? 0) >=
           Number(nerpRows[0]?.totalAmountKes ?? 15000),
+      ahaEvidenceVerified: Boolean(bls?.certificateVerified && acls?.certificateVerified),
       offerStatus: nerpRows[0]?.status,
     });
     pathwayRecords.push({

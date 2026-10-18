@@ -200,6 +200,7 @@ export function getNerpNextAction(input: {
   phase2Verified: boolean;
   phase3Verified: boolean;
   paymentComplete: boolean;
+  ahaEvidenceVerified?: boolean;
   offerStatus?: string | null;
 }): PathwayNextAction {
   if (input.offerStatus === "completed" || input.phase3Verified) {
@@ -212,6 +213,9 @@ export function getNerpNextAction(input: {
   const aclsComplete = Boolean(input.acls?.cognitiveComplete) || Number(input.acls?.progress ?? 0) >= 100;
   if (!aclsComplete && input.acls?.id != null) {
     return { phase: "phase_1", destination: addPathwayQuery(getProviderCourseDestination("acls", input.acls.id, "/programs/nerp-acls/start", input.acls.courseId ?? undefined), "nerp"), label: "Continue ACLS cognitive learning" };
+  }
+  if (!input.ahaEvidenceVerified) {
+    return { phase: "phase_1", destination: "/programs/nerp-acls/start#nerp-phase1-evidence", label: "Submit AHA eLearning proof" };
   }
   if (!input.phase2Verified) {
     return { phase: "phase_2", destination: "/programs/nerp-acls/start#phase-2", label: "Continue NERP Phase 2 simulations" };
