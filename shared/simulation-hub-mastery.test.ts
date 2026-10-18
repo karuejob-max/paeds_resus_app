@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getMissionJourneyStep, getNextRehearsal, getRecommendedSimulationMission, getSimulationPracticePoints, getSimulationPracticeRank, summarizeSimulationDomains } from "./simulation-hub-mastery";
+import { getMissionJourneyStep, getNextRehearsal, getRecommendedPhase2Scenario, getRecommendedSimulationMission, getSimulationPracticePoints, getSimulationPracticeRank, summarizeSimulationDomains } from "./simulation-hub-mastery";
 import { getSimulationMission } from "./simulation-hub";
 
 describe("Simulation Hub adaptive mastery", () => {
@@ -35,6 +35,44 @@ describe("Simulation Hub mastery loop", () => {
     expect(getMissionJourneyStep("map")).toEqual({ label: "Choose mission", index: 1 });
     expect(getMissionJourneyStep("briefing")).toEqual({ label: "Brief", index: 2 });
     expect(getMissionJourneyStep("playing")).toEqual({ label: "Act and reassess", index: 3 });
+  });
+
+
+  it("turns the server next requirement into one required scenario", () => {
+    const recommendation = getRecommendedPhase2Scenario(
+      {
+        programType: "acls", phase2Ready: false, authority: "automated_simulation_mastery",
+        attempts: 0, passedAttempts: 0, bestScore: 0, completedRequirements: 0, totalRequirements: 3,
+        requirements: [
+          { id: "rhythm-action", label: "Adult rhythm and stability decisions", trackIds: ["adult_acls_world"], minimumScore: 70, requiredAttempts: 2, attempts: 0, bestScore: 0, complete: false },
+        ],
+        nextAction: "Complete Adult rhythm and stability decisions", governanceBoundary: "does_not_issue_credential",
+      },
+      [
+        { id: "unstable-bradycardia", title: "Adult unstable bradycardia", clinicalFocus: "", missionId: "adult-acls-world", trackId: "adult_acls_world", supportedPrograms: ["acls"] },
+        { id: "vf-pulseless-vt", title: "Adult VF / pulseless VT", clinicalFocus: "", missionId: "adult-acls-world", trackId: "adult_acls_world", supportedPrograms: ["acls"] },
+      ],
+      [],
+    );
+    expect(recommendation?.scenarioId).toBe("unstable-bradycardia");
+    expect(recommendation?.reason).toContain("2 qualifying rehearsals remaining");
+  });
+
+  it("prioritises an unpassed scenario for remediation", () => {
+    const recommendation = getRecommendedPhase2Scenario(
+      {
+        programType: "nrp", phase2Ready: false, authority: "automated_simulation_mastery",
+        attempts: 1, passedAttempts: 0, bestScore: 45, completedRequirements: 0, totalRequirements: 2,
+        requirements: [
+          { id: "bradycardia", label: "Persistent newborn bradycardia escalation", trackIds: ["nrp_world"], scenarioIds: ["newborn-persistent-bradycardia"], minimumScore: 70, requiredAttempts: 1, attempts: 0, bestScore: 0, complete: false },
+        ],
+        nextAction: "Complete Persistent newborn bradycardia escalation", governanceBoundary: "does_not_issue_credential",
+      },
+      [{ id: "newborn-persistent-bradycardia", title: "Persistent newborn bradycardia", clinicalFocus: "", missionId: "nrp-newborn-not-breathing", trackId: "nrp_world", supportedPrograms: ["nrp"] }],
+      [{ trackId: "nrp_world", scenarioId: "newborn-persistent-bradycardia", score: 45, passed: false }],
+    );
+    expect(recommendation?.scenarioId).toBe("newborn-persistent-bradycardia");
+    expect(recommendation?.reason).toContain("Repeat this scenario");
   });
 
   it("recommends the least-started foundation mission before pressure missions", () => {

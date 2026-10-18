@@ -21,7 +21,7 @@ import { getSimulationWorldRoleLabel, getRoleEvidenceFromAttempt, SIMULATION_WOR
 import { Activity, ArrowLeft, Brain, CheckCircle2, Clock3, Gamepad2, HeartPulse, Lock, RotateCcw, ShieldAlert, Sparkles, Target, Trophy, Users } from "lucide-react";
 import { CardiacArrestTrack } from "@/components/practice-lab/CardiacArrestTrack";
 import { SimulationMissionHud } from "@/components/SimulationMissionHud";
-import { getRecommendedSimulationMission, getSimulationPracticePoints } from "@shared/simulation-hub-mastery";
+import { getRecommendedPhase2Scenario, getRecommendedSimulationMission, getSimulationPracticePoints } from "@shared/simulation-hub-mastery";
 import { getPhase2Requirements } from "@shared/phase2-automation";
 
 type MissionProgress = Record<string, { attempts: number; bestScore: number; lastPlayedAt: string }>;
@@ -168,6 +168,21 @@ export default function SimulationHub() {
     () => getSimulationScenarioCatalog(effectiveProgram).filter((scenario) => scenario.missionId === selectedMission.id),
     [effectiveProgram, selectedMission.id],
   );
+  const phase2Recommendation = useMemo(
+    () => phase2Status && !phase2Status.phase2Ready
+      ? getRecommendedPhase2Scenario(
+        phase2Status,
+        getSimulationScenarioCatalog(effectiveProgram),
+        activeAttempts.map((attempt) => ({
+          trackId: attempt.trackId,
+          scenarioId: attempt.scenarioId,
+          score: Number(attempt.score ?? 0),
+          passed: Boolean(attempt.passed),
+        })),
+      )
+      : null,
+    [activeAttempts, effectiveProgram, phase2Status],
+  );
   const requestedScenarioId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("scenario") : null;
   const effectiveScenarioId = requestedScenarioId && scenarioCatalog.some((scenario) => scenario.id === requestedScenarioId)
     ? requestedScenarioId
@@ -281,6 +296,21 @@ export default function SimulationHub() {
   useEffect(() => {
     if (stage === "map") void refreshLearningState();
   }, [stage, effectiveEnrollmentId]);
+
+  const openRecommendedPhase2Scenario = () => {
+    if (!phase2Recommendation) return;
+    const scenario = getSimulationScenarioCatalog(effectiveProgram).find((item) => item.id === phase2Recommendation.scenarioId);
+    if (!scenario) return;
+    setSelectedMissionId(scenario.missionId);
+    setSelectedScenarioId(scenario.id);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("pathway", effectiveProgram);
+      params.set("view", "missions");
+      params.set("scenario", scenario.id);
+      window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  };
 
   const startMission = () => {
     const missionEnrollment = eligibleEnrollments.find((enrollment) => enrollment.id === effectiveEnrollmentId) ?? eligibleEnrollments[0];
@@ -400,7 +430,7 @@ export default function SimulationHub() {
 
           {phase2Status && phase2Status.totalRequirements > 0 && <Card className={`border ${phase2Status.phase2Ready ? "border-emerald-400/50 bg-emerald-400/10" : "border-cyan-400/30 bg-cyan-400/10"} text-white`} aria-live="polite">
             <CardHeader className="pb-2"><CardTitle className="flex flex-wrap items-center justify-between gap-3 text-base"><span className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-full ${phase2Status.phase2Ready ? "bg-emerald-300" : "bg-cyan-300 animate-pulse"}`} aria-hidden="true" />Phase 2 automated mastery</span><Badge className={phase2Status.phase2Ready ? "bg-emerald-400/20 text-emerald-100" : "bg-cyan-400/20 text-cyan-100"}>{phase2Status.completedRequirements}/{phase2Status.totalRequirements} requirements</Badge></CardTitle><CardDescription className="text-slate-300">The server evaluates your saved simulation rehearsals for this course. No instructor is needed to facilitate Phase 2.</CardDescription></CardHeader>
-            <CardContent className="space-y-3"><div className="h-2 overflow-hidden rounded-full bg-slate-950/70" role="progressbar" aria-label="Phase 2 automated mastery progress" aria-valuemin={0} aria-valuemax={phase2Status.totalRequirements} aria-valuenow={phase2Status.completedRequirements}><div className={`h-full rounded-full transition-all ${phase2Status.phase2Ready ? "bg-emerald-300" : "bg-cyan-300"}`} style={{ width: `${phase2Status.totalRequirements ? Math.round((phase2Status.completedRequirements / phase2Status.totalRequirements) * 100) : 0}%` }} /></div><p className="text-sm font-semibold text-slate-100">{phase2Status.phase2Ready ? "Ready for the governed next step." : phase2Status.nextAction}</p><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{phase2Status.requirements.map((requirement) => <div key={requirement.id} className={`rounded-lg border p-3 text-xs ${requirement.complete ? "border-emerald-400/30 bg-emerald-400/10" : "border-slate-800 bg-slate-950/60"}`}><div className="flex items-start justify-between gap-2"><span className="font-semibold text-slate-100">{requirement.label}</span><span className={requirement.complete ? "text-emerald-300" : "text-amber-200"}>{requirement.complete ? "Complete" : `${requirement.attempts}/${requirement.requiredAttempts}`}</span></div><p className="mt-1 text-slate-400">Best qualifying score: {requirement.bestScore}% · target {requirement.minimumScore}%</p></div>)}</div><p className="text-[11px] leading-5 text-slate-400">Automated mastery makes you eligible for the governed next step; it does not issue an AHA credential or approve Phase 3 practical skills.</p></CardContent>
+            <CardContent className="space-y-3"><div className="h-2 overflow-hidden rounded-full bg-slate-950/70" role="progressbar" aria-label="Phase 2 automated mastery progress" aria-valuemin={0} aria-valuemax={phase2Status.totalRequirements} aria-valuenow={phase2Status.completedRequirements}><div className={`h-full rounded-full transition-all ${phase2Status.phase2Ready ? "bg-emerald-300" : "bg-cyan-300"}`} style={{ width: `${phase2Status.totalRequirements ? Math.round((phase2Status.completedRequirements / phase2Status.totalRequirements) * 100) : 0}%` }} /></div><p className="text-sm font-semibold text-slate-100">{phase2Status.phase2Ready ? "Ready for the governed next step." : phase2Status.nextAction}</p>{phase2Recommendation && <div className="rounded-lg border border-emerald-300/40 bg-emerald-300/10 p-3"><p className="text-xs font-bold uppercase tracking-wide text-emerald-200">Your next best step</p><p className="mt-1 font-semibold text-white">{phase2Recommendation.scenarioTitle}</p><p className="mt-1 text-xs leading-5 text-emerald-100/80">{phase2Recommendation.reason}</p><Button className="mt-3 min-h-11 bg-emerald-300 text-slate-950 hover:bg-emerald-200" onClick={openRecommendedPhase2Scenario}>Open recommended rehearsal <span className="ml-2">→</span></Button></div>}<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{phase2Status.requirements.map((requirement) => <div key={requirement.id} className={`rounded-lg border p-3 text-xs ${requirement.complete ? "border-emerald-400/30 bg-emerald-400/10" : "border-slate-800 bg-slate-950/60"}`}><div className="flex items-start justify-between gap-2"><span className="font-semibold text-slate-100">{requirement.label}</span><span className={requirement.complete ? "text-emerald-300" : "text-amber-200"}>{requirement.complete ? "Complete" : `${requirement.attempts}/${requirement.requiredAttempts}`}</span></div><p className="mt-1 text-slate-400">Best qualifying score: {requirement.bestScore}% · target {requirement.minimumScore}%</p></div>)}</div><p className="text-[11px] leading-5 text-slate-400">Automated mastery makes you eligible for the governed next step; it does not issue an AHA credential or approve Phase 3 practical skills.</p></CardContent>
           </Card>}
 
           {stage === "map" && selectedEnrollment && (

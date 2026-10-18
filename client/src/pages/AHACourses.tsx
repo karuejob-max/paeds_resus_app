@@ -210,46 +210,27 @@ export default function AHACourses() {
 
         <AssessmentPolicyBanner track="aha" />
 
-        {showSimulationHint && (
-          <Card className="border-violet-300 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800" role="status">
+        {(showSimulationHint || anyEnrolled) && (
+          <Card className="border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800">
             <CardContent className="flex items-start gap-3 p-4">
               <FlaskConical className="mt-0.5 h-5 w-5 shrink-0 text-violet-700" />
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-violet-950 dark:text-violet-100">New here? Practise in the Simulation Hub.</p>
-                <p className="mt-1 text-sm text-violet-900/80 dark:text-violet-200/80">
-                  Choose your Life Support course and rehearse changing emergency decisions before your practical session. This is training practice, not a certificate.
+                <p className="font-semibold text-foreground">{anyEnrolled ? "Simulation Hub" : "Start with the Simulation Hub"}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {anyEnrolled
+                    ? "Practise changing emergency decisions with missions, patient response, and a debrief. Progress stays attached to the selected Life Support course."
+                    : "Choose your Life Support course and rehearse changing emergency decisions before your practical session. This is training practice, not a certificate."}
                 </p>
                 <Button type="button" className="mt-3 bg-violet-700 text-white hover:bg-violet-800" onClick={() => setLocation("/simulation-hub")}>
-                  Open Simulation Hub
+                  <FlaskConical className="mr-2 h-4 w-4" />
+                  {anyEnrolled ? "Open Simulation Hub" : "Explore Simulation Hub"}
                 </Button>
               </div>
-              <Button type="button" variant="ghost" size="icon" className="shrink-0 text-violet-800" aria-label="Dismiss Simulation Hub introduction" onClick={dismissSimulationHint}>
-                <X className="h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {anyEnrolled && (
-          <Card className="border-violet-200 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-800">
-            <CardContent className="pt-5 pb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <p className="font-semibold text-foreground flex items-center gap-2">
-                  <FlaskConical className="h-5 w-5 text-violet-600" />
-                  Simulation Hub
-                </p>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Game-style life-support rehearsal with missions, changing physiology, team pressure, and a debrief. Supplemental practice, not certification.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                className="shrink-0 gap-2 border-violet-300"
-                onClick={() => setLocation("/simulation-hub")}
-              >
-                <FlaskConical className="h-4 w-4" />
-                Open Simulation Hub
-              </Button>
+              {showSimulationHint && !anyEnrolled && (
+                <Button type="button" variant="ghost" size="icon" className="shrink-0 text-violet-800" aria-label="Dismiss Simulation Hub introduction" onClick={dismissSimulationHint}>
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
