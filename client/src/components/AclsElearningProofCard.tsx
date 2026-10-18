@@ -44,7 +44,7 @@ export function AclsElearningProofCard({ compact = false }: { compact?: boolean 
   };
 
   return (
-    <Card className={compact ? "border-blue-200 bg-blue-50/40" : "border-indigo-200 bg-indigo-50/30"}>
+    <Card id="nerp-phase1-evidence" className={compact ? "border-blue-200 bg-blue-50/40" : "border-indigo-200 bg-indigo-50/30"}>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           {data.alreadySubmitted ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <Upload className="h-5 w-5 text-indigo-700" />}

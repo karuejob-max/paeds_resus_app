@@ -432,6 +432,7 @@ export const nerpRouter = router({
       phase2Verified,
       phase3Verified,
       paymentComplete: paymentState.status === "completed",
+      ahaEvidenceVerified,
       offerStatus: offer.status,
     });
     const journey = calculateProgramJourney({

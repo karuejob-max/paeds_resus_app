@@ -58,9 +58,9 @@ describe("pathway next actions", () => {
   it("routes NERP to the unfinished BLS, then Phase 2, payment, and Phase 3", () => {
     expect(getNerpNextAction({ bls: { id: 11, courseId: 101 }, acls: { id: 12, courseId: 102 }, phase2Verified: false, phase3Verified: false, paymentComplete: false })).toMatchObject({ phase: "phase_1", label: "Continue BLS cognitive learning", destination: "/micro-course/101?programType=bls&enrollmentId=11&pathway=nerp" });
     expect(getNerpNextAction({ bls: { id: 11, courseId: 101, cognitiveComplete: true }, acls: { id: 12, courseId: 102 }, phase2Verified: false, phase3Verified: false, paymentComplete: false }).label).toBe("Continue ACLS cognitive learning");
-    expect(getNerpNextAction({ bls: { cognitiveComplete: true }, acls: { cognitiveComplete: true }, phase2Verified: false, phase3Verified: false, paymentComplete: false }).phase).toBe("phase_2");
-    expect(getNerpNextAction({ bls: { cognitiveComplete: true }, acls: { cognitiveComplete: true }, phase2Verified: true, phase3Verified: false, paymentComplete: false }).phase).toBe("payment");
-    expect(getNerpNextAction({ bls: { cognitiveComplete: true }, acls: { cognitiveComplete: true }, phase2Verified: true, phase3Verified: false, paymentComplete: true }).phase).toBe("phase_3");
+    expect(getNerpNextAction({ bls: { cognitiveComplete: true }, acls: { cognitiveComplete: true }, phase2Verified: false, phase3Verified: false, paymentComplete: false }).label).toBe("Submit AHA eLearning proof");
+    expect(getNerpNextAction({ bls: { cognitiveComplete: true }, acls: { cognitiveComplete: true }, ahaEvidenceVerified: true, phase2Verified: true, phase3Verified: false, paymentComplete: false }).phase).toBe("payment");
+    expect(getNerpNextAction({ bls: { cognitiveComplete: true }, acls: { cognitiveComplete: true }, ahaEvidenceVerified: true, phase2Verified: true, phase3Verified: false, paymentComplete: true }).phase).toBe("phase_3");
   });
 
   it("routes IERP to evidence, simulations, payment, and Phase 3 after BLS/ACLS", () => {
