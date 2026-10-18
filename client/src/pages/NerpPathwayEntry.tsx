@@ -106,6 +106,9 @@ export default function NerpPathwayEntry() {
   const blsComplete = bls.cognitiveModulesComplete;
   const nextLearningHref = journey?.nextAction?.destination ?? null;
   const nextLearningLabel = journey?.nextAction?.label ?? null;
+  const nextStepHeading = nextLearningLabel
+    ? `Your next step: ${nextLearningLabel}`
+    : "Your NERP next step is being confirmed";
 
   return (
     <div className="min-h-screen bg-muted/20 px-4 py-10 md:px-8">
@@ -115,12 +118,12 @@ export default function NerpPathwayEntry() {
             NERP learning pathway
           </p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
-            Your next step: BLS first, then ACLS
+            {nextStepHeading}
           </h1>
           <p className="mt-3 max-w-3xl leading-7 text-muted-foreground">
             Paeds Resus checks your linked learning records and sends you to the
-            correct next step. Complete BLS cognitive learning before starting
-            the ACLS cognitive pathway.
+            correct next step. The same completed BLS or ACLS coursework can be
+            reused across eligible learning pathways.
           </p>
         </div>
 
