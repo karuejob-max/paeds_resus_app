@@ -1,5 +1,7 @@
-import type { PracticeLabEvent } from "./practice-lab-types";
+import type { PracticeLabEvent, PracticeLabProgramType } from "./practice-lab-types";
 import type { SimulationMission } from "./simulation-hub";
+import type { Phase2AutomationStatus } from "./phase2-automation";
+import type { SimulationScenarioCatalogEntry } from "./simulation-scenario-catalog";
 
 export type SimulationDomainId = "recognition" | "prioritisation" | "technical-action" | "communication" | "reassessment";
 
@@ -42,6 +44,65 @@ export function getNextRehearsal(summary: readonly SimulationDomainSummary[]): S
   return summary
     .filter((domain) => domain.score !== null)
     .sort((a, b) => (a.score ?? 100) - (b.score ?? 100))[0] ?? null;
+}
+
+export type SimulationAttemptSummary = {
+  trackId: string;
+  scenarioId: string;
+  score: number;
+  passed: boolean;
+};
+
+export type RecommendedPhase2Scenario = {
+  programType: PracticeLabProgramType;
+  requirementId: string;
+  requirementLabel: string;
+  scenarioId: string;
+  scenarioTitle: string;
+  reason: string;
+};
+
+/**
+ * Converts server-authoritative Phase 2 status into one explainable learner action.
+ * The server decides what is incomplete; this helper only selects the most useful
+ * scenario inside that requirement and never changes readiness or entitlement.
+ */
+export function getRecommendedPhase2Scenario(
+  status: Phase2AutomationStatus,
+  scenarios: readonly SimulationScenarioCatalogEntry[],
+  attempts: readonly SimulationAttemptSummary[],
+): RecommendedPhase2Scenario | null {
+  const requirement = status.requirements.find((item) => !item.complete);
+  if (!requirement) return null;
+  const candidates = scenarios.filter((scenario) =>
+    (!requirement.trackIds || requirement.trackIds.includes(scenario.trackId)) &&
+    (!requirement.scenarioIds || requirement.scenarioIds.includes(scenario.id)),
+  );
+  if (!candidates.length) return null;
+  const ranked = candidates
+    .map((scenario, index) => {
+      const qualifyingAttempts = attempts.filter((attempt) =>
+        attempt.trackId === scenario.trackId &&
+        attempt.scenarioId === scenario.id &&
+        attempt.passed &&
+        attempt.score >= requirement.minimumScore,
+      ).length;
+      const totalAttempts = attempts.filter((attempt) =>
+        attempt.trackId === scenario.trackId && attempt.scenarioId === scenario.id,
+      ).length;
+      return { scenario, qualifyingAttempts, totalAttempts, index };
+    })
+    .sort((a, b) => a.qualifyingAttempts - b.qualifyingAttempts || a.totalAttempts - b.totalAttempts || a.index - b.index)[0];
+  const remaining = Math.max(0, requirement.requiredAttempts - requirement.attempts);
+  const action = ranked.totalAttempts > 0 && ranked.qualifyingAttempts === 0 ? "Repeat this scenario after the last attempt missed the qualifying threshold" : "Start the next required scenario";
+  return {
+    programType: status.programType,
+    requirementId: requirement.id,
+    requirementLabel: requirement.label,
+    scenarioId: ranked.scenario.id,
+    scenarioTitle: ranked.scenario.title,
+    reason: `${action}. ${remaining} qualifying rehearsal${remaining === 1 ? "" : "s"} remaining for ${requirement.label}.`,
+  };
 }
 
 /**
