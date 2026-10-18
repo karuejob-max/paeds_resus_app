@@ -29,8 +29,8 @@ export function phaseForEnrollment(row: LifeSupportEnrollmentLike, percentage = 
 }
 
 /** Keep one authoritative current record per course, preferring active and most-progressed records. */
-export function selectBestCurrentEnrollments(rows: LifeSupportEnrollmentLike[]): LifeSupportEnrollmentLike[] {
-  const best = new Map<string, LifeSupportEnrollmentLike>();
+export function selectBestCurrentEnrollments<T extends LifeSupportEnrollmentLike>(rows: T[]): T[] {
+  const best = new Map<string, T>();
   for (const row of rows) {
     if (row.enrollmentStatus === "cancelled") continue;
     const current = best.get(row.programType);

@@ -46,6 +46,7 @@ import {
 import { consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
 import { calculateProgramJourney } from "../../shared/program-journey";
 import { getNerpNextAction } from "../../shared/provider-course-routes";
+import { getCanonicalAhaEnrollment } from "../lib/aha-learning-records";
 
 const PHASES = ["phase_2", "phase_3"] as const;
 const DECISIONS = ["verified", "rejected", "revoked"] as const;
@@ -144,18 +145,8 @@ async function ensureChildEnrollment(
   userId: number,
   programType: "bls" | "acls"
 ) {
-  const existing = await db
-    .select()
-    .from(enrollments)
-    .where(
-      and(
-        eq(enrollments.userId, userId),
-        eq(enrollments.programType, programType)
-      )
-    )
-    .orderBy(desc(enrollments.id))
-    .limit(1);
-  if (existing[0]) return existing[0];
+  const existing = await getCanonicalAhaEnrollment(db, userId, programType);
+  if (existing) return existing;
 
   const inserted = await db.insert(enrollments).values({
     userId,
@@ -249,6 +240,18 @@ async function ensureOfferForUser(db: any, userId: number) {
         enrollmentId: children[programType].id,
         programType,
       });
+    } else {
+      const linkedRow = await db
+        .select({ enrollmentId: nerpOfferCourses.enrollmentId })
+        .from(nerpOfferCourses)
+        .where(eq(nerpOfferCourses.id, linked[0].id))
+        .limit(1);
+      if (Number(linkedRow[0]?.enrollmentId) !== Number(children[programType].id)) {
+        await db
+          .update(nerpOfferCourses)
+          .set({ enrollmentId: children[programType].id })
+          .where(eq(nerpOfferCourses.id, linked[0].id));
+      }
     }
   }
   if (!offer.entitlementId && offer.status === "active") {
@@ -406,17 +409,11 @@ export const nerpRouter = router({
     const db = await requireDb();
     const offer = await getOfferForUser(db, ctx.user.id);
     if (!offer) return null;
-    const [links, verification] = await Promise.all([
-      db.select().from(nerpOfferCourses).where(eq(nerpOfferCourses.nerpOfferEnrollmentId, offer.id)),
+    const [verification, bls, acls] = await Promise.all([
       getVerificationState(db, offer.id),
+      getCanonicalAhaEnrollment(db, ctx.user.id, "bls"),
+      getCanonicalAhaEnrollment(db, ctx.user.id, "acls"),
     ]);
-    const enrollmentIds = links.map((link: any) => Number(link.enrollmentId)).filter(Boolean);
-    const childRows = enrollmentIds.length
-      ? await db.select().from(enrollments).where(inArray(enrollments.id, enrollmentIds))
-      : [];
-    const byType = new Map(childRows.map((row: any) => [row.programType, row]));
-    const bls = byType.get("bls") as any;
-    const acls = byType.get("acls") as any;
     const paymentState = calculateNerpPaymentState({
       amountPaidKes: Number(offer.amountPaidKes),
       totalAmountKes: Number(offer.totalAmountKes),
