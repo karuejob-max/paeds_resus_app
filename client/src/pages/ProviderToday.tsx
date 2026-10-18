@@ -478,7 +478,18 @@ export default function ProviderToday() {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
-            {!ierpEnrollmentQuery.data ? (
+            {ierpEnrollmentQuery.isLoading ? (
+              <p className="flex items-center gap-2 text-sm text-indigo-900">
+                <Loader2 className="h-4 w-4 animate-spin" /> Checking your IERP enrolment…
+              </p>
+            ) : ierpEnrollmentQuery.isError ? (
+              <div className="space-y-2">
+                <p className="text-sm text-indigo-950">IERP enrolment could not be checked. No course access or progress has been changed.</p>
+                <Button type="button" variant="outline" onClick={() => void ierpEnrollmentQuery.refetch()}>
+                  Retry IERP enrolment check
+                </Button>
+              </div>
+            ) : !ierpEnrollmentQuery.data ? (
               <Button type="button" className="bg-indigo-700 text-white hover:bg-indigo-800" onClick={() => setLocation("/programs/ierp/enroll")}>
                 Open IERP enrollment <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
