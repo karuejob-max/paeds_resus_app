@@ -38,6 +38,7 @@ const COMMANDS: readonly { label: string; command: AdultAclsCommand }[] = [
   { label: "Start CPR", command: { type: "start_cpr" } },
   { label: "Give oxygen", command: { type: "give_oxygen" } },
   { label: "Assist ventilation", command: { type: "assist_ventilation" } },
+  { label: "Support perfusion", command: { type: "support_perfusion" } },
   { label: "Defibrillate", command: { type: "defibrillate" } },
   { label: "Synchronized cardioversion", command: { type: "synchronized_cardioversion" } },
   { label: "Prepare synchronized cardioversion", command: { type: "prepare_synchronized_cardioversion" } },
@@ -46,14 +47,16 @@ const COMMANDS: readonly { label: string; command: AdultAclsCommand }[] = [
   { label: "Antiarrhythmic", command: { type: "give_antiarrhythmic" } },
   { label: "Adenosine", command: { type: "give_adenosine" } },
   { label: "Atropine", command: { type: "give_atropine" } },
-  { label: "Treat reversible cause", command: { type: "treat_reversible_cause" } },
+  { label: "Treat hypovolaemia", command: { type: "treat_reversible_cause", cause: "hypovolaemia" } },
+  { label: "Treat prolonged hypoxia", command: { type: "treat_reversible_cause", cause: "prolonged_hypoxia" } },
+  { label: "Treat tension pneumothorax", command: { type: "treat_reversible_cause", cause: "tension_pneumothorax" } },
 ];
 
 const COMMAND_GROUPS: readonly { title: string; hint: string; commands: readonly string[] }[] = [
   { title: "Recognise", hint: "Gather only the findings needed for the next safe decision.", commands: ["Assess rhythm", "Assess pulse", "Assess BP", "Assess breathing"] },
-  { title: "Immediate support", hint: "Support oxygenation, ventilation, or circulation when indicated.", commands: ["Start CPR", "Give oxygen", "Assist ventilation"] },
+  { title: "Immediate support", hint: "Support oxygenation, ventilation, or circulation when indicated.", commands: ["Start CPR", "Give oxygen", "Assist ventilation", "Support perfusion"] },
   { title: "Rhythm intervention", hint: "Use the rhythm and perfusion state to choose the correct electrical pathway.", commands: ["Defibrillate", "Synchronized cardioversion", "Prepare synchronized cardioversion", "Pace"] },
-  { title: "Medication and cause", hint: "Medication and reversible-cause treatment must match the current state.", commands: ["Epinephrine", "Antiarrhythmic", "Adenosine", "Atropine", "Treat reversible cause"] },
+  { title: "Medication and cause", hint: "Medication and reversible-cause treatment must match the current state.", commands: ["Epinephrine", "Antiarrhythmic", "Adenosine", "Atropine", "Treat hypovolaemia", "Treat prolonged hypoxia", "Treat tension pneumothorax"] },
 ];
 
 function urgencyFor(state: AdultAclsState) {

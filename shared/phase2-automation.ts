@@ -5,6 +5,7 @@ export type Phase2Attempt = {
   scenarioId: string;
   score: number;
   passed: boolean;
+  scenarioVersion?: string;
   evidenceStatus?: "review_required" | "accepted" | "rejected";
   criticalFailure?: boolean;
 };
@@ -33,7 +34,10 @@ export type Phase2AutomationStatus = {
   governanceBoundary: "does_not_issue_credential";
 };
 
-export const PHASE2_REQUIREMENT_SET_VERSION = "phase2-v2-2026-10-19";
+export const PHASE2_REQUIREMENT_SET_VERSION = "phase2-v3-acls-wpa-2026-10-19";
+export const PHASE2_SCENARIO_VERSIONS: Record<string, string> = {
+  adult_acls_world: "1.1.0",
+};
 
 const COMMON_REQUIREMENTS: Record<string, Phase2Requirement[]> = {
   // BLS simulations remain available as formative practice, but BLS has no
@@ -66,6 +70,7 @@ export function calculatePhase2AutomationStatus(programType: PracticeLabProgramT
     const matching = attempts.filter((attempt) =>
       attempt.evidenceStatus !== "rejected" &&
       !attempt.criticalFailure &&
+      (!PHASE2_SCENARIO_VERSIONS[attempt.trackId] || attempt.scenarioVersion === PHASE2_SCENARIO_VERSIONS[attempt.trackId]) &&
       (!requirement.trackIds || requirement.trackIds.includes(attempt.trackId)) &&
       (!requirement.scenarioIds || requirement.scenarioIds.includes(attempt.scenarioId)) &&
       attempt.passed && attempt.score >= requirement.minimumScore,
