@@ -31,7 +31,7 @@ export type AdultAclsRhythm =
   | "pulseless_electrical_activity"
   | "asystole";
 
-export type AdultAclsPhase = "stable" | "unstable" | "peri_arrest" | "cardiac_arrest" | "rosc" | "post_rosc" | "ended";
+export type AdultAclsPhase = "stable" | "unstable" | "peri_arrest" | "cardiac_arrest" | "rosc" | "post_rosc" | "ended" | "failed";
 export type AdultAclsPulse = "adequate" | "reduced" | "severely_reduced" | "absent";
 export type AdultAclsMentalStatus = "alert" | "confused" | "altered" | "unresponsive";
 export type AdultAclsBreathing = "adequate" | "hypoventilating" | "apnoeic";
@@ -124,10 +124,10 @@ function clamp(value: number, min = 0, max = 1) { return Math.min(max, Math.max(
 function derivePatient(patient: AdultAclsPatient): AdultAclsPatient {
   const h = patient.hidden;
   const perfusion = clamp(h.cardiacOutput * 0.65 + h.vascularTone * 0.35);
-  const pulse: AdultAclsPulse = patient.phase === "cardiac_arrest" ? "absent" : perfusion >= 0.7 ? "adequate" : perfusion >= 0.45 ? "reduced" : "severely_reduced";
-  const mentalStatus: AdultAclsMentalStatus = patient.phase === "cardiac_arrest" ? "unresponsive" : h.cerebralPerfusion < 0.3 ? "unresponsive" : h.cerebralPerfusion < 0.5 ? "altered" : h.cerebralPerfusion < 0.7 ? "confused" : "alert";
+  const pulse: AdultAclsPulse = patient.phase === "cardiac_arrest" || patient.phase === "failed" ? "absent" : perfusion >= 0.7 ? "adequate" : perfusion >= 0.45 ? "reduced" : "severely_reduced";
+  const mentalStatus: AdultAclsMentalStatus = patient.phase === "cardiac_arrest" || patient.phase === "failed" ? "unresponsive" : h.cerebralPerfusion < 0.3 ? "unresponsive" : h.cerebralPerfusion < 0.5 ? "altered" : h.cerebralPerfusion < 0.7 ? "confused" : "alert";
   const breathing: AdultAclsBreathing = h.ventilation < 0.2 ? "apnoeic" : h.ventilation < 0.55 ? "hypoventilating" : "adequate";
-  const phase: AdultAclsPhase = patient.phase === "cardiac_arrest" ? "cardiac_arrest" : patient.phase === "rosc" ? "post_rosc" : perfusion < 0.25 ? "peri_arrest" : perfusion < 0.48 || mentalStatus === "altered" ? "unstable" : "stable";
+  const phase: AdultAclsPhase = patient.phase === "failed" || patient.phase === "ended" ? patient.phase : patient.phase === "cardiac_arrest" ? "cardiac_arrest" : patient.phase === "rosc" ? "post_rosc" : perfusion < 0.25 ? "peri_arrest" : perfusion < 0.48 || mentalStatus === "altered" ? "unstable" : "stable";
   const trajectory = phase === "post_rosc" ? "rosc" : h.metabolicDebt > 75 ? "re_arrest" : h.causeLoad > 0.75 ? "deteriorating" : h.metabolicDebt < 25 ? "improving" : "stable";
   return { ...patient, pulse, mentalStatus, breathing, phase, trajectory, spo2: Math.round(clamp(45 + h.oxygenation * 54 - h.oxygenDebt * 0.06, 35, 99)), systolicBp: phase === "cardiac_arrest" ? 0 : Math.round(45 + perfusion * 105), diastolicBp: phase === "cardiac_arrest" ? 0 : Math.round(25 + perfusion * 58), respiratoryRate: breathing === "apnoeic" ? 0 : Math.round(8 + h.ventilation * 22), heartRate: phase === "cardiac_arrest" ? (patient.rhythm === "pulseless_electrical_activity" ? 82 : 0) : patient.heartRate };
 }
@@ -152,22 +152,33 @@ export function advanceAdultAclsSimulation(state: AdultAclsState, seconds: numbe
   if (h.causeLoad > 0.3 && !next.environment.cprActive) h.cardiacOutput = clamp(h.cardiacOutput - seconds * 0.006);
   if (next.patient.phase !== "cardiac_arrest" && h.cardiacOutput < 0.2) next.patient = { ...next.patient, phase: "cardiac_arrest", rhythm: next.patient.rhythm === "ventricular_tachycardia" ? "ventricular_tachycardia" : "pulseless_electrical_activity", pulse: "absent", mentalStatus: "unresponsive" };
   if (next.patient.phase === "post_rosc" && h.cardiacOutput < 0.25) next.patient = { ...next.patient, phase: "cardiac_arrest", rhythm: "ventricular_fibrillation", pulse: "absent", mentalStatus: "unresponsive" };
+  if (next.patient.phase === "cardiac_arrest" && h.metabolicDebt >= 100) {
+    next.patient = { ...next.patient, phase: "failed", pulse: "absent", mentalStatus: "unresponsive", trajectory: "deteriorating" };
+  }
   next.patient = derivePatient(next.patient);
+  if (next.patient.phase === "failed") return addEvent(next, "patient_death", "Patient died after untreated cardiac arrest; debrief remains available", false, "Scenario failed");
   return addEvent(next, "time_advanced", `${seconds} seconds elapsed`);
 }
 
 export function canEndAdultAclsSimulation(state: AdultAclsState): boolean {
-  return state.patient.phase === "stable" || state.patient.phase === "post_rosc" || state.patient.phase === "ended";
+  return state.patient.phase === "stable" || state.patient.phase === "post_rosc" || state.patient.phase === "ended" || state.patient.phase === "failed";
 }
 
 export function reduceAdultAclsSimulation(state: AdultAclsState, command: AdultAclsCommand): AdultAclsState {
-  let next = advanceAdultAclsSimulation(state, command.type === "assess" || command.type === "reassess" ? 2 : 5);
+  const actionAdvanceSeconds = command.type === "end_rehearsal" ? 0 : command.type === "assess" || command.type === "reassess" ? 2 : 5;
+  let next = advanceAdultAclsSimulation(state, actionAdvanceSeconds);
   const p = next.patient;
   switch (command.type) {
     case "assess":
       next = { ...next, observations: { ...next.observations, [command.target]: command.target === "blood_pressure" ? p.systolicBp : command.target === "spo2" ? p.spo2 : command.target === "heart_rate" ? p.heartRate : 1 }, competencies: { ...next.competencies, recognition: Math.min(100, next.competencies.recognition + 8) } };
       return addEvent(next, "assessment", `Observed ${command.target}`, true);
     case "reassess":
+      if (p.phase === "cardiac_arrest" && next.environment.cprActive && next.events.some((event) => event.type === "medication") && next.events.some((event) => event.type === "cause_treatment")) {
+        next.patient = { ...next.patient, phase: "rosc", rhythm: "sinus_rhythm", pulse: "reduced", mentalStatus: "altered", trajectory: "rosc" };
+        next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.3);
+        next.patient = derivePatient(next.patient);
+        return addEvent({ ...next, competencies: { ...next.competencies, reassessment: Math.min(100, next.competencies.reassessment + 10) } }, "rosc", "Reassessment confirms organised rhythm and a pulse after arrest treatment", true);
+      }
       return addEvent({ ...next, competencies: { ...next.competencies, reassessment: Math.min(100, next.competencies.reassessment + 10) } }, "reassessment", "Reassessed rhythm, pulse, pressure, breathing, and mental status", true);
     case "give_oxygen":
       next.patient.hidden.oxygenation = clamp(next.patient.hidden.oxygenation + 0.12);
@@ -180,12 +191,14 @@ export function reduceAdultAclsSimulation(state: AdultAclsState, command: AdultA
       return addEvent(next, "ventilation", "Assisted ventilation delivered; reassess chest movement and CO₂ clearance", true);
     case "start_cpr":
       if (p.phase !== "cardiac_arrest") return fail(next, "CPR started without cardiac arrest; reassess the patient state");
+      if (next.environment.cprActive) return addEvent(next, "repeated_action", "CPR is already active; repeated command did not add perfusion credit", false);
       next.environment.cprActive = true;
-      next.patient.hidden.coronaryPerfusion = clamp(next.patient.hidden.coronaryPerfusion + 0.18);
+      next.patient.hidden.coronaryPerfusion = clamp(next.patient.hidden.coronaryPerfusion + 0.22);
       next.patient.hidden.cerebralPerfusion = clamp(next.patient.hidden.cerebralPerfusion + 0.12);
       return addEvent(next, "cpr", "CPR started; perfusion is supported but not normal", true);
     case "defibrillate":
       if (p.phase !== "cardiac_arrest" || !["ventricular_fibrillation", "ventricular_tachycardia"].includes(p.rhythm)) return fail(next, "Defibrillation is not therapeutically indicated for this state");
+      if (!next.events.some((event) => event.type === "assessment" && event.description === "Observed rhythm") || !next.environment.cprActive) return fail(next, "Confirm the shockable rhythm and start CPR before defibrillation");
       next.environment.cprActive = false;
       if (next.patient.hidden.probabilityOfRosc >= 0.3 && next.patient.hidden.coronaryPerfusion >= 0.2) { next.patient = { ...next.patient, phase: "rosc", rhythm: "sinus_rhythm", pulse: "reduced", mentalStatus: "altered" }; next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.35); return addEvent(next, "defibrillation", "Shock delivered; organised rhythm and pulse require reassessment", true); }
       next.patient.hidden.probabilityOfRosc = clamp(next.patient.hidden.probabilityOfRosc + 0.08);
@@ -226,10 +239,46 @@ export function reduceAdultAclsSimulation(state: AdultAclsState, command: AdultA
       return addEvent(next, "synchronization", "Defibrillator synchronized; confirm rhythm, pulse, and instability before shock", true);
     case "end_rehearsal":
       if (!canEndAdultAclsSimulation(next)) return fail(next, "Rehearsal cannot end until the patient is stable or post-ROSC and reassessed");
-      return addEvent({ ...next, patient: { ...next.patient, phase: "ended" } }, "terminal_state", "Rehearsal ended after a stable or post-ROSC reassessment", true);
+      return addEvent({ ...next, patient: { ...next.patient, phase: next.patient.phase === "failed" ? "failed" : "ended" } }, "terminal_state", next.patient.phase === "failed" ? "Failed rehearsal closed; formative debrief is ready" : "Rehearsal ended after a stable or post-ROSC reassessment", next.patient.phase !== "failed");
   }
 }
 
 export function calculateAdultAclsTrainingEvidence(state: AdultAclsState) {
   return { scenarioId: state.scenarioId, durationSeconds: state.elapsedSeconds, phase: state.patient.phase, roscObserved: state.patient.phase === "post_rosc" || state.patient.trajectory === "rosc", criticalFailures: state.criticalFailures.length, evidenceStatus: "simulation_performance_recorded" as const, competenceClaim: false, credentialClaim: false };
+}
+
+/**
+ * Score observable clinical performance rather than action counts.
+ * This is deliberately conservative: a rehearsal must reach a valid terminal
+ * outcome, include recognition and reassessment, and contain the indicated
+ * intervention for its scenario family. Critical failures or a patient death
+ * make the attempt fail regardless of the other components.
+ */
+export function scoreAdultAclsTraining(state: AdultAclsState): number {
+  const eventTypes = new Set(state.events.map((event) => event.type));
+  const hasAssessment = eventTypes.has("assessment");
+  const hasReassessment = eventTypes.has("reassessment") || eventTypes.has("rosc");
+  const terminalSuccess = state.patient.phase === "ended" && !eventTypes.has("patient_death");
+  const has = (...types: string[]) => types.some((type) => eventTypes.has(type));
+  const hasAll = (...types: string[]) => types.every((type) => eventTypes.has(type));
+  const indicatedAction = (() => {
+    switch (state.scenarioId) {
+      case "stable-narrow-tachycardia": return has("medication") && state.events.some((event) => event.type === "medication" && event.description.toLowerCase().includes("adenosine"));
+      case "vf-pulseless-vt": return hasAll("cpr", "defibrillation");
+      case "pea":
+      case "asystole":
+      case "reversible-cause-arrest": return hasAll("cpr", "medication", "cause_treatment");
+      case "unstable-tachycardia": return hasAll("synchronization", "cardioversion");
+      case "unstable-bradycardia": return hasAll("pacing", "medication");
+      default: return has("assessment", "reassessment");
+    }
+  })();
+  const components = [
+    terminalSuccess ? 30 : 0,
+    hasAssessment ? 20 : 0,
+    indicatedAction ? 30 : 0,
+    hasReassessment ? 20 : 0,
+  ];
+  const raw = components.reduce((sum, value) => sum + value, 0);
+  return state.criticalFailures.length > 0 || eventTypes.has("patient_death") ? 0 : raw;
 }
