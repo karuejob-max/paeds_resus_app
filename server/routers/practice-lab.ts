@@ -254,7 +254,7 @@ export const practiceLabRouter = router({
       const evidence = calculateAdultAclsTrainingEvidence(state);
       const evidenceWithAuthority = { ...evidence, sessionId: session.id, scenarioVersion: session.scenarioVersion, learnerUserId: session.userId, enrollmentId: session.enrollmentId, role: session.role };
       const automatedScore = scoreDedicatedSimulation(state.competencies, state.criticalFailures.length);
-      await db.insert(ahaPracticeLabAttempts).values({ userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "acls", trackId: "adult_acls_world", scenarioId: session.scenarioId, score: automatedScore, passed: automatedScore >= 70, eventLog: state.events, evidenceStatus: "review_required", scenarioVersion: session.scenarioVersion, durationSeconds: Math.round(state.elapsedSeconds) });
+      await db.insert(ahaPracticeLabAttempts).values({ userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "acls", trackId: "adult_acls_world", scenarioId: session.scenarioId, score: automatedScore, passed: automatedScore >= 70, eventLog: state.events, evidenceStatus: "review_required", scenarioVersion: session.scenarioVersion, criticalFailure: state.criticalFailures.length > 0, durationSeconds: Math.round(state.elapsedSeconds) });
       await db.insert(simulationWorldEvidence).values({ sessionId: session.id, userId: ctx.user.id, enrollmentId: session.enrollmentId, role: session.role, scenarioId: state.scenarioId, evidenceStatus: "review_required", assessmentJson: evidenceWithAuthority });
       await db.update(simulationWorldSessions).set({ status: "completed", completedAt: new Date() }).where(eq(simulationWorldSessions.id, session.id));
       return { success: true, evidenceStatus: "review_required" as const, evidence: evidenceWithAuthority, syntheticTrainingOnly: true };
@@ -341,7 +341,7 @@ export const practiceLabRouter = router({
       if (!state || state.scenarioId !== session.scenarioId || state.patient.phase !== "ended") throw new TRPCError({ code: "BAD_REQUEST", message: "Reach the valid post-resuscitation endpoint before saving NRP rehearsal evidence" });
       const evidence = calculateNrpTrainingEvidence(state);
       const evidenceWithAuthority = { ...evidence, sessionId: session.id, scenarioVersion: session.scenarioVersion, learnerUserId: session.userId, enrollmentId: session.enrollmentId, role: session.role };
-      await db.insert(ahaPracticeLabAttempts).values({ userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "nrp", trackId: "nrp_world", scenarioId: session.scenarioId, score: evidence.score, passed: evidence.score >= 70, eventLog: state.events, evidenceStatus: "review_required", scenarioVersion: session.scenarioVersion, durationSeconds: Math.round(state.elapsedSeconds) });
+      await db.insert(ahaPracticeLabAttempts).values({ userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "nrp", trackId: "nrp_world", scenarioId: session.scenarioId, score: evidence.score, passed: evidence.score >= 70, eventLog: state.events, evidenceStatus: "review_required", scenarioVersion: session.scenarioVersion, criticalFailure: state.criticalFailures.length > 0, durationSeconds: Math.round(state.elapsedSeconds) });
       await db.insert(simulationWorldEvidence).values({ sessionId: session.id, userId: ctx.user.id, enrollmentId: session.enrollmentId, role: session.role, scenarioId: state.scenarioId, evidenceStatus: "review_required", assessmentJson: evidenceWithAuthority });
       await db.update(simulationWorldSessions).set({ status: "completed", completedAt: new Date() }).where(eq(simulationWorldSessions.id, session.id));
       return { success: true, evidenceStatus: "review_required" as const, evidence: evidenceWithAuthority, syntheticTrainingOnly: true };
@@ -497,6 +497,7 @@ export const practiceLabRouter = router({
         eventLog: authoritativeEventLog,
         evidenceStatus: "review_required",
         scenarioVersion: session?.scenarioVersion ?? "choice-v1",
+        criticalFailure: false,
         isBooster: input.isBooster ?? false,
         durationSeconds: input.durationSeconds ?? null,
       }).$returningId();
@@ -548,9 +549,9 @@ export const practiceLabRouter = router({
       if (!enrollment || !AHA_PROGRAM_TYPES.includes(enrollment.programType as (typeof AHA_PROGRAM_TYPES)[number])) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Life Support enrollment not found" });
       }
-      const attempts = await db.select({ trackId: ahaPracticeLabAttempts.trackId, scenarioId: ahaPracticeLabAttempts.scenarioId, score: ahaPracticeLabAttempts.score, passed: ahaPracticeLabAttempts.passed, evidenceStatus: ahaPracticeLabAttempts.evidenceStatus })
+      const attempts = await db.select({ trackId: ahaPracticeLabAttempts.trackId, scenarioId: ahaPracticeLabAttempts.scenarioId, score: ahaPracticeLabAttempts.score, passed: ahaPracticeLabAttempts.passed, evidenceStatus: ahaPracticeLabAttempts.evidenceStatus, criticalFailure: ahaPracticeLabAttempts.criticalFailure })
         .from(ahaPracticeLabAttempts).where(and(eq(ahaPracticeLabAttempts.userId, ctx.user.id), eq(ahaPracticeLabAttempts.enrollmentId, input.enrollmentId)));
-      return calculatePhase2AutomationStatus(enrollment.programType as (typeof AHA_PROGRAM_TYPES)[number], attempts.map((attempt) => ({ trackId: attempt.trackId, scenarioId: attempt.scenarioId, score: Number(attempt.score ?? 0), passed: Boolean(attempt.passed), evidenceStatus: attempt.evidenceStatus })));
+      return calculatePhase2AutomationStatus(enrollment.programType as (typeof AHA_PROGRAM_TYPES)[number], attempts.map((attempt) => ({ trackId: attempt.trackId, scenarioId: attempt.scenarioId, score: Number(attempt.score ?? 0), passed: Boolean(attempt.passed), evidenceStatus: attempt.evidenceStatus, criticalFailure: Boolean(attempt.criticalFailure) })));
     }),
 
   getDueBoosters: protectedProcedure

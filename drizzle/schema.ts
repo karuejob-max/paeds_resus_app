@@ -6780,6 +6780,7 @@ export const ahaPracticeLabAttempts = mysqlTable("ahaPracticeLabAttempts", {
   eventLog: json("eventLog"),
   evidenceStatus: mysqlEnum("evidenceStatus", ["review_required", "accepted", "rejected"]).default("review_required").notNull(),
   scenarioVersion: varchar("scenarioVersion", { length: 32 }).default("legacy-v1").notNull(),
+  criticalFailure: boolean("criticalFailure").default(false).notNull(),
   isBooster: boolean("isBooster").default(false).notNull(),
   durationSeconds: int("durationSeconds"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
