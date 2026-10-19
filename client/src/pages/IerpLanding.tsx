@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -156,6 +157,11 @@ export default function IerpLanding() {
       startIerp();
     }
   };
+
+  useEffect(() => {
+    if (!isAuthenticated || !enrolled || summaryQuery.isLoading) return;
+    navigate(`/programs/ierp/enroll${window.location.hash}`);
+  }, [enrolled, isAuthenticated, navigate, summaryQuery.isLoading]);
 
   return (
     <>

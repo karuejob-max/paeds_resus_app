@@ -1335,6 +1335,10 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
           <div>
             <p className="text-sm font-semibold text-slate-950">AHA certificates for online simulations</p>
             <p className="text-xs text-slate-600">After the platform BLS and ACLS, PALS, or NRP cognitive modules are complete, upload the two certificates here. Files are private and reviewer-controlled; do not paste a public Drive link.</p>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+              <a href="https://elearning.heart.org" target="_blank" rel="noreferrer" className="font-medium text-teal-700 underline">Open AHA eLearning portal</a>
+              <span className="text-slate-500">Complete Video Prework and the Passed Precourse Self-Assessment there, then upload both certificates below.</span>
+            </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {([

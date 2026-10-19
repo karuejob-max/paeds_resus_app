@@ -68,6 +68,20 @@ export function getAhaPathwayPortalRoute(pathway: string | null | undefined): st
   }
 }
 
+/** Authenticated workspace for an enrolled pathway learner. */
+export function getAhaPathwayWorkspaceRoute(pathway: string | null | undefined): string | null {
+  switch (pathway) {
+    case "ierp":
+      return "/programs/ierp/enroll";
+    case "nerp":
+      return "/programs/nerp-acls/start";
+    case "ilsp":
+      return "/training/institutional-life-support";
+    default:
+      return null;
+  }
+}
+
 export function isAhaProgramSlug(courseId: string): courseId is AhaProgramType {
   return (AHA_PROGRAM_TYPES as readonly string[]).includes(courseId);
 }
