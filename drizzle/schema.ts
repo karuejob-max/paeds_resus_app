@@ -778,6 +778,31 @@ export const externalTrainingCompletions = mysqlTable(
 export type ExternalTrainingCompletion = typeof externalTrainingCompletions.$inferSelect;
 export type InsertExternalTrainingCompletion = typeof externalTrainingCompletions.$inferInsert;
 
+/** Server-generated Phase 2 completion record; does not issue a credential. */
+export const phase2MasteryCompletions = mysqlTable(
+  "phase2MasteryCompletions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    enrollmentId: int("enrollmentId").notNull(),
+    programType: mysqlEnum("programType", ["acls", "pals", "nrp", "heartsaver"]).notNull(),
+    requirementSetVersion: varchar("requirementSetVersion", { length: 64 }).notNull(),
+    completedAt: timestamp("completedAt").defaultNow().notNull(),
+    evidenceSnapshotJson: json("evidenceSnapshotJson").notNull(),
+    revokedAt: timestamp("revokedAt"),
+    revokedReason: text("revokedReason"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    enrollmentProgramUq: uniqueIndex("phase2_mastery_completions_enrollment_program_uq").on(table.enrollmentId, table.programType),
+    userIdx: index("phase2_mastery_completions_user_idx").on(table.userId),
+  }),
+);
+
+export type Phase2MasteryCompletion = typeof phase2MasteryCompletions.$inferSelect;
+export type InsertPhase2MasteryCompletion = typeof phase2MasteryCompletions.$inferInsert;
+
 /** One pre-download feedback row per user per certificate (before PDF download). */
 export const certificateDownloadFeedback = mysqlTable(
   "certificateDownloadFeedback",
