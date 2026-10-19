@@ -6,6 +6,7 @@ export type Phase2Attempt = {
   score: number;
   passed: boolean;
   evidenceStatus?: "review_required" | "accepted" | "rejected";
+  criticalFailure?: boolean;
 };
 
 export type Phase2Requirement = {
@@ -19,6 +20,7 @@ export type Phase2Requirement = {
 
 export type Phase2AutomationStatus = {
   programType: PracticeLabProgramType;
+  requirementSetVersion: string;
   phase2Ready: boolean;
   authority: "automated_simulation_mastery";
   attempts: number;
@@ -30,6 +32,8 @@ export type Phase2AutomationStatus = {
   nextAction: string;
   governanceBoundary: "does_not_issue_credential";
 };
+
+export const PHASE2_REQUIREMENT_SET_VERSION = "phase2-v2-2026-10-19";
 
 const COMMON_REQUIREMENTS: Record<string, Phase2Requirement[]> = {
   // BLS simulations remain available as formative practice, but BLS has no
@@ -61,18 +65,21 @@ export function calculatePhase2AutomationStatus(programType: PracticeLabProgramT
   const requirements = getPhase2Requirements(programType).map((requirement) => {
     const matching = attempts.filter((attempt) =>
       attempt.evidenceStatus !== "rejected" &&
+      !attempt.criticalFailure &&
       (!requirement.trackIds || requirement.trackIds.includes(attempt.trackId)) &&
       (!requirement.scenarioIds || requirement.scenarioIds.includes(attempt.scenarioId)) &&
       attempt.passed && attempt.score >= requirement.minimumScore,
     );
+    const distinctScenarioIds = new Set(matching.map((attempt) => attempt.scenarioId));
     const bestScore = matching.reduce((best, attempt) => Math.max(best, attempt.score), 0);
-    return { ...requirement, attempts: matching.length, bestScore, complete: matching.length >= requirement.requiredAttempts };
+    return { ...requirement, attempts: distinctScenarioIds.size, bestScore, complete: distinctScenarioIds.size >= requirement.requiredAttempts };
   });
   const completeCount = requirements.filter((requirement) => requirement.complete).length;
   const bestScore = attempts.reduce((best, attempt) => Math.max(best, attempt.score), 0);
   const next = requirements.find((requirement) => !requirement.complete);
   return {
     programType,
+    requirementSetVersion: PHASE2_REQUIREMENT_SET_VERSION,
     phase2Ready: requirements.length > 0 && completeCount === requirements.length,
     authority: "automated_simulation_mastery",
     attempts: attempts.length,

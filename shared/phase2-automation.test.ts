@@ -7,7 +7,7 @@ describe("automated Phase 2 mastery", () => {
     const requirements = getPhase2Requirements("acls");
     const attempts = requirements.flatMap((requirement) => Array.from({ length: requirement.requiredAttempts }, (_, index) => ({
       trackId: requirement.trackIds?.[0] ?? "adult_acls_world",
-      scenarioId: requirement.scenarioIds?.[0] ?? `${requirement.id}-${index}`,
+      scenarioId: requirement.scenarioIds?.[index] ?? `${requirement.id}-${index}`,
       score: 80,
       passed: true,
     })));
@@ -15,7 +15,27 @@ describe("automated Phase 2 mastery", () => {
     expect(status.phase2Ready).toBe(true);
     expect(status.completedRequirements).toBe(3);
     expect(status.authority).toBe("automated_simulation_mastery");
+    expect(status.requirementSetVersion).toBe("phase2-v2-2026-10-19");
     expect(status.governanceBoundary).toBe("does_not_issue_credential");
+  });
+
+  it("requires distinct scenarios rather than repeated passes of one scenario", () => {
+    const repeated = calculatePhase2AutomationStatus("acls", [
+      { trackId: "adult_acls_world", scenarioId: "vf-pulseless-vt", score: 100, passed: true },
+      { trackId: "adult_acls_world", scenarioId: "vf-pulseless-vt", score: 100, passed: true },
+    ]);
+    expect(repeated.requirements.find((requirement) => requirement.id === "arrest-sequence")?.complete).toBe(false);
+  });
+
+  it("fails a requirement when any attempt is marked as a critical failure", () => {
+    const status = calculatePhase2AutomationStatus("pals", [{
+      trackId: "abcde",
+      scenarioId: "unstable_brady_infant",
+      score: 100,
+      passed: true,
+      criticalFailure: true,
+    }]);
+    expect(status.completedRequirements).toBe(0);
   });
 
   it("does not count a failed or below-threshold rehearsal", () => {
