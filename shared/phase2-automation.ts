@@ -5,6 +5,7 @@ export type Phase2Attempt = {
   scenarioId: string;
   score: number;
   passed: boolean;
+  evidenceStatus?: "review_required" | "accepted" | "rejected";
 };
 
 export type Phase2Requirement = {
@@ -34,14 +35,12 @@ const COMMON_REQUIREMENTS: Record<string, Phase2Requirement[]> = {
   // BLS simulations remain available as formative practice, but BLS has no
   // Phase 2 gate in the canonical Life Support pathway.
   bls: [],
-  heartsaver: [
-    { id: "first-minutes", label: "First-minutes assessment loop", trackIds: ["cardiac_arrest"], scenarioIds: ["first-minutes-instructor-loop"], minimumScore: 70, requiredAttempts: 1 },
-    { id: "arrest-sequence", label: "Arrest recognition and first actions", trackIds: ["cardiac_arrest"], minimumScore: 70, requiredAttempts: 1 },
-  ],
+  // CPR-GPS currently submits a client event log without server receipts. Keep
+  // Heartsaver closed rather than allow that log to satisfy an automated gate.
+  heartsaver: [],
   pals: [
     { id: "assessment", label: "Paediatric assessment and deterioration", trackIds: ["abcde"], minimumScore: 70, requiredAttempts: 1 },
     { id: "rhythm-action", label: "Rhythm and shock decision-making", trackIds: ["shock_no_shock", "rhythm_recognition"], minimumScore: 70, requiredAttempts: 1 },
-    { id: "arrest-sequence", label: "Paediatric arrest sequence", trackIds: ["cardiac_arrest"], minimumScore: 70, requiredAttempts: 1 },
   ],
   acls: [
     { id: "rhythm-action", label: "Adult rhythm and stability decisions", trackIds: ["adult_acls_world", "rhythm_recognition"], minimumScore: 70, requiredAttempts: 2 },
@@ -61,6 +60,7 @@ export function getPhase2Requirements(programType: PracticeLabProgramType): Phas
 export function calculatePhase2AutomationStatus(programType: PracticeLabProgramType, attempts: readonly Phase2Attempt[]): Phase2AutomationStatus {
   const requirements = getPhase2Requirements(programType).map((requirement) => {
     const matching = attempts.filter((attempt) =>
+      attempt.evidenceStatus !== "rejected" &&
       (!requirement.trackIds || requirement.trackIds.includes(attempt.trackId)) &&
       (!requirement.scenarioIds || requirement.scenarioIds.includes(attempt.scenarioId)) &&
       attempt.passed && attempt.score >= requirement.minimumScore,
@@ -81,7 +81,9 @@ export function calculatePhase2AutomationStatus(programType: PracticeLabProgramT
     completedRequirements: completeCount,
     totalRequirements: requirements.length,
     requirements,
-    nextAction: next ? `Complete ${next.label} (${next.attempts}/${next.requiredAttempts} qualifying rehearsal${next.requiredAttempts === 1 ? "" : "s"}).` : "Phase 2 simulation mastery requirements met. Proceed to the governed Phase 3 pathway.",
+    nextAction: requirements.length === 0
+      ? "Automated Phase 2 is not available for this pathway until an authoritative counted scenario is published."
+      : next ? `Complete ${next.label} (${next.attempts}/${next.requiredAttempts} qualifying rehearsal${next.requiredAttempts === 1 ? "" : "s"}).` : "Phase 2 simulation mastery requirements met. Proceed to the governed Phase 3 pathway.",
     governanceBoundary: "does_not_issue_credential",
   };
 }
@@ -100,6 +102,78 @@ export function scoreFormativeEventLog(eventLog: readonly unknown[]): { score: n
   const correct = decisions.filter((event) => event.correct === true).length;
   const score = Math.round((correct / decisions.length) * 100);
   return { score, passed: score >= 70 };
+}
+
+const ABCDE_CORRECT_ACTIONS: Record<string, string> = {
+  unstable_brady_infant: "epinephrine",
+  complete_heart_block: "pacing",
+  svt_unstable_narrow: "cardiovert",
+  vt_unstable_wide: "cardiovert",
+  adult_unstable_afib: "cardiovert",
+};
+
+const SHOCK_CORRECT_ACTIONS: Record<string, string> = {
+  vf_witnessed_peds: "shock",
+  pulseless_vt_peds: "shock",
+  svt_unstable_peds: "cardiovert",
+  pea_hypovolemia: "cpr",
+  asystole_confirm: "cpr",
+  afib_stable_adult: "treat",
+  vt_unstable_adult: "cardiovert",
+};
+
+const RHYTHM_CORRECT_ANSWERS: Record<string, { rhythm: string; action?: string }> = {
+  sinus_bradycardia: { rhythm: "Sinus Bradycardia", action: "Ensure oxygenation; epinephrine if HR <60 with poor perfusion" },
+  heart_block_complete: { rhythm: "Complete Heart Block (3rd Degree AV Block)", action: "Transcutaneous pacing; epinephrine infusion" },
+  junctional_brady: { rhythm: "Junctional Bradycardia", action: "Treat underlying cause; atropine or pacing if symptomatic" },
+  svt: { rhythm: "Supraventricular Tachycardia (SVT)", action: "Vagal maneuvers if stable; adenosine or cardioversion if unstable" },
+  sinus_tachycardia: { rhythm: "Sinus Tachycardia", action: "Identify and treat underlying cause — do NOT cardiovert" },
+  vt_with_pulse: { rhythm: "Ventricular Tachycardia (with pulse)", action: "Amiodarone if stable; synchronized cardioversion if unstable" },
+  atrial_flutter: { rhythm: "Atrial Flutter", action: "Rate control if stable; cardioversion if unstable" },
+  vf: { rhythm: "Ventricular Fibrillation (VF)", action: "CPR + defibrillate 2 J/kg (peds) or 120-200 J (adult)" },
+  pulseless_vt: { rhythm: "Pulseless Ventricular Tachycardia", action: "CPR + defibrillate" },
+  asystole: { rhythm: "Asystole", action: "CPR + epinephrine — do NOT defibrillate" },
+  pea: { rhythm: "Pulseless Electrical Activity (PEA)", action: "CPR + epinephrine + treat reversible causes" },
+  torsades: { rhythm: "Torsades de Pointes", action: "Magnesium sulfate 25-50 mg/kg; defibrillate if pulseless" },
+};
+
+/** Score choice-based tracks from selected answers, never from client `correct` flags. */
+export function scoreAuthoritativeChoiceAttempt(
+  trackId: string,
+  scenarioId: string,
+  eventLog: readonly unknown[],
+): { score: number; passed: boolean } {
+  const descriptions = eventLog
+    .filter((event): event is { type?: unknown; description?: unknown } => Boolean(event && typeof event === "object"))
+    .map((event) => ({ type: String(event.type ?? ""), description: String(event.description ?? "") }));
+
+  if (trackId === "abcde") {
+    const selected = descriptions.find((event) => event.type === "abcde_action")?.description.match(/^Action:\s*(.+)$/)?.[1];
+    const score = selected && ABCDE_CORRECT_ACTIONS[scenarioId] === selected ? 100 : 0;
+    return { score, passed: score >= 70 };
+  }
+
+  if (trackId === "shock_no_shock") {
+    const selected = descriptions.find((event) => event.type === "action")?.description.match(/^Selected:\s*(.+)$/)?.[1];
+    const score = selected && SHOCK_CORRECT_ACTIONS[scenarioId] === selected ? 100 : 0;
+    return { score, passed: score >= 70 };
+  }
+
+  if (trackId === "rhythm_recognition") {
+    const baseScenarioId = scenarioId.replace(/_(identify_action|identify)$/, "");
+    const expected = RHYTHM_CORRECT_ANSWERS[baseScenarioId];
+    if (!expected) return { score: 0, passed: false };
+    const selectedRhythm = descriptions.find((event) => event.type === "identify")?.description.match(/^(?:Identified|Rhythm):\s*(.+)$/)?.[1];
+    const selectedAction = descriptions.find((event) => event.type === "action")?.description.match(/^Action:\s*(.+)$/)?.[1];
+    const rhythmCorrect = selectedRhythm === expected.rhythm;
+    const actionCorrect = scenarioId.endsWith("_identify_action") ? selectedAction === expected.action : true;
+    const score = scenarioId.endsWith("_identify_action")
+      ? (rhythmCorrect ? 50 : 0) + (actionCorrect ? 50 : 0)
+      : rhythmCorrect ? 100 : 0;
+    return { score, passed: score >= 70 };
+  }
+
+  return { score: 0, passed: false };
 }
 
 /**

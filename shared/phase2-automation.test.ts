@@ -28,18 +28,37 @@ describe("automated Phase 2 mastery", () => {
     expect(status.nextAction).toContain("Initial newborn steps");
   });
 
+  it("excludes rejected evidence but counts review-required evidence", () => {
+    const requirement = getPhase2Requirements("pals")[0];
+    const rejected = calculatePhase2AutomationStatus("pals", [{
+      trackId: requirement.trackIds?.[0] ?? "abcde",
+      scenarioId: "unstable_brady_infant",
+      score: 100,
+      passed: true,
+      evidenceStatus: "rejected",
+    }]);
+    expect(rejected.completedRequirements).toBe(0);
+
+    const reviewRequired = calculatePhase2AutomationStatus("pals", [{
+      trackId: requirement.trackIds?.[0] ?? "abcde",
+      scenarioId: "unstable_brady_infant",
+      score: 100,
+      passed: true,
+      evidenceStatus: "review_required",
+    }]);
+    expect(reviewRequired.completedRequirements).toBe(1);
+  });
+
   it("scores dedicated evidence conservatively and caps the result", () => {
     expect(scoreDedicatedSimulation({ recognition: 90, interventionSelection: 85, sequencing: 80, execution: 75, reassessment: 90, teamPerformance: 80 }, 0)).toBe(83);
     expect(scoreDedicatedSimulation({ recognition: 100 }, 4)).toBe(60);
     expect(scoreDedicatedSimulation({}, 0)).toBe(0);
   });
 
-  it("defines Heartsaver as a simulation-qualified pathway", () => {
+  it("keeps Heartsaver fail-closed until its counted scenario has server replay authority", () => {
     expect(getLifeSupportRequiredPhases("heartsaver")).toContain("phase2");
-    expect(getPhase2Requirements("heartsaver")).toEqual([
-      expect.objectContaining({ id: "first-minutes", minimumScore: 70, requiredAttempts: 1 }),
-      expect.objectContaining({ id: "arrest-sequence", minimumScore: 70, requiredAttempts: 1 }),
-    ]);
+    expect(getPhase2Requirements("heartsaver")).toEqual([]);
+    expect(calculatePhase2AutomationStatus("heartsaver", []).nextAction).toContain("not available");
   });
 
   it("scores a complete CPR-GPS arrest sequence without trusting client scores", () => {

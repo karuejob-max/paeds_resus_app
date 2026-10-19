@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPhase2Requirements } from "./phase2-automation";
+import { calculatePhase2AutomationStatus, getPhase2Requirements } from "./phase2-automation";
 import { getLifeSupportRequiredPhases } from "./life-support-pathways";
 import { getSimulationScenarioCatalog } from "./simulation-scenario-catalog";
 import type { PracticeLabProgramType } from "./practice-lab-types";
@@ -14,7 +14,9 @@ describe("Simulation Hub public-release policy", () => {
 
     for (const course of QUALIFYING_PROGRAMS) {
       const requirements = getPhase2Requirements(course);
-      expect(requirements.length, `${course} must define at least one Phase 2 requirement`).toBeGreaterThan(0);
+      if (requirements.length === 0) {
+        expect(calculatePhase2AutomationStatus(course, []).nextAction, `${course} must fail closed when no authoritative requirement exists`).toContain("not available");
+      }
       for (const requirement of requirements) {
         expect(requirement.minimumScore, `${course}/${requirement.id} threshold`).toBeGreaterThanOrEqual(70);
         expect(requirement.requiredAttempts, `${course}/${requirement.id} attempts`).toBeGreaterThan(0);
