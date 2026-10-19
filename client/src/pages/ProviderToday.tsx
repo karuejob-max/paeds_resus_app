@@ -181,23 +181,13 @@ export default function ProviderToday() {
     };
   }, []);
 
-  const ierpEnrollmentQuery = trpc.ierp.getMyEnrollment.useQuery(undefined, {
-    enabled: isAuthenticated,
-    staleTime: 30_000,
-    retry: 1,
-  });
   const { data: nerpJourney } = trpc.nerp.getJourneyStatus.useQuery(undefined, {
     enabled: isAuthenticated,
     staleTime: 30_000,
     retry: 1,
   });
   const ierpSummaryQuery = trpc.ierp.getSummary.useQuery(undefined, {
-    enabled: isAuthenticated && Boolean(ierpEnrollmentQuery.data),
-    staleTime: 30_000,
-    retry: 1,
-  });
-  const ierpDashboardAccessQuery = trpc.ierp.getDashboardAccess.useQuery(undefined, {
-    enabled: isAuthenticated && Boolean(ierpEnrollmentQuery.data),
+    enabled: isAuthenticated,
     staleTime: 30_000,
     retry: 1,
   });
@@ -373,8 +363,7 @@ export default function ProviderToday() {
       });
 
   const ierpSummary = ierpSummaryQuery.data;
-  const ierpDashboardAccess = ierpDashboardAccessQuery.data;
-  const ierpBlsEnrollment = ierpDashboardAccess?.bls ?? ierpSummary?.aha.find((entry) => entry.programType === "bls");
+  const ierpBlsEnrollment = ierpSummary?.aha.find((entry) => entry.programType === "bls");
   const ierpAclsEnrollment = ierpSummary?.aha.find((entry) => entry.programType === "acls");
   const ierpNextAction = ierpSummary
     ? getIerpNextAction({
@@ -404,7 +393,7 @@ export default function ProviderToday() {
           : ierpBlsEnrollment
             ? "Continue BLS coursework"
             : "Start BLS coursework";
-  const ierpAccessLocked = ierpDashboardAccess?.payment.cognitiveAccessLocked ?? false;
+  const ierpAccessLocked = ierpSummary?.payment.cognitiveAccessLocked ?? false;
   const activeSimulationEnrollment = (ahaEnrollmentsQuery.data ?? []).find(
     (enrollment) => Number(enrollment.progressPercentage ?? 0) < 100 || !enrollment.practicalSkillsSignedOff,
   );
@@ -478,35 +467,21 @@ export default function ProviderToday() {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
-            {ierpEnrollmentQuery.isLoading ? (
+            {ierpSummaryQuery.isLoading ? (
               <p className="flex items-center gap-2 text-sm text-indigo-900">
-                <Loader2 className="h-4 w-4 animate-spin" /> Checking your IERP enrolment…
+                <Loader2 className="h-4 w-4 animate-spin" /> Checking your IERP learning status…
               </p>
-            ) : ierpEnrollmentQuery.isError ? (
-              <div className="space-y-2">
-                <p className="text-sm text-indigo-950">IERP enrolment could not be checked. No course access or progress has been changed.</p>
-                <Button type="button" variant="outline" onClick={() => void ierpEnrollmentQuery.refetch()}>
-                  Retry IERP enrolment check
-                </Button>
-              </div>
-            ) : !ierpEnrollmentQuery.data ? (
-              <Button type="button" className="bg-indigo-700 text-white hover:bg-indigo-800" onClick={() => setLocation("/programs/ierp/enroll")}>
-                Open IERP enrollment <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            ) : ierpSummaryQuery.isLoading || ierpDashboardAccessQuery.isLoading ? (
-              <p className="flex items-center gap-2 text-sm text-indigo-900"><Loader2 className="h-4 w-4 animate-spin" /> Checking your IERP learning access…</p>
             ) : ierpSummaryQuery.isError ? (
               <div className="space-y-2">
-                <p className="text-sm text-indigo-950">We could not confirm your BLS or ACLS progress. No course access or progress has been changed.</p>
-                <Button type="button" variant="outline" onClick={() => { void ierpSummaryQuery.refetch(); void ierpDashboardAccessQuery.refetch(); }}>
+                <p className="text-sm text-indigo-950">We could not confirm your IERP enrolment or learning progress. No course access or progress has been changed.</p>
+                <Button type="button" variant="outline" onClick={() => void ierpSummaryQuery.refetch()}>
                   Retry IERP progress check
                 </Button>
               </div>
-            ) : ierpDashboardAccessQuery.isError ? (
-              <div className="space-y-2">
-                <p className="text-sm text-indigo-950">IERP learning access could not be checked. Refresh this page to retry; your course access has not been changed.</p>
-                <Button type="button" variant="outline" onClick={() => void ierpDashboardAccessQuery.refetch()}>Retry IERP access check</Button>
-              </div>
+            ) : !ierpSummaryQuery.data ? (
+              <Button type="button" className="bg-indigo-700 text-white hover:bg-indigo-800" onClick={() => setLocation("/programs/ierp/enroll")}>
+                Open IERP enrollment <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
             ) : ierpAccessLocked ? (
               <div className="space-y-2">
                 <p className="text-sm text-indigo-950">IERP learning is currently payment-locked. Open the programme page to complete the required payment.</p>
