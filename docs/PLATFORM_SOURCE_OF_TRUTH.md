@@ -385,6 +385,9 @@ For each enrolment, the learner should experience a **clear linear path**:
 ### 16.6 Certificates dashboard behaviour
 
 - **Download:** Only the **row being downloaded** shows a loading state; other certificate rows remain idle.
+- **Track separation:** Paeds Resus Fellowship progression and AHA courses (BLS, ACLS, PALS, NRP, Heartsaver, and Instructor) are separate educational tracks. AHA completion is not a prerequisite for Fellowship qualification unless a specific governed programme explicitly says otherwise.
+- **Completion certificate mandate:** The platform must issue a downloadable, verifiable certificate for every completed micro-course, for overall Fellowship completion when all Fellowship qualification gates are satisfied, and for every completed AHA course. These certificate types remain separately labelled in the shared certificate ledger; one track must never impersonate completion of another.
+- **Learner continuity:** A completed course must lead to its certificate/review destination, while the learner’s Fellowship and AHA records remain independently visible in My Records.
 
 ### 16.7 Current execution focus (rolling)
 

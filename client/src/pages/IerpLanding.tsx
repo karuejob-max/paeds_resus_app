@@ -106,7 +106,7 @@ export default function IerpLanding() {
       { name: "IERP", path: "/programs/ierp" },
     ]),
   ]);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [, navigate] = useLocation();
   const summaryQuery = trpc.ierp.getSummary.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -162,6 +162,22 @@ export default function IerpLanding() {
     if (!isAuthenticated || !enrolled || summaryQuery.isLoading) return;
     navigate(`/programs/ierp/enroll${window.location.hash}`);
   }, [enrolled, isAuthenticated, navigate, summaryQuery.isLoading]);
+
+  if (authLoading || (isAuthenticated && summaryQuery.isLoading)) {
+    return (
+      <main className="min-h-[60vh] bg-slate-50 px-4 py-16 sm:px-6 md:px-10">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-teal-200 bg-white p-8 text-center shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">IERP learner workspace</p>
+          <h1 className="mt-3 text-2xl font-semibold text-slate-950">{authLoading ? "Checking your account…" : "Checking your IERP progress…"}</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            {authLoading
+              ? "We are confirming your session before choosing the correct IERP entry point."
+              : "We are checking your intern profile, BLS/ACLS learning, evidence, and next available action. Your access and progress are not being changed."}
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <>
