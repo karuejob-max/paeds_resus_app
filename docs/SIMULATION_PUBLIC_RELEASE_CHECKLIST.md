@@ -11,7 +11,7 @@
 - Server-authoritative event-log attempt persistence and scoring.
 - Explicit formative-versus-qualifying wording for cardiac-arrest practice.
 - CPR-GPS completion boundary: save-and-review remains available above the ROSC overlay and evidence must persist before exit.
-- Automated Phase 2 readiness for **ACLS, PALS, NRP, and Heartsaver** only.
+- Automated Phase 2 readiness for **ACLS, PALS, and NRP** only; Heartsaver is explicitly fail-closed until CPR-GPS has server-replayed event authority.
 - BLS simulations remain available as formative practice; BLS has no Phase 2 gate in the canonical pathway.
 - Credential boundary preserved: simulation completion does not issue an AHA credential or approve Phase 3.
 - Production compile and prerender pass locally with `pnpm run build`.
@@ -37,7 +37,7 @@ For a disposable or explicitly approved learner account, run one qualifying rehe
 | ACLS | rhythm-action: 2, arrest-sequence: 2, post-ROSC: 1; each >=70% | Ready only after all 3 requirements |
 | PALS | assessment: 1, rhythm-action: 1, arrest-sequence: 1; each >=70% | Ready only after all 3 requirements |
 | NRP | initial-steps: 2, bradycardia: 1; each >=70% | Ready only after both requirements |
-| Heartsaver | first-minutes: 1, arrest-sequence: 1; each >=70% | Ready only after both requirements |
+| Heartsaver | **Not currently available for automated qualification**; CPR-GPS must first gain server replay authority | Must remain not-ready; no client event log may unlock Phase 3 |
 | BLS | formative simulations only | No Phase 2 card; final pathway remains governed elsewhere |
 
 For every course, include a negative check: one failed/below-threshold attempt must not make the card Ready. Record route, account role, selected scenario, score, attempt count, and card state in `docs/WORK_STATUS.md`.
@@ -74,5 +74,5 @@ The Simulation Hub is **public-launch ready** only when all blocking gates above
 - **Engineering:** release candidate; automated checks and local build pass.
 - **Clinical-owner review:** pending evidence in this task.
 - **Two-device labelled validation:** pending physical-device evidence.
-- **Complete authenticated PALS → NRP → Heartsaver production matrix:** passed on 2026-10-15 in the authenticated `karuejob@gmail.com` session. Fresh production reloads reported PALS `3/3 Ready`, NRP `2/2 Ready`, and Heartsaver `2/2 Ready`; the fresh Heartsaver first-minutes rehearsal was server-saved at `94%`. Earlier NRP `26%` below-threshold evidence did not make the card Ready.
+- **Authenticated PALS → NRP production matrix:** prior controlled checks exist, but a fresh post-WP1 production matrix is still required after migrations `0181–0183` are applied. The previously recorded Heartsaver `2/2 Ready` result is superseded: current code deliberately keeps Heartsaver not-ready until CPR-GPS server replay authority is implemented.
 - **CEO/public launch sign-off:** pending, together with the clinical-owner, two-device labelled validation, accessibility/reliability, and operations gates above.
