@@ -385,6 +385,24 @@ export default function InstitutionalLifeSupport() {
       </div>
     );
   }
+  if (catalogQuery.isError) {
+    return (
+      <Card className="mx-auto mt-12 max-w-xl">
+        <CardHeader>
+          <CardTitle>ILSP is temporarily unavailable</CardTitle>
+          <CardDescription>
+            The Institutional Life Support catalogue could not be confirmed. No enrolment, payment, or learning access has been changed.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-3">
+          <Button onClick={() => void catalogQuery.refetch()} disabled={catalogQuery.isFetching}>
+            {catalogQuery.isFetching ? "Retrying…" : "Retry ILSP"}
+          </Button>
+          <Button variant="outline" onClick={() => navigate("/home")}>Return home</Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const openCourse = () => {
     if (!enrollment?.id || enrollment.paymentStatus !== "completed") {

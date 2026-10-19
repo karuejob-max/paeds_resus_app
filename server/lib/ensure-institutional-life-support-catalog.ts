@@ -240,9 +240,9 @@ async function getOrCreateCourse(db: any) {
   return created[0].id;
 }
 
-export async function ensureInstitutionalLifeSupportCatalog(
-  db: any
-): Promise<void> {
+let catalogInitialization: Promise<void> | null = null;
+
+async function initializeInstitutionalLifeSupportCatalog(db: any): Promise<void> {
   const courseId = await getOrCreateCourse(db);
   for (const definition of ILS_MODULES) {
     const moduleRows = await db
@@ -355,6 +355,24 @@ export async function ensureInstitutionalLifeSupportCatalog(
       }
     }
   }
+}
+
+/**
+ * Catalog reads can arrive concurrently when the ILSP page opens because the
+ * page loads catalog, enrollment, and credential state together. Serialize
+ * the write-heavy idempotent initializer within a server process so those
+ * requests cannot race while creating/updating the same course tree.
+ */
+export function ensureInstitutionalLifeSupportCatalog(db: any): Promise<void> {
+  if (!catalogInitialization) {
+    catalogInitialization = initializeInstitutionalLifeSupportCatalog(db).catch(
+      error => {
+        catalogInitialization = null;
+        throw error;
+      }
+    );
+  }
+  return catalogInitialization;
 }
 
 export async function getInstitutionalLifeSupportCourseId(
