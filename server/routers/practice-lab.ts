@@ -550,9 +550,9 @@ export const practiceLabRouter = router({
       if (!enrollment || !AHA_PROGRAM_TYPES.includes(enrollment.programType as (typeof AHA_PROGRAM_TYPES)[number])) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Life Support enrollment not found" });
       }
-      const attempts = await db.select({ trackId: ahaPracticeLabAttempts.trackId, scenarioId: ahaPracticeLabAttempts.scenarioId, score: ahaPracticeLabAttempts.score, passed: ahaPracticeLabAttempts.passed, evidenceStatus: ahaPracticeLabAttempts.evidenceStatus, criticalFailure: ahaPracticeLabAttempts.criticalFailure })
+      const attempts = await db.select({ trackId: ahaPracticeLabAttempts.trackId, scenarioId: ahaPracticeLabAttempts.scenarioId, score: ahaPracticeLabAttempts.score, passed: ahaPracticeLabAttempts.passed, evidenceStatus: ahaPracticeLabAttempts.evidenceStatus, criticalFailure: ahaPracticeLabAttempts.criticalFailure, scenarioVersion: ahaPracticeLabAttempts.scenarioVersion })
         .from(ahaPracticeLabAttempts).where(and(eq(ahaPracticeLabAttempts.userId, ctx.user.id), eq(ahaPracticeLabAttempts.enrollmentId, input.enrollmentId)));
-      const status = calculatePhase2AutomationStatus(enrollment.programType as (typeof AHA_PROGRAM_TYPES)[number], attempts.map((attempt) => ({ trackId: attempt.trackId, scenarioId: attempt.scenarioId, score: Number(attempt.score ?? 0), passed: Boolean(attempt.passed), evidenceStatus: attempt.evidenceStatus, criticalFailure: Boolean(attempt.criticalFailure) })));
+      const status = calculatePhase2AutomationStatus(enrollment.programType as (typeof AHA_PROGRAM_TYPES)[number], attempts.map((attempt) => ({ trackId: attempt.trackId, scenarioId: attempt.scenarioId, score: Number(attempt.score ?? 0), passed: Boolean(attempt.passed), evidenceStatus: attempt.evidenceStatus, criticalFailure: Boolean(attempt.criticalFailure), scenarioVersion: attempt.scenarioVersion })));
       if (status.phase2Ready) {
         await db.insert(phase2MasteryCompletions).values({
           userId: ctx.user.id,
@@ -561,6 +561,10 @@ export const practiceLabRouter = router({
           requirementSetVersion: PHASE2_REQUIREMENT_SET_VERSION,
           evidenceSnapshotJson: status,
         }).onDuplicateKeyUpdate({ set: { requirementSetVersion: PHASE2_REQUIREMENT_SET_VERSION, evidenceSnapshotJson: status, revokedAt: null, revokedReason: null, updatedAt: new Date() } });
+      } else {
+        await db.update(phase2MasteryCompletions)
+          .set({ revokedAt: new Date(), revokedReason: `Superseded by ${PHASE2_REQUIREMENT_SET_VERSION}`, updatedAt: new Date() })
+          .where(and(eq(phase2MasteryCompletions.userId, ctx.user.id), eq(phase2MasteryCompletions.enrollmentId, input.enrollmentId), sql`${phase2MasteryCompletions.revokedAt} IS NULL`));
       }
       return status;
     }),
