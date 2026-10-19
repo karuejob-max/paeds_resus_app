@@ -1,4 +1,5 @@
-import { Link } from "wouter";
+import { useEffect } from "react";
+import { Link, useLocation } from "wouter";
 import {
   ArrowRight,
   CheckCircle2,
@@ -58,6 +59,7 @@ export default function NerpOfferPage() {
     ]),
   ]);
   const { user, loading } = useAuth();
+  const [, navigate] = useLocation();
   const eligibility = trpc.nerp.getEligibility.useQuery(undefined, { enabled: !!user, retry: false });
   const enrollment = trpc.nerp.getMyEnrollment.useQuery(undefined, {
     enabled: Boolean(user && eligibility.data?.eligible === true),
@@ -73,6 +75,10 @@ export default function NerpOfferPage() {
     enrollment.data?.paymentState &&
       (paymentComplete || enrollment.data.paymentState.amountPaidKes > 0)
   );
+  useEffect(() => {
+    if (!user || enrollment.isLoading || !paymentConfirmed) return;
+    navigate(`${NERP_PATHWAY_ENTRY_PATH}${window.location.hash}`);
+  }, [enrollment.isLoading, navigate, paymentConfirmed, user]);
   const verificationPending = eligibility.data?.state === "pending_review";
   const eligibilityMessage = eligibility.isError
     ? "We could not check your NERP eligibility right now. Refresh and try again; no profile or payment record has been changed."

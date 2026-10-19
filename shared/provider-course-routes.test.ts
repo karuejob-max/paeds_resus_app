@@ -4,11 +4,18 @@ import {
   getIerpNextAction,
   getIerpPhase1EvidenceRoute,
   getNerpNextAction,
+  getAhaPathwayWorkspaceRoute,
   getProviderCourseDestination,
   isProviderProgramSlug,
 } from "./provider-course-routes";
 
 describe("provider course routes", () => {
+  it("converges enrolled pathway learners on canonical workspaces", () => {
+    expect(getAhaPathwayWorkspaceRoute("ierp")).toBe("/programs/ierp/enroll");
+    expect(getAhaPathwayWorkspaceRoute("nerp")).toBe("/programs/nerp-acls/start");
+    expect(getAhaPathwayWorkspaceRoute("independent")).toBeNull();
+  });
+
   it("recognizes Institutional Life Support as a provider programme, not an AHA slug", () => {
     expect(isProviderProgramSlug("paeds_resus_ils")).toBe(true);
   });
