@@ -93,6 +93,26 @@ export default function NerpOfferPage() {
         ? NERP_PATHWAY_ENTRY_PATH
         : "/provider-profile";
 
+  const checkingLearnerWorkspace = Boolean(
+    loading || (user && (eligibility.isLoading || (canStart && enrollment.isLoading))),
+  );
+
+  if (checkingLearnerWorkspace) {
+    return (
+      <main className="min-h-[60vh] bg-muted/20 px-4 py-16 md:px-8">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-brand-orange/20 bg-background p-8 text-center shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-orange">NERP learner workspace</p>
+          <h1 className="mt-3 text-2xl font-semibold text-foreground">{loading ? "Checking your account…" : "Checking your NERP progress…"}</h1>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            {loading
+              ? "We are confirming your session before choosing the correct NERP entry point."
+              : "We are checking your eligibility, payment status, learning record, and next available action. No payment or course access has been changed."}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <>
       <JsonLdScript data={jsonLd} />
