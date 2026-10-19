@@ -9,6 +9,7 @@ import { getDb } from "../db";
 import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import { normalizeKenyanPhoneNumber } from "../../shared/kenyan-phone";
 import {
+  calculateAuthoritativePhase2Completion,
   getAuthoritativePhase2CompletionStatus,
   getIerpEnrollment,
   getIerpInternProfileAccessMessage,
@@ -544,7 +545,11 @@ export const ierpRouter = router({
     const program = await getIerpEnrollment(db, ctx.user.id);
     if (!program) return null;
 
-    const [ahaRows, evidence, phase2, payment, universalCertificates] = await Promise.all([
+    // Keep canonical BLS/ACLS progress authoritative and fail closed. Other
+    // panels are useful but must not blank the learner's progress when one
+    // optional table is unavailable during a rolling deploy or transient DB
+    // failure.
+    const [ahaResult, evidenceResult, phase2Result, paymentResult, certificateResult] = await Promise.allSettled([
       getCanonicalAhaEnrollments(db, ctx.user.id, IERP_COGNITIVE_PROGRAMS),
       db
         .select({
@@ -565,13 +570,23 @@ export const ierpRouter = router({
       getIerpPaymentAccessForUser(db, ctx.user.id).then(
         (payment) => payment ?? getIerpPaymentAccess({ ...program, effectiveCommencementDate: null }),
       ),
-      getPaedsResusCertificateStatusForUser(db, ctx.user.id).catch((error) => {
-        // Certificate schema rollout must not hide the underlying authoritative
-        // IERP progression state while the additive migration is propagating.
-        console.error("[ierp.getSummary] Universal certificate status unavailable:", error);
-        return [] as Awaited<ReturnType<typeof getPaedsResusCertificateStatusForUser>>;
-      }),
+      getPaedsResusCertificateStatusForUser(db, ctx.user.id),
     ]);
+    if (ahaResult.status === "rejected") {
+      console.error("[ierp.getSummary] Canonical AHA learning status unavailable:", ahaResult.reason);
+      throw ahaResult.reason;
+    }
+    const ahaRows = ahaResult.value;
+    const evidence = evidenceResult.status === "fulfilled" ? evidenceResult.value : [];
+    const phase2 = phase2Result.status === "fulfilled" ? phase2Result.value : calculateAuthoritativePhase2Completion([]);
+    const payment = paymentResult.status === "fulfilled"
+      ? paymentResult.value ?? getIerpPaymentAccess({ ...program, effectiveCommencementDate: null })
+      : getIerpPaymentAccess({ ...program, effectiveCommencementDate: null });
+    const universalCertificates = certificateResult.status === "fulfilled" ? certificateResult.value : [];
+    if (evidenceResult.status === "rejected") console.error("[ierp.getSummary] Phase 1 evidence unavailable:", evidenceResult.reason);
+    if (phase2Result.status === "rejected") console.error("[ierp.getSummary] Phase 2 status unavailable:", phase2Result.reason);
+    if (paymentResult.status === "rejected") console.error("[ierp.getSummary] Payment status unavailable:", paymentResult.reason);
+    if (certificateResult.status === "rejected") console.error("[ierp.getSummary] Certificate status unavailable:", certificateResult.reason);
     const phase1EvidenceVerified =
       evidence.some((row) => row.documentType === "video_prework" && row.status === "verified") &&
       evidence.some((row) => row.documentType === "precourse_assessment" && row.status === "verified");
