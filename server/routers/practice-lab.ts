@@ -25,7 +25,7 @@ import {
   type PracticeLabTrackId,
 } from "../../shared/practice-lab-types";
 import { advanceSimulationWorld, createSimulationWorld, isSimulationWorldCommandAllowed, isSimulationWorldScenarioCompatible, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_WORLD_ROLES, SIMULATION_WORLD_SCENARIOS, type SimulationWorldEvent, type SimulationWorldRole, type SimulationWorldScenarioId, type SimulationWorldState, type SimulationWorldCommand } from "../../shared/simulation-world";
-import { ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS, ADULT_ACLS_SCENARIOS, ADULT_ACLS_SCENARIO_VERSION, ADULT_ACLS_WORLD_VERSION, advanceAdultAclsSimulation, calculateAdultAclsTrainingEvidence, createAdultAclsSimulation, reduceAdultAclsSimulation, type AdultAclsCommand, type AdultAclsScenarioId, type AdultAclsState } from "../../shared/adult-acls-simulation-world";
+import { ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS, ADULT_ACLS_SCENARIOS, ADULT_ACLS_SCENARIO_VERSION, ADULT_ACLS_WORLD_VERSION, advanceAdultAclsSimulation, calculateAdultAclsTrainingEvidence, createAdultAclsSimulation, reduceAdultAclsSimulation, scoreAdultAclsTraining, type AdultAclsCommand, type AdultAclsScenarioId, type AdultAclsState } from "../../shared/adult-acls-simulation-world";
 import { NRP_MAX_ACTION_ADVANCE_SECONDS, NRP_SCENARIOS, NRP_SCENARIO_VERSION, NRP_WORLD_VERSION, advanceNrpSimulation, calculateNrpTrainingEvidence, createNrpSimulation, reduceNrpSimulation, type NrpCommand, type NrpScenarioId, type NrpState } from "../../shared/nrp-simulation-world";
 import { calculatePhase2AutomationStatus, PHASE2_REQUIREMENT_SET_VERSION, scoreAuthoritativeChoiceAttempt, scoreCardiacArrestEventLog, scoreDedicatedSimulation, scoreFormativeEventLog } from "../../shared/phase2-automation";
 
@@ -249,12 +249,12 @@ export const practiceLabRouter = router({
         await db.update(simulationWorldSessions).set({ status: "abandoned", authorityState: "invalidated" }).where(eq(simulationWorldSessions.id, session.id));
         throw new TRPCError({ code: "CONFLICT", message: "Simulation scenario integrity could not be verified; no evidence was created" });
       }
-      if (state.patient.phase !== "ended") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Complete the scenario and reach a stable or post-ROSC terminal state before saving rehearsal evidence" });
+      if (state.patient.phase !== "ended" && state.patient.phase !== "failed") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Complete the scenario and reach a stable, post-ROSC, or failed terminal state before saving rehearsal evidence" });
       }
       const evidence = calculateAdultAclsTrainingEvidence(state);
       const evidenceWithAuthority = { ...evidence, sessionId: session.id, scenarioVersion: session.scenarioVersion, learnerUserId: session.userId, enrollmentId: session.enrollmentId, role: session.role };
-      const automatedScore = scoreDedicatedSimulation(state.competencies, state.criticalFailures.length);
+      const automatedScore = scoreAdultAclsTraining(state);
       await db.insert(ahaPracticeLabAttempts).values({ userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "acls", trackId: "adult_acls_world", scenarioId: session.scenarioId, score: automatedScore, passed: automatedScore >= 70, eventLog: state.events, evidenceStatus: "review_required", scenarioVersion: session.scenarioVersion, criticalFailure: state.criticalFailures.length > 0, durationSeconds: Math.round(state.elapsedSeconds) });
       await db.insert(simulationWorldEvidence).values({ sessionId: session.id, userId: ctx.user.id, enrollmentId: session.enrollmentId, role: session.role, scenarioId: state.scenarioId, evidenceStatus: "review_required", assessmentJson: evidenceWithAuthority });
       await db.update(simulationWorldSessions).set({ status: "completed", completedAt: new Date() }).where(eq(simulationWorldSessions.id, session.id));

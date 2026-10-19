@@ -6,6 +6,7 @@ import {
   createAdultAclsSimulation,
   advanceAdultAclsSimulation,
   reduceAdultAclsSimulation,
+  scoreAdultAclsTraining,
 } from "./adult-acls-simulation-world";
 
 describe("Adult ACLS Simulation World V1 safety contract", () => {
@@ -112,5 +113,57 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
     const state = createAdultAclsSimulation("acs-to-vf");
     expect(state.patient.hidden).toBeDefined();
     expect(state.patient.rhythm).toBe("sinus_tachycardia");
+  });
+
+  it("rewards the textbook VF sequence and does not stack repeated CPR commands", () => {
+    let state = createAdultAclsSimulation("vf-pulseless-vt");
+    state = reduceAdultAclsSimulation(state, { type: "assess", target: "rhythm" });
+    state = reduceAdultAclsSimulation(state, { type: "start_cpr" });
+    const perfusionAfterFirstCpr = state.patient.hidden.coronaryPerfusion;
+    state = reduceAdultAclsSimulation(state, { type: "start_cpr" });
+    expect(state.patient.hidden.coronaryPerfusion).toBeLessThanOrEqual(perfusionAfterFirstCpr);
+    expect(state.events.at(-1)?.type).toBe("repeated_action");
+    state = reduceAdultAclsSimulation(state, { type: "defibrillate" });
+    state = reduceAdultAclsSimulation(state, { type: "reassess" });
+    state = reduceAdultAclsSimulation(state, { type: "end_rehearsal" });
+    expect(state.patient.phase).toBe("ended");
+    expect(scoreAdultAclsTraining(state)).toBe(100);
+  });
+
+  it.each(["pea", "asystole", "reversible-cause-arrest"] as const)("provides an honest ROSC route for %s", (scenarioId) => {
+    let state = createAdultAclsSimulation(scenarioId);
+    state = reduceAdultAclsSimulation(state, { type: "start_cpr" });
+    state = reduceAdultAclsSimulation(state, { type: "give_epinephrine" });
+    state = reduceAdultAclsSimulation(state, { type: "treat_reversible_cause" });
+    state = reduceAdultAclsSimulation(state, { type: "reassess" });
+    expect(state.patient.phase).toBe("post_rosc");
+  });
+
+  it("scores an honest stable SVT run and rejects oxygen/assessment grinding", () => {
+    let honest = createAdultAclsSimulation("stable-narrow-tachycardia");
+    for (const command of [
+      { type: "assess", target: "rhythm" },
+      { type: "give_adenosine" },
+      { type: "reassess" },
+      { type: "end_rehearsal" },
+    ] as const) honest = reduceAdultAclsSimulation(honest, command);
+    expect(scoreAdultAclsTraining(honest)).toBe(100);
+
+    let grind = createAdultAclsSimulation("stable-narrow-tachycardia");
+    for (const command of [
+      ...Array(20).fill({ type: "assess", target: "pulse" }),
+      ...Array(20).fill({ type: "give_oxygen" }),
+      { type: "reassess" },
+      { type: "end_rehearsal" },
+    ] as const) grind = reduceAdultAclsSimulation(grind, command);
+    expect(scoreAdultAclsTraining(grind)).toBeLessThan(70);
+  });
+
+  it("ends untreated arrest as a failed debriefable rehearsal", () => {
+    const failed = advanceAdultAclsSimulation(createAdultAclsSimulation("asystole"), 120);
+    expect(failed.patient.phase).toBe("failed");
+    expect(failed.events.at(-1)?.type).toBe("patient_death");
+    expect(canEndAdultAclsSimulation(failed)).toBe(true);
+    expect(scoreAdultAclsTraining(failed)).toBe(0);
   });
 });
