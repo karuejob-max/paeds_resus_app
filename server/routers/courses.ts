@@ -21,7 +21,7 @@ import { notifyAhaElearningProofDecision, notifyBookingWaitlistPromoted, notifyP
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate, markIlsCognitiveComplete } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
-import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules, institutionalStaffMembers, phase3CrossFacilityApprovals, retrospectiveRoleClaims } from '../../drizzle/schema';
+import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules, institutionalStaffMembers, phase3CrossFacilityApprovals, retrospectiveRoleClaims, phase2MasteryCompletions } from '../../drizzle/schema';
 import { assertNoInstructorDoubleBooking } from '../lib/instructor-double-booking-guard';
 import { eq, and, asc, inArray, desc, sum, gte, sql, ne, or, like } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
@@ -979,6 +979,19 @@ export const coursesRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "This session has already passed" });
       }
 
+      const automatedProgramType = session.programType === "acls" || session.programType === "pals" || session.programType === "nrp" || session.programType === "heartsaver"
+        ? session.programType
+        : null;
+      const automatedPhase2Complete = automatedProgramType !== null && (await db
+        .select({ id: phase2MasteryCompletions.id })
+        .from(phase2MasteryCompletions)
+        .where(and(
+          eq(phase2MasteryCompletions.userId, ctx.user.id),
+          eq(phase2MasteryCompletions.programType, automatedProgramType),
+          sql`${phase2MasteryCompletions.revokedAt} IS NULL`,
+        ))
+        .limit(1)).length > 0;
+
       // ── Phase Gate: enforce cohort program rules ──────────────────────────
       // IERP training participation is independent of an institutional roster
       // row. Its Phase 3 gate is therefore evaluated from the user-owned IERP
@@ -992,7 +1005,7 @@ export const coursesRouter = router({
           });
         }
         const phase2 = await getAuthoritativePhase2CompletionStatus(db, ctx.user.id);
-        if (ierpEnrollment.phase1Status !== "verified" || !phase2.phase2Complete) {
+        if (ierpEnrollment.phase1Status !== "verified" || (!phase2.phase2Complete && !automatedPhase2Complete)) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "Complete and verify Phase 1, then complete the required confirmed Phase 2 roles before booking a hands-on assessment.",
@@ -1126,7 +1139,7 @@ export const coursesRouter = router({
 
         // Hands-on Megacode (Phase 3): must be at phase_3 AND paid in full (≥ 15,000 KES)
         if (isHandsOnSession) {
-          if (phaseStatus !== "phase_3" && phaseStatus !== "completed") {
+          if (phaseStatus !== "phase_3" && phaseStatus !== "completed" && !automatedPhase2Complete) {
             throw new TRPCError({
               code: "FORBIDDEN",
               message: "You must complete all Phase 2 simulations before booking a hands-on Megacode session.",
