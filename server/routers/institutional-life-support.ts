@@ -87,18 +87,28 @@ function centsFromKes(amountKes: number): number {
 }
 
 async function getIlsCourse(db: any) {
-  await ensureInstitutionalLifeSupportCatalog(db);
-  const courseId = await getInstitutionalLifeSupportCourseId(db);
-  if (!courseId)
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message: "Institutional Life Support course catalog is not ready.",
-    });
-  const rows = await db
+  let rows = await db
     .select()
     .from(courses)
-    .where(eq(courses.id, courseId))
+    .where(eq(courses.programType, PAEDS_RESUS_ILS_PROGRAM_TYPE))
+    .orderBy(desc(courses.id))
     .limit(1);
+
+  // Learner reads must remain read-only and fast. Catalog creation/update is
+  // reserved for the first genuinely missing-catalog request, rather than
+  // running on every page open and competing with enrollment reads.
+  if (!rows[0]) {
+    await ensureInstitutionalLifeSupportCatalog(db);
+    const courseId = await getInstitutionalLifeSupportCourseId(db);
+    if (courseId) {
+      rows = await db
+        .select()
+        .from(courses)
+        .where(eq(courses.id, courseId))
+        .limit(1);
+    }
+  }
+
   if (!rows[0])
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
