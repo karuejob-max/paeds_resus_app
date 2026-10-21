@@ -33,6 +33,23 @@ export function IlsAhaAccessCodeManagerCard({
   );
   const [issuedCode, setIssuedCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const utils = trpc.useUtils();
+  const codesQuery =
+    trpc.institutionalLifeSupport.listInstitutionalAhaAccessCodes.useQuery({
+      institutionId,
+    });
+  const revoke =
+    trpc.institutionalLifeSupport.revokeInstitutionalAhaAccessCode.useMutation({
+      onSuccess: () => {
+        setError(null);
+        void utils.institutionalLifeSupport.listInstitutionalAhaAccessCodes.invalidate(
+          {
+            institutionId,
+          }
+        );
+      },
+      onError: err => setError(err.message),
+    });
   const issue =
     trpc.institutionalLifeSupport.createInstitutionalAhaAccessCode.useMutation({
       onSuccess: result => {
@@ -130,6 +147,54 @@ export function IlsAhaAccessCodeManagerCard({
             <div className="mt-1 text-xs">
               It will not be shown again after this screen.
             </div>
+          </div>
+        )}
+        {codesQuery.data && codesQuery.data.length > 0 && (
+          <div className="space-y-2 rounded-md border bg-background p-3 text-sm">
+            <p className="font-semibold">Issued codes</p>
+            {codesQuery.data.map(code => {
+              const exhausted = code.redemptionCount >= code.maxRedemptions;
+              const inactive = code.status !== "active";
+              return (
+                <div
+                  key={code.id}
+                  className="flex flex-wrap items-center justify-between gap-3 border-b py-2 last:border-0"
+                >
+                  <div>
+                    <div className="font-medium">
+                      {code.programType.toUpperCase()} ·{" "}
+                      {code.accessCodePrefix ?? "code"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {code.redemptionCount}/{code.maxRedemptions} used ·
+                      expires {new Date(code.expiresAt).toLocaleDateString()} ·{" "}
+                      {code.status}
+                    </div>
+                  </div>
+                  {!inactive && !exhausted && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={revoke.isPending}
+                      onClick={() => {
+                        const reason = window.prompt(
+                          "Reason for revoking this code (minimum 10 characters):"
+                        );
+                        if (reason && reason.trim().length >= 10)
+                          revoke.mutate({
+                            institutionId,
+                            entitlementId: code.id,
+                            reason: reason.trim(),
+                          });
+                      }}
+                    >
+                      Revoke
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
         {error && (

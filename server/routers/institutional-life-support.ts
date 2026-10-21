@@ -2913,6 +2913,67 @@ export const institutionalLifeSupportRouter = router({
       return rows;
     }),
 
+  previewInstitutionalAhaAccessCode: protectedProcedure
+    .input(z.object({ accessCode: z.string().trim().min(8).max(64), programType: ilsAhaProgramTypeSchema }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [entitlement] = await db.select({
+        targetInstitutionalAccountId: globalEntitlements.targetInstitutionalAccountId,
+        targetDepartmentId: globalEntitlements.targetDepartmentId,
+        programType: globalEntitlements.programType,
+        maxRedemptions: globalEntitlements.maxRedemptions,
+        redemptionCount: globalEntitlements.redemptionCount,
+        expiresAt: globalEntitlements.expiresAt,
+        companyName: institutionalAccounts.companyName,
+      }).from(globalEntitlements).leftJoin(institutionalAccounts, eq(institutionalAccounts.id, globalEntitlements.targetInstitutionalAccountId)).where(and(
+        eq(globalEntitlements.accessCodeHash, hashAccessCode(input.accessCode)),
+        eq(globalEntitlements.programType, input.programType),
+        eq(globalEntitlements.status, "active")
+      )).limit(1);
+      if (!entitlement || !entitlement.targetInstitutionalAccountId || entitlement.expiresAt.getTime() <= Date.now() || entitlement.redemptionCount >= entitlement.maxRedemptions)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This ILSP access code is invalid, expired, exhausted, or for another course." });
+      const membership = await db.select({ id: institutionalStaffMembers.id }).from(institutionalStaffMembers).where(and(
+        eq(institutionalStaffMembers.institutionalAccountId, entitlement.targetInstitutionalAccountId),
+        eq(institutionalStaffMembers.userId, ctx.user.id),
+        isNull(institutionalStaffMembers.removedAt),
+        entitlement.targetDepartmentId != null ? eq(institutionalStaffMembers.facilityDepartmentId, entitlement.targetDepartmentId) : undefined
+      )).limit(1);
+      if (!membership[0]) throw new TRPCError({ code: "FORBIDDEN", message: "This code is limited to an assigned department or institution." });
+      return {
+        institutionId: entitlement.targetInstitutionalAccountId,
+        companyName: entitlement.companyName,
+        departmentId: entitlement.targetDepartmentId,
+        programType: entitlement.programType,
+        expiresAt: entitlement.expiresAt,
+        remainingRedemptions: entitlement.maxRedemptions - entitlement.redemptionCount,
+      };
+    }),
+
+  revokeInstitutionalAhaAccessCode: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), entitlementId: z.number().int().positive(), reason: z.string().trim().min(10).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const authority = await resolveIlsAuthority(db, ctx.user, input.institutionId);
+      const [entitlement] = await db.select({
+        id: globalEntitlements.id,
+        targetDepartmentId: globalEntitlements.targetDepartmentId,
+        status: globalEntitlements.status,
+      }).from(globalEntitlements).where(and(
+        eq(globalEntitlements.id, input.entitlementId),
+        eq(globalEntitlements.targetInstitutionalAccountId, input.institutionId)
+      )).limit(1);
+      if (!entitlement) throw new TRPCError({ code: "NOT_FOUND", message: "Access code not found for this institution." });
+      if (authority.scope === "department" && (entitlement.targetDepartmentId == null || !authority.departmentIds.includes(entitlement.targetDepartmentId)))
+        throw new TRPCError({ code: "FORBIDDEN", message: "You can revoke codes only for your assigned department." });
+      if (entitlement.status !== "active") return { success: true as const, alreadyInactive: true as const };
+      await db.update(globalEntitlements).set({ status: "revoked", revokedAt: new Date(), revokedByUserId: ctx.user.id, revokeReason: input.reason.trim(), updatedAt: new Date() }).where(and(
+        eq(globalEntitlements.id, input.entitlementId), eq(globalEntitlements.status, "active")
+      ));
+      return { success: true as const, alreadyInactive: false as const };
+    }),
+
   redeemInstitutionalAhaAccessCode: protectedProcedure
     .input(
       z.object({
