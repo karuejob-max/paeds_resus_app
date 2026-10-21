@@ -10,6 +10,11 @@ import {
   users,
   enrollments,
   certificates,
+  institutionalAccounts,
+  institutionMemberships,
+  institutionalStaffMembers,
+  cpdAttendees,
+  cpdEvents,
   analyticsEvents,
   parentSafeTruthSubmissions,
   clinicalReferrals,
@@ -474,6 +479,217 @@ export const adminStatsRouter = router({
       const total = Number(countResult[0]?.count ?? 0);
 
       return { users: resultWithMentor, total };
+    }),
+
+  /**
+   * Read-only Platform Admin User 360 dossier. This deliberately aggregates
+   * authoritative records at read time rather than creating a second user
+   * truth table. Sensitive credentials and restricted clinical narratives are
+   * not returned by this surface.
+   */
+  getUser360: adminProcedure
+    .input(z.object({ userId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+
+      const [user] = await db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          phone: users.phone,
+          role: users.role,
+          userType: users.userType,
+          institutionalRole: users.institutionalRole,
+          providerType: users.providerType,
+          cadre: users.cadre,
+          cadreOther: users.cadreOther,
+          loginMethod: users.loginMethod,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+          lastSignedIn: users.lastSignedIn,
+          instructorApprovedAt: users.instructorApprovedAt,
+          instructorCertifiedAt: users.instructorCertifiedAt,
+          instructorNumber: users.instructorNumber,
+          instructorTier: users.instructorTier,
+          termsAcceptedAt: users.termsAcceptedAt,
+          privacyAcceptedAt: users.privacyAcceptedAt,
+          careSignalConsentAt: users.careSignalConsentAt,
+          codeSignalConsentAt: users.codeSignalConsentAt,
+          institutionalB2bAcceptedAt: users.institutionalB2bAcceptedAt,
+        })
+        .from(users)
+        .where(eq(users.id, input.userId))
+        .limit(1);
+
+      if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+
+      const [enrollmentRows, certificateRows, paymentRows, membershipRows, staffRows, cpdRows] =
+        await Promise.all([
+          db
+            .select({
+              enrollmentId: enrollments.id,
+              courseId: enrollments.courseId,
+              courseTitle: courses.title,
+              programType: enrollments.programType,
+              enrollmentStatus: enrollments.enrollmentStatus,
+              paymentStatus: enrollments.paymentStatus,
+              amountPaidCents: enrollments.amountPaid,
+              cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
+              practicalSkillsSignedOff: enrollments.practicalSkillsSignedOff,
+              trainingDate: enrollments.trainingDate,
+              createdAt: enrollments.createdAt,
+              updatedAt: enrollments.updatedAt,
+            })
+            .from(enrollments)
+            .leftJoin(courses, eq(enrollments.courseId, courses.id))
+            .where(eq(enrollments.userId, input.userId))
+            .orderBy(desc(enrollments.createdAt)),
+          db
+            .select({
+              id: certificates.id,
+              enrollmentId: certificates.enrollmentId,
+              certificateNumber: certificates.certificateNumber,
+              programType: certificates.programType,
+              readinessPathway: certificates.readinessPathway,
+              issueDate: certificates.issueDate,
+              expiryDate: certificates.expiryDate,
+              certificateUrl: certificates.certificateUrl,
+            })
+            .from(certificates)
+            .where(eq(certificates.userId, input.userId))
+            .orderBy(desc(certificates.issueDate)),
+          db
+            .select({
+              id: payments.id,
+              enrollmentId: payments.enrollmentId,
+              amountCents: payments.amount,
+              paymentMethod: payments.paymentMethod,
+              status: payments.status,
+              transactionId: payments.transactionId,
+              createdAt: payments.createdAt,
+              updatedAt: payments.updatedAt,
+            })
+            .from(payments)
+            .where(eq(payments.userId, input.userId))
+            .orderBy(desc(payments.createdAt)),
+          db
+            .select({
+              membershipId: institutionMemberships.id,
+              institutionId: institutionMemberships.institutionalAccountId,
+              institutionName: institutionalAccounts.companyName,
+              institutionStatus: institutionalAccounts.status,
+              facilityCareLevel: institutionalAccounts.facilityCareLevel,
+              membershipStatus: institutionMemberships.membershipStatus,
+              responsibilityRole: institutionMemberships.responsibilityRole,
+              invitedEmail: institutionMemberships.invitedEmail,
+              invitedAt: institutionMemberships.invitedAt,
+              acceptedAt: institutionMemberships.acceptedAt,
+              endedAt: institutionMemberships.endedAt,
+            })
+            .from(institutionMemberships)
+            .innerJoin(
+              institutionalAccounts,
+              eq(institutionMemberships.institutionalAccountId, institutionalAccounts.id)
+            )
+            .where(eq(institutionMemberships.userId, input.userId))
+            .orderBy(desc(institutionMemberships.updatedAt)),
+          db
+            .select({
+              id: institutionalStaffMembers.id,
+              institutionalAccountId: institutionalStaffMembers.institutionalAccountId,
+              staffName: institutionalStaffMembers.staffName,
+              staffEmail: institutionalStaffMembers.staffEmail,
+              staffPhone: institutionalStaffMembers.staffPhone,
+              staffRole: institutionalStaffMembers.staffRole,
+              designation: institutionalStaffMembers.designation,
+              governanceRole: institutionalStaffMembers.governanceRole,
+              institutionalRole: institutionalStaffMembers.institutionalRole,
+              department: institutionalStaffMembers.department,
+              facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+              enrollmentStatus: institutionalStaffMembers.enrollmentStatus,
+              phaseStatus: institutionalStaffMembers.phaseStatus,
+              facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+              removedAt: institutionalStaffMembers.removedAt,
+              removalReason: institutionalStaffMembers.removalReason,
+              certificationStatus: institutionalStaffMembers.certificationStatus,
+              certificationExpiryDate: institutionalStaffMembers.certificationExpiryDate,
+              createdAt: institutionalStaffMembers.createdAt,
+              updatedAt: institutionalStaffMembers.updatedAt,
+            })
+            .from(institutionalStaffMembers)
+            .where(eq(institutionalStaffMembers.userId, input.userId))
+            .orderBy(desc(institutionalStaffMembers.updatedAt)),
+          db
+            .select({
+              attendeeId: cpdAttendees.id,
+              eventId: cpdAttendees.cpdEventId,
+              institutionId: cpdAttendees.institutionalAccountId,
+              eventName: cpdEvents.name,
+              eventDate: cpdEvents.eventDate,
+              eventDateAt: cpdEvents.eventDateAt,
+              cpdPoints: cpdEvents.cpdPoints,
+              attendanceStatus: cpdAttendees.attendanceStatus,
+              attendanceType: cpdAttendees.attendanceType,
+              roleInEvent: cpdAttendees.roleInEvent,
+              submittedAt: cpdAttendees.submittedAt,
+              attendanceVerifiedAt: cpdAttendees.attendanceVerifiedAt,
+              department: cpdAttendees.department,
+            })
+            .from(cpdAttendees)
+            .innerJoin(cpdEvents, eq(cpdAttendees.cpdEventId, cpdEvents.id))
+            .where(eq(cpdAttendees.userId, input.userId))
+            .orderBy(desc(cpdAttendees.submittedAt)),
+        ]);
+
+      const now = Date.now();
+      const currentCertificates = certificateRows.filter(
+        cert => !cert.expiryDate || new Date(cert.expiryDate).getTime() >= now
+      );
+      const attention: Array<{ key: string; severity: "high" | "medium" | "low"; label: string; detail: string }> = [];
+      if (enrollmentRows.some(row => row.paymentStatus === "pending")) {
+        attention.push({ key: "pending_payment", severity: "medium", label: "Pending payment", detail: "At least one enrolment has not reached completed payment status." });
+      }
+      if (certificateRows.some(cert => cert.expiryDate && new Date(cert.expiryDate).getTime() < now)) {
+        attention.push({ key: "expired_certificate", severity: "medium", label: "Expired certificate", detail: "At least one certificate is past its recorded expiry date." });
+      }
+      if (staffRows.some(row => row.facilityLinkStatus === "pending")) {
+        attention.push({ key: "pending_institution_link", severity: "medium", label: "Institution link pending", detail: "An operational staff record is awaiting facility-link resolution." });
+      }
+      if (staffRows.some(row => row.removedAt && row.facilityLinkStatus === "linked")) {
+        attention.push({ key: "staff_record_conflict", severity: "high", label: "Staff record needs review", detail: "A retained staff record contains both removal history and linked status." });
+      }
+      if (membershipRows.some(row => row.membershipStatus === "active" && !row.acceptedAt)) {
+        attention.push({ key: "membership_acceptance", severity: "medium", label: "Membership acceptance missing", detail: "An active institution membership has no recorded acceptance timestamp." });
+      }
+
+      return {
+        generatedAt: new Date(),
+        sourceBoundary: "Read-only aggregation of authoritative platform records; not a competence or licensure judgement.",
+        user,
+        summary: {
+          activeInstitutionCount: membershipRows.filter(row => row.membershipStatus === "active").length,
+          institutionCount: membershipRows.length,
+          activeEnrolmentCount: enrollmentRows.filter(row => row.enrollmentStatus === "active").length,
+          completedEnrolmentCount: enrollmentRows.filter(row => row.cognitiveModulesComplete && row.practicalSkillsSignedOff).length,
+          certificateCount: certificateRows.length,
+          currentCertificateCount: currentCertificates.length,
+          paymentCount: paymentRows.length,
+          cpdRecordCount: cpdRows.length,
+          attentionCount: attention.length,
+        },
+        enrolments: enrollmentRows,
+        certificates: certificateRows,
+        payments: paymentRows.map(row => ({ ...row, transactionId: row.transactionId ? "Present" : null })),
+        institutions: membershipRows,
+        staffRecords: staffRows,
+        cpd: cpdRows,
+        attention,
+        auditBoundary: "User-specific admin corrections and restricted clinical narratives are not exposed in this read-only V1 surface.",
+      };
     }),
 
   /**

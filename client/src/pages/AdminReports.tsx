@@ -1111,6 +1111,15 @@ export default function AdminReports() {
                             <td className="py-2">
                               <Button
                                 type="button"
+                                variant="outline"
+                                size="sm"
+                                className="mr-2 h-8"
+                                onClick={() => setLocation(`/admin/users?userId=${u.id}`)}
+                              >
+                                User 360
+                              </Button>
+                              <Button
+                                type="button"
                                 variant="secondary"
                                 size="sm"
                                 className="h-8"

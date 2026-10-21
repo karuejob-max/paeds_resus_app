@@ -58,6 +58,14 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
         risk: "operational",
       },
       {
+        label: "User 360 directory",
+        href: "/admin/users",
+        description: "Open a read-only institutional file for any platform user.",
+        icon: Users,
+        risk: "read",
+        badge: "New",
+      },
+      {
         label: "Feedback inbox",
         href: "/admin/feedback",
         description: "Review user feedback across courses, ResusGPS, and Care Signal.",
