@@ -370,6 +370,8 @@ export const globalEntitlements = mysqlTable(
     recipientEmailHash: varchar("recipientEmailHash", { length: 64 }),
     targetUserId: int("targetUserId"),
     targetInstitutionalAccountId: int("targetInstitutionalAccountId"),
+    /** Optional department boundary for institution-issued ILSP/AHA access codes. */
+    targetDepartmentId: int("targetDepartmentId"),
     programType: mysqlEnum("programType", ["ierp", "nerp", "paeds_resus_ils", "self_pay", "bls", "acls", "pals", "heartsaver", "nrp", "instructor"]).notNull(),
     selfPayCourseId: varchar("selfPayCourseId", { length: 128 }),
     benefitType: mysqlEnum("benefitType", ["free", "percentage_discount"]).notNull(),
@@ -387,7 +389,7 @@ export const globalEntitlements = mysqlTable(
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
   table => ({
-    targetStatusIdx: index("global_entitlements_target_status_idx").on(table.targetUserId, table.targetInstitutionalAccountId, table.status),
+    targetStatusIdx: index("global_entitlements_target_status_idx").on(table.targetUserId, table.targetInstitutionalAccountId, table.targetDepartmentId, table.status),
     programmeIdx: index("global_entitlements_programme_idx").on(table.programType, table.status, table.expiresAt),
   })
 );

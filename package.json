@@ -124,6 +124,7 @@
     "db:apply-0183": "node scripts/apply-0183-phase2-mastery-completions.mjs",
     "db:verify-0183": "node scripts/verify-0183-phase2-mastery-completions.mjs",
     "db:apply-0184": "node scripts/apply-0184-ilsp-department-scope.mjs",
+    "db:apply-0185": "node scripts/apply-0185-ilsp-access-code-scope.mjs",
     "db:apply-0165": "node scripts/apply-0165-search-hardening.mjs",
     "db:apply-0166": "node scripts/apply-0166-deputy-institutional-roles.mjs",
     "db:apply-0167": "node scripts/apply-0167-professional-progress-records.mjs",

@@ -236,9 +236,44 @@ export async function findActiveShareableEntitlement(
         eq(globalEntitlements.selfPayCourseId, selfPayCourseId),
         eq(globalEntitlements.status, "active"),
         gt(globalEntitlements.expiresAt, now),
-        lt(globalEntitlements.redemptionCount, globalEntitlements.maxRedemptions),
-        eq(globalEntitlements.recipientEmailHash, hashRecipientEmail(recipientEmail)),
+        lt(
+          globalEntitlements.redemptionCount,
+          globalEntitlements.maxRedemptions
+        ),
+        eq(
+          globalEntitlements.recipientEmailHash,
+          hashRecipientEmail(recipientEmail)
+        ),
         isNull(globalEntitlements.targetInstitutionalAccountId)
+      )
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+/** Institution-issued course code; callers must enforce department membership. */
+export async function findActiveInstitutionalShareableEntitlement(
+  db: any,
+  code: string,
+  programType: GlobalEntitlementProgramType,
+  institutionId: number,
+  now: Date = new Date()
+) {
+  const [row] = await db
+    .select()
+    .from(globalEntitlements)
+    .where(
+      and(
+        eq(globalEntitlements.accessCodeHash, hashAccessCode(code)),
+        eq(globalEntitlements.programType, programType),
+        eq(globalEntitlements.targetInstitutionalAccountId, institutionId),
+        eq(globalEntitlements.status, "active"),
+        gt(globalEntitlements.expiresAt, now),
+        lt(
+          globalEntitlements.redemptionCount,
+          globalEntitlements.maxRedemptions
+        ),
+        isNull(globalEntitlements.targetUserId)
       )
     )
     .limit(1);
