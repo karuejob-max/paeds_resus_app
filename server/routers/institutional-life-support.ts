@@ -41,6 +41,7 @@ import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard"
 import { applyInstitutionalLifeSupportPaymentCompletion, applyInstitutionalLifeSupportPaymentFailure } from "../lib/institutional-life-support-payments";
 import { calculateEntitlementPrice, consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
 import { assertInstitutionAccess } from "../lib/institution-access";
+import { assertIlsDepartmentSelection, resolveIlsAuthority } from "../lib/ils-authority";
 import { initiateStkPush, validatePhoneNumber } from "../mpesa";
 import { isMpesaConfigured } from "../_core/mpesa";
 import {
@@ -403,7 +404,7 @@ export const institutionalLifeSupportRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) return [];
-      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const authority = await resolveIlsAuthority(db, ctx.user, input.institutionId);
       const rows = await db
         .select({
           staffMemberId: institutionalStaffMembers.id,
@@ -420,7 +421,10 @@ export const institutionalLifeSupportRouter = router({
               institutionalStaffMembers.institutionalAccountId,
               input.institutionId
             ),
-            isNull(institutionalStaffMembers.removedAt)
+            isNull(institutionalStaffMembers.removedAt),
+            ...(authority.scope === "institution"
+              ? []
+              : [inArray(institutionalStaffMembers.facilityDepartmentId, authority.departmentIds)])
           )
         );
       const linked = rows.filter(
@@ -464,7 +468,7 @@ export const institutionalLifeSupportRouter = router({
           code: "INTERNAL_SERVER_ERROR",
           message: "Database unavailable",
         });
-      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const authority = await resolveIlsAuthority(db, ctx.user, input.institutionId);
       return db
         .select({
           orderId: institutionalTrainingOrders.id,
@@ -516,9 +520,11 @@ export const institutionalLifeSupportRouter = router({
           )
         )
         .where(
-          eq(
-            institutionalTrainingOrders.institutionalAccountId,
-            input.institutionId
+          and(
+            eq(institutionalTrainingOrders.institutionalAccountId, input.institutionId),
+            ...(authority.scope === "institution"
+              ? []
+              : [inArray(institutionalTrainingOrders.departmentId, authority.departmentIds)])
           )
         )
         .orderBy(desc(institutionalTrainingOrders.id), asc(users.name));
@@ -529,14 +535,16 @@ export const institutionalLifeSupportRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) return [];
-      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const authority = await resolveIlsAuthority(db, ctx.user, input.institutionId);
       const orders = await db
         .select()
         .from(institutionalTrainingOrders)
         .where(
-          eq(
-            institutionalTrainingOrders.institutionalAccountId,
-            input.institutionId
+          and(
+            eq(institutionalTrainingOrders.institutionalAccountId, input.institutionId),
+            ...(authority.scope === "institution"
+              ? []
+              : [inArray(institutionalTrainingOrders.departmentId, authority.departmentIds)])
           )
         )
         .orderBy(desc(institutionalTrainingOrders.createdAt));
@@ -576,7 +584,7 @@ export const institutionalLifeSupportRouter = router({
           code: "INTERNAL_SERVER_ERROR",
           message: "Database unavailable",
         });
-      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const authority = await resolveIlsAuthority(db, ctx.user, input.institutionId);
       const [order] = await db
         .select()
         .from(institutionalTrainingOrders)
@@ -1923,6 +1931,7 @@ export const institutionalLifeSupportRouter = router({
         claimsAcknowledged: z.literal(true),
         rosterConfirmed: z.literal(true),
         phoneNumber: z.string().min(1).max(32),
+        departmentId: z.number().int().positive().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -1932,7 +1941,8 @@ export const institutionalLifeSupportRouter = router({
           code: "INTERNAL_SERVER_ERROR",
           message: "Database unavailable",
         });
-      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      const authority = await resolveIlsAuthority(db, ctx.user, input.institutionId);
+      const departmentId = assertIlsDepartmentSelection(authority, input.departmentId);
       if (!validatePhoneNumber(input.phoneNumber))
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -1976,7 +1986,10 @@ export const institutionalLifeSupportRouter = router({
               input.institutionId
             ),
             inArray(institutionalStaffMembers.id, input.staffMemberIds),
-            isNull(institutionalStaffMembers.removedAt)
+            isNull(institutionalStaffMembers.removedAt),
+            ...(authority.scope === "institution"
+              ? []
+              : [inArray(institutionalStaffMembers.facilityDepartmentId, authority.departmentIds)])
           )
         );
       if (staffRows.length !== input.staffMemberIds.length)
@@ -2054,6 +2067,7 @@ export const institutionalLifeSupportRouter = router({
       await db.insert(institutionalTrainingOrders).values({
         institutionalAccountId: input.institutionId,
         programType: PAEDS_RESUS_ILS_PROGRAM_TYPE,
+        departmentId,
         providerCount,
         amountPerProviderKes:
           totalAmountKes === 0 ? 0 : Math.ceil(totalAmountKes / providerCount),

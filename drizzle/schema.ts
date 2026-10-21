@@ -1201,6 +1201,8 @@ export const institutionalTrainingOrders = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     institutionalAccountId: int("institutionalAccountId").notNull(),
     programType: mysqlEnum("programType", ["paeds_resus_ils"]).notNull(),
+    /** Null for legacy/institution-wide orders; populated for department-led cohorts. */
+    departmentId: int("departmentId"),
     providerCount: int("providerCount").notNull(),
     amountPerProviderKes: int("amountPerProviderKes").notNull(),
     totalAmountKes: int("totalAmountKes").notNull(),
