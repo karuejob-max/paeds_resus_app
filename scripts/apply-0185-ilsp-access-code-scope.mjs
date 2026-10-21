@@ -15,13 +15,16 @@ try {
     );
   }
   const [indexes] = await connection.query(
-    "SHOW INDEX FROM globalEntitlements WHERE Key_name = 'global_entitlements_target_department_idx'",
+    "SHOW INDEX FROM globalEntitlements WHERE Key_name = 'global_entitlements_target_status_idx'",
   );
-  if (!indexes.length) {
+  if (indexes.length) {
     await connection.query(
-      "CREATE INDEX global_entitlements_target_department_idx ON globalEntitlements (targetInstitutionalAccountId, targetDepartmentId, programType, status)",
+      "ALTER TABLE globalEntitlements DROP INDEX global_entitlements_target_status_idx",
     );
   }
+  await connection.query(
+    "CREATE INDEX global_entitlements_target_status_idx ON globalEntitlements (targetUserId, targetInstitutionalAccountId, targetDepartmentId, status)",
+  );
   console.log("[0185] ILSP access-code department scope is ready.");
 } finally {
   await connection.end();
