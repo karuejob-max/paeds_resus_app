@@ -20,6 +20,8 @@ type CompletionSummary = {
   durationSeconds: number;
   criticalFailures: number;
   evidenceStatus: string;
+  score?: number;
+  scoreBreakdown?: { reasons?: string[] };
 };
 
 type Props = {
@@ -47,6 +49,14 @@ const COMMANDS: readonly { label: string; command: AdultAclsCommand }[] = [
   { label: "Antiarrhythmic", command: { type: "give_antiarrhythmic" } },
   { label: "Adenosine", command: { type: "give_adenosine" } },
   { label: "Atropine", command: { type: "give_atropine" } },
+  { label: "Obtain 12-lead ECG", command: { type: "obtain_ecg" } },
+  { label: "Give aspirin", command: { type: "give_aspirin" } },
+  { label: "Activate reperfusion", command: { type: "activate_reperfusion" } },
+  { label: "Assess breath sounds", command: { type: "assess", target: "breath_sounds" } },
+  { label: "Assess trachea", command: { type: "assess", target: "trachea" } },
+  { label: "Assess neck veins", command: { type: "assess", target: "neck_veins" } },
+  { label: "Assess bleeding/volume", command: { type: "assess", target: "bleeding" } },
+  { label: "Ask airway/hypoxia history", command: { type: "assess", target: "airway_history" } },
   { label: "Treat hypovolaemia", command: { type: "treat_reversible_cause", cause: "hypovolaemia" } },
   { label: "Treat prolonged hypoxia", command: { type: "treat_reversible_cause", cause: "prolonged_hypoxia" } },
   { label: "Treat tension pneumothorax", command: { type: "treat_reversible_cause", cause: "tension_pneumothorax" } },
@@ -57,6 +67,8 @@ const COMMAND_GROUPS: readonly { title: string; hint: string; commands: readonly
   { title: "Immediate support", hint: "Support oxygenation, ventilation, or circulation when indicated.", commands: ["Start CPR", "Give oxygen", "Assist ventilation", "Support perfusion"] },
   { title: "Rhythm intervention", hint: "Use the rhythm and perfusion state to choose the correct electrical pathway.", commands: ["Defibrillate", "Synchronized cardioversion", "Prepare synchronized cardioversion", "Pace"] },
   { title: "Medication and cause", hint: "Medication and reversible-cause treatment must match the current state.", commands: ["Epinephrine", "Antiarrhythmic", "Adenosine", "Atropine", "Treat hypovolaemia", "Treat prolonged hypoxia", "Treat tension pneumothorax"] },
+  { title: "ACS escalation", hint: "Confirm the ischemic pathway, treat when appropriate, and escalate early.", commands: ["Obtain 12-lead ECG", "Give aspirin", "Activate reperfusion"] },
+  { title: "Cause assessment", hint: "Gather targeted findings before selecting a reversible cause.", commands: ["Assess breath sounds", "Assess trachea", "Assess neck veins", "Assess bleeding/volume", "Ask airway/hypoxia history"] },
 ];
 
 function urgencyFor(state: AdultAclsState) {
@@ -173,6 +185,8 @@ export function AdultAclsSimulationRoom({ enrollmentId, onComplete, onExit, init
         durationSeconds: Math.round(evidence.durationSeconds),
         criticalFailures: evidence.criticalFailures,
         evidenceStatus: result.evidenceStatus,
+        score: evidence.score,
+        scoreBreakdown: evidence.scoreBreakdown,
       });
       setSession(null);
       onComplete();
@@ -201,7 +215,7 @@ export function AdultAclsSimulationRoom({ enrollmentId, onComplete, onExit, init
   return <div className="space-y-4">
     <Card className="border-indigo-200 bg-indigo-50"><CardHeader><div className="flex flex-wrap items-center justify-between gap-2"><CardTitle>Adult ACLS Simulation World</CardTitle><Badge variant="outline">Synthetic training simulation</Badge></div></CardHeader><CardContent className="space-y-3 text-sm text-indigo-950"><p>This is a deterministic adult resuscitation rehearsal. It does not represent a real patient, prove competence, or issue an ACLS credential.</p>{!session && <div className="flex flex-wrap gap-2"><select aria-label="Adult ACLS scenario" className="rounded-md border border-indigo-300 bg-white px-3 py-2" value={scenarioId} onChange={(event) => { setLaunchError(null); setScenarioId(event.target.value as AdultAclsScenarioId); }}><option value="" disabled>Select scenario</option>{ADULT_ACLS_SCENARIOS.map((item) => <option key={item.id} value={item.id}>{item.title} — {item.subtitle}</option>)}</select><Button onClick={() => void begin()} disabled={start.isPending || invalidate.isPending}>{completion ? "Repeat this scenario" : "Enter adult ACLS room"}</Button></div>}{!session && <p className="text-xs text-indigo-800"><strong>Learning focus:</strong> {scenario.subtitle} This practice is formative and does not unlock Phase 2, issue a credential, or replace instructor assessment.</p>}{launchError && <div role="alert" className="rounded-md border border-rose-300 bg-rose-50 p-3 text-sm font-medium text-rose-900">{launchError}</div>}</CardContent></Card>
 
-    {completion && !session && <Card className={completion.phase === "failed" ? "border-rose-300 bg-rose-50" : "border-emerald-300 bg-emerald-50"}><CardHeader><CardTitle className={`flex items-center gap-2 ${completion.phase === "failed" ? "text-rose-950" : "text-emerald-950"}`}><CheckCircle2 className="h-5 w-5" />Rehearsal saved for review</CardTitle></CardHeader><CardContent className={`space-y-3 text-sm ${completion.phase === "failed" ? "text-rose-950" : "text-emerald-950"}`}><p>This records simulation performance only. It does not issue an ACLS credential or automatically complete a course phase.</p><div className="grid gap-2 sm:grid-cols-4"><div><span className="block text-xs uppercase">Endpoint</span><strong>{completion.phase === "failed" ? "Patient death / formative failure" : completion.roscObserved ? "Post-ROSC" : "Stable"}</strong></div><div><span className="block text-xs uppercase">Duration</span><strong>{completion.durationSeconds}s</strong></div><div><span className="block text-xs uppercase">Critical failures</span><strong>{completion.criticalFailures}</strong></div><div><span className="block text-xs uppercase">Evidence</span><strong>{completion.evidenceStatus === "review_required" ? "Review required" : completion.evidenceStatus}</strong></div></div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => void begin()}><RotateCcw className="mr-2 h-4 w-4" />Repeat scenario</Button><Button variant="secondary" onClick={() => onExit?.()}>Return to mission map</Button></div></CardContent></Card>}
+    {completion && !session && <Card className={completion.phase === "failed" ? "border-rose-300 bg-rose-50" : "border-emerald-300 bg-emerald-50"}><CardHeader><CardTitle className={`flex items-center gap-2 ${completion.phase === "failed" ? "text-rose-950" : "text-emerald-950"}`}><CheckCircle2 className="h-5 w-5" />Rehearsal saved for review</CardTitle></CardHeader><CardContent className={`space-y-3 text-sm ${completion.phase === "failed" ? "text-rose-950" : "text-emerald-950"}`}><p>This records simulation performance only. It does not issue an ACLS credential or automatically complete a course phase.</p><div className="grid gap-2 sm:grid-cols-5"><div><span className="block text-xs uppercase">Endpoint</span><strong>{completion.phase === "failed" ? "Patient death / formative failure" : completion.roscObserved ? "Post-ROSC" : "Stable"}</strong></div><div><span className="block text-xs uppercase">Score</span><strong>{completion.score ?? "—"}/100</strong></div><div><span className="block text-xs uppercase">Duration</span><strong>{completion.durationSeconds}s</strong></div><div><span className="block text-xs uppercase">Critical failures</span><strong>{completion.criticalFailures}</strong></div><div><span className="block text-xs uppercase">Evidence</span><strong>{completion.evidenceStatus === "review_required" ? "Review required" : completion.evidenceStatus}</strong></div></div>{completion.scoreBreakdown?.reasons?.length ? <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><p className="font-semibold">What prevented a qualifying score</p><ul className="mt-1 list-disc pl-5">{completion.scoreBreakdown.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></div> : null}<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => void begin()}><RotateCcw className="mr-2 h-4 w-4" />Repeat scenario</Button><Button variant="secondary" onClick={() => onExit?.()}>Return to mission map</Button></div></CardContent></Card>}
 
     {!session && !completion && activeSession.data && <div role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><strong>Rehearsal in progress:</strong> We found an active Adult ACLS session and will restore it automatically. Your recorded actions are still server-authoritative.</div>}
 

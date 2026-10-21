@@ -34,9 +34,9 @@ export type Phase2AutomationStatus = {
   governanceBoundary: "does_not_issue_credential";
 };
 
-export const PHASE2_REQUIREMENT_SET_VERSION = "phase2-v3-acls-wpa-2026-10-19";
+export const PHASE2_REQUIREMENT_SET_VERSION = "phase2-v4-acls-safety-2026-10-21";
 export const PHASE2_SCENARIO_VERSIONS: Record<string, string> = {
-  adult_acls_world: "1.1.0",
+  adult_acls_world: "1.2.0",
 };
 
 const COMMON_REQUIREMENTS: Record<string, Phase2Requirement[]> = {

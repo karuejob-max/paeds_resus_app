@@ -25,7 +25,7 @@ import {
   type PracticeLabTrackId,
 } from "../../shared/practice-lab-types";
 import { advanceSimulationWorld, createSimulationWorld, isSimulationWorldCommandAllowed, isSimulationWorldScenarioCompatible, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_WORLD_ROLES, SIMULATION_WORLD_SCENARIOS, type SimulationWorldEvent, type SimulationWorldRole, type SimulationWorldScenarioId, type SimulationWorldState, type SimulationWorldCommand } from "../../shared/simulation-world";
-import { ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS, ADULT_ACLS_SCENARIOS, ADULT_ACLS_SCENARIO_VERSION, ADULT_ACLS_WORLD_VERSION, advanceAdultAclsSimulation, calculateAdultAclsTrainingEvidence, createAdultAclsSimulation, reduceAdultAclsSimulation, scoreAdultAclsTraining, type AdultAclsCommand, type AdultAclsScenarioId, type AdultAclsState } from "../../shared/adult-acls-simulation-world";
+import { ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS, ADULT_ACLS_SCENARIOS, ADULT_ACLS_SCENARIO_VERSION, ADULT_ACLS_WORLD_VERSION, advanceAdultAclsSimulation, calculateAdultAclsTrainingEvidence, createAdultAclsSimulation, getAdultAclsScoreBreakdown, reduceAdultAclsSimulation, type AdultAclsCommand, type AdultAclsScenarioId, type AdultAclsState } from "../../shared/adult-acls-simulation-world";
 import { NRP_MAX_ACTION_ADVANCE_SECONDS, NRP_SCENARIOS, NRP_SCENARIO_VERSION, NRP_WORLD_VERSION, advanceNrpSimulation, calculateNrpTrainingEvidence, createNrpSimulation, reduceNrpSimulation, type NrpCommand, type NrpScenarioId, type NrpState } from "../../shared/nrp-simulation-world";
 import { calculatePhase2AutomationStatus, PHASE2_REQUIREMENT_SET_VERSION, scoreAuthoritativeChoiceAttempt, scoreCardiacArrestEventLog, scoreDedicatedSimulation, scoreFormativeEventLog } from "../../shared/phase2-automation";
 
@@ -254,11 +254,13 @@ export const practiceLabRouter = router({
       }
       const evidence = calculateAdultAclsTrainingEvidence(state);
       const evidenceWithAuthority = { ...evidence, sessionId: session.id, scenarioVersion: session.scenarioVersion, learnerUserId: session.userId, enrollmentId: session.enrollmentId, role: session.role };
-      const automatedScore = scoreAdultAclsTraining(state);
+      const scoreBreakdown = getAdultAclsScoreBreakdown(state);
+      const automatedScore = scoreBreakdown.score;
+      const evidenceWithRubric = { ...evidenceWithAuthority, score: automatedScore, scoreBreakdown };
       await db.insert(ahaPracticeLabAttempts).values({ userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "acls", trackId: "adult_acls_world", scenarioId: session.scenarioId, score: automatedScore, passed: automatedScore >= 70, eventLog: state.events, evidenceStatus: "review_required", scenarioVersion: session.scenarioVersion, criticalFailure: state.criticalFailures.length > 0, durationSeconds: Math.round(state.elapsedSeconds) });
-      await db.insert(simulationWorldEvidence).values({ sessionId: session.id, userId: ctx.user.id, enrollmentId: session.enrollmentId, role: session.role, scenarioId: state.scenarioId, evidenceStatus: "review_required", assessmentJson: evidenceWithAuthority });
+      await db.insert(simulationWorldEvidence).values({ sessionId: session.id, userId: ctx.user.id, enrollmentId: session.enrollmentId, role: session.role, scenarioId: state.scenarioId, evidenceStatus: "review_required", assessmentJson: evidenceWithRubric });
       await db.update(simulationWorldSessions).set({ status: "completed", completedAt: new Date() }).where(eq(simulationWorldSessions.id, session.id));
-      return { success: true, evidenceStatus: "review_required" as const, evidence: evidenceWithAuthority, syntheticTrainingOnly: true };
+      return { success: true, evidenceStatus: "review_required" as const, evidence: evidenceWithRubric, syntheticTrainingOnly: true };
     }),
 
   startNrpSession: protectedProcedure
