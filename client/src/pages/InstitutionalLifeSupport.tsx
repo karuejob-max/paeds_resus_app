@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { IlsRelatedCourseAccess } from "@/components/IlsRelatedCourseAccess";
 import {
   PAEDS_RESUS_ILS_BASE_PRICE_KES,
   PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES,
@@ -493,6 +494,8 @@ export default function InstitutionalLifeSupport() {
             </button>
           </div>
         )}
+
+        <IlsRelatedCourseAccess onOpenHub={() => navigate("/aha-courses?pathway=ilsp")} />
 
         {isInstitutionUser ? (
           <Tabs defaultValue="cohort">
