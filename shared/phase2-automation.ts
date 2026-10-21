@@ -23,6 +23,7 @@ export type Phase2AutomationStatus = {
   programType: PracticeLabProgramType;
   requirementSetVersion: string;
   phase2Ready: boolean;
+  phase3Eligible: boolean;
   authority: "automated_simulation_mastery";
   attempts: number;
   passedAttempts: number;
@@ -38,6 +39,19 @@ export const PHASE2_REQUIREMENT_SET_VERSION = "phase2-v4-acls-safety-2026-10-21"
 export const PHASE2_SCENARIO_VERSIONS: Record<string, string> = {
   adult_acls_world: "1.2.0",
 };
+
+/**
+ * Automated Phase 2 evidence is deliberately narrower than the set of lanes
+ * that can display a mastery card. Until NRP/PALS replay authority is signed
+ * off, their saved practice evidence must not unlock a hands-on booking.
+ */
+export const AUTOMATED_PHASE3_PROGRAM_TYPES = ["acls"] as const;
+
+export type AutomatedPhase3ProgramType = (typeof AUTOMATED_PHASE3_PROGRAM_TYPES)[number];
+
+export function supportsAutomatedPhase3Gate(programType: string): programType is AutomatedPhase3ProgramType {
+  return (AUTOMATED_PHASE3_PROGRAM_TYPES as readonly string[]).includes(programType);
+}
 
 const COMMON_REQUIREMENTS: Record<string, Phase2Requirement[]> = {
   // BLS simulations remain available as formative practice, but BLS has no
@@ -86,6 +100,7 @@ export function calculatePhase2AutomationStatus(programType: PracticeLabProgramT
     programType,
     requirementSetVersion: PHASE2_REQUIREMENT_SET_VERSION,
     phase2Ready: requirements.length > 0 && completeCount === requirements.length,
+    phase3Eligible: supportsAutomatedPhase3Gate(programType) && requirements.length > 0 && completeCount === requirements.length,
     authority: "automated_simulation_mastery",
     attempts: attempts.length,
     passedAttempts: attempts.filter((attempt) => attempt.passed).length,
@@ -95,7 +110,10 @@ export function calculatePhase2AutomationStatus(programType: PracticeLabProgramT
     requirements,
     nextAction: requirements.length === 0
       ? "Automated Phase 2 is not available for this pathway until an authoritative counted scenario is published."
-      : next ? `Complete ${next.label} (${next.attempts}/${next.requiredAttempts} qualifying rehearsal${next.requiredAttempts === 1 ? "" : "s"}).` : "Phase 2 simulation mastery requirements met. Proceed to the governed Phase 3 pathway.",
+      : next ? `Complete ${next.label} (${next.attempts}/${next.requiredAttempts} qualifying rehearsal${next.requiredAttempts === 1 ? "" : "s"}).`
+        : supportsAutomatedPhase3Gate(programType)
+          ? "Phase 2 simulation mastery requirements met. Proceed to the governed Phase 3 pathway."
+          : "Phase 2 evidence is recorded, but this pathway is not yet eligible for automated Phase 3 booking.",
     governanceBoundary: "does_not_issue_credential",
   };
 }

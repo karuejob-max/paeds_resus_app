@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculatePhase2AutomationStatus, getPhase2Requirements, scoreCardiacArrestEventLog, scoreDedicatedSimulation } from "./phase2-automation";
+import { calculatePhase2AutomationStatus, getPhase2Requirements, scoreCardiacArrestEventLog, scoreDedicatedSimulation, supportsAutomatedPhase3Gate } from "./phase2-automation";
 import { getLifeSupportRequiredPhases } from "./life-support-pathways";
 
 describe("automated Phase 2 mastery", () => {
@@ -14,6 +14,7 @@ describe("automated Phase 2 mastery", () => {
     })));
     const status = calculatePhase2AutomationStatus("acls", attempts);
     expect(status.phase2Ready).toBe(true);
+    expect(status.phase3Eligible).toBe(true);
     expect(status.completedRequirements).toBe(3);
     expect(status.authority).toBe("automated_simulation_mastery");
     expect(status.requirementSetVersion).toBe("phase2-v4-acls-safety-2026-10-21");
@@ -89,6 +90,19 @@ describe("automated Phase 2 mastery", () => {
     expect(getLifeSupportRequiredPhases("heartsaver")).toContain("phase2");
     expect(getPhase2Requirements("heartsaver")).toEqual([]);
     expect(calculatePhase2AutomationStatus("heartsaver", []).nextAction).toContain("not available");
+  });
+
+  it("does not let PALS or NRP mastery imply automated Phase 3 booking", () => {
+    expect(supportsAutomatedPhase3Gate("acls")).toBe(true);
+    expect(supportsAutomatedPhase3Gate("pals")).toBe(false);
+    expect(supportsAutomatedPhase3Gate("nrp")).toBe(false);
+    const pals = calculatePhase2AutomationStatus("pals", [{
+      trackId: "abcde",
+      scenarioId: "pals-assessment",
+      score: 100,
+      passed: true,
+    }]);
+    expect(pals.phase3Eligible).toBe(false);
   });
 
   it("scores a complete CPR-GPS arrest sequence without trusting client scores", () => {
