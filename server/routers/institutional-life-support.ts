@@ -2818,16 +2818,6 @@ export const institutionalLifeSupportRouter = router({
           message: "Access-code expiry must be in the future.",
         });
       }
-      const anchor = await resolveAhaCourseAnchor(
-        db,
-        input.programType as AhaAnchorProgramType,
-        { skipEnsure: false }
-      );
-      if (!anchor)
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "The selected AHA course is not available.",
-        });
       const accessCode = createAccessCode();
       const grantReference = newEntitlementReference();
       await db.insert(globalEntitlements).values({
