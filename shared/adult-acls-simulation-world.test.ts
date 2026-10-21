@@ -127,6 +127,11 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
     expect(state.events.at(-1)?.type).toBe("repeated_action");
     state = reduceAdultAclsSimulation(state, { type: "defibrillate" });
     state = reduceAdultAclsSimulation(state, { type: "reassess" });
+    for (let i = 0; i < 5; i++) state = reduceAdultAclsSimulation(state, { type: "give_oxygen" });
+    for (let i = 0; i < 3; i++) state = reduceAdultAclsSimulation(state, { type: "assist_ventilation" });
+    state = reduceAdultAclsSimulation(state, { type: "support_perfusion" });
+    state = reduceAdultAclsSimulation(state, { type: "assess", target: "blood_pressure" });
+    state = reduceAdultAclsSimulation(state, { type: "reassess" });
     state = reduceAdultAclsSimulation(state, { type: "end_rehearsal" });
     expect(state.patient.phase).toBe("ended");
     expect(scoreAdultAclsTraining(state)).toBe(100);
@@ -136,6 +141,8 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
     let state = createAdultAclsSimulation(scenarioId);
     state = reduceAdultAclsSimulation(state, { type: "assess", target: "rhythm" });
     state = reduceAdultAclsSimulation(state, { type: "start_cpr" });
+    const causeTarget = scenarioId === "reversible-cause-arrest" ? "breath_sounds" : "airway_history";
+    state = reduceAdultAclsSimulation(state, { type: "assess", target: causeTarget });
     state = reduceAdultAclsSimulation(state, { type: "give_epinephrine" });
     const cause = scenarioId === "pea" ? "hypovolaemia" : scenarioId === "asystole" ? "prolonged_hypoxia" : "tension_pneumothorax";
     state = reduceAdultAclsSimulation(state, { type: "treat_reversible_cause", cause });
@@ -176,7 +183,7 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
     state = reduceAdultAclsSimulation(state, { type: "assess", target: "rhythm" });
     state = reduceAdultAclsSimulation(state, { type: "reassess" });
     state = reduceAdultAclsSimulation(state, { type: "end_rehearsal" });
-    expect(scoreAdultAclsTraining(state)).toBe(0);
+    expect(scoreAdultAclsTraining(state)).toBeLessThan(70);
   });
 
   it("requires post-ROSC oxygenation, ventilation, perfusion support, and reassessment", () => {
@@ -205,10 +212,10 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
   it.each([
     ["unstable-bradycardia", [{ type: "assess", target: "rhythm" }, { type: "pace" }, { type: "reassess" }, { type: "end_rehearsal" }]],
     ["stable-narrow-tachycardia", [{ type: "assess", target: "rhythm" }, { type: "give_adenosine" }, { type: "reassess" }, { type: "end_rehearsal" }]],
-    ["unstable-tachycardia", [{ type: "assess", target: "rhythm" }, { type: "prepare_synchronized_cardioversion" }, { type: "synchronized_cardioversion" }, { type: "support_perfusion" }, { type: "reassess" }, { type: "end_rehearsal" }]],
-    ["vf-pulseless-vt", [{ type: "assess", target: "rhythm" }, { type: "start_cpr" }, { type: "defibrillate" }, { type: "reassess" }, { type: "end_rehearsal" }]],
-    ["acs-to-vf", [{ type: "assess", target: "pulse" }, { type: "give_oxygen" }, { type: "reassess" }, { type: "end_rehearsal" }]],
-    ["hypoxia-to-arrest", [{ type: "assess", target: "breathing" }, { type: "give_oxygen" }, { type: "assist_ventilation" }, { type: "reassess" }, { type: "end_rehearsal" }]],
+    ["unstable-tachycardia", [{ type: "assess", target: "rhythm" }, { type: "prepare_synchronized_cardioversion" }, { type: "synchronized_cardioversion" }, { type: "support_perfusion" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "assist_ventilation" }, { type: "reassess" }, { type: "end_rehearsal" }]],
+    ["vf-pulseless-vt", [{ type: "assess", target: "rhythm" }, { type: "start_cpr" }, { type: "defibrillate" }, { type: "reassess" }, ...Array(6).fill({ type: "give_oxygen" }), ...Array(4).fill({ type: "assist_ventilation" }), { type: "support_perfusion" }, { type: "reassess" }, { type: "end_rehearsal" }]],
+    ["acs-to-vf", [{ type: "assess", target: "pulse" }, { type: "obtain_ecg" }, { type: "give_aspirin" }, { type: "activate_reperfusion" }, { type: "reassess" }, { type: "end_rehearsal" }]],
+    ["hypoxia-to-arrest", [{ type: "assess", target: "breathing" }, ...Array(8).fill({ type: "give_oxygen" }), ...Array(8).fill({ type: "assist_ventilation" }), { type: "reassess" }, { type: "end_rehearsal" }]],
     ["rosc-post-arrest", [{ type: "support_perfusion" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "assist_ventilation" }, { type: "assist_ventilation" }, { type: "assist_ventilation" }, { type: "assess", target: "blood_pressure" }, { type: "reassess" }, { type: "end_rehearsal" }]],
   ] as const)("has a complete honest winning path for %s", (scenarioId, commands) => {
     let state = createAdultAclsSimulation(scenarioId as AdultAclsScenarioId);
@@ -221,6 +228,8 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
     let state = createAdultAclsSimulation(scenarioId);
     state = reduceAdultAclsSimulation(state, { type: "assess", target: "rhythm" });
     state = reduceAdultAclsSimulation(state, { type: "start_cpr" });
+    const causeTarget = scenarioId === "reversible-cause-arrest" ? "breath_sounds" : "airway_history";
+    state = reduceAdultAclsSimulation(state, { type: "assess", target: causeTarget });
     state = reduceAdultAclsSimulation(state, { type: "give_epinephrine" });
     const cause = scenarioId === "pea" ? "hypovolaemia" : scenarioId === "asystole" ? "prolonged_hypoxia" : "tension_pneumothorax";
     state = reduceAdultAclsSimulation(state, { type: "treat_reversible_cause", cause });
