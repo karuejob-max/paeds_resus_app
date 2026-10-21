@@ -420,6 +420,36 @@ export const globalEntitlementRedemptions = mysqlTable(
 export type GlobalEntitlementRedemption = typeof globalEntitlementRedemptions.$inferSelect;
 export type InsertGlobalEntitlementRedemption = typeof globalEntitlementRedemptions.$inferInsert;
 
+/** Privacy-preserving abuse-control window for authenticated institutional code attempts. */
+export const ilsAccessCodeAttemptWindows = mysqlTable(
+  "ilsAccessCodeAttemptWindows",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    fingerprintHash: varchar("fingerprintHash", { length: 64 }).notNull(),
+    programType: mysqlEnum("programType", ["bls", "acls", "pals", "nrp"]).notNull(),
+    windowStartedAt: timestamp("windowStartedAt").notNull(),
+    attemptCount: int("attemptCount").default(0).notNull(),
+    blockedUntil: timestamp("blockedUntil"),
+    lastAttemptAt: timestamp("lastAttemptAt").defaultNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    identityWindowUnique: uniqueIndex("ils_access_code_attempt_identity_uq").on(
+      table.userId,
+      table.fingerprintHash,
+      table.programType
+    ),
+    blockedLookupIdx: index("ils_access_code_attempt_blocked_idx").on(
+      table.blockedUntil,
+      table.lastAttemptAt
+    ),
+  })
+);
+export type IlsAccessCodeAttemptWindow = typeof ilsAccessCodeAttemptWindows.$inferSelect;
+export type InsertIlsAccessCodeAttemptWindow = typeof ilsAccessCodeAttemptWindows.$inferInsert;
+
 /** Private object metadata for IERP Phase 1 evidence. Bytes live in storage. */
 export const ierpPhase1Evidence = mysqlTable(
   "ierpPhase1Evidence",

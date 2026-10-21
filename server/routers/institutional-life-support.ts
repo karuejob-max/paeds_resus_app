@@ -71,6 +71,7 @@ import {
   getIlsSupportSlaHours,
 } from "@shared/ils-operations";
 import { runScheduledIlsReminders } from "../lib/ils-reminders";
+import { enforceIlsAccessCodeRateLimit } from "../lib/ils-access-code-rate-limit";
 
 import {
   getCertificateByEnrollmentId,
@@ -2926,6 +2927,11 @@ export const institutionalLifeSupportRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await enforceIlsAccessCodeRateLimit(db, {
+        userId: ctx.user.id,
+        ipAddress: ctx.req.ip,
+        programType: input.programType,
+      });
       const [entitlement] = await db.select({
         targetInstitutionalAccountId: globalEntitlements.targetInstitutionalAccountId,
         targetDepartmentId: globalEntitlements.targetDepartmentId,
@@ -2996,6 +3002,11 @@ export const institutionalLifeSupportRouter = router({
           code: "INTERNAL_SERVER_ERROR",
           message: "Database unavailable",
         });
+      await enforceIlsAccessCodeRateLimit(db, {
+        userId: ctx.user.id,
+        ipAddress: ctx.req.ip,
+        programType: input.programType,
+      });
       const [entitlement] = await db
         .select()
         .from(globalEntitlements)
