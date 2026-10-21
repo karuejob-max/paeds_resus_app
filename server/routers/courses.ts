@@ -21,7 +21,7 @@ import { notifyAhaElearningProofDecision, notifyBookingWaitlistPromoted, notifyP
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate, markIlsCognitiveComplete } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
-import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules, institutionalStaffMembers, phase3CrossFacilityApprovals, retrospectiveRoleClaims, phase2MasteryCompletions } from '../../drizzle/schema';
+import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules, institutionalStaffMembers, phase3CrossFacilityApprovals, retrospectiveRoleClaims, phase2MasteryCompletions, ahaPracticeLabAttempts } from '../../drizzle/schema';
 import { assertNoInstructorDoubleBooking } from '../lib/instructor-double-booking-guard';
 import { eq, and, asc, inArray, desc, sum, gte, sql, ne, or, like } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
@@ -45,10 +45,70 @@ import { getAhaAccessDecision } from "../lib/aha-access";
 import { ensurePhase2CompletionCertificateForUser } from "../lib/paeds-resus-certificate-issuance";
 import { getCanonicalAhaEnrollment } from "../lib/aha-learning-records";
 import { selectBestCurrentEnrollments } from "../lib/professional-progress-calculation";
+import { calculatePhase2AutomationStatus, PHASE2_REQUIREMENT_SET_VERSION, supportsAutomatedPhase3Gate } from "../../shared/phase2-automation";
 
 const AHA_PROGRAM_TYPES = ['bls', 'acls', 'pals', 'heartsaver', 'nrp', 'instructor'] as const;
 
 const MAX_AHA_PROOF_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Phase 3 must never trust a completion row merely because it is present.
+ * Re-check the learner's current enrollment, policy version, and qualifying
+ * attempts at booking time. Unsupported lanes fail closed until their replay
+ * authority is approved.
+ */
+async function hasCurrentAutomatedPhase2Mastery(db: any, userId: number, programType: string): Promise<boolean> {
+  if (!supportsAutomatedPhase3Gate(programType)) return false;
+
+  const [completion] = await db
+    .select({ id: phase2MasteryCompletions.id, enrollmentId: phase2MasteryCompletions.enrollmentId })
+    .from(phase2MasteryCompletions)
+    .innerJoin(enrollments, eq(phase2MasteryCompletions.enrollmentId, enrollments.id))
+    .where(and(
+      eq(phase2MasteryCompletions.userId, userId),
+      eq(phase2MasteryCompletions.programType, programType),
+      eq(phase2MasteryCompletions.requirementSetVersion, PHASE2_REQUIREMENT_SET_VERSION),
+      eq(enrollments.userId, userId),
+      eq(enrollments.programType, programType),
+      sql`${phase2MasteryCompletions.revokedAt} IS NULL`,
+    ))
+    .limit(1);
+
+  if (!completion) return false;
+
+  const attempts = await db
+    .select({
+      trackId: ahaPracticeLabAttempts.trackId,
+      scenarioId: ahaPracticeLabAttempts.scenarioId,
+      score: ahaPracticeLabAttempts.score,
+      passed: ahaPracticeLabAttempts.passed,
+      evidenceStatus: ahaPracticeLabAttempts.evidenceStatus,
+      criticalFailure: ahaPracticeLabAttempts.criticalFailure,
+      scenarioVersion: ahaPracticeLabAttempts.scenarioVersion,
+    })
+    .from(ahaPracticeLabAttempts)
+    .where(and(
+      eq(ahaPracticeLabAttempts.userId, userId),
+      eq(ahaPracticeLabAttempts.enrollmentId, completion.enrollmentId),
+    ));
+
+  const currentStatus = calculatePhase2AutomationStatus(programType, attempts.map((attempt: any) => ({
+    trackId: attempt.trackId,
+    scenarioId: attempt.scenarioId,
+    score: Number(attempt.score ?? 0),
+    passed: Boolean(attempt.passed),
+    evidenceStatus: attempt.evidenceStatus,
+    criticalFailure: Boolean(attempt.criticalFailure),
+    scenarioVersion: attempt.scenarioVersion,
+  })));
+
+  if (currentStatus.phase2Ready) return true;
+
+  await db.update(phase2MasteryCompletions)
+    .set({ revokedAt: new Date(), revokedReason: `Revalidated at Phase 3 booking; current status is not ready under ${PHASE2_REQUIREMENT_SET_VERSION}`, updatedAt: new Date() })
+    .where(eq(phase2MasteryCompletions.id, completion.id));
+  return false;
+}
 
 async function getAclsElearningProof(db: any, userId: number) {
   const [row, bls] = await Promise.all([
@@ -982,15 +1042,8 @@ export const coursesRouter = router({
       const automatedProgramType = session.programType === "acls" || session.programType === "pals" || session.programType === "nrp" || session.programType === "heartsaver"
         ? session.programType
         : null;
-      const automatedPhase2Complete = automatedProgramType !== null && (await db
-        .select({ id: phase2MasteryCompletions.id })
-        .from(phase2MasteryCompletions)
-        .where(and(
-          eq(phase2MasteryCompletions.userId, ctx.user.id),
-          eq(phase2MasteryCompletions.programType, automatedProgramType),
-          sql`${phase2MasteryCompletions.revokedAt} IS NULL`,
-        ))
-        .limit(1)).length > 0;
+      const automatedPhase2Complete = automatedProgramType !== null
+        && await hasCurrentAutomatedPhase2Mastery(db, ctx.user.id, automatedProgramType);
 
       // ── Phase Gate: enforce cohort program rules ──────────────────────────
       // IERP training participation is independent of an institutional roster
