@@ -1,10 +1,18 @@
 import type { SimulationWorldRole } from "./simulation-world";
 import { getSimulationClinicalPackage } from "./simulation-clinical-packages";
 
-export const ADULT_ACLS_WORLD_VERSION = "1.2.0";
-export const ADULT_ACLS_SCENARIO_VERSION = "1.2.0";
+export const ADULT_ACLS_WORLD_VERSION = "1.3.0";
+export const ADULT_ACLS_SCENARIO_VERSION = "1.3.0";
 export const ADULT_ACLS_CLINICAL_STATUS = "clinical_review" as const;
 export const ADULT_ACLS_END_STATE_MIN_SPO2 = 90;
+/** Untreated ACS escalates to VF arrest after this many simulated seconds without reperfusion activation. Must stay below the physiological PEA-arrest time (~110 s). Clinical owner to confirm. */
+export const ADULT_ACLS_ACS_ESCALATION_SECONDS = 90;
+/** Cue assessments that are informative for each reversible cause. A cue unrelated to the chosen cause does not license treating it. */
+export const ADULT_ACLS_CAUSE_CUE_TARGETS: Record<"hypovolaemia" | "prolonged_hypoxia" | "tension_pneumothorax", readonly string[]> = {
+  hypovolaemia: ["bleeding", "airway_history", "neck_veins"],
+  prolonged_hypoxia: ["airway_history", "breath_sounds"],
+  tension_pneumothorax: ["breath_sounds", "trachea", "neck_veins"],
+};
 export const ADULT_ACLS_END_STATE_MIN_SYSTOLIC_BP = 90;
 /** Browser/network delay is bounded so manual interaction is not itself a clinical error. */
 export const ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS = 5;
@@ -150,6 +158,13 @@ export function getAdultAclsAssessmentCue(scenarioId: AdultAclsScenarioId, targe
 function hasCauseCueAssessment(state: AdultAclsState) {
   return state.events.some((event) => event.type === "cause_assessment");
 }
+function hasCueForCause(state: AdultAclsState, cause: keyof typeof ADULT_ACLS_CAUSE_CUE_TARGETS) {
+  const targets = ADULT_ACLS_CAUSE_CUE_TARGETS[cause] ?? [];
+  return state.events.some((event) => event.type === "cause_assessment" && targets.some((target) => event.description.startsWith(`Observed ${target}:`)));
+}
+function hasRhythmAssessment(state: AdultAclsState) {
+  return state.events.some((event) => event.type === "assessment" && event.description.startsWith("Observed rhythm"));
+}
 function hasSafeEndState(state: AdultAclsState) {
   return state.patient.spo2 >= ADULT_ACLS_END_STATE_MIN_SPO2 && state.patient.systolicBp >= ADULT_ACLS_END_STATE_MIN_SYSTOLIC_BP && state.patient.mentalStatus !== "unresponsive";
 }
@@ -188,6 +203,14 @@ export function advanceAdultAclsSimulation(state: AdultAclsState, seconds: numbe
   if (next.patient.phase === "post_rosc" && h.cardiacOutput < 0.25) next.patient = { ...next.patient, phase: "cardiac_arrest", rhythm: "ventricular_fibrillation", pulse: "absent", mentalStatus: "unresponsive" };
   if (next.patient.phase === "cardiac_arrest" && h.metabolicDebt >= 100) {
     next.patient = { ...next.patient, phase: "failed", pulse: "absent", mentalStatus: "unresponsive", trajectory: "deteriorating" };
+  }
+  const acsStalled = next.scenarioId === "acs-to-vf"
+    && next.patient.phase !== "cardiac_arrest" && next.patient.phase !== "failed" && next.patient.phase !== "ended"
+    && next.elapsedSeconds >= ADULT_ACLS_ACS_ESCALATION_SECONDS
+    && !next.events.some((event) => event.type === "reperfusion" || event.type === "acs_escalation");
+  if (acsStalled) {
+    next.patient = { ...structuredClone(getAdultAclsScenario("vf-pulseless-vt").initial), phase: "cardiac_arrest" };
+    next.events = [...next.events, { timestamp: next.elapsedSeconds, type: "acs_escalation", description: "Untreated acute coronary syndrome progressed to ventricular fibrillation arrest", correct: false, consequence: "Reperfusion was not activated in time" }];
   }
   next.patient = derivePatient(next.patient);
   if (next.patient.phase === "failed") return addEvent(next, "patient_death", "Patient died after untreated cardiac arrest; debrief remains available", false, "Scenario failed");
@@ -252,6 +275,7 @@ export function reduceAdultAclsSimulation(state: AdultAclsState, command: AdultA
       if (["supraventricular_tachycardia", "atrial_fibrillation", "atrial_flutter", "ventricular_tachycardia"].includes(p.rhythm)) { next.patient = { ...next.patient, rhythm: "sinus_rhythm", heartRate: 92 }; next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.22); next.patient.hidden.cerebralPerfusion = clamp(next.patient.hidden.cerebralPerfusion + 0.28); return addEvent(next, "cardioversion", "Synchronized cardioversion delivered; reassess rhythm and perfusion", true); }
       return fail(next, "Rhythm is not an appropriate synchronized-cardioversion target");
     case "pace":
+      if (!hasRhythmAssessment(next)) return fail(next, "Assess the rhythm before pacing");
       if (p.phase === "cardiac_arrest" || p.rhythm !== "sinus_bradycardia" || !next.environment.pacingAvailable) return fail(next, "Pacing is not valid for the current state");
       next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.18);
       next.patient.hidden.cerebralPerfusion = clamp(next.patient.hidden.cerebralPerfusion + 0.2);
@@ -270,6 +294,7 @@ export function reduceAdultAclsSimulation(state: AdultAclsState, command: AdultA
       next.patient = { ...next.patient, rhythm: "sinus_rhythm", heartRate: 88 };
       return addEvent(next, "medication", "Rhythm-dependent adenosine response observed; reassess stability", true);
     case "give_atropine":
+      if (!hasRhythmAssessment(next)) return fail(next, "Assess the rhythm before giving atropine");
       if (p.rhythm !== "sinus_bradycardia" || p.phase !== "unstable") return fail(next, "Atropine is not appropriate for the current rhythm/stability state");
       next.patient = { ...next.patient, heartRate: 64, rhythm: "sinus_rhythm" };
       next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.18);
@@ -282,11 +307,12 @@ export function reduceAdultAclsSimulation(state: AdultAclsState, command: AdultA
       if (next.scenarioId !== "acs-to-vf") return fail(next, "Aspirin is not indicated for this scenario");
       return addEvent(next, "acs_medication", "Aspirin given after confirming no contraindication", true);
     case "activate_reperfusion":
+      if (!next.events.some((event) => event.type === "ecg")) return fail(next, "Obtain and review the 12-lead ECG before activating reperfusion");
       if (next.scenarioId !== "acs-to-vf") return fail(next, "Reperfusion activation is not indicated for this scenario");
       return addEvent(next, "reperfusion", "Senior/cath-lab escalation activated for suspected acute coronary syndrome", true);
     case "treat_reversible_cause":
       if (p.phase !== "cardiac_arrest") return fail(next, "Treat the reversible cause only after confirming cardiac arrest and its rhythm");
-      if (!hasCauseCueAssessment(next)) return fail(next, "Assess targeted cause cues before selecting a reversible-cause treatment");
+      if (!hasCueForCause(next, command.cause)) return fail(next, "Assess at least one cue relevant to the selected cause before treating it");
       if (command.cause !== getAdultAclsScenario(next.scenarioId).cause) return fail(next, "The selected reversible cause does not match the scenario findings");
       next.patient.hidden.causeLoad = clamp(next.patient.hidden.causeLoad - 0.35);
       next.patient.hidden.probabilityOfRosc = clamp(next.patient.hidden.probabilityOfRosc + 0.18);
@@ -329,7 +355,7 @@ export function getAdultAclsScoreBreakdown(state: AdultAclsState): AdultAclsScor
       case "reversible-cause-arrest": return hasAll("cpr", "medication", "cause_assessment", "cause_treatment") && postRoscCare;
       case "unstable-tachycardia": return hasAll("synchronization", "cardioversion");
       case "unstable-bradycardia": return has("pacing", "medication") && state.events.some((event) => event.type === "assessment" && event.description.includes("rhythm"));
-      case "acs-to-vf": return hasAll("assessment", "ecg", "acs_medication", "reperfusion", "reassessment");
+      case "acs-to-vf": return hasAll("assessment", "ecg", "acs_medication", "reperfusion", "reassessment") && (!eventTypes.has("acs_escalation") || hasAll("cpr", "defibrillation"));
       case "hypoxia-to-arrest": return hasAll("oxygen", "ventilation", "assessment", "reassessment");
       case "rosc-post-arrest": return postRoscCare;
     }
