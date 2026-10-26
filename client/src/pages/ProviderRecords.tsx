@@ -133,6 +133,7 @@ export default function ProviderRecords({ focusCertificates = false, embedded = 
     retry: 1,
   });
   const [activeTab, setActiveTab] = useState<RecordsTab>(() => {
+    if (focusCertificates) return "aha";
     if (typeof window === "undefined") return "aha";
     const requested = new URLSearchParams(window.location.search).get("tab");
     return requested === "cpd" || requested === "fellowship" || requested === "credentials" ? requested : "aha";
@@ -187,8 +188,30 @@ export default function ProviderRecords({ focusCertificates = false, embedded = 
     expiryDate: certificate.expiryDate ?? null,
     certificateUrl: certificate.certificateUrl ?? null,
   }));
-  const certificates = (certificatesQuery.data?.certificates?.length ? certificatesQuery.data.certificates : progressCertificates) as typeof certificatesPlaceholder;
   const phaseCertificates = phaseStatusQuery.data ?? [];
+  // Each endpoint owns a different part of the record contract: the
+  // certificates endpoint contains downloadable credentials, the progress
+  // projection contains linked learning evidence, and the phase endpoint
+  // contains projected Paeds Resus gatepass records. Never let a row in one
+  // source hide rows from another source.
+  const mergedCertificateRows = [
+    ...(certificatesQuery.data?.certificates ?? []),
+    ...progressCertificates,
+    ...phaseCertificates.map((certificate) => ({
+      ...certificate,
+      enrollmentId: null,
+      courseTitle: null,
+      certificateUrl: null,
+    })),
+  ];
+  const certificates = Array.from(
+    new Map(
+      mergedCertificateRows.map((certificate: any) => [
+        `${certificate.certificateNumber ?? "pending"}:${certificate.programType}:${certificate.issueDate ?? ""}`,
+        certificate,
+      ]),
+    ).values(),
+  ) as typeof certificatesPlaceholder;
   const completionRecords = completionStatusQuery.data ?? [];
   const cpdRecords: Array<any> = cpdQuery.isSuccess ? (cpdQuery.data?.records ?? []) : [];
   const cpdFallbackNotice = !cpdQuery.isSuccess && !cpdQuery.isError && !cpdQuery.isLoading && Boolean(progressReport?.cpd?.sessions?.length);
@@ -201,9 +224,13 @@ export default function ProviderRecords({ focusCertificates = false, embedded = 
     phase3Completed: Number(progressCourse.percentage) >= 100,
     revokedAt: null,
   } : undefined);
-  const phase2Certificate = phaseCertificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_phase2`) ?? certificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_phase2`);
-  const phase3Certificate = phaseCertificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_phase3`) ?? certificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_phase3`);
-  const providerCertificates = new Map<string, (typeof phaseCertificates)[number]>(phaseCertificates.filter((certificate) => certificate.programType.endsWith("_provider")).map((certificate) => [certificate.programType, certificate]));
+  const phase2Certificate = certificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_phase2`);
+  const phase3Certificate = certificates.find((certificate) => certificate.programType === `paeds_resus_${selectedCourse}_phase3`);
+  const providerCertificates = new Map<string, (typeof certificates)[number]>(
+    certificates
+      .filter((certificate) => certificate.programType.endsWith("_provider"))
+      .map((certificate) => [certificate.programType, certificate] as const),
+  );
   const triggerBrowserDownload = (pdfBase64: string, filename: string) => {
     try {
       const bytes = atob(pdfBase64);
