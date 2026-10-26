@@ -77,9 +77,9 @@ async function hasCurrentAutomatedPhase2Mastery(db: any, userId: number, program
   return false;
 }
 
-async function getAclsElearningProof(db: any, userId: number) {
+async function getAclsElearningProof(db: any, userId: number, programType: "acls" | "pals" | "nrp" = "acls") {
   const [row, bls] = await Promise.all([
-    getCanonicalAhaEnrollment(db, userId, "acls"),
+    getCanonicalAhaEnrollment(db, userId, programType),
     getCanonicalAhaEnrollment(db, userId, "bls"),
   ]);
   const blsCognitiveComplete = !!bls?.cognitiveModulesComplete;
@@ -1709,6 +1709,7 @@ export const coursesRouter = router({
   /** Private upload path for the two ACLS elearning.heart.org certificates. */
   submitElearningProofFiles: protectedProcedure
     .input(z.object({
+      programType: z.enum(["acls", "pals", "nrp"]).default("acls"),
       precourseAssessmentScore: z.number().int().min(0).max(100),
       documents: z.array(z.object({
         documentType: z.enum(["video_prework", "precourse_assessment", "precourse_assessment_screenshot"]),
@@ -1724,9 +1725,9 @@ export const coursesRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      const proof = await getAclsElearningProof(db, ctx.user.id);
+      const proof = await getAclsElearningProof(db, ctx.user.id, input.programType);
       if (!proof.blsCognitiveComplete || !proof.courseCognitiveComplete || !proof.row) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Complete the BLS refresh and ACLS cognitive modules before uploading the AHA eLearning evidence." });
+        throw new TRPCError({ code: "FORBIDDEN", message: "Complete the BLS refresh and the selected AHA course cognitive modules before uploading the AHA eLearning evidence." });
       }
       const updates: Record<string, unknown> = {
         elearningProofSubmittedAt: new Date(),
