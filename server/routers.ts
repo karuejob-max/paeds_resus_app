@@ -72,6 +72,7 @@ import { facilitiesRouter } from "./routers/facilities";
 import { facilityLinkingRouter } from "./routers/facility-linking";
 import { referralsRouter } from "./routers/referrals";
 import { institutionRouter } from "./routers/institution";
+import { institutionStaff360Router } from "./routers/institution-staff-360";
 import { institutionAdminsRouter } from "./routers/institution-admins";
 import { institutionRecoveryRouter } from "./routers/institution-recovery";
 import { iersRouter } from "./routers/iers";
@@ -523,6 +524,7 @@ export const appRouter = router({
   fpkb: fpkbRouter,
   referrals: referralsRouter,
   institution: institutionRouter,
+  institutionStaff360: institutionStaff360Router,
   institutionProducts: institutionProductsRouter,
   institutionalQi: institutionalQiRouter,
   institutionalBilling: institutionalBillingRouter,

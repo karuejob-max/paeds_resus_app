@@ -79,6 +79,7 @@ const ForInstitutions = lazy(() => import("./pages/ForInstitutions"));
 const ForParents = lazy(() => import("./pages/ForParents"));
 const AHACoursesPublic = lazy(() => import("./pages/AHACoursesPublic"));
 const InstitutionWorkspace = lazy(() => import("./pages/InstitutionWorkspace"));
+const InstitutionStaff360 = lazy(() => import("./pages/InstitutionStaff360"));
 const Enroll = lazy(() => import("./pages/Enroll"));
 const LearnerDashboard = lazy(() => import("./pages/LearnerDashboard"));
 const PatientsList = lazy(() => import("./pages/PatientsList"));
@@ -305,6 +306,11 @@ function Router() {
           <Route path="/institution/cpd">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=cpd_portal" /></RoleGate>}</Route>
           <Route path="/institution/cpd-portal">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=cpd_portal" /></RoleGate>}</Route>
           <Route path="/institution/administration">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=administration" /></RoleGate>}</Route>
+          <Route path="/institution/staff/:userId">{() => (
+            <RoleGate allowed={["institution"]}>
+              <InstitutionStaff360 />
+            </RoleGate>
+          )}</Route>
           <Route path="/institution/connected-services">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=connected" /></RoleGate>}</Route>
           <Route path="/institutional" component={Institutional} />
           <Route path="/admin">{() => (
