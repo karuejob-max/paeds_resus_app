@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { calculatePhase2AutomationStatus, getPhase2Requirements, scoreCardiacArrestEventLog, scoreDedicatedSimulation, supportsAutomatedPhase3Gate } from "./phase2-automation";
+import { ADULT_ACLS_SCENARIO_VERSION } from "./adult-acls-simulation-world";
+import { PHASE2_SCENARIO_VERSIONS, calculatePhase2AutomationStatus, getPhase2Requirements, scoreCardiacArrestEventLog, scoreDedicatedSimulation, supportsAutomatedPhase3Gate } from "./phase2-automation";
 import { getLifeSupportRequiredPhases } from "./life-support-pathways";
 
 describe("automated Phase 2 mastery", () => {
@@ -10,21 +11,21 @@ describe("automated Phase 2 mastery", () => {
       scenarioId: requirement.scenarioIds?.[index] ?? `${requirement.id}-${index}`,
       score: 80,
       passed: true,
-      scenarioVersion: requirement.trackIds?.includes("adult_acls_world") ? "1.2.0" : undefined,
+      scenarioVersion: requirement.trackIds?.includes("adult_acls_world") ? ADULT_ACLS_SCENARIO_VERSION : undefined,
     })));
     const status = calculatePhase2AutomationStatus("acls", attempts);
     expect(status.phase2Ready).toBe(true);
     expect(status.phase3Eligible).toBe(true);
     expect(status.completedRequirements).toBe(3);
     expect(status.authority).toBe("automated_simulation_mastery");
-    expect(status.requirementSetVersion).toBe("phase2-v4-acls-safety-2026-10-21");
+    expect(status.requirementSetVersion).toBe("phase2-v5-acls-order-2026-10-26");
     expect(status.governanceBoundary).toBe("does_not_issue_credential");
   });
 
   it("requires distinct scenarios rather than repeated passes of one scenario", () => {
     const repeated = calculatePhase2AutomationStatus("acls", [
-      { trackId: "adult_acls_world", scenarioId: "vf-pulseless-vt", score: 100, passed: true, scenarioVersion: "1.2.0" },
-      { trackId: "adult_acls_world", scenarioId: "vf-pulseless-vt", score: 100, passed: true, scenarioVersion: "1.2.0" },
+      { trackId: "adult_acls_world", scenarioId: "vf-pulseless-vt", score: 100, passed: true, scenarioVersion: ADULT_ACLS_SCENARIO_VERSION },
+      { trackId: "adult_acls_world", scenarioId: "vf-pulseless-vt", score: 100, passed: true, scenarioVersion: ADULT_ACLS_SCENARIO_VERSION },
     ]);
     expect(repeated.requirements.find((requirement) => requirement.id === "arrest-sequence")?.complete).toBe(false);
   });
@@ -124,5 +125,22 @@ describe("automated Phase 2 mastery", () => {
     expect(status.phase2Ready).toBe(false);
     expect(status.totalRequirements).toBe(0);
     expect(status.governanceBoundary).toBe("does_not_issue_credential");
+  });
+
+  it("derives the Phase 2 ACLS scenario version from the live engine so the two cannot drift", () => {
+    expect(PHASE2_SCENARIO_VERSIONS.adult_acls_world).toBe(ADULT_ACLS_SCENARIO_VERSION);
+  });
+
+  it("counts ACLS attempts saved under the live engine version and rejects stale-version attempts", () => {
+    const requirements = getPhase2Requirements("acls");
+    const build = (version: string) => requirements.flatMap((requirement) => Array.from({ length: requirement.requiredAttempts }, (_, index) => ({
+      trackId: requirement.trackIds[0],
+      scenarioId: requirement.scenarioIds?.[index % (requirement.scenarioIds?.length ?? 1)] ?? `scenario-${requirement.id}-${index}`,
+      score: 100,
+      passed: true,
+      scenarioVersion: requirement.trackIds.includes("adult_acls_world") ? version : undefined,
+    })));
+    expect(calculatePhase2AutomationStatus("acls", build(ADULT_ACLS_SCENARIO_VERSION)).phase2Ready).toBe(true);
+    expect(calculatePhase2AutomationStatus("acls", build("1.2.0")).phase2Ready).toBe(false);
   });
 });

@@ -14,7 +14,6 @@ import {
   simulationWorldCommandReceipts,
   simulationWorldEvidence,
   simulationWorldSessions,
-  phase2MasteryCompletions,
   users,
 } from "../../drizzle/schema";
 import {
@@ -27,7 +26,13 @@ import {
 import { advanceSimulationWorld, createSimulationWorld, isSimulationWorldCommandAllowed, isSimulationWorldScenarioCompatible, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_WORLD_ROLES, SIMULATION_WORLD_SCENARIOS, type SimulationWorldEvent, type SimulationWorldRole, type SimulationWorldScenarioId, type SimulationWorldState, type SimulationWorldCommand } from "../../shared/simulation-world";
 import { ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS, ADULT_ACLS_SCENARIOS, ADULT_ACLS_SCENARIO_VERSION, ADULT_ACLS_WORLD_VERSION, advanceAdultAclsSimulation, calculateAdultAclsTrainingEvidence, createAdultAclsSimulation, getAdultAclsScoreBreakdown, reduceAdultAclsSimulation, type AdultAclsCommand, type AdultAclsScenarioId, type AdultAclsState } from "../../shared/adult-acls-simulation-world";
 import { NRP_MAX_ACTION_ADVANCE_SECONDS, NRP_SCENARIOS, NRP_SCENARIO_VERSION, NRP_WORLD_VERSION, advanceNrpSimulation, calculateNrpTrainingEvidence, createNrpSimulation, reduceNrpSimulation, type NrpCommand, type NrpScenarioId, type NrpState } from "../../shared/nrp-simulation-world";
-import { calculatePhase2AutomationStatus, PHASE2_REQUIREMENT_SET_VERSION, scoreAuthoritativeChoiceAttempt, scoreCardiacArrestEventLog, scoreDedicatedSimulation, scoreFormativeEventLog, supportsAutomatedPhase3Gate } from "../../shared/phase2-automation";
+import { reconcilePhase2Completion } from "../lib/phase2-completion";
+import { calculatePhase2AutomationStatus, scoreAuthoritativeChoiceAttempt, scoreCardiacArrestEventLog, scoreDedicatedSimulation, scoreFormativeEventLog } from "../../shared/phase2-automation";
+
+const PHASE2_LEDGER_PROGRAMS = ["acls", "pals", "nrp", "heartsaver"] as const;
+function isPhase2LedgerProgram(programType: string): programType is (typeof PHASE2_LEDGER_PROGRAMS)[number] {
+  return (PHASE2_LEDGER_PROGRAMS as readonly string[]).includes(programType);
+}
 
 const AHA_PROGRAM_TYPES = ["bls", "acls", "pals", "heartsaver", "nrp"] as const;
 
@@ -260,6 +265,8 @@ export const practiceLabRouter = router({
       await db.insert(ahaPracticeLabAttempts).values({ userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "acls", trackId: "adult_acls_world", scenarioId: session.scenarioId, score: automatedScore, passed: automatedScore >= 70, eventLog: state.events, evidenceStatus: "review_required", scenarioVersion: session.scenarioVersion, criticalFailure: state.criticalFailures.length > 0, durationSeconds: Math.round(state.elapsedSeconds) });
       await db.insert(simulationWorldEvidence).values({ sessionId: session.id, userId: ctx.user.id, enrollmentId: session.enrollmentId, role: session.role, scenarioId: state.scenarioId, evidenceStatus: "review_required", assessmentJson: evidenceWithRubric });
       await db.update(simulationWorldSessions).set({ status: "completed", completedAt: new Date() }).where(eq(simulationWorldSessions.id, session.id));
+      // Reconcile at the dedicated-world save boundary (recordAttempt rejects this track by design).
+      await reconcilePhase2Completion(db, { userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "acls", source: "completeAdultAclsSession" });
       return { success: true, evidenceStatus: "review_required" as const, evidence: evidenceWithRubric, syntheticTrainingOnly: true };
     }),
 
@@ -505,40 +512,9 @@ export const practiceLabRouter = router({
         durationSeconds: input.durationSeconds ?? null,
       }).$returningId();
 
-      // Materialise qualifying automated mastery at the authoritative save
-      // boundary. The Hub query remains a read/reconciliation path, not the
-      // only place where a Phase 2 completion can appear.
-      if (supportsAutomatedPhase3Gate(input.programType)) {
-        const savedAttempts = await db.select({
-          trackId: ahaPracticeLabAttempts.trackId,
-          scenarioId: ahaPracticeLabAttempts.scenarioId,
-          score: ahaPracticeLabAttempts.score,
-          passed: ahaPracticeLabAttempts.passed,
-          evidenceStatus: ahaPracticeLabAttempts.evidenceStatus,
-          criticalFailure: ahaPracticeLabAttempts.criticalFailure,
-          scenarioVersion: ahaPracticeLabAttempts.scenarioVersion,
-        }).from(ahaPracticeLabAttempts).where(and(
-          eq(ahaPracticeLabAttempts.userId, ctx.user.id),
-          eq(ahaPracticeLabAttempts.enrollmentId, input.enrollmentId),
-        ));
-        const mastery = calculatePhase2AutomationStatus(input.programType, savedAttempts.map((saved) => ({
-          trackId: saved.trackId,
-          scenarioId: saved.scenarioId,
-          score: Number(saved.score ?? 0),
-          passed: Boolean(saved.passed),
-          evidenceStatus: saved.evidenceStatus,
-          criticalFailure: Boolean(saved.criticalFailure),
-          scenarioVersion: saved.scenarioVersion,
-        })));
-        if (mastery.phase2Ready) {
-          await db.insert(phase2MasteryCompletions).values({
-            userId: ctx.user.id,
-            enrollmentId: input.enrollmentId,
-            programType: input.programType,
-            requirementSetVersion: PHASE2_REQUIREMENT_SET_VERSION,
-            evidenceSnapshotJson: mastery,
-          }).onDuplicateKeyUpdate({ set: { requirementSetVersion: PHASE2_REQUIREMENT_SET_VERSION, evidenceSnapshotJson: mastery, revokedAt: null, revokedReason: null, updatedAt: new Date() } });
-        }
+      // Reconcile the automated Phase 2 completion at the authoritative save boundary.
+      if (isPhase2LedgerProgram(input.programType)) {
+        await reconcilePhase2Completion(db, { userId: ctx.user.id, enrollmentId: input.enrollmentId, programType: input.programType, source: "recordAttempt" });
       }
       if (session) {
         await db.insert(simulationWorldEvidence).values({
@@ -590,20 +566,10 @@ export const practiceLabRouter = router({
       }
       const attempts = await db.select({ trackId: ahaPracticeLabAttempts.trackId, scenarioId: ahaPracticeLabAttempts.scenarioId, score: ahaPracticeLabAttempts.score, passed: ahaPracticeLabAttempts.passed, evidenceStatus: ahaPracticeLabAttempts.evidenceStatus, criticalFailure: ahaPracticeLabAttempts.criticalFailure, scenarioVersion: ahaPracticeLabAttempts.scenarioVersion })
         .from(ahaPracticeLabAttempts).where(and(eq(ahaPracticeLabAttempts.userId, ctx.user.id), eq(ahaPracticeLabAttempts.enrollmentId, input.enrollmentId)));
-      const status = calculatePhase2AutomationStatus(enrollment.programType as (typeof AHA_PROGRAM_TYPES)[number], attempts.map((attempt) => ({ trackId: attempt.trackId, scenarioId: attempt.scenarioId, score: Number(attempt.score ?? 0), passed: Boolean(attempt.passed), evidenceStatus: attempt.evidenceStatus, criticalFailure: Boolean(attempt.criticalFailure), scenarioVersion: attempt.scenarioVersion })));
-      if (status.phase2Ready) {
-        await db.insert(phase2MasteryCompletions).values({
-          userId: ctx.user.id,
-          enrollmentId: input.enrollmentId,
-          programType: enrollment.programType as "acls" | "pals" | "nrp" | "heartsaver",
-          requirementSetVersion: PHASE2_REQUIREMENT_SET_VERSION,
-          evidenceSnapshotJson: status,
-        }).onDuplicateKeyUpdate({ set: { requirementSetVersion: PHASE2_REQUIREMENT_SET_VERSION, evidenceSnapshotJson: status, revokedAt: null, revokedReason: null, updatedAt: new Date() } });
-      } else {
-        await db.update(phase2MasteryCompletions)
-          .set({ revokedAt: new Date(), revokedReason: `Superseded by ${PHASE2_REQUIREMENT_SET_VERSION}`, updatedAt: new Date() })
-          .where(and(eq(phase2MasteryCompletions.userId, ctx.user.id), eq(phase2MasteryCompletions.enrollmentId, input.enrollmentId), sql`${phase2MasteryCompletions.revokedAt} IS NULL`));
+      if (!isPhase2LedgerProgram(enrollment.programType)) {
+        return calculatePhase2AutomationStatus(enrollment.programType as (typeof AHA_PROGRAM_TYPES)[number], []);
       }
+      const { status } = await reconcilePhase2Completion(db, { userId: ctx.user.id, enrollmentId: input.enrollmentId, programType: enrollment.programType, source: "hubStatus" });
       return status;
     }),
 
