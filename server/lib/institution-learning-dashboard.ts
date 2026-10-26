@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import {
   cpdAttendees,
   cpdEvents,
@@ -78,7 +78,20 @@ export async function loadInstitutionLearningDashboard(
       db
         .select()
         .from(cpdEvents)
-        .where(eq(cpdEvents.institutionalAccountId, institutionId)),
+        .where(and(
+          eq(cpdEvents.institutionalAccountId, institutionId),
+          or(
+            and(
+              gte(cpdEvents.eventDateAt, dateOnlyAsDate(period.periodStart)),
+              lte(cpdEvents.eventDateAt, dateOnlyAsDate(period.periodEnd)),
+            ),
+            and(
+              sql`${cpdEvents.eventDateAt} IS NULL`,
+              gte(cpdEvents.createdAt, dateOnlyAsDate(period.periodStart)),
+              lte(cpdEvents.createdAt, new Date(`${period.periodEnd}T23:59:59.999Z`)),
+            ),
+          ),
+        )),
       db
         .select()
         .from(cpdAttendees)
@@ -152,7 +165,10 @@ export async function loadInstitutionLearningDashboard(
           createdAt: enrollments.createdAt,
         })
         .from(enrollments)
-        .where(inArray(enrollments.programType, [...LEARNING_PROGRAM_TYPES])),
+        .where(and(
+          inArray(enrollments.programType, [...LEARNING_PROGRAM_TYPES]),
+          sql`${enrollments.userId} IN (SELECT userId FROM institutionMemberships WHERE institutionalAccountId = ${institutionId} AND membershipStatus = 'active' AND userId IS NOT NULL)`,
+        )),
       db
         .select()
         .from(institutionLearningTargets)
