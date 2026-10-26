@@ -261,7 +261,7 @@ export default function AHACourses() {
           </Card>
         )}
 
-        {aclsCognitiveComplete && !ierpSummary && <AclsElearningProofCard />}
+        {!ierpSummary && (["acls", "pals", "nrp"] as const).map(programType => { const enrollment = enrollmentByProgram.get(programType); return enrollment?.cognitiveModulesComplete ? <AclsElearningProofCard key={programType} programType={programType} /> : null; })}
 
         {anyCognitiveComplete && (
           <Card className="border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800">
@@ -326,7 +326,7 @@ export default function AHACourses() {
               <div>
                 <p className="font-semibold text-foreground">Ready to complete your practical skills?</p>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  After ACLS cognitive completion, complete the AHA Video Precourse Work and pass the Precourse Self-Assessment at elearning.heart.org, then upload both certificates. Phase 2 booking opens after both certificates are submitted; practical sign-off follows later.
+                  After the selected AHA course cognitive completion, complete the AHA Video Precourse Work and Precourse Self-Assessment at elearning.heart.org, then upload the score screenshot and both certificates. Phase 2 booking opens after review.
                 </p>
               </div>
               <Button

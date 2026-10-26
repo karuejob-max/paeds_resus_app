@@ -1349,14 +1349,21 @@ export default function MicroCoursePlayerDB() {
                   </div>
                 )}
                 {issuedCertNumber && (
-                  <Button 
-                    className="w-full py-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center justify-center gap-2"
-                    onClick={() => handleDownload(issuedCertNumber)}
-                    disabled={downloadCert.isPending}
-                  >
-                    {downloadCert.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                    Download Paeds Resus {dbCourse.title} Certificate
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      aria-label={`Download Paeds Resus ${dbCourse.title} certificate`}
+                      className="w-full min-h-14 whitespace-normal px-4 py-4 text-center leading-tight bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center justify-center gap-2"
+                      onClick={() => handleDownload(issuedCertNumber)}
+                      disabled={downloadCert.isPending}
+                    >
+                      {downloadCert.isPending ? <Loader2 className="w-5 h-5 shrink-0 animate-spin" /> : <Download className="w-5 h-5 shrink-0" />}
+                      <span>{downloadCert.isPending ? "Preparing certificate…" : "Download certificate"}</span>
+                    </Button>
+                    <p className="text-xs text-slate-500">
+                      You can download it later from <strong>Certificates &amp; Records</strong> if you leave this page now.
+                    </p>
+                  </>
                 )}
                 {isAhaCourse && ahaProgramForUi && (
                   <Button
