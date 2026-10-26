@@ -22,6 +22,7 @@ import { trpc } from "@/lib/trpc";
 const labels = {
   video_prework: "Video Prework Completion Certificate",
   precourse_assessment: "Passed Precourse Self-Assessment Certificate",
+  precourse_assessment_screenshot: "Score screenshot",
 } as const;
 
 function ReviewRow({ row, onRefresh }: { row: any; onRefresh: () => void }) {
@@ -40,6 +41,10 @@ function ReviewRow({ row, onRefresh }: { row: any; onRefresh: () => void }) {
   );
   const assessment = trpc.courses.getElearningProofDownloadUrl.useQuery(
     { enrollmentId: row.enrollmentId, documentType: "precourse_assessment" },
+    { enabled: false, retry: false }
+  );
+  const screenshot = trpc.courses.getElearningProofDownloadUrl.useQuery(
+    { enrollmentId: row.enrollmentId, documentType: "precourse_assessment_screenshot" },
     { enabled: false, retry: false }
   );
 
@@ -72,7 +77,8 @@ function ReviewRow({ row, onRefresh }: { row: any; onRefresh: () => void }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-2 sm:grid-cols-2">
+        <p className="rounded bg-slate-50 p-2 text-sm">Learner-reported precourse score: <strong>{row.precourseAssessmentScore ?? "not recorded"}/100</strong></p>
+        <div className="grid gap-2 sm:grid-cols-3">
           <Button
             variant="outline"
             className="justify-between"
@@ -92,6 +98,9 @@ function ReviewRow({ row, onRefresh }: { row: any; onRefresh: () => void }) {
           >
             {labels.precourse_assessment}
             <ExternalLink className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" className="justify-between" onClick={() => openEvidence(screenshot)} disabled={!row.precourseAssessmentScreenshotUrl || screenshot.isFetching}>
+            {labels.precourse_assessment_screenshot}<ExternalLink className="h-4 w-4" />
           </Button>
         </div>
         {row.rejectionReason && (
@@ -114,6 +123,8 @@ function ReviewRow({ row, onRefresh }: { row: any; onRefresh: () => void }) {
                   !row.cognitiveModulesComplete ||
                   !row.videoPreworkCertificateUrl ||
                   !row.precourseAssessmentCertificateUrl ||
+                  !row.precourseAssessmentScreenshotUrl ||
+                  row.precourseAssessmentScore == null ||
                   row.precourseAssessmentPassed !== true
                 }
                 onClick={() =>
