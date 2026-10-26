@@ -10,8 +10,14 @@ describe("Simulation scenario catalog", () => {
 
   it("exposes distinct ACLS scenarios across rhythm recognition and adult ACLS", () => {
     const scenarios = getSimulationScenarioCatalog("acls");
-    expect(scenarios.filter((item) => item.trackId === "adult_acls_world").length).toBeGreaterThanOrEqual(8);
+    expect(scenarios.filter((item) => item.trackId === "adult_acls_world").length).toBeGreaterThanOrEqual(11);
     expect(scenarios.filter((item) => item.trackId === "rhythm_recognition").length).toBeGreaterThanOrEqual(5);
+    expect(scenarios.find((item) => item.id === "high-grade-av-block")).toMatchObject({
+      title: "High-grade AV block",
+      missionId: "adult-acls-world",
+      trackId: "adult_acls_world",
+      supportedPrograms: ["acls"],
+    });
   });
 
   it("exposes multiple newborn emergencies for NRP", () => {
