@@ -286,7 +286,9 @@
     "db:apply-0178": "node scripts/apply-0178-institution-membership-invitation-events.mjs",
     "db:verify-0178": "node scripts/verify-0178-institution-membership-invitation-events.mjs",
     "db:apply-0179": "node scripts/apply-0179-professional-credential-email-delivery.mjs",
-    "seed:qa-institution": "tsx --import dotenv/config scripts/seed-qa-institution.ts"
+    "seed:qa-institution": "tsx --import dotenv/config scripts/seed-qa-institution.ts",
+    "db:apply-0188": "node scripts/apply-0188-aha-precourse-evidence.mjs",
+    "db:verify-0188": "node scripts/verify-0188-aha-precourse-evidence.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

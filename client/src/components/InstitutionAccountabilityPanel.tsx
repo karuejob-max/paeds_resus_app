@@ -51,6 +51,10 @@ export function InstitutionAccountabilityPanel({
     trpc.institutionAccountability.getComplianceDashboard.useQuery({
       institutionId,
       periodType,
+    }, {
+      staleTime: 30_000,
+      retry: 1,
+      refetchOnWindowFocus: false,
     });
   const staffQuery = trpc.institution.getStaffMembers.useQuery(
     { institutionId },
@@ -173,6 +177,7 @@ export function InstitutionAccountabilityPanel({
               <option value="annual">Annual</option>
             </select>
             <span className="text-muted-foreground"> · {data.learning.period.periodStart} to {data.learning.period.periodEnd}</span>
+            {dashboardQuery.isFetching ? <span className="ml-2 text-xs text-muted-foreground">Updating…</span> : null}
           </div>
           <div className="text-xs text-muted-foreground">
             Attendance is verified attendance seats divided by eligible staff-seats. It is not the number of sessions held.

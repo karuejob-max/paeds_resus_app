@@ -195,6 +195,10 @@ export const enrollments = mysqlTable("enrollments", {
    */
   videoPreworkCertificateUrl: text("videoPreworkCertificateUrl"),
   precourseAssessmentCertificateUrl: text("precourseAssessmentCertificateUrl"),
+  /** Score reported by the learner from the AHA eLearning precourse self-assessment. */
+  precourseAssessmentScore: int("precourseAssessmentScore"),
+  /** Screenshot of the score page, retained as private review evidence. */
+  precourseAssessmentScreenshotUrl: text("precourseAssessmentScreenshotUrl"),
   precourseAssessmentPassed: boolean("precourseAssessmentPassed").default(
     false
   ),
