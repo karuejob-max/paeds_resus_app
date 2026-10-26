@@ -19,18 +19,34 @@ const courses = [
   ["nrp", "NRP"],
 ] as const;
 
+type Course = (typeof courses)[number][0];
+type CodePreview = {
+  institutionId: number;
+  companyName: string | null;
+  departmentId: number | null;
+  programType: string;
+  expiresAt: Date;
+  remainingRedemptions: number;
+};
+
 export function IlsAhaAccessCodeCard() {
   const [accessCode, setAccessCode] = useState("");
-  const [programType, setProgramType] =
-    useState<(typeof courses)[number][0]>("bls");
+  const [programType, setProgramType] = useState<Course>("bls");
+  const [preview, setPreview] = useState<CodePreview | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const utils = trpc.useUtils();
+  const previewQuery =
+    trpc.institutionalLifeSupport.previewInstitutionalAhaAccessCode.useQuery(
+      { accessCode: accessCode.trim(), programType },
+      { enabled: false, retry: false }
+    );
   const redeem =
     trpc.institutionalLifeSupport.redeemInstitutionalAhaAccessCode.useMutation({
       onSuccess: result => {
         setMessage(result.message);
         setError(null);
+        setPreview(null);
         setAccessCode("");
         void utils.institutionalLifeSupport.getMyEnrollment.invalidate();
       },
@@ -40,6 +56,18 @@ export function IlsAhaAccessCodeCard() {
       },
     });
 
+  async function reviewCode() {
+    setMessage(null);
+    setError(null);
+    const result = await previewQuery.refetch();
+    if (result.error) {
+      setError(result.error.message);
+      setPreview(null);
+      return;
+    }
+    setPreview(result.data ?? null);
+  }
+
   return (
     <Card className="border-sky-200 bg-sky-50/40 dark:border-sky-900 dark:bg-sky-950/20">
       <CardHeader>
@@ -48,9 +76,9 @@ export function IlsAhaAccessCodeCard() {
           Have an institution course code?
         </CardTitle>
         <CardDescription>
-          Enter the code provided by your institution. It is limited to the
-          assigned institution or department and can be used only while it
-          remains active.
+          Review the sponsoring institution, course, scope, expiry, and
+          remaining seats before you accept access. A code never grants clinical
+          role authority.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -60,9 +88,10 @@ export function IlsAhaAccessCodeCard() {
             <Input
               id="ils-access-code"
               value={accessCode}
-              onChange={event =>
-                setAccessCode(event.target.value.toUpperCase())
-              }
+              onChange={event => {
+                setAccessCode(event.target.value.toUpperCase());
+                setPreview(null);
+              }}
               placeholder="PAEDS-XXXXXXXXXX"
               autoComplete="off"
             />
@@ -73,9 +102,10 @@ export function IlsAhaAccessCodeCard() {
               id="ils-access-course"
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={programType}
-              onChange={event =>
-                setProgramType(event.target.value as typeof programType)
-              }
+              onChange={event => {
+                setProgramType(event.target.value as Course);
+                setPreview(null);
+              }}
             >
               {courses.map(([value, label]) => (
                 <option key={value} value={value}>
@@ -86,14 +116,50 @@ export function IlsAhaAccessCodeCard() {
           </div>
           <Button
             type="button"
-            disabled={accessCode.trim().length < 8 || redeem.isPending}
-            onClick={() =>
-              redeem.mutate({ accessCode: accessCode.trim(), programType })
-            }
+            disabled={accessCode.trim().length < 8 || previewQuery.isFetching}
+            onClick={() => void reviewCode()}
           >
-            {redeem.isPending ? "Checking…" : "Redeem code"}
+            {previewQuery.isFetching ? "Reviewing…" : "Review code"}
           </Button>
         </div>
+        {preview && (
+          <div className="space-y-3 rounded-md border border-sky-200 bg-white p-4 text-sm dark:bg-slate-950">
+            <p>
+              <strong>{preview.programType.toUpperCase()}</strong> sponsored by{" "}
+              <strong>{preview.companyName ?? "your institution"}</strong>.
+            </p>
+            <p>
+              {preview.departmentId
+                ? "This code is limited to your assigned department."
+                : "This code applies across your institution."}{" "}
+              It expires on {new Date(preview.expiresAt).toLocaleDateString()}{" "}
+              and has {preview.remainingRedemptions} remaining seat(s).
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                disabled={redeem.isPending}
+                onClick={() =>
+                  redeem.mutate({
+                    accessCode: accessCode.trim(),
+                    programType,
+                  })
+                }
+              >
+                {redeem.isPending
+                  ? "Activating…"
+                  : "Accept and activate course"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPreview(null)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
         {message && (
           <p className="text-sm text-emerald-700" role="status">
             {message}

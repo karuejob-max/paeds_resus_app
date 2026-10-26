@@ -33,6 +33,7 @@ import {
   users,
   institutionalPricingAuditEvents,
   globalEntitlements,
+  facilityDepartments,
 } from "../../drizzle/schema";
 import {
   ensureInstitutionalLifeSupportCatalog,
@@ -40,7 +41,7 @@ import {
 } from "../lib/ensure-institutional-life-support-catalog";
 import { assertTrainingWorkspaceOrAdmin } from "../lib/training-workspace-guard";
 import { applyInstitutionalLifeSupportPaymentCompletion, applyInstitutionalLifeSupportPaymentFailure } from "../lib/institutional-life-support-payments";
-import { createAccessCode, calculateEntitlementPrice, consumeGlobalEntitlement, findActiveGlobalEntitlement, newEntitlementReference, hashAccessCode } from "../lib/global-entitlements";
+import { createAccessCode, calculateEntitlementPrice, consumeGlobalEntitlement, consumeGlobalEntitlementInTransaction, findActiveGlobalEntitlement, newEntitlementReference, hashAccessCode } from "../lib/global-entitlements";
 import { resolveAhaCourseAnchor, type AhaAnchorProgramType } from "../lib/resolve-aha-course-anchor";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { assertIlsDepartmentSelection, resolveIlsAuthority } from "../lib/ils-authority";
@@ -70,6 +71,7 @@ import {
   getIlsSupportSlaHours,
 } from "@shared/ils-operations";
 import { runScheduledIlsReminders } from "../lib/ils-reminders";
+import { enforceIlsAccessCodeRateLimit } from "../lib/ils-access-code-rate-limit";
 
 import {
   getCertificateByEnrollmentId,
@@ -2811,6 +2813,23 @@ export const institutionalLifeSupportRouter = router({
         authority,
         input.departmentId ?? undefined
       );
+      if (departmentId != null) {
+        const [department] = await db
+          .select({ id: facilityDepartments.id })
+          .from(facilityDepartments)
+          .where(and(
+            eq(facilityDepartments.id, departmentId),
+            eq(facilityDepartments.institutionId, input.institutionId),
+            eq(facilityDepartments.isActive, true)
+          ))
+          .limit(1);
+        if (!department) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "The selected department is not an active department of this institution.",
+          });
+        }
+      }
       const expiresAt = new Date(`${input.expiresAt}T23:59:59.999Z`);
       if (expiresAt.getTime() <= Date.now()) {
         throw new TRPCError({
@@ -2818,16 +2837,6 @@ export const institutionalLifeSupportRouter = router({
           message: "Access-code expiry must be in the future.",
         });
       }
-      const anchor = await resolveAhaCourseAnchor(
-        db,
-        input.programType as AhaAnchorProgramType,
-        { skipEnsure: false }
-      );
-      if (!anchor)
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "The selected AHA course is not available.",
-        });
       const accessCode = createAccessCode();
       const grantReference = newEntitlementReference();
       await db.insert(globalEntitlements).values({
@@ -2913,6 +2922,72 @@ export const institutionalLifeSupportRouter = router({
       return rows;
     }),
 
+  previewInstitutionalAhaAccessCode: protectedProcedure
+    .input(z.object({ accessCode: z.string().trim().min(8).max(64), programType: ilsAhaProgramTypeSchema }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await enforceIlsAccessCodeRateLimit(db, {
+        userId: ctx.user.id,
+        ipAddress: ctx.req.ip,
+        programType: input.programType,
+      });
+      const [entitlement] = await db.select({
+        targetInstitutionalAccountId: globalEntitlements.targetInstitutionalAccountId,
+        targetDepartmentId: globalEntitlements.targetDepartmentId,
+        programType: globalEntitlements.programType,
+        maxRedemptions: globalEntitlements.maxRedemptions,
+        redemptionCount: globalEntitlements.redemptionCount,
+        expiresAt: globalEntitlements.expiresAt,
+        companyName: institutionalAccounts.companyName,
+      }).from(globalEntitlements).leftJoin(institutionalAccounts, eq(institutionalAccounts.id, globalEntitlements.targetInstitutionalAccountId)).where(and(
+        eq(globalEntitlements.accessCodeHash, hashAccessCode(input.accessCode)),
+        eq(globalEntitlements.programType, input.programType),
+        eq(globalEntitlements.status, "active")
+      )).limit(1);
+      if (!entitlement || !entitlement.targetInstitutionalAccountId || entitlement.expiresAt.getTime() <= Date.now() || entitlement.redemptionCount >= entitlement.maxRedemptions)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This ILSP access code is invalid, expired, exhausted, or for another course." });
+      const membership = await db.select({ id: institutionalStaffMembers.id }).from(institutionalStaffMembers).where(and(
+        eq(institutionalStaffMembers.institutionalAccountId, entitlement.targetInstitutionalAccountId),
+        eq(institutionalStaffMembers.userId, ctx.user.id),
+        isNull(institutionalStaffMembers.removedAt),
+        entitlement.targetDepartmentId != null ? eq(institutionalStaffMembers.facilityDepartmentId, entitlement.targetDepartmentId) : undefined
+      )).limit(1);
+      if (!membership[0]) throw new TRPCError({ code: "FORBIDDEN", message: "This code is limited to an assigned department or institution." });
+      return {
+        institutionId: entitlement.targetInstitutionalAccountId,
+        companyName: entitlement.companyName,
+        departmentId: entitlement.targetDepartmentId,
+        programType: entitlement.programType,
+        expiresAt: entitlement.expiresAt,
+        remainingRedemptions: entitlement.maxRedemptions - entitlement.redemptionCount,
+      };
+    }),
+
+  revokeInstitutionalAhaAccessCode: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), entitlementId: z.number().int().positive(), reason: z.string().trim().min(10).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const authority = await resolveIlsAuthority(db, ctx.user, input.institutionId);
+      const [entitlement] = await db.select({
+        id: globalEntitlements.id,
+        targetDepartmentId: globalEntitlements.targetDepartmentId,
+        status: globalEntitlements.status,
+      }).from(globalEntitlements).where(and(
+        eq(globalEntitlements.id, input.entitlementId),
+        eq(globalEntitlements.targetInstitutionalAccountId, input.institutionId)
+      )).limit(1);
+      if (!entitlement) throw new TRPCError({ code: "NOT_FOUND", message: "Access code not found for this institution." });
+      if (authority.scope === "department" && (entitlement.targetDepartmentId == null || !authority.departmentIds.includes(entitlement.targetDepartmentId)))
+        throw new TRPCError({ code: "FORBIDDEN", message: "You can revoke codes only for your assigned department." });
+      if (entitlement.status !== "active") return { success: true as const, alreadyInactive: true as const };
+      await db.update(globalEntitlements).set({ status: "revoked", revokedAt: new Date(), revokedByUserId: ctx.user.id, revokeReason: input.reason.trim(), updatedAt: new Date() }).where(and(
+        eq(globalEntitlements.id, input.entitlementId), eq(globalEntitlements.status, "active")
+      ));
+      return { success: true as const, alreadyInactive: false as const };
+    }),
+
   redeemInstitutionalAhaAccessCode: protectedProcedure
     .input(
       z.object({
@@ -2927,6 +3002,11 @@ export const institutionalLifeSupportRouter = router({
           code: "INTERNAL_SERVER_ERROR",
           message: "Database unavailable",
         });
+      await enforceIlsAccessCodeRateLimit(db, {
+        userId: ctx.user.id,
+        ipAddress: ctx.req.ip,
+        programType: input.programType,
+      });
       const [entitlement] = await db
         .select()
         .from(globalEntitlements)
@@ -2993,8 +3073,9 @@ export const institutionalLifeSupportRouter = router({
           code: "NOT_FOUND",
           message: "The selected AHA course is not available.",
         });
-      const [existing] = await db
-        .select({ id: enrollments.id })
+      const result = await db.transaction(async (tx: any) => {
+        const [existing] = await tx
+        .select({ id: enrollments.id, paymentStatus: enrollments.paymentStatus })
         .from(enrollments)
         .where(
           and(
@@ -3005,24 +3086,32 @@ export const institutionalLifeSupportRouter = router({
         )
         .orderBy(desc(enrollments.updatedAt))
         .limit(1);
-      const enrollmentId = existing?.id ?? 0;
-      const applied = await consumeGlobalEntitlement(db, {
-        entitlementId: entitlement.id,
-        targetUserId: null,
-        targetInstitutionalAccountId: entitlement.targetInstitutionalAccountId,
-        selfPayCourseId: input.programType,
-        programType: input.programType,
-        resourceReference: `ils-code-${entitlement.id}-user-${ctx.user.id}-enrollment-${enrollmentId || "new"}`,
-        originalAmountKes: 0,
-        redeemedByUserId: ctx.user.id,
-      });
-      if (!applied)
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "This code was just used or is no longer available.",
+        if (existing?.paymentStatus === "completed") {
+          return {
+            success: true as const,
+            alreadyEnrolled: true as const,
+            enrollmentId: existing.id,
+            message: "You already have active access to this course.",
+          };
+        }
+        const enrollmentId = existing?.id ?? 0;
+        const applied = await consumeGlobalEntitlementInTransaction(tx, {
+          entitlementId: entitlement.id,
+          targetUserId: null,
+          targetInstitutionalAccountId: entitlement.targetInstitutionalAccountId,
+          selfPayCourseId: input.programType,
+          programType: input.programType,
+          resourceReference: `ils-code-${entitlement.id}-user-${ctx.user.id}-enrollment-${enrollmentId || "new"}`,
+          originalAmountKes: 0,
+          redeemedByUserId: ctx.user.id,
         });
-      if (existing) {
-        await db
+        if (!applied)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This code was just used or is no longer available.",
+          });
+        if (existing) {
+          await tx
           .update(enrollments)
           .set({
             paymentStatus: "completed",
@@ -3030,15 +3119,14 @@ export const institutionalLifeSupportRouter = router({
             updatedAt: new Date(),
           })
           .where(eq(enrollments.id, existing.id));
-        return {
-          success: true as const,
-          alreadyEnrolled: true as const,
-          enrollmentId: existing.id,
-          message:
-            "Access granted. Your existing course enrollment is now unlocked.",
-        };
-      }
-      const [created] = await db
+          return {
+            success: true as const,
+            alreadyEnrolled: true as const,
+            enrollmentId: existing.id,
+            message: "Access granted. Your existing course enrollment is now unlocked.",
+          };
+        }
+        const [created] = await tx
         .insert(enrollments)
         .values({
           userId: ctx.user.id,
@@ -3055,12 +3143,14 @@ export const institutionalLifeSupportRouter = router({
           updatedAt: new Date(),
         })
         .$returningId();
-      return {
-        success: true as const,
-        alreadyEnrolled: false as const,
-        enrollmentId: created.id,
-        message: "Access granted. You can start the course now.",
-      };
+        return {
+          success: true as const,
+          alreadyEnrolled: false as const,
+          enrollmentId: created.id,
+          message: "Access granted. You can start the course now.",
+        };
+      });
+      return result;
     }),
 
   listDueReminders: adminProcedure.query(async () => {

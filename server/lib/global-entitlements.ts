@@ -111,9 +111,7 @@ export async function findActiveGlobalEntitlement(
   return rows[0] ?? null;
 }
 
-export async function consumeGlobalEntitlement(
-  db: any,
-  input: {
+type ConsumeGlobalEntitlementInput = {
     entitlementId: number;
     targetUserId?: number | null;
     targetInstitutionalAccountId?: number | null;
@@ -122,10 +120,14 @@ export async function consumeGlobalEntitlement(
     resourceReference: string;
     originalAmountKes: number;
     redeemedByUserId: number;
-  }
+};
+
+/** Consume an entitlement inside an already-open transaction. */
+export async function consumeGlobalEntitlementInTransaction(
+  tx: any,
+  input: ConsumeGlobalEntitlementInput
 ) {
   const now = new Date();
-  return db.transaction(async (tx: any) => {
     const rows = await tx
       .select()
       .from(globalEntitlements)
@@ -183,12 +185,20 @@ export async function consumeGlobalEntitlement(
       redeemedByUserId: input.redeemedByUserId,
       redeemedAt: now,
     });
-    return {
-      entitlement,
-      ...price,
-      redemptionReference: `${entitlement.grantReference}:${input.resourceReference}`,
-    };
-  });
+  return {
+    entitlement,
+    ...price,
+    redemptionReference: `${entitlement.grantReference}:${input.resourceReference}`,
+  };
+}
+
+export async function consumeGlobalEntitlement(
+  db: any,
+  input: ConsumeGlobalEntitlementInput
+) {
+  return db.transaction((tx: any) =>
+    consumeGlobalEntitlementInTransaction(tx, input)
+  );
 }
 
 export function newEntitlementReference() {
