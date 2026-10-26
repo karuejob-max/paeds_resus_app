@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import {
   cpdAttendees,
   cpdEvents,
+  cpdEventCoPresenters,
   enrollments,
   facilityDepartments,
   institutionLearningTargets,
@@ -72,7 +73,7 @@ export async function loadInstitutionLearningDashboard(
   } = {},
 ) {
   const period = resolveLearningPeriod(input);
-  const [events, attendees, departments, staff, activeMembers, enrollmentRows, targets] =
+  const [events, attendees, coPresenterRows, departments, staff, activeMembers, enrollmentRows, targets] =
     await Promise.all([
       db
         .select()
@@ -82,6 +83,14 @@ export async function loadInstitutionLearningDashboard(
         .select()
         .from(cpdAttendees)
         .where(eq(cpdAttendees.institutionalAccountId, institutionId)),
+      db
+        .select({
+          cpdEventId: cpdEventCoPresenters.cpdEventId,
+          userId: cpdEventCoPresenters.userId,
+          email: cpdEventCoPresenters.email,
+        })
+        .from(cpdEventCoPresenters)
+        .where(eq(cpdEventCoPresenters.institutionalAccountId, institutionId)),
       db
         .select({
           id: facilityDepartments.id,
@@ -233,6 +242,9 @@ export async function loadInstitutionLearningDashboard(
         return allowedDepartmentNames.some(name => departmentLabelsMatch(attendee.department ?? "", name));
       })
     : attendees;
+  const coPresentersInScope = allowedDepartmentIds
+    ? coPresenterRows.filter(row => eventIdsInScope.has(row.cpdEventId))
+    : coPresenterRows;
   const departmentsInScope = allowedDepartmentIds
     ? departments.filter(department =>
         allowedDepartmentIds.includes(department.id)
@@ -252,6 +264,7 @@ export async function loadInstitutionLearningDashboard(
     period,
     events: eventsInScope as any,
     attendees: attendeesInScope as any,
+    coPresenters: coPresentersInScope as any,
     staff: staffInScope as any,
     departments: departmentsInScope,
     enrollments: enrollmentRows.filter(row =>

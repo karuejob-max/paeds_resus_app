@@ -48,6 +48,8 @@ describe("institution learning analytics", () => {
         audienceLabel: null,
         facilityDepartmentId: null,
         cpdPoints: "1",
+        presenterUserId: 102,
+        presenterName: "Ben Doctor",
       },
       {
         id: 2,
@@ -95,6 +97,9 @@ describe("institution learning analytics", () => {
         submittedAt: "2026-02-08",
         attendanceStatus: "attendance_verified",
       },
+    ],
+    coPresenters: [
+      { cpdEventId: 1, userId: 101, email: "ada@example.com" },
     ],
     enrollments: [
       {
@@ -241,5 +246,35 @@ describe("institution learning analytics", () => {
       completed: true,
       stage: "completed",
     });
+  });
+
+  it("separates sessions held, verified attendance seats, and presenter activity", () => {
+    const report = computeInstitutionLearningAnalytics(base);
+    expect(report.summary.totalSessions).toBe(3);
+    expect(report.summary.verifiedAttendanceRecords).toBe(2);
+    expect(report.summary.leadPresenterCount).toBe(1);
+    expect(report.summary.coPresenterCount).toBe(1);
+    expect(report.summary.cpdPointsAwarded).toBe(3);
+    expect(report.summary.dataQualityStatus).toBe("limited");
+    expect(report.individuals.find(row => row.userId === 101)).toMatchObject({
+      sessionsCoPresented: 1,
+      sessionsPresented: 0,
+      cpdPointsEarned: 1,
+    });
+    expect(report.individuals.find(row => row.userId === 102)).toMatchObject({
+      sessionsPresented: 1,
+      sessionsCoPresented: 0,
+      cpdPointsEarned: 1,
+    });
+  });
+
+  it("marks historical attendance with no stable account link as limited data", () => {
+    const report = computeInstitutionLearningAnalytics({
+      ...base,
+      attendees: base.attendees.map(row => ({ ...row, userId: null })),
+    });
+    expect(report.summary.unresolvedIdentityRecords).toBe(2);
+    expect(report.summary.identityMatchRate).toBe(0);
+    expect(report.summary.dataQualityStatus).toBe("limited");
   });
 });
