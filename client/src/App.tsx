@@ -41,6 +41,7 @@ const Institutional = lazy(() => import("./pages/Institutional"));
 const AdminHub = lazy(() => import("./pages/AdminHub"));
 const AdminAccessGrants = lazy(() => import("./pages/AdminAccessGrants"));
 const AdminReports = lazy(() => import("./pages/AdminReports"));
+const AdminUser360 = lazy(() => import("./pages/AdminUser360"));
 const AdminMpesaReconciliation = lazy(() => import("./pages/AdminMpesaReconciliation"));
 const AdminInstitutionalPayments = lazy(() => import("./pages/AdminInstitutionalPayments"));
 const AdminOps = lazy(() => import("./pages/AdminOps"));
@@ -319,6 +320,11 @@ function Router() {
           <Route path="/admin/reports">{() => (
             <AdminGate>
               <AdminReports />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin/users">{() => (
+            <AdminGate>
+              <AdminUser360 />
             </AdminGate>
           )}</Route>
           <Route path="/admin/mpesa-reconciliation">{() => (
