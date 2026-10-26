@@ -6,6 +6,7 @@ import {
   calculateAdultAclsTrainingEvidence,
   createAdultAclsSimulation,
   advanceAdultAclsSimulation,
+  getAdultAclsNextAction,
   reduceAdultAclsSimulation,
   scoreAdultAclsTraining,
   type AdultAclsCommand,
@@ -14,7 +15,7 @@ import {
 
 describe("Adult ACLS Simulation World V1 safety contract", () => {
   it("contains the ten required adult scenario families", () => {
-    expect(ADULT_ACLS_SCENARIOS).toHaveLength(10);
+    expect(ADULT_ACLS_SCENARIOS).toHaveLength(11);
     expect(ADULT_ACLS_SCENARIOS.every((scenario) => scenario.initial.hidden)).toBe(true);
   });
 
@@ -101,6 +102,26 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
     const paced = reduceAdultAclsSimulation(state, { type: "pace" });
     expect(paced.events.at(-1)?.description).toContain("mechanical capture");
     expect(paced.patient.rhythm).toBe("sinus_bradycardia");
+  });
+
+  it("keeps the next safe action visible and clinically ordered", () => {
+    let state = createAdultAclsSimulation("unstable-bradycardia");
+    expect(getAdultAclsNextAction(state)?.label).toBe("Assess rhythm");
+    state = reduceAdultAclsSimulation(state, { type: "assess", target: "rhythm" });
+    expect(getAdultAclsNextAction(state)?.label).toBe("Atropine");
+    const unsafePacing = reduceAdultAclsSimulation(createAdultAclsSimulation("unstable-bradycardia"), { type: "pace" });
+    expect(unsafePacing.criticalFailures).toHaveLength(1);
+  });
+
+  it("treats atropine-first high-grade AV block as poor but not critical, then requires pacing", () => {
+    let state = createAdultAclsSimulation("high-grade-av-block");
+    state = reduceAdultAclsSimulation(state, { type: "assess", target: "rhythm" });
+    state = reduceAdultAclsSimulation(state, { type: "give_atropine" });
+    expect(state.criticalFailures).toHaveLength(0);
+    expect(state.events.at(-1)?.correct).toBe(false);
+    state = reduceAdultAclsSimulation(state, { type: "pace" });
+    expect(state.events.at(-1)?.type).toBe("pacing");
+    expect(getAdultAclsNextAction(state)?.label).toBe("Reassess");
   });
 
   it("supports delayed deterioration and post-ROSC continuation", () => {
@@ -211,7 +232,7 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
   });
 
   it.each([
-    ["unstable-bradycardia", [{ type: "assess", target: "rhythm" }, { type: "pace" }, { type: "reassess" }, { type: "end_rehearsal" }]],
+    ["unstable-bradycardia", [{ type: "assess", target: "rhythm" }, { type: "give_atropine" }, { type: "reassess" }, { type: "end_rehearsal" }]],
     ["stable-narrow-tachycardia", [{ type: "assess", target: "rhythm" }, { type: "give_adenosine" }, { type: "reassess" }, { type: "end_rehearsal" }]],
     ["unstable-tachycardia", [{ type: "assess", target: "rhythm" }, { type: "prepare_synchronized_cardioversion" }, { type: "synchronized_cardioversion" }, { type: "support_perfusion" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "assist_ventilation" }, { type: "reassess" }, { type: "end_rehearsal" }]],
     ["vf-pulseless-vt", [{ type: "assess", target: "rhythm" }, { type: "start_cpr" }, { type: "defibrillate" }, { type: "reassess" }, ...Array(6).fill({ type: "give_oxygen" }), ...Array(4).fill({ type: "assist_ventilation" }), { type: "support_perfusion" }, { type: "reassess" }, { type: "end_rehearsal" }]],
