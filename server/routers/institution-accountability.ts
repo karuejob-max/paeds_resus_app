@@ -1147,6 +1147,9 @@ export const institutionAccountabilityRouter = router({
           cpdAttendanceRate: learningRow?.attendanceRate ?? 0,
           cpdAttendedSessions: learningRow?.attendedSessions ?? 0,
           cpdEligibleSessions: learningRow?.eligibleSessions ?? 0,
+          cpdSessionsPresented: learningRow?.sessionsPresented ?? 0,
+          cpdSessionsCoPresented: learningRow?.sessionsCoPresented ?? 0,
+          cpdPointsEarned: learningRow?.cpdPointsEarned ?? 0,
           cpdStatus: learningRow?.status ?? "no_data",
           targets: targetRows,
           evidenceAvailableToViewer: access.canViewEvidence
@@ -1178,6 +1181,15 @@ export const institutionAccountabilityRouter = router({
           attendanceRate:
             learning.departments.find(item => item.departmentId === row.id)
               ?.attendanceRate ?? 0,
+          sessionsPresented:
+            learning.departments.find(item => item.departmentId === row.id)
+              ?.leadPresenters ?? 0,
+          sessionsCoPresented:
+            learning.departments.find(item => item.departmentId === row.id)
+              ?.coPresenters ?? 0,
+          cpdPointsAwarded:
+            learning.departments.find(item => item.departmentId === row.id)
+              ?.cpdPointsAwarded ?? 0,
           status:
             learning.departments.find(item => item.departmentId === row.id)
               ?.status ?? "no_data",
@@ -1256,6 +1268,14 @@ export const institutionAccountabilityRouter = router({
           ).length,
           cpdSessionsHeld: learning.summary.totalSessions,
           cpdAttendanceRate: learning.summary.attendanceRate,
+          cpdVerifiedAttendanceRecords: learning.summary.verifiedAttendanceRecords,
+          cpdAttendanceReviewBacklog: learning.summary.attendanceReviewBacklog,
+          cpdSessionsPresented: learning.summary.leadPresenterCount,
+          cpdSessionsCoPresented: learning.summary.coPresenterCount,
+          cpdPointsAwarded: learning.summary.cpdPointsAwarded,
+          cpdIdentityMatchRate: learning.summary.identityMatchRate,
+          cpdUnresolvedIdentityRecords: learning.summary.unresolvedIdentityRecords,
+          cpdDataQualityStatus: learning.summary.dataQualityStatus,
           departmentsNeedingSupport: departmentResults.filter(
             row => row.status === "needs_support"
           ).length,
