@@ -2641,7 +2641,14 @@ export const institutionalStaffMembers = mysqlTable(
     certificationExpiryDate: timestamp("certificationExpiryDate"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-  }
+  }, table => ({
+    institutionScopeIndex: index("institutional_staff_institution_scope_idx").on(
+      table.institutionalAccountId,
+      table.removedAt,
+      table.facilityDepartmentId,
+      table.userId,
+    ),
+  })
 );
 
 export type InstitutionalStaffMember =
@@ -6965,7 +6972,18 @@ export const cpdEvents = mysqlTable("cpdEvents", {
   presenterDepartment: varchar("presenterDepartment", { length: 128 }),
   scheduledStartTime: varchar("scheduledStartTime", { length: 10 }),
   scheduledEndTime: varchar("scheduledEndTime", { length: 10 }),
-});
+}, table => ({
+  institutionEventDateIndex: index("cpd_events_institution_event_date_idx").on(
+    table.institutionalAccountId,
+    table.eventDateAt,
+    table.facilityDepartmentId,
+  ),
+  institutionCreatedIndex: index("cpd_events_institution_created_idx").on(
+    table.institutionalAccountId,
+    table.createdAt,
+    table.facilityDepartmentId,
+  ),
+}));
 
 export type CpdEvent = typeof cpdEvents.$inferSelect;
 export type InsertCpdEvent = typeof cpdEvents.$inferInsert;
@@ -6992,6 +7010,10 @@ export const cpdEventCoPresenters = mysqlTable(
     eventIndex: index("cpd_event_co_presenters_event_idx").on(table.cpdEventId),
     institutionIndex: index("cpd_event_co_presenters_institution_idx").on(
       table.institutionalAccountId
+    ),
+    institutionEventIndex: index("cpd_event_co_presenters_institution_event_idx").on(
+      table.institutionalAccountId,
+      table.cpdEventId,
     ),
   })
 );
@@ -7054,7 +7076,13 @@ export const cpdAttendees = mysqlTable("cpdAttendees", {
     .default("on_time")
     .notNull(),
   clinicalTakeaway: text("clinicalTakeaway"),
-});
+}, table => ({
+  institutionEventDepartmentIndex: index("cpd_attendees_institution_event_dept_idx").on(
+    table.institutionalAccountId,
+    table.cpdEventId,
+    table.facilityDepartmentId,
+  ),
+}));
 
 export const cpdEventQuizzes = mysqlTable("cpdEventQuizzes", {
   id: int("id").autoincrement().primaryKey(),
