@@ -13,6 +13,7 @@ import {
 import { Building2, ChevronRight, ShieldCheck } from "lucide-react";
 import { ProviderFacilityLinkingCard } from "@/components/ProviderFacilityLinkingCard";
 import { ProviderWorkplaceContextCard } from "@/components/ProviderWorkplaceContextCard";
+import { InstitutionDepartmentContextCard } from "@/components/InstitutionDepartmentContextCard";
 
 function membershipLabel(status: string) {
   switch (status) {
@@ -106,6 +107,7 @@ export default function WorkplacesAndAccess() {
 
         <ProviderWorkplaceContextCard />
         <ProviderFacilityLinkingCard />
+        <InstitutionDepartmentContextCard />
 
         <Card>
           <CardHeader>
