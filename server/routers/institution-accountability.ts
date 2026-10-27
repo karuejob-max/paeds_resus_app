@@ -73,6 +73,33 @@ const LICENSED_PROVIDER_TYPES = new Set([
   "midwife",
 ]);
 
+const pendingCredentialProjectionRefreshes = new Map<number, Promise<void>>();
+
+function scheduleCredentialProjectionRefresh(
+  db: AppDb,
+  userIds: number[],
+): void {
+  const uniqueUserIds = Array.from(new Set(userIds));
+  const refreshIds = uniqueUserIds.filter(
+    userId => !pendingCredentialProjectionRefreshes.has(userId),
+  );
+  if (!refreshIds.length) return;
+  const refresh = Promise.resolve()
+    .then(() => syncDerivedCredentialsForUsers(db, refreshIds))
+    .then(() => undefined)
+    .catch(error => {
+      console.warn("[credential-projection] background refresh failed", error);
+    })
+    .finally(() => {
+      for (const userId of refreshIds) {
+        pendingCredentialProjectionRefreshes.delete(userId);
+      }
+    });
+  for (const userId of refreshIds) {
+    pendingCredentialProjectionRefreshes.set(userId, refresh);
+  }
+}
+
 function requireDb(): Promise<AppDb> {
   return getDb().then(db => {
     if (!db)
@@ -994,11 +1021,9 @@ export const institutionAccountabilityRouter = router({
       const userIds = staffRows
         .map(row => row.userId)
         .filter((id): id is number => id != null);
-      try {
-        await syncDerivedCredentialsForUsers(db, userIds);
-      } catch {
-        // A rolling deployment may not have created the table yet; return other accountability data.
-      }
+      // Credential projections are synchronized when authoritative enrollment /
+      // certificate state changes and refreshed opportunistically below. Never
+      // await a full-roster backfill inside this read request.
       let credentialRows: Array<typeof professionalCredentials.$inferSelect> =
         [];
       if (userIds.length) {
@@ -1012,6 +1037,10 @@ export const institutionAccountabilityRouter = router({
             throw error;
         }
       }
+      // Return the current projection immediately. Refreshes are deduplicated
+      // per user and run after the read path so a large roster cannot make the
+      // Accountability tab wait for N+1 credential writes.
+      scheduleCredentialProjectionRefresh(db, userIds);
       const departmentRows = await db
         .select({
           id: facilityDepartments.id,
@@ -1147,6 +1176,9 @@ export const institutionAccountabilityRouter = router({
           cpdAttendanceRate: learningRow?.attendanceRate ?? 0,
           cpdAttendedSessions: learningRow?.attendedSessions ?? 0,
           cpdEligibleSessions: learningRow?.eligibleSessions ?? 0,
+          cpdSessionsPresented: learningRow?.sessionsPresented ?? 0,
+          cpdSessionsCoPresented: learningRow?.sessionsCoPresented ?? 0,
+          cpdPointsEarned: learningRow?.cpdPointsEarned ?? 0,
           cpdStatus: learningRow?.status ?? "no_data",
           targets: targetRows,
           evidenceAvailableToViewer: access.canViewEvidence
@@ -1178,6 +1210,15 @@ export const institutionAccountabilityRouter = router({
           attendanceRate:
             learning.departments.find(item => item.departmentId === row.id)
               ?.attendanceRate ?? 0,
+          sessionsPresented:
+            learning.departments.find(item => item.departmentId === row.id)
+              ?.leadPresenters ?? 0,
+          sessionsCoPresented:
+            learning.departments.find(item => item.departmentId === row.id)
+              ?.coPresenters ?? 0,
+          cpdPointsAwarded:
+            learning.departments.find(item => item.departmentId === row.id)
+              ?.cpdPointsAwarded ?? 0,
           status:
             learning.departments.find(item => item.departmentId === row.id)
               ?.status ?? "no_data",
@@ -1256,6 +1297,14 @@ export const institutionAccountabilityRouter = router({
           ).length,
           cpdSessionsHeld: learning.summary.totalSessions,
           cpdAttendanceRate: learning.summary.attendanceRate,
+          cpdVerifiedAttendanceRecords: learning.summary.verifiedAttendanceRecords,
+          cpdAttendanceReviewBacklog: learning.summary.attendanceReviewBacklog,
+          cpdSessionsPresented: learning.summary.leadPresenterCount,
+          cpdSessionsCoPresented: learning.summary.coPresenterCount,
+          cpdPointsAwarded: learning.summary.cpdPointsAwarded,
+          cpdIdentityMatchRate: learning.summary.identityMatchRate,
+          cpdUnresolvedIdentityRecords: learning.summary.unresolvedIdentityRecords,
+          cpdDataQualityStatus: learning.summary.dataQualityStatus,
           departmentsNeedingSupport: departmentResults.filter(
             row => row.status === "needs_support"
           ).length,

@@ -21,7 +21,7 @@ import { notifyAhaElearningProofDecision, notifyBookingWaitlistPromoted, notifyP
 import { saveMicroCourseCertificate, saveAhaCognitiveCertificate, markIlsCognitiveComplete } from '../certificates';
 import { ensureCourseCatalogForSchedule } from '../lib/ensure-course-catalog-for-schedule';
 import { resolveAhaCourseAnchor } from '../lib/resolve-aha-course-anchor';
-import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules, institutionalStaffMembers, phase3CrossFacilityApprovals, retrospectiveRoleClaims, phase2MasteryCompletions, ahaPracticeLabAttempts } from '../../drizzle/schema';
+import { microCourses, microCourseEnrollments, payments, courses, enrollments, userProgress, capstoneSubmissions, users, trainingSchedules, trainingAttendance, modules, institutionalStaffMembers, phase3CrossFacilityApprovals, retrospectiveRoleClaims } from '../../drizzle/schema';
 import { assertNoInstructorDoubleBooking } from '../lib/instructor-double-booking-guard';
 import { eq, and, asc, inArray, desc, sum, gte, sql, ne, or, like } from 'drizzle-orm';
 import { initiateSTKPush, validatePhoneNumber, isMpesaConfigured } from '../_core/mpesa';
@@ -45,7 +45,8 @@ import { getAhaAccessDecision } from "../lib/aha-access";
 import { ensurePhase2CompletionCertificateForUser } from "../lib/paeds-resus-certificate-issuance";
 import { getCanonicalAhaEnrollment } from "../lib/aha-learning-records";
 import { selectBestCurrentEnrollments } from "../lib/professional-progress-calculation";
-import { calculatePhase2AutomationStatus, PHASE2_REQUIREMENT_SET_VERSION, supportsAutomatedPhase3Gate } from "../../shared/phase2-automation";
+import { supportsAutomatedPhase3Gate } from "../../shared/phase2-automation";
+import { reconcilePhase2Completion } from "../lib/phase2-completion";
 
 const AHA_PROGRAM_TYPES = ['bls', 'acls', 'pals', 'heartsaver', 'nrp', 'instructor'] as const;
 
@@ -60,65 +61,31 @@ const MAX_AHA_PROOF_BYTES = 10 * 1024 * 1024;
 async function hasCurrentAutomatedPhase2Mastery(db: any, userId: number, programType: string): Promise<boolean> {
   if (!supportsAutomatedPhase3Gate(programType)) return false;
 
-  const [completion] = await db
-    .select({ id: phase2MasteryCompletions.id, enrollmentId: phase2MasteryCompletions.enrollmentId })
-    .from(phase2MasteryCompletions)
-    .innerJoin(enrollments, eq(phase2MasteryCompletions.enrollmentId, enrollments.id))
-    .where(and(
-      eq(phase2MasteryCompletions.userId, userId),
-      eq(phase2MasteryCompletions.programType, programType),
-      eq(phase2MasteryCompletions.requirementSetVersion, PHASE2_REQUIREMENT_SET_VERSION),
-      eq(enrollments.userId, userId),
-      eq(enrollments.programType, programType),
-      sql`${phase2MasteryCompletions.revokedAt} IS NULL`,
-    ))
-    .limit(1);
+  // Re-evaluate every enrollment the learner holds for this program under the
+  // CURRENT requirement set. reconcilePhase2Completion creates a missing
+  // completion for a qualifying learner (so Phase 3 never depends on opening
+  // the Hub) and revokes one that no longer qualifies.
+  const learnerEnrollments = await db
+    .select({ id: enrollments.id })
+    .from(enrollments)
+    .where(and(eq(enrollments.userId, userId), eq(enrollments.programType, programType)));
 
-  if (!completion) return false;
-
-  const attempts = await db
-    .select({
-      trackId: ahaPracticeLabAttempts.trackId,
-      scenarioId: ahaPracticeLabAttempts.scenarioId,
-      score: ahaPracticeLabAttempts.score,
-      passed: ahaPracticeLabAttempts.passed,
-      evidenceStatus: ahaPracticeLabAttempts.evidenceStatus,
-      criticalFailure: ahaPracticeLabAttempts.criticalFailure,
-      scenarioVersion: ahaPracticeLabAttempts.scenarioVersion,
-    })
-    .from(ahaPracticeLabAttempts)
-    .where(and(
-      eq(ahaPracticeLabAttempts.userId, userId),
-      eq(ahaPracticeLabAttempts.enrollmentId, completion.enrollmentId),
-    ));
-
-  const currentStatus = calculatePhase2AutomationStatus(programType, attempts.map((attempt: any) => ({
-    trackId: attempt.trackId,
-    scenarioId: attempt.scenarioId,
-    score: Number(attempt.score ?? 0),
-    passed: Boolean(attempt.passed),
-    evidenceStatus: attempt.evidenceStatus,
-    criticalFailure: Boolean(attempt.criticalFailure),
-    scenarioVersion: attempt.scenarioVersion,
-  })));
-
-  if (currentStatus.phase2Ready) return true;
-
-  await db.update(phase2MasteryCompletions)
-    .set({ revokedAt: new Date(), revokedReason: `Revalidated at Phase 3 booking; current status is not ready under ${PHASE2_REQUIREMENT_SET_VERSION}`, updatedAt: new Date() })
-    .where(eq(phase2MasteryCompletions.id, completion.id));
+  for (const enrollment of learnerEnrollments) {
+    const { status } = await reconcilePhase2Completion(db, { userId, enrollmentId: enrollment.id, programType, source: "phase3Booking" });
+    if (status.phase2Ready) return true;
+  }
   return false;
 }
 
-async function getAclsElearningProof(db: any, userId: number) {
+async function getAclsElearningProof(db: any, userId: number, programType: "acls" | "pals" | "nrp" = "acls") {
   const [row, bls] = await Promise.all([
-    getCanonicalAhaEnrollment(db, userId, "acls"),
+    getCanonicalAhaEnrollment(db, userId, programType),
     getCanonicalAhaEnrollment(db, userId, "bls"),
   ]);
   const blsCognitiveComplete = !!bls?.cognitiveModulesComplete;
   const courseCognitiveComplete = !!row?.cognitiveModulesComplete;
   const proofSubmitted = !!row?.elearningProofSubmittedAt;
-  const proofComplete = !!row?.videoPreworkCertificateUrl && !!row?.precourseAssessmentCertificateUrl && row?.precourseAssessmentPassed === true && !!row?.elearningProofVerifiedAt;
+  const proofComplete = !!row?.videoPreworkCertificateUrl && !!row?.precourseAssessmentCertificateUrl && !!row?.precourseAssessmentScreenshotUrl && row?.precourseAssessmentScore != null && row?.precourseAssessmentPassed === true && !!row?.elearningProofVerifiedAt;
   return { row, blsCognitiveComplete, courseCognitiveComplete, proofSubmitted, proofComplete };
 }
 async function assertAclsElearningProof(db: any, userId: number) {
@@ -1525,6 +1492,8 @@ export const coursesRouter = router({
           cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
           videoPreworkCertificateUrl: enrollments.videoPreworkCertificateUrl,
           precourseAssessmentCertificateUrl: enrollments.precourseAssessmentCertificateUrl,
+          precourseAssessmentScore: enrollments.precourseAssessmentScore,
+          precourseAssessmentScreenshotUrl: enrollments.precourseAssessmentScreenshotUrl,
           precourseAssessmentPassed: enrollments.precourseAssessmentPassed,
           submittedAt: enrollments.elearningProofSubmittedAt,
           verifiedAt: enrollments.elearningProofVerifiedAt,
@@ -1544,12 +1513,12 @@ export const coursesRouter = router({
     }),
 
   getElearningProofDownloadUrl: protectedProcedure
-    .input(z.object({ enrollmentId: z.number().int().positive(), documentType: z.enum(["video_prework", "precourse_assessment"]) }))
+    .input(z.object({ enrollmentId: z.number().int().positive(), documentType: z.enum(["video_prework", "precourse_assessment", "precourse_assessment_screenshot"]) }))
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       const [row] = await db
-        .select({ userId: enrollments.userId, videoKey: enrollments.videoPreworkCertificateUrl, assessmentKey: enrollments.precourseAssessmentCertificateUrl })
+        .select({ userId: enrollments.userId, videoKey: enrollments.videoPreworkCertificateUrl, assessmentKey: enrollments.precourseAssessmentCertificateUrl, screenshotKey: enrollments.precourseAssessmentScreenshotUrl })
         .from(enrollments)
         .where(eq(enrollments.id, input.enrollmentId))
         .limit(1);
@@ -1557,7 +1526,7 @@ export const coursesRouter = router({
       if (ctx.user.role !== "admin" && row.userId !== ctx.user.id) {
         throw new TRPCError({ code: "FORBIDDEN", message: "You may only access your own AHA eLearning proof." });
       }
-      const key = input.documentType === "video_prework" ? row.videoKey : row.assessmentKey;
+      const key = input.documentType === "video_prework" ? row.videoKey : input.documentType === "precourse_assessment" ? row.assessmentKey : (row as { screenshotKey?: string | null }).screenshotKey;
       if (!key) throw new TRPCError({ code: "NOT_FOUND", message: "Requested certificate has not been submitted" });
       if (/^https?:\/\//i.test(key)) return { key, url: key };
       return storageGet(key);
@@ -1585,6 +1554,8 @@ export const coursesRouter = router({
           cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
           videoPreworkCertificateUrl: enrollments.videoPreworkCertificateUrl,
           precourseAssessmentCertificateUrl: enrollments.precourseAssessmentCertificateUrl,
+          precourseAssessmentScore: enrollments.precourseAssessmentScore,
+          precourseAssessmentScreenshotUrl: enrollments.precourseAssessmentScreenshotUrl,
           precourseAssessmentPassed: enrollments.precourseAssessmentPassed,
           elearningProofSubmittedAt: enrollments.elearningProofSubmittedAt,
         })
@@ -1593,8 +1564,8 @@ export const coursesRouter = router({
         .limit(1);
       if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Enrollment not found" });
       if (!row.elearningProofSubmittedAt) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Learner must submit both certificates before review." });
-      if (input.decision === "verified" && (!row.cognitiveModulesComplete || !row.videoPreworkCertificateUrl || !row.precourseAssessmentCertificateUrl || row.precourseAssessmentPassed !== true)) {
-        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Both certificates and the required cognitive completion must be present before verification." });
+      if (input.decision === "verified" && (!row.cognitiveModulesComplete || !row.videoPreworkCertificateUrl || !row.precourseAssessmentCertificateUrl || !row.precourseAssessmentScreenshotUrl || row.precourseAssessmentScore == null || row.precourseAssessmentPassed !== true)) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "All three AHA evidence documents, a recorded score, and the required cognitive completion must be present before verification." });
       }
       const reviewedAt = new Date();
       await db.update(enrollments).set({
@@ -1624,6 +1595,8 @@ export const coursesRouter = router({
           cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
           videoPreworkCertificateUrl: enrollments.videoPreworkCertificateUrl,
           precourseAssessmentCertificateUrl: enrollments.precourseAssessmentCertificateUrl,
+          precourseAssessmentScore: enrollments.precourseAssessmentScore,
+          precourseAssessmentScreenshotUrl: enrollments.precourseAssessmentScreenshotUrl,
           precourseAssessmentPassed: enrollments.precourseAssessmentPassed,
           elearningProofSubmittedAt: enrollments.elearningProofSubmittedAt,
           elearningProofVerifiedAt: enrollments.elearningProofVerifiedAt,
@@ -1647,7 +1620,7 @@ export const coursesRouter = router({
       } else if (rejected) {
         guidance = `Rejected. ${courseRow?.elearningProofRejectionReason || "Review the certificates and submit corrected documents."}`;
       } else if (alreadySubmitted) {
-        guidance = "Submitted and waiting for platform review. Phase 2 booking opens after the reviewer verifies both certificates.";
+        guidance = "Submitted and waiting for platform review. Phase 2 booking opens after the reviewer verifies the score, screenshot, and both certificates.";
       } else if (!blsCognitiveComplete) {
         guidance = "Finish the BLS cognitive modules on this platform first — that's a prerequisite before elearning.heart.org proof can be uploaded for any other course.";
       } else if (!courseCognitiveComplete) {
@@ -1666,6 +1639,8 @@ export const coursesRouter = router({
         rejectionReason: courseRow?.elearningProofRejectionReason ?? null,
         videoPreworkCertificateUrl: courseRow?.videoPreworkCertificateUrl ?? null,
         precourseAssessmentCertificateUrl: courseRow?.precourseAssessmentCertificateUrl ?? null,
+        precourseAssessmentScore: courseRow?.precourseAssessmentScore ?? null,
+        hasPrecourseAssessmentScreenshot: Boolean(courseRow?.precourseAssessmentScreenshotUrl),
         precourseAssessmentPassed: courseRow?.precourseAssessmentPassed ?? null,
         guidance,
       };
@@ -1734,23 +1709,25 @@ export const coursesRouter = router({
   /** Private upload path for the two ACLS elearning.heart.org certificates. */
   submitElearningProofFiles: protectedProcedure
     .input(z.object({
+      programType: z.enum(["acls", "pals", "nrp"]).default("acls"),
+      precourseAssessmentScore: z.number().int().min(0).max(100),
       documents: z.array(z.object({
-        documentType: z.enum(["video_prework", "precourse_assessment"]),
+        documentType: z.enum(["video_prework", "precourse_assessment", "precourse_assessment_screenshot"]),
         fileName: z.string().trim().min(1).max(255),
         contentType: z.enum(["application/pdf", "image/jpeg", "image/png"]),
         dataBase64: z.string().min(1).max(20_000_000),
-      })).length(2),
+      })).length(3),
     }).superRefine((value, ctx) => {
-      if (new Set(value.documents.map((document) => document.documentType)).size !== 2) {
-        ctx.addIssue({ code: "custom", message: "Submit exactly one Video Prework document and one Precourse Self-Assessment document." });
+      if (new Set(value.documents.map((document) => document.documentType)).size !== 3) {
+        ctx.addIssue({ code: "custom", message: "Submit Video Prework, the Self-Assessment Certificate, and a screenshot showing the score." });
       }
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      const proof = await getAclsElearningProof(db, ctx.user.id);
+      const proof = await getAclsElearningProof(db, ctx.user.id, input.programType);
       if (!proof.blsCognitiveComplete || !proof.courseCognitiveComplete || !proof.row) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Complete the BLS refresh and ACLS cognitive modules before uploading the two AHA eLearning certificates." });
+        throw new TRPCError({ code: "FORBIDDEN", message: "Complete the BLS refresh and the selected AHA course cognitive modules before uploading the AHA eLearning evidence." });
       }
       const updates: Record<string, unknown> = {
         elearningProofSubmittedAt: new Date(),
@@ -1758,6 +1735,7 @@ export const coursesRouter = router({
         elearningProofRejectedAt: null,
         elearningProofRejectionReason: null,
         precourseAssessmentPassed: true,
+        precourseAssessmentScore: input.precourseAssessmentScore,
       };
       for (const document of input.documents) {
         const raw = document.dataBase64.replace(/^data:[^;]+;base64,/, "");
@@ -1769,10 +1747,11 @@ export const coursesRouter = router({
         const key = `aha/${ctx.user.id}/${proof.row.id}/acls/${document.documentType}/${randomUUID()}-${safeName}`;
         const stored = await storagePut(key, bytes, document.contentType);
         if (document.documentType === "video_prework") updates.videoPreworkCertificateUrl = stored.key;
-        else updates.precourseAssessmentCertificateUrl = stored.key;
+        else if (document.documentType === "precourse_assessment") updates.precourseAssessmentCertificateUrl = stored.key;
+        else updates.precourseAssessmentScreenshotUrl = stored.key;
       }
       await db.update(enrollments).set(updates).where(eq(enrollments.id, proof.row.id));
-      return { success: true as const, message: "Both certificates were submitted privately. Phase 2 booking is now available." };
+      return { success: true as const, message: "AHA score and all three evidence documents were submitted privately. Phase 2 booking is now available." };
     }),
 
   // ─────────────────────────────────────────────────────────────────────────

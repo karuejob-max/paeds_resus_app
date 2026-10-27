@@ -106,3 +106,7 @@ temp/
 *.db
 *.sqlite
 *.sqlite3
+
+# Local agent workspaces and credentials
+.work/
+.manus/

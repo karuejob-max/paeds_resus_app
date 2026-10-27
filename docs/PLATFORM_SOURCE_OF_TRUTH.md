@@ -130,6 +130,8 @@ The institutional ERT display must read the exact published/active versioned tea
 
 People & roles defaults to active staff. Retired or removed staff remain available in an explicit history view for audit and possible re-linking. A re-link is an administrator-approved restoration of a **general institution membership only**; previous IERS duties, product roles, and administrative scopes are not restored automatically. Any new operational responsibility requires fresh dated assignment and explicit provider acceptance.
 
+Institutional Staff 360 is a read-only, institution-scoped operational file reachable from People & roles. Platform administrators and institution-wide authorised IERS/CPD read roles may view the selected institution; active Departmental Heads/deputies, ERCo/deputies, and Department Education Coordinators/deputies are limited to canonical departments they currently hold. The server must enforce the scope, log access, and exclude other institutions, platform financial history, login metadata, private clinical narratives, and unsupported competence or performance claims. A roster row, training state, CPD attendance, certificate, role or duty remains an evidence state and must never be presented as proof of competence, licensure, dispatch authority, or clinical performance. The field and role matrix is maintained in [INSTITUTIONAL_STAFF_360_ACCESS_MATRIX.md](./INSTITUTIONAL_STAFF_360_ACCESS_MATRIX.md).
+
 
 ### Admin (platform owner)
 

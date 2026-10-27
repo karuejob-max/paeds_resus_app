@@ -41,6 +41,7 @@ const Institutional = lazy(() => import("./pages/Institutional"));
 const AdminHub = lazy(() => import("./pages/AdminHub"));
 const AdminAccessGrants = lazy(() => import("./pages/AdminAccessGrants"));
 const AdminReports = lazy(() => import("./pages/AdminReports"));
+const AdminUser360 = lazy(() => import("./pages/AdminUser360"));
 const AdminMpesaReconciliation = lazy(() => import("./pages/AdminMpesaReconciliation"));
 const AdminInstitutionalPayments = lazy(() => import("./pages/AdminInstitutionalPayments"));
 const AdminOps = lazy(() => import("./pages/AdminOps"));
@@ -78,6 +79,7 @@ const ForInstitutions = lazy(() => import("./pages/ForInstitutions"));
 const ForParents = lazy(() => import("./pages/ForParents"));
 const AHACoursesPublic = lazy(() => import("./pages/AHACoursesPublic"));
 const InstitutionWorkspace = lazy(() => import("./pages/InstitutionWorkspace"));
+const InstitutionStaff360 = lazy(() => import("./pages/InstitutionStaff360"));
 const Enroll = lazy(() => import("./pages/Enroll"));
 const LearnerDashboard = lazy(() => import("./pages/LearnerDashboard"));
 const PatientsList = lazy(() => import("./pages/PatientsList"));
@@ -304,6 +306,11 @@ function Router() {
           <Route path="/institution/cpd">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=cpd_portal" /></RoleGate>}</Route>
           <Route path="/institution/cpd-portal">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=cpd_portal" /></RoleGate>}</Route>
           <Route path="/institution/administration">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=administration" /></RoleGate>}</Route>
+          <Route path="/institution/staff/:userId">{() => (
+            <RoleGate allowed={["institution"]}>
+              <InstitutionStaff360 />
+            </RoleGate>
+          )}</Route>
           <Route path="/institution/connected-services">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=connected" /></RoleGate>}</Route>
           <Route path="/institutional" component={Institutional} />
           <Route path="/admin">{() => (
@@ -319,6 +326,11 @@ function Router() {
           <Route path="/admin/reports">{() => (
             <AdminGate>
               <AdminReports />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin/users">{() => (
+            <AdminGate>
+              <AdminUser360 />
             </AdminGate>
           )}</Route>
           <Route path="/admin/mpesa-reconciliation">{() => (

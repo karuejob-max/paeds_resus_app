@@ -44,12 +44,17 @@ export function InstitutionAccountabilityPanel({
   const [selectedUserId, setSelectedUserId] = useState("");
   const [peopleFilter, setPeopleFilter] = useState<"all" | "action" | "expiring" | "learning">("all");
   const [cadreFilter, setCadreFilter] = useState("all");
+  const [periodType, setPeriodType] = useState<"monthly" | "quarterly" | "annual">("quarterly");
   const [message, setMessage] = useState("");
   const [evidenceCredentialId, setEvidenceCredentialId] = useState<number | null>(null);
   const dashboardQuery =
     trpc.institutionAccountability.getComplianceDashboard.useQuery({
       institutionId,
-      periodType: "quarterly",
+      periodType,
+    }, {
+      staleTime: 30_000,
+      retry: 1,
+      refetchOnWindowFocus: false,
     });
   const staffQuery = trpc.institution.getStaffMembers.useQuery(
     { institutionId },
@@ -157,6 +162,29 @@ export function InstitutionAccountabilityPanel({
         </CardContent>
       </Card>
 
+      <Card className="border-slate-200 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-900/30">
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm">
+          <div>
+            <span className="font-medium">Reporting period: </span>
+            <select
+              className="rounded-md border bg-background px-2 py-1 text-sm capitalize"
+              value={periodType}
+              onChange={event => setPeriodType(event.target.value as typeof periodType)}
+              aria-label="Accountability reporting period"
+            >
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="annual">Annual</option>
+            </select>
+            <span className="text-muted-foreground"> · {data.learning.period.periodStart} to {data.learning.period.periodEnd}</span>
+            {dashboardQuery.isFetching ? <span className="ml-2 text-xs text-muted-foreground">Updating…</span> : null}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Attendance is verified attendance seats divided by eligible staff-seats. It is not the number of sessions held.
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           label="Licence current / expiring"
@@ -173,8 +201,14 @@ export function InstitutionAccountabilityPanel({
         <MetricCard
           label="CPD sessions held"
           value={`${data.summary.cpdSessionsHeld}`}
-          detail={`${data.summary.cpdAttendanceRate}% roster-seat attendance`}
+          detail={`${data.summary.cpdVerifiedAttendanceRecords} verified attendance records · ${data.summary.cpdAttendanceRate}% seat coverage`}
           tone="text-violet-700"
+        />
+        <MetricCard
+          label="CPD sessions presented"
+          value={`${data.summary.cpdSessionsPresented}`}
+          detail={`${data.summary.cpdSessionsCoPresented} co-presenter assignments · ${data.summary.cpdPointsAwarded} points offered`}
+          tone="text-cyan-700"
         />
         <MetricCard
           label="Departments needing support"
@@ -183,6 +217,14 @@ export function InstitutionAccountabilityPanel({
           tone="text-amber-700"
         />
       </div>
+
+      <Card className="border-violet-200 bg-violet-50/40 dark:border-violet-900/50 dark:bg-violet-950/20">
+        <CardContent className="grid gap-3 py-4 text-sm sm:grid-cols-3">
+          <div><div className="text-xs uppercase tracking-wide text-muted-foreground">Attendance review backlog</div><div className="text-xl font-semibold">{data.summary.cpdAttendanceReviewBacklog}</div><div className="text-xs text-muted-foreground">registrations not yet verified, excused, or cancelled</div></div>
+          <div><div className="text-xs uppercase tracking-wide text-muted-foreground">Identity linkage</div><div className="text-xl font-semibold">{data.summary.cpdIdentityMatchRate == null ? "—" : `${data.summary.cpdIdentityMatchRate}%`}</div><div className="text-xs text-muted-foreground">{data.summary.cpdUnresolvedIdentityRecords} historical records need identity resolution</div></div>
+          <div><div className="text-xs uppercase tracking-wide text-muted-foreground">Data quality</div><Badge variant={statusVariant(data.summary.cpdDataQualityStatus)} className="mt-1 capitalize">{label(data.summary.cpdDataQualityStatus)}</Badge><div className="mt-1 text-xs text-muted-foreground">Review this before using attendance for appraisal.</div></div>
+        </CardContent>
+      </Card>
 
       <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/20">
         <CardHeader>
@@ -251,7 +293,8 @@ export function InstitutionAccountabilityPanel({
                 <th className="px-3 py-2">ERT duty-ready</th>
                 <th className="px-3 py-2">Avg experience</th>
                 <th className="px-3 py-2">Life Support current</th>
-                <th className="px-3 py-2">Sessions</th>
+                <th className="px-3 py-2">Sessions held</th>
+                <th className="px-3 py-2">Presented</th>
                 <th className="px-3 py-2">Attendance</th>
                 <th className="px-3 py-2">Status</th>
               </tr>
@@ -274,6 +317,7 @@ export function InstitutionAccountabilityPanel({
                     {row.lifeSupportCurrentOrExpiring}/{row.staffCount}
                   </td>
                   <td className="px-3 py-3">{row.sessionsHeld}</td>
+                  <td className="px-3 py-3">{row.sessionsPresented}</td>
                   <td className="px-3 py-3">{row.attendanceRate}%</td>
                   <td className="px-3 py-3">
                     <Badge
@@ -333,7 +377,9 @@ export function InstitutionAccountabilityPanel({
                   {data.access.canViewEvidence ? <th className="px-3 py-2">Licence review</th> : null}
                   <th className="px-3 py-2">ERT duty</th>
                   <th className="px-3 py-2">Life Support</th>
-                  <th className="px-3 py-2">CPD attendance</th>
+                  <th className="px-3 py-2">CPD attended</th>
+                  <th className="px-3 py-2">CPD presented</th>
+                  <th className="px-3 py-2">CPD points</th>
                   <th className="px-3 py-2">CPD target signal</th>
                 </tr>
               </thead>
@@ -414,9 +460,10 @@ export function InstitutionAccountabilityPanel({
                       </div>
                     </td>
                     <td className="px-3 py-3">
-                      {row.cpdAttendedSessions}/{row.cpdEligibleSessions} (
-                      {row.cpdAttendanceRate}%)
+                      {row.cpdAttendedSessions}/{row.cpdEligibleSessions} ({row.cpdAttendanceRate}%)
                     </td>
+                    <td className="px-3 py-3">{row.cpdSessionsPresented}{row.cpdSessionsCoPresented ? ` + ${row.cpdSessionsCoPresented} co` : ""}</td>
+                    <td className="px-3 py-3">{row.cpdPointsEarned}</td>
                     <td className="px-3 py-3">
                       <Badge
                         variant={statusVariant(row.cpdStatus)}

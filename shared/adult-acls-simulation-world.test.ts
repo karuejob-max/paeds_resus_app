@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  ADULT_ACLS_ACS_ESCALATION_SECONDS,
   ADULT_ACLS_SCENARIOS,
   canEndAdultAclsSimulation,
   calculateAdultAclsTrainingEvidence,
   createAdultAclsSimulation,
   advanceAdultAclsSimulation,
+  getAdultAclsNextAction,
   reduceAdultAclsSimulation,
   scoreAdultAclsTraining,
   type AdultAclsCommand,
@@ -13,7 +15,7 @@ import {
 
 describe("Adult ACLS Simulation World V1 safety contract", () => {
   it("contains the ten required adult scenario families", () => {
-    expect(ADULT_ACLS_SCENARIOS).toHaveLength(10);
+    expect(ADULT_ACLS_SCENARIOS).toHaveLength(11);
     expect(ADULT_ACLS_SCENARIOS.every((scenario) => scenario.initial.hidden)).toBe(true);
   });
 
@@ -96,10 +98,30 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
   });
 
   it("keeps electrical pacing distinct from mechanical capture", () => {
-    const state = createAdultAclsSimulation("unstable-bradycardia");
+    const state = reduceAdultAclsSimulation(createAdultAclsSimulation("unstable-bradycardia"), { type: "assess", target: "rhythm" });
     const paced = reduceAdultAclsSimulation(state, { type: "pace" });
     expect(paced.events.at(-1)?.description).toContain("mechanical capture");
     expect(paced.patient.rhythm).toBe("sinus_bradycardia");
+  });
+
+  it("keeps the next safe action visible and clinically ordered", () => {
+    let state = createAdultAclsSimulation("unstable-bradycardia");
+    expect(getAdultAclsNextAction(state)?.label).toBe("Assess rhythm");
+    state = reduceAdultAclsSimulation(state, { type: "assess", target: "rhythm" });
+    expect(getAdultAclsNextAction(state)?.label).toBe("Atropine");
+    const unsafePacing = reduceAdultAclsSimulation(createAdultAclsSimulation("unstable-bradycardia"), { type: "pace" });
+    expect(unsafePacing.criticalFailures).toHaveLength(1);
+  });
+
+  it("treats atropine-first high-grade AV block as poor but not critical, then requires pacing", () => {
+    let state = createAdultAclsSimulation("high-grade-av-block");
+    state = reduceAdultAclsSimulation(state, { type: "assess", target: "rhythm" });
+    state = reduceAdultAclsSimulation(state, { type: "give_atropine" });
+    expect(state.criticalFailures).toHaveLength(0);
+    expect(state.events.at(-1)?.correct).toBe(false);
+    state = reduceAdultAclsSimulation(state, { type: "pace" });
+    expect(state.events.at(-1)?.type).toBe("pacing");
+    expect(getAdultAclsNextAction(state)?.label).toBe("Reassess");
   });
 
   it("supports delayed deterioration and post-ROSC continuation", () => {
@@ -210,7 +232,7 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
   });
 
   it.each([
-    ["unstable-bradycardia", [{ type: "assess", target: "rhythm" }, { type: "pace" }, { type: "reassess" }, { type: "end_rehearsal" }]],
+    ["unstable-bradycardia", [{ type: "assess", target: "rhythm" }, { type: "give_atropine" }, { type: "reassess" }, { type: "end_rehearsal" }]],
     ["stable-narrow-tachycardia", [{ type: "assess", target: "rhythm" }, { type: "give_adenosine" }, { type: "reassess" }, { type: "end_rehearsal" }]],
     ["unstable-tachycardia", [{ type: "assess", target: "rhythm" }, { type: "prepare_synchronized_cardioversion" }, { type: "synchronized_cardioversion" }, { type: "support_perfusion" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "assist_ventilation" }, { type: "reassess" }, { type: "end_rehearsal" }]],
     ["vf-pulseless-vt", [{ type: "assess", target: "rhythm" }, { type: "start_cpr" }, { type: "defibrillate" }, { type: "reassess" }, ...Array(6).fill({ type: "give_oxygen" }), ...Array(4).fill({ type: "assist_ventilation" }), { type: "support_perfusion" }, { type: "reassess" }, { type: "end_rehearsal" }]],
@@ -253,5 +275,73 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
     state = reduceAdultAclsSimulation(state, { type: "end_rehearsal" });
     expect(state.patient.phase).toBe("ended");
     expect(scoreAdultAclsTraining(state)).toBe(100);
+  });
+});
+
+
+describe("Adult ACLS gate-integrity follow-up (v1.3.0)", () => {
+  const run = (id: AdultAclsScenarioId, commands: AdultAclsCommand[]) =>
+    commands.reduce((state, command) => reduceAdultAclsSimulation(state, command), createAdultAclsSimulation(id));
+
+  it("treats pacing or atropine before a rhythm assessment as a critical failure", () => {
+    for (const command of [{ type: "pace" }, { type: "give_atropine" }] as AdultAclsCommand[]) {
+      const state = run("unstable-bradycardia", [command]);
+      expect(state.criticalFailures.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("does not let pace-then-assess pass bradycardia", () => {
+    const state = run("unstable-bradycardia", [{ type: "pace" }, { type: "assess", target: "rhythm" }, { type: "end_rehearsal" }]);
+    expect(scoreAdultAclsTraining(state)).toBeLessThan(70);
+  });
+
+  it("requires a cue relevant to the chosen cause, not just any cue", () => {
+    const irrelevant = run("pea", [
+      { type: "assess", target: "rhythm" }, { type: "start_cpr" }, { type: "give_epinephrine" },
+      { type: "assess", target: "trachea" }, { type: "treat_reversible_cause", cause: "hypovolaemia" },
+    ]);
+    expect(irrelevant.criticalFailures.join(" ")).toContain("relevant to the selected cause");
+    const relevant = run("pea", [
+      { type: "assess", target: "rhythm" }, { type: "start_cpr" }, { type: "give_epinephrine" },
+      { type: "assess", target: "airway_history" }, { type: "treat_reversible_cause", cause: "hypovolaemia" },
+    ]);
+    expect(relevant.criticalFailures).toHaveLength(0);
+    expect(relevant.events.some((event) => event.type === "cause_treatment")).toBe(true);
+  });
+
+  it("makes a wrong cause guess a critical failure even after reading unrelated cues", () => {
+    const state = run("pea", [
+      { type: "assess", target: "rhythm" }, { type: "start_cpr" }, { type: "assess", target: "breath_sounds" },
+      { type: "treat_reversible_cause", cause: "tension_pneumothorax" },
+    ]);
+    expect(state.criticalFailures.join(" ")).toContain("does not match");
+  });
+
+  it("requires the ECG before reperfusion activation", () => {
+    const state = run("acs-to-vf", [{ type: "assess", target: "pulse" }, { type: "activate_reperfusion" }]);
+    expect(state.criticalFailures.join(" ")).toContain("ECG");
+  });
+
+  it("escalates an unmanaged ACS to VF arrest and still passes on the honest, timely path", () => {
+    const honest = run("acs-to-vf", [
+      { type: "assess", target: "pulse" }, { type: "obtain_ecg" }, { type: "give_aspirin" },
+      { type: "activate_reperfusion" }, { type: "reassess" }, { type: "end_rehearsal" },
+    ]);
+    expect(honest.events.some((event) => event.type === "acs_escalation")).toBe(false);
+    expect(scoreAdultAclsTraining(honest)).toBeGreaterThanOrEqual(70);
+
+    let stalled = createAdultAclsSimulation("acs-to-vf");
+    stalled = advanceAdultAclsSimulation(stalled, ADULT_ACLS_ACS_ESCALATION_SECONDS + 1);
+    expect(stalled.events.some((event) => event.type === "acs_escalation")).toBe(true);
+    expect(stalled.patient.phase).toBe("cardiac_arrest");
+    expect(stalled.patient.rhythm).toBe("ventricular_fibrillation");
+  });
+
+  it("does not let the ACS indicated actions alone pass after an escalation", () => {
+    let state = advanceAdultAclsSimulation(createAdultAclsSimulation("acs-to-vf"), ADULT_ACLS_ACS_ESCALATION_SECONDS + 1);
+    for (const command of [{ type: "assess", target: "pulse" }, { type: "give_aspirin" }, { type: "reassess" }] as AdultAclsCommand[]) {
+      state = reduceAdultAclsSimulation(state, command);
+    }
+    expect(scoreAdultAclsTraining(state)).toBeLessThan(70);
   });
 });

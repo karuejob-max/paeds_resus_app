@@ -548,13 +548,17 @@ function InstitutionPortalNavigation({
     <aside
       id="institution-workspace-navigation"
       aria-label="Institution workspace navigation"
-      className="min-w-0 rounded-xl border bg-background/95 p-2 shadow-sm lg:sticky lg:top-4"
+      className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-background/95 p-2 shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)]"
     >
-      <div className="px-3 pb-2 pt-1">
+      <div className="shrink-0 px-3 pb-2 pt-1">
         <p className="text-sm font-semibold">Workspace navigation</p>
         <p className="mt-0.5 text-xs text-muted-foreground">Open any institutional page from one place.</p>
       </div>
-      <div className="max-h-[55vh] space-y-1 overflow-y-auto overscroll-contain pr-1 lg:max-h-[calc(100vh-14rem)]">
+      <div
+        className="min-h-0 max-h-[70dvh] flex-1 space-y-1 overflow-y-scroll overscroll-y-contain pr-1 [scrollbar-gutter:stable] [touch-action:pan-y] lg:max-h-none"
+        tabIndex={0}
+        aria-label="Scrollable workspace destinations"
+      >
         {sections.map(section => {
           const SectionIcon = section.icon;
           const isExpanded = expandedSection === section.value;
@@ -575,16 +579,18 @@ function InstitutionPortalNavigation({
                 <SectionIcon className="h-4 w-4 shrink-0" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{section.label}</span>
-                  <span className="block truncate text-[11px] text-muted-foreground">{section.description}</span>
+                  <span className="hidden truncate text-[11px] text-muted-foreground sm:block">{section.description}</span>
                 </span>
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-                )}
+                {section.children?.length ? (
+                  isExpanded ? (
+                    <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  )
+                ) : <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />}
               </button>
               {isExpanded && section.children?.length ? (
-                <div id={sectionId} className="ml-3 mt-1 max-h-[40vh] overflow-y-auto overscroll-contain border-l pl-2">
+                <div id={sectionId} className="ml-3 mt-1 border-l pl-2">
                   <div className="space-y-1">
                     {section.children.map(child => {
                       const isChildActive = child.kind === "iers"

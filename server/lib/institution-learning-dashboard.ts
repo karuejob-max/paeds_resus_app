@@ -1,7 +1,8 @@
-import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import {
   cpdAttendees,
   cpdEvents,
+  cpdEventCoPresenters,
   enrollments,
   facilityDepartments,
   institutionLearningTargets,
@@ -72,16 +73,86 @@ export async function loadInstitutionLearningDashboard(
   } = {},
 ) {
   const period = resolveLearningPeriod(input);
-  const [events, attendees, departments, staff, activeMembers, enrollmentRows, targets] =
+  const periodStart = dateOnlyAsDate(period.periodStart);
+  const periodEnd = dateOnlyAsDate(period.periodEnd);
+  const periodEndDateTime = new Date(`${period.periodEnd}T23:59:59.999Z`);
+  const eventPeriodFilter = or(
+    and(
+      gte(cpdEvents.eventDateAt, periodStart),
+      lte(cpdEvents.eventDateAt, periodEnd),
+    ),
+    and(
+      isNull(cpdEvents.eventDateAt),
+      gte(cpdEvents.createdAt, periodStart),
+      lte(cpdEvents.createdAt, periodEndDateTime),
+    ),
+  );
+  const eventDepartmentFilter = allowedDepartmentIds
+    ? or(
+        isNull(cpdEvents.facilityDepartmentId),
+        inArray(cpdEvents.facilityDepartmentId, allowedDepartmentIds),
+      )
+    : undefined;
+  const attendeeDepartmentFilter = allowedDepartmentIds
+    ? or(
+        isNull(cpdAttendees.facilityDepartmentId),
+        inArray(cpdAttendees.facilityDepartmentId, allowedDepartmentIds),
+      )
+    : undefined;
+  const [events, attendees, coPresenterRows, departments, staff, activeMembers, enrollmentRows, targets] =
     await Promise.all([
       db
         .select()
         .from(cpdEvents)
-        .where(eq(cpdEvents.institutionalAccountId, institutionId)),
+        .where(and(
+          eq(cpdEvents.institutionalAccountId, institutionId),
+          eventPeriodFilter,
+          eventDepartmentFilter,
+        )),
       db
-        .select()
+        .select({
+          id: cpdAttendees.id,
+          cpdEventId: cpdAttendees.cpdEventId,
+          institutionalAccountId: cpdAttendees.institutionalAccountId,
+          userId: cpdAttendees.userId,
+          fullName: cpdAttendees.fullName,
+          email: cpdAttendees.email,
+          department: cpdAttendees.department,
+          facilityDepartmentId: cpdAttendees.facilityDepartmentId,
+          submittedAt: cpdAttendees.submittedAt,
+          attendanceStatus: cpdAttendees.attendanceStatus,
+        })
         .from(cpdAttendees)
-        .where(eq(cpdAttendees.institutionalAccountId, institutionId)),
+        .innerJoin(
+          cpdEvents,
+          and(
+            eq(cpdAttendees.cpdEventId, cpdEvents.id),
+            eq(cpdEvents.institutionalAccountId, institutionId),
+            eventPeriodFilter,
+            eventDepartmentFilter,
+          ),
+        )
+        .where(and(
+          eq(cpdAttendees.institutionalAccountId, institutionId),
+          attendeeDepartmentFilter,
+        )),
+      db
+        .select({
+          cpdEventId: cpdEventCoPresenters.cpdEventId,
+          userId: cpdEventCoPresenters.userId,
+          email: cpdEventCoPresenters.email,
+        })
+        .from(cpdEventCoPresenters)
+        .innerJoin(
+          cpdEvents,
+          and(
+            eq(cpdEventCoPresenters.cpdEventId, cpdEvents.id),
+            eq(cpdEvents.institutionalAccountId, institutionId),
+            eventPeriodFilter,
+            eventDepartmentFilter,
+          ),
+        )
+        .where(eq(cpdEventCoPresenters.institutionalAccountId, institutionId)),
       db
         .select({
           id: facilityDepartments.id,
@@ -143,7 +214,10 @@ export async function loadInstitutionLearningDashboard(
           createdAt: enrollments.createdAt,
         })
         .from(enrollments)
-        .where(inArray(enrollments.programType, [...LEARNING_PROGRAM_TYPES])),
+        .where(and(
+          inArray(enrollments.programType, [...LEARNING_PROGRAM_TYPES]),
+          sql`${enrollments.userId} IN (SELECT userId FROM institutionMemberships WHERE institutionalAccountId = ${institutionId} AND membershipStatus = 'active' AND userId IS NOT NULL)`,
+        )),
       db
         .select()
         .from(institutionLearningTargets)
@@ -233,6 +307,9 @@ export async function loadInstitutionLearningDashboard(
         return allowedDepartmentNames.some(name => departmentLabelsMatch(attendee.department ?? "", name));
       })
     : attendees;
+  const coPresentersInScope = allowedDepartmentIds
+    ? coPresenterRows.filter(row => eventIdsInScope.has(row.cpdEventId))
+    : coPresenterRows;
   const departmentsInScope = allowedDepartmentIds
     ? departments.filter(department =>
         allowedDepartmentIds.includes(department.id)
@@ -252,6 +329,7 @@ export async function loadInstitutionLearningDashboard(
     period,
     events: eventsInScope as any,
     attendees: attendeesInScope as any,
+    coPresenters: coPresentersInScope as any,
     staff: staffInScope as any,
     departments: departmentsInScope,
     enrollments: enrollmentRows.filter(row =>

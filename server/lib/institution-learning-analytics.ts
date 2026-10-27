@@ -74,6 +74,14 @@ type EventRow = {
   audienceLabel: string | null;
   facilityDepartmentId: number | null;
   cpdPoints: string | number | null;
+  presenterUserId?: number | null;
+  presenterName?: string | null;
+};
+
+type CoPresenterRow = {
+  cpdEventId: number;
+  userId?: number | null;
+  email?: string | null;
 };
 
 type AttendeeRow = {
@@ -220,6 +228,7 @@ export function computeInstitutionLearningAnalytics(input: {
   departments: DepartmentRow[];
   enrollments: EnrollmentRow[];
   targets: TargetRow[];
+  coPresenters?: CoPresenterRow[];
 }): {
   period: LearningPeriod;
   summary: {
@@ -234,6 +243,17 @@ export function computeInstitutionLearningAnalytics(input: {
       count: number;
     }>;
     sessionsByType: Array<{ eventType: string; count: number }>;
+    verifiedAttendanceRecords: number;
+    attendanceReviewBacklog: number;
+    leadPresenterCount: number;
+    coPresenterCount: number;
+    uniquePresenters: number;
+    uniqueCoPresenters: number;
+    cpdPointsAwarded: number;
+    linkedAttendanceRecords: number;
+    unresolvedIdentityRecords: number;
+    identityMatchRate: number | null;
+    dataQualityStatus: "complete" | "partial" | "limited";
   };
   departments: Array<{
     departmentId: number;
@@ -243,6 +263,9 @@ export function computeInstitutionLearningAnalytics(input: {
     attendedSeats: number;
     attendanceRate: number;
     peopleAttended: number;
+    leadPresenters: number;
+    coPresenters: number;
+    cpdPointsAwarded: number;
     status: "strong" | "on_track" | "needs_support" | "no_data";
   }>;
   individuals: Array<{
@@ -257,6 +280,9 @@ export function computeInstitutionLearningAnalytics(input: {
     attendanceRate: number;
     cneAttended: number;
     clinicalAttended: number;
+    sessionsPresented: number;
+    sessionsCoPresented: number;
+    cpdPointsEarned: number;
     status: "strong" | "on_track" | "needs_support" | "no_data";
   }>;
   courses: Array<{
@@ -293,9 +319,15 @@ export function computeInstitutionLearningAnalytics(input: {
     inPeriod(eventDate(event), input.period)
   );
   const eventIds = new Set(events.map(event => event.id));
-  const attendees = input.attendees.filter(attendee =>
-    eventIds.has(attendee.cpdEventId) && attendee.attendanceStatus === "attendance_verified"
-  );
+  const periodAttendees = input.attendees.filter(attendee => eventIds.has(attendee.cpdEventId));
+  const attendees = periodAttendees.filter(attendee => attendee.attendanceStatus === "attendance_verified");
+  const coPresenters = (input.coPresenters ?? []).filter(row => eventIds.has(row.cpdEventId));
+  const leadPresenterEvents = events.filter(event => event.presenterUserId != null || normalizedEmail(event.presenterName));
+  const leadPresenterIdentities = new Set(leadPresenterEvents.map(event => event.presenterUserId != null ? `u:${event.presenterUserId}` : `n:${normalizedEmail(event.presenterName)}`));
+  const coPresenterIdentities = new Set(coPresenters.map(row => row.userId != null ? `u:${row.userId}` : `e:${normalizedEmail(row.email)}`));
+  const cpdPointsAwarded = events.reduce((sum, event) => sum + (Number(event.cpdPoints) || 0), 0);
+  const linkedAttendanceRecords = periodAttendees.filter(row => row.userId != null).length;
+  const unresolvedIdentityRecords = periodAttendees.filter(row => row.userId == null).length;
   const departmentById = new Map(
     input.departments.map(department => [
       department.id,
@@ -313,7 +345,7 @@ export function computeInstitutionLearningAnalytics(input: {
   }
   const staffSessions = new Map<
     number,
-    { eligible: number; attended: number; cne: number; clinical: number }
+    { eligible: number; attended: number; cne: number; clinical: number; presented: number; coPresented: number; points: number }
   >();
   for (const staff of input.staff) {
     staffSessions.set(staff.id, {
@@ -321,6 +353,9 @@ export function computeInstitutionLearningAnalytics(input: {
       attended: 0,
       cne: 0,
       clinical: 0,
+      presented: 0,
+      coPresented: 0,
+      points: 0,
     });
   }
 
@@ -395,6 +430,22 @@ export function computeInstitutionLearningAnalytics(input: {
     }
   }
 
+  for (const event of events) {
+    const eventPoints = Number(event.cpdPoints) || 0;
+    for (const staff of input.staff) {
+      const leadMatch = event.presenterUserId != null
+        ? staff.userId === event.presenterUserId
+        : normalizedEmail(event.presenterName) !== "" && normalizedEmail(staff.fullName) === normalizedEmail(event.presenterName);
+      const coMatch = coPresenters.some(row =>
+        row.cpdEventId === event.id && (row.userId != null ? staff.userId === row.userId : normalizedEmail(row.email) !== "" && normalizedEmail(row.email) === normalizedEmail(staff.email))
+      );
+      const stats = staffSessions.get(staff.id);
+      if (!stats) continue;
+      if (leadMatch) { stats.presented++; stats.points += eventPoints; }
+      if (coMatch) { stats.coPresented++; stats.points += eventPoints; }
+    }
+  }
+
   const courseEnrollmentByUserProgram = new Map<string, EnrollmentRow>();
   for (const enrollment of input.enrollments) {
     if (
@@ -449,6 +500,9 @@ export function computeInstitutionLearningAnalytics(input: {
       attended: 0,
       cne: 0,
       clinical: 0,
+      presented: 0,
+      coPresented: 0,
+      points: 0,
     };
     const attendanceRate =
       stats.eligible > 0
@@ -471,6 +525,9 @@ export function computeInstitutionLearningAnalytics(input: {
       attendanceRate,
       cneAttended: stats.cne,
       clinicalAttended: stats.clinical,
+      sessionsPresented: stats.presented,
+      sessionsCoPresented: stats.coPresented,
+      cpdPointsEarned: stats.points,
       status: attendanceStatus(stats.eligible, attendanceRate),
     };
   });
@@ -486,6 +543,7 @@ export function computeInstitutionLearningAnalytics(input: {
       stats.expected > 0
         ? Math.round((stats.attended / stats.expected) * 100)
         : 0;
+    const departmentIndividuals = individuals.filter(individual => individual.department === department.departmentName);
     return {
       departmentId: department.id,
       department: department.departmentName,
@@ -494,6 +552,9 @@ export function computeInstitutionLearningAnalytics(input: {
       attendedSeats: stats.attended,
       attendanceRate,
       peopleAttended: stats.people.size,
+      leadPresenters: departmentIndividuals.filter(row => row.sessionsPresented > 0).length,
+      coPresenters: departmentIndividuals.filter(row => row.sessionsCoPresented > 0).length,
+      cpdPointsAwarded: departmentIndividuals.reduce((sum, row) => sum + row.cpdPointsEarned, 0),
       status: attendanceStatus(stats.expected, attendanceRate),
     };
   });
@@ -622,6 +683,14 @@ export function computeInstitutionLearningAnalytics(input: {
         ? `user:${attendee.userId}`
         : `email:${normalizedEmail(attendee.email)}`)
   ).size;
+  const identityMatchRate = periodAttendees.length > 0
+    ? Math.round((linkedAttendanceRecords / periodAttendees.length) * 100)
+    : null;
+  const dataQualityStatus = unresolvedIdentityRecords === 0
+    ? "complete" as const
+    : linkedAttendanceRecords > 0
+      ? "partial" as const
+      : "limited" as const;
   const narrative =
     events.length === 0
       ? `No CPD sessions were recorded between ${input.period.periodStart} and ${input.period.periodEnd}. Use the target and coordinator tools to plan the next learning cycle.`
@@ -647,6 +716,17 @@ export function computeInstitutionLearningAnalytics(input: {
         eventType,
         count,
       })).sort((a, b) => b.count - a.count),
+      verifiedAttendanceRecords: attendees.length,
+      attendanceReviewBacklog: periodAttendees.filter(row => !["attendance_verified", "excused", "cancelled"].includes(row.attendanceStatus)).length,
+      leadPresenterCount: leadPresenterEvents.length,
+      coPresenterCount: coPresenters.length,
+      uniquePresenters: leadPresenterIdentities.size,
+      uniqueCoPresenters: coPresenterIdentities.size,
+      cpdPointsAwarded,
+      linkedAttendanceRecords,
+      unresolvedIdentityRecords,
+      identityMatchRate,
+      dataQualityStatus,
     },
     departments,
     individuals: individuals.sort(

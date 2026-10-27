@@ -1255,6 +1255,130 @@ export const institutionRouter = router({
     }));
   }),
 
+  /** Provider-facing department context for each active institution membership. */
+  getMyDepartmentContexts: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+
+    const memberships = await db
+      .select({
+        membershipId: institutionMemberships.id,
+        institutionId: institutionMemberships.institutionalAccountId,
+        staffMemberId: institutionMemberships.staffMemberId,
+        companyName: institutionalAccounts.companyName,
+        membershipStatus: institutionMemberships.membershipStatus,
+        currentDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+        currentDepartment: institutionalStaffMembers.department,
+      })
+      .from(institutionMemberships)
+      .innerJoin(institutionalAccounts, eq(institutionalAccounts.id, institutionMemberships.institutionalAccountId))
+      .leftJoin(institutionalStaffMembers, eq(institutionalStaffMembers.id, institutionMemberships.staffMemberId))
+      .where(and(eq(institutionMemberships.userId, ctx.user.id), eq(institutionMemberships.membershipStatus, "active")))
+      .orderBy(asc(institutionalAccounts.companyName));
+
+    const contexts = [];
+    for (const membership of memberships) {
+      const departments = await db
+        .select({
+          id: facilityDepartments.id,
+          departmentName: facilityDepartments.departmentName,
+          parentDepartmentId: facilityDepartments.parentDepartmentId,
+        })
+        .from(facilityDepartments)
+        .where(and(
+          eq(facilityDepartments.institutionId, membership.institutionId),
+          eq(facilityDepartments.isActive, true),
+          isNotNull(facilityDepartments.confirmedAt),
+        ))
+        .orderBy(asc(facilityDepartments.departmentName));
+      contexts.push({
+        ...membership,
+        departments: departments.map((department) => ({
+          ...department,
+          departmentName: canonicalizeDepartmentLabel(department.departmentName),
+        })),
+      });
+    }
+    return contexts;
+  }),
+
+  /** Provider-facing department change; scoped to the provider's own active membership. */
+  updateMyInstitutionalDepartment: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      departmentId: z.number().int().positive(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+
+      const [membership] = await db
+        .select({
+          membershipId: institutionMemberships.id,
+          staffMemberId: institutionMemberships.staffMemberId,
+          institutionId: institutionMemberships.institutionalAccountId,
+        })
+        .from(institutionMemberships)
+        .where(and(
+          eq(institutionMemberships.institutionalAccountId, input.institutionId),
+          eq(institutionMemberships.userId, ctx.user.id),
+          eq(institutionMemberships.membershipStatus, "active"),
+        ))
+        .limit(1);
+      if (!membership?.staffMemberId) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You need an active linked institution membership before choosing a department." });
+      }
+
+      const [department] = await db
+        .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
+        .from(facilityDepartments)
+        .where(and(
+          eq(facilityDepartments.id, input.departmentId),
+          eq(facilityDepartments.institutionId, input.institutionId),
+          eq(facilityDepartments.isActive, true),
+          isNotNull(facilityDepartments.confirmedAt),
+        ))
+        .limit(1);
+      if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "That department is not active and confirmed by the institution." });
+
+      const [staff] = await db
+        .select({ department: institutionalStaffMembers.department, facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId })
+        .from(institutionalStaffMembers)
+        .where(and(
+          eq(institutionalStaffMembers.id, membership.staffMemberId),
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+          eq(institutionalStaffMembers.userId, ctx.user.id),
+          isNull(institutionalStaffMembers.removedAt),
+        ))
+        .limit(1);
+      if (!staff) throw new TRPCError({ code: "FORBIDDEN", message: "Your institution staff record is not active." });
+
+      const now = new Date();
+      await db.transaction(async (tx) => {
+        await tx.update(institutionalStaffMembers).set({
+          department: department.departmentName,
+          facilityDepartmentId: department.id,
+          updatedAt: now,
+        }).where(eq(institutionalStaffMembers.id, membership.staffMemberId as number));
+        await tx.insert(institutionalActionLogs).values({
+          institutionalAccountId: input.institutionId,
+          createdByUserId: ctx.user.id,
+          gapIdentified: "Provider institutional department context updated by the provider.",
+          systemChange: "PROVIDER_DEPARTMENT_CONTEXT_UPDATED",
+          status: "completed",
+          notes: JSON.stringify({
+            membershipId: membership.membershipId,
+            staffMemberId: membership.staffMemberId,
+            previousDepartment: staff.department,
+            previousFacilityDepartmentId: staff.facilityDepartmentId,
+            department: department.departmentName,
+            facilityDepartmentId: department.id,
+          }),
+        });
+      });
+      return { success: true, departmentName: department.departmentName, departmentId: department.id };
+    }),
+
   /** Institution admin: invite general institution access; operational roles are separate workflows. */
   inviteProvider: protectedProcedure
     .input(z.object({
