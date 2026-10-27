@@ -47,6 +47,7 @@ export function InstitutionAccountabilityPanel({
   const [periodType, setPeriodType] = useState<"monthly" | "quarterly" | "annual">("quarterly");
   const [message, setMessage] = useState("");
   const [evidenceCredentialId, setEvidenceCredentialId] = useState<number | null>(null);
+  const [slowLoad, setSlowLoad] = useState(false);
   const dashboardQuery =
     trpc.institutionAccountability.getComplianceDashboard.useQuery({
       institutionId,
@@ -95,13 +96,26 @@ export function InstitutionAccountabilityPanel({
     window.open(evidenceQuery.data.url, "_blank", "noopener,noreferrer");
     setEvidenceCredentialId(null);
   }, [evidenceQuery.data]);
+  useEffect(() => {
+    if (!dashboardQuery.isLoading) {
+      setSlowLoad(false);
+      return;
+    }
+    const timeout = window.setTimeout(() => setSlowLoad(true), 8_000);
+    return () => window.clearTimeout(timeout);
+  }, [dashboardQuery.isLoading]);
   const data = dashboardQuery.data;
 
   if (dashboardQuery.isLoading) {
     return (
       <Card>
-        <CardContent className="py-10 text-sm text-muted-foreground">
-          Loading scoped credential and learning accountability…
+        <CardContent className="space-y-4 py-6 text-sm text-muted-foreground">
+          <div>
+            <p className="font-medium text-foreground">Preparing accountability for this institution…</p>
+            <p className="mt-1">Loading credential status, Life Support records, CPD activity, and department summaries.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3"><div className="h-20 animate-pulse rounded-lg bg-muted" /><div className="h-20 animate-pulse rounded-lg bg-muted" /><div className="h-20 animate-pulse rounded-lg bg-muted" /></div>
+          {slowLoad ? <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200"><span>This is taking longer than expected. No institution data has been changed.</span><Button type="button" size="sm" variant="outline" onClick={() => void dashboardQuery.refetch()}>Retry accountability</Button></div> : null}
         </CardContent>
       </Card>
     );
@@ -111,7 +125,7 @@ export function InstitutionAccountabilityPanel({
       <Card>
         <CardContent className="flex items-start gap-2 py-6 text-sm text-destructive">
           <AlertCircle className="mt-0.5 h-4 w-4" />
-          {dashboardQuery.error.message}
+          <div><p>{dashboardQuery.error.message}</p><Button type="button" size="sm" variant="outline" className="mt-3" onClick={() => void dashboardQuery.refetch()}>Retry accountability</Button></div>
         </CardContent>
       </Card>
     );
@@ -264,7 +278,7 @@ export function InstitutionAccountabilityPanel({
             tone="text-indigo-700"
           />
           <MetricCard
-            label="Licence action needed"
+            label="Licence records needing action"
             value={`${data.summary.licensedExpired + data.summary.licensedMissing}`}
             detail="Expired or missing licence record"
             tone="text-amber-700"

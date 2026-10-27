@@ -149,7 +149,7 @@ export default function InstitutionWorkspace() {
     }
   };
 
-  const { data: workspacePreview } = trpc.institutionAccountability.getMyWorkspace.useQuery(undefined, {
+  const { data: workspacePreview, isLoading: workspacePreviewLoading } = trpc.institutionAccountability.getMyWorkspace.useQuery(undefined, {
     enabled: isAuthenticated,
     staleTime: 30_000,
   });
@@ -157,10 +157,14 @@ export default function InstitutionWorkspace() {
   const resolvedInstitutionId = availableInstitutions.some(item => item.id === selectedInstitutionId)
     ? selectedInstitutionId
     : workspacePreview?.institution?.id ?? availableInstitutions[0]?.id ?? null;
-  const { data: myInstitution, isLoading: institutionLoading } = trpc.institutionAccountability.getMyWorkspace.useQuery(
+  const { data: selectedInstitutionWorkspace, isLoading: selectedInstitutionLoading } = trpc.institutionAccountability.getMyWorkspace.useQuery(
     resolvedInstitutionId ? { institutionId: resolvedInstitutionId } : undefined,
-    { enabled: isAuthenticated && resolvedInstitutionId != null, staleTime: 30_000 }
+    {
+      enabled: isAuthenticated && resolvedInstitutionId != null && workspacePreview?.institution?.id !== resolvedInstitutionId,
+      staleTime: 30_000,
+    }
   );
+  const myInstitution = selectedInstitutionWorkspace ?? workspacePreview;
   const institutionId = myInstitution?.institution?.id ?? resolvedInstitutionId;
 
   useEffect(() => {
@@ -184,15 +188,19 @@ export default function InstitutionWorkspace() {
   const { hasIersRole, hasCpdRole, canOperateIers } = deriveInstitutionWorkspaceAccess(isInstitutionAdmin, roleKeys);
   const canViewAccountability = myInstitution?.canViewAccountability === true;
   const visibleSection = (activeSection === "accountability" && !canViewAccountability) || (activeSection === "connected" && !isInstitutionAdmin) || (activeSection === "iers" && !hasIersRole) || (activeSection === "learning" && !hasCpdRole && !hasIersRole) ? "overview" : activeSection;
-  const { data: adminInstitutionDetails, isLoading: adminDetailsLoading } = trpc.institution.getDetails.useQuery(
+  const { data: adminInstitutionDetails } = trpc.institution.getDetails.useQuery(
     { institutionId: institutionId ?? 0 },
     {
-      enabled: isAuthenticated && isInstitutionAdmin && institutionId != null,
+      enabled: isAuthenticated && isInstitutionAdmin && institutionId != null && activeSection === "administration",
       staleTime: 30_000,
     },
   );
 
-  const workspaceLoading = institutionLoading || (isInstitutionAdmin && adminDetailsLoading);
+  // The shell and selected-tenant identity must become usable before slower
+  // administration metadata arrives. Administration renders a safe fallback
+  // and replaces it when this query resolves; it must not block Readiness,
+  // Learning, or Accountability.
+  const workspaceLoading = workspacePreviewLoading || selectedInstitutionLoading;
   const [slowWorkspaceLoad, setSlowWorkspaceLoad] = useState(false);
 
   useEffect(() => {
@@ -413,7 +421,7 @@ export default function InstitutionWorkspace() {
           </TabsContent> : null}
 
           {isInstitutionAdmin ? <TabsContent value="administration" className="space-y-6">
-            <InstitutionAdministrationPanel institutionId={institutionId} institution={adminInstitutionDetails ?? { id: institutionId ?? 0, companyName: institutionName, contactPhone: null, contactEmail: "", staffCount: null }} controlledActiveTab={activeAdminTab} onAdministrationTabChange={setAdminTab} hideNavigation />
+            <InstitutionAdministrationPanel institutionId={institutionId} institution={adminInstitutionDetails ?? { id: institutionId ?? 0, companyName: institutionName, contactPhone: myInstitution.institution?.contactPhone ?? null, contactEmail: myInstitution.institution?.contactEmail ?? "", staffCount: myInstitution.institution?.staffCount ?? null, organizationCategory: myInstitution.institution?.organizationCategory ?? null, facilityOwnership: myInstitution.institution?.facilityOwnership ?? null, facilityCareLevel: myInstitution.institution?.facilityCareLevel ?? null, facilityLocalLevel: myInstitution.institution?.facilityLocalLevel ?? null }} controlledActiveTab={activeAdminTab} onAdministrationTabChange={setAdminTab} hideNavigation />
             <InstitutionalQualityBillingPanel institutionId={institutionId} canManageBilling />
             <AdministrationSummary institutionId={institutionId} catalog={catalog ?? []} />
           </TabsContent> : null}
