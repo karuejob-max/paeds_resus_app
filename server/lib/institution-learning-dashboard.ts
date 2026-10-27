@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import {
   cpdAttendees,
   cpdEvents,
@@ -73,6 +73,32 @@ export async function loadInstitutionLearningDashboard(
   } = {},
 ) {
   const period = resolveLearningPeriod(input);
+  const periodStart = dateOnlyAsDate(period.periodStart);
+  const periodEnd = dateOnlyAsDate(period.periodEnd);
+  const periodEndDateTime = new Date(`${period.periodEnd}T23:59:59.999Z`);
+  const eventPeriodFilter = or(
+    and(
+      gte(cpdEvents.eventDateAt, periodStart),
+      lte(cpdEvents.eventDateAt, periodEnd),
+    ),
+    and(
+      isNull(cpdEvents.eventDateAt),
+      gte(cpdEvents.createdAt, periodStart),
+      lte(cpdEvents.createdAt, periodEndDateTime),
+    ),
+  );
+  const eventDepartmentFilter = allowedDepartmentIds
+    ? or(
+        isNull(cpdEvents.facilityDepartmentId),
+        inArray(cpdEvents.facilityDepartmentId, allowedDepartmentIds),
+      )
+    : undefined;
+  const attendeeDepartmentFilter = allowedDepartmentIds
+    ? or(
+        isNull(cpdAttendees.facilityDepartmentId),
+        inArray(cpdAttendees.facilityDepartmentId, allowedDepartmentIds),
+      )
+    : undefined;
   const [events, attendees, coPresenterRows, departments, staff, activeMembers, enrollmentRows, targets] =
     await Promise.all([
       db
@@ -80,22 +106,36 @@ export async function loadInstitutionLearningDashboard(
         .from(cpdEvents)
         .where(and(
           eq(cpdEvents.institutionalAccountId, institutionId),
-          or(
-            and(
-              gte(cpdEvents.eventDateAt, dateOnlyAsDate(period.periodStart)),
-              lte(cpdEvents.eventDateAt, dateOnlyAsDate(period.periodEnd)),
-            ),
-            and(
-              sql`${cpdEvents.eventDateAt} IS NULL`,
-              gte(cpdEvents.createdAt, dateOnlyAsDate(period.periodStart)),
-              lte(cpdEvents.createdAt, new Date(`${period.periodEnd}T23:59:59.999Z`)),
-            ),
-          ),
+          eventPeriodFilter,
+          eventDepartmentFilter,
         )),
       db
-        .select()
+        .select({
+          id: cpdAttendees.id,
+          cpdEventId: cpdAttendees.cpdEventId,
+          institutionalAccountId: cpdAttendees.institutionalAccountId,
+          userId: cpdAttendees.userId,
+          fullName: cpdAttendees.fullName,
+          email: cpdAttendees.email,
+          department: cpdAttendees.department,
+          facilityDepartmentId: cpdAttendees.facilityDepartmentId,
+          submittedAt: cpdAttendees.submittedAt,
+          attendanceStatus: cpdAttendees.attendanceStatus,
+        })
         .from(cpdAttendees)
-        .where(eq(cpdAttendees.institutionalAccountId, institutionId)),
+        .innerJoin(
+          cpdEvents,
+          and(
+            eq(cpdAttendees.cpdEventId, cpdEvents.id),
+            eq(cpdEvents.institutionalAccountId, institutionId),
+            eventPeriodFilter,
+            eventDepartmentFilter,
+          ),
+        )
+        .where(and(
+          eq(cpdAttendees.institutionalAccountId, institutionId),
+          attendeeDepartmentFilter,
+        )),
       db
         .select({
           cpdEventId: cpdEventCoPresenters.cpdEventId,
@@ -103,6 +143,15 @@ export async function loadInstitutionLearningDashboard(
           email: cpdEventCoPresenters.email,
         })
         .from(cpdEventCoPresenters)
+        .innerJoin(
+          cpdEvents,
+          and(
+            eq(cpdEventCoPresenters.cpdEventId, cpdEvents.id),
+            eq(cpdEvents.institutionalAccountId, institutionId),
+            eventPeriodFilter,
+            eventDepartmentFilter,
+          ),
+        )
         .where(eq(cpdEventCoPresenters.institutionalAccountId, institutionId)),
       db
         .select({
