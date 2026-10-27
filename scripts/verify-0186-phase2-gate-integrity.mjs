@@ -2,7 +2,7 @@ import "dotenv/config";
 import mysql from "mysql2/promise";
 import { getConnectionConfig } from "./db-connection-config.mjs";
 
-const CURRENT_ACLS_VERSION = "phase2-v5-acls-order-2026-10-26";
+const CURRENT_ACLS_VERSION = "phase2-v6-acls-case-definitions-2026-10-27";
 const connection = await mysql.createConnection(await getConnectionConfig(process.env.DATABASE_URL));
 try {
   const [tables] = await connection.query("SHOW TABLES LIKE ?", ["phase2MasteryCompletions"]);

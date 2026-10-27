@@ -1,8 +1,9 @@
+import { getAdultAclsCaseDefinition, type AdultAclsEventRequirement } from "./adult-acls-case-definitions";
 import type { SimulationWorldRole } from "./simulation-world";
 import { getSimulationClinicalPackage } from "./simulation-clinical-packages";
 
-export const ADULT_ACLS_WORLD_VERSION = "1.3.0";
-export const ADULT_ACLS_SCENARIO_VERSION = "1.3.0";
+export const ADULT_ACLS_WORLD_VERSION = "1.4.0";
+export const ADULT_ACLS_SCENARIO_VERSION = "1.4.0";
 export const ADULT_ACLS_CLINICAL_STATUS = "clinical_review" as const;
 export const ADULT_ACLS_END_STATE_MIN_SPO2 = 90;
 /** Untreated ACS escalates to VF arrest after this many simulated seconds without reperfusion activation. Must stay below the physiological PEA-arrest time (~110 s). Clinical owner to confirm. */
@@ -129,6 +130,7 @@ export type AdultAclsScoreBreakdown = {
   reassessment: boolean;
   safeEndState: boolean;
   criticalFailures: boolean;
+  poorChoices: string[];
   reasons: string[];
 };
 
@@ -419,29 +421,39 @@ export function getAdultAclsScoreBreakdown(state: AdultAclsState): AdultAclsScor
   const has = (...types: string[]) => types.some((type) => eventTypes.has(type));
   const hasAll = (...types: string[]) => types.every((type) => eventTypes.has(type));
   const postRoscCare = hasAll("oxygen", "ventilation", "perfusion_support", "reassessment") && state.patient.spo2 >= 90 && state.patient.systolicBp >= 90;
-  const indicatedAction = (() => {
-    switch (state.scenarioId) {
-      case "stable-narrow-tachycardia": return has("medication") && state.events.some((event) => event.type === "medication" && event.description.toLowerCase().includes("adenosine"));
-      case "vf-pulseless-vt": return hasAll("cpr", "defibrillation");
-      case "pea":
-      case "asystole":
-      case "reversible-cause-arrest": return hasAll("cpr", "medication", "cause_assessment", "cause_treatment") && postRoscCare;
-      case "unstable-tachycardia": return hasAll("synchronization", "cardioversion");
-      case "unstable-bradycardia": return has("medication") && state.events.some((event) => event.type === "medication" && event.description.toLowerCase().includes("bradycardia response")) && hasRhythmAssessment(state);
-      case "high-grade-av-block": return has("pacing") && hasRhythmAssessment(state);
-      case "acs-to-vf": return hasAll("assessment", "ecg", "acs_medication", "reperfusion", "reassessment") && (!eventTypes.has("acs_escalation") || hasAll("cpr", "defibrillation"));
-      case "hypoxia-to-arrest": return hasAll("oxygen", "ventilation", "assessment", "reassessment");
-      case "rosc-post-arrest": return postRoscCare;
-    }
-  })();
+  const definition = getAdultAclsCaseDefinition(state.scenarioId);
+  const matches = (requirement: AdultAclsEventRequirement) => state.events.some((event) => event.type === requirement.type
+    && (!requirement.descriptionIncludes || event.description.toLowerCase().includes(requirement.descriptionIncludes.toLowerCase())));
+  const conditionalMet = (definition.conditionalRequirements ?? []).every((rule) => !eventTypes.has(rule.whenEventType) || rule.require.every(matches));
+  // Instructor ordering rule: assess BEFORE the first treatment, reassess AFTER it.
+  const assessmentTypes = new Set(["assessment", "reassessment", "cause_assessment"]);
+  const treatmentTypes = new Set(definition.treatmentEventTypes ?? definition.requiredEvents.map((item) => item.type).filter((type) => !assessmentTypes.has(type)));
+  const firstTreatment = state.events.findIndex((event) => treatmentTypes.has(event.type));
+  const firstAssessment = state.events.findIndex((event) => event.type === "assessment" && (!definition.requiresRhythmAssessment || event.description.startsWith("Observed rhythm")));
+  const lastReassessment = Math.max(...state.events.map((event, index) => (event.type === "reassessment" || event.type === "rosc" ? index : -1)), -1);
+  const orderedCorrectly = firstTreatment < 0 || ((firstAssessment >= 0 && firstAssessment < firstTreatment) && lastReassessment > firstTreatment);
+  const indicatedAction = definition.requiredEvents.every(matches)
+    && orderedCorrectly
+    && (!definition.requiresRhythmAssessment || hasRhythmAssessment(state))
+    && (!definition.requiresPostRoscCare || postRoscCare)
+    && conditionalMet;
+  const poorChoices = (definition.poorChoices ?? []).filter((poor) => {
+    const index = state.events.findIndex((event) => event.type === poor.type
+      && (!poor.descriptionIncludes || event.description.toLowerCase().includes(poor.descriptionIncludes.toLowerCase())));
+    if (index < 0) return false;
+    if (!poor.beforeEventType) return true;
+    const gate = state.events.findIndex((event) => event.type === poor.beforeEventType);
+    return gate < 0 || index < gate;
+  }).map((poor) => poor.reason);
   const safeEndState = hasSafeEndState(state);
   const terminalOutcome = state.patient.phase === "ended" && !eventTypes.has("patient_death");
   const criticalFailures = state.criticalFailures.length === 0 && !eventTypes.has("patient_death");
   const reasons: string[] = [];
   if (!terminalOutcome) reasons.push("The rehearsal did not reach a successful ended endpoint.");
-  if (!indicatedAction) reasons.push("The required scenario-specific clinical actions were not all completed.");
+  if (!indicatedAction) reasons.push("The required scenario-specific clinical actions were not all completed, or were not done in order (assess before treating, reassess after treating).");
   if (!safeEndState) reasons.push(`Unsafe endpoint: SpO₂ ${state.patient.spo2} (needs ≥ ${ADULT_ACLS_END_STATE_MIN_SPO2}), SBP ${state.patient.systolicBp} (needs ≥ ${ADULT_ACLS_END_STATE_MIN_SYSTOLIC_BP}), mental status ${state.patient.mentalStatus}.`);
   if (!criticalFailures) reasons.push("A critical failure or patient-death event occurred.");
+  for (const reason of poorChoices) reasons.push(`Poor choice: ${reason}`);
   const components = [
     terminalSuccess ? 30 : 0,
     hasAssessment ? 20 : 0,
@@ -449,7 +461,7 @@ export function getAdultAclsScoreBreakdown(state: AdultAclsState): AdultAclsScor
     hasReassessment ? 20 : 0,
   ];
   const raw = components.reduce((sum, value) => sum + value, 0);
-  return { score: !indicatedAction || !safeEndState || !terminalOutcome || !criticalFailures ? Math.min(60, raw) : raw, terminalOutcome, assessment: hasAssessment, indicatedAction, reassessment: hasReassessment, safeEndState, criticalFailures, reasons };
+  return { score: !indicatedAction || !safeEndState || !terminalOutcome || !criticalFailures || poorChoices.length > 0 ? Math.min(60, raw) : raw, terminalOutcome, assessment: hasAssessment, indicatedAction, reassessment: hasReassessment, safeEndState, criticalFailures, poorChoices, reasons };
 }
 export function scoreAdultAclsTraining(state: AdultAclsState): number {
   return getAdultAclsScoreBreakdown(state).score;

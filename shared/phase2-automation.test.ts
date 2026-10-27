@@ -18,7 +18,7 @@ describe("automated Phase 2 mastery", () => {
     expect(status.phase3Eligible).toBe(true);
     expect(status.completedRequirements).toBe(3);
     expect(status.authority).toBe("automated_simulation_mastery");
-    expect(status.requirementSetVersion).toBe("phase2-v5-acls-order-2026-10-26");
+    expect(status.requirementSetVersion).toBe("phase2-v6-acls-case-definitions-2026-10-27");
     expect(status.governanceBoundary).toBe("does_not_issue_credential");
   });
 

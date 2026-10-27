@@ -36,7 +36,7 @@ export type Phase2AutomationStatus = {
   governanceBoundary: "does_not_issue_credential";
 };
 
-export const PHASE2_REQUIREMENT_SET_VERSION = "phase2-v5-acls-order-2026-10-26";
+export const PHASE2_REQUIREMENT_SET_VERSION = "phase2-v6-acls-case-definitions-2026-10-27";
 export const PHASE2_SCENARIO_VERSIONS: Record<string, string> = {
   // Derived from the engine so the two can never drift (a drift silently rejects every new attempt).
   adult_acls_world: ADULT_ACLS_SCENARIO_VERSION,
