@@ -616,7 +616,7 @@ export default function CpdRegister() {
                                     <SelectLabel>IERS departments</SelectLabel>
                                     {registrationDepartments.map((department) => (
                                       <SelectItem key={department.id} value={String(department.id)}>
-                                        {department.departmentName}
+                                        {department.parentDepartmentName ? `${department.parentDepartmentName} → ` : ""}{department.departmentName}
                                       </SelectItem>
                                     ))}
                                   </SelectGroup>
