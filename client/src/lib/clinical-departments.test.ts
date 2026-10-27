@@ -62,6 +62,15 @@ describe("clinical-departments matching and normalization", () => {
         isCustomSub: false,
       });
     });
+
+    it("allows a standard parent department without forcing a subdepartment", () => {
+      expect(parseDepartmentString("Internal Medicine")).toEqual({
+        parent: "Internal Medicine",
+        sub: "",
+        isCustomParent: false,
+        isCustomSub: false,
+      });
+    });
   });
 
   describe("normalizeDepartmentString", () => {

@@ -211,7 +211,9 @@ export function parseDepartmentString(deptStr: string | null | undefined): Parse
   if (parentMatch) {
     return {
       parent: parentMatch.name,
-      sub: parentMatch.name.toLowerCase().includes("obstetrics") ? "Maternity" : "General",
+      // A parent department is a valid organizational scope on its own.
+      // Do not invent a first subdepartment for department-wide work.
+      sub: "",
       isCustomParent: false,
       isCustomSub: false
     };
