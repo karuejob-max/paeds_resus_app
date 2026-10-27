@@ -56,6 +56,9 @@ describe("AHA course metadata (CEO durations)", () => {
 
   it("formats cognitive coursework duration strings consistently", () => {
     expect(formatCognitiveCourseworkDuration("bls")).toBe("~1.5 hours online");
+    expect(formatCognitiveCourseworkDurationLabel("bls")).toBe(
+      "Cognitive coursework: 6 modules • ~1.5 hours online"
+    );
     expect(formatCognitiveCourseworkDuration("pals")).toBe("~10 hours online");
     expect(formatCognitiveCourseworkDurationLabel("acls")).toBe(
       "Cognitive coursework: 6 modules • ~3.5 hours online"

@@ -130,6 +130,7 @@ export default function MicroCoursePlayerDB() {
   const [showCapstoneSim, setShowCapstoneSim] = useState(false);
   const [showFellowshipSim, setShowFellowshipSim] = useState(false);
   const [showCertificateReady, setShowCertificateReady] = useState(false);
+  const [loadingSlow, setLoadingSlow] = useState(false);
 
   // Persistence for capstone
   useEffect(() => {
@@ -1169,6 +1170,14 @@ export default function MicroCoursePlayerDB() {
   const isLoading = isAhaCourse
     ? ahaDetailsLoading
     : (catalogLoading || coursesLoading || detailsLoading);
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingSlow(false);
+      return;
+    }
+    const timeout = window.setTimeout(() => setLoadingSlow(true), 10_000);
+    return () => window.clearTimeout(timeout);
+  }, [isLoading]);
   const ahaAccessErrorMessage = ahaDetailsError?.message?.trim() ?? "";
   const isAhaPathwayMissing = isAhaCourse && Boolean(
     ahaAccessErrorMessage.startsWith("Choose NERP") ||
@@ -1181,7 +1190,26 @@ export default function MicroCoursePlayerDB() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
-          <p className="text-sm text-muted-foreground">Loading interactive experience...</p>
+          <p className="text-sm text-muted-foreground">
+            {loadingSlow
+              ? "Course content is taking longer than expected."
+              : "Loading interactive experience..."}
+          </p>
+          {loadingSlow && (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <p className="max-w-sm text-xs text-muted-foreground">
+                Your progress is safe. Retry the request or return to the Life Support Courses hub.
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button size="sm" onClick={() => window.location.reload()}>
+                  Retry loading
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => navigate(coursesHubPath)}>
+                  Return to courses
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

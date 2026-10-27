@@ -360,6 +360,7 @@ For each enrolment, the learner should experience a **clear linear path**:
 2. **On pass:** Primary CTA **Continue to next module** (next module in course order). **Do not** force “back to module list” as the only path forward.
 3. **On fail:** Clear retry path; module not marked complete until pass (or policy-defined completion—currently tied to quiz pass in learning router).
 4. **After the final module is passed:** A **primary CTA toward the certificate** (e.g. link to learner dashboard **My Certificates** section with anchor `#my-certificates`), comparable in clarity to the post–M-Pesa “what happens next” flow.
+5. **Review and reinforcement:** Each module is followed by a formative quiz; completed courses remain reviewable, with direct access to modules, quizzes, and approved simulations without rewriting the authoritative completion record.
 
 ### 16.3 Tiered courses per clinical topic (naming and gating)
 
