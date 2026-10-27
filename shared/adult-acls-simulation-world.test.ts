@@ -210,6 +210,7 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
 
   it("requires post-ROSC oxygenation, ventilation, perfusion support, and reassessment", () => {
     let state = createAdultAclsSimulation("rosc-post-arrest");
+    state = reduceAdultAclsSimulation(state, { type: "assess", target: "blood_pressure" });
     state = reduceAdultAclsSimulation(state, { type: "support_perfusion" });
     state = reduceAdultAclsSimulation(state, { type: "give_oxygen" });
     state = reduceAdultAclsSimulation(state, { type: "give_oxygen" });
@@ -219,7 +220,6 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
     state = reduceAdultAclsSimulation(state, { type: "assist_ventilation" });
     state = reduceAdultAclsSimulation(state, { type: "assist_ventilation" });
     state = reduceAdultAclsSimulation(state, { type: "assist_ventilation" });
-    state = reduceAdultAclsSimulation(state, { type: "assess", target: "blood_pressure" });
     state = reduceAdultAclsSimulation(state, { type: "reassess" });
     expect(state.patient.phase).toBe("post_rosc");
     state = reduceAdultAclsSimulation(state, { type: "end_rehearsal" });
@@ -238,7 +238,7 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
     ["vf-pulseless-vt", [{ type: "assess", target: "rhythm" }, { type: "start_cpr" }, { type: "defibrillate" }, { type: "reassess" }, ...Array(6).fill({ type: "give_oxygen" }), ...Array(4).fill({ type: "assist_ventilation" }), { type: "support_perfusion" }, { type: "reassess" }, { type: "end_rehearsal" }]],
     ["acs-to-vf", [{ type: "assess", target: "pulse" }, { type: "obtain_ecg" }, { type: "give_aspirin" }, { type: "activate_reperfusion" }, { type: "reassess" }, { type: "end_rehearsal" }]],
     ["hypoxia-to-arrest", [{ type: "assess", target: "breathing" }, ...Array(8).fill({ type: "give_oxygen" }), ...Array(8).fill({ type: "assist_ventilation" }), { type: "reassess" }, { type: "end_rehearsal" }]],
-    ["rosc-post-arrest", [{ type: "support_perfusion" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "assist_ventilation" }, { type: "assist_ventilation" }, { type: "assist_ventilation" }, { type: "assess", target: "blood_pressure" }, { type: "reassess" }, { type: "end_rehearsal" }]],
+    ["rosc-post-arrest", [{ type: "assess", target: "blood_pressure" }, { type: "support_perfusion" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "give_oxygen" }, { type: "assist_ventilation" }, { type: "assist_ventilation" }, { type: "assist_ventilation" }, { type: "reassess" }, { type: "end_rehearsal" }]],
   ] as const)("has a complete honest winning path for %s", (scenarioId, commands) => {
     let state = createAdultAclsSimulation(scenarioId as AdultAclsScenarioId);
     for (const command of commands) state = reduceAdultAclsSimulation(state, command as AdultAclsCommand);
