@@ -230,10 +230,16 @@ export const practiceLabRouter = router({
       const stored = (session.authoritativeStateJson ?? createAdultAclsSimulation(session.scenarioId as AdultAclsScenarioId, session.role as SimulationWorldRole)) as unknown as AdultAclsState;
       const command = input.commandJson as unknown as AdultAclsCommand;
       const wallElapsedMs = Math.max(0, Math.min(30 * 60 * 1000, Date.now() - session.startedAt.getTime()));
-      const actionAdvanceSeconds = Math.min(ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS, Math.max(0, wallElapsedMs / 1000 - stored.elapsedSeconds));
-      const elapsedMs = Math.round((stored.elapsedSeconds + actionAdvanceSeconds) * 1000);
-      const advanced = advanceAdultAclsSimulation(stored, actionAdvanceSeconds);
-      const nextState = reduceAdultAclsSimulation(advanced, command);
+      // The reducer already advances the deterministic action clock. Apply only
+      // the remaining real-time delta afterwards; advancing before and inside
+      // the reducer double-counts latency and can make a correct intervention
+      // deteriorate before the learner can reassess.
+      const commandedState = reduceAdultAclsSimulation(stored, command);
+      const remainingWallSeconds = Math.min(ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS, Math.max(0, wallElapsedMs / 1000 - commandedState.elapsedSeconds));
+      const nextState = remainingWallSeconds > 0
+        ? advanceAdultAclsSimulation(commandedState, remainingWallSeconds)
+        : commandedState;
+      const elapsedMs = Math.round(nextState.elapsedSeconds * 1000);
       const canonicalEvents = nextState.events.slice(stored.events.length);
       const receiptHash = createHash("sha256").update(`${session.sessionNonce}|${input.sequence}|adult_acls|${JSON.stringify(input.commandJson)}|${elapsedMs}|${JSON.stringify(canonicalEvents)}`).digest("hex").slice(0, 32);
       await db.insert(simulationWorldCommandReceipts).values({ sessionId: session.id, sequence: input.sequence, commandType: String(command.type ?? "unknown"), commandJson: input.commandJson, serverElapsedMs: elapsedMs, receiptHash, canonicalEventsJson: canonicalEvents, authoritativeStateJson: nextState });
