@@ -42,6 +42,7 @@ export const SIMULATION_SCENARIO_CATALOG: readonly SimulationScenarioCatalogEntr
   { id: "asystole", title: "Asystole", clinicalFocus: "Confirm a non-shockable rhythm and start the correct pathway.", missionId: "rhythm-recognition", trackId: "rhythm_recognition", supportedPrograms: ["acls", "pals"] },
 
   { id: "unstable-bradycardia", title: "Adult unstable bradycardia", clinicalFocus: "Atropine, pacing, cardioversion preparation, and reassessment.", missionId: "adult-acls-world", trackId: "adult_acls_world", supportedPrograms: ["acls"] },
+  { id: "high-grade-av-block", title: "High-grade AV block", clinicalFocus: "Recognise a high-risk bradyarrhythmia and escalate to pacing after rhythm assessment.", missionId: "adult-acls-world", trackId: "adult_acls_world", supportedPrograms: ["acls"] },
   { id: "stable-narrow-tachycardia", title: "Adult stable narrow-complex tachycardia", clinicalFocus: "Assessment, vagal/adenosine decision-making, and reassessment.", missionId: "adult-acls-world", trackId: "adult_acls_world", supportedPrograms: ["acls"] },
   { id: "unstable-tachycardia", title: "Adult unstable tachycardia", clinicalFocus: "Synchronised cardioversion for an unstable tachyarrhythmia.", missionId: "adult-acls-world", trackId: "adult_acls_world", supportedPrograms: ["acls"] },
   { id: "vf-pulseless-vt", title: "Adult VF / pulseless VT", clinicalFocus: "Shockable arrest sequence and rhythm reassessment.", missionId: "adult-acls-world", trackId: "adult_acls_world", supportedPrograms: ["acls"] },
