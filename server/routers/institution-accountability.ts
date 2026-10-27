@@ -1281,6 +1281,9 @@ export const institutionAccountabilityRouter = router({
             .length,
           licensedMissing: people.filter(row => row.licenseStatus === "missing")
             .length,
+          licensedEvidenceMissing: people.filter(row =>
+            Boolean(row.regulatoryCredential && !row.regulatoryCredential.evidenceUploaded)
+          ).length,
           ertClinicalDutyReady: people.filter(row => row.ertClinicalDutyEligible)
             .length,
           ertClinicalDutyBlocked: people.filter(row => !row.ertClinicalDutyEligible)

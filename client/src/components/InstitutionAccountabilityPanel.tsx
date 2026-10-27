@@ -139,7 +139,7 @@ export function InstitutionAccountabilityPanel({
   const cadres = Array.from(new Set(data.people.map(row => row.cadre).filter((value): value is NonNullable<typeof value> => Boolean(value)))).sort();
   const filteredPeople = data.people.filter(row => {
     if (cadreFilter !== "all" && row.cadre !== cadreFilter) return false;
-    if (peopleFilter === "action") return row.licenseStatus === "missing" || row.licenseStatus === "expired" || row.lifeSupportStatus === "missing" || row.lifeSupportStatus === "expired";
+    if (peopleFilter === "action") return row.licenseStatus === "missing" || row.licenseStatus === "expired" || (data.access.canViewEvidence && !row.regulatoryCredential?.evidenceUploaded) || row.lifeSupportStatus === "missing" || row.lifeSupportStatus === "expired";
     if (peopleFilter === "expiring") return row.licenseStatus === "expiring" || row.lifeSupportStatus === "expiring";
     if (peopleFilter === "learning") return row.cpdStatus === "needs_support" || row.cpdStatus === "no_data" || row.lifeSupportStatus === "missing";
     return true;
@@ -201,9 +201,9 @@ export function InstitutionAccountabilityPanel({
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Licence current / expiring"
+          label="Licence dates current / expiring"
           value={`${data.summary.licensedCurrentOrExpiring}`}
-          detail={`${data.summary.licensedExpired} expired · ${data.summary.licensedMissing} missing`}
+          detail={`${data.summary.licensedExpired} expired · ${data.summary.licensedMissing} missing · ${data.summary.licensedEvidenceMissing} evidence missing`}
           tone="text-emerald-700"
         />
         <MetricCard
@@ -246,7 +246,7 @@ export function InstitutionAccountabilityPanel({
           <CardDescription>Start with the people and departments that need a decision, evidence request, or learning intervention.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-3">
-          <QueueCard label="Credential / Life Support action" value={data.people.filter(row => ["missing", "expired"].includes(row.licenseStatus) || ["missing", "expired"].includes(row.lifeSupportStatus)).length} onClick={() => setPeopleFilter("action")} />
+          <QueueCard label="Credential / Life Support review" value={data.people.filter(row => ["missing", "expired"].includes(row.licenseStatus) || (data.access.canViewEvidence && !row.regulatoryCredential?.evidenceUploaded) || ["missing", "expired"].includes(row.lifeSupportStatus)).length} onClick={() => setPeopleFilter("action")} />
           <QueueCard label="Expiring soon" value={data.people.filter(row => row.licenseStatus === "expiring" || row.lifeSupportStatus === "expiring").length} onClick={() => setPeopleFilter("expiring")} />
           <QueueCard label="Learning follow-up" value={data.people.filter(row => ["needs_support", "no_data"].includes(row.cpdStatus) || row.lifeSupportStatus === "missing").length} onClick={() => setPeopleFilter("learning")} />
         </CardContent>
@@ -279,8 +279,8 @@ export function InstitutionAccountabilityPanel({
           />
           <MetricCard
             label="Licence records needing action"
-            value={`${data.summary.licensedExpired + data.summary.licensedMissing}`}
-            detail="Expired or missing licence record"
+            value={`${data.summary.licensedExpired + data.summary.licensedMissing + data.summary.licensedEvidenceMissing}`}
+            detail="Expired, missing, or evidence-incomplete"
             tone="text-amber-700"
           />
         </CardContent>
@@ -411,7 +411,7 @@ export function InstitutionAccountabilityPanel({
                         variant={statusVariant(row.licenseStatus)}
                         className="capitalize"
                       >
-                        {label(row.licenseStatus)}
+                        Licence dates: {label(row.licenseStatus)}
                       </Badge>
                     </td>
                     {data.access.canViewEvidence ? (
