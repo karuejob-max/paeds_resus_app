@@ -31,7 +31,7 @@ export const AHA_COURSE_HOURS = AHA_RECOMMENDED_TOTAL_HOURS;
 /**
  * Realistic online-only cognitive workload (self-paced modules, quizzes, reading).
  * Sources (module duration sums from seed scripts; rounded up for quiz/review time):
- * - BLS: seed-bls.ts — 5 modules, 110 min + formative quizzes → ~1.5 h online
+ * - BLS: seed-bls.ts — 6 modules, 110 min + formative quizzes → ~1.5 h online
  *   (PSOT historically listed BLS as 6 h total; CEO label is 1 h AHA recommendation.)
  * - ACLS: seed-acls.ts — 6 modules, 135 min + quizzes → ~3.5 h online (remainder ≈ practical)
  * - PALS: seed-pals.ts — 6 modules; AHA 16 h total with ~10 h typical online cognitive
@@ -137,7 +137,7 @@ export function formatAhaRecommendedDurationLabel(programType: AhaProgramType): 
 /** e.g. "Cognitive coursework: ~10 hours online" */
 export function formatCognitiveCourseworkDurationLabel(programType: AhaProgramType): string {
   const moduleCountMap: Record<AhaProgramType, number> = {
-    bls: 8,
+    bls: 6,
     acls: 6,
     pals: 10,
     heartsaver: 7,
