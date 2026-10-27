@@ -146,7 +146,8 @@ async function ensureQaLicence(
   institutionId: number,
   userId: number,
   providerType: string,
-  verifiedByUserId: number
+  verifiedByUserId: number,
+  expiresAt = new Date("2027-12-31T23:59:59.000Z")
 ) {
   const [existing] = await db
     .select({ id: professionalCredentials.id })
@@ -167,7 +168,7 @@ async function ensureQaLicence(
     cadre: providerType,
     credentialNumber: `QA-${institutionId}-${userId}`,
     issuedAt: new Date("2026-01-01T00:00:00.000Z"),
-    expiresAt: new Date("2027-12-31T23:59:59.000Z"),
+    expiresAt,
     status: "verified" as const,
     verifiedByUserId,
     verifiedAt: new Date(),
@@ -395,6 +396,20 @@ async function main() {
   if (!institution)
     throw new Error("QA institution could not be created or read back");
 
+  // Keep the shared QA tenant useful for read-back and populated-state audits.
+  // This is fixture data only; it does not change non-QA institutions.
+  await db.update(institutionalAccounts).set({
+    organizationCategory: "teaching_and_referral_facility",
+    facilityOwnership: "faith_based_or_mission",
+    facilityCareLevel: "secondary_level_5",
+    facilityLocalLevel: "QA referral facility",
+    staffCount: 11,
+    contactPhone: "+254700000000",
+    contactEmail: PRIMARY_ADMIN_EMAIL,
+  }).where(eq(institutionalAccounts.id, institution.id));
+  [institution] = await db.select().from(institutionalAccounts).where(eq(institutionalAccounts.id, institution.id)).limit(1);
+  if (!institution) throw new Error("QA institution could not be read back after classification update");
+
   await ensureAdminLink(db, institution.id, primary.id);
   await ensureAdminLink(db, institution.id, second.id);
 
@@ -470,13 +485,15 @@ async function main() {
   const doctorId = sampleUsers.get("doctor")!;
   const reviewerId = sampleUsers.get("reviewer")!;
   for (const account of SAMPLE_ACCOUNTS) {
-    await ensureQaLicence(
-      db,
-      institution.id,
-      sampleUsers.get(account.key)!,
-      account.providerType,
-      primary.id
-    );
+    // Deliberately preserve exception states so Accountability can be tested
+    // against the same decisions an administrator makes in production.
+    if (account.key === "general_staff") continue; // no structured licence: missing state
+    const expiry = account.key === "nurse"
+      ? new Date("2026-12-15T23:59:59.000Z") // expiring in the QA audit window
+      : account.key === "doctor"
+        ? new Date("2026-01-31T23:59:59.000Z") // expired
+        : undefined;
+    await ensureQaLicence(db, institution.id, sampleUsers.get(account.key)!, account.providerType, primary.id, expiry);
   }
   const coordinatorStaffId = await ensureStaff(
     db,
@@ -554,7 +571,12 @@ async function main() {
     const staffRole = account.providerType === "doctor" ? "doctor" : account.providerType === "nurse" ? "nurse" : "other";
     const staffId = await ensureStaff(db, institution.id, userId, account.email, account.name, staffRole, department.id);
     await ensureMembership(db, institution.id, userId, account.email, staffId, account.key === "institutional_erco" ? "er_coordinator" : "general_staff");
-    await ensureQaLicence(db, institution.id, userId, account.providerType, primary.id);
+    if (account.key !== "general_staff") {
+      const expiry = account.key === "institutional_cpdco"
+        ? new Date("2026-12-15T23:59:59.000Z")
+        : undefined;
+      await ensureQaLicence(db, institution.id, userId, account.providerType, primary.id, expiry);
+    }
   }
   await ensureLeadershipFixtures(db, institution.id, department.id, primary.id, sampleUsers);
 
@@ -564,6 +586,15 @@ async function main() {
     [secondary] = await db.select().from(institutionalAccounts).where(eq(institutionalAccounts.companyName, QA_SECONDARY_INSTITUTION_NAME)).limit(1);
   }
   if (!secondary) throw new Error("QA secondary institution could not be created or read back");
+  await db.update(institutionalAccounts).set({
+    organizationCategory: "healthcare_facility",
+    facilityOwnership: "private_not_for_profit",
+    facilityCareLevel: "primary_level_3",
+    facilityLocalLevel: "QA secondary facility",
+    staffCount: 1,
+  }).where(eq(institutionalAccounts.id, secondary.id));
+  [secondary] = await db.select().from(institutionalAccounts).where(eq(institutionalAccounts.id, secondary.id)).limit(1);
+  if (!secondary) throw new Error("QA secondary institution could not be read back after classification update");
   let [secondaryPole] = await db.select().from(facilityPoles).where(eq(facilityPoles.institutionId, secondary.id)).limit(1);
   if (!secondaryPole) {
     await db.insert(facilityPoles).values({ institutionId: secondary.id, poleName: "Secondary QA Pole", poleOrder: 1, rotationAnchorDate: "2026-01-05" });

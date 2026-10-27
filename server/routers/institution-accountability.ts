@@ -499,6 +499,13 @@ export const institutionAccountabilityRouter = router({
         industry: institutionalAccounts.industry,
         status: institutionalAccounts.status,
         registrationNumber: institutionalAccounts.registrationNumber,
+        contactPhone: institutionalAccounts.contactPhone,
+        contactEmail: institutionalAccounts.contactEmail,
+        staffCount: institutionalAccounts.staffCount,
+        organizationCategory: institutionalAccounts.organizationCategory,
+        facilityOwnership: institutionalAccounts.facilityOwnership,
+        facilityCareLevel: institutionalAccounts.facilityCareLevel,
+        facilityLocalLevel: institutionalAccounts.facilityLocalLevel,
       })
       .from(institutionalAccounts)
       .where(inArray(institutionalAccounts.id, institutionIds))

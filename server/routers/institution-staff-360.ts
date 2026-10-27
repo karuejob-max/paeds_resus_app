@@ -13,6 +13,7 @@ import {
   institutionalAccounts,
   institutionalProducts,
   institutionalStaffMembers,
+  institutionDepartmentHeads,
   users,
   facilityDepartments,
 } from "../../drizzle/schema";
@@ -85,13 +86,36 @@ export const institutionStaff360Router = router({
     assertStaff360DepartmentScope(scope, staff.facilityDepartmentId);
     const [user] = await db.select({ id: users.id, name: users.name, email: users.email, phone: users.phone, providerType: users.providerType, cadre: users.cadre, cadreOther: users.cadreOther, createdAt: users.createdAt, updatedAt: users.updatedAt }).from(users).where(eq(users.id, input.userId)).limit(1);
     if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User account not found" });
-    const [institution, memberships, cpd, roles, department] = await Promise.all([
+    const [institution, memberships, cpd, roles, department, departmentHeadRows] = await Promise.all([
       db.select({ companyName: institutionalAccounts.companyName, status: institutionalAccounts.status }).from(institutionalAccounts).where(eq(institutionalAccounts.id, input.institutionId)).limit(1),
       db.select({ id: institutionMemberships.id, membershipStatus: institutionMemberships.membershipStatus, responsibilityRole: institutionMemberships.responsibilityRole, invitedAt: institutionMemberships.invitedAt, acceptedAt: institutionMemberships.acceptedAt, endedAt: institutionMemberships.endedAt }).from(institutionMemberships).where(and(eq(institutionMemberships.institutionalAccountId, input.institutionId), eq(institutionMemberships.userId, input.userId))).orderBy(desc(institutionMemberships.updatedAt)),
       db.select({ attendeeId: cpdAttendees.id, eventId: cpdAttendees.cpdEventId, eventName: cpdEvents.name, eventDate: cpdEvents.eventDate, eventDateAt: cpdEvents.eventDateAt, cpdPoints: cpdEvents.cpdPoints, attendanceStatus: cpdAttendees.attendanceStatus, submittedAt: cpdAttendees.submittedAt, attendanceVerifiedAt: cpdAttendees.attendanceVerifiedAt, department: cpdAttendees.department }).from(cpdAttendees).innerJoin(cpdEvents, eq(cpdAttendees.cpdEventId, cpdEvents.id)).where(and(eq(cpdAttendees.institutionalAccountId, input.institutionId), eq(cpdAttendees.userId, input.userId))).orderBy(desc(cpdAttendees.submittedAt)).limit(100),
       db.select({ roleKey: institutionProductRoles.roleKey, roleStatus: institutionProductRoles.roleStatus, productKey: institutionalProducts.productKey, productName: institutionalProducts.displayName }).from(institutionProductRoles).innerJoin(institutionalProducts, eq(institutionProductRoles.productId, institutionalProducts.id)).where(and(eq(institutionProductRoles.institutionalAccountId, input.institutionId), or(eq(institutionProductRoles.userId, input.userId), eq(institutionProductRoles.invitedEmail, staff.staffEmail.toLowerCase())))),
       staff.facilityDepartmentId ? db.select({ id: facilityDepartments.id, name: facilityDepartments.departmentName, isActive: facilityDepartments.isActive }).from(facilityDepartments).where(eq(facilityDepartments.id, staff.facilityDepartmentId)).limit(1) : Promise.resolve([]),
+      db.select({
+        departmentId: institutionDepartmentHeads.departmentId,
+        userId: institutionDepartmentHeads.userId,
+        assignmentStatus: institutionDepartmentHeads.assignmentStatus,
+        assignedAt: institutionDepartmentHeads.assignedAt,
+        acceptedAt: institutionDepartmentHeads.acceptedAt,
+        deputyUserId: institutionDepartmentHeads.deputyUserId,
+        deputyAssignmentStatus: institutionDepartmentHeads.deputyAssignmentStatus,
+        deputyAssignedAt: institutionDepartmentHeads.deputyAssignedAt,
+        deputyAcceptedAt: institutionDepartmentHeads.deputyAcceptedAt,
+      }).from(institutionDepartmentHeads).where(and(
+        eq(institutionDepartmentHeads.institutionalAccountId, input.institutionId),
+        staff.facilityDepartmentId ? eq(institutionDepartmentHeads.departmentId, staff.facilityDepartmentId) : sql`1 = 0`,
+        or(eq(institutionDepartmentHeads.userId, input.userId), eq(institutionDepartmentHeads.deputyUserId, input.userId)),
+      )),
     ]);
+    const headRow = departmentHeadRows[0];
+    const departmentalAppointment = headRow
+      ? headRow.userId === input.userId && ["active", "pending_acceptance"].includes(headRow.assignmentStatus)
+        ? { departmentId: headRow.departmentId, role: "primary" as const, label: "department_head" as const, status: headRow.assignmentStatus, assignedAt: headRow.assignedAt, acceptedAt: headRow.acceptedAt }
+        : headRow.deputyUserId === input.userId && headRow.deputyAssignmentStatus && ["active", "pending_acceptance"].includes(headRow.deputyAssignmentStatus)
+          ? { departmentId: headRow.departmentId, role: "deputy" as const, label: "deputy_department_head" as const, status: headRow.deputyAssignmentStatus, assignedAt: headRow.deputyAssignedAt, acceptedAt: headRow.deputyAcceptedAt }
+          : null
+      : null;
     const now = Date.now();
     const actions: Array<{ key: string; severity: "high" | "medium" | "low"; label: string; detail: string }> = [];
     if (staff.facilityLinkStatus !== "linked") actions.push({ key: "link", severity: "high", label: "Institution link needs review", detail: `Current link status is ${staff.facilityLinkStatus ?? "not recorded"}.` });
@@ -106,6 +130,7 @@ export const institutionStaff360Router = router({
       institution: institution[0] ?? null,
       department: department[0] ?? null,
       staff,
+      departmentalAppointment,
       user,
       memberships,
       roles,
