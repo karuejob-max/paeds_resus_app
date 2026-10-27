@@ -63,9 +63,9 @@ export function DepartmentSelectors({
     } else if (newParent === "") {
       onChange("");
     } else {
-      const match = GLOBAL_DEPARTMENTS.find(d => d.name === newParent);
-      const defaultSub = match && match.subs.length > 0 ? match.subs[0] : "General";
-      onChange(formatDepartmentString(newParent, defaultSub));
+      // Selecting a parent alone is valid. The user can opt into a
+      // subdepartment when the role or session actually needs one.
+      onChange(formatDepartmentString(newParent, ""));
     }
   };
 
@@ -128,7 +128,7 @@ export function DepartmentSelectors({
               value={sub}
               onChange={(e) => handleSubChange(e.target.value)}
             >
-              <option value="">Select Sub Department</option>
+              <option value="">Department-wide / no subdepartment</option>
               {subOptions.map((s) => (
                 <option key={s} value={s}>
                   {s}

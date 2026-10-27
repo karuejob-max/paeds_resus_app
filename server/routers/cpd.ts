@@ -934,50 +934,52 @@ export const cpdRouter = router({
       let userDepartment: string | null = null;
       let userFacilityDepartmentId: number | null = null;
       const registrationDepartmentRows = await db
-        .select({ id: facilityDepartments.id, departmentName: facilityDepartments.departmentName })
+        .select({
+          id: facilityDepartments.id,
+          departmentName: facilityDepartments.departmentName,
+          parentDepartmentId: facilityDepartments.parentDepartmentId,
+        })
         .from(facilityDepartments)
         .where(and(eq(facilityDepartments.institutionId, input.institutionId), eq(facilityDepartments.isActive, true)));
+      const registrationDepartmentNames = new Map(registrationDepartmentRows.map((department) => [department.id, canonicalizeDepartmentLabel(department.departmentName)]));
       const registrationDepartments = registrationDepartmentRows.map((department) => ({
         ...department,
         departmentName: canonicalizeDepartmentLabel(department.departmentName),
+        parentDepartmentName: department.parentDepartmentId == null
+          ? null
+          : registrationDepartmentNames.get(department.parentDepartmentId) ?? null,
       }));
       if (ctx.user?.id) {
-        // 1. Try to fetch from providerProfiles
-        const [profile] = await db
-          .select({ department: providerProfiles.department })
-          .from(providerProfiles)
-          .where(eq(providerProfiles.userId, ctx.user.id))
-          .limit(1);
+        // The institution-scoped staff row is authoritative for this form.
+        // A provider may work in more than one institution, so do not let a
+        // global profile department override the selected institution.
+        const staffRows = await db
+          .select({
+            department: institutionalStaffMembers.department,
+            facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
+            instId: institutionalStaffMembers.institutionalAccountId,
+          })
+          .from(institutionalStaffMembers)
+          .where(eq(institutionalStaffMembers.userId, ctx.user.id));
 
-        if (profile?.department) {
-          userDepartment = profile.department;
+        const currentStaff = staffRows.find((r) => r.instId === input.institutionId && r.department?.trim());
+        if (currentStaff?.department) {
+          userDepartment = currentStaff.department;
+          userFacilityDepartmentId = currentStaff.facilityDepartmentId ?? null;
         } else {
-          // 2. Fallback to institutionalStaffMembers
-          const staffRows = await db
-            .select({
-              department: institutionalStaffMembers.department,
-              facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId,
-              instId: institutionalStaffMembers.institutionalAccountId,
-            })
-            .from(institutionalStaffMembers)
-            .where(eq(institutionalStaffMembers.userId, ctx.user.id));
-
-          const currentStaff = staffRows.find((r) => r.instId === input.institutionId);
-          if (currentStaff?.department) {
-            userDepartment = currentStaff.department;
-            userFacilityDepartmentId = currentStaff.facilityDepartmentId ?? null;
-          } else {
-            const fallbackStaff = staffRows.find((r) => r.department?.trim());
-            if (fallbackStaff?.department) {
-              userDepartment = fallbackStaff.department;
-              userFacilityDepartmentId = fallbackStaff.facilityDepartmentId ?? null;
-            }
-          }
+          const [profile] = await db
+            .select({ department: providerProfiles.department })
+            .from(providerProfiles)
+            .where(eq(providerProfiles.userId, ctx.user.id))
+            .limit(1);
+          if (profile?.department) userDepartment = profile.department;
         }
       }
 
       if (userDepartment) {
         const matchingDepartment = registrationDepartments.find(
+          (department) => department.departmentName.trim().toLowerCase() === userDepartment?.trim().toLowerCase(),
+        ) ?? registrationDepartments.find(
           (department) => departmentLabelsMatch(department.departmentName, userDepartment),
         );
         if (matchingDepartment) {
