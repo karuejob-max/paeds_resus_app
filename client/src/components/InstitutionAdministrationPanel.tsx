@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, BookOpen, Building2, CreditCard, FileText, GraduationCap, HeartPulse, LifeBuoy, ShieldCheck, Users, Wrench } from "lucide-react";
@@ -31,6 +32,14 @@ type InstitutionRecord = {
 
 type AdministrationTab = "overview" | "institution" | "billing" | "program_operations" | "data_support";
 type PeopleTab = "institution" | "people_access" | "departments" | "access_links" | "staff_import";
+
+const PEOPLE_JOURNEY_STEPS: ReadonlyArray<readonly [string, string, PeopleTab]> = [
+  ["1", "Institution details", "institution"],
+  ["2", "Import staff", "staff_import"],
+  ["3", "Review people & roles", "people_access"],
+  ["4", "Departments & scope", "departments"],
+  ["5", "Access links & admins", "access_links"],
+];
 
 function getInitialAdministrationTab(): AdministrationTab {
   if (typeof window === "undefined") return "overview";
@@ -114,16 +123,33 @@ export function InstitutionAdministrationPanel({ institutionId, institution, con
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />People & access</CardTitle>
-            <CardDescription>Keep the institution identity, roster, departments, account administrators, product roles, and shared scopes accurate before assigning work.</CardDescription>
+            <CardDescription>Follow the workforce journey in order: confirm the institution, import staff, reconcile linked accounts, assign departments and roles, then manage access safely.</CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="mb-5 rounded-xl border border-primary/20 bg-primary/5 p-4" aria-label="People and access workflow">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold">Workforce setup checklist</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Each step is explicit. Importing staff does not automatically grant emergency or CPD authority.</p>
+                </div>
+                <Badge variant="outline" className="w-fit">Institution-scoped</Badge>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                {PEOPLE_JOURNEY_STEPS.map(([number, label, value]) => (
+                  <button key={value} type="button" onClick={() => setPeopleSection(value)} className={`rounded-lg border bg-background p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/30 ${peopleTab === value ? "border-primary ring-1 ring-primary/30" : ""}`}>
+                    <span className="text-xs font-semibold text-primary">Step {number}</span>
+                    <span className="mt-1 block text-sm font-medium">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
             <Tabs value={peopleTab} onValueChange={(value) => setPeopleSection(value as PeopleTab)}>
               <TabsList className="grid h-auto min-w-0 w-full grid-cols-1 gap-1 min-[420px]:grid-cols-2 sm:grid-cols-5">
                 <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="institution"><Building2 className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Institution</TabsTrigger>
-                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="people_access"><Users className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Role assignments</TabsTrigger>
+                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="people_access"><Users className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />People & roles</TabsTrigger>
                 <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="departments"><FileText className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Departments & CPD</TabsTrigger>
                 <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="access_links"><ShieldCheck className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Access & links</TabsTrigger>
-                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="staff_import"><Users className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Staff import</TabsTrigger>
+                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="staff_import"><Users className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Import staff</TabsTrigger>
               </TabsList>
               <TabsContent value="institution" className="mt-5"><InstitutionDetailsCard institutionId={institutionId} companyName={institution.companyName} contactPhone={institution.contactPhone} contactEmail={institution.contactEmail} staffCount={institution.staffCount} organizationCategory={institution.organizationCategory} facilityOwnership={institution.facilityOwnership} facilityCareLevel={institution.facilityCareLevel} facilityLocalLevel={institution.facilityLocalLevel} /></TabsContent>
               <TabsContent value="people_access" className="mt-5"><InstitutionPeopleRolesPanel institutionId={institutionId} /></TabsContent>

@@ -563,10 +563,10 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               <Button type="button" variant="outline" size="sm" onClick={() => setActiveSection("product_roles")}>Assign IERS / CPD product roles</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => setActiveSection("scopes")}>Assign shared account scopes</Button>
-              <Button type="button" variant="outline" size="sm" asChild><a href="?section=administration&adminTab=institution&peopleTab=access_links">Assign institutional administrator</a></Button>
-              <Button type="button" variant="outline" size="sm" asChild><a href="?section=iers&iersTab=command">Assign ERCo / IERS department appointments</a></Button>
-              <Button type="button" variant="outline" size="sm" asChild><a href="?section=learning&learningTab=governance">Assign Departmental CPD Coordinator</a></Button>
-              <Button type="button" variant="outline" size="sm" asChild><a href="?section=administration&adminTab=institution&peopleTab=departments">Set department membership and scope</a></Button>
+              <Button type="button" variant="outline" size="sm" asChild><a href={`/institution?institutionId=${institutionId}&section=administration&adminTab=institution&peopleTab=access_links`}>Assign institutional administrator</a></Button>
+              <Button type="button" variant="outline" size="sm" asChild><a href={`/institution?institutionId=${institutionId}&section=iers&iersTab=command`}>Assign ERCo / IERS department appointments</a></Button>
+              <Button type="button" variant="outline" size="sm" asChild><a href={`/institution?institutionId=${institutionId}&section=learning&learningTab=governance`}>Assign Departmental CPD Coordinator</a></Button>
+              <Button type="button" variant="outline" size="sm" asChild><a href={`/institution?institutionId=${institutionId}&section=administration&adminTab=institution&peopleTab=departments`}>Set department membership and scope</a></Button>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">Role assignment does not prove clinical competence, provider acceptance, or emergency dispatch availability. Those states remain separately recorded and auditable.</p>

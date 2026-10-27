@@ -70,7 +70,9 @@ export function InstitutionDetailsCard({
     onSuccess: () => {
       toast.success("Institution details updated");
       setEditing(false);
+      void utils.institution.getDetails.invalidate({ institutionId });
       void utils.institution.getMyInstitution.invalidate();
+      void utils.institutionAccountability.getMyWorkspace.invalidate();
     },
     onError: (err) => toast.error(err.message || "Failed to update details"),
   });
@@ -79,6 +81,8 @@ export function InstitutionDetailsCard({
   const ownershipLabel = FACILITY_OWNERSHIP_OPTIONS.find(option => option.value === facilityOwnership)?.label;
   const careLevelLabel = CARE_FACILITY_LEVEL_OPTIONS.find(option => option.value === facilityCareLevel)?.label;
   const editingRequiresCareClassification = requiresCareFacilityClassification(form.organizationCategory);
+  const parsedStaffCount = form.staffCount.trim() === "" ? 0 : Number(form.staffCount);
+  const validStaffCount = Number.isInteger(parsedStaffCount) && parsedStaffCount >= 0;
 
   return (
     <Card>
@@ -147,9 +151,9 @@ export function InstitutionDetailsCard({
 
         {editing && (
           <div className="flex gap-2 pt-2">
-                          <Button
-              size="sm"
-              disabled={!form.companyName.trim() || !form.contactEmail.trim() || (editingRequiresCareClassification && (!form.facilityOwnership || !form.facilityCareLevel)) || updateMutation.isPending}
+              <Button
+                size="sm"
+              disabled={!form.companyName.trim() || !form.contactEmail.trim() || !validStaffCount || (editingRequiresCareClassification && (!form.facilityOwnership || !form.facilityCareLevel)) || updateMutation.isPending}
 
               onClick={() =>
                 updateMutation.mutate({
@@ -157,11 +161,11 @@ export function InstitutionDetailsCard({
                   companyName: form.companyName.trim(),
                   contactPhone: form.contactPhone.trim() || undefined,
                   contactEmail: form.contactEmail.trim(),
-                  staffCount: form.staffCount ? parseInt(form.staffCount, 10) : 0,
+                  staffCount: parsedStaffCount,
                   organizationCategory: form.organizationCategory ? form.organizationCategory as InstitutionCategory : undefined,
                   facilityOwnership: editingRequiresCareClassification && form.facilityOwnership ? form.facilityOwnership as FacilityOwnership : undefined,
                   facilityCareLevel: editingRequiresCareClassification && form.facilityCareLevel ? form.facilityCareLevel as CareFacilityLevel : undefined,
-                  facilityLocalLevel: editingRequiresCareClassification ? form.facilityLocalLevel.trim() || undefined : undefined,
+                  facilityLocalLevel: editingRequiresCareClassification ? form.facilityLocalLevel.trim() || null : null,
                 })
               }
             >

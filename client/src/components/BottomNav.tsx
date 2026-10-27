@@ -45,7 +45,16 @@ export const BottomNav: React.FC = () => {
     }
 
     if (role === "institution") {
-      return [{ path: "/institution", label: "Workspace", icon: Home }];
+      const currentQuery = location.includes("?") ? location.slice(location.indexOf("?") + 1) : "";
+      const params = new URLSearchParams(currentQuery);
+      params.set("section", "administration");
+      params.set("adminTab", "institution");
+      params.set("peopleTab", "people_access");
+      const peoplePath = `/institution?${params.toString()}`;
+      return [
+        { path: "/institution", label: "Workspace", icon: Home },
+        { path: peoplePath, label: "People", icon: Users },
+      ];
     }
 
     // Default
@@ -60,6 +69,7 @@ export const BottomNav: React.FC = () => {
 
   const isActive = (path: string) => {
     if (path === "/" && location === "/") return true;
+    if (path.includes("?")) return location === path;
     if (path !== "/" && location.startsWith(path)) return true;
     return false;
   };

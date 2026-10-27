@@ -184,9 +184,13 @@ export default function InstitutionWorkspace() {
   const { hasIersRole, hasCpdRole, canOperateIers } = deriveInstitutionWorkspaceAccess(isInstitutionAdmin, roleKeys);
   const canViewAccountability = myInstitution?.canViewAccountability === true;
   const visibleSection = (activeSection === "accountability" && !canViewAccountability) || (activeSection === "connected" && !isInstitutionAdmin) || (activeSection === "iers" && !hasIersRole) || (activeSection === "learning" && !hasCpdRole && !hasIersRole) ? "overview" : activeSection;
-  const { data: adminInstitutionDetails, isLoading: adminDetailsLoading } = trpc.institution.getMyInstitution.useQuery(undefined, {
-    enabled: isAuthenticated && isInstitutionAdmin,
-  });
+  const { data: adminInstitutionDetails, isLoading: adminDetailsLoading } = trpc.institution.getDetails.useQuery(
+    { institutionId: institutionId ?? 0 },
+    {
+      enabled: isAuthenticated && isInstitutionAdmin && institutionId != null,
+      staleTime: 30_000,
+    },
+  );
 
   const workspaceLoading = institutionLoading || (isInstitutionAdmin && adminDetailsLoading);
   const [slowWorkspaceLoad, setSlowWorkspaceLoad] = useState(false);
@@ -263,7 +267,7 @@ export default function InstitutionWorkspace() {
   const cpdEnabled = canUseProduct(productStatus.cpd_portal) && hasCpdRole;
 
   return (
-    <div className="min-h-screen bg-slate-50/70 dark:bg-slate-950/30">
+    <div className="min-h-screen bg-slate-50/70 pb-20 dark:bg-slate-950/30 md:pb-0">
       <div className="mx-auto min-w-0 max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
         <div className="mb-4 flex min-w-0 flex-col justify-between gap-3 md:mb-6 md:flex-row md:items-start md:gap-4">
           <div className="min-w-0">
@@ -408,11 +412,10 @@ export default function InstitutionWorkspace() {
             <InstitutionAccountabilityPanel institutionId={institutionId} isInstitutionAdmin={isInstitutionAdmin} />
           </TabsContent> : null}
 
-          {isInstitutionAdmin ?           <TabsContent value="administration" className="space-y-6">
+          {isInstitutionAdmin ? <TabsContent value="administration" className="space-y-6">
+            <InstitutionAdministrationPanel institutionId={institutionId} institution={adminInstitutionDetails ?? { id: institutionId ?? 0, companyName: institutionName, contactPhone: null, contactEmail: "", staffCount: null }} controlledActiveTab={activeAdminTab} onAdministrationTabChange={setAdminTab} hideNavigation />
             <InstitutionalQualityBillingPanel institutionId={institutionId} canManageBilling />
             <AdministrationSummary institutionId={institutionId} catalog={catalog ?? []} />
-
-            <InstitutionAdministrationPanel institutionId={institutionId} institution={adminInstitutionDetails?.institution ?? { id: institutionId ?? 0, companyName: institutionName, contactPhone: null, contactEmail: "", staffCount: null }} controlledActiveTab={activeAdminTab} onAdministrationTabChange={setAdminTab} hideNavigation />
           </TabsContent> : null}
 
               <TabsContent value="connected" className="space-y-6">

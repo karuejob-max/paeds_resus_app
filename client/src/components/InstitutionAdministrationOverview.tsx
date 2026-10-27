@@ -203,18 +203,24 @@ export function InstitutionAdministrationOverview({
                 workflow.
               </CardDescription>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={refresh}
-              disabled={loading}
-            >
-              <RefreshCw
-                className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
-              />
-              Refresh
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" onClick={() => onNavigate("institution")}>
+                <Users className="mr-2 h-4 w-4" />
+                People & access
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={refresh}
+                disabled={loading}
+              >
+                <RefreshCw
+                  className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
