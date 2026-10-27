@@ -2503,7 +2503,7 @@ export const institutionRouter = router({
     }),
 
   getDetails: protectedProcedure
-    .input(z.object({ institutionId: z.number() }))
+    .input(z.object({ institutionId: z.number().int().positive() }))
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
@@ -2534,15 +2534,15 @@ export const institutionRouter = router({
   updateDetails: protectedProcedure
     .input(
       z.object({
-        institutionId: z.number(),
-        companyName: z.string().optional(),
-        contactPhone: z.string().optional(),
-        contactEmail: z.string().email().optional(),
+        institutionId: z.number().int().positive(),
+        companyName: z.string().trim().min(1).max(255).optional(),
+        contactPhone: z.string().trim().max(64).optional(),
+        contactEmail: z.string().trim().email().max(255).optional(),
         staffCount: z.number().int().min(0).optional(),
         organizationCategory: z.enum(INSTITUTION_CATEGORY_VALUES).optional(),
         facilityOwnership: z.enum(FACILITY_OWNERSHIP_VALUES).optional(),
         facilityCareLevel: z.enum(CARE_FACILITY_LEVEL_VALUES).optional(),
-        facilityLocalLevel: z.string().trim().max(128).optional(),
+        facilityLocalLevel: z.string().trim().max(128).nullable().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -2573,21 +2573,28 @@ export const institutionRouter = router({
       if (input.organizationCategory !== undefined) updateData.organizationCategory = input.organizationCategory;
       if (input.facilityOwnership !== undefined) updateData.facilityOwnership = input.facilityOwnership;
       if (input.facilityCareLevel !== undefined) updateData.facilityCareLevel = input.facilityCareLevel;
-      if (input.facilityLocalLevel !== undefined) updateData.facilityLocalLevel = input.facilityLocalLevel.trim() || null;
+      if (input.facilityLocalLevel !== undefined) updateData.facilityLocalLevel = input.facilityLocalLevel?.trim() || null;
       if (!requiresClassification) {
         updateData.facilityOwnership = null;
         updateData.facilityCareLevel = null;
         updateData.facilityLocalLevel = null;
       }
       await db
-
         .update(institutionalAccounts)
         .set(updateData)
         .where(eq(institutionalAccounts.id, input.institutionId));
 
+      const [updated] = await db
+        .select()
+        .from(institutionalAccounts)
+        .where(eq(institutionalAccounts.id, input.institutionId))
+        .limit(1);
+      if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Institution not found after update" });
+
       return {
         success: true,
         message: "Institution updated successfully",
+        institution: updated,
       };
     }),
 
