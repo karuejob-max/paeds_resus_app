@@ -78,6 +78,7 @@ import { assertInstitutionProductRole } from "../lib/institution-product-roles";
 import { assertCanManageArea, assertCanManageDepartmentHead } from "../lib/institution-role-authority";
 import { assertCurrentClinicalLicence } from "../lib/professional-credential-safety";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
+import { buildAdministrationUrl } from "../../shared/institution-administration-location";
 import { getCohortProgressStats } from "../lib/cohort-progress";
 import { ensureCourseCatalogForSchedule } from "../lib/ensure-course-catalog-for-schedule";
 import {
@@ -5112,7 +5113,7 @@ export const institutionRouter = router({
         notes: reportNotes,
       });
       const reportId = Number((reportInsert as unknown as { insertId: number }).insertId);
-      const actionUrl = `/institution?section=administration&adminTab=people_roles&departmentId=${input.departmentId}&providerUserId=${input.providerUserId}&mismatchReportId=${reportId}`;
+      const actionUrl = buildAdministrationUrl({ institutionId: input.institutionId, lane: "institution", peopleView: "inbox", focus: { kind: "mismatch", id: reportId } });
       const [account] = await db
         .select({ ownerUserId: institutionalAccounts.userId })
         .from(institutionalAccounts)

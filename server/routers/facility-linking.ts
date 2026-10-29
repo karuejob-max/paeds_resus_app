@@ -17,6 +17,7 @@ import {
 import { getDb } from "../db";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { protectedProcedure, router } from "../_core/trpc";
+import { buildAdministrationUrl } from "../../shared/institution-administration-location";
 
 const requestRelationshipSchema = z.literal("permanent_staff");
 
@@ -731,7 +732,7 @@ export const facilityLinkingRouter = router({
         "New facility link request",
         `${ctx.user.name ?? email} requested a general facility link to ${facility.name}. Review it in Access & links.`,
         requestId,
-        "/institution?section=administration&adminTab=access_links"
+        buildAdministrationUrl({ institutionId, lane: "institution", peopleView: "inbox", focus: { kind: "link-request", id: requestId } })
       );
       return {
         success: true as const,
