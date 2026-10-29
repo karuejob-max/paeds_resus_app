@@ -10,6 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue ,
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow ,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { buildAdministrationUrl } from "@shared/institution-administration-location";
+import { buildCanonicalDepartmentOptions } from "@shared/institution-department-hierarchy";
+import { classifyDepartmentMismatch } from "@shared/institution-department-mismatch";
+import { summarizeInstitutionalResponsibilities } from "@shared/institution-role-summary";
 import { AlertTriangle, CalendarClock, KeyRound, Loader2, RefreshCw, Search, ShieldCheck, UserCheck, UserMinus, Users ,
 } from "lucide-react";
 
@@ -32,6 +36,7 @@ type StaffRow = {
   staffEmail: string;
   staffRole: string;
   department: string | null;
+  facilityDepartmentId?: number | null;
   governanceRole?: GovernanceRole | null;
   facilityLinkStatus?: string | null;
   userId?: number | null;
@@ -297,12 +302,19 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
     if (!departmentId) return null;
     return (iersDuties?.erco ?? []).find((row: any) => row.departmentId === departmentId && row.assignmentRole === "erco" && row.providerUserId != null) ?? null;
   }, [assignmentDepartmentId, iersDuties]);
-  const departmentLabels = useMemo(() => {
-    const rows = facilityDepartments ?? [];
-    const byId = new Map(rows.map(row => [row.id, row.departmentName]));
-    return new Map(rows.map(row => [row.id, row.parentDepartmentId && byId.get(row.parentDepartmentId) ? `${byId.get(row.parentDepartmentId)} → ${row.departmentName}` : row.departmentName]));
-  }, [facilityDepartments]);
+  const canonicalDepartmentOptions = useMemo(() => buildCanonicalDepartmentOptions(facilityDepartments ?? []), [facilityDepartments]);
+  const departmentLabels = useMemo(() => new Map(canonicalDepartmentOptions.map(option => [option.id, option.label])), [canonicalDepartmentOptions]);
   const formatDepartmentLabel = (departmentId: number, fallback: string) => departmentLabels.get(departmentId) ?? fallback;
+  const selectedResponsibilities = useMemo(() => selectedAssignmentStaff ? summarizeInstitutionalResponsibilities({
+    person: { userId: selectedAssignmentStaff.userId, email: selectedAssignmentStaff.staffEmail },
+    administrators: institutionAdmins?.admins,
+    departmentHeads,
+    educationCoordinators,
+    productRoles,
+    ercoDuties: iersDuties?.erco,
+    ertlDuties: iersDuties?.ertl,
+    utlDuties: iersDuties?.utl,
+  }) : [], [selectedAssignmentStaff, institutionAdmins?.admins, departmentHeads, educationCoordinators, productRoles, iersDuties]);
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return staff;
@@ -314,9 +326,17 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
         } = {};
     try { details = report.notes ? (JSON.parse(report.notes) as typeof details )
             : {}; } catch { details = {}; }
-    return { report, details, staff: staff.find(member => member.id === details.staffMemberId || member.userId === details.providerUserId) ?? null ,
+    const matchedStaff = staff.find(member => member.id === details.staffMemberId || member.userId === details.providerUserId) ?? null;
+    const targetDepartmentId = details.departmentId ?? null;
+    const actionState = classifyDepartmentMismatch({
+      staffExists: Boolean(matchedStaff),
+      currentDepartmentId: matchedStaff?.facilityDepartmentId,
+      targetDepartmentId,
+      targetDepartmentActive: Boolean(targetDepartmentId && canonicalDepartmentOptions.some(option => option.id === targetDepartmentId)),
+    });
+    return { report, details, staff: matchedStaff, targetDepartmentId, actionState,
         };
-  }), [mismatchReports, staff]);
+  }), [mismatchReports, staff, canonicalDepartmentOptions]);
 
   return (
     <div className="space-y-6">
@@ -387,12 +407,13 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
               {!selectedAssignmentStaff ? <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Select a person to see the responsibilities available for assignment.</p> : (
                 <div className="space-y-4 rounded-lg border bg-background p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold">{selectedAssignmentStaff.staffName}</p><p className="text-sm text-muted-foreground">{selectedAssignmentStaff.staffEmail}</p><p className="text-xs text-muted-foreground">Current department: {selectedAssignmentStaff.department || "Not assigned"}</p></div><Badge variant="outline">{selectedAssignmentStaff.facilityLinkStatus === "linked" ? "Institution-linked" : "Roster record"}</Badge></div>
-                  <label className="block max-w-xl space-y-1 text-sm"><span className="font-medium">Department scope for a departmental role</span><Select value={assignmentDepartmentId} onValueChange={setAssignmentDepartmentId}><SelectTrigger><SelectValue placeholder="Select canonical department" /></SelectTrigger><SelectContent>{(facilityDepartments ?? []).map(department => <SelectItem key={department.id} value={String(department.id)}>{formatDepartmentLabel(department.id, department.departmentName)}</SelectItem>)}</SelectContent></Select></label>
+                  <div className="rounded-lg border bg-muted/20 p-3"><div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold">Current responsibilities</p><Badge variant="secondary">{selectedResponsibilities.length}</Badge></div>{selectedResponsibilities.length ? <div className="mt-2 grid gap-2 sm:grid-cols-2">{selectedResponsibilities.map(item => <div key={item.key} className="rounded-md border bg-background px-3 py-2"><p className="text-sm font-medium">{item.label}</p><p className="text-xs text-muted-foreground">{item.scope} · {item.status}</p></div>)}</div> : <p className="mt-2 text-xs text-muted-foreground">No active institutional responsibility is linked to this account in the loaded assignment records.</p>}</div>
+                  <label className="block max-w-xl space-y-1 text-sm"><span className="font-medium">Department scope for a departmental role</span><Select value={assignmentDepartmentId} onValueChange={setAssignmentDepartmentId}><SelectTrigger><SelectValue placeholder="Select canonical department" /></SelectTrigger><SelectContent>{canonicalDepartmentOptions.map(department => <SelectItem key={department.id} value={String(department.id)}>{department.label}</SelectItem>)}</SelectContent></Select></label>
                   <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/20">
                     <p className="text-sm font-medium">Correct this person’s roster department</p>
                     <p className="mb-2 text-xs text-muted-foreground">Use this when the person is in the wrong department or a stale mismatch alert is unavailable.</p>
                     <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto] md:items-end">
-                      <Select value={assignmentDepartmentId} onValueChange={setAssignmentDepartmentId}><SelectTrigger><SelectValue placeholder="Move to canonical department" /></SelectTrigger><SelectContent>{(facilityDepartments ?? []).map(department => <SelectItem key={department.id} value={String(department.id)}>{formatDepartmentLabel(department.id, department.departmentName)}</SelectItem>)}</SelectContent></Select>
+                      <Select value={assignmentDepartmentId} onValueChange={setAssignmentDepartmentId}><SelectTrigger><SelectValue placeholder="Move to canonical department" /></SelectTrigger><SelectContent>{canonicalDepartmentOptions.map(department => <SelectItem key={department.id} value={String(department.id)}>{department.label}</SelectItem>)}</SelectContent></Select>
                       <Input value={directDepartmentReason} onChange={event => setDirectDepartmentReason(event.target.value)} placeholder="Reason (at least 10 characters)" />
                       <Button type="button" disabled={!assignmentDepartmentId || directDepartmentReason.trim().length < 10 || reallocationMutation.isPending} onClick={() => reallocationMutation.mutate({ institutionId, staffMemberId: selectedAssignmentStaff.id, departmentId: Number(assignmentDepartmentId), reason: directDepartmentReason.trim() })}>{reallocationMutation.isPending ? "Saving…" : "Update department"}</Button>
                     </div>
@@ -401,12 +422,9 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
                     <RoleAssignmentCard title="Institutional Emergency Response Coordinator" scope="Whole institution" detail="Assign the IERS coordinator product role." actionLabel="Assign IERS coordinator" onClick={() => grantProductRole.mutate({ institutionId, productKey: "iers", invitedEmail: selectedAssignmentStaff.staffEmail, userId: selectedAssignmentStaff.userId ?? undefined, roleKey: "iers_coordinator" })} disabled={!selectedAssignmentStaff.userId || grantProductRole.isPending} />
                     <RoleAssignmentCard title="Institutional CPD Coordinator" scope="Whole institution" detail="Assign the CPD coordinator product role." actionLabel="Assign CPD coordinator" onClick={() => grantProductRole.mutate({ institutionId, productKey: "cpd_portal", invitedEmail: selectedAssignmentStaff.staffEmail, userId: selectedAssignmentStaff.userId ?? undefined, roleKey: "cpd_coordinator" })} disabled={!selectedAssignmentStaff.userId || grantProductRole.isPending} />
                     <RoleAssignmentCard title="Institutional administrator" scope="Whole institution" detail="Uses the protected multi-admin account workflow." actionLabel="Assign institutional admin" onClick={() => selectedAssignmentStaff.userId && inviteInstitutionAdmin.mutate({ institutionId, userId: selectedAssignmentStaff.userId })} disabled={!selectedAssignmentStaff.userId || inviteInstitutionAdmin.isPending} />
-                    <RoleAssignmentCard title="Departmental Head" scope={assignmentDepartmentId ? formatDepartmentLabel(Number(assignmentDepartmentId), "Selected department") : "Choose department"} detail="One active head per canonical department." actionLabel="Assign Departmental Head" onClick={() => selectedAssignmentStaff.userId && assignmentDepartmentId && assignDepartmentHead.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), userId: selectedAssignmentStaff.userId })} disabled={!selectedAssignmentStaff.userId || !assignmentDepartmentId || assignDepartmentHead.isPending} />
-                    <RoleAssignmentCard title="Deputy Departmental Head" scope={assignmentDepartmentId ? formatDepartmentLabel(Number(assignmentDepartmentId), "Selected department") : "Choose department"} detail="Same department-scoped rights as the accepted Departmental Head." actionLabel="Assign Deputy Head" onClick={() => selectedAssignmentStaff.userId && assignmentDepartmentId && assignDepartmentHead.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), userId: selectedAssignmentStaff.userId, assignmentRole: "deputy" })} disabled={!selectedAssignmentStaff.userId || !assignmentDepartmentId || assignDepartmentHead.isPending} />
-                    <RoleAssignmentCard title="ERCo" scope={assignmentDepartmentId ? formatDepartmentLabel(Number(assignmentDepartmentId), "Selected department") : "Choose department"} detail="Requires an active linked eligible nurse in the selected department." actionLabel="Assign ERCo" onClick={() => selectedAssignmentStaff.userId && assignmentDepartmentId && assignErco.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), coordinatorUserId: selectedAssignmentStaff.userId, effectiveFrom: new Date().toISOString().slice(0, 10), effectiveUntil: null })} disabled={!selectedAssignmentStaff.userId || !assignmentDepartmentId || assignErco.isPending} />
-                    <RoleAssignmentCard title="Deputy ERCo" scope={assignmentDepartmentId ? formatDepartmentLabel(Number(assignmentDepartmentId), "Selected department") : "Choose department"} detail="Same department-scoped IERS rights as the accepted ERCo." actionLabel="Assign Deputy ERCo" onClick={() => selectedAssignmentStaff.userId && assignmentDepartmentId && selectedDepartmentPrimaryErco?.providerUserId && assignErco.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), coordinatorUserId: Number(selectedDepartmentPrimaryErco.providerUserId), deputyUserId: selectedAssignmentStaff.userId, effectiveFrom: new Date().toISOString().slice(0, 10), effectiveUntil: null })} disabled={!selectedAssignmentStaff.userId || !assignmentDepartmentId || !selectedDepartmentPrimaryErco?.providerUserId || assignErco.isPending} />
-                    <RoleAssignmentCard title="Departmental CPD Coordinator" scope={assignmentDepartmentId ? formatDepartmentLabel(Number(assignmentDepartmentId), "Selected department") : "Choose department"} detail="Requires active linked staff in the selected department." actionLabel="Assign CPD Coordinator" onClick={() => selectedAssignmentStaff.userId && assignmentDepartmentId && assignEducationCoordinator.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), userId: selectedAssignmentStaff.userId })} disabled={!selectedAssignmentStaff.userId || !assignmentDepartmentId || assignEducationCoordinator.isPending} />
-                    <RoleAssignmentCard title="Deputy Departmental CPD Coordinator" scope={assignmentDepartmentId ? formatDepartmentLabel(Number(assignmentDepartmentId), "Selected department") : "Choose department"} detail="Same department-scoped CPD rights as the accepted coordinator." actionLabel="Assign Deputy CPD Coordinator" onClick={() => selectedAssignmentStaff.userId && assignmentDepartmentId && assignEducationCoordinator.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), userId: selectedAssignmentStaff.userId, assignmentRole: "deputy" })} disabled={!selectedAssignmentStaff.userId || !assignmentDepartmentId || assignEducationCoordinator.isPending} />
+                    <RoleAssignmentCard title="Departmental Head" scope={assignmentDepartmentId ? formatDepartmentLabel(Number(assignmentDepartmentId), "Selected department") : "Choose department"} detail="One active head per canonical department." actionLabel="Assign Departmental Head" onClick={() => selectedAssignmentStaff.userId && assignmentDepartmentId && assignDepartmentHead.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), userId: selectedAssignmentStaff.userId })} disabled={!selectedAssignmentStaff.userId || !assignmentDepartmentId || assignDepartmentHead.isPending} secondaryAction={{ label: "Assign Deputy Head", onClick: () => selectedAssignmentStaff.userId && assignmentDepartmentId && assignDepartmentHead.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), userId: selectedAssignmentStaff.userId, assignmentRole: "deputy" }), disabled: !selectedAssignmentStaff.userId || !assignmentDepartmentId || assignDepartmentHead.isPending }} />
+                    <RoleAssignmentCard title="ERCo" scope={assignmentDepartmentId ? formatDepartmentLabel(Number(assignmentDepartmentId), "Selected department") : "Choose department"} detail="Requires an active linked eligible nurse in the selected department." actionLabel="Assign ERCo" onClick={() => selectedAssignmentStaff.userId && assignmentDepartmentId && assignErco.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), coordinatorUserId: selectedAssignmentStaff.userId, effectiveFrom: new Date().toISOString().slice(0, 10), effectiveUntil: null })} disabled={!selectedAssignmentStaff.userId || !assignmentDepartmentId || assignErco.isPending} secondaryAction={{ label: "Assign Deputy ERCo", onClick: () => selectedAssignmentStaff.userId && assignmentDepartmentId && selectedDepartmentPrimaryErco?.providerUserId && assignErco.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), coordinatorUserId: Number(selectedDepartmentPrimaryErco.providerUserId), deputyUserId: selectedAssignmentStaff.userId, effectiveFrom: new Date().toISOString().slice(0, 10), effectiveUntil: null }), disabled: !selectedAssignmentStaff.userId || !assignmentDepartmentId || !selectedDepartmentPrimaryErco?.providerUserId || assignErco.isPending }} />
+                    <RoleAssignmentCard title="Departmental CPD Coordinator" scope={assignmentDepartmentId ? formatDepartmentLabel(Number(assignmentDepartmentId), "Selected department") : "Choose department"} detail="Requires active linked staff in the selected department." actionLabel="Assign CPD Coordinator" onClick={() => selectedAssignmentStaff.userId && assignmentDepartmentId && assignEducationCoordinator.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), userId: selectedAssignmentStaff.userId })} disabled={!selectedAssignmentStaff.userId || !assignmentDepartmentId || assignEducationCoordinator.isPending} secondaryAction={{ label: "Assign Deputy Coordinator", onClick: () => selectedAssignmentStaff.userId && assignmentDepartmentId && assignEducationCoordinator.mutate({ institutionId, departmentId: Number(assignmentDepartmentId), userId: selectedAssignmentStaff.userId, assignmentRole: "deputy" }), disabled: !selectedAssignmentStaff.userId || !assignmentDepartmentId || assignEducationCoordinator.isPending }} />
                   </div>
                 </div>
               )}
@@ -419,17 +437,17 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
             <Card className="border-amber-300 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20">
           <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-4 w-4 text-amber-700" />Department mismatch alerts</CardTitle><CardDescription>ERCos have flagged providers whose CPD/profile evidence points to a department but whose current institutional roster does not. Resolve each alert by reallocating the department or retiring the person; no new IERS duty is assigned automatically.</CardDescription></CardHeader>
           <CardContent className="space-y-3">
-            {mismatchReviews.map(({ report, details, staff: mismatchStaff }) => (
+            {mismatchReviews.map(({ report, details, staff: mismatchStaff, targetDepartmentId, actionState }) => (
                     <div key={report.id} className="rounded-lg border bg-background p-3">
               <p className="text-sm font-medium">{report.gapIdentified}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Reason: {details.reason ?? "Not provided"} · Reported {" "}
+              <p className="mt-1 text-xs text-muted-foreground">Reason: {details.reason ?? "Not provided"} · Target: {targetDepartmentId ? formatDepartmentLabel(targetDepartmentId, `Department #${targetDepartmentId}`) : "Not recorded"} · Reported {" "}
                         {formatDutyDate(report.createdAt)}</p>
               {mismatchStaff ? (
                         <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto] md:items-end">
-                <label className="space-y-1 text-xs"><span className="font-medium">Reallocate to current department</span><Select value={reallocationReportId === report.id ? reallocationDepartmentId : ""} onValueChange={value => { setReallocationReportId(report.id); setReallocationDepartmentId(value); }}><SelectTrigger><SelectValue placeholder="Choose department" /></SelectTrigger><SelectContent>{(facilityDepartments ?? []).map(department => (
-                                  <SelectItem key={department.id} value={String(department.id)}>{formatDepartmentLabel(department.id, department.departmentName)}</SelectItem>))}</SelectContent></Select></label>
+                <label className="space-y-1 text-xs"><span className="font-medium">Reallocate to current department</span><Select value={reallocationReportId === report.id ? reallocationDepartmentId : ""} onValueChange={value => { setReallocationReportId(report.id); setReallocationDepartmentId(value); }}><SelectTrigger><SelectValue placeholder="Choose department" /></SelectTrigger><SelectContent>{canonicalDepartmentOptions.map(department => (
+                                  <SelectItem key={department.id} value={String(department.id)}>{department.label}</SelectItem>))}</SelectContent></Select></label>
                 <label className="space-y-1 text-xs"><span className="font-medium">Reason</span><Input value={reallocationReportId === report.id ? reallocationReason : ""} onChange={event => { setReallocationReportId(report.id); setReallocationReason(event.target.value); }} placeholder="At least 10 characters" /></label>
-                <div className="flex flex-col gap-2 sm:flex-row md:flex-col"><Button type="button" size="sm" disabled={reallocationReportId !== report.id || !reallocationDepartmentId || reallocationReason.trim().length < 10 || reallocationMutation.isPending} onClick={() => reallocationMutation.mutate({ institutionId, staffMemberId: mismatchStaff.id, departmentId: Number(reallocationDepartmentId), reason: reallocationReason.trim(), mismatchReportId: report.id ,
+                <div className="flex flex-col gap-2 sm:flex-row md:flex-col">{actionState === "already_corrected" && <p className="text-xs text-emerald-700">Already assigned to the reported target. Resolve this stale alert without reallocating.</p>}{actionState === "target_inactive" && <p className="text-xs text-amber-700">The historical target is inactive or unavailable. Choose an active canonical department or resolve as target inactive.</p>}<Button type="button" size="sm" disabled={actionState !== "actionable" || reallocationReportId !== report.id || !reallocationDepartmentId || reallocationReason.trim().length < 10 || reallocationMutation.isPending} onClick={() => reallocationMutation.mutate({ institutionId, staffMemberId: mismatchStaff.id, departmentId: Number(reallocationDepartmentId), reason: reallocationReason.trim(), mismatchReportId: report.id ,
                                 })}>{reallocationMutation.isPending ? "Saving…" : "Reallocate"}</Button>{<Button type="button" size="sm" variant="secondary" disabled={resolveMismatch.isPending} onClick={() => resolveMismatch.mutate({ institutionId, mismatchReportId: report.id, resolution: "already_corrected", reason: "Administrator confirmed the current roster state and is closing this stale mismatch report." })}>{resolveMismatch.isPending ? "Resolving…" : "Mark resolved"}</Button>}<Button type="button" size="sm" variant="destructive" disabled={removeMember.isPending || retireStaffRecord.isPending} onClick={() => { setRemovalTarget(mismatchStaff); setRemovalReason("Department mismatch reported; retiring from institution after administrator review."); setRemovalReportId(report.id); }}>Retire</Button></div>
               </div> ) : ( <p className="mt-2 text-xs text-amber-800">The linked staff row is no longer available. Refresh the roster and review the account’s membership history.</p>)}
             </div>))}
@@ -563,10 +581,10 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               <Button type="button" variant="outline" size="sm" onClick={() => setActiveSection("product_roles")}>Assign IERS / CPD product roles</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => setActiveSection("scopes")}>Assign shared account scopes</Button>
-              <Button type="button" variant="outline" size="sm" asChild><a href={`/institution?institutionId=${institutionId}&section=administration&adminTab=institution&peopleTab=access_links`}>Assign institutional administrator</a></Button>
+              <Button type="button" variant="outline" size="sm" asChild><a href={buildAdministrationUrl({ institutionId, lane: "institution", peopleView: "admins" })}>Assign institutional administrator</a></Button>
               <Button type="button" variant="outline" size="sm" asChild><a href={`/institution?institutionId=${institutionId}&section=iers&iersTab=command`}>Assign ERCo / IERS department appointments</a></Button>
               <Button type="button" variant="outline" size="sm" asChild><a href={`/institution?institutionId=${institutionId}&section=learning&learningTab=governance`}>Assign Departmental CPD Coordinator</a></Button>
-              <Button type="button" variant="outline" size="sm" asChild><a href={`/institution?institutionId=${institutionId}&section=administration&adminTab=institution&peopleTab=departments`}>Set department membership and scope</a></Button>
+              <Button type="button" variant="outline" size="sm" asChild><a href={buildAdministrationUrl({ institutionId, lane: "institution", peopleView: "departments" })}>Set department membership and scope</a></Button>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">Role assignment does not prove clinical competence, provider acceptance, or emergency dispatch availability. Those states remain separately recorded and auditable.</p>
@@ -720,7 +738,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
 }
 
 
-function RoleAssignmentCard({ title, scope, detail, actionLabel, onClick, href, disabled = false }: { title: string; scope: string; detail: string; actionLabel: string; onClick?: () => void; href?: string; disabled?: boolean }) {
+function RoleAssignmentCard({ title, scope, detail, actionLabel, onClick, href, disabled = false, secondaryAction }: { title: string; scope: string; detail: string; actionLabel: string; onClick?: () => void; href?: string; disabled?: boolean; secondaryAction?: { label: string; onClick: () => void; disabled?: boolean } }) {
   const content = (
     <>
       <div className="min-w-0">
@@ -728,7 +746,10 @@ function RoleAssignmentCard({ title, scope, detail, actionLabel, onClick, href, 
         <p className="mt-1 text-xs font-medium text-primary">{scope}</p>
         <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
       </div>
-      <Button type="button" size="sm" variant="outline" className="mt-3 w-full" onClick={onClick} disabled={disabled}>{actionLabel}</Button>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <Button type="button" size="sm" variant="outline" className="w-full" onClick={onClick} disabled={disabled}>{actionLabel}</Button>
+        {secondaryAction && <Button type="button" size="sm" variant="ghost" className="w-full" onClick={secondaryAction.onClick} disabled={secondaryAction.disabled}>{secondaryAction.label}</Button>}
+      </div>
     </>
   );
   return href ? <a className="block rounded-lg border bg-background p-4 transition-colors hover:border-primary/50 hover:bg-muted/30" href={href}>{content}</a> : <div className="rounded-lg border bg-background p-4">{content}</div>;

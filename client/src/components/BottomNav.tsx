@@ -14,6 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { buildAdministrationUrl } from "@shared/institution-administration-location";
 
 export const BottomNav: React.FC = () => {
   const [location, setLocation] = useLocation();
@@ -46,11 +47,9 @@ export const BottomNav: React.FC = () => {
 
     if (role === "institution") {
       const currentQuery = location.includes("?") ? location.slice(location.indexOf("?") + 1) : "";
-      const params = new URLSearchParams(currentQuery);
-      params.set("section", "administration");
-      params.set("adminTab", "institution");
-      params.set("peopleTab", "people_access");
-      const peoplePath = `/institution?${params.toString()}`;
+      const currentInstitutionId = new URLSearchParams(currentQuery).get("institutionId");
+      const institutionId = currentInstitutionId && /^\d+$/.test(currentInstitutionId) ? Number(currentInstitutionId) : undefined;
+      const peoplePath = buildAdministrationUrl({ institutionId, lane: "institution" });
       return [
         { path: "/institution", label: "Workspace", icon: Home },
         { path: peoplePath, label: "People", icon: Users },
