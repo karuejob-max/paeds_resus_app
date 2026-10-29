@@ -32,6 +32,17 @@ export function buildCanonicalDepartmentOptions(
       return local;
     }
     const parent = resolve(row.parentDepartmentId, [...trail, id]);
+    if (parent.path.includes(id)) {
+      const immediateParent = byId.get(row.parentDepartmentId);
+      const local = immediateParent
+        ? {
+            label: `${immediateParent.departmentName} → ${row.departmentName}`,
+            path: [immediateParent.id, id],
+          }
+        : { label: row.departmentName, path: [id] };
+      labelCache.set(id, local);
+      return local;
+    }
     const resolved = {
       label: parent.path.length ? `${parent.label} → ${row.departmentName}` : row.departmentName,
       path: [...parent.path, id],
