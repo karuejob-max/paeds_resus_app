@@ -1,6 +1,6 @@
 # People & Access Deep Audit
 
-**Status:** Audit only; no redesign implementation included in this report.
+**Status:** Historical audit baseline. The authoritative implementation sequence is now `docs/institutional/PEOPLE_ACCESS_REDESIGN_EXECUTION_PLAN.md`; Phase 0 findings are recorded in `docs/PEOPLE_ACCESS_PHASE0_BASELINE_2026-10-28.md`.
 
 ## Executive finding
 

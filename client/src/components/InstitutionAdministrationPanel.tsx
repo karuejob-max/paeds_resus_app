@@ -17,6 +17,7 @@ import { InstitutionDataLifecyclePanel } from "@/components/InstitutionDataLifec
 import { InstitutionRenewalPanel } from "@/components/InstitutionRenewalPanel";
 import { InstitutionDepartmentReconciliationPanel } from "@/components/InstitutionDepartmentReconciliationPanel";
 import InstitutionAdministrationOverview from "@/components/InstitutionAdministrationOverview";
+import { resolveAdministrationLocation } from "@shared/institution-administration-location";
 
 type InstitutionRecord = {
   id: number;
@@ -43,14 +44,16 @@ const PEOPLE_JOURNEY_STEPS: ReadonlyArray<readonly [string, string, PeopleTab]> 
 
 function getInitialAdministrationTab(): AdministrationTab {
   if (typeof window === "undefined") return "overview";
-  const value = new URLSearchParams(window.location.search).get("adminTab");
-  return ["institution", "billing", "program_operations", "data_support"].includes(value ?? "") ? value as AdministrationTab : "overview";
+  return resolveAdministrationLocation(window.location.search).lane as AdministrationTab;
 }
 
 function getInitialPeopleTab(): PeopleTab {
   if (typeof window === "undefined") return "people_access";
-  const value = new URLSearchParams(window.location.search).get("peopleTab");
-  return ["people_access", "departments", "access_links", "staff_import"].includes(value ?? "") ? value as PeopleTab : "people_access";
+  const peopleView = resolveAdministrationLocation(window.location.search).peopleView;
+  if (peopleView === "departments") return "departments";
+  if (peopleView === "directory") return "staff_import";
+  if (peopleView === "admins" || peopleView === "inbox") return "access_links";
+  return "people_access";
 }
 
 function getInitialBillingTab(): "access" | "renewal" | "contracts" {
