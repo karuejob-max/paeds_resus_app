@@ -10,6 +10,7 @@ import {
 } from "@shared/institution-administration-location";
 import { trpc } from "@/lib/trpc";
 import { InstitutionPeopleRolesPanel } from "@/components/InstitutionPeopleRolesPanel";
+import { RoleRegister } from "./RoleRegister";
 import { InstitutionDepartmentReconciliationPanel } from "@/components/InstitutionDepartmentReconciliationPanel";
 import { AccountAdminsWidget } from "@/components/AccountAdminsWidget";
 import { PendingLinkRequestsWidget } from "@/components/PendingLinkRequestsWidget";
@@ -194,10 +195,13 @@ export function PeopleAccessShell({
           <MismatchInbox institutionId={institutionId} focus={focusTarget} />
         </TabsContent>
         <TabsContent value="roles" className="mt-0">
-          <InstitutionPeopleRolesPanel
-            institutionId={institutionId}
-            initialSection="assignments"
-          />
+          <RoleRegister institutionId={institutionId} />
+          <details className="mt-5 rounded-lg border bg-muted/10 p-4">
+            <summary className="cursor-pointer text-sm font-medium">Legacy role administration</summary>
+            <div className="mt-4">
+              <InstitutionPeopleRolesPanel institutionId={institutionId} initialSection="assignments" />
+            </div>
+          </details>
         </TabsContent>
         <TabsContent value="directory" className="mt-0 space-y-5">
           <InstitutionPeopleRolesPanel
