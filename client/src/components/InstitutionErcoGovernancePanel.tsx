@@ -156,7 +156,7 @@ export function InstitutionErcoGovernancePanel({ institutionId }: InstitutionErc
           <p className="py-6 text-center text-sm italic text-muted-foreground">Create at least one department in the ERT roster before assigning an ERCo.</p>
         ) : (
           <>
-            <p className="text-xs text-muted-foreground">Select <strong>Configure</strong> on a department to open its governance form below. Only active, linked nurses registered to that canonical department can be selected as ERCo or Assistant ERCo.</p>
+            <p className="text-xs text-muted-foreground">Select <strong>Configure</strong> on a department to open its governance form below. Only active, linked nurses registered to that canonical department can be selected as ERCo or Deputy ERCo. Older Assistant ERCo records remain visible for continuity but cannot be newly assigned.</p>
             <div className="overflow-x-auto rounded-lg border bg-background">
             <table className="w-full min-w-[720px] text-sm">
               <thead className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">

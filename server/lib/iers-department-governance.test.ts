@@ -14,19 +14,26 @@ describe("IERS department ERCo governance", () => {
     effectiveUntil: "2026-08-29",
   };
 
-  it("accepts a valid dated assignment with a distinct backup", () => {
-    expect(validateDepartmentErcoAssignment(valid)).toEqual({ valid: true });
+  it("rejects new legacy Assistant ERCo appointments", () => {
+    expect(validateDepartmentErcoAssignment(valid)).toEqual({
+      valid: false,
+      reason: "New Assistant ERCo appointments are not supported; assign a Deputy ERCo instead.",
+    });
   });
 
-  it("rejects the ERCo being their own backup", () => {
+  it("accepts a primary ERCo assignment without a legacy backup", () => {
+    expect(validateDepartmentErcoAssignment({ ...valid, backupUserId: null })).toEqual({ valid: true });
+  });
+
+  it("rejects the legacy backup field even when it names the ERCo", () => {
     expect(validateDepartmentErcoAssignment({ ...valid, backupUserId: 101 })).toEqual({
       valid: false,
-      reason: "The backup provider must be different from the ERCo.",
+      reason: "New Assistant ERCo appointments are not supported; assign a Deputy ERCo instead.",
     });
   });
 
   it("rejects a reversed effective date range", () => {
-    expect(validateDepartmentErcoAssignment({ ...valid, effectiveUntil: "2026-08-21" })).toEqual({
+    expect(validateDepartmentErcoAssignment({ ...valid, backupUserId: null, effectiveUntil: "2026-08-21" })).toEqual({
       valid: false,
       reason: "The effective-until date cannot be before the effective-from date.",
     });

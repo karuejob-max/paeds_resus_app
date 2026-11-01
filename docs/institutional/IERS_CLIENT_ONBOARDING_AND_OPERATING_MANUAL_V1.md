@@ -49,7 +49,7 @@ The facility should name people, not merely assign generic accounts. Every role 
 | **IERS Lead / governance lead** | Institutional readiness programme coordination | Configure the IERS operating model, review coverage, coordinate implementation, review trends | Automatic authority to accept another provider’s dated duty |
 | **Emergency Readiness Committee (ERC)** | Multidisciplinary governance | Approve policy, local readiness standards, escalation rules, and improvement priorities | Replacement for event-level evidence review |
 | **ERCo** | Department-level readiness champion | Maintain the department’s UTL coverage, coordinate exceptions, review readiness gaps, and coordinate improvement | Automatic emergency responder or automatic UTL/ERTL |
-| **Assistant ERCo** | Governance continuity | Support the ERCo and preserve continuity when explicitly authorized | Automatic backup responder or unrestricted staffing editor |
+| **Deputy ERCo** | Governance continuity | Support the ERCo and preserve department governance continuity within the same department scope | Automatic backup responder or unrestricted staffing editor |
 | **UTL** | Unit/department shift readiness | Accept or decline a dated UTL duty, check readiness, lead the unit response, report gaps, and escalate | Proof that the whole facility is ready or authority to close their own evidence |
 | **ERTL** | Shift-level response leadership | Accept or decline the dated ERTL role, coordinate the ERT during an activation, allocate response roles where permitted, and lead the debrief | Authority to erase history or approve their own evidence and action closure |
 | **ERT member** | Assigned operational response role | Accept or decline the assigned role, recommend an alternative, respond, and submit a factual role-at-event report | Automatic clinical authority beyond scope of practice |
@@ -66,7 +66,7 @@ Before the first operational shift is configured, the facility should document t
 
 1. Which departments are emergency-operational and require a pole assignment, and which departments remain in the institutional/CPD directory without requiring ERT coverage.
 2. Which poles exist, how they are named, and their display order. A facility may use North/South, North/South/East/West, or another locally meaningful arrangement.
-3. One current ERCo for each operational department, with an optional Assistant ERCo for continuity.
+3. One current ERCo for each operational department, with an optional Deputy ERCo for continuity. Existing legacy Assistant ERCo records remain readable, but new Assistant ERCo appointments are not created.
 4. The ERTL rotation rule and the person or process responsible for confirming availability.
 5. The exact shift intervals used locally, including overnight shifts and handover expectations.
 6. The UTL replacement process when a provider resigns, is redeployed, becomes unavailable, or declines a duty.
