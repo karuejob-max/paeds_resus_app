@@ -73,7 +73,7 @@ The institution admin opens **`/institution`**, confirms the correct institution
 
 ### Step 2: Set up people and access
 
-The institution admin links providers, confirms their identity, and assigns the appropriate IERS product role. Membership answers **“is this provider linked to the institution?”** The product role answers **“what IERS workspace may this user operate or review?”** A dated duty answers **“is this provider responsible for this department or shift now?”** These three questions must not be collapsed into one permission or one roster row.
+The institution admin opens Administration → People & access. The five views are **Needs attention**, **Roles**, **Directory**, **Departments**, and **Admins & access**. The institution profile is maintained on Overview; legacy People URLs remain supported and no migration is required. Roles manages the nine standing slot kinds, while dated ERTL/UTL duties remain in IERS operations. The admin links providers, confirms their identity, and assigns the appropriate IERS product role. Membership answers **“is this provider linked to the institution?”** The product role answers **“what IERS workspace may this user operate or review?”** A dated duty answers **“is this provider responsible for this department or shift now?”** These three questions must not be collapsed into one permission or one roster row.
 
 Before a provider can operate, confirm that the provider is an active institution member. If a provider leaves, is suspended, or loses the relevant IERS role, the server must revalidate the relationship at read and response time. A previously visible assignment is not a permanent authorization.
 
@@ -124,7 +124,7 @@ A standalone CPR session may remain useful for skills practice, but it does not 
 
 ### For an institution admin or ERCo
 
-Open the institution workspace and confirm that the correct institution and IERS subscription are visible. Review the institution’s people and roles. Confirm that each provider who will operate IERS has an active membership and the appropriate product role. Open **ERT & equipment**, create or verify departments, and assign exactly one ERCo per department with an optional backup. Then create one dated ERTL rotation and one dated UTL shift only after the relevant providers are linked.
+Open the institution workspace and confirm that the correct institution and IERS subscription are visible. Open Administration → People & access and review Needs attention, Roles, Directory, Departments, and Admins & access. Confirm that each provider who will operate IERS has an active membership and the appropriate product role. Open **ERT & equipment**, create or verify departments, and assign exactly one ERCo per department with an optional backup. Then create one dated ERTL rotation and one dated UTL shift only after the relevant providers are linked.
 
 Ask each named provider to switch to the Individual portal and accept or decline their own duty. Return to the institution workspace and confirm that the institution sees the same acceptance state. Review the readiness record only after acceptance. Finally, open Evidence & actions and Drills & debriefs to identify the independent reviewer and the action-closure path before scheduling any labelled drill.
 
@@ -180,7 +180,7 @@ A new team is oriented when each of the following has been demonstrated without 
 
 ## 10. Boundaries and next release gates
 
-This guide describes the current provider-duty release and the intended operating contract. It does not imply that every later architecture item is already deployed. Activation-bound QR participation, durable urgent acknowledgement/escalation, offline-safe event capture, witnessed-arrival provenance, provider-led factual debrief submission, and the complete four-lane provider navigation remain release gates to be implemented and verified before a real pilot. The labelled pilot drill must therefore remain blocked until those gates are separately evidenced.[1]
+This guide describes the current provider-duty release and the intended operating contract. The People & access IA is implemented as five views with nine standing slot kinds; authenticated production-equivalent validation of that workflow remains pending unless recorded in `WORK_STATUS.md`. It does not imply that every later architecture item is already deployed. Activation-bound QR participation, durable urgent acknowledgement/escalation, offline-safe event capture, witnessed-arrival provenance, provider-led factual debrief submission, and the complete four-lane provider navigation remain release gates to be implemented and verified before a real pilot. The labelled pilot drill must therefore remain blocked until those gates are separately evidenced.[1]
 
 ## References
 
