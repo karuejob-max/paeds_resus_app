@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, like, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { z } from "zod";
 import {
@@ -1754,6 +1754,7 @@ export const institutionAccountabilityRouter = router({
         institutionId: z.number().int().positive(),
         assignmentId: z.number().int().positive(),
         note: z.string().trim().min(3).max(500),
+        role: z.enum(["primary", "deputy"]).default("primary"),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -1770,15 +1771,38 @@ export const institutionAccountabilityRouter = router({
               institutionDepartmentHeads.institutionalAccountId,
               input.institutionId
             ),
-            eq(institutionDepartmentHeads.assignmentStatus, "active")
           )
         )
         .limit(1);
-      if (!assignment)
+      if (!assignment || (input.role === "primary" && assignment.assignmentStatus === "ended"))
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Active Departmental Head appointment not found.",
+          message: "Departmental Head appointment not found.",
         });
+      if (input.role === "deputy") {
+        if (assignment.deputyUserId == null || assignment.deputyAssignmentStatus === "ended") {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Active Deputy Departmental Head appointment not found." });
+        }
+        await db.update(institutionDepartmentHeads).set({
+          deputyAssignmentStatus: "ended",
+          deputyUserId: null,
+          deputyAcceptedAt: null,
+          deputyDeclinedAt: null,
+          deputyDeclineReason: input.note,
+          updatedAt: new Date(),
+        }).where(and(eq(institutionDepartmentHeads.id, assignment.id), eq(institutionDepartmentHeads.institutionalAccountId, input.institutionId)));
+        await db.insert(institutionDepartmentHeadEvents).values({
+          institutionalAccountId: input.institutionId,
+          departmentId: assignment.departmentId,
+          assignmentId: assignment.id,
+          eventType: "ended",
+          previousUserId: assignment.deputyUserId,
+          currentUserId: null,
+          actorUserId: ctx.user.id,
+          note: `Deputy ended: ${input.note}`,
+        });
+        return { success: true as const };
+      }
       await db.transaction(async tx => {
         await tx
           .update(institutionDepartmentHeads)
@@ -1791,7 +1815,7 @@ export const institutionAccountabilityRouter = router({
           .where(and(
             eq(institutionDepartmentHeads.id, assignment.id),
             eq(institutionDepartmentHeads.institutionalAccountId, input.institutionId),
-            eq(institutionDepartmentHeads.assignmentStatus, "active"),
+            ne(institutionDepartmentHeads.assignmentStatus, "ended"),
           ));
         await tx.insert(institutionDepartmentHeadEvents).values({
           institutionalAccountId: input.institutionId,
