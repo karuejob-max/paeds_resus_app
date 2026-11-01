@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
 import { z } from "zod";
 import {
   cpdEvents,
@@ -1334,6 +1335,62 @@ export const institutionAccountabilityRouter = router({
       };
     }),
 
+  /**
+   * Read-only role-register projection. Unlike listDepartmentHeads, this retains
+   * pending and declined appointments; ended history is opt-in. It deliberately
+   * uses the same credential/departments access gate as listDepartmentHeads.
+   */
+  listDepartmentHeadAppointments: protectedProcedure
+    .input(z.object({
+      institutionId: z.number().int().positive(),
+      includeEnded: z.boolean().optional().default(false),
+    }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      const access = await getCredentialAccess(db, ctx.user, input.institutionId);
+      if (!access.canViewIndividuals) return [];
+      const deputyUser = alias(users, "department_head_deputy_user");
+      const statuses = input.includeEnded
+        ? undefined
+        : inArray(institutionDepartmentHeads.assignmentStatus, [
+            "pending_acceptance",
+            "active",
+            "declined",
+          ]);
+      return db
+        .select({
+          id: institutionDepartmentHeads.id,
+          departmentId: institutionDepartmentHeads.departmentId,
+          department: facilityDepartments.departmentName,
+          userId: institutionDepartmentHeads.userId,
+          fullName: users.name,
+          email: users.email,
+          assignmentStatus: institutionDepartmentHeads.assignmentStatus,
+          assignedAt: institutionDepartmentHeads.assignedAt,
+          acceptedAt: institutionDepartmentHeads.acceptedAt,
+          declinedAt: institutionDepartmentHeads.declinedAt,
+          declineReason: institutionDepartmentHeads.declineReason,
+          deputyUserId: institutionDepartmentHeads.deputyUserId,
+          deputyFullName: deputyUser.name,
+          deputyEmail: deputyUser.email,
+          deputyAssignmentStatus: institutionDepartmentHeads.deputyAssignmentStatus,
+          deputyAssignedAt: institutionDepartmentHeads.deputyAssignedAt,
+          deputyDeclinedAt: institutionDepartmentHeads.deputyDeclinedAt,
+          deputyDeclineReason: institutionDepartmentHeads.deputyDeclineReason,
+        })
+        .from(institutionDepartmentHeads)
+        .leftJoin(facilityDepartments, eq(facilityDepartments.id, institutionDepartmentHeads.departmentId))
+        .leftJoin(users, eq(users.id, institutionDepartmentHeads.userId))
+        .leftJoin(deputyUser, eq(deputyUser.id, institutionDepartmentHeads.deputyUserId))
+        .where(and(
+          eq(institutionDepartmentHeads.institutionalAccountId, input.institutionId),
+          statuses,
+          access.departmentIds
+            ? inArray(institutionDepartmentHeads.departmentId, access.departmentIds)
+            : sql`1=1`,
+        ))
+        .orderBy(asc(institutionDepartmentHeads.departmentId), desc(institutionDepartmentHeads.assignedAt));
+    }),
   /** List active Departmental Head appointments for the institution or assigned scope. */
   listDepartmentHeads: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive() }))
