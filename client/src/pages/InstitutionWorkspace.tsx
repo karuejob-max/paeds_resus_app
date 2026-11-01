@@ -49,7 +49,7 @@ import { InstitutionAccountabilityPanel } from "@/components/InstitutionAccounta
 import { InstitutionalQualityBillingPanel } from "@/components/InstitutionalQualityBillingPanel";
 import { IersWorkforceTab, resolveIersTab, workforceAnchor } from "@/lib/institution-readiness-navigation";
 import { deriveInstitutionWorkspaceAccess } from "@/lib/institution-workspace-access";
-import { resolveAdministrationLocation } from "@shared/institution-administration-location";
+import { buildAdministrationUrl, resolveAdministrationLocation } from "@shared/institution-administration-location";
 
 type ProductKey = "iers" | "cpd_portal" | "ils_program";
 type WorkspaceSection = "overview" | "iers" | "learning" | "accountability" | "administration" | "connected";
@@ -142,10 +142,7 @@ export default function InstitutionWorkspace() {
   const setAdminTab = (tab: AdministrationNavigationTab) => {
     setActiveAdminTab(tab);
     if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      params.set("section", "administration");
-      params.set("adminTab", tab);
-      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+      window.history.replaceState(null, "", buildAdministrationUrl({ institutionId: selectedInstitutionId ?? undefined, lane: tab }));
     }
   };
 

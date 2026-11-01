@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import {
   Card,
@@ -29,8 +29,10 @@ import { toast } from "sonner";
  */
 export function PendingLinkRequestsWidget({
   institutionId,
+  focusRequestId,
 }: {
   institutionId: number;
+  focusRequestId?: number;
 }) {
   const utils = trpc.useUtils();
   const [reasons, setReasons] = useState<Record<number, string>>({});
@@ -53,6 +55,16 @@ export function PendingLinkRequestsWidget({
     },
     onError: error => toast.error(error.message),
   });
+  useEffect(() => {
+    if (!focusRequestId || requestsLoading || legacyLoading) return;
+    const target = document.getElementById(`link-request-${focusRequestId}`);
+    if (!target) return;
+    target.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+    target.classList.add("ring-2", "ring-primary", "ring-offset-2");
+    const timer = window.setTimeout(() => target.classList.remove("ring-2", "ring-primary", "ring-offset-2"), 2000);
+    return () => window.clearTimeout(timer);
+  }, [focusRequestId, requests, legacyRequests, requestsLoading, legacyLoading]);
+
   const legacyMutation =
     trpc.facilityLinking.repairApprovedStaffLink.useMutation({
       onSuccess: async data => {
@@ -114,6 +126,7 @@ export function PendingLinkRequestsWidget({
               return (
                 <div
                   key={request.id}
+                  id={`link-request-${request.id}`}
                   className="rounded-lg border border-teal-100 bg-white p-3"
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -204,6 +217,7 @@ export function PendingLinkRequestsWidget({
             {legacyOnlyRequests.map(request => (
               <div
                 key={request.id}
+                id={`link-request-${request.id}`}
                 className="flex flex-col gap-3 rounded-lg border border-amber-100 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">

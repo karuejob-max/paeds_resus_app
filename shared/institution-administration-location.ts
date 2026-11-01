@@ -44,7 +44,8 @@ function positiveInteger(value: string | null): number | undefined {
 function focusFromParams(params: URLSearchParams): PeopleFocus | undefined {
   const canonicalFocus = params.get("focus")?.trim();
   const canonicalMatch = canonicalFocus?.match(/^(link-request|mismatch):(\d+)$/);
-  if (canonicalMatch) return { kind: canonicalMatch[1] === "link-request" ? "link-request" : "mismatch", id: Number(canonicalMatch[2]) };
+  const canonicalId = canonicalMatch ? positiveInteger(canonicalMatch[2]) : undefined;
+  if (canonicalMatch && canonicalId) return { kind: canonicalMatch[1] === "link-request" ? "link-request" : "mismatch", id: canonicalId };
   const canonicalRole = canonicalFocus?.match(/^role:(.+)$/);
   if (canonicalRole?.[1]) return { kind: "role", slotKey: canonicalRole[1] };
   const linkRequestId = positiveInteger(params.get("linkRequestId"));
@@ -74,18 +75,19 @@ export function resolveAdministrationLocation(
   if (requestedCanonicalPeopleView && PEOPLE_VIEWS.has(requestedCanonicalPeopleView as PeopleView)) peopleView = requestedCanonicalPeopleView as PeopleView;
   else if (requestedPeopleTab === "departments") peopleView = "departments";
   else if (requestedPeopleTab === "staff_import") peopleView = "directory";
-  else if (requestedPeopleTab === "access_links") peopleView = focus?.kind === "link-request" ? "inbox" : "admins";
-  else if (requestedPeopleTab === "people_access") peopleView = focus?.kind === "mismatch" ? "inbox" : "roles";
+  else if (requestedPeopleTab === "access_links") peopleView = "admins";
+  else if (requestedPeopleTab === "people_access") peopleView = "roles";
+  else if (requestedPeopleTab === "institution") peopleView = undefined;
   else if (requestedPeopleTab && PEOPLE_VIEWS.has(requestedPeopleTab as PeopleView)) peopleView = requestedPeopleTab as PeopleView;
   else if (requestedAdminTab === "access_links") peopleView = "inbox";
-  else if (requestedAdminTab === "people_roles" || requestedAdminTab === "people" || requestedAdminTab === "people_access") peopleView = focus?.kind === "mismatch" ? "inbox" : "roles";
+  else if (requestedAdminTab === "people_roles" || requestedAdminTab === "people" || requestedAdminTab === "people_access") peopleView = "roles";
 
-  if (peopleView || focus) lane = "institution";
+  if (peopleView || focus || requestedPeopleTab === "institution") lane = "institution";
   return {
     lane,
     ...(peopleView ? { peopleView } : {}),
     ...(focus ? { focus } : {}),
-    ...(requestedPeopleTab === "staff_import" ? { importOpen: true } : {}),
+    ...(params.get("importOpen") === "1" || requestedPeopleTab === "staff_import" ? { importOpen: true } : {}),
     ...(institutionId ? { institutionId } : {}),
   };
 }

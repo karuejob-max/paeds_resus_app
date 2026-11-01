@@ -66,8 +66,9 @@ function formatDutyDate(value: string | Date | null | undefined): string {
 }
 
 export function InstitutionPeopleRolesPanel({ institutionId ,
-}: { institutionId: number ;
-}) {
+  focusMismatchReportId,
+  initialSection,
+}: { institutionId: number; focusMismatchReportId?: number; initialSection?: "assignments" | "roster" | "role_map" | "duties" | "product_roles" | "scopes"; }) {
   const utils = trpc.useUtils();
   const [search, setSearch] = useState("");
   const [roleProduct, setRoleProduct] = useState<"iers" | "cpd_portal">("iers");
@@ -88,7 +89,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
   const [reallocationReason, setReallocationReason] = useState("");
   const [assignmentDepartmentId, setAssignmentDepartmentId] = useState("");
   const [directDepartmentReason, setDirectDepartmentReason] = useState("");
-  const [activeSection, setActiveSection] = useState<"assignments" | "roster" | "role_map" | "duties" | "product_roles" | "scopes">("assignments");
+  const [activeSection, setActiveSection] = useState<"assignments" | "roster" | "role_map" | "duties" | "product_roles" | "scopes">(initialSection ?? "assignments");
   const { data, isLoading, isFetching, refetch } = trpc.institution.getStaffMembers.useQuery({ institutionId, includeRemoved: showRetired }, {
     enabled: !!institutionId,
     staleTime: 30_000,
@@ -106,6 +107,16 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
     enabled: !!institutionId,
     staleTime: 30_000,
   });
+  useEffect(() => {
+    if (!focusMismatchReportId || isLoading) return;
+    setActiveSection("roster");
+    const target = document.getElementById(`mismatch-report-${focusMismatchReportId}`);
+    if (!target) return;
+    target.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+    target.classList.add("ring-2", "ring-primary", "ring-offset-2");
+    const timer = window.setTimeout(() => target.classList.remove("ring-2", "ring-primary", "ring-offset-2"), 2000);
+    return () => window.clearTimeout(timer);
+  }, [focusMismatchReportId, isLoading, mismatchReports]);
   const { data: facilityDepartments } = trpc.institution.getFacilityDepartments.useQuery({ institutionId }, {
     enabled: !!institutionId,
     staleTime: 60_000,
@@ -437,8 +448,9 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
             <Card className="border-amber-300 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20">
           <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><AlertTriangle className="h-4 w-4 text-amber-700" />Department mismatch alerts</CardTitle><CardDescription>ERCos have flagged providers whose CPD/profile evidence points to a department but whose current institutional roster does not. Resolve each alert by reallocating the department or retiring the person; no new IERS duty is assigned automatically.</CardDescription></CardHeader>
           <CardContent className="space-y-3">
+            {focusMismatchReportId && !mismatchReviews.some(item => item.report.id === focusMismatchReportId) && <p className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">This mismatch report has already been reviewed or is no longer present.</p>}
             {mismatchReviews.map(({ report, details, staff: mismatchStaff, targetDepartmentId, actionState }) => (
-                    <div key={report.id} className="rounded-lg border bg-background p-3">
+                    <div key={report.id} id={`mismatch-report-${report.id}`} className="rounded-lg border bg-background p-3">
               <p className="text-sm font-medium">{report.gapIdentified}</p>
               <p className="mt-1 text-xs text-muted-foreground">Reason: {details.reason ?? "Not provided"} · Target: {targetDepartmentId ? formatDepartmentLabel(targetDepartmentId, `Department #${targetDepartmentId}`) : "Not recorded"} · Reported {" "}
                         {formatDutyDate(report.createdAt)}</p>
