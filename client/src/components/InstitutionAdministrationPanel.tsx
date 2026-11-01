@@ -6,18 +6,14 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, BookOpen, Building2, CreditCard, FileText, GraduationCap, HeartPulse, LifeBuoy, ShieldCheck, Users, Wrench } from "lucide-react";
 import { InstitutionDetailsCard } from "@/components/InstitutionDetailsCard";
 import { InstitutionProductAccessPanel } from "@/components/InstitutionProductAccessPanel";
-import { InstitutionPeopleRolesPanel } from "@/components/InstitutionPeopleRolesPanel";
-import { AccountAdminsWidget } from "@/components/AccountAdminsWidget";
-import { PendingLinkRequestsWidget } from "@/components/PendingLinkRequestsWidget";
 import { InstitutionContractsTable } from "@/components/InstitutionContractsTable";
-import StaffBulkImport from "@/components/StaffBulkImport";
 import { SupportTicketForm } from "@/components/SupportTicketForm";
 import { AdminNotificationsDashboard } from "@/components/AdminNotificationsDashboard";
 import { InstitutionDataLifecyclePanel } from "@/components/InstitutionDataLifecyclePanel";
 import { InstitutionRenewalPanel } from "@/components/InstitutionRenewalPanel";
-import { InstitutionDepartmentReconciliationPanel } from "@/components/InstitutionDepartmentReconciliationPanel";
 import InstitutionAdministrationOverview from "@/components/InstitutionAdministrationOverview";
 import { buildAdministrationUrl, resolveAdministrationLocation } from "@shared/institution-administration-location";
+import { PeopleAccessShell } from "@/components/people-access/PeopleAccessShell";
 
 type InstitutionRecord = {
   id: number;
@@ -32,29 +28,10 @@ type InstitutionRecord = {
 };
 
 type AdministrationTab = "overview" | "institution" | "billing" | "program_operations" | "data_support";
-type PeopleTab = "institution" | "people_access" | "departments" | "access_links" | "staff_import";
-
-export const PHASE1_VIEW_TO_CURRENT: Record<string, PeopleTab> = { roles: "people_access", directory: "staff_import", departments: "departments", admins: "access_links", inbox: "access_links" };
-
-const PEOPLE_JOURNEY_STEPS: ReadonlyArray<readonly [string, string, PeopleTab]> = [
-  ["1", "Institution details", "institution"],
-  ["2", "Import staff", "staff_import"],
-  ["3", "Review people & roles", "people_access"],
-  ["4", "Departments & scope", "departments"],
-  ["5", "Access links & admins", "access_links"],
-];
-
 function getInitialAdministrationTab(): AdministrationTab {
   if (typeof window === "undefined") return "overview";
-  return resolveAdministrationLocation(window.location.search).lane as AdministrationTab;
+  return resolveAdministrationLocation(window.location.search).lane;
 }
-
-function getInitialPeopleTab(): PeopleTab {
-  if (typeof window === "undefined") return "people_access";
-  const resolved = resolveAdministrationLocation(window.location.search);
-  return resolved.peopleView ? PHASE1_VIEW_TO_CURRENT[resolved.peopleView] ?? "people_access" : "institution";
-}
-
 function getInitialBillingTab(): "access" | "renewal" | "contracts" {
   if (typeof window === "undefined") return "access";
   const value = new URLSearchParams(window.location.search).get("billingTab");
@@ -69,8 +46,6 @@ function getInitialDataSupportTab(): "data" | "support" | "notifications" {
 
 export function InstitutionAdministrationPanel({ institutionId, institution, detailsReady = true, controlledActiveTab, onAdministrationTabChange, hideNavigation = false }: { institutionId: number; institution: InstitutionRecord; detailsReady?: boolean; controlledActiveTab?: AdministrationTab; onAdministrationTabChange?: (tab: AdministrationTab) => void; hideNavigation?: boolean }) {
   const [tab, setTab] = useState<AdministrationTab>(getInitialAdministrationTab);
-  const resolvedLocation = typeof window === "undefined" ? { importOpen: false, focus: undefined } : resolveAdministrationLocation(window.location.search);
-  const [peopleTab, setPeopleTab] = useState<PeopleTab>(getInitialPeopleTab);
   const [billingTab, setBillingTab] = useState<"access" | "renewal" | "contracts">(getInitialBillingTab);
   const [dataSupportTab, setDataSupportTab] = useState<"data" | "support" | "notifications">(getInitialDataSupportTab);
 
@@ -79,14 +54,6 @@ export function InstitutionAdministrationPanel({ institutionId, institution, det
     onAdministrationTabChange?.(nextTab);
     if (typeof window !== "undefined") {
       window.history.replaceState(null, "", buildAdministrationUrl({ institutionId, lane: nextTab }));
-    }
-  };
-
-  const setPeopleSection = (nextTab: PeopleTab) => {
-    setPeopleTab(nextTab);
-    if (typeof window !== "undefined") {
-      const view = nextTab === "staff_import" ? "directory" : nextTab === "departments" ? "departments" : nextTab === "access_links" ? "admins" : nextTab === "people_access" ? "roles" : undefined;
-      window.history.replaceState(null, "", buildAdministrationUrl({ institutionId, lane: "institution", peopleView: view, importOpen: nextTab === "staff_import" ? true : resolvedLocation.importOpen }));
     }
   };
 
@@ -114,48 +81,11 @@ export function InstitutionAdministrationPanel({ institutionId, institution, det
 
       <TabsContent value="overview" className="min-w-0 space-y-6">
         <InstitutionAdministrationOverview institutionId={institutionId} onNavigate={setAdministrationTab} />
+        <InstitutionDetailsCard institutionId={institutionId} detailsReady={detailsReady} companyName={institution.companyName} contactPhone={institution.contactPhone} contactEmail={institution.contactEmail} staffCount={institution.staffCount} organizationCategory={institution.organizationCategory} facilityOwnership={institution.facilityOwnership} facilityCareLevel={institution.facilityCareLevel} facilityLocalLevel={institution.facilityLocalLevel} />
       </TabsContent>
 
       <TabsContent value="institution" className="min-w-0 space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />People & access</CardTitle>
-            <CardDescription>Follow the workforce journey in order: confirm the institution, import staff, reconcile linked accounts, assign departments and roles, then manage access safely.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-5 rounded-xl border border-primary/20 bg-primary/5 p-4" aria-label="People and access workflow">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold">Workforce setup checklist</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Each step is explicit. Importing staff does not automatically grant emergency or CPD authority.</p>
-                </div>
-                <Badge variant="outline" className="w-fit">Institution-scoped</Badge>
-              </div>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-                {PEOPLE_JOURNEY_STEPS.map(([number, label, value]) => (
-                  <button key={value} type="button" onClick={() => setPeopleSection(value)} className={`rounded-lg border bg-background p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/30 ${peopleTab === value ? "border-primary ring-1 ring-primary/30" : ""}`}>
-                    <span className="text-xs font-semibold text-primary">Step {number}</span>
-                    <span className="mt-1 block text-sm font-medium">{label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <Tabs value={peopleTab} onValueChange={(value) => setPeopleSection(value as PeopleTab)}>
-              <TabsList className="grid h-auto min-w-0 w-full grid-cols-1 gap-1 min-[420px]:grid-cols-2 sm:grid-cols-5">
-                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="institution"><Building2 className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Institution</TabsTrigger>
-                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="people_access"><Users className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />People & roles</TabsTrigger>
-                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="departments"><FileText className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Departments & CPD</TabsTrigger>
-                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="access_links"><ShieldCheck className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Access & links</TabsTrigger>
-                <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="staff_import"><Users className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Import staff</TabsTrigger>
-              </TabsList>
-              <TabsContent value="institution" className="mt-5"><InstitutionDetailsCard institutionId={institutionId} detailsReady={detailsReady} companyName={institution.companyName} contactPhone={institution.contactPhone} contactEmail={institution.contactEmail} staffCount={institution.staffCount} organizationCategory={institution.organizationCategory} facilityOwnership={institution.facilityOwnership} facilityCareLevel={institution.facilityCareLevel} facilityLocalLevel={institution.facilityLocalLevel} /></TabsContent>
-              <TabsContent value="people_access" className="mt-5"><InstitutionPeopleRolesPanel institutionId={institutionId} initialSection={resolvedLocation.focus?.kind === "mismatch" ? "roster" : undefined} focusMismatchReportId={resolvedLocation.focus?.kind === "mismatch" ? resolvedLocation.focus.id : undefined} /></TabsContent>
-              <TabsContent value="departments" className="mt-5"><InstitutionDepartmentReconciliationPanel institutionId={institutionId} /></TabsContent>
-              <TabsContent value="access_links" className="mt-5 grid min-w-0 gap-6 xl:grid-cols-2"><AccountAdminsWidget institutionId={institutionId} /><PendingLinkRequestsWidget institutionId={institutionId} focusRequestId={resolvedLocation.focus?.kind === "link-request" ? resolvedLocation.focus.id : undefined} /></TabsContent>
-              <TabsContent value="staff_import" className="mt-5"><StaffBulkImport institutionId={institutionId} /></TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+        <PeopleAccessShell institutionId={institutionId} institutionProfileReady={detailsReady} />
       </TabsContent>
 
       <TabsContent value="billing" className="min-w-0 space-y-6">
