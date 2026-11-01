@@ -131,10 +131,10 @@ export function PeopleAccessShell({
     accessLinks: linksQuery.isError || linksQuery.isLoading ? null : true,
   } as const;
   return (
-    <div className="min-w-0 space-y-5">
+    <main aria-labelledby="people-access-title" className="min-w-0 space-y-5 overflow-x-hidden">
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold">People & access</h2>
+          <h2 id="people-access-title" className="text-xl font-semibold">People & access</h2>
           <p className="text-sm text-muted-foreground">
             Maintain the institutional directory, responsibilities, departments,
             and account access.
@@ -145,6 +145,7 @@ export function PeopleAccessShell({
         </Badge>
       </div>
       <SetupChecklist activeView={view} inputs={checklistInputs} />
+      <nav aria-label="People and access views">
       <Tabs
         value={view}
         onValueChange={value => setPeopleView(value as PeopleView)}
@@ -197,7 +198,7 @@ export function PeopleAccessShell({
         <TabsContent value="roles" className="mt-0">
           <RoleRegister institutionId={institutionId} />
           <details className="mt-5 rounded-lg border bg-muted/10 p-4">
-            <summary className="cursor-pointer text-sm font-medium">Legacy role administration</summary>
+            <summary className="cursor-pointer text-sm font-medium">Advanced access and responsibilities</summary>
             <div className="mt-4">
               <InstitutionPeopleRolesPanel institutionId={institutionId} initialSection="assignments" />
             </div>
@@ -250,6 +251,8 @@ export function PeopleAccessShell({
           />
         </TabsContent>
       </Tabs>
-    </div>
+      </nav>
+      <div aria-live="polite" aria-atomic="true" className="sr-only">People and access updates are announced here.</div>
+    </main>
   );
 }

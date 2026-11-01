@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getMoveDisabledReason } from "./InstitutionPeopleRolesPanel";
+import { getMoveDisabledReason, AUTHORITY_MAP } from "./InstitutionPeopleRolesPanel";
+import type { InstitutionalRoleAuthority } from "../../../server/lib/institution-role-authority";
 
 describe("InstitutionPeopleRolesPanel assignment safety", () => {
   it("blocks moving a person to their current department", () => {
@@ -30,5 +31,22 @@ describe("InstitutionPeopleRolesPanel assignment safety", () => {
         isPending: false,
       })
     ).toBe("Provide a reason of at least 10 characters.");
+  });
+});
+
+
+describe("People & access Phase 6c copy and authority map", () => {
+  it("represents every server institutional authority", () => {
+    const authorities: InstitutionalRoleAuthority[] = [
+      "institution_admin", "iers_chair", "iers_governance",
+      "iers_coordinator", "cpd_coordinator", "department_head",
+    ];
+    expect(Object.keys(AUTHORITY_MAP).sort()).toEqual([...authorities].sort());
+  });
+
+  it("does not expose retired People lane labels through rendered copy constants", () => {
+    const renderedCopy = ["People & access", "Needs attention", "Roles", "Directory", "Departments", "Admins & access", "Advanced access", "Assign", "End", "appointment", "Pending acceptance"].join(" ");
+    const retiredLabels = ["People & roles", "Role guide", "Advanced product roles", "Advanced scopes", "Access & links", "Workforce setup checklist"];
+    for (const retired of retiredLabels) expect(renderedCopy).not.toContain(retired);
   });
 });
