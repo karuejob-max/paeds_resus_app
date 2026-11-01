@@ -2,12 +2,14 @@ import { getAdultAclsCaseDefinition, type AdultAclsEventRequirement } from "./ad
 import type { SimulationWorldRole } from "./simulation-world";
 import { getSimulationClinicalPackage } from "./simulation-clinical-packages";
 
-export const ADULT_ACLS_WORLD_VERSION = "1.4.0";
-export const ADULT_ACLS_SCENARIO_VERSION = "1.4.0";
+export const ADULT_ACLS_WORLD_VERSION = "1.5.0";
+export const ADULT_ACLS_SCENARIO_VERSION = "1.5.0";
 export const ADULT_ACLS_CLINICAL_STATUS = "clinical_review" as const;
 export const ADULT_ACLS_END_STATE_MIN_SPO2 = 90;
 /** Untreated ACS escalates to VF arrest after this many simulated seconds without reperfusion activation. Must stay below the physiological PEA-arrest time (~110 s). Clinical owner to confirm. */
 export const ADULT_ACLS_ACS_ESCALATION_SECONDS = 90;
+/** An untreated stable wide-complex tachycardia becomes haemodynamically unstable after this many simulated seconds. Must stay below the physiological arrest time (about 130 s). Clinical owner to confirm. */
+export const ADULT_ACLS_WCT_DETERIORATION_SECONDS = 90;
 /** Cue assessments that are informative for each reversible cause. A cue unrelated to the chosen cause does not license treating it. */
 export const ADULT_ACLS_CAUSE_CUE_TARGETS: Record<"hypovolaemia" | "prolonged_hypoxia" | "tension_pneumothorax", readonly string[]> = {
   hypovolaemia: ["bleeding", "airway_history", "neck_veins"],
@@ -29,7 +31,9 @@ export type AdultAclsScenarioId =
   | "rosc-post-arrest"
   | "acs-to-vf"
   | "hypoxia-to-arrest"
-  | "reversible-cause-arrest";
+  | "reversible-cause-arrest"
+  | "stable-wide-complex-tachycardia"
+  | "refractory-svt";
 
 export type AdultAclsRhythm =
   | "sinus_rhythm"
@@ -92,7 +96,8 @@ export type AdultAclsCommand =
   | { type: "pace" }
   | { type: "give_epinephrine" }
   | { type: "give_antiarrhythmic" }
-  | { type: "give_adenosine" }
+  | { type: "give_adenosine"; dose?: 6 | 12 }
+  | { type: "vagal_manoeuvre" }
   | { type: "give_atropine" }
   | { type: "obtain_ecg" }
   | { type: "give_aspirin" }
@@ -140,7 +145,7 @@ export type AdultAclsNextAction = {
   reason: string;
 };
 
-export const ADULT_ACLS_SCENARIOS: readonly { id: AdultAclsScenarioId; title: string; subtitle: string; initial: AdultAclsPatient; cause: string }[] = [
+const ADULT_ACLS_BASE_SCENARIOS: readonly { id: AdultAclsScenarioId; title: string; subtitle: string; initial: AdultAclsPatient; cause: string }[] = [
   { id: "unstable-bradycardia", title: "Unstable sinus bradycardia", subtitle: "A slow sinus rhythm with hypotension and altered mental status; atropine is first-line before pacing escalation.", cause: "conduction_failure", initial: { rhythm: "sinus_bradycardia", pulse: "severely_reduced", heartRate: 38, systolicBp: 78, diastolicBp: 46, spo2: 94, respiratoryRate: 18, breathing: "adequate", mentalStatus: "altered", phase: "unstable", trajectory: "deteriorating", hidden: { cardiacOutput: 0.35, coronaryPerfusion: 0.42, cerebralPerfusion: 0.4, oxygenation: 0.86, ventilation: 0.8, circulatingVolume: 0.9, vascularTone: 0.62, myocardialFunction: 0.52, oxygenDebt: 18, metabolicDebt: 20, probabilityOfRosc: 0, probabilityOfReArrest: 0.2, causeLoad: 0.7 } } },
   { id: "high-grade-av-block", title: "High-grade AV block", subtitle: "Mobitz II / complete heart block with instability; pacing or an infusion is the escalation. Atropine is ineffective but not a critical failure.", cause: "conduction_failure", initial: { rhythm: "complete_heart_block", pulse: "severely_reduced", heartRate: 30, systolicBp: 72, diastolicBp: 40, spo2: 94, respiratoryRate: 18, breathing: "adequate", mentalStatus: "altered", phase: "unstable", trajectory: "deteriorating", hidden: { cardiacOutput: 0.3, coronaryPerfusion: 0.38, cerebralPerfusion: 0.34, oxygenation: 0.86, ventilation: 0.8, circulatingVolume: 0.9, vascularTone: 0.58, myocardialFunction: 0.45, oxygenDebt: 20, metabolicDebt: 23, probabilityOfRosc: 0, probabilityOfReArrest: 0.25, causeLoad: 0.75 } } },
   { id: "stable-narrow-tachycardia", title: "Stable narrow-complex tachycardia", subtitle: "A regular narrow-complex tachycardia with currently adequate perfusion.", cause: "reentry_tachycardia", initial: { rhythm: "supraventricular_tachycardia", pulse: "adequate", heartRate: 176, systolicBp: 118, diastolicBp: 72, spo2: 97, respiratoryRate: 20, breathing: "adequate", mentalStatus: "alert", phase: "stable", trajectory: "stable", hidden: { cardiacOutput: 0.78, coronaryPerfusion: 0.8, cerebralPerfusion: 0.82, oxygenation: 0.94, ventilation: 0.9, circulatingVolume: 0.95, vascularTone: 0.8, myocardialFunction: 0.86, oxygenDebt: 4, metabolicDebt: 5, probabilityOfRosc: 0, probabilityOfReArrest: 0.05, causeLoad: 0.5 } } },
@@ -154,9 +159,31 @@ export const ADULT_ACLS_SCENARIOS: readonly { id: AdultAclsScenarioId; title: st
   { id: "reversible-cause-arrest", title: "Reversible-cause arrest", subtitle: "Arrest with evidence that must guide cause-specific treatment.", cause: "tension_pneumothorax", initial: { rhythm: "pulseless_electrical_activity", pulse: "absent", heartRate: 96, systolicBp: 0, diastolicBp: 0, spo2: 64, respiratoryRate: 0, breathing: "apnoeic", mentalStatus: "unresponsive", phase: "cardiac_arrest", trajectory: "deteriorating", hidden: { cardiacOutput: 0.03, coronaryPerfusion: 0.04, cerebralPerfusion: 0.02, oxygenation: 0.24, ventilation: 0, circulatingVolume: 0.88, vascularTone: 0.4, myocardialFunction: 0.64, oxygenDebt: 64, metabolicDebt: 68, probabilityOfRosc: 0.12, probabilityOfReArrest: 0.8, causeLoad: 0.92 } } },
 ];
 
+type AdultAclsScenarioEntry = (typeof ADULT_ACLS_BASE_SCENARIOS)[number];
+const NARROW_TACHYCARDIA_BASE = ADULT_ACLS_BASE_SCENARIOS.find((scenario) => scenario.id === "stable-narrow-tachycardia")!;
+export const ADULT_ACLS_SCENARIOS: readonly AdultAclsScenarioEntry[] = [
+  ...ADULT_ACLS_BASE_SCENARIOS,
+  {
+    id: "stable-wide-complex-tachycardia",
+    title: "Stable wide-complex tachycardia",
+    subtitle: "A regular wide-complex tachycardia in a patient with currently adequate perfusion; treat as ventricular tachycardia until proven otherwise.",
+    cause: "ventricular_tachyarrhythmia",
+    initial: { ...structuredClone(NARROW_TACHYCARDIA_BASE.initial), rhythm: "ventricular_tachycardia", heartRate: 168, systolicBp: 116, diastolicBp: 72, spo2: 96 },
+  },
+  {
+    id: "refractory-svt",
+    title: "Stable SVT not responding to vagal manoeuvres",
+    subtitle: "A regular narrow-complex tachycardia that needs stepwise treatment: vagal manoeuvre, then adenosine 6 mg, then 12 mg if required.",
+    cause: "reentry_tachycardia",
+    initial: { ...structuredClone(NARROW_TACHYCARDIA_BASE.initial), heartRate: 186 },
+  },
+];
+
 export function getAdultAclsScenario(id: AdultAclsScenarioId) { return ADULT_ACLS_SCENARIOS.find((scenario) => scenario.id === id)!; }
 export function isAdultAclsProgrammeCompatible(program: string, scenarioId: AdultAclsScenarioId): boolean { return program === "acls" && getSimulationClinicalPackage("acls").ageGroup === "adult" && Boolean(getAdultAclsScenario(scenarioId)); }
 export function getAdultAclsAssessmentCue(scenarioId: AdultAclsScenarioId, target: AdultAclsAssessmentTarget): string | number {
+  if (target === "rhythm" && scenarioId === "stable-wide-complex-tachycardia") return "Regular monomorphic wide-complex tachycardia; QRS ≥0.12 s";
+  if (target === "rhythm" && scenarioId === "refractory-svt") return "Regular narrow-complex supraventricular tachycardia; perfusion currently adequate";
   switch (target) {
     case "breath_sounds": return scenarioId === "reversible-cause-arrest" ? "Absent on the right; trachea deviated" : scenarioId === "hypoxia-to-arrest" ? "Very poor air entry with shallow breaths" : "No focal abnormality heard";
     case "trachea": return scenarioId === "reversible-cause-arrest" ? "Deviated away from the right chest" : "Midline";
@@ -225,6 +252,22 @@ export function getAdultAclsNextAction(state: AdultAclsState): AdultAclsNextActi
     if (!hasRhythmAssessment(state)) return { label: "Assess rhythm", command: { type: "assess", target: "rhythm" }, reason: "Confirm the rhythm before giving rhythm-specific medication." };
     if (!hasEvent(state, "medication")) return { label: "Adenosine", command: { type: "give_adenosine" }, reason: "The stable narrow-complex rhythm is ready for the indicated medication." };
   }
+  if (state.scenarioId === "stable-wide-complex-tachycardia") {
+    if (!hasRhythmAssessment(state)) return { label: "Assess rhythm", command: { type: "assess", target: "rhythm" }, reason: "Confirm the wide-complex rhythm before selecting treatment." };
+    if (state.events.some((event) => event.type === "wct_destabilised")) {
+      if (!hasEvent(state, "synchronization")) return { label: "Prepare synchronized cardioversion", command: { type: "prepare_synchronized_cardioversion" }, reason: "The wide-complex tachycardia has become unstable; prepare synchronized cardioversion without delaying for an infusion." };
+      if (!hasEvent(state, "cardioversion")) return { label: "Synchronized cardioversion", command: { type: "synchronized_cardioversion" }, reason: "Deliver the prepared synchronized intervention, then reassess perfusion and rhythm." };
+    } else {
+      if (!hasEvent(state, "ecg")) return { label: "Obtain 12-lead ECG", command: { type: "obtain_ecg" }, reason: "Confirm the QRS width and regular monomorphic pattern before medication." };
+      if (!hasEvent(state, "medication")) return { label: "Start antiarrhythmic infusion", command: { type: "give_antiarrhythmic" }, reason: "Stable wide-complex tachycardia requires an antiarrhythmic infusion and expert consultation." };
+    }
+  }
+  if (state.scenarioId === "refractory-svt") {
+    if (!hasRhythmAssessment(state)) return { label: "Assess rhythm", command: { type: "assess", target: "rhythm" }, reason: "Confirm regular narrow-complex SVT before treatment." };
+    if (!hasEvent(state, "vagal")) return { label: "Vagal manoeuvre", command: { type: "vagal_manoeuvre" }, reason: "Try a vagal manoeuvre first while perfusion remains adequate." };
+    if (!state.events.some((event) => event.type === "medication" && event.description.toLowerCase().includes("adenosine 6 mg"))) return { label: "Adenosine 6 mg", command: { type: "give_adenosine", dose: 6 }, reason: "The rhythm persisted after vagal manoeuvre; give the first rapid IV adenosine dose." };
+    if (!state.events.some((event) => event.type === "medication" && event.description.toLowerCase().includes("adenosine 12 mg"))) return { label: "Adenosine 12 mg", command: { type: "give_adenosine", dose: 12 }, reason: "The rhythm persisted after 6 mg; give the second 12 mg dose, then reassess." };
+  }
   if (state.scenarioId === "unstable-tachycardia") {
     if (!hasRhythmAssessment(state)) return { label: "Assess rhythm", command: { type: "assess", target: "rhythm" }, reason: "Confirm the rhythm before synchronized treatment." };
     if (!hasEvent(state, "synchronization")) return { label: "Prepare synchronized cardioversion", command: { type: "prepare_synchronized_cardioversion" }, reason: "Prepare synchronized treatment for an unstable perfusing tachyarrhythmia." };
@@ -286,6 +329,14 @@ export function advanceAdultAclsSimulation(state: AdultAclsState, seconds: numbe
     next.patient = { ...structuredClone(getAdultAclsScenario("vf-pulseless-vt").initial), phase: "cardiac_arrest" };
     next.events = [...next.events, { timestamp: next.elapsedSeconds, type: "acs_escalation", description: "Untreated acute coronary syndrome progressed to ventricular fibrillation arrest", correct: false, consequence: "Reperfusion was not activated in time" }];
   }
+  const wctStalled = next.scenarioId === "stable-wide-complex-tachycardia"
+    && next.patient.phase === "stable" && next.patient.rhythm === "ventricular_tachycardia"
+    && next.elapsedSeconds >= ADULT_ACLS_WCT_DETERIORATION_SECONDS
+    && !next.events.some((event) => event.type === "wct_destabilised");
+  if (wctStalled) {
+    next.patient = structuredClone(getAdultAclsScenario("unstable-tachycardia").initial);
+    next.events = [...next.events, { timestamp: next.elapsedSeconds, type: "wct_destabilised", description: "Untreated wide-complex tachycardia became haemodynamically unstable (hypotension, altered mental status)", correct: false, consequence: "Synchronized cardioversion is now indicated" }];
+  }
   next.patient = derivePatient(next.patient);
   if (next.patient.phase === "failed") return addEvent(next, "patient_death", "Patient died after untreated cardiac arrest; debrief remains available", false, "Scenario failed");
   return addEvent(next, "time_advanced", `${seconds} seconds elapsed`);
@@ -346,7 +397,7 @@ export function reduceAdultAclsSimulation(state: AdultAclsState, command: AdultA
       return addEvent(next, "defibrillation", "Shock delivered; rhythm remains shockable pending reassessment", true);
     case "synchronized_cardioversion":
       if (p.phase === "cardiac_arrest" || p.pulse === "absent" || !next.environment.synchronized) return fail(next, "Synchronized cardioversion requires a pulse, appropriate rhythm, and synchronization");
-      if (["supraventricular_tachycardia", "atrial_fibrillation", "atrial_flutter", "ventricular_tachycardia"].includes(p.rhythm)) { next.patient = { ...next.patient, rhythm: "sinus_rhythm", heartRate: 92 }; next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.22); next.patient.hidden.cerebralPerfusion = clamp(next.patient.hidden.cerebralPerfusion + 0.28); return addEvent(next, "cardioversion", "Synchronized cardioversion delivered; reassess rhythm and perfusion", true); }
+      if (["supraventricular_tachycardia", "atrial_fibrillation", "atrial_flutter", "ventricular_tachycardia"].includes(p.rhythm)) { next.patient = { ...next.patient, rhythm: "sinus_rhythm", heartRate: 92 }; next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.22); next.patient.hidden.cerebralPerfusion = clamp(next.patient.hidden.cerebralPerfusion + 0.28); const stableWideCardioversion = next.scenarioId === "stable-wide-complex-tachycardia" && p.phase === "stable"; return addEvent(next, "cardioversion", stableWideCardioversion ? "Synchronized cardioversion delivered to a stable patient; this is a poor choice because an antiarrhythmic infusion is preferred and cardioversion needs sedation. Reassess rhythm and perfusion" : "Synchronized cardioversion delivered; reassess rhythm and perfusion", !stableWideCardioversion); }
       return fail(next, "Rhythm is not an appropriate synchronized-cardioversion target");
     case "pace":
       if (!hasRhythmAssessment(next)) return fail(next, "Assess the rhythm before pacing");
@@ -361,12 +412,34 @@ export function reduceAdultAclsSimulation(state: AdultAclsState, command: AdultA
       return addEvent(next, "medication", "Protocol-governed epinephrine effect applied; ROSC is not automatic", true);
     case "give_antiarrhythmic":
       if (!["ventricular_fibrillation", "ventricular_tachycardia"].includes(p.rhythm)) return fail(next, "Antiarrhythmic is not validated for this rhythm state");
+      if (next.scenarioId === "stable-wide-complex-tachycardia" && p.phase !== "cardiac_arrest") {
+        if (!hasRhythmAssessment(next)) return fail(next, "Assess the rhythm before giving an antiarrhythmic");
+        if (p.phase === "unstable") return addEvent(next, "medication", "Antiarrhythmic infusion started in an unstable patient; this is a poor choice because instability needs synchronized cardioversion without delay.", false);
+        next.patient = { ...next.patient, rhythm: "sinus_rhythm", heartRate: 86 };
+        return addEvent(next, "medication", "Antiarrhythmic infusion given for stable wide-complex tachycardia; rhythm response observed, reassess stability", true);
+      }
       next.patient.hidden.probabilityOfRosc = clamp(next.patient.hidden.probabilityOfRosc + 0.1);
       return addEvent(next, "medication", "Ventricular antiarrhythmic effect applied; rhythm reassessment required", true);
-    case "give_adenosine":
+    case "give_adenosine": {
+      if (next.scenarioId === "stable-wide-complex-tachycardia" && p.rhythm === "ventricular_tachycardia") {
+        return addEvent(next, "medication", "Adenosine given for a wide-complex tachycardia; it does not treat ventricular tachycardia and this is a poor choice. Use an antiarrhythmic infusion and expert consultation.", false);
+      }
       if (p.rhythm !== "supraventricular_tachycardia" || p.phase !== "stable") return fail(next, "Adenosine is not appropriate for this rhythm/stability state");
+      if (next.scenarioId === "refractory-svt") {
+        const dose = command.dose ?? 6;
+        const sixMgGiven = next.events.some((event) => event.type === "medication" && event.description.toLowerCase().includes("adenosine 6 mg"));
+        if (dose === 6 && sixMgGiven) return addEvent(next, "medication", "Adenosine 6 mg repeated; this is a poor choice because the second dose should be 12 mg.", false);
+        if (dose === 6) return addEvent(next, "medication", "Adenosine 6 mg rapid IV push with saline flush given; no conversion. Reassess; give 12 mg if the rhythm persists.", true);
+        next.patient = { ...next.patient, rhythm: "sinus_rhythm", heartRate: 88 };
+        if (!sixMgGiven) return addEvent(next, "medication", "Adenosine 12 mg given without a prior 6 mg dose; this is a poor choice. Give 6 mg first, then 12 mg if required.", false);
+        return addEvent(next, "medication", "Adenosine 12 mg given; conversion to sinus rhythm, reassess stability", true);
+      }
       next.patient = { ...next.patient, rhythm: "sinus_rhythm", heartRate: 88 };
       return addEvent(next, "medication", "Rhythm-dependent adenosine response observed; reassess stability", true);
+    }
+    case "vagal_manoeuvre":
+      if (p.rhythm !== "supraventricular_tachycardia" || p.phase !== "stable") return fail(next, "Vagal manoeuvres are for a stable regular narrow-complex tachycardia");
+      return addEvent(next, "vagal", "Vagal manoeuvre attempted; no conversion. Continue the stepwise treatment if the rhythm persists.", true);
     case "give_atropine":
       if (!hasRhythmAssessment(next)) return fail(next, "Assess the rhythm before giving atropine");
       if (p.rhythm === "complete_heart_block" && p.phase === "unstable") return addEvent(next, "medication", "Atropine given first for high-grade AV block; this is a poor choice because it is unlikely to work, but it is not a critical failure. Escalate to pacing or an infusion.", false);
@@ -377,7 +450,7 @@ export function reduceAdultAclsSimulation(state: AdultAclsState, command: AdultA
       return addEvent(next, "medication", "Bradycardia response observed; reassess pressure and mental status", true);
     case "obtain_ecg":
       if (p.phase === "cardiac_arrest") return fail(next, "Obtain the ECG when it will not delay immediate arrest care");
-      return addEvent(next, "ecg", "12-lead ECG obtained; ischemic changes require escalation", true);
+      return addEvent(next, "ecg", next.scenarioId === "stable-wide-complex-tachycardia" ? "12-lead ECG obtained; regular monomorphic wide-complex tachycardia (QRS 0.12 s or longer)" : "12-lead ECG obtained; ischemic changes require escalation", true);
     case "give_aspirin":
       if (next.scenarioId !== "acs-to-vf") return fail(next, "Aspirin is not indicated for this scenario");
       return addEvent(next, "acs_medication", "Aspirin given after confirming no contraindication", true);
@@ -422,8 +495,9 @@ export function getAdultAclsScoreBreakdown(state: AdultAclsState): AdultAclsScor
   const hasAll = (...types: string[]) => types.every((type) => eventTypes.has(type));
   const postRoscCare = hasAll("oxygen", "ventilation", "perfusion_support", "reassessment") && state.patient.spo2 >= 90 && state.patient.systolicBp >= 90;
   const definition = getAdultAclsCaseDefinition(state.scenarioId);
-  const matches = (requirement: AdultAclsEventRequirement) => state.events.some((event) => event.type === requirement.type
-    && (!requirement.descriptionIncludes || event.description.toLowerCase().includes(requirement.descriptionIncludes.toLowerCase())));
+  const matches = (requirement: AdultAclsEventRequirement) => Boolean(requirement.unlessEventType && eventTypes.has(requirement.unlessEventType))
+    || state.events.some((event) => event.type === requirement.type
+      && (!requirement.descriptionIncludes || event.description.toLowerCase().includes(requirement.descriptionIncludes.toLowerCase())));
   const conditionalMet = (definition.conditionalRequirements ?? []).every((rule) => !eventTypes.has(rule.whenEventType) || rule.require.every(matches));
   // Instructor ordering rule: assess BEFORE the first treatment, reassess AFTER it.
   const assessmentTypes = new Set(["assessment", "reassessment", "cause_assessment"]);

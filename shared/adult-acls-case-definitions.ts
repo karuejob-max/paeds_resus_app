@@ -22,7 +22,12 @@ export type AdultAclsCaseFamily =
   | "respiratory";
 
 /** An event the learner's session must contain. `descriptionIncludes` is matched case-insensitively. */
-export type AdultAclsEventRequirement = { type: string; descriptionIncludes?: string };
+export type AdultAclsEventRequirement = {
+  type: string;
+  descriptionIncludes?: string;
+  /** Requirement is waived if this event type occurred (e.g. instability replaces an ECG and infusion with immediate cardioversion). */
+  unlessEventType?: string;
+};
 
 /** An action that is not dangerous but is not the guideline-preferred choice: caps the score below pass. */
 export type AdultAclsPoorChoice = {
@@ -160,6 +165,47 @@ export const ADULT_ACLS_CASE_DEFINITIONS: readonly AdultAclsCaseDefinition[] = [
     requiredEvents: [{ type: "synchronization" }, { type: "cardioversion" }],
     requiresRhythmAssessment: true,
     honestPath: [assess("rhythm"), { type: "prepare_synchronized_cardioversion" }, { type: "synchronized_cardioversion" }, ...repeat({ type: "give_oxygen" }, 2), REASSESS, END],
+  },
+  {
+    id: "stable-wide-complex-tachycardia",
+    family: "tachycardia",
+    guidelines: [
+      "2025 Adult Tachyarrhythmia With a Pulse: wide QRS (0.12 s or longer) without instability: 12-lead ECG, antiarrhythmic infusion, consider expert consultation.",
+      "Antiarrhythmic infusions for stable wide-QRS tachycardia: procainamide (20-50 mg/min to a maximum 17 mg/kg), amiodarone (150 mg over 10 min), or sotalol (2025, COR 2b).",
+      "Adenosine only if regular and monomorphic; it does not treat VT. Hypotension, altered mental status, shock, ischaemic chest discomfort or acute heart failure: synchronized cardioversion.",
+    ],
+    requiredEvents: [{ type: "ecg", unlessEventType: "wct_destabilised" }, { type: "medication", descriptionIncludes: "antiarrhythmic infusion given", unlessEventType: "wct_destabilised" }],
+    requiresRhythmAssessment: true,
+    conditionalRequirements: [{ whenEventType: "wct_destabilised", require: [{ type: "synchronization" }, { type: "cardioversion" }] }],
+    poorChoices: [
+      { type: "medication", descriptionIncludes: "poor choice", reason: "Adenosine does not treat VT, and an antiarrhythmic infusion in an unstable patient delays cardioversion." },
+      { type: "cardioversion", descriptionIncludes: "poor choice", reason: "In a stable wide-complex tachycardia an antiarrhythmic infusion is preferred; cardioversion needs sedation." },
+    ],
+    honestPath: [assess("rhythm"), { type: "obtain_ecg" }, { type: "give_antiarrhythmic" }, REASSESS, END],
+    mustNotPassPaths: [
+      { label: "adenosine for a wide-complex tachycardia, then antiarrhythmic", path: [assess("rhythm"), { type: "obtain_ecg" }, { type: "give_adenosine" }, { type: "give_antiarrhythmic" }, REASSESS, END] },
+      { label: "cardioversion of a stable patient instead of the infusion", path: [assess("rhythm"), { type: "obtain_ecg" }, { type: "prepare_synchronized_cardioversion" }, { type: "synchronized_cardioversion" }, REASSESS, END] },
+    ],
+  },
+  {
+    id: "refractory-svt",
+    family: "tachycardia",
+    guidelines: [
+      "2025 Adult Tachyarrhythmia With a Pulse: stable regular narrow-complex tachycardia: vagal maneuvers, then adenosine.",
+      "Adenosine IV dose: first dose 6 mg rapid IV push followed by saline flush; second dose 12 mg if required.",
+    ],
+    requiredEvents: [{ type: "vagal" }, { type: "medication", descriptionIncludes: "adenosine 6 mg" }, { type: "medication", descriptionIncludes: "adenosine 12 mg" }],
+    requiresRhythmAssessment: true,
+    poorChoices: [
+      { type: "medication", descriptionIncludes: "poor choice", reason: "Adenosine dosing is 6 mg first, then 12 mg if required; do not repeat 6 mg or skip to 12 mg." },
+      { type: "medication", descriptionIncludes: "adenosine", beforeEventType: "vagal", reason: "Try vagal manoeuvres first in a stable regular narrow-complex tachycardia." },
+    ],
+    honestPath: [assess("rhythm"), { type: "vagal_manoeuvre" }, { type: "give_adenosine", dose: 6 }, { type: "give_adenosine", dose: 12 }, REASSESS, END],
+    mustNotPassPaths: [
+      { label: "adenosine before any vagal manoeuvre", path: [assess("rhythm"), { type: "give_adenosine", dose: 6 }, { type: "give_adenosine", dose: 12 }, { type: "vagal_manoeuvre" }, REASSESS, END] },
+      { label: "12 mg without a prior 6 mg dose", path: [assess("rhythm"), { type: "vagal_manoeuvre" }, { type: "give_adenosine", dose: 12 }, REASSESS, END] },
+      { label: "6 mg repeated instead of 12 mg", path: [assess("rhythm"), { type: "vagal_manoeuvre" }, { type: "give_adenosine", dose: 6 }, { type: "give_adenosine", dose: 6 }, REASSESS, END] },
+    ],
   },
   {
     id: "acs-to-vf",

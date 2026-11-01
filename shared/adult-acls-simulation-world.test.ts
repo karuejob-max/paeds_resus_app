@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ADULT_ACLS_ACS_ESCALATION_SECONDS,
+  ADULT_ACLS_WCT_DETERIORATION_SECONDS,
   ADULT_ACLS_SCENARIOS,
   canEndAdultAclsSimulation,
   calculateAdultAclsTrainingEvidence,
@@ -14,8 +15,8 @@ import {
 } from "./adult-acls-simulation-world";
 
 describe("Adult ACLS Simulation World V1 safety contract", () => {
-  it("contains the ten required adult scenario families", () => {
-    expect(ADULT_ACLS_SCENARIOS).toHaveLength(11);
+  it("contains the thirteen adult scenario families (Wave 1 added)", () => {
+    expect(ADULT_ACLS_SCENARIOS).toHaveLength(13);
     expect(ADULT_ACLS_SCENARIOS.every((scenario) => scenario.initial.hidden)).toBe(true);
   });
 
@@ -343,5 +344,70 @@ describe("Adult ACLS gate-integrity follow-up (v1.3.0)", () => {
       state = reduceAdultAclsSimulation(state, command);
     }
     expect(scoreAdultAclsTraining(state)).toBeLessThan(70);
+  });
+});
+
+describe("Adult ACLS Wave 1 cases (2025 AHA tachyarrhythmia algorithm)", () => {
+  const run = (id: AdultAclsScenarioId, commands: AdultAclsCommand[]) =>
+    commands.reduce((state, command) => reduceAdultAclsSimulation(state, command), createAdultAclsSimulation(id));
+
+  it("converts a stable wide-complex tachycardia with an antiarrhythmic infusion after ECG and rhythm assessment", () => {
+    const state = run("stable-wide-complex-tachycardia", [
+      { type: "assess", target: "rhythm" }, { type: "obtain_ecg" }, { type: "give_antiarrhythmic" }, { type: "reassess" }, { type: "end_rehearsal" },
+    ]);
+    expect(state.patient.phase).toBe("ended");
+    expect(scoreAdultAclsTraining(state)).toBe(100);
+  });
+
+  it("scores adenosine for a wide-complex tachycardia as a poor choice that does not convert VT", () => {
+    const state = run("stable-wide-complex-tachycardia", [{ type: "assess", target: "rhythm" }, { type: "give_adenosine" }]);
+    expect(state.patient.rhythm).toBe("ventricular_tachycardia");
+    expect(state.criticalFailures).toHaveLength(0);
+    expect(state.events.some((event) => event.description.includes("poor choice"))).toBe(true);
+  });
+
+  it("destabilises an untreated wide-complex tachycardia and then requires synchronized cardioversion", () => {
+    let state = advanceAdultAclsSimulation(createAdultAclsSimulation("stable-wide-complex-tachycardia"), ADULT_ACLS_WCT_DETERIORATION_SECONDS + 1);
+    expect(state.events.some((event) => event.type === "wct_destabilised")).toBe(true);
+    expect(state.patient.phase).toBe("unstable");
+    const infusionOnly = [{ type: "assess", target: "rhythm" }, { type: "obtain_ecg" }, { type: "give_antiarrhythmic" }, { type: "reassess" }] as AdultAclsCommand[];
+    let wrong = state;
+    for (const command of infusionOnly) wrong = reduceAdultAclsSimulation(wrong, command);
+    expect(scoreAdultAclsTraining(wrong)).toBeLessThan(70);
+    const right = [{ type: "assess", target: "rhythm" }, { type: "prepare_synchronized_cardioversion" }, { type: "synchronized_cardioversion" }, ...Array(2).fill({ type: "give_oxygen" }), { type: "reassess" }, { type: "end_rehearsal" }] as AdultAclsCommand[];
+    for (const command of right) state = reduceAdultAclsSimulation(state, command);
+    expect(state.patient.phase).toBe("ended");
+    expect(scoreAdultAclsTraining(state)).toBeGreaterThanOrEqual(70);
+  });
+
+  it("requires vagal manoeuvre, then adenosine 6 mg, then 12 mg for the stepwise SVT", () => {
+    const afterSix = run("refractory-svt", [{ type: "assess", target: "rhythm" }, { type: "vagal_manoeuvre" }, { type: "give_adenosine", dose: 6 }]);
+    expect(afterSix.patient.rhythm).toBe("supraventricular_tachycardia");
+    const done = reduceAdultAclsSimulation(afterSix, { type: "give_adenosine", dose: 12 });
+    expect(done.patient.rhythm).toBe("sinus_rhythm");
+    expect(done.events.filter((event) => event.description.includes("poor choice"))).toHaveLength(0);
+  });
+
+  it("keeps Wave 1 next-action guidance aligned with the authoritative algorithm", () => {
+    let wide = createAdultAclsSimulation("stable-wide-complex-tachycardia");
+    expect(getAdultAclsNextAction(wide)?.label).toBe("Assess rhythm");
+    wide = reduceAdultAclsSimulation(wide, { type: "assess", target: "rhythm" });
+    expect(wide.events.at(-1)?.description).toContain("wide-complex");
+    expect(getAdultAclsNextAction(wide)?.label).toBe("Obtain 12-lead ECG");
+
+    let svt = createAdultAclsSimulation("refractory-svt");
+    expect(getAdultAclsNextAction(svt)?.label).toBe("Assess rhythm");
+    svt = reduceAdultAclsSimulation(svt, { type: "assess", target: "rhythm" });
+    expect(getAdultAclsNextAction(svt)?.label).toBe("Vagal manoeuvre");
+    svt = reduceAdultAclsSimulation(svt, { type: "vagal_manoeuvre" });
+    expect(getAdultAclsNextAction(svt)?.label).toBe("Adenosine 6 mg");
+    svt = reduceAdultAclsSimulation(svt, { type: "give_adenosine", dose: 6 });
+    expect(getAdultAclsNextAction(svt)?.label).toBe("Adenosine 12 mg");
+  });
+
+  it("treats a wrong adenosine dose sequence as a poor choice, not a critical failure", () => {
+    const skipped = run("refractory-svt", [{ type: "assess", target: "rhythm" }, { type: "vagal_manoeuvre" }, { type: "give_adenosine", dose: 12 }]);
+    expect(skipped.criticalFailures).toHaveLength(0);
+    expect(skipped.events.some((event) => event.description.includes("poor choice"))).toBe(true);
   });
 });
