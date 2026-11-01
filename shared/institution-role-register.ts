@@ -38,6 +38,7 @@ export type RoleRecord = Record<string, unknown> & {
   departmentId?: number | null;
   userId?: number | null;
   providerUserId?: number | null;
+  coordinatorUserId?: number | null;
   deputyUserId?: number | null;
   name?: string | null;
   fullName?: string | null;
@@ -56,7 +57,7 @@ export type RoleRecord = Record<string, unknown> & {
 const unavailable = (kind: SlotKind, departmentId: number | null): RoleSlot => ({ kind, departmentId, status: "unavailable", holders: [] });
 const isUnavailable = (value: readonly RoleRecord[] | Unavailable): value is Unavailable => "unavailable" in value;
 const user = (row: RoleRecord, deputy = false): RoleHolder | null => {
-  const userId = deputy ? row.deputyUserId : (row.userId ?? row.providerUserId);
+  const userId = deputy ? row.deputyUserId : (row.userId ?? row.providerUserId ?? row.coordinatorUserId);
   if (userId == null) return null;
   return { userId: Number(userId), name: String(deputy ? (row.deputyFullName ?? row.deputyName ?? "Unknown person") : (row.name ?? row.fullName ?? row.providerName ?? "Unknown person")), email: deputy ? (row.deputyEmail as string | null | undefined) : (row.email ?? row.providerEmail) };
 };
@@ -81,7 +82,7 @@ function selectSlot(kind: SlotKind, departmentId: number | null, rows: readonly 
   };
 }
 function recordsFor(rows: readonly RoleRecord[], departmentId: number | null, kind: SlotKind): RoleRecord[] {
-  return rows.filter(row => (row.departmentId ?? null) === departmentId && (kind !== "erco" && kind !== "erco_deputy" || (kind === "erco" ? row.assignmentRole === "erco" : row.assignmentRole === "deputy_erco")));
+  return rows.filter(row => (row.departmentId ?? null) === departmentId && (kind !== "erco" && kind !== "erco_deputy" || (kind === "erco" ? (row.assignmentRole ?? "erco") === "erco" : true)));
 }
 
 export function buildRoleRegister(input: RoleRegisterInput): { institutionWide: RoleSlot[]; departments: Array<{ departmentId: number; label: string; slots: RoleSlot[] }> } {
@@ -98,7 +99,7 @@ export function buildRoleRegister(input: RoleRegisterInput): { institutionWide: 
     const scoped = (kind: SlotKind, rows: readonly RoleRecord[] | Unavailable, deputy = false): RoleSlot => isUnavailable(rows) ? unavailable(kind, departmentId) : selectSlot(kind, departmentId, recordsFor(rows, departmentId, kind), deputy);
     return { departmentId, label: department.label, slots: [
       scoped("dept_head", input.heads), scoped("dept_head_deputy", input.heads, true),
-      scoped("erco", input.ercos), scoped("erco_deputy", input.ercos, false),
+      scoped("erco", input.ercos), scoped("erco_deputy", input.ercos, true),
       scoped("cpd_dept_coordinator", input.cpdCoordinators), scoped("cpd_dept_coordinator_deputy", input.cpdCoordinators, true),
     ] };
   });

@@ -37,4 +37,16 @@ describe("buildRoleRegister", () => {
     expect(result.departments[0]?.slots[0]?.holders[0]?.userId).toBe(8);
     expect(result.departments[1]?.slots[0]?.status).toBe("vacant");
   });
+  it("maps raw ERCo coordinator rows into primary and deputy slots", () => {
+    const result = buildRoleRegister({
+      departments: [{ id: 1, departmentName: "Surgery" }],
+      admins: [],
+      productRoles: [],
+      heads: [],
+      ercos: [{ departmentId: 1, coordinatorUserId: 12, deputyUserId: 13, assignmentStatus: "active", deputyAssignmentStatus: "pending_acceptance" }],
+      cpdCoordinators: [],
+    });
+    expect(result.departments[0]?.slots[2]).toMatchObject({ status: "active", holders: [{ userId: 12 }] });
+    expect(result.departments[0]?.slots[3]).toMatchObject({ status: "pending_acceptance", holders: [{ userId: 13 }] });
+  });
 });
