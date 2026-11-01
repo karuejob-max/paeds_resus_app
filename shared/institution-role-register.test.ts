@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRoleRegister } from "./institution-role-register";
+import { buildRoleRegister, resolveHolderNames } from "./institution-role-register";
 
 const departments = [
   { id: 1, departmentName: "Surgery", parentDepartmentId: null },
@@ -48,5 +48,21 @@ describe("buildRoleRegister", () => {
     });
     expect(result.departments[0]?.slots[2]).toMatchObject({ status: "active", holders: [{ userId: 12 }] });
     expect(result.departments[0]?.slots[3]).toMatchObject({ status: "pending_acceptance", holders: [{ userId: 13 }] });
+  });
+  it("resolves names and emails for raw ERCo, product-role, and deputy rows", () => {
+    const rows = resolveHolderNames([
+      { coordinatorUserId: 12, deputyUserId: 13, assignmentStatus: "active", deputyAssignmentStatus: "pending_acceptance" },
+      { userId: 14, roleStatus: "active" },
+    ], [
+      { userId: 12, staffName: "Primary ERCo", staffEmail: "primary@example.test" },
+      { userId: 13, staffName: "Deputy ERCo", staffEmail: "deputy@example.test" },
+      { userId: 14, staffName: "IERS Lead", staffEmail: "lead@example.test" },
+    ]);
+    expect(rows[0]).toMatchObject({ name: "Primary ERCo", email: "primary@example.test", deputyFullName: "Deputy ERCo", deputyEmail: "deputy@example.test" });
+    expect(rows[1]).toMatchObject({ name: "IERS Lead", email: "lead@example.test" });
+  });
+  it("preserves suspended product roles as suspended rather than vacant", () => {
+    const result = buildRoleRegister({ departments: [], admins: [], productRoles: [{ productKey: "iers", roleKey: "iers_coordinator", userId: 9, name: "Suspended lead", roleStatus: "suspended" }], heads: [], ercos: [], cpdCoordinators: [] });
+    expect(result.institutionWide[1]).toMatchObject({ status: "suspended", holders: [{ userId: 9, name: "Suspended lead" }] });
   });
 });

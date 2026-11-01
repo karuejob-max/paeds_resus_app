@@ -12,7 +12,7 @@ export const SLOT_KINDS = [
   "cpd_dept_coordinator_deputy",
 ] as const;
 export type SlotKind = (typeof SLOT_KINDS)[number];
-export type SlotStatus = "vacant" | "pending_acceptance" | "active" | "declined" | "unavailable";
+export type SlotStatus = "vacant" | "pending_acceptance" | "active" | "declined" | "suspended" | "unavailable";
 export type RoleHolder = { userId: number; name: string; email?: string | null };
 export type RoleSlot = {
   kind: SlotKind;
@@ -54,16 +54,45 @@ export type RoleRecord = Record<string, unknown> & {
   assignedAt?: Date | string | null;
 };
 
+export type RoleDirectoryPerson = {
+  id?: number | null;
+  userId?: number | null;
+  staffName?: string | null;
+  staffEmail?: string | null;
+  name?: string | null;
+  email?: string | null;
+};
+
+export function resolveHolderNames(rows: readonly RoleRecord[], directory: readonly RoleDirectoryPerson[]): RoleRecord[] {
+  const byUserId = new Map<number, RoleDirectoryPerson>();
+  for (const person of directory) {
+    const userId = person.userId ?? person.id;
+    if (userId != null) byUserId.set(Number(userId), person);
+  }
+  return rows.map(row => {
+    const primaryId = row.userId ?? row.providerUserId ?? row.coordinatorUserId;
+    const primary = primaryId == null ? undefined : byUserId.get(Number(primaryId));
+    const deputy = row.deputyUserId == null ? undefined : byUserId.get(Number(row.deputyUserId));
+    return {
+      ...row,
+      name: row.name ?? row.fullName ?? row.providerName ?? primary?.staffName ?? primary?.name ?? undefined,
+      email: row.email ?? row.providerEmail ?? primary?.staffEmail ?? primary?.email ?? undefined,
+      deputyFullName: row.deputyFullName ?? row.deputyName ?? deputy?.staffName ?? deputy?.name ?? undefined,
+      deputyEmail: row.deputyEmail ?? deputy?.staffEmail ?? deputy?.email ?? undefined,
+    };
+  });
+}
+
 const unavailable = (kind: SlotKind, departmentId: number | null): RoleSlot => ({ kind, departmentId, status: "unavailable", holders: [] });
 const isUnavailable = (value: readonly RoleRecord[] | Unavailable): value is Unavailable => "unavailable" in value;
 const user = (row: RoleRecord, deputy = false): RoleHolder | null => {
   const userId = deputy ? row.deputyUserId : (row.userId ?? row.providerUserId ?? row.coordinatorUserId);
   if (userId == null) return null;
-  return { userId: Number(userId), name: String(deputy ? (row.deputyFullName ?? row.deputyName ?? "Unknown person") : (row.name ?? row.fullName ?? row.providerName ?? "Unknown person")), email: deputy ? (row.deputyEmail as string | null | undefined) : (row.email ?? row.providerEmail) };
+  return { userId: Number(userId), name: String(deputy ? (row.deputyFullName ?? row.deputyName ?? row.deputyEmail ?? `User ${userId}`) : (row.name ?? row.fullName ?? row.providerName ?? row.email ?? row.providerEmail ?? `User ${userId}`)), email: deputy ? (row.deputyEmail as string | null | undefined) : (row.email ?? row.providerEmail) };
 };
 function status(row: RoleRecord, deputy = false): SlotStatus | "ended" {
   const value = String(deputy ? row.deputyAssignmentStatus : (row.assignmentStatus ?? row.roleStatus ?? "active"));
-  return value === "ended" ? "ended" : value === "pending_acceptance" || value === "declined" || value === "active" ? value : "vacant";
+  return value === "ended" ? "ended" : value === "pending_acceptance" || value === "declined" || value === "active" || value === "suspended" ? value : "vacant";
 }
 function selectSlot(kind: SlotKind, departmentId: number | null, rows: readonly RoleRecord[], deputy = false): RoleSlot {
   const usable = rows.filter(row => status(row, deputy) !== "ended");
