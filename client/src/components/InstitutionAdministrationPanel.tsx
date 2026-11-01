@@ -68,7 +68,7 @@ function getInitialDataSupportTab(): "data" | "support" | "notifications" {
   return value === "support" || value === "notifications" ? value : "data";
 }
 
-export function InstitutionAdministrationPanel({ institutionId, institution, controlledActiveTab, onAdministrationTabChange, hideNavigation = false }: { institutionId: number; institution: InstitutionRecord; controlledActiveTab?: AdministrationTab; onAdministrationTabChange?: (tab: AdministrationTab) => void; hideNavigation?: boolean }) {
+export function InstitutionAdministrationPanel({ institutionId, institution, detailsReady = true, controlledActiveTab, onAdministrationTabChange, hideNavigation = false }: { institutionId: number; institution: InstitutionRecord; detailsReady?: boolean; controlledActiveTab?: AdministrationTab; onAdministrationTabChange?: (tab: AdministrationTab) => void; hideNavigation?: boolean }) {
   const [tab, setTab] = useState<AdministrationTab>(getInitialAdministrationTab);
   const [peopleTab, setPeopleTab] = useState<PeopleTab>(getInitialPeopleTab);
   const [billingTab, setBillingTab] = useState<"access" | "renewal" | "contracts">(getInitialBillingTab);
@@ -154,7 +154,7 @@ export function InstitutionAdministrationPanel({ institutionId, institution, con
                 <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="access_links"><ShieldCheck className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Access & links</TabsTrigger>
                 <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="staff_import"><Users className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Import staff</TabsTrigger>
               </TabsList>
-              <TabsContent value="institution" className="mt-5"><InstitutionDetailsCard institutionId={institutionId} companyName={institution.companyName} contactPhone={institution.contactPhone} contactEmail={institution.contactEmail} staffCount={institution.staffCount} organizationCategory={institution.organizationCategory} facilityOwnership={institution.facilityOwnership} facilityCareLevel={institution.facilityCareLevel} facilityLocalLevel={institution.facilityLocalLevel} /></TabsContent>
+              <TabsContent value="institution" className="mt-5"><InstitutionDetailsCard institutionId={institutionId} detailsReady={detailsReady} companyName={institution.companyName} contactPhone={institution.contactPhone} contactEmail={institution.contactEmail} staffCount={institution.staffCount} organizationCategory={institution.organizationCategory} facilityOwnership={institution.facilityOwnership} facilityCareLevel={institution.facilityCareLevel} facilityLocalLevel={institution.facilityLocalLevel} /></TabsContent>
               <TabsContent value="people_access" className="mt-5"><InstitutionPeopleRolesPanel institutionId={institutionId} /></TabsContent>
               <TabsContent value="departments" className="mt-5"><InstitutionDepartmentReconciliationPanel institutionId={institutionId} /></TabsContent>
               <TabsContent value="access_links" className="mt-5 grid min-w-0 gap-6 xl:grid-cols-2"><AccountAdminsWidget institutionId={institutionId} /><PendingLinkRequestsWidget institutionId={institutionId} /></TabsContent>

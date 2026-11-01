@@ -17,6 +17,7 @@ import { toast } from "sonner";
  */
 export function InstitutionDetailsCard({
   institutionId,
+  detailsReady = true,
   companyName,
   contactPhone,
   contactEmail,
@@ -27,6 +28,7 @@ export function InstitutionDetailsCard({
   facilityLocalLevel,
 }: {
   institutionId: number;
+  detailsReady?: boolean;
   companyName: string;
   contactPhone: string | null;
   contactEmail: string;
@@ -96,7 +98,7 @@ export function InstitutionDetailsCard({
           <CardDescription>Your institution's name and contact information</CardDescription>
         </div>
         {!editing && (
-          <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+          <Button variant="outline" size="sm" onClick={() => setEditing(true)} disabled={!detailsReady}>
             Edit
           </Button>
         )}
@@ -165,10 +167,10 @@ export function InstitutionDetailsCard({
         </div>
 
         {editing && (
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-wrap items-center gap-2 pt-2">
               <Button
                 size="sm"
-              disabled={!form.companyName.trim() || !form.contactEmail.trim() || !validStaffCount || (editingRequiresCareClassification && (!form.facilityOwnership || !form.facilityCareLevel)) || updateMutation.isPending}
+              disabled={!detailsReady || !form.companyName.trim() || !form.contactEmail.trim() || !validStaffCount || (editingRequiresCareClassification && (!form.facilityOwnership || !form.facilityCareLevel)) || updateMutation.isPending}
 
               onClick={() =>
                 updateMutation.mutate({
@@ -189,6 +191,7 @@ export function InstitutionDetailsCard({
             <Button size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={updateMutation.isPending}>
               Cancel
             </Button>
+            {!detailsReady ? <span className="text-xs text-muted-foreground">Institution details are still loading; saving is disabled.</span> : null}
           </div>
         )}
       </CardContent>
