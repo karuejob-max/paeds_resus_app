@@ -14,6 +14,7 @@ import { buildAdministrationUrl } from "@shared/institution-administration-locat
 import { buildCanonicalDepartmentOptions } from "@shared/institution-department-hierarchy";
 import { classifyDepartmentMismatch } from "@shared/institution-department-mismatch";
 import { summarizeInstitutionalResponsibilities } from "@shared/institution-role-summary";
+import { filterDirectoryRows, paginateDirectoryRows, type DirectoryFilter } from "./people-access/Directory";
 import { AlertTriangle, CalendarClock, KeyRound, Loader2, RefreshCw, Search, ShieldCheck, UserCheck, UserMinus, Users ,
 } from "lucide-react";
 
@@ -30,7 +31,7 @@ const GOVERNANCE_ROLES = [
 
 type GovernanceRole = (typeof GOVERNANCE_ROLES)[number][0];
 
-type StaffRow = {
+export type StaffRow = {
   id: number;
   staffName: string;
   staffEmail: string;
@@ -89,7 +90,8 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
   const [removalReason, setRemovalReason] = useState("");
   const [restoreTarget, setRestoreTarget] = useState<StaffRow | null>(null);
   const [restoreReason, setRestoreReason] = useState("");
-  const [showRetired, setShowRetired] = useState(false);
+  const [directoryFilter, setDirectoryFilter] = useState<DirectoryFilter>("all");
+  const [directoryPage, setDirectoryPage] = useState(1);
   const [unlinkTarget, setUnlinkTarget] = useState<StaffRow | null>(null);
   const [unlinkReason, setUnlinkReason] = useState("");
   const [removalReportId, setRemovalReportId] = useState<number | null>(null);
@@ -101,7 +103,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
   const [moveDepartmentId, setMoveDepartmentId] = useState("");
   const [directDepartmentReason, setDirectDepartmentReason] = useState("");
   const [activeSection, setActiveSection] = useState<"assignments" | "roster" | "role_map" | "duties" | "product_roles" | "scopes">(initialSection ?? "assignments");
-  const { data, isLoading, isFetching, refetch } = trpc.institution.getStaffMembers.useQuery({ institutionId, includeRemoved: showRetired }, {
+  const { data, isLoading, isFetching, isError, refetch } = trpc.institution.getStaffMembers.useQuery({ institutionId, includeRemoved: true }, {
     enabled: !!institutionId,
     staleTime: 30_000,
   });
@@ -337,12 +339,10 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
     ertlDuties: iersDuties?.ertl,
     utlDuties: iersDuties?.utl,
   }) : [], [selectedAssignmentStaff, institutionAdmins?.admins, departmentHeads, educationCoordinators, productRoles, iersDuties]);
-  const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return staff;
-    return staff.filter(member => [member.staffName, member.staffEmail, member.staffRole, member.department ?? "", roleLabel(member.governanceRole),
-      ].some(value => value.toLowerCase().includes(query)));
-  }, [search, staff]);
+  const filtered = useMemo(() => filterDirectoryRows(staff, search, directoryFilter), [directoryFilter, search, staff]);
+  const directoryPageCount = Math.max(1, Math.ceil(filtered.length / 50));
+  const pagedDirectoryRows = useMemo(() => paginateDirectoryRows(filtered, Math.min(directoryPage, directoryPageCount)), [directoryPage, directoryPageCount, filtered]);
+  useEffect(() => { setDirectoryPage(1); }, [directoryFilter, search]);
   const mismatchReviews = useMemo(() => (mismatchReports ?? []).map(report => {
     let details: { staffMemberId?: number | null; providerUserId?: number | null; departmentId?: number | null; reason?: string ;
         } = {};
@@ -437,7 +437,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
                     <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto] md:items-end">
                       <Select value={moveDepartmentId} onValueChange={setMoveDepartmentId}><SelectTrigger><SelectValue placeholder="Move to canonical department" /></SelectTrigger><SelectContent>{canonicalDepartmentOptions.map(department => <SelectItem key={department.id} value={String(department.id)}>{department.label}</SelectItem>)}</SelectContent></Select>
                       <Input value={directDepartmentReason} onChange={event => setDirectDepartmentReason(event.target.value)} placeholder="Reason (at least 10 characters)" />
-                      <Button type="button" disabled={getMoveDisabledReason({ currentDepartmentId: selectedAssignmentStaff.facilityDepartmentId, targetDepartmentId: Number(moveDepartmentId) || null, reason: directDepartmentReason, isPending: reallocationMutation.isPending }) !== null} onClick={() => reallocationMutation.mutate({ institutionId, staffMemberId: selectedAssignmentStaff.id, departmentId: Number(moveDepartmentId), reason: directDepartmentReason.trim() })}>{reallocationMutation.isPending ? "Saving…" : "Update department"}</Button>
+                      <Button type="button" disabled={getMoveDisabledReason({ currentDepartmentId: selectedAssignmentStaff.facilityDepartmentId, targetDepartmentId: Number(moveDepartmentId) || null, reason: directDepartmentReason, isPending: reallocationMutation.isPending }) !== null} onClick={() => { if (window.confirm(`Confirm moving ${selectedAssignmentStaff.staffName} to ${formatDepartmentLabel(Number(moveDepartmentId), "the selected department")}?`)) reallocationMutation.mutate({ institutionId, staffMemberId: selectedAssignmentStaff.id, departmentId: Number(moveDepartmentId), reason: directDepartmentReason.trim() }); }}>{reallocationMutation.isPending ? "Saving…" : "Update department"}</Button>
                     </div>
                     <p className="mt-2 text-xs font-medium">Move {selectedAssignmentStaff.staffName} from {selectedAssignmentStaff.department || "Not assigned"} to {moveDepartmentId ? formatDepartmentLabel(Number(moveDepartmentId), "selected department") : "the selected department"}.</p>
                     {getMoveDisabledReason({ currentDepartmentId: selectedAssignmentStaff.facilityDepartmentId, targetDepartmentId: Number(moveDepartmentId) || null, reason: directDepartmentReason, isPending: reallocationMutation.isPending }) && <p className="mt-1 text-xs text-amber-700">Move disabled: {getMoveDisabledReason({ currentDepartmentId: selectedAssignmentStaff.facilityDepartmentId, targetDepartmentId: Number(moveDepartmentId) || null, reason: directDepartmentReason, isPending: reallocationMutation.isPending })}</p>}
@@ -481,11 +481,18 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Search name, email, department, or role" value={search} onChange={event => setSearch(event.target.value)} />
+            <Input className="min-h-11 pl-9" placeholder="Search name, email, or department" value={search} onChange={event => setSearch(event.target.value)} />
           </div>
-          <Button type="button" size="sm" variant={showRetired ? "secondary" : "outline"} className="w-full sm:w-auto" onClick={() => setShowRetired(current => !current)}>
-            {showRetired ? "Hide retired history" : "Show retired history"}
-          </Button>
+          <Select value={directoryFilter} onValueChange={value => setDirectoryFilter(value as DirectoryFilter)}>
+            <SelectTrigger className="min-h-11 w-full sm:w-52" aria-label="Directory filter"><SelectValue placeholder="Filter directory" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All active people</SelectItem>
+              <SelectItem value="no_department">No department</SelectItem>
+              <SelectItem value="no_account">No linked account</SelectItem>
+              <SelectItem value="retired">Retired history</SelectItem>
+              <SelectItem value="unresolved">Unresolved</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         {unlinkTarget && (
           <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
@@ -530,10 +537,12 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
             </div>
           </div>
         )}
-        {isLoading ? (
+        {isError ? (
+          <div className="rounded-lg border border-red-300 bg-red-50 p-6 text-center text-sm text-red-800">We could not load the directory. No rows are shown as empty; refresh or try again.</div>
+        ) : isLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Loading institutional roster…</div>
         ) : filtered.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">{search ? "No staff match this search." : "No staff are linked to this institution yet."}</div>
+          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">{directoryFilter !== "all" ? `No people match the ${directoryFilter.replaceAll("_", " ")} filter.` : search ? "No staff match this search." : "No staff are linked to this institution yet."}</div>
         ) : (
           <div className="overflow-x-auto rounded-lg border">
             <Table>
@@ -548,7 +557,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(member => {
+                {pagedDirectoryRows.map(member => {
                   const currentRole = (member.governanceRole ?? "general_staff") as GovernanceRole;
                   const isRemoved = member.removedAt != null || member.membershipStatus === "ended";
                   return (
@@ -562,10 +571,13 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
                       <TableCell><Badge variant="outline">Assigned from Role assignments</Badge></TableCell>
                       <TableCell><Badge variant={isRemoved ? "destructive" : member.facilityLinkStatus === "linked" ? "default" : "secondary"}>{isRemoved ? "Retired · access ended" : member.facilityLinkStatus === "linked" ? "Linked" : (member.facilityLinkStatus ?? "Roster only")}</Badge></TableCell>
                       <TableCell>
-                        {member.userId && !isRemoved ? <Button type="button" size="sm" variant="outline" onClick={() => window.location.assign(`/institution/staff/${member.userId}?institutionId=${institutionId}`)}>Staff 360</Button> : null}
+                        <div className="flex flex-wrap gap-2">
+                        {member.userId && !isRemoved ? <Button type="button" size="sm" variant="outline" className="min-h-11" onClick={() => window.location.assign(`/institution/staff/${member.userId}?institutionId=${institutionId}`)}>Staff 360</Button> : null}
+                        {!isRemoved ? <Button type="button" size="sm" variant="outline" className="min-h-11" onClick={() => { setSelectedAssignmentStaffId(member.id); setActiveSection("assignments"); setMoveDepartmentId(""); setDirectDepartmentReason(""); }}>Change department</Button> : null}
                         {isRemoved ? (member.userId ? (
                               <Button type="button" size="sm" variant="outline" className="text-emerald-700" onClick={() => { setRestoreTarget(member); setRestoreReason(""); }} disabled={restoreRetiredLink.isPending}><UserCheck className="mr-2 h-4 w-4" />Restore institution link</Button> ) : ( <span className="text-xs text-muted-foreground">Account link required before restoration</span>) ) : member.membershipId ? (
                             <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" className="text-amber-700" onClick={() => { setUnlinkTarget(member); setUnlinkReason(""); }} disabled={unlinkMember.isPending || removeMember.isPending || retireStaffRecord.isPending}><AlertTriangle className="mr-2 h-4 w-4" />Unlink</Button><Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); setRemovalReportId(null); }} disabled={removeMember.isPending || retireStaffRecord.isPending || unlinkMember.isPending}><UserMinus className="mr-2 h-4 w-4" />Retire</Button></div> ) : ( <Button type="button" size="sm" variant="outline" className="text-red-700" onClick={() => { setRemovalTarget(member); setRemovalReason(""); setRemovalReportId(null); }} disabled={removeMember.isPending || retireStaffRecord.isPending}><UserMinus className="mr-2 h-4 w-4" />Retire from roster</Button>)}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -574,7 +586,13 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
             </Table>
           </div>
         )}
-        <p className="text-xs text-muted-foreground">Use the roster import or add-staff workflow below to add people. A responsibility role should be assigned only after the institution confirms the provider’s operational scope.</p>
+        {filtered.length > 0 && !isError && !isLoading && (
+          <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-muted-foreground">Showing {(Math.min(directoryPage, directoryPageCount) - 1) * 50 + 1}–{Math.min(Math.min(directoryPage, directoryPageCount) * 50, filtered.length)} of {filtered.length} people · 50 per page</p>
+            <div className="flex gap-2"><Button type="button" variant="outline" className="min-h-11" disabled={directoryPage <= 1} onClick={() => setDirectoryPage(page => page - 1)}>Previous</Button><Button type="button" variant="outline" className="min-h-11" disabled={directoryPage >= directoryPageCount} onClick={() => setDirectoryPage(page => page + 1)}>Next</Button></div>
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">Use the roster import or add-staff workflow below to add people. A responsibility role should be assigned only after the institution confirms the provider’s operational scope. Directory loading is intentionally client-paginated at 50 rows; getStaffMembers currently has no server-side row limit.</p>
           </>
         )}
       </CardContent>
