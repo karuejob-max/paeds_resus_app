@@ -93,7 +93,7 @@ import { notifyInstructorSessionAssigned } from "../lib/instructor-session-notif
 import { ENV } from "../_core/env";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { isInstitutionInPilotProgram } from "@shared/pilot-program";
-import { validateDepartmentErcoAssignment } from "../lib/iers-department-governance";
+import { canAddDeputyToAcceptedErcoPrimary, validateDepartmentErcoAssignment } from "../lib/iers-department-governance";
 import { ensurePublishedTeamForLegacyUtlRoster, notifyDepartmentErcoOfUtlDecline, projectLegacyUtlRosterDecision, projectUtlRosterReassignment } from "../services/iers-utl-sync.service";
 import { ensureDefaultUtlReadinessTemplate } from "../services/iers-readiness-template.service";
 import { autoLinkCpdFacilitiesForInstitution } from "../services/facility-registry.service";
@@ -6574,13 +6574,56 @@ export const institutionRouter = router({
       }
 
       const [existing] = await db
-        .select({ id: institutionDepartmentResponseCoordinators.id })
+        .select({
+          id: institutionDepartmentResponseCoordinators.id,
+          coordinatorUserId: institutionDepartmentResponseCoordinators.coordinatorUserId,
+          assignmentStatus: institutionDepartmentResponseCoordinators.assignmentStatus,
+          acceptedAt: institutionDepartmentResponseCoordinators.acceptedAt,
+        })
         .from(institutionDepartmentResponseCoordinators)
         .where(and(
           eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId),
           eq(institutionDepartmentResponseCoordinators.departmentId, input.departmentId),
         ))
         .limit(1);
+      if (existing && input.deputyUserId != null && existing.coordinatorUserId === input.coordinatorUserId && existing.assignmentStatus !== "active") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Accept the primary ERCo assignment before assigning a Deputy ERCo." });
+      }
+      if (existing && canAddDeputyToAcceptedErcoPrimary({
+        existingCoordinatorUserId: existing.coordinatorUserId,
+        existingAssignmentStatus: existing.assignmentStatus,
+        existingAcceptedAt: existing.acceptedAt,
+        requestedCoordinatorUserId: input.coordinatorUserId,
+        requestedDeputyUserId: input.deputyUserId,
+        requestedBackupUserId: input.backupUserId,
+      })) {
+        await db.update(institutionDepartmentResponseCoordinators).set({
+          deputyUserId: input.deputyUserId,
+          deputyAssignmentStatus: "pending_acceptance",
+          deputyAcceptedAt: null,
+          deputyDeclinedAt: null,
+          deputyDeclineReason: null,
+          updatedAt: new Date(),
+        }).where(eq(institutionDepartmentResponseCoordinators.id, existing.id));
+        await db.insert(institutionDepartmentResponseCoordinatorEvents).values({
+          institutionId: input.institutionId,
+          departmentId: input.departmentId,
+          assignmentId: existing.id,
+          eventType: "assigned",
+          actorUserId: ctx.user.id,
+          note: "Deputy ERCo assigned without changing the accepted primary ERCo appointment.",
+        });
+        await db.insert(inAppNotifications).values({
+          userId: input.deputyUserId!,
+          type: "institution_role_assignment",
+          title: "Deputy ERCo role assigned — acceptance required",
+          body: `You were assigned Deputy ERCo for department ${input.departmentId}. Open My Shift to accept or decline the role.`,
+          actionUrl: "/my-shift?tab=team",
+          relatedId: existing.id,
+          read: false,
+        });
+        return { success: true, assignmentId: existing.id, replaced: false, preservedPrimary: true };
+      }
       const values = {
         institutionId: input.institutionId,
         departmentId: input.departmentId,

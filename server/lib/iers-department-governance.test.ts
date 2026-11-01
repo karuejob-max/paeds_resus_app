@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canAddDeputyToAcceptedErcoPrimary,
   canUseDepartmentErcoAssignment,
   validateDepartmentErcoAssignment,
 } from "./iers-department-governance";
@@ -60,6 +61,25 @@ describe("IERS department ERCo governance", () => {
       effectiveFrom: "2026-08-22",
       effectiveUntil: "2026-08-29",
       asOfDate: "2026-08-30",
+    })).toBe(false);
+  });
+
+  it("preserves an accepted primary when adding a deputy", () => {
+    expect(canAddDeputyToAcceptedErcoPrimary({
+      existingCoordinatorUserId: 101,
+      existingAssignmentStatus: "active",
+      existingAcceptedAt: new Date(),
+      requestedCoordinatorUserId: 101,
+      requestedDeputyUserId: 102,
+      requestedBackupUserId: null,
+    })).toBe(true);
+    expect(canAddDeputyToAcceptedErcoPrimary({
+      existingCoordinatorUserId: 101,
+      existingAssignmentStatus: "pending_acceptance",
+      existingAcceptedAt: null,
+      requestedCoordinatorUserId: 101,
+      requestedDeputyUserId: 102,
+      requestedBackupUserId: null,
     })).toBe(false);
   });
 });
