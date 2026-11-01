@@ -7,6 +7,7 @@ import {
   resolveAdministrationLocation,
   buildAdministrationUrl,
   type PeopleView,
+  type PeopleFocus,
 } from "@shared/institution-administration-location";
 import { trpc } from "@/lib/trpc";
 import { InstitutionPeopleRolesPanel } from "@/components/InstitutionPeopleRolesPanel";
@@ -56,7 +57,7 @@ export function PeopleAccessShell({
   );
   const consumedFocus = useRef(false);
   const [focus, setFocus] = useState(location.focus);
-  const setPeopleView = (next: PeopleView) => {
+  const setPeopleView = (next: PeopleView, nextFocus?: PeopleFocus) => {
     setView(next);
     if (typeof window !== "undefined")
       window.history.replaceState(
@@ -66,6 +67,7 @@ export function PeopleAccessShell({
           institutionId,
           lane: "institution",
           peopleView: next,
+          focus: nextFocus,
         })
       );
   };
