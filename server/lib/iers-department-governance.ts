@@ -58,3 +58,18 @@ export function canUseDepartmentErcoAssignment(input: {
   if (input.effectiveUntil != null && input.asOfDate > input.effectiveUntil) return false;
   return true;
 }
+
+export function canAddDeputyToAcceptedErcoPrimary(input: {
+  existingCoordinatorUserId: number;
+  existingAssignmentStatus: string;
+  existingAcceptedAt: Date | string | null;
+  requestedCoordinatorUserId: number;
+  requestedDeputyUserId: number | null | undefined;
+  requestedBackupUserId: number | null | undefined;
+}): boolean {
+  return input.existingCoordinatorUserId === input.requestedCoordinatorUserId
+    && input.existingAssignmentStatus === "active"
+    && input.existingAcceptedAt != null
+    && input.requestedDeputyUserId != null
+    && input.requestedBackupUserId == null;
+}
