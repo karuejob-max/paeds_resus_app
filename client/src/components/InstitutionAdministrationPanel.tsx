@@ -17,7 +17,7 @@ import { InstitutionDataLifecyclePanel } from "@/components/InstitutionDataLifec
 import { InstitutionRenewalPanel } from "@/components/InstitutionRenewalPanel";
 import { InstitutionDepartmentReconciliationPanel } from "@/components/InstitutionDepartmentReconciliationPanel";
 import InstitutionAdministrationOverview from "@/components/InstitutionAdministrationOverview";
-import { resolveAdministrationLocation } from "@shared/institution-administration-location";
+import { buildAdministrationUrl, resolveAdministrationLocation } from "@shared/institution-administration-location";
 
 type InstitutionRecord = {
   id: number;
@@ -34,6 +34,8 @@ type InstitutionRecord = {
 type AdministrationTab = "overview" | "institution" | "billing" | "program_operations" | "data_support";
 type PeopleTab = "institution" | "people_access" | "departments" | "access_links" | "staff_import";
 
+export const PHASE1_VIEW_TO_CURRENT: Record<string, PeopleTab> = { roles: "people_access", directory: "staff_import", departments: "departments", admins: "access_links", inbox: "access_links" };
+
 const PEOPLE_JOURNEY_STEPS: ReadonlyArray<readonly [string, string, PeopleTab]> = [
   ["1", "Institution details", "institution"],
   ["2", "Import staff", "staff_import"],
@@ -49,11 +51,8 @@ function getInitialAdministrationTab(): AdministrationTab {
 
 function getInitialPeopleTab(): PeopleTab {
   if (typeof window === "undefined") return "people_access";
-  const peopleView = resolveAdministrationLocation(window.location.search).peopleView;
-  if (peopleView === "departments") return "departments";
-  if (peopleView === "directory") return "staff_import";
-  if (peopleView === "admins" || peopleView === "inbox") return "access_links";
-  return "people_access";
+  const resolved = resolveAdministrationLocation(window.location.search);
+  return resolved.peopleView ? PHASE1_VIEW_TO_CURRENT[resolved.peopleView] ?? "people_access" : "institution";
 }
 
 function getInitialBillingTab(): "access" | "renewal" | "contracts" {
@@ -70,6 +69,7 @@ function getInitialDataSupportTab(): "data" | "support" | "notifications" {
 
 export function InstitutionAdministrationPanel({ institutionId, institution, detailsReady = true, controlledActiveTab, onAdministrationTabChange, hideNavigation = false }: { institutionId: number; institution: InstitutionRecord; detailsReady?: boolean; controlledActiveTab?: AdministrationTab; onAdministrationTabChange?: (tab: AdministrationTab) => void; hideNavigation?: boolean }) {
   const [tab, setTab] = useState<AdministrationTab>(getInitialAdministrationTab);
+  const resolvedLocation = typeof window === "undefined" ? { importOpen: false, focus: undefined } : resolveAdministrationLocation(window.location.search);
   const [peopleTab, setPeopleTab] = useState<PeopleTab>(getInitialPeopleTab);
   const [billingTab, setBillingTab] = useState<"access" | "renewal" | "contracts">(getInitialBillingTab);
   const [dataSupportTab, setDataSupportTab] = useState<"data" | "support" | "notifications">(getInitialDataSupportTab);
@@ -78,21 +78,15 @@ export function InstitutionAdministrationPanel({ institutionId, institution, det
     setTab(nextTab);
     onAdministrationTabChange?.(nextTab);
     if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      params.set("section", "administration");
-      params.set("adminTab", nextTab);
-      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+      window.history.replaceState(null, "", buildAdministrationUrl({ institutionId, lane: nextTab }));
     }
   };
 
   const setPeopleSection = (nextTab: PeopleTab) => {
     setPeopleTab(nextTab);
     if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      params.set("section", "administration");
-      params.set("adminTab", nextTab === "institution" ? "institution" : "people_access");
-      params.set("peopleTab", nextTab);
-      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+      const view = nextTab === "staff_import" ? "directory" : nextTab === "departments" ? "departments" : nextTab === "access_links" ? "admins" : nextTab === "people_access" ? "roles" : undefined;
+      window.history.replaceState(null, "", buildAdministrationUrl({ institutionId, lane: "institution", peopleView: view, importOpen: nextTab === "staff_import" ? true : resolvedLocation.importOpen }));
     }
   };
 
@@ -155,9 +149,9 @@ export function InstitutionAdministrationPanel({ institutionId, institution, det
                 <TabsTrigger className="min-w-0 whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm" value="staff_import"><Users className="mr-1.5 hidden h-4 w-4 shrink-0 sm:block" />Import staff</TabsTrigger>
               </TabsList>
               <TabsContent value="institution" className="mt-5"><InstitutionDetailsCard institutionId={institutionId} detailsReady={detailsReady} companyName={institution.companyName} contactPhone={institution.contactPhone} contactEmail={institution.contactEmail} staffCount={institution.staffCount} organizationCategory={institution.organizationCategory} facilityOwnership={institution.facilityOwnership} facilityCareLevel={institution.facilityCareLevel} facilityLocalLevel={institution.facilityLocalLevel} /></TabsContent>
-              <TabsContent value="people_access" className="mt-5"><InstitutionPeopleRolesPanel institutionId={institutionId} /></TabsContent>
+              <TabsContent value="people_access" className="mt-5"><InstitutionPeopleRolesPanel institutionId={institutionId} initialSection={resolvedLocation.focus?.kind === "mismatch" ? "roster" : undefined} focusMismatchReportId={resolvedLocation.focus?.kind === "mismatch" ? resolvedLocation.focus.id : undefined} /></TabsContent>
               <TabsContent value="departments" className="mt-5"><InstitutionDepartmentReconciliationPanel institutionId={institutionId} /></TabsContent>
-              <TabsContent value="access_links" className="mt-5 grid min-w-0 gap-6 xl:grid-cols-2"><AccountAdminsWidget institutionId={institutionId} /><PendingLinkRequestsWidget institutionId={institutionId} /></TabsContent>
+              <TabsContent value="access_links" className="mt-5 grid min-w-0 gap-6 xl:grid-cols-2"><AccountAdminsWidget institutionId={institutionId} /><PendingLinkRequestsWidget institutionId={institutionId} focusRequestId={resolvedLocation.focus?.kind === "link-request" ? resolvedLocation.focus.id : undefined} /></TabsContent>
               <TabsContent value="staff_import" className="mt-5"><StaffBulkImport institutionId={institutionId} /></TabsContent>
             </Tabs>
           </CardContent>

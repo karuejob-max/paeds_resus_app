@@ -15,10 +15,10 @@ describe("institution administration location", () => {
     expect(resolveAdministrationLocation(query).peopleView).toBe(peopleView);
   });
 
-  it("focuses mismatch notifications in the inbox and preserves the institution", () => {
+  it("focuses mismatch notifications in the people roster and preserves the institution", () => {
     expect(resolveAdministrationLocation("institutionId=7&adminTab=people_roles&departmentId=3&mismatchReportId=9")).toEqual({
       lane: "institution",
-      peopleView: "inbox",
+      peopleView: "roles",
       focus: { kind: "mismatch", id: 9 },
       institutionId: 7,
     });
