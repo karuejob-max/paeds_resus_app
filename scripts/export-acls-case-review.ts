@@ -7,8 +7,8 @@ import { writeFileSync } from "node:fs";
 import { ADULT_ACLS_CASE_DEFINITIONS } from "../shared/adult-acls-case-definitions";
 import { ADULT_ACLS_SCENARIOS, ADULT_ACLS_SCENARIO_VERSION } from "../shared/adult-acls-simulation-world";
 
-const cmd = (c: { type: string; target?: string; cause?: string }) => c.type + (c.target ? `(${c.target})` : "") + (c.cause ? `(${c.cause})` : "");
-const compact = (path: readonly { type: string; target?: string; cause?: string }[]) => {
+const cmd = (c: { type: string; target?: string; cause?: string; dose?: number }) => c.type === "give_adenosine" && c.dose ? `${c.type}(${c.dose} mg)` : c.type + (c.target ? `(${c.target})` : "") + (c.cause ? `(${c.cause})` : "");
+const compact = (path: readonly { type: string; target?: string; cause?: string; dose?: number }[]) => {
   const out: string[] = [];
   for (let i = 0; i < path.length; ) {
     let j = i; while (j < path.length && cmd(path[j]) === cmd(path[i])) j++;
@@ -16,7 +16,7 @@ const compact = (path: readonly { type: string; target?: string; cause?: string 
   }
   return out.join(" -> ");
 };
-const req = (r: { type: string; descriptionIncludes?: string }) => r.type + (r.descriptionIncludes ? ` ("${r.descriptionIncludes}")` : "");
+const req = (r: { type: string; descriptionIncludes?: string; unlessEventType?: string }) => r.type + (r.descriptionIncludes ? ` ("${r.descriptionIncludes}")` : "") + (r.unlessEventType ? ` [waived if ${r.unlessEventType}]` : "");
 
 let md = `# ACLS case definitions for clinical review\n\n_Generated from \`shared/adult-acls-case-definitions.ts\` (engine ${ADULT_ACLS_SCENARIO_VERSION}). Do not edit by hand; run \`npx tsx scripts/export-acls-case-review.ts\`._\n\nBasis: 2025 AHA Guidelines for CPR and ECC. Every row is enforced by the scorer and a generated test harness.\n\n`;
 for (const d of ADULT_ACLS_CASE_DEFINITIONS) {

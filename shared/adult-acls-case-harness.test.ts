@@ -28,7 +28,7 @@ const ALL_COMMAND_VARIANTS: AdultAclsCommand[] = [
   ...(["rhythm", "pulse", "blood_pressure", "breathing", "mental_status", "spo2", "heart_rate"] as const).map((target) => ({ type: "assess", target }) as AdultAclsCommand),
   { type: "reassess" }, { type: "start_cpr" }, { type: "give_oxygen" }, { type: "assist_ventilation" }, { type: "support_perfusion" },
   { type: "defibrillate" }, { type: "synchronized_cardioversion" }, { type: "prepare_synchronized_cardioversion" }, { type: "pace" },
-  { type: "give_epinephrine" }, { type: "give_antiarrhythmic" }, { type: "give_adenosine" }, { type: "give_atropine" },
+  { type: "give_epinephrine" }, { type: "give_antiarrhythmic" }, { type: "give_adenosine" }, { type: "give_adenosine", dose: 6 }, { type: "give_adenosine", dose: 12 }, { type: "vagal_manoeuvre" }, { type: "give_atropine" },
   { type: "obtain_ecg" }, { type: "give_aspirin" }, { type: "activate_reperfusion" },
   { type: "treat_reversible_cause", cause: "hypovolaemia" }, { type: "treat_reversible_cause", cause: "prolonged_hypoxia" }, { type: "treat_reversible_cause", cause: "tension_pneumothorax" },
 ];

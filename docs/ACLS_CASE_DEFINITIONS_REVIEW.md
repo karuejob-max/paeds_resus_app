@@ -1,6 +1,6 @@
 # ACLS case definitions for clinical review
 
-_Generated from `shared/adult-acls-case-definitions.ts` (engine 1.4.0). Do not edit by hand; run `npx tsx scripts/export-acls-case-review.ts`._
+_Generated from `shared/adult-acls-case-definitions.ts` (engine 1.5.0). Do not edit by hand; run `npx tsx scripts/export-acls-case-review.ts`._
 
 Basis: 2025 AHA Guidelines for CPR and ECC. Every row is enforced by the scorer and a generated test harness.
 
@@ -139,6 +139,58 @@ A rapid rhythm with falling pressure and altered consciousness.
 **Required (all)**: synchronization, cardioversion; rhythm assessed before treatment
 
 **Reference honest path**: assess(rhythm) -> prepare_synchronized_cardioversion -> synchronized_cardioversion -> give_oxygen x2 -> reassess -> end_rehearsal
+
+**Clinical owner decision**: [ ] approved  [ ] changes requested
+
+---
+
+## Stable wide-complex tachycardia (`stable-wide-complex-tachycardia`, tachycardia)
+
+A regular wide-complex tachycardia in a patient with currently adequate perfusion; treat as ventricular tachycardia until proven otherwise.
+
+**Guideline basis**
+- 2025 Adult Tachyarrhythmia With a Pulse: wide QRS (0.12 s or longer) without instability: 12-lead ECG, antiarrhythmic infusion, consider expert consultation.
+- Antiarrhythmic infusions for stable wide-QRS tachycardia: procainamide (20-50 mg/min to a maximum 17 mg/kg), amiodarone (150 mg over 10 min), or sotalol (2025, COR 2b).
+- Adenosine only if regular and monomorphic; it does not treat VT. Hypotension, altered mental status, shock, ischaemic chest discomfort or acute heart failure: synchronized cardioversion.
+
+**Required (all)**: ecg [waived if wct_destabilised], medication ("antiarrhythmic infusion given") [waived if wct_destabilised]; rhythm assessed before treatment
+
+**Conditional**: if `wct_destabilised` occurs then synchronization, cardioversion
+
+**Poor choices (score capped below pass, not critical)**
+- Adenosine does not treat VT, and an antiarrhythmic infusion in an unstable patient delays cardioversion.
+- In a stable wide-complex tachycardia an antiarrhythmic infusion is preferred; cardioversion needs sedation.
+
+**Reference honest path**: assess(rhythm) -> obtain_ecg -> give_antiarrhythmic -> reassess -> end_rehearsal
+
+**Must not pass**
+- adenosine for a wide-complex tachycardia, then antiarrhythmic: assess(rhythm) -> obtain_ecg -> give_adenosine -> give_antiarrhythmic -> reassess -> end_rehearsal
+- cardioversion of a stable patient instead of the infusion: assess(rhythm) -> obtain_ecg -> prepare_synchronized_cardioversion -> synchronized_cardioversion -> reassess -> end_rehearsal
+
+**Clinical owner decision**: [ ] approved  [ ] changes requested
+
+---
+
+## Stable SVT not responding to vagal manoeuvres (`refractory-svt`, tachycardia)
+
+A regular narrow-complex tachycardia that needs stepwise treatment: vagal manoeuvre, then adenosine 6 mg, then 12 mg if required.
+
+**Guideline basis**
+- 2025 Adult Tachyarrhythmia With a Pulse: stable regular narrow-complex tachycardia: vagal maneuvers, then adenosine.
+- Adenosine IV dose: first dose 6 mg rapid IV push followed by saline flush; second dose 12 mg if required.
+
+**Required (all)**: vagal, medication ("adenosine 6 mg"), medication ("adenosine 12 mg"); rhythm assessed before treatment
+
+**Poor choices (score capped below pass, not critical)**
+- Adenosine dosing is 6 mg first, then 12 mg if required; do not repeat 6 mg or skip to 12 mg.
+- Try vagal manoeuvres first in a stable regular narrow-complex tachycardia.
+
+**Reference honest path**: assess(rhythm) -> vagal_manoeuvre -> give_adenosine(6 mg) -> give_adenosine(12 mg) -> reassess -> end_rehearsal
+
+**Must not pass**
+- adenosine before any vagal manoeuvre: assess(rhythm) -> give_adenosine(6 mg) -> give_adenosine(12 mg) -> vagal_manoeuvre -> reassess -> end_rehearsal
+- 12 mg without a prior 6 mg dose: assess(rhythm) -> vagal_manoeuvre -> give_adenosine(12 mg) -> reassess -> end_rehearsal
+- 6 mg repeated instead of 12 mg: assess(rhythm) -> vagal_manoeuvre -> give_adenosine(6 mg) x2 -> reassess -> end_rehearsal
 
 **Clinical owner decision**: [ ] approved  [ ] changes requested
 
