@@ -29,11 +29,8 @@ export function validateDepartmentErcoAssignment(
   if (!Number.isInteger(input.coordinatorUserId) || input.coordinatorUserId <= 0) {
     return { valid: false, reason: "A valid ERCo provider is required." };
   }
-  if (input.backupUserId != null && (!Number.isInteger(input.backupUserId) || input.backupUserId <= 0)) {
-    return { valid: false, reason: "The backup provider is invalid." };
-  }
-  if (input.backupUserId != null && input.backupUserId === input.coordinatorUserId) {
-    return { valid: false, reason: "The backup provider must be different from the ERCo." };
+  if (input.backupUserId != null) {
+    return { valid: false, reason: "New Assistant ERCo appointments are not supported; assign a Deputy ERCo instead." };
   }
   if (!isIsoDate(input.effectiveFrom)) {
     return { valid: false, reason: "The effective-from date must be a valid ISO date." };

@@ -323,7 +323,7 @@ Each input may be `Unavailable`; every slot that depends on it becomes `unavaila
 - every role needs a linked account (`userId`); the institutional administrator invite requires it explicitly;
 - ERCo requires an active, linked, eligible nurse in the department (VERIFY the exact server rule and mirror it; the server stays the authority);
 - Departmental CPD Coordinator requires active linked staff in the department;
-- Deputy ERCo requires an existing primary ERCo; Deputy Head and Deputy CPD Coordinator rules: VERIFY;
+- Deputy ERCo requires an existing primary ERCo; the legacy Assistant ERCo field remains readable for existing records but is not a new-appointment path; Deputy Head and Deputy CPD Coordinator rules: VERIFY;
 - block assigning a person who already holds this exact slot.
 
 UI shows each unmet condition as text before submit. Server errors are displayed verbatim. Use the procedures in Appendix C. After every success, invalidate all register source queries, `getInstitutionIersDutyAssignments`, and the attention-count queries, so Overview and the inbox update.
@@ -456,7 +456,7 @@ Procedure names are verified at 104acd6. Entries marked VERIFY need their input 
 | 4 | Departmental Head | department | `institutionAccountability.assignDepartmentHead` | `institutionAccountability.endDepartmentHead` | does assign replace the incumbent? |
 | 5 | Deputy Departmental Head | department | `assignDepartmentHead` (deputy variant) | `endDepartmentHead` | VERIFY deputy input and whether end handles the deputy alone |
 | 6 | ERCo | department | `institution.assignDepartmentResponseCoordinator` | `institution.endDepartmentResponseCoordinatorAssignment` | VERIFY replacement semantics |
-| 7 | Deputy ERCo | department | `assignDepartmentResponseCoordinator` (deputy variant; the current UI needs the primary ERCo's `providerUserId`) | `endDepartmentResponseCoordinatorAssignment` | VERIFY, and resolve Q1 (assistant versus deputy) |
+| 7 | Deputy ERCo | department | `assignDepartmentResponseCoordinator` (deputy variant; the current UI needs the primary ERCo's `providerUserId`) | `endDepartmentResponseCoordinatorAssignment` | Confirmed official secondary role. Existing Assistant ERCo records remain readable; new Assistant appointments are rejected. |
 | 8 | Departmental CPD Coordinator | department | `institutionLearning.assignEducationCoordinator` | `institutionLearning.endEducationCoordinator` | VERIFY |
 | 9 | Deputy Departmental CPD Coordinator | department | `assignEducationCoordinator` (deputy variant) | `endEducationCoordinator` | VERIFY deputy handling |
 
