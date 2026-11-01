@@ -85,10 +85,10 @@ export function RoleAssignDrawer({
         .filter(person =>
           `${person.staffName} ${person.staffEmail ?? ""}`
             .toLowerCase()
-            .includes(search.toLowerCase()),
+            .includes(search.toLowerCase())
         )
         .slice(0, 12),
-    [staff, search],
+    [staff, search]
   );
 
   const eligibility = getSlotEligibility(
@@ -98,7 +98,7 @@ export function RoleAssignDrawer({
     {
       primaryErcoUserId,
       existingHolderUserId: slot?.holders[0]?.userId,
-    },
+    }
   );
 
   const refresh = async () => {
@@ -107,10 +107,12 @@ export function RoleAssignDrawer({
       utils.institution.getFacilityDepartments.invalidate({ institutionId }),
       utils.institutionAdmins.list.invalidate({ institutionId }),
       utils.institutionProducts.listProductRoles.invalidate({ institutionId }),
-      utils.institutionAccountability.listDepartmentHeadAppointments.invalidate({
-        institutionId,
-        includeEnded: false,
-      }),
+      utils.institutionAccountability.listDepartmentHeadAppointments.invalidate(
+        {
+          institutionId,
+          includeEnded: false,
+        }
+      ),
       utils.institution.getDepartmentResponseCoordinators.invalidate({
         institutionId,
       }),
@@ -147,9 +149,10 @@ export function RoleAssignDrawer({
     trpc.institutionAccountability.assignDepartmentHead.useMutation({
       onSuccess: refresh,
     });
-  const assignCpd = trpc.institutionLearning.assignEducationCoordinator.useMutation({
-    onSuccess: refresh,
-  });
+  const assignCpd =
+    trpc.institutionLearning.assignEducationCoordinator.useMutation({
+      onSuccess: refresh,
+    });
   const assignErco =
     trpc.institution.assignDepartmentResponseCoordinator.useMutation({
       onSuccess: refresh,
@@ -170,6 +173,8 @@ export function RoleAssignDrawer({
   ].some(mutation => mutation.isPending);
   const endWarning = primaryEndWarning(slot.kind);
   const deputyErcoBlocked = slot.kind === "erco_deputy" && drawerMode !== "end";
+  const replacementBlocked =
+    drawerMode === "change" && slot.kind !== "institution_admin";
 
   const submit = () => {
     if (drawerMode === "end") {
@@ -204,7 +209,13 @@ export function RoleAssignDrawer({
       return;
     }
 
-    if (!selected?.userId || eligibility.length || deputyErcoBlocked) return;
+    if (
+      replacementBlocked ||
+      !selected?.userId ||
+      eligibility.length ||
+      deputyErcoBlocked
+    )
+      return;
     const departmentId = slot.departmentId ?? undefined;
     if (slot.kind === "institution_admin") {
       inviteAdmin.mutate({ institutionId, userId: selected.userId });
@@ -264,12 +275,14 @@ export function RoleAssignDrawer({
               ? "End"
               : drawerMode === "change"
                 ? "Change"
-                : "Assign"} {labels[slot.kind]}
+                : "Assign"}{" "}
+            {labels[slot.kind]}
           </SheetTitle>
           <SheetDescription>
             {departmentLabel
               ? `Fixed department: ${departmentLabel}.`
-              : "Institution-wide appointment."} The server remains the authority for eligibility and authorization.
+              : "Institution-wide appointment."}{" "}
+            The server remains the authority for eligibility and authorization.
           </SheetDescription>
         </SheetHeader>
         <div className="space-y-4 px-4">
@@ -284,7 +297,16 @@ export function RoleAssignDrawer({
           )}
           {deputyErcoBlocked && (
             <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-              Deputy ERCo assignment is temporarily unavailable while the primary-acceptance preservation fix is being shipped. Do not re-submit the primary ERCo.
+              Deputy ERCo assignment is temporarily unavailable while the
+              primary-acceptance preservation fix is being shipped. Do not
+              re-submit the primary ERCo.
+            </p>
+          )}
+          {replacementBlocked && (
+            <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              This slot is occupied. End the current appointment with a reason
+              before assigning a replacement; the current holder will remain in
+              the audit history.
             </p>
           )}
           {drawerMode === "end" ? (
@@ -297,7 +319,8 @@ export function RoleAssignDrawer({
               />
             </label>
           ) : (
-            !deputyErcoBlocked && (
+            !deputyErcoBlocked &&
+            !replacementBlocked && (
               <>
                 {selected ? (
                   <div className="flex items-center justify-between rounded-md border p-3">
@@ -357,7 +380,8 @@ export function RoleAssignDrawer({
                       ))
                     ) : (
                       <p className="text-emerald-700">
-                        Eligible checks passed. Server authorization still applies.
+                        Eligible checks passed. Server authorization still
+                        applies.
                       </p>
                     )}
                   </div>
@@ -385,7 +409,8 @@ export function RoleAssignDrawer({
             )}
           {drawerMode === "end" && !canEndAppointment(slot.kind) && (
             <p className="text-sm text-amber-900">
-              Ending a deputy or an administrator from here is not supported yet.
+              Ending a deputy or an administrator from here is not supported
+              yet.
             </p>
           )}
           <Button
@@ -395,7 +420,7 @@ export function RoleAssignDrawer({
           >
             Cancel
           </Button>
-          {!deputyErcoBlocked && (
+          {!deputyErcoBlocked && !replacementBlocked && (
             <Button
               type="button"
               variant={drawerMode === "end" ? "destructive" : "default"}
