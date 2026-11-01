@@ -759,6 +759,8 @@ export const institutionLearningRouter = router({
       z.object({
         institutionId: z.number().int().positive(),
         assignmentId: z.number().int().positive(),
+        role: z.enum(["primary", "deputy"]).default("primary"),
+        reason: z.string().trim().min(3).max(500).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -773,6 +775,14 @@ export const institutionLearningRouter = router({
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "Department CPD coordinator assignment not found." });
       await assertCanManageArea(db, ctx.user, input.institutionId, "cpd_portal", assignment.departmentId);
+      if (input.role === "deputy") {
+        const [row] = await db.select({ deputyUserId: institutionEducationCoordinators.deputyUserId, deputyAssignmentStatus: institutionEducationCoordinators.deputyAssignmentStatus })
+          .from(institutionEducationCoordinators)
+          .where(eq(institutionEducationCoordinators.id, input.assignmentId)).limit(1);
+        if (!row?.deputyUserId || row.deputyAssignmentStatus === "ended") throw new TRPCError({ code: "NOT_FOUND", message: "Active Deputy Departmental CPD Coordinator appointment not found." });
+        await db.update(institutionEducationCoordinators).set({ deputyAssignmentStatus: "ended", deputyUserId: null, deputyAcceptedAt: null, deputyDeclinedAt: null, deputyDeclineReason: input.reason ?? null, updatedAt: new Date() }).where(eq(institutionEducationCoordinators.id, input.assignmentId));
+        return { success: true as const };
+      }
       await db
         .update(institutionEducationCoordinators)
         .set({

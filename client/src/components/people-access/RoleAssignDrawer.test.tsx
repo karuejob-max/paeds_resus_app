@@ -8,7 +8,7 @@ const deputyKinds = [
 ] as const;
 
 describe("RoleAssignDrawer destructive-action safety", () => {
-  it.each([...deputyKinds, "institution_admin"] as const)(
+  it.each(["institution_admin"] as const)(
     "does not permit ending %s from the generic drawer",
     kind => {
       expect(canEndAppointment(kind)).toBe(false);
@@ -28,5 +28,9 @@ describe("RoleAssignDrawer destructive-action safety", () => {
     expect(canEndAppointment("cpd_dept_coordinator")).toBe(true);
     expect(canEndAppointment("iers_coordinator")).toBe(true);
     expect(canEndAppointment("cpd_coordinator")).toBe(true);
+  });
+
+  it.each(deputyKinds)("permits role-aware ending for %s", kind => {
+    expect(canEndAppointment(kind)).toBe(true);
   });
 });

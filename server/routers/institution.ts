@@ -6788,13 +6788,13 @@ export const institutionRouter = router({
     }),
 
   endDepartmentResponseCoordinatorAssignment: protectedProcedure
-    .input(z.object({ institutionId: z.number(), assignmentId: z.number(), reason: z.string().trim().min(3).max(500) }))
+    .input(z.object({ institutionId: z.number(), assignmentId: z.number(), reason: z.string().trim().min(3).max(500), role: z.enum(["primary", "deputy"]).default("primary") }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       const [assignment] = await db
-        .select({ id: institutionDepartmentResponseCoordinators.id, departmentId: institutionDepartmentResponseCoordinators.departmentId })
+        .select({ id: institutionDepartmentResponseCoordinators.id, departmentId: institutionDepartmentResponseCoordinators.departmentId, deputyUserId: institutionDepartmentResponseCoordinators.deputyUserId, deputyAssignmentStatus: institutionDepartmentResponseCoordinators.deputyAssignmentStatus })
         .from(institutionDepartmentResponseCoordinators)
         .where(and(
           eq(institutionDepartmentResponseCoordinators.id, input.assignmentId),
@@ -6803,6 +6803,12 @@ export const institutionRouter = router({
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "ERCo assignment not found." });
       await assertCanManageArea(db, ctx.user, input.institutionId, "iers", assignment.departmentId);
+      if (input.role === "deputy") {
+        if (!assignment.deputyUserId || assignment.deputyAssignmentStatus === "ended") throw new TRPCError({ code: "NOT_FOUND", message: "Active Deputy ERCo appointment not found." });
+        await db.update(institutionDepartmentResponseCoordinators).set({ deputyAssignmentStatus: "ended", deputyUserId: null, deputyAcceptedAt: null, deputyDeclinedAt: null, deputyDeclineReason: input.reason, updatedAt: new Date() }).where(and(eq(institutionDepartmentResponseCoordinators.id, assignment.id), eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId)));
+        await db.insert(institutionDepartmentResponseCoordinatorEvents).values({ institutionId: input.institutionId, departmentId: assignment.departmentId, assignmentId: assignment.id, eventType: "ended", actorUserId: ctx.user.id, note: `Deputy ended: ${input.reason}` });
+        return { success: true, reason: input.reason };
+      }
       await db.update(institutionDepartmentResponseCoordinators).set({ assignmentStatus: "ended", updatedAt: new Date() }).where(eq(institutionDepartmentResponseCoordinators.id, assignment.id));
       await db.insert(institutionDepartmentResponseCoordinatorEvents).values({
         institutionId: input.institutionId,

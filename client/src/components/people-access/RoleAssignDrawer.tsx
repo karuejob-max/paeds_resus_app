@@ -43,12 +43,7 @@ type Props = {
 };
 
 export function canEndAppointment(kind: SlotKind) {
-  return ![
-    "dept_head_deputy",
-    "erco_deputy",
-    "cpd_dept_coordinator_deputy",
-    "institution_admin",
-  ].includes(kind);
+  return kind !== "institution_admin";
 }
 
 export function primaryEndWarning(kind: SlotKind) {
@@ -172,7 +167,7 @@ export function RoleAssignDrawer({
     assignErco,
   ].some(mutation => mutation.isPending);
   const endWarning = primaryEndWarning(slot.kind);
-  const deputyErcoBlocked = slot.kind === "erco_deputy" && drawerMode !== "end";
+  const deputyErcoBlocked = false;
   const replacementBlocked =
     drawerMode === "change" && slot.kind !== "institution_admin";
 
@@ -184,18 +179,24 @@ export function RoleAssignDrawer({
           institutionId,
           assignmentId: slot.assignmentId,
           note: reason.trim(),
+          role: slot.kind === "dept_head_deputy" ? "deputy" : "primary",
         });
       } else if (slot.kind.startsWith("cpd_dept") && slot.assignmentId) {
-        endCpd.mutate({ institutionId, assignmentId: slot.assignmentId });
+        endCpd.mutate({
+          institutionId,
+          assignmentId: slot.assignmentId,
+          role: slot.kind === "cpd_dept_coordinator_deputy" ? "deputy" : "primary",
+          reason: reason.trim(),
+        });
       } else if (slot.kind.startsWith("erco") && slot.assignmentId) {
         endErco.mutate({
           institutionId,
           assignmentId: slot.assignmentId,
           reason: reason.trim(),
+          role: slot.kind === "erco_deputy" ? "deputy" : "primary",
         });
       } else if (
-        (slot.kind === "institution_admin" ||
-          slot.kind === "iers_coordinator" ||
+        (slot.kind === "iers_coordinator" ||
           slot.kind === "cpd_coordinator") &&
         slot.assignmentId
       ) {
@@ -253,12 +254,12 @@ export function RoleAssignDrawer({
         assignmentRole:
           slot.kind === "cpd_dept_coordinator_deputy" ? "deputy" : "primary",
       });
-    } else if (slot.kind === "erco") {
+    } else if (slot.kind === "erco" || slot.kind === "erco_deputy") {
       assignErco.mutate({
         institutionId,
         departmentId: departmentId!,
-        coordinatorUserId: selected.userId,
-        deputyUserId: null,
+        coordinatorUserId: slot.kind === "erco_deputy" ? primaryErcoUserId! : selected.userId,
+        deputyUserId: slot.kind === "erco_deputy" ? selected.userId : null,
         backupUserId: null,
         effectiveFrom: new Date().toISOString().slice(0, 10),
         effectiveUntil: null,
@@ -409,8 +410,7 @@ export function RoleAssignDrawer({
             )}
           {drawerMode === "end" && !canEndAppointment(slot.kind) && (
             <p className="text-sm text-amber-900">
-              Ending a deputy or an administrator from here is not supported
-              yet.
+              Ending an administrator from this drawer is not supported yet.
             </p>
           )}
           <Button
