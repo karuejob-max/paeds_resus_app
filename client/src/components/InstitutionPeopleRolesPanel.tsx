@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow ,
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { buildAdministrationUrl } from "@shared/institution-administration-location";
+import type { InstitutionalRoleAuthority } from "../../../server/lib/institution-role-authority";
 import { buildCanonicalDepartmentOptions } from "@shared/institution-department-hierarchy";
 import { classifyDepartmentMismatch } from "@shared/institution-department-mismatch";
 import { summarizeInstitutionalResponsibilities } from "@shared/institution-role-summary";
@@ -30,6 +31,25 @@ const GOVERNANCE_ROLES = [
 ] as const;
 
 type GovernanceRole = (typeof GOVERNANCE_ROLES)[number][0];
+
+export type AuthorityMapEntry = {
+  label: string;
+  scope: string;
+  authority: string;
+  assignmentOwner: string;
+};
+
+// Keep this client copy aligned with server/lib/institution-role-authority.ts:
+// assertCanManageProductRoles, assertCanManageArea, assertCanManageDepartmentHead,
+// and assertCanManageExistingDepartmentAssignment are the authorization sources.
+export const AUTHORITY_MAP: Record<InstitutionalRoleAuthority, AuthorityMapEntry> = {
+  institution_admin: { label: "Institutional administrator", scope: "Whole institution", authority: "Manages institutional people, roles, product access, and shared account access.", assignmentOwner: "Platform or institution administration" },
+  iers_chair: { label: "IERS Chair", scope: "Whole institution", authority: "Manages IERS governance and readiness work across the institution.", assignmentOwner: "Institutional administrator" },
+  iers_governance: { label: "IERS governance", scope: "Whole institution", authority: "Manages IERS governance, readiness, evidence, and review work.", assignmentOwner: "Institutional administrator" },
+  iers_coordinator: { label: "Institutional Emergency Response Coordinator", scope: "Whole institution", authority: "Coordinates IERS operations and department preparedness across the institution.", assignmentOwner: "Institutional administrator" },
+  cpd_coordinator: { label: "Institutional CPD Coordinator", scope: "Whole institution", authority: "Coordinates CPD work, scheduling, attendance, reporting, and departmental appointments.", assignmentOwner: "Institutional administrator" },
+  department_head: { label: "Departmental Head", scope: "Appointed department", authority: "Manages work in the appointed department, including eligible departmental appointments.", assignmentOwner: "Institutional administrator or appointed Departmental Head" },
+};
 
 export type StaffRow = {
   id: number;
@@ -366,7 +386,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
       <CardHeader>
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
           <div>
-            <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />People & roles</CardTitle>
+            <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />People & access</CardTitle>
             <CardDescription>Maintain the shared institutional roster and make provider responsibility explicit for IERS operations.</CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>
@@ -379,18 +399,18 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
           <ShieldCheck className="h-4 w-4 shrink-0" />
           <span>CPD-confirmed permanent and outreach/locum facilities appear here as linked general-staff accounts. Administrators may reallocate a current department or retire a person; neither action creates an IERS responsibility automatically.</span>
         </div>
-        <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/20 p-1 sm:grid-cols-3 lg:grid-cols-6" aria-label="People and roles sections">
+        <nav aria-label="People and access sections" className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/20 p-1 sm:grid-cols-3 lg:grid-cols-6">
           {([
             ["assignments", "Role assignments"],
             ["roster", "Directory"],
-            ["role_map", "Role guide"],
+            ["role_map", "Who can assign what"],
             ["duties", "IERS duties"],
-            ["product_roles", "Advanced product roles"],
-            ["scopes", "Advanced scopes"],
+            ["product_roles", "Advanced access"],
+            ["scopes", "Shared access"],
           ] as const).map(([value, label]) => (
-            <Button key={value} type="button" size="sm" variant={activeSection === value ? "default" : "ghost"} className="min-w-0 whitespace-normal text-xs sm:text-sm" onClick={() => setActiveSection(value)}>{label}</Button>
+            <Button key={value} type="button" size="sm" variant={activeSection === value ? "default" : "ghost"} className="min-h-11 min-w-0 whitespace-normal text-xs sm:text-sm" onClick={() => setActiveSection(value)}>{label}</Button>
           ))}
-        </div>
+        </nav>
         {activeSection === "assignments" && (
           <Card className="border-primary/20 bg-primary/[0.02]">
             <CardHeader>
@@ -601,33 +621,30 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
     {activeSection === "role_map" && (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" />Institutional authority map</CardTitle>
-          <CardDescription>Use the narrowest role that matches the work. Institution-wide roles govern the whole institution; Departmental Heads, ERCo staff, and Departmental CPD Coordinators remain limited to their department.</CardDescription>
+          <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" />Who can assign what</CardTitle>
+          <CardDescription>Use the narrowest authority that matches the work. Scope and authorization remain enforced by the server.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead className="border-b bg-muted/30 text-left text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="p-3">Role</th><th className="p-3">Scope</th><th className="p-3">Authority</th><th className="p-3">Assignment owner</th></tr></thead>
-              <tbody>
-                <tr className="border-b"><td className="p-3 font-medium">Institutional administrator</td><td className="p-3">Whole institution</td><td className="p-3">Manages staff roles, institutional Emergency Response Coordinator, Institutional CPD Coordinator, Departmental Heads, product roles, and shared scopes.</td><td className="p-3">Platform/institution administration</td></tr>
-                <tr className="border-b"><td className="p-3 font-medium">Institutional Emergency Response Coordinator</td><td className="p-3">Whole institution</td><td className="p-3">All IERS governance, readiness, ERCo, department-preparedness, response, evidence, and review roles.</td><td className="p-3">Institutional administrator</td></tr>
-                <tr className="border-b"><td className="p-3 font-medium">Institutional CPD Coordinator</td><td className="p-3">Whole institution</td><td className="p-3">All CPD coordination, Departmental CPD Coordinator appointments, institutional CPD scheduling, attendance, and reporting.</td><td className="p-3">Institutional administrator</td></tr>
-                <tr className="border-b"><td className="p-3 font-medium">Departmental Head</td><td className="p-3">Appointed department</td><td className="p-3">Assigns that department’s ERCo and Departmental CPD Coordinator; cannot administer another department.</td><td className="p-3">Institutional administrator</td></tr>
-                <tr className="border-b"><td className="p-3 font-medium">ERCo</td><td className="p-3">Assigned department</td><td className="p-3">Manages the department UTL staffing roster. ERCo governance remains separate from dated responder duty acceptance.</td><td className="p-3">Institutional Chair, IERS governance, or Departmental Head</td></tr>
-                <tr><td className="p-3 font-medium">Departmental CPD Coordinator</td><td className="p-3">Assigned department</td><td className="p-3">Manages the department CPD roster and department learning coordination.</td><td className="p-3">Institutional CPD Coordinator or Departmental Head</td></tr>
-              </tbody>
-            </table>
+          <div className="grid gap-3" aria-label="Institutional authority map">
+            {(Object.entries(AUTHORITY_MAP) as Array<[InstitutionalRoleAuthority, AuthorityMapEntry]>).map(([key, entry]) => (
+              <article key={key} className="rounded-lg border p-4">
+                <h3 className="font-medium">{entry.label}</h3>
+                <p className="mt-1 text-sm"><strong>Scope:</strong> {entry.scope}</p>
+                <p className="mt-1 text-sm text-muted-foreground"><strong>Authority:</strong> {entry.authority}</p>
+                <p className="mt-1 text-xs text-muted-foreground"><strong>Assignment owner:</strong> {entry.assignmentOwner}</p>
+              </article>
+            ))}
           </div>
           <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900 dark:bg-blue-950/20">
             <p className="font-medium text-sm text-blue-950 dark:text-blue-100">Where to assign each role</p>
-            <p className="mt-1 text-xs text-blue-900/80 dark:text-blue-200/80">The platform keeps institutional administration, product permissions, and department appointments separate so a broad role cannot accidentally grant wider access.</p>
+            <p className="mt-1 text-xs text-blue-900/80 dark:text-blue-200/80">Institutional administration, product permissions, and department appointments stay separate so broad access is not granted accidentally.</p>
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              <Button type="button" variant="outline" size="sm" onClick={() => setActiveSection("product_roles")}>Assign IERS / CPD product roles</Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => setActiveSection("scopes")}>Assign shared account scopes</Button>
-              <Button type="button" variant="outline" size="sm" asChild><a href={buildAdministrationUrl({ institutionId, lane: "institution", peopleView: "admins" })}>Assign institutional administrator</a></Button>
-              <Button type="button" variant="outline" size="sm" asChild><a href={`/institution?institutionId=${institutionId}&section=iers&iersTab=command`}>Assign ERCo / IERS department appointments</a></Button>
-              <Button type="button" variant="outline" size="sm" asChild><a href={`/institution?institutionId=${institutionId}&section=learning&learningTab=governance`}>Assign Departmental CPD Coordinator</a></Button>
-              <Button type="button" variant="outline" size="sm" asChild><a href={buildAdministrationUrl({ institutionId, lane: "institution", peopleView: "departments" })}>Set department membership and scope</a></Button>
+              <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => setActiveSection("product_roles")}>Assign product roles</Button>
+              <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => setActiveSection("scopes")}>Assign shared access</Button>
+              <Button type="button" variant="outline" size="sm" className="min-h-11" asChild><a href={buildAdministrationUrl({ institutionId, lane: "institution", peopleView: "admins" })}>Assign institutional administrator</a></Button>
+              <Button type="button" variant="outline" size="sm" className="min-h-11" asChild><a href={`/institution?institutionId=${institutionId}&section=iers&iersTab=command`}>Assign ERCo / IERS appointments</a></Button>
+              <Button type="button" variant="outline" size="sm" className="min-h-11" asChild><a href={`/institution?institutionId=${institutionId}&section=learning&learningTab=governance`}>Assign Departmental CPD Coordinator</a></Button>
+              <Button type="button" variant="outline" size="sm" className="min-h-11" asChild><a href={buildAdministrationUrl({ institutionId, lane: "institution", peopleView: "departments" })}>Set department membership and scope</a></Button>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">Role assignment does not prove clinical competence, provider acceptance, or emergency dispatch availability. Those states remain separately recorded and auditable.</p>
