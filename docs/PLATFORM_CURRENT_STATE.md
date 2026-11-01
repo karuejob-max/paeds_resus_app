@@ -1,7 +1,7 @@
 # Paeds Resus Platform — Current State & Agent Handoff
 
 **Last updated:** 2026-10-28
-**Canonical code state:** `origin/main` at merge commit `2b6b9556` (PR [#1155](https://github.com/karuejob-max/paeds_resus_app/pull/1155)); institutional implementation merge history remains recorded below and in `docs/WORK_STATUS.md`.
+**Canonical code state:** `origin/main` at `3257c8c9`; institutional implementation merge history and the current validation boundary remain recorded in `docs/WORK_STATUS.md`.
 **Audience:** New engineering agents, maintainers, clinical/operations collaborators, and reviewers.
 
 ## What the platform is
@@ -19,7 +19,7 @@ Paeds Resus is a clinical learning, emergency-readiness, quality-improvement, an
 | **Structured QI** | Safety Events and Improvement Projects with draft, review, actions, effectiveness review, closure, export scopes, retention controls, and participation governance. | `server/routers/institutional-qi.ts`, `docs/INSTITUTIONAL_REVENUE_READINESS_RUNBOOK.md` |
 | **Institutional billing** | Pricing, annual invoices, payment intents, provider-neutral payment adapters, signed callbacks, reconciliation, refunds, and manual institutional payment operations. | `server/routers/institutional-billing.ts`, `server/webhooks/institutional-payment.ts`, `server/routers/institutional-life-support.ts`, `/admin/institutional-payments` |
 | **Global admin entitlements** | Named, institution-scoped, programme-scoped free or discounted access with expiry, limits, audit, and price linkage. | `client/src/pages/AdminAccessGrants.tsx`, `server/routers/global-entitlements.ts` |
-| **People & access** | Institutional administrator, Emergency Readiness Chair/Coordinator, CPD Coordinator, Departmental Head, ERCo, Deputy ERCo, and Departmental CPD Coordinator authority model. The end-to-end redesign roadmap is in `docs/institutional/PEOPLE_ACCESS_REDESIGN_EXECUTION_PLAN.md`. | `client/src/components/InstitutionPeopleRolesPanel.tsx`, `server/routers/institution.ts` |
+| **People & access** | Five views: Needs attention, Roles, Directory, Departments, Admins & access. Roles contains nine standing slot kinds; the institution profile is on Overview, dated ERTL/UTL duties remain in IERS operations, and legacy URLs remain supported without migration. | `client/src/components/InstitutionPeopleRolesPanel.tsx`, `server/routers/institution.ts`, `docs/institutional/PEOPLE_ACCESS_REDESIGN_EXECUTION_PLAN.md` |
 
 ## Current commercial rules
 
@@ -75,7 +75,7 @@ Use `docs/KIIRUA_CLIENT_BRIEFING.md` as the client-facing briefing and `docs/INS
 - Production payment provider configuration and controlled institutional revenue smoke test remain outstanding unless separately recorded as completed in `WORK_STATUS.md`.
 - Legal/finance review of Kenyan consent, retention, tax/eTIMS, renewal, refunds, and just-culture wording remains required before external sale claims.
 - A unified admin payment console for IERS, ICPD, and ILSP is not yet complete; the current UI is ILSP-focused.
-- Deployed mobile/desktop smoke tests and real-account workflow verification must be recorded separately from local tests.
+- Deployed mobile/desktop smoke tests and authenticated real-account People & access workflow verification remain pending unless separately recorded in `WORK_STATUS.md`; local or documentation checks must not be described as production validation.
 
 ## Documentation map
 

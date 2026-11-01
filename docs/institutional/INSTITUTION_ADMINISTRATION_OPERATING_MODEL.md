@@ -15,10 +15,16 @@ The previous billing surface also exposed a platform-admin subscription status o
 | Lane                     | Owns                                                                                                                     | Primary action                                      |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
 | **Overview**             | Current attention, roster count, product risk, ILS order summary, and navigation                                         | Review the next decision                            |
-| **People & access**      | Institution profile, classification, roster, departments, account admins, product roles, scopes, links, and staff import | Make the correct person and responsibility explicit |
+| **People & access**      | Needs attention, Roles, Directory, Departments, Admins & access, account admins, product roles, scopes, links, and staff import | Make the correct person and responsibility explicit |
 | **Products & billing**   | IERS/CPD product access, renewal requests, contracts, and subscription history                                           | Resolve access and commercial lifecycle issues      |
 | **Programme operations** | Handoffs to IERS Readiness, Learning/CPD, and ILS operations                                                             | Open the product lane that executes the work        |
 | **Data & support**       | Exports, retention, recovery, managed services, notifications, and support tickets                                       | Preserve evidence and route exceptions to an owner  |
+
+### People & access implementation contract
+
+People & access is implemented as five views: **Needs attention**, **Roles**, **Directory**, **Departments**, and **Admins & access**. Roles contains nine standing slot kinds: three institution-wide slots (Institutional administrator, Institutional Emergency Response Coordinator, and Institutional CPD Coordinator) and six department-scoped slots (Departmental Head, Deputy Departmental Head, ERCo, Deputy ERCo, Departmental CPD Coordinator, and Deputy Departmental CPD Coordinator). Dated ERTL/UTL duties remain IERS operations; the profile is an Overview-lane card. Legacy People URLs and stored notification links remain supported by the shared resolver, and no migration is required. Dead-code candidates removed during the redesign are not part of the supported IA.
+
+This documentation describes the implemented contract, not completed production validation. Authenticated production-equivalent role-matrix, multi-institution, and deployed/mobile walkthrough gates remain pending until recorded in `WORK_STATUS.md`.
 
 ## Overview attention rules
 

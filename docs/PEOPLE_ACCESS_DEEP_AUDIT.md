@@ -1,10 +1,10 @@
 # People & Access Deep Audit
 
-**Status:** Historical audit baseline. The authoritative implementation sequence is now `docs/institutional/PEOPLE_ACCESS_REDESIGN_EXECUTION_PLAN.md`; Phase 0 findings are recorded in `docs/PEOPLE_ACCESS_PHASE0_BASELINE_2026-10-28.md`.
+**Status:** Implemented; see `docs/institutional/PEOPLE_ACCESS_REDESIGN_EXECUTION_PLAN.md` for the authoritative sequence and `docs/WORK_STATUS.md` for merge and validation evidence. The findings below are the historical baseline reconciled to the shipped People & access IA. Authenticated production-equivalent validation remains pending where recorded in `WORK_STATUS.md`; this document does not claim that gate complete.
 
 ## Executive finding
 
-The current People & Access experience is not one coherent role-assignment workspace. It combines a full staff roster, mismatch alerts, historical removal controls, an authority-map explanation, IERS duty visibility, product-role assignment, shared-scope assignment, and several destructive actions in one long component. The result is a page that makes the administrator scroll away from the task they selected and still does not provide one reliable place to assign the operational roles the institution actually uses.
+The historical screen was not one coherent role-assignment workspace. It combined a full staff roster, mismatch alerts, historical removal controls, an authority-map explanation, IERS duty visibility, product-role assignment, shared-scope assignment, and several destructive actions in one long component. The implemented People & access workspace now separates those jobs into five named views and a focused role register, while preserving the underlying authorization and audit safeguards.
 
 The platform already contains most of the underlying assignment capabilities, but they are split across different screens and data models. The UX therefore fails primarily through information architecture and discoverability, with a second problem in the department mismatch state machine.
 
@@ -21,20 +21,11 @@ The platform already contains most of the underlying assignment capabilities, bu
 
 The current component is `client/src/components/InstitutionPeopleRolesPanel.tsx`. Its default section is `roster`, so a user enters the screen and immediately sees the long staff list. The role-assignment controls are separate internal sections and do not provide a person-first workflow.
 
-## Required role model
+## Implemented standing appointment model
 
-The operational role families to expose in the redesigned People & Access workspace are:
+The implemented Roles view exposes nine standing slot kinds: Institutional administrator, Institutional Emergency Response Coordinator, Institutional CPD Coordinator, Departmental Head, Deputy Departmental Head, ERCo, Deputy ERCo, Departmental CPD Coordinator, and Deputy Departmental CPD Coordinator. The first three are institution-wide; the remaining six are department-scoped. Dated ERTL/UTL duties remain operational IERS responsibilities and appear only as a collapsed, read-only section under Roles. Legacy Assistant ERCo records remain readable, but new Assistant ERCo appointments are not a new assignment path.
 
-| Role family | Scope | Assignment owner | Existing implementation state |
-|---|---|---|---|
-| Institutional administrator | Whole institution | Institutional/platform administration | Implemented separately through `AccountAdminsWidget` and `institution-admins` router |
-| Institutional Emergency Response / Readiness Coordinator | Whole institution | Institutional administrator | Represented through IERS product-role definitions and assignment procedures |
-| Institutional CPD Coordinator | Whole institution | Institutional administrator | Represented through CPD product-role definitions and assignment procedures |
-| Departmental Head | Assigned department | Institutional administrator | Legacy staff-role field exists; dedicated department appointment model is not fully surfaced in People & Access |
-| ERCo | Assigned department | IERS Chair/governance or Departmental Head | Implemented through `institution.assignDepartmentResponseCoordinator` and the IERS roster surface |
-| Departmental CPD Coordinator | Assigned department | Institutional CPD Coordinator or Departmental Head | Implemented through `institutionLearning.assignEducationCoordinator` and Learning Governance |
-
-The following current governance-role options are not appropriate as the primary assignment model for this screen and should be removed from the default People & Access role selector: General staff, Hospital executive, ERC member, Unit Team Leader, ERT Team Leader, and ERT responder. They represent roster/governance or dated-duty concepts, not the six access responsibilities the institution needs to assign from this workspace. Dated duties and operational acceptance must remain in IERS operations.
+Product roles and shared scopes remain available under Admins & access → Advanced access. Membership, role assignment, scope, standing appointment, and dated-duty acceptance remain separate concepts; none proves competency, readiness, or emergency dispatch authority.
 
 ## Why the current assignment model feels broken
 
@@ -52,30 +43,23 @@ The report stores the original target department and staff identifiers in JSON n
 
 The selected department is restricted to active `facilityDepartments` rows for the institution. The current code does not show a canonical parent/child resolver in the mismatch UI. Therefore, if Theatre exists both as a standalone department and as a child under Surgery, the interface can show duplicate or ambiguous choices, and a user may select a row that does not match the staff record’s canonical department identity.
 
-## Target information architecture
+## Implemented information architecture
 
-The redesigned People & Access experience should use a short vertical task navigation with five destinations:
+The People & access lane uses exactly five views:
 
-1. **Role assignments** — default landing page. A searchable person picker and six role cards. No full roster table.
-2. **Department mismatch inbox** — only open, actionable mismatch reports, with stale-report resolution and canonical department selection.
-3. **Departments & scope** — department catalogue, parent/child structure, staff membership, and canonical department repair.
-4. **Access history** — institutional admins, invitations, product-role history, scope history, and audit events.
-5. **Retired and unresolved records** — historical roster records, removed links, and unresolved exceptions.
+| View | Purpose |
+|---|---|
+| **Needs attention** | Pending staff-link requests, department mismatches, missing departments, declined appointments, and pending-acceptance counts; failed queries remain visibly unavailable rather than appearing clean. |
+| **Roles** | The nine-slot standing appointment register, assign/change/end drawer, assignment guidance, and collapsed dated-duty visibility. |
+| **Directory** | Searchable/paginated roster, Staff 360 and per-person actions, retired/unresolved records, and staff import. |
+| **Departments** | Canonical institution-owned department hierarchy and reconciliation surface. |
+| **Admins & access** | Account administrators plus collapsed Advanced access for product roles and shared scopes. |
 
-The vertical navigation must not merely switch tabs that expose more unrelated content. Each child label must open the exact task it names. For example, **Role assignments** must not open a roster list first; **Department mismatch inbox** must not open the general administration dashboard; and **Departments & scope** must open the canonical department management surface.
+The default view is Needs attention when it contains items, otherwise Roles. The explicit `peopleView` URL value wins. The institution profile is an Overview-lane card, not a People & access view. Legacy URLs and stored notification links remain supported through the shared resolver; no URL or data migration is required. The former dead-code candidates identified during the redesign were removed only after reachability checks. Authenticated production validation of the complete matrix and mobile/deployed behavior remains a pending gate, not a claim in this audit.
 
-## Proposed role-assignment workflow
+## Implemented role-assignment workflow
 
-The default page should contain:
-
-- One search field: **Search by name or email**.
-- A short result list showing name, email, current department, and current assigned responsibilities.
-- After selecting a person, six role cards: Institutional administrator, Institutional Emergency Response Coordinator, Institutional CPD Coordinator, Departmental Head, ERCo, and Departmental CPD Coordinator.
-- Each card shows the current assignment, its scope, the assignment owner, and one action: **Assign**, **Change**, or **End**.
-- Department-scoped roles require a department selector filtered to canonical active departments and display the parent department where relevant, e.g. `Surgery → Theatre`.
-- Product roles and shared scopes are derived from the selected operational role where possible. Advanced scope overrides should be hidden behind an explicit **Advanced access** control.
-
-The full staff table should not be rendered on this page. If an administrator needs the roster, it belongs in **Retired and unresolved records** or a separate **Directory** destination with pagination/virtualization.
+The Roles view contains the person-safe role register and drawer. It exposes the nine standing slot kinds listed above, shows scope and lifecycle state, and supports Assign, Change, and End through the existing server-authorized procedures. The Directory view owns searchable/paginated staff records and per-person actions; it is not the default landing view. Product roles and shared scopes remain under Admins & access → Advanced access. Department-scoped choices use the canonical active department hierarchy, including labels such as `Surgery → Theatre`.
 
 ## Proposed mismatch workflow
 
@@ -95,11 +79,11 @@ The server should add a safe `resolveDepartmentMismatch` procedure that closes a
 
 ### Phase 1: Information architecture
 
-Replace the current default roster-first layout with the five task destinations above. Keep existing backend routes and place direct links to the existing AccountAdminsWidget, product-role assignment, ERCo assignment, and Learning Governance assignment behind the person-first role cards.
+The historical roster-first layout was replaced by the five implemented views. Existing backend routes remain in use, with AccountAdminsWidget, product-role assignment, ERCo assignment, and Learning Governance reached from the relevant view and selected-person workflow.
 
 ### Phase 2: Unified assignment shell
 
-Create a person search and selected-person summary. Render only the six operational role families. Reuse the existing protected mutations instead of creating a parallel authorization system.
+The implemented Directory and Roles views provide person search, selected-person safety, and the nine standing slot kinds. They reuse the existing protected mutations rather than creating a parallel authorization system.
 
 ### Phase 3: Department canonicalization
 
@@ -113,9 +97,9 @@ Add stale-report detection, a resolve-as-already-corrected path, and explicit ha
 
 Test with an institutional administrator, a product coordinator, a Departmental Head, an ERCo, and a Departmental CPD Coordinator. Verify that each sees only the roles and departments within their permitted scope, while an institutional administrator sees all six role families automatically.
 
-## Definition of done for the redesign
+## Historical definition of done and current boundary
 
-The redesign is complete only when an institutional administrator can search for a person from one page, see all six operational role families automatically, assign or change each role with the correct whole-institution or department scope, and reach the exact underlying workflow from the same vertical navigation. A stale department mismatch must be closable without attempting an invalid reallocation, and Theatre/Surgery must be represented as an unambiguous canonical hierarchy.
+The historical redesign target is now represented by the implemented five-view workspace: an institutional administrator can review attention items, inspect the nine standing slot kinds, search the Directory, manage canonical Departments, and manage Admins & access without confusing dated-duty acceptance with standing authority. Legacy URLs remain supported, and the profile remains on Overview. Authenticated production-equivalent walkthrough evidence, including the full role matrix and deployed/mobile checks, remains pending where recorded in `WORK_STATUS.md`.
 
 ## Files audited
 

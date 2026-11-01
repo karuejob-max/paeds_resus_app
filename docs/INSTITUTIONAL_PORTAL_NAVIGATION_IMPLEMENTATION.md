@@ -23,7 +23,7 @@ The active section and child state remain URL-addressable through the existing q
 
 The workspace no longer renders the repeated top action row for IERS guide, Learning guide, Institutional Life Support, and Administration. Those destinations remain available as navigation children. The three large product-launcher cards are removed from the workspace top, and the Home panel no longer repeats Readiness, ILS, Learning, and Administration as a second operating-lane menu. Learning and Administration no longer render their top-level tab strips when controlled by the shared shell. The Administration overview no longer repeats its four lane-launcher cards.
 
-The content panels remain responsible for task-specific forms, tables, reports, and safeguards. This is an information-architecture change, not a rewrite of IERS, CPD, payment, staff, certificate, or clinical logic.
+The content panels remain responsible for task-specific forms, tables, reports, and safeguards. Within Administration → People & access, the implemented child views are Needs attention, Roles, Directory, Departments, and Admins & access; the institution profile is on Overview. Legacy People URLs remain supported, and no migration is required. This is an information-architecture change, not a rewrite of IERS, CPD, payment, staff, certificate, or clinical logic. Authenticated production validation remains a pending gate.
 
 ## Mandatory DoD audit
 
@@ -48,8 +48,8 @@ This work also updates `AGENTS.md` so that a task cannot be treated as done with
 | URL state remains addressable | Existing `section`, `iersTab`, `learningTab`, and `adminTab` contracts preserved |
 | Institution authorization remains enforced | Existing server-backed workspace access and role checks unchanged |
 | Payment and clinical safeguards remain unchanged | No server, schema, payment, or clinical files changed |
-| Authenticated account verification | Required before protected merge; route and result to be recorded in `WORK_STATUS.md` |
-| Final post-account re-audit | Required before protected merge |
+| Authenticated account verification | Pending; route, role, state, result, and any limitation must be recorded in `WORK_STATUS.md` before claiming the gate complete |
+| Final post-account re-audit | Pending with authenticated verification; documentation reconciliation does not satisfy this gate |
 
 ## Validation completed so far
 
@@ -63,7 +63,7 @@ The generated audit-date files from repository checks were reverted and are not 
 
 ## Remaining before merge
 
-The authenticated user account must be used to verify the affected institutional route and authorization state before merge. The final requirement-to-code audit must then be repeated, with the account result and any limitation recorded in `docs/WORK_STATUS.md` before protected review is merged.
+Authenticated verification of the affected institutional route, People & access five-view IA, authorization state, legacy URLs, multi-institution selection, and mobile behavior remains pending. The final requirement-to-code audit must be repeated after that walkthrough, with the account result and any limitation recorded in `docs/WORK_STATUS.md`; this document does not claim production validation complete.
 
 Author: Manus AI
 Date: 2026-09-16

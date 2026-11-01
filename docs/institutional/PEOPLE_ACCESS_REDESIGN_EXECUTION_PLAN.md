@@ -1,6 +1,6 @@
 # People & Access Redesign: End-to-End Execution Plan
 
-*Institution Administration, People & access lane. Prepared 28 Oct 2026 for Job Karue and whichever agent executes it. Baseline: origin/main at commit 104acd6 (after PR 1159).*
+*Institution Administration, People & access lane. Prepared 28 Oct 2026 for Job Karue and whichever agent executes it. Historical baseline: origin/main at commit 104acd6 (after PR 1159); current reconciled code state: origin/main at 3257c8c9.*
 
 ## 1. How to use this plan
 
@@ -378,14 +378,14 @@ Three separate PRs, in this order. **Migration:** none.
 
 **7.1 Update the docs.**
 
-- `docs/PEOPLE_ACCESS_DEEP_AUDIT.md`: status 'Implemented, see execution plan'; correct the stale statements (default section, six roles versus nine slot kinds, IA table).
-- `docs/institutional/INSTITUTION_ADMINISTRATION_OPERATING_MODEL.md`: the People & access row and the information architecture.
-- `docs/PLATFORM_SOURCE_OF_TRUTH.md` (Institution Administration paragraph, about line 983): the five People & access views; add this plan to the document registry if the PSOT rules require it.
-- `docs/PLATFORM_CURRENT_STATE.md`: rename the 'People & roles' row to 'People & access' and refresh the file references.
-- `docs/INSTITUTIONAL_PORTAL_NAVIGATION_IMPLEMENTATION.md` and `docs/institutional/IERS_NEW_USER_ORIENTATION_GUIDE.md` (step 2 wording).
-- `AGENTS.md`: the IERS bullet that still says 'Administration -> People & roles'. AGENTS.md is a high-collision file: follow the shared-file protocol, keep the change minimal and update the 'Last updated' line.
+- `docs/PEOPLE_ACCESS_DEEP_AUDIT.md`: reconciled to status 'Implemented, see execution plan'; corrected default view, five-view IA, nine slot kinds, profile placement, legacy URL support, dead-code cleanup, and pending validation boundary.
+- `docs/institutional/INSTITUTION_ADMINISTRATION_OPERATING_MODEL.md`: reconciled the People & access row, five-view information architecture, nine slot kinds, profile placement, and pending validation boundary.
+- `docs/PLATFORM_SOURCE_OF_TRUTH.md`: added the execution plan to the registry and reconciled the Institution Administration paragraph to the five views, nine slot kinds, legacy URL support, no-migration boundary, and pending validation.
+- `docs/PLATFORM_CURRENT_STATE.md`: refreshed the current code state, People & access five-view summary, nine slot kinds, legacy URL/no-migration boundary, and validation references.
+- `docs/INSTITUTIONAL_PORTAL_NAVIGATION_IMPLEMENTATION.md` and `docs/institutional/IERS_NEW_USER_ORIENTATION_GUIDE.md`: reconciled the five-view People & access IA, profile placement, legacy URL support, nine slot kinds, and pending authenticated validation wording.
+- `AGENTS.md`: reconciled the IERS bullet to Administration → People & access and the five implemented views; updated the Last updated line. AGENTS.md is a high-collision file, so this was kept minimal.
 
-**7.2 Final authenticated validation.** Execute Appendix D on production (or production-equivalent with the CEO) and record routes, roles, states and results in WORK\_STATUS, with an evidence entry for each of S1 to S9.
+**7.2 Final authenticated validation (pending).** Execute Appendix D on production or production-equivalent with the CEO and record routes, roles, states, and results in WORK\_STATUS, with evidence for each of S1 to S9. Phase 7.1 documentation reconciliation does not satisfy this gate and must not be reported as authenticated production validation.
 
 **7.3 Re-audit.** Compare S1 to S9 and F1 to F12 with what is merged. List residual gaps. Record each deferred item (D6 access history, D7 server pagination, anything found later) as a backlog row.
 
