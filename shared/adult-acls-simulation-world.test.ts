@@ -32,6 +32,25 @@ describe("Adult ACLS Simulation World V1 safety contract", () => {
     }
   });
 
+  it("starts new rehearsals in Guided mode and hides the instructional next action in Standard mode", () => {
+    const guided = createAdultAclsSimulation("unstable-bradycardia");
+    const standard = createAdultAclsSimulation("unstable-bradycardia", "team_leader", "standard");
+
+    expect(guided.mode).toBe("guided");
+    expect(getAdultAclsNextAction(guided)?.command.type).toBe("assess");
+    expect(standard.mode).toBe("standard");
+    expect(getAdultAclsNextAction(standard)).toBeNull();
+  });
+
+  it("keeps Standard mode server-scoreable without changing clinical command validation", () => {
+    const standard = createAdultAclsSimulation("stable-narrow-tachycardia", "team_leader", "standard");
+    const assessed = reduceAdultAclsSimulation(standard, { type: "assess", target: "rhythm" });
+
+    expect(assessed.mode).toBe("standard");
+    expect(assessed.events.at(-1)?.description).toContain("Observed rhythm");
+    expect(getAdultAclsNextAction(assessed)).toBeNull();
+  });
+
   it("starts VF arrest pulseless and unresponsive", () => {
     const state = createAdultAclsSimulation("vf-pulseless-vt");
     expect(state.patient.phase).toBe("cardiac_arrest");
