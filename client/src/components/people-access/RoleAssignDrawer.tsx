@@ -74,6 +74,13 @@ export function RoleAssignDrawer({
   }, [mode, slot?.kind, slot?.departmentId, slot?.assignmentId]);
 
   const selected = staff.find(person => person.id === selectedStaffId) ?? null;
+  const ercoCandidatesQuery = trpc.institution.getDepartmentNurseCandidates.useQuery(
+    { institutionId, departmentId: slot?.departmentId ?? 0 },
+    {
+      enabled: Boolean(open && slot && (slot.kind === "erco" || slot.kind === "erco_deputy") && slot.departmentId),
+      staleTime: 30_000,
+    },
+  );
   const results = useMemo(
     () =>
       staff
@@ -93,6 +100,14 @@ export function RoleAssignDrawer({
     {
       primaryErcoUserId,
       existingHolderUserId: slot?.holders[0]?.userId,
+      serverEligibleUserIds:
+        slot?.kind === "erco" || slot?.kind === "erco_deputy"
+          ? (ercoCandidatesQuery.data ?? []).flatMap(candidate => candidate.userId == null ? [] : [candidate.userId])
+          : undefined,
+      serverEligibilityError:
+        slot?.kind === "erco" || slot?.kind === "erco_deputy"
+          ? ercoCandidatesQuery.error?.message ?? null
+          : undefined,
     }
   );
 
