@@ -8,6 +8,7 @@ import { AlertCircle, CheckCircle2, CircleDashed, Clock3, UserRound, XCircle } f
 import { buildRoleRegister, resolveHolderNames, type RoleSlot, type SlotKind, type SlotStatus } from "@shared/institution-role-register";
 import { buildCanonicalDepartmentOptions } from "@shared/institution-department-hierarchy";
 import { RoleAssignDrawer, type DrawerMode } from "./RoleAssignDrawer";
+import type { PeopleFocus } from "@shared/institution-administration-location";
 
 const labels: Record<SlotKind, string> = { institution_admin: "Institutional administrator", iers_coordinator: "Institutional Emergency Response Coordinator", cpd_coordinator: "Institutional CPD Coordinator", dept_head: "Head", dept_head_deputy: "Deputy Head", erco: "ERCo", erco_deputy: "Deputy ERCo", cpd_dept_coordinator: "CPD Coordinator", cpd_dept_coordinator_deputy: "Deputy CPD Coordinator" };
 const statusText: Record<SlotStatus, string> = { vacant: "Vacant", pending_acceptance: "Pending acceptance", active: "Active", declined: "Declined", suspended: "Suspended", unavailable: "Unavailable" };
@@ -15,7 +16,7 @@ function icon(status: SlotStatus) { return status === "active" ? <CheckCircle2 c
 export function roleActionLabel(slot: RoleSlot) { if (slot.status !== "active") return "Assign"; return slot.kind === "institution_admin" ? "Add administrator" : "Replace"; }
 
 
-export function RoleRegister({ institutionId }: { institutionId: number }) {
+export function RoleRegister({ institutionId, focus }: { institutionId: number; focus?: Extract<PeopleFocus, { kind: "role" }> }) {
   const [filter, setFilter] = useState<"all" | "vacant" | "pending_acceptance" | "declined">("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<{ slot: RoleSlot; departmentLabel?: string; focusKey: string } | null>(null);
@@ -38,6 +39,17 @@ export function RoleRegister({ institutionId }: { institutionId: number }) {
   const unavailable = (query: { isError: boolean }) => query.isError ? { unavailable: true as const } : undefined;
   const directory = staffQuery.data ?? [];
   const register = useMemo(() => buildRoleRegister({ departments: departments.isError ? { unavailable: true } : (departments.data ?? []), admins: admins.isError ? { unavailable: true } : [...(admins.data?.admins ?? []), ...(admins.data?.pendingInvites ?? []).map(invite => ({ id: invite.id, name: invite.invitedName, email: invite.invitedEmail, roleStatus: "pending_acceptance" }))], productRoles: productRoles.isError ? { unavailable: true } : resolveHolderNames(productRoles.data ?? [], directory), heads: heads.isError ? { unavailable: true } : resolveHolderNames(heads.data ?? [], directory), ercos: ercos.isError ? { unavailable: true } : resolveHolderNames(ercos.data ?? [], directory), cpdCoordinators: cpd.isError ? { unavailable: true } : resolveHolderNames(cpd.data ?? [], directory) }), [departments.data, departments.isError, admins.data, admins.isError, productRoles.data, productRoles.isError, heads.data, heads.isError, ercos.data, ercos.isError, cpd.data, cpd.isError, directory]);
+  useEffect(() => {
+    if (!focus || focus.kind !== "role") return;
+    const allSlots = [
+      ...register.institutionWide,
+      ...register.departments.flatMap(row => row.slots),
+    ];
+    const target = allSlots.find(slot => `${slot.kind}-${slot.departmentId ?? "institution"}` === focus.slotKey);
+    if (!target) return;
+    if (target.status === "pending_acceptance" || target.status === "declined") setFilter(target.status);
+    pendingFocusKey.current = focus.slotKey;
+  }, [focus, register]);
   const options = useMemo(() => buildCanonicalDepartmentOptions(departments.data ?? []), [departments.data]);
   const matches = (slot: RoleSlot) => (filter === "all" || slot.status === filter);
   const deptRows = register.departments.filter(row => row.label.toLowerCase().includes(search.toLowerCase())).filter(row => filter === "all" || row.slots.some(matches));

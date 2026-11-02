@@ -14,6 +14,8 @@ export type EligibilityPerson = {
 export type EligibilityContext = {
   primaryErcoUserId?: number | null;
   existingHolderUserId?: number | null;
+  serverEligibleUserIds?: number[] | null;
+  serverEligibilityError?: string | null;
 };
 
 export function getSlotEligibility(kind: SlotKind, person: EligibilityPerson | null, departmentId: number | null, context: EligibilityContext = {}): string[] {
@@ -25,7 +27,10 @@ export function getSlotEligibility(kind: SlotKind, person: EligibilityPerson | n
   if (context.existingHolderUserId === person.userId) errors.push("This person already holds this role.");
   if (kind !== "institution_admin" && kind !== "iers_coordinator" && kind !== "cpd_coordinator" && person.departmentId !== departmentId) errors.push("The staff member must belong to the selected canonical department.");
   if (kind === "erco" || kind === "erco_deputy") {
-    if (!person.staffRole?.toLowerCase().includes("nurs")) errors.push("The ERCo must be an active linked nurse registered with this canonical department.");
+    if (context.serverEligibilityError) errors.push(context.serverEligibilityError);
+    else if (context.serverEligibleUserIds && !context.serverEligibleUserIds.includes(person.userId ?? -1)) {
+      errors.push("This person is not an eligible active linked nurse for the selected canonical department.");
+    }
     if (kind === "erco_deputy" && !context.primaryErcoUserId) errors.push("Assign and accept a primary ERCo before assigning a Deputy ERCo.");
     if (kind === "erco_deputy" && context.primaryErcoUserId === person.userId) errors.push("The Deputy ERCo must be different from the primary ERCo.");
   }
