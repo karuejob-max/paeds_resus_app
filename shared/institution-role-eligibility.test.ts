@@ -16,4 +16,12 @@ describe("getSlotEligibility", () => {
     expect(getSlotEligibility("erco_deputy", nurse, 4)).toContain("Assign and accept a primary ERCo before assigning a Deputy ERCo.");
     expect(getSlotEligibility("erco_deputy", nurse, 4, { primaryErcoUserId: 12 })).toEqual([]);
   });
+  it("uses the server candidate set rather than a staffRole name heuristic", () => {
+    const staffMemberWithNonNursingLabel = { ...nurse, staffRole: "clinical practitioner" };
+    expect(getSlotEligibility("erco", staffMemberWithNonNursingLabel, 4, { serverEligibleUserIds: [11] })).toEqual([]);
+    expect(getSlotEligibility("erco", nurse, 4, { serverEligibleUserIds: [12] })).toContain("This person is not an eligible active linked nurse for the selected canonical department.");
+  });
+  it("shows the authoritative server error verbatim", () => {
+    expect(getSlotEligibility("erco", nurse, 4, { serverEligibilityError: "This department is not available." })).toContain("This department is not available.");
+  });
 });

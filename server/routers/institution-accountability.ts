@@ -1788,7 +1788,7 @@ export const institutionAccountabilityRouter = router({
           deputyUserId: null,
           deputyAcceptedAt: null,
           deputyDeclinedAt: null,
-          deputyDeclineReason: input.note,
+          deputyDeclineReason: null,
           updatedAt: new Date(),
         }).where(and(eq(institutionDepartmentHeads.id, assignment.id), eq(institutionDepartmentHeads.institutionalAccountId, input.institutionId)));
         await db.insert(institutionDepartmentHeadEvents).values({

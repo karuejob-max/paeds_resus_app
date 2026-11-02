@@ -660,7 +660,7 @@ function AdministrationSummary({ institutionId, catalog }: { institutionId: numb
             <p className="mt-1 text-xs text-muted-foreground">Institution ID: {institutionId}</p>
       </CardHeader>
       <CardContent className="grid gap-4 md:grid-cols-3">
-        <AdminControl title="People & roles" detail="Invite admins, link providers, and maintain responsibility assignments." icon={Users} />
+        <AdminControl title="People & Access" detail="Invite admins, link providers, and maintain responsibility assignments." icon={Users} />
         <AdminControl title="Products & renewal" detail="IERS and CPD Portal subscriptions are independent and auditable." icon={CreditCard} />
         <AdminControl title="Exports & recovery" detail="Preserve historical evidence, certificates, and account records during expiry." icon={FileText} />
       </CardContent>

@@ -1,6 +1,6 @@
 # People & Access Deep Audit
 
-**Status:** Implemented; see `docs/institutional/PEOPLE_ACCESS_REDESIGN_EXECUTION_PLAN.md` for the authoritative sequence and `docs/WORK_STATUS.md` for merge and validation evidence. The findings below are the historical baseline reconciled to the shipped People & access IA. Authenticated production-equivalent validation remains pending where recorded in `WORK_STATUS.md`; this document does not claim that gate complete.
+**Status:** Substantially implemented; see `docs/institutional/PEOPLE_ACCESS_REDESIGN_EXECUTION_PLAN.md` for the authoritative sequence, the fourth closure audit for remaining gates, and `docs/WORK_STATUS.md` for merge and validation evidence. Authenticated production-equivalent validation remains pending where recorded in `WORK_STATUS.md`; this document does not claim that gate complete.
 
 ## Executive finding
 

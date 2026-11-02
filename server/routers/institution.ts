@@ -6805,7 +6805,7 @@ export const institutionRouter = router({
       await assertCanManageArea(db, ctx.user, input.institutionId, "iers", assignment.departmentId);
       if (input.role === "deputy") {
         if (!assignment.deputyUserId || assignment.deputyAssignmentStatus === "ended") throw new TRPCError({ code: "NOT_FOUND", message: "Active Deputy ERCo appointment not found." });
-        await db.update(institutionDepartmentResponseCoordinators).set({ deputyAssignmentStatus: "ended", deputyUserId: null, deputyAcceptedAt: null, deputyDeclinedAt: null, deputyDeclineReason: input.reason, updatedAt: new Date() }).where(and(eq(institutionDepartmentResponseCoordinators.id, assignment.id), eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId)));
+        await db.update(institutionDepartmentResponseCoordinators).set({ deputyAssignmentStatus: "ended", deputyUserId: null, deputyAcceptedAt: null, deputyDeclinedAt: null, deputyDeclineReason: null, updatedAt: new Date() }).where(and(eq(institutionDepartmentResponseCoordinators.id, assignment.id), eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId)));
         await db.insert(institutionDepartmentResponseCoordinatorEvents).values({ institutionId: input.institutionId, departmentId: assignment.departmentId, assignmentId: assignment.id, eventType: "ended", actorUserId: ctx.user.id, note: `Deputy ended: ${input.reason}` });
         return { success: true, reason: input.reason };
       }
