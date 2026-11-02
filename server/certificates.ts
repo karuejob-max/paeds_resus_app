@@ -279,7 +279,7 @@ export async function verifyCertificateByVerificationCode(
   status?: CertificateExpiryStatus;
   error?: string;
   certificate?: {
-    certificateNumber: string;
+    recipientName: string; certificateNumber: string;
     programType: string;
     issueDate: Date | null;
     expiryDate: Date | null;
