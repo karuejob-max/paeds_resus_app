@@ -90,11 +90,8 @@ function formatClinicalEnum(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function neutralEventDescription(event: { type: string; description: string; consequence?: string }) {
-  if (event.type === "critical_failure" || event.description.toLowerCase().includes("poor choice")) {
-    return "Action recorded; the patient response has been logged for the final debrief.";
-  }
-  return event.description;
+function neutralEventDescription(event: { neutralText?: string; type: string }) {
+  return event.neutralText ?? "The action and patient response were recorded.";
 }
 
 function directorFor(state: AdultAclsState) {
