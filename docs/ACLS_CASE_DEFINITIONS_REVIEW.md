@@ -81,7 +81,7 @@ A slow sinus rhythm with hypotension and altered mental status; atropine is firs
 - 2025 Adult Bradycardia With a Pulse: atropine is first-line, 1 mg IV bolus, repeat every 3 to 5 min, maximum 3 mg.
 - If atropine is ineffective: transcutaneous pacing and/or dopamine (5-20 mcg/kg/min) or epinephrine (2-10 mcg/min) infusion.
 
-**Required (all)**: medication ("bradycardia response"); rhythm assessed before treatment
+**Required (all)**: medication [code: medication.bradycardia_response]; rhythm assessed before treatment
 
 **Reference honest path**: assess(rhythm) -> give_atropine -> reassess -> end_rehearsal
 
@@ -121,7 +121,7 @@ A regular narrow-complex tachycardia with currently adequate perfusion.
 **Guideline basis**
 - 2025 Adult Tachyarrhythmia With a Pulse: stable regular narrow-complex tachycardia: vagal maneuvers, then adenosine 6 mg rapid IV push (12 mg if required).
 
-**Required (all)**: medication ("adenosine"); rhythm assessed before treatment
+**Required (all)**: medication [code: medication.adenosine]; rhythm assessed before treatment
 
 **Reference honest path**: assess(rhythm) -> give_adenosine -> reassess -> end_rehearsal
 
@@ -153,7 +153,7 @@ A regular wide-complex tachycardia in a patient with currently adequate perfusio
 - Antiarrhythmic infusions for stable wide-QRS tachycardia: procainamide (20-50 mg/min to a maximum 17 mg/kg), amiodarone (150 mg over 10 min), or sotalol (2025, COR 2b).
 - Adenosine only if regular and monomorphic; it does not treat VT. Hypotension, altered mental status, shock, ischaemic chest discomfort or acute heart failure: synchronized cardioversion.
 
-**Required (all)**: ecg [waived if wct_destabilised], medication ("antiarrhythmic infusion given") [waived if wct_destabilised]; rhythm assessed before treatment
+**Required (all)**: ecg [waived if wct_destabilised], medication [code: medication.antiarrhythmic_infusion] [waived if wct_destabilised]; rhythm assessed before treatment
 
 **Conditional**: if `wct_destabilised` occurs then synchronization, cardioversion
 
@@ -179,7 +179,7 @@ A regular narrow-complex tachycardia that needs stepwise treatment: vagal manoeu
 - 2025 Adult Tachyarrhythmia With a Pulse: stable regular narrow-complex tachycardia: vagal maneuvers, then adenosine.
 - Adenosine IV dose: first dose 6 mg rapid IV push followed by saline flush; second dose 12 mg if required.
 
-**Required (all)**: vagal, medication ("adenosine 6 mg"), medication ("adenosine 12 mg"); rhythm assessed before treatment
+**Required (all)**: vagal, medication [code: medication.adenosine_6mg], medication [code: medication.adenosine_12mg]; rhythm assessed before treatment
 
 **Poor choices (score capped below pass, not critical)**
 - Adenosine dosing is 6 mg first, then 12 mg if required; do not repeat 6 mg or skip to 12 mg.

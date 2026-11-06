@@ -112,6 +112,10 @@ export type AdultAclsAssessmentTarget = Extract<AdultAclsCommand, { type: "asses
 export type AdultAclsEvent = {
   timestamp: number;
   type: string;
+  /** Stable semantic identifier used by scoring; descriptions are presentation only. */
+  code: string;
+  /** Compatibility aliases allow broad rules (e.g. any adenosine) without reading prose. */
+  codes: readonly string[];
   description: string;
   correct?: boolean;
   consequence?: string;
@@ -201,13 +205,13 @@ function hasCauseCueAssessment(state: AdultAclsState) {
 }
 function hasCueForCause(state: AdultAclsState, cause: keyof typeof ADULT_ACLS_CAUSE_CUE_TARGETS) {
   const targets = ADULT_ACLS_CAUSE_CUE_TARGETS[cause] ?? [];
-  return state.events.some((event) => event.type === "cause_assessment" && targets.some((target) => event.description.startsWith(`Observed ${target}:`)));
+  return state.events.some((event) => event.type === "cause_assessment" && targets.some((target) => event.code === `cause_assessment.${target}`));
 }
 function hasRhythmAssessment(state: AdultAclsState) {
-  return state.events.some((event) => event.type === "assessment" && event.description.startsWith("Observed rhythm"));
+  return state.events.some((event) => event.type === "assessment" && event.code === "assessment.rhythm");
 }
 function hasAssessmentTarget(state: AdultAclsState, target: AdultAclsAssessmentTarget) {
-  return state.events.some((event) => event.type === (target === "breath_sounds" || target === "trachea" || target === "neck_veins" || target === "bleeding" || target === "airway_history" ? "cause_assessment" : "assessment") && event.description.startsWith(`Observed ${target}:`));
+  return state.events.some((event) => event.type === (target === "breath_sounds" || target === "trachea" || target === "neck_veins" || target === "bleeding" || target === "airway_history" ? "cause_assessment" : "assessment") && event.code === `${target === "breath_sounds" || target === "trachea" || target === "neck_veins" || target === "bleeding" || target === "airway_history" ? "cause_assessment" : "assessment"}.${target}`);
 }
 function hasEvent(state: AdultAclsState, type: string) {
   return state.events.some((event) => event.type === type);
@@ -268,7 +272,7 @@ export function getAdultAclsNextAction(state: AdultAclsState): AdultAclsNextActi
   if (state.scenarioId === "refractory-svt") {
     if (!hasRhythmAssessment(state)) return { label: "Assess rhythm", command: { type: "assess", target: "rhythm" }, reason: "Confirm regular narrow-complex SVT before treatment." };
     if (!hasEvent(state, "vagal")) return { label: "Vagal manoeuvre", command: { type: "vagal_manoeuvre" }, reason: "Try a vagal manoeuvre first while perfusion remains adequate." };
-    if (!state.events.some((event) => event.type === "medication" && event.description.toLowerCase().includes("adenosine 6 mg"))) return { label: "Adenosine 6 mg", command: { type: "give_adenosine", dose: 6 }, reason: "The rhythm persisted after vagal manoeuvre; give the first rapid IV adenosine dose." };
+    if (!state.events.some((event) => event.type === "medication" && event.code === "medication.adenosine_6mg")) return { label: "Adenosine 6 mg", command: { type: "give_adenosine", dose: 6 }, reason: "The rhythm persisted after vagal manoeuvre; give the first rapid IV adenosine dose." };
     if (!state.events.some((event) => event.type === "medication" && event.description.toLowerCase().includes("adenosine 12 mg"))) return { label: "Adenosine 12 mg", command: { type: "give_adenosine", dose: 12 }, reason: "The rhythm persisted after 6 mg; give the second 12 mg dose, then reassess." };
   }
   if (state.scenarioId === "unstable-tachycardia") {
@@ -306,7 +310,26 @@ export function createAdultAclsSimulation(scenarioId: AdultAclsScenarioId, role:
   return { scenarioId, role, mode, elapsedSeconds: 0, patient: structuredClone(scenario.initial), observations: {}, events: [], environment: { oxygenAvailable: true, ventilationAvailable: true, defibrillatorReady: true, pacingAvailable: true, synchronized: false, cprActive: false }, criticalFailures: [], competencies: { recognition: 0, interventionSelection: 0, sequencing: 0, execution: 0, reassessment: 0, teamPerformance: 0 } };
 }
 
-function addEvent(state: AdultAclsState, type: string, description: string, correct?: boolean, consequence?: string): AdultAclsState { return { ...state, events: [...state.events, { timestamp: state.elapsedSeconds, type, description, correct, consequence }] }; }
+function stableEventCodes(type: string, description: string): string[] {
+  const normalized = description.toLowerCase();
+  if (type === "assessment" || type === "cause_assessment") {
+    const target = normalized.match(/observed ([a-z_]+)/)?.[1];
+    return [`${type}.${target ?? "finding"}`];
+  }
+  if (type === "medication") {
+    if (normalized.includes("bradycardia response")) return ["medication.bradycardia_response"];
+    if (normalized.includes("high-grade av block")) return ["medication.atropine_high_grade_poor"];
+    if (normalized.includes("epinephrine")) return ["medication.epinephrine"];
+    if (normalized.includes("adenosine 6 mg")) return [normalized.includes("poor choice") ? "medication.adenosine_6mg_poor" : "medication.adenosine_6mg", "medication.adenosine"];
+    if (normalized.includes("adenosine 12 mg")) return [normalized.includes("poor choice") ? "medication.adenosine_12mg_poor" : "medication.adenosine_12mg", "medication.adenosine"];
+    if (normalized.includes("adenosine")) return ["medication.adenosine_poor", "medication.adenosine"];
+    if (normalized.includes("antiarrhythmic infusion")) return [normalized.includes("poor choice") ? "medication.antiarrhythmic_infusion_poor" : "medication.antiarrhythmic_infusion"];
+    if (normalized.includes("atropine")) return [normalized.includes("poor choice") ? "medication.atropine_high_grade_poor" : "medication.atropine"];
+  }
+  if (type === "cardioversion") return [normalized.includes("poor choice") ? "cardioversion.poor_choice" : "cardioversion.delivered"];
+  return [type];
+}
+function addEvent(state: AdultAclsState, type: string, description: string, correct?: boolean, consequence?: string): AdultAclsState { return { ...state, events: [...state.events, { timestamp: state.elapsedSeconds, type, code: stableEventCodes(type, description)[0], codes: stableEventCodes(type, description), description, correct, consequence }] }; }
 function fail(state: AdultAclsState, message: string) { return addEvent({ ...state, criticalFailures: [...state.criticalFailures, message], competencies: { ...state.competencies, execution: Math.max(0, state.competencies.execution - 20) } }, "critical_failure", message, false, message); }
 
 export function advanceAdultAclsSimulation(state: AdultAclsState, seconds: number): AdultAclsState {
@@ -330,7 +353,7 @@ export function advanceAdultAclsSimulation(state: AdultAclsState, seconds: numbe
     && !next.events.some((event) => event.type === "reperfusion" || event.type === "acs_escalation");
   if (acsStalled) {
     next.patient = { ...structuredClone(getAdultAclsScenario("vf-pulseless-vt").initial), phase: "cardiac_arrest" };
-    next.events = [...next.events, { timestamp: next.elapsedSeconds, type: "acs_escalation", description: "Untreated acute coronary syndrome progressed to ventricular fibrillation arrest", correct: false, consequence: "Reperfusion was not activated in time" }];
+    next.events = [...next.events, { timestamp: next.elapsedSeconds, type: "acs_escalation", code: "acs_escalation", codes: ["acs_escalation"], description: "Untreated acute coronary syndrome progressed to ventricular fibrillation arrest", correct: false, consequence: "Reperfusion was not activated in time" }];
   }
   const wctStalled = next.scenarioId === "stable-wide-complex-tachycardia"
     && next.patient.phase === "stable" && next.patient.rhythm === "ventricular_tachycardia"
@@ -338,7 +361,7 @@ export function advanceAdultAclsSimulation(state: AdultAclsState, seconds: numbe
     && !next.events.some((event) => event.type === "wct_destabilised");
   if (wctStalled) {
     next.patient = structuredClone(getAdultAclsScenario("unstable-tachycardia").initial);
-    next.events = [...next.events, { timestamp: next.elapsedSeconds, type: "wct_destabilised", description: "Untreated wide-complex tachycardia became haemodynamically unstable (hypotension, altered mental status)", correct: false, consequence: "Synchronized cardioversion is now indicated" }];
+    next.events = [...next.events, { timestamp: next.elapsedSeconds, type: "wct_destabilised", code: "wct_destabilised", codes: ["wct_destabilised"], description: "Untreated wide-complex tachycardia became haemodynamically unstable (hypotension, altered mental status)", correct: false, consequence: "Synchronized cardioversion is now indicated" }];
   }
   next.patient = derivePatient(next.patient);
   if (next.patient.phase === "failed") return addEvent(next, "patient_death", "Patient died after untreated cardiac arrest; debrief remains available", false, "Scenario failed");
@@ -358,7 +381,7 @@ export function reduceAdultAclsSimulation(state: AdultAclsState, command: AdultA
       next = { ...next, observations: { ...next.observations, [command.target]: command.target === "blood_pressure" ? p.systolicBp : command.target === "spo2" ? p.spo2 : command.target === "heart_rate" ? p.heartRate : getAdultAclsAssessmentCue(next.scenarioId, command.target) }, competencies: { ...next.competencies, recognition: Math.min(100, next.competencies.recognition + 8) } };
       return addEvent(next, ["breath_sounds", "trachea", "neck_veins", "bleeding", "airway_history"].includes(command.target) ? "cause_assessment" : "assessment", `Observed ${command.target}: ${String((next.observations as Record<string, string | number>)[command.target])}`, true);
     case "reassess":
-      if (p.phase === "cardiac_arrest" && next.environment.cprActive && next.events.some((event) => event.type === "assessment" && event.description.startsWith("Observed rhythm")) && next.events.some((event) => event.type === "medication") && next.events.some((event) => event.type === "cause_treatment")) {
+      if (p.phase === "cardiac_arrest" && next.environment.cprActive && next.events.some((event) => event.type === "assessment" && event.code === "assessment.rhythm") && next.events.some((event) => event.type === "medication") && next.events.some((event) => event.type === "cause_treatment")) {
         const roscProbability = clamp(next.patient.hidden.probabilityOfRosc);
         const replaySeed = next.scenarioId === "pea" ? 0.12 : next.scenarioId === "asystole" ? 0.18 : 0.24;
         if (roscProbability < replaySeed) return addEvent(next, "reassessment", "Organised electrical activity remains without a pulse; continue CPR and reassess the cause", false, "No ROSC on this reassessment");
@@ -393,7 +416,7 @@ export function reduceAdultAclsSimulation(state: AdultAclsState, command: AdultA
       return addEvent(next, "cpr", "CPR started; perfusion is supported but not normal", true);
     case "defibrillate":
       if (p.phase !== "cardiac_arrest" || !["ventricular_fibrillation", "ventricular_tachycardia"].includes(p.rhythm)) return fail(next, "Defibrillation is not therapeutically indicated for this state");
-      if (!next.events.some((event) => event.type === "assessment" && event.description.startsWith("Observed rhythm")) || !next.environment.cprActive) return fail(next, "Confirm the shockable rhythm and start CPR before defibrillation");
+      if (!next.events.some((event) => event.type === "assessment" && event.code === "assessment.rhythm") || !next.environment.cprActive) return fail(next, "Confirm the shockable rhythm and start CPR before defibrillation");
       next.environment.cprActive = false;
       if (next.patient.hidden.probabilityOfRosc >= 0.3 && next.patient.hidden.coronaryPerfusion >= 0.2) { next.patient = { ...next.patient, phase: "rosc", rhythm: "sinus_rhythm", pulse: "reduced", mentalStatus: "altered" }; next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.35); return addEvent(next, "defibrillation", "Shock delivered; organised rhythm and pulse require reassessment", true); }
       next.patient.hidden.probabilityOfRosc = clamp(next.patient.hidden.probabilityOfRosc + 0.08);
@@ -430,7 +453,7 @@ export function reduceAdultAclsSimulation(state: AdultAclsState, command: AdultA
       if (p.rhythm !== "supraventricular_tachycardia" || p.phase !== "stable") return fail(next, "Adenosine is not appropriate for this rhythm/stability state");
       if (next.scenarioId === "refractory-svt") {
         const dose = command.dose ?? 6;
-        const sixMgGiven = next.events.some((event) => event.type === "medication" && event.description.toLowerCase().includes("adenosine 6 mg"));
+        const sixMgGiven = next.events.some((event) => event.type === "medication" && event.code === "medication.adenosine_6mg");
         if (dose === 6 && sixMgGiven) return addEvent(next, "medication", "Adenosine 6 mg repeated; this is a poor choice because the second dose should be 12 mg.", false);
         if (dose === 6) return addEvent(next, "medication", "Adenosine 6 mg rapid IV push with saline flush given; no conversion. Reassess; give 12 mg if the rhythm persists.", true);
         next.patient = { ...next.patient, rhythm: "sinus_rhythm", heartRate: 88 };
@@ -500,13 +523,14 @@ export function getAdultAclsScoreBreakdown(state: AdultAclsState): AdultAclsScor
   const definition = getAdultAclsCaseDefinition(state.scenarioId);
   const matches = (requirement: AdultAclsEventRequirement) => Boolean(requirement.unlessEventType && eventTypes.has(requirement.unlessEventType))
     || state.events.some((event) => event.type === requirement.type
+      && (!requirement.code || event.code === requirement.code || event.codes.includes(requirement.code))
       && (!requirement.descriptionIncludes || event.description.toLowerCase().includes(requirement.descriptionIncludes.toLowerCase())));
   const conditionalMet = (definition.conditionalRequirements ?? []).every((rule) => !eventTypes.has(rule.whenEventType) || rule.require.every(matches));
   // Instructor ordering rule: assess BEFORE the first treatment, reassess AFTER it.
   const assessmentTypes = new Set(["assessment", "reassessment", "cause_assessment"]);
   const treatmentTypes = new Set(definition.treatmentEventTypes ?? definition.requiredEvents.map((item) => item.type).filter((type) => !assessmentTypes.has(type)));
   const firstTreatment = state.events.findIndex((event) => treatmentTypes.has(event.type));
-  const firstAssessment = state.events.findIndex((event) => event.type === "assessment" && (!definition.requiresRhythmAssessment || event.description.startsWith("Observed rhythm")));
+  const firstAssessment = state.events.findIndex((event) => event.type === "assessment" && (!definition.requiresRhythmAssessment || event.code === "assessment.rhythm"));
   const lastReassessment = Math.max(...state.events.map((event, index) => (event.type === "reassessment" || event.type === "rosc" ? index : -1)), -1);
   const orderedCorrectly = firstTreatment < 0 || ((firstAssessment >= 0 && firstAssessment < firstTreatment) && lastReassessment > firstTreatment);
   const indicatedAction = definition.requiredEvents.every(matches)
@@ -516,6 +540,7 @@ export function getAdultAclsScoreBreakdown(state: AdultAclsState): AdultAclsScor
     && conditionalMet;
   const poorChoices = (definition.poorChoices ?? []).filter((poor) => {
     const index = state.events.findIndex((event) => event.type === poor.type
+      && (!poor.code || event.code === poor.code || event.codes.includes(poor.code))
       && (!poor.descriptionIncludes || event.description.toLowerCase().includes(poor.descriptionIncludes.toLowerCase())));
     if (index < 0) return false;
     if (!poor.beforeEventType) return true;
