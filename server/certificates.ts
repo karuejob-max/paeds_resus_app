@@ -1489,3 +1489,46 @@ export async function saveAhaCognitiveCertificate(
     };
   }
 }
+
+/**
+ * Repair certificate projections for legacy or interrupted completion flows.
+ * The enrollment flag is authoritative for learning completion; the certificate
+ * row is a derived, idempotent record used by My Records and downloads.
+ */
+export async function ensureAhaCognitiveCertificatesForUser(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  userId: number,
+): Promise<void> {
+  const rows = await db
+    .select({
+      id: enrollments.id,
+      userId: enrollments.userId,
+      programType: enrollments.programType,
+      cognitiveModulesComplete: enrollments.cognitiveModulesComplete,
+    })
+    .from(enrollments)
+    .where(
+      and(
+        eq(enrollments.userId, userId),
+        inArray(enrollments.programType, ["bls", "acls", "pals", "heartsaver", "nrp", "instructor"]),
+        eq(enrollments.cognitiveModulesComplete, true),
+      ),
+    );
+  if (!rows.length) return;
+
+  const [user] = await db
+    .select({ name: users.name })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  const recipientName = user?.name ?? "Participant";
+
+  for (const row of rows) {
+    await saveAhaCognitiveCertificate(
+      row.id,
+      row.userId,
+      recipientName,
+      row.programType as "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor",
+    );
+  }
+}
