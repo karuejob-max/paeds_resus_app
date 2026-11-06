@@ -64,7 +64,7 @@ describe("persistAdultAclsCompletion", () => {
     expect(result).toMatchObject({ countsTowardPhase2: false, evidenceStatus: "formative_only" });
     expect(calls).toHaveLength(1);
     expect(calls[0].table).toBe(simulationWorldEvidence);
-    expect(calls[0].values).toMatchObject({ evidenceStatus: "rejected" });
+    expect(calls[0].values).toMatchObject({ evidenceStatus: "formative_only" });
     expect(reconcilePhase2Completion).not.toHaveBeenCalled();
   });
 

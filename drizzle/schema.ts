@@ -6906,7 +6906,7 @@ export const simulationWorldEvidence = mysqlTable("simulationWorldEvidence", {
   enrollmentId: int("enrollmentId").notNull(),
   role: varchar("role", { length: 64 }).notNull(),
   scenarioId: varchar("scenarioId", { length: 64 }).notNull(),
-  evidenceStatus: mysqlEnum("evidenceStatus", ["review_required", "accepted", "rejected"]).default("review_required").notNull(),
+  evidenceStatus: mysqlEnum("evidenceStatus", ["review_required", "accepted", "rejected", "formative_only"]).default("review_required").notNull(),
   assessmentJson: json("assessmentJson"),
   reviewerId: int("reviewerId"),
   reviewerReason: text("reviewerReason"),

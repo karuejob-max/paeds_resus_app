@@ -7,7 +7,7 @@ export type Phase2Attempt = {
   score: number;
   passed: boolean;
   scenarioVersion?: string;
-  evidenceStatus?: "review_required" | "accepted" | "rejected";
+  evidenceStatus?: "review_required" | "accepted" | "rejected" | "formative_only";
   criticalFailure?: boolean;
 };
 
@@ -85,6 +85,7 @@ export function calculatePhase2AutomationStatus(programType: PracticeLabProgramT
   const requirements = getPhase2Requirements(programType).map((requirement) => {
     const matching = attempts.filter((attempt) =>
       attempt.evidenceStatus !== "rejected" &&
+      attempt.evidenceStatus !== "formative_only" &&
       !attempt.criticalFailure &&
       (!PHASE2_SCENARIO_VERSIONS[attempt.trackId] || attempt.scenarioVersion === PHASE2_SCENARIO_VERSIONS[attempt.trackId]) &&
       (!requirement.trackIds || requirement.trackIds.includes(attempt.trackId)) &&
