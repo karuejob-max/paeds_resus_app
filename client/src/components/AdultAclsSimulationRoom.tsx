@@ -13,6 +13,7 @@ import {
   type AdultAclsState,
 } from "@shared/adult-acls-simulation-world";
 import { decideAdultAclsResume } from "@shared/adult-acls-session-policy";
+import { getAdultAclsModeLabel, isAdultAclsModeCompatible } from "@shared/adult-acls-mode-contract";
 import type { SimulationWorldRole } from "@shared/simulation-world";
 
 type CompletionSummary = {
@@ -119,7 +120,9 @@ export function AdultAclsSimulationRoom({ enrollmentId, onComplete, onExit, init
   const complete = trpc.practiceLab.completeAdultAclsSession.useMutation();
   const scenario = useMemo(() => ADULT_ACLS_SCENARIOS.find((item) => item.id === scenarioId)!, [scenarioId]);
   const urgency = state ? urgencyFor(state) : null;
-  const nextAction = state?.mode === "guided" ? getAdultAclsNextAction(state) : null;
+  const modeMismatch = Boolean(session && state && !isAdultAclsModeCompatible(mode, state.mode));
+  const effectiveMode = modeMismatch ? null : state?.mode ?? null;
+  const nextAction = effectiveMode === "guided" ? getAdultAclsNextAction(state!) : null;
   const latestClinicalEvent = state ? [...state.events].reverse().find((event) => event.type !== "time_advanced") : null;
   const commandByLabel = useMemo(() => new Map(COMMANDS.map((item) => [item.label, item])), []);
 
@@ -146,11 +149,16 @@ export function AdultAclsSimulationRoom({ enrollmentId, onComplete, onExit, init
       setLaunchError(`An unfinished ${ADULT_ACLS_SCENARIOS.find((item) => item.id === resumed.scenarioId)?.title ?? "Adult ACLS"} rehearsal was found. Choose Enter adult ACLS room to start the selected ${scenario.title} scenario; the stale session will be closed safely.`);
       return;
     }
+    const resumedMode = resumed.authoritativeState.mode ?? "standard";
+    if (lockMode && !isAdultAclsModeCompatible("standard", resumedMode)) {
+      setLaunchError("This qualifying rehearsal could not be resumed safely because the server returned a non-Standard mode. No evidence was changed; start a fresh Standard assessment.");
+      return;
+    }
     setScenarioId(resumed.scenarioId as AdultAclsScenarioId);
     setSession({ id: resumed.sessionId, nonce: resumed.sessionNonce });
     // The server treats legacy sessions without a mode as Standard.
-    setState({ ...resumed.authoritativeState, mode: resumed.authoritativeState.mode ?? "standard" });
-    setMode(resumed.authoritativeState.mode ?? "standard");
+    setState({ ...resumed.authoritativeState, mode: resumedMode });
+    setMode(resumedMode);
     sequence.current = resumed.nextSequence;
   }, [activeSession.data, activeSession.isFetching, completion, initialScenarioId, scenarioId, scenario.title, session]);
 
@@ -169,6 +177,11 @@ export function AdultAclsSimulationRoom({ enrollmentId, onComplete, onExit, init
         setLaunchError("The simulation could not start safely because the selected scenario did not match the authoritative session. No rehearsal evidence was created. Please retry.");
         return;
       }
+      if (!isAdultAclsModeCompatible(requestedMode, result.mode) || !isAdultAclsModeCompatible(requestedMode, authoritativeState.mode)) {
+        await invalidate.mutateAsync({ sessionId: result.sessionId, sessionNonce: result.sessionNonce }).catch(() => undefined);
+        setLaunchError(`The server returned an unexpected ${getAdultAclsModeLabel(result.mode)} mode for this ${getAdultAclsModeLabel(requestedMode)} launch. No rehearsal evidence was created. Please retry.`);
+        return;
+      }
       setSession({ id: result.sessionId, nonce: result.sessionNonce });
       setState(authoritativeState);
       setMode(authoritativeState.mode);
@@ -180,6 +193,10 @@ export function AdultAclsSimulationRoom({ enrollmentId, onComplete, onExit, init
 
   const act = async (command: AdultAclsCommand) => {
     if (!session) return undefined;
+    if (modeMismatch) {
+      setActionError("The rehearsal mode could not be verified. No further action will be recorded; exit and start a fresh rehearsal.");
+      return undefined;
+    }
     setActionError(null);
     try {
       const result = await receive.mutateAsync({ sessionId: session.id, sessionNonce: session.nonce, sequence: sequence.current, commandJson: command });
@@ -195,6 +212,10 @@ export function AdultAclsSimulationRoom({ enrollmentId, onComplete, onExit, init
 
   const finish = async () => {
     if (!session) return;
+    if (modeMismatch) {
+      setActionError("The rehearsal mode could not be verified. This session cannot be saved as evidence; exit and start a fresh rehearsal.");
+      return;
+    }
     const nextState = await act({ type: "end_rehearsal" });
     if (!nextState || (nextState.patient.phase !== "ended" && nextState.patient.phase !== "failed")) return;
     try {
@@ -244,8 +265,8 @@ export function AdultAclsSimulationRoom({ enrollmentId, onComplete, onExit, init
 
     {state && session && <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
       <Card><CardHeader><CardTitle className="text-base">Observable patient findings</CardTitle></CardHeader><CardContent className="grid grid-cols-2 gap-2 text-sm"><div>Rhythm<strong className="block">{formatClinicalEnum(state.patient.rhythm)}</strong></div><div>Pulse<strong className="block">{formatClinicalEnum(state.patient.pulse)}</strong></div><div>BP<strong className="block">{state.patient.systolicBp}/{state.patient.diastolicBp}</strong></div><div>SpO₂<strong className="block">{state.patient.spo2}%</strong></div><div>Breathing<strong className="block">{formatClinicalEnum(state.patient.breathing)}</strong></div><div>Mental status<strong className="block">{formatClinicalEnum(state.patient.mentalStatus)}</strong></div><div>Phase<strong className="block">{formatClinicalEnum(state.patient.phase)}</strong></div><div>Time<strong className="block">{state.elapsedSeconds}s</strong></div></CardContent></Card>
-      <Card><CardHeader><CardTitle className="text-base">Choose an action, then reassess</CardTitle></CardHeader><CardContent className="space-y-3"><div className="sticky top-2 z-20 -mx-3 border-b border-indigo-200 bg-white/95 px-3 pb-3 shadow-sm backdrop-blur sm:-mx-6 sm:px-6" aria-live="polite"><div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-700"><span><strong>Patient:</strong> {formatClinicalEnum(state.patient.phase)} · {formatClinicalEnum(state.patient.rhythm)}</span><span><strong>BP</strong> {state.patient.systolicBp}/{state.patient.diastolicBp} · <strong>SpO₂</strong> {state.patient.spo2}% · <strong>Time</strong> {state.elapsedSeconds}s</span></div>{nextAction && <div className="mt-2 flex flex-col gap-2 rounded-lg border-2 border-indigo-300 bg-indigo-50 p-3 text-indigo-950 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-wide text-indigo-700">Next safe action</p><p className="font-semibold">{nextAction.label}</p><p className="text-xs">{nextAction.reason}</p></div><Button className="shrink-0 bg-indigo-600 text-white hover:bg-indigo-700" onClick={() => void act(nextAction.command)} disabled={receive.isPending || complete.isPending}>{receive.isPending ? "Recording…" : `Do: ${nextAction.label}`}</Button></div>}</div>{state.mode === "guided" && <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-950"><p className="font-semibold">Mission Director</p><p className="mt-1 text-xs">{directorFor(state)}</p></div>}{state.mode === "guided" && urgency && <div className={`rounded-lg border p-3 ${urgency.tone}`} role="status"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="font-semibold">{urgency.title}</p><p className="text-xs">{urgency.detail}</p></div></div></div>}{actionError && <div role="alert" className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-950"><XCircle className="mr-2 inline h-4 w-4" />{actionError}</div>}{latestClinicalEvent && <div aria-live="polite" className={`rounded-lg border p-3 text-sm ${state.mode === "guided" && latestClinicalEvent.correct === false ? "border-rose-200 bg-rose-50 text-rose-950" : "border-cyan-200 bg-cyan-50 text-cyan-950"}`}><p className="font-semibold">{state.mode === "guided" && latestClinicalEvent.correct === false ? "Review this action" : "Latest patient response"}</p><p>{state.mode === "standard" ? neutralEventDescription(latestClinicalEvent) : latestClinicalEvent.description}</p>{state.mode === "guided" && latestClinicalEvent.consequence && <p className="mt-1 text-xs">{latestClinicalEvent.consequence}</p>}</div>}{COMMAND_GROUPS.map((group) => <section key={group.title} aria-labelledby={`adult-acls-${group.title}`}><h3 id={`adult-acls-${group.title}`} className="text-xs font-bold uppercase tracking-wide text-slate-600">{group.title}</h3><p className="mb-2 text-xs text-slate-500">{group.hint}</p><div className="flex flex-wrap gap-2">{group.commands.map(actionButton)}</div></section>)}<div className="flex flex-wrap items-center gap-3 border-t pt-3"><Button className="bg-indigo-600 text-white hover:bg-indigo-700" onClick={() => void finish()} disabled={complete.isPending || receive.isPending || !canEndAdultAclsSimulation(state)}>End and save rehearsal</Button>{state.mode === "guided" && !canEndAdultAclsSimulation(state) && <span className="text-xs text-slate-600">Reach a stable or post-ROSC endpoint, then reassess before saving.</span>}{onExit && <Button variant="ghost" onClick={() => setExitRequested(true)} disabled={receive.isPending || complete.isPending}>Exit without saving</Button>}</div>{exitRequested && <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950" role="alert"><p className="font-semibold">Leave this rehearsal?</p><p className="mt-1">The active session will be marked abandoned. No simulation evidence will be created.</p><div className="mt-2 flex flex-wrap gap-2"><Button size="sm" variant="destructive" onClick={() => void abandon()}>Exit and abandon</Button><Button size="sm" variant="outline" onClick={() => setExitRequested(false)}>Continue rehearsal</Button></div></div>}</CardContent></Card>
-      <Card className="lg:col-span-2"><CardHeader><CardTitle>Server event timeline</CardTitle><p className="text-xs text-muted-foreground">This is the authoritative replay record. It is not a credential or competence decision.</p></CardHeader><CardContent className="max-h-64 space-y-2 overflow-y-auto text-sm" aria-label="Server event timeline">{state.events.slice(-12).map((event, index) => <div key={`${event.timestamp}-${index}`} className={state.mode === "guided" && event.correct === false ? "rounded border border-rose-200 bg-rose-50 p-2" : "rounded border bg-slate-50 p-2"}><span className="mr-2 text-xs text-slate-500">{event.timestamp}s</span>{state.mode === "standard" ? neutralEventDescription(event) : event.description}{state.mode === "guided" && event.consequence ? <span className="block text-xs text-slate-600">{event.consequence}</span> : null}</div>)}</CardContent></Card>
+      <Card><CardHeader><CardTitle className="text-base">Choose an action, then reassess</CardTitle></CardHeader><CardContent className="space-y-3"><div className="sticky top-2 z-20 -mx-3 border-b border-indigo-200 bg-white/95 px-3 pb-3 shadow-sm backdrop-blur sm:-mx-6 sm:px-6" aria-live="polite"><div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-700"><span><strong>Patient:</strong> {formatClinicalEnum(state.patient.phase)} · {formatClinicalEnum(state.patient.rhythm)}</span><span><strong>BP</strong> {state.patient.systolicBp}/{state.patient.diastolicBp} · <strong>SpO₂</strong> {state.patient.spo2}% · <strong>Time</strong> {state.elapsedSeconds}s</span></div>{nextAction && <div className="mt-2 flex flex-col gap-2 rounded-lg border-2 border-indigo-300 bg-indigo-50 p-3 text-indigo-950 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-wide text-indigo-700">Next safe action</p><p className="font-semibold">{nextAction.label}</p><p className="text-xs">{nextAction.reason}</p></div><Button className="shrink-0 bg-indigo-600 text-white hover:bg-indigo-700" onClick={() => void act(nextAction.command)} disabled={receive.isPending || complete.isPending}>{receive.isPending ? "Recording…" : `Do: ${nextAction.label}`}</Button></div>}</div>{effectiveMode === "guided" && <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-950"><p className="font-semibold">Mission Director</p><p className="mt-1 text-xs">{directorFor(state)}</p></div>}{effectiveMode === "guided" && urgency && <div className={`rounded-lg border p-3 ${urgency.tone}`} role="status"><div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="font-semibold">{urgency.title}</p><p className="text-xs">{urgency.detail}</p></div></div></div>}{actionError && <div role="alert" className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-950"><XCircle className="mr-2 inline h-4 w-4" />{actionError}</div>}{latestClinicalEvent && <div aria-live="polite" className={`rounded-lg border p-3 text-sm ${effectiveMode === "guided" && latestClinicalEvent.correct === false ? "border-rose-200 bg-rose-50 text-rose-950" : "border-cyan-200 bg-cyan-50 text-cyan-950"}`}><p className="font-semibold">{effectiveMode === "guided" && latestClinicalEvent.correct === false ? "Review this action" : "Latest patient response"}</p><p>{effectiveMode === "standard" ? neutralEventDescription(latestClinicalEvent) : latestClinicalEvent.description}</p>{effectiveMode === "guided" && latestClinicalEvent.consequence && <p className="mt-1 text-xs">{latestClinicalEvent.consequence}</p>}</div>}{COMMAND_GROUPS.map((group) => <section key={group.title} aria-labelledby={`adult-acls-${group.title}`}><h3 id={`adult-acls-${group.title}`} className="text-xs font-bold uppercase tracking-wide text-slate-600">{group.title}</h3><p className="mb-2 text-xs text-slate-500">{group.hint}</p><div className="flex flex-wrap gap-2">{group.commands.map(actionButton)}</div></section>)}<div className="flex flex-wrap items-center gap-3 border-t pt-3"><Button className="bg-indigo-600 text-white hover:bg-indigo-700" onClick={() => void finish()} disabled={complete.isPending || receive.isPending || !canEndAdultAclsSimulation(state)}>End and save rehearsal</Button>{effectiveMode === "guided" && !canEndAdultAclsSimulation(state) && <span className="text-xs text-slate-600">Reach a stable or post-ROSC endpoint, then reassess before saving.</span>}{onExit && <Button variant="ghost" onClick={() => setExitRequested(true)} disabled={receive.isPending || complete.isPending}>Exit without saving</Button>}</div>{exitRequested && <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950" role="alert"><p className="font-semibold">Leave this rehearsal?</p><p className="mt-1">The active session will be marked abandoned. No simulation evidence will be created.</p><div className="mt-2 flex flex-wrap gap-2"><Button size="sm" variant="destructive" onClick={() => void abandon()}>Exit and abandon</Button><Button size="sm" variant="outline" onClick={() => setExitRequested(false)}>Continue rehearsal</Button></div></div>}</CardContent></Card>
+      <Card className="lg:col-span-2"><CardHeader><CardTitle>Server event timeline</CardTitle><p className="text-xs text-muted-foreground">This is the authoritative replay record. It is not a credential or competence decision.</p></CardHeader><CardContent className="max-h-64 space-y-2 overflow-y-auto text-sm" aria-label="Server event timeline">{state.events.slice(-12).map((event, index) => <div key={`${event.timestamp}-${index}`} className={effectiveMode === "guided" && event.correct === false ? "rounded border border-rose-200 bg-rose-50 p-2" : "rounded border bg-slate-50 p-2"}><span className="mr-2 text-xs text-slate-500">{event.timestamp}s</span>{effectiveMode === "standard" ? neutralEventDescription(event) : event.description}{effectiveMode === "guided" && event.consequence ? <span className="block text-xs text-slate-600">{event.consequence}</span> : null}</div>)}</CardContent></Card>
     </div>}
   </div>;
 }
