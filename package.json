@@ -128,6 +128,8 @@
     "db:apply-0186": "node scripts/apply-0186-phase2-gate-integrity.mjs",
     "db:apply-0187": "node scripts/apply-0187-ilsp-access-code-rate-limit.mjs",
     "db:verify-0186": "node scripts/verify-0186-phase2-gate-integrity.mjs",
+    "db:apply-0190": "node scripts/apply-0190-formative-only-simulation-evidence.mjs",
+    "db:verify-0190": "node scripts/verify-0190-formative-only-simulation-evidence.mjs",
     "db:apply-0165": "node scripts/apply-0165-search-hardening.mjs",
     "db:apply-0166": "node scripts/apply-0166-deputy-institutional-roles.mjs",
     "db:apply-0167": "node scripts/apply-0167-professional-progress-records.mjs",

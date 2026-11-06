@@ -93,15 +93,15 @@ export async function persistAdultAclsCompletion({
     return { countsTowardPhase2: true, evidenceStatus: "review_required", evidence };
   }
 
-  // Guided practice is auditable but never enters the Phase 2 attempt ledger.
-  // Keep it rejected until the dedicated formative_only schema value is shipped.
+  // Guided practice is auditable but never enters the Phase 2 attempt ledger or
+  // the reviewer queue. It is formative evidence, not rejected evidence.
   await db.insert(simulationWorldEvidence).values({
     sessionId: session.id,
     userId,
     enrollmentId: session.enrollmentId,
     role: session.role,
     scenarioId: state.scenarioId,
-    evidenceStatus: "rejected",
+    evidenceStatus: "formative_only",
     reviewerReason: "Guided formative rehearsal; not eligible for Phase 2 mastery",
     assessmentJson: evidence,
   });
