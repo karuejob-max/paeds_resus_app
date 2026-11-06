@@ -3,6 +3,7 @@ import { inArray } from "drizzle-orm";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import {
   saveCertificate,
+  ensureAhaCognitiveCertificatesForUser,
   verifyCertificate,
   verifyCertificateByVerificationCode,
   getCertificateByEnrollmentId,
@@ -117,6 +118,15 @@ export const certificateRouter = router({
 
   // Get current user's certificates (My Certificates)
   getMyCertificates: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (db) {
+      try {
+        await ensureAhaCognitiveCertificatesForUser(db, ctx.user.id);
+      } catch (error) {
+        // A repair failure must not hide already-issued certificate records.
+        console.error("[Certificate Router] Cognitive certificate repair failed:", error);
+      }
+    }
     const list = await getCertificatesByUserId(ctx.user.id);
     return {
       success: true,
