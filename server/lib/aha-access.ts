@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, ne, or } from "drizzle-orm";
 import {
   ahaAccessGrants,
   globalEntitlementRedemptions,
@@ -285,6 +285,29 @@ async function hasCompletedBlsCognitive(db: AhaAccessDb, userId: number): Promis
   return !!rows[0]?.cognitiveModulesComplete;
 }
 
+/** Existing cognitive completion is a review entitlement, even if the original
+ * cohort/payment route is no longer available. It must not unlock a new course
+ * for an uncompleted learner, but it must keep completed coursework readable. */
+async function hasCompletedAhaEnrollment(
+  db: AhaAccessDb,
+  userId: number,
+  programType: AhaProgramType,
+): Promise<boolean> {
+  const rows = await db
+    .select({ cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
+    .from(enrollments)
+    .where(
+      and(
+        eq(enrollments.userId, userId),
+        eq(enrollments.programType, programType),
+        eq(enrollments.cognitiveModulesComplete, true),
+        ne(enrollments.enrollmentStatus, "cancelled"),
+      ),
+    )
+    .limit(1);
+  return Boolean(rows[0]?.cognitiveModulesComplete);
+}
+
 async function hasIndependentPayment(
   db: AhaAccessDb,
   userId: number,
@@ -332,6 +355,13 @@ export async function getAhaAccessDecision(
 ): Promise<AhaAccessDecision> {
   if (!isAhaProgramType(programType)) {
     return blocked("This course is not an AHA programme supported by the access gate.");
+  }
+
+  // Preserve access to completed coursework for review and certificate recovery.
+  // This is deliberately read/review access only: incomplete learners still
+  // require an approved pathway, grant, or completed independent payment below.
+  if (await hasCompletedAhaEnrollment(db, userId, programType)) {
+    return allowed("independent", "Access granted to review your completed coursework.");
   }
 
   // Previous BLS certification never bypasses the platform BLS refresh.
