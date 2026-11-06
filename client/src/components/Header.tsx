@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
 import { Button } from "@/components/ui/button";
-import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Briefcase, Shield } from "lucide-react";
+import { Menu, X, ChevronDown, LogOut, Bell, RefreshCw, Settings, Stethoscope, Briefcase, Shield } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { getLoginUrl } from "@/const";
@@ -334,10 +334,19 @@ export default function Header() {
             </nav>
           )}
 
-          {/* Global actions: alerts, search, appearance, account, and one mobile menu */}
+            {/* Global actions: alerts, search, appearance, account, and one mobile menu */}
           <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-2">
             {isAuthenticated && <NotificationBell />}
             <GlobalSearch />
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              aria-label="Refresh app"
+              title="Refresh app"
+              className="rounded-lg p-2 text-foreground transition hover:bg-accent focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:hidden"
+            >
+              <RefreshCw className="h-5 w-5" />
+            </button>
             <ThemeToggle />
 
             {/* Auth Section */}

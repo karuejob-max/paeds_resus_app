@@ -215,12 +215,12 @@ export function NotificationBell() {
       </Button>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="w-full max-w-sm p-0">
-          <SheetHeader className="border-b px-4 pb-3 pt-4">
-            <div className="flex items-center justify-between gap-2">
+        <SheetContent side="right" className="app-safe-area-panel-top w-full max-w-sm gap-0 overflow-hidden p-0">
+          <SheetHeader className="shrink-0 border-b px-4 pb-3 pt-4">
+            <div className="flex min-w-0 items-start justify-between gap-2 pr-10">
               <SheetTitle className="text-base font-semibold">Notifications</SheetTitle>
               {unreadCount > 0 && (
-                <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={() => markAllRead.mutate()} disabled={markAllRead.isPending}>
+                <Button variant="ghost" size="sm" className="h-8 shrink-0 gap-1 text-xs" onClick={() => markAllRead.mutate()} disabled={markAllRead.isPending}>
                   <CheckCheck className="h-3.5 w-3.5" /> Mark all read
                 </Button>
               )}
@@ -239,7 +239,7 @@ export function NotificationBell() {
             </Tabs>
           </SheetHeader>
 
-          <ScrollArea className="h-[calc(100vh-150px)]">
+          <ScrollArea className="min-h-0 flex-1 overscroll-contain">
             {inboxQuery.isLoading && open ? <div className="p-6 text-center text-sm text-muted-foreground">Loading notifications…</div> : items.length === 0 ? (
               <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
                 <Bell className="mb-3 h-10 w-10 text-muted-foreground/40" />
