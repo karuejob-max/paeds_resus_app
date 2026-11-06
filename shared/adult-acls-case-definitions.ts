@@ -21,13 +21,11 @@ export type AdultAclsCaseFamily =
   | "post_arrest"
   | "respiratory";
 
-/** An event the learner's session must contain. `descriptionIncludes` is matched case-insensitively. */
+/** An event the learner's session must contain. Requirements match authoritative event codes and types. */
 export type AdultAclsEventRequirement = {
   type: string;
   /** Stable event code; preferred over learner-facing description matching. */
   code?: string;
-  /** @deprecated Use `code` for scoring rules; retained only for legacy definitions. */
-  descriptionIncludes?: string;
   /** Requirement is waived if this event type occurred (e.g. instability replaces an ECG and infusion with immediate cardioversion). */
   unlessEventType?: string;
 };
@@ -37,8 +35,6 @@ export type AdultAclsPoorChoice = {
   type: string;
   /** Stable event code; preferred over learner-facing description matching. */
   code?: string;
-  /** @deprecated Use `code` for scoring rules; retained only for legacy definitions. */
-  descriptionIncludes?: string;
   /** Poor only if it happens before the first event of this type (or if that event never happens). */
   beforeEventType?: string;
   reason: string;
