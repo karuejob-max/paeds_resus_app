@@ -215,7 +215,7 @@ export function NotificationBell() {
       </Button>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="w-full max-w-sm gap-0 overflow-hidden p-0">
+        <SheetContent side="right" className="app-safe-area-panel-top w-full max-w-sm gap-0 overflow-hidden p-0">
           <SheetHeader className="shrink-0 border-b px-4 pb-3 pt-4">
             <div className="flex min-w-0 items-start justify-between gap-2 pr-10">
               <SheetTitle className="text-base font-semibold">Notifications</SheetTitle>
