@@ -46,6 +46,7 @@ export type AhaAccessDecision =
     };
 
 export type AhaAccessDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+export type AhaAccessMode = "read" | "write";
 
 function allowed(pathway: AhaAccessPathway, message: string): AhaAccessDecision {
   return { allowed: true, pathway, message };
@@ -279,7 +280,7 @@ async function hasCompletedBlsCognitive(db: AhaAccessDb, userId: number): Promis
   const rows = await db
     .select({ cognitiveModulesComplete: enrollments.cognitiveModulesComplete })
     .from(enrollments)
-    .where(and(eq(enrollments.userId, userId), eq(enrollments.programType, "bls"), eq(enrollments.enrollmentStatus, "active")))
+    .where(and(eq(enrollments.userId, userId), eq(enrollments.programType, "bls"), ne(enrollments.enrollmentStatus, "cancelled")))
     .orderBy(desc(enrollments.createdAt))
     .limit(1);
   return !!rows[0]?.cognitiveModulesComplete;
@@ -352,6 +353,7 @@ export async function getAhaAccessDecision(
   userId: number,
   programType: string,
   now: Date = new Date(),
+  mode: AhaAccessMode = "write",
 ): Promise<AhaAccessDecision> {
   if (!isAhaProgramType(programType)) {
     return blocked("This course is not an AHA programme supported by the access gate.");
@@ -360,7 +362,7 @@ export async function getAhaAccessDecision(
   // Preserve access to completed coursework for review and certificate recovery.
   // This is deliberately read/review access only: incomplete learners still
   // require an approved pathway, grant, or completed independent payment below.
-  if (await hasCompletedAhaEnrollment(db, userId, programType)) {
+  if (mode === "read" && await hasCompletedAhaEnrollment(db, userId, programType)) {
     return allowed("independent", "Access granted to review your completed coursework.");
   }
 
@@ -440,8 +442,9 @@ export async function assertAhaAccess(
   db: AhaAccessDb,
   userId: number,
   programType: string,
+  mode: AhaAccessMode = "write",
 ): Promise<AhaAccessDecision & { allowed: true }> {
-  const decision = await getAhaAccessDecision(db, userId, programType);
+  const decision = await getAhaAccessDecision(db, userId, programType, new Date(), mode);
   if (!decision.allowed) {
     const { TRPCError } = await import("@trpc/server");
     throw new TRPCError({ code: "FORBIDDEN", message: decision.message });

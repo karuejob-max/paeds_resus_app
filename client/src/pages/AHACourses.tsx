@@ -142,15 +142,9 @@ export default function AHACourses() {
     for (const pt of AHA_COURSE_ORDER) {
       const enrol = enrollmentByProgram.get(pt);
       if (enrol && !enrol.cognitiveModulesComplete) {
-        const decision = dashboard?.accessDecisions?.[pt];
-        const pathwayDestination = decision?.allowed ? getAhaPathwayPortalRoute(decision.pathway) : null;
         return {
-          label: pathwayDestination ? `Open ${decision?.pathway?.toUpperCase()} portal` : `Continue ${pt.toUpperCase()} cognitive modules`,
+          label: `Continue ${pt.toUpperCase()} cognitive modules`,
           onClick: () => {
-            if (pathwayDestination) {
-              setLocation(pathwayDestination);
-              return;
-            }
             track("provider_conversion", "aha_continue_learning_clicked", {
               programType: pt,
               enrollmentId: enrol.id,
@@ -176,7 +170,7 @@ export default function AHACourses() {
       }
     }
     return null;
-  }, [dashboard?.accessDecisions, enrollmentByProgram, enrollmentsPending, openAhaPlayer, setLocation, track]);
+  }, [enrollmentByProgram, enrollmentsPending, openAhaPlayer, setLocation, track]);
 
   const anyEnrolled = !enrollmentsPending && enrollmentByProgram.size > 0;
   const anyCognitiveComplete =

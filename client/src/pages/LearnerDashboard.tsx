@@ -1313,6 +1313,9 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
             ) : aclsEnrollment?.cognitiveModulesComplete && !phase1Done ? (
               <Button size="sm" variant="outline" onClick={() => document.getElementById("ierp-phase1-evidence")?.scrollIntoView({ behavior: "smooth" })}>Upload AHA certificates</Button>
             ) : null}
+            <Button asChild size="sm" variant="outline">
+              <Link href="/aha-courses">Open Life Support Hub</Link>
+            </Button>
           </div>
           {summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? <p className="mt-3 text-xs font-medium text-emerald-700">You may continue during the current deferred window. You can also pay early from the payment section below.</p> : null}
         </div>
