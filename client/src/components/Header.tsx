@@ -144,7 +144,7 @@ export default function Header() {
 
   return (
     <header
-      className="bg-background shadow-sm sticky top-0 z-50 border-b border-border"
+      className="app-safe-area-top bg-background shadow-sm sticky top-0 z-50 border-b border-border"
       role="banner"
       aria-label="Site header"
     >
