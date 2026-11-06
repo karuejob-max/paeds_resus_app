@@ -107,7 +107,7 @@ export const ClinicalHeader: React.FC<ClinicalHeaderProps> = ({
   };
 
   return (
-    <div className={`fixed top-0 left-0 right-0 z-50 ${
+    <div className={`app-safe-area-top fixed top-0 left-0 right-0 z-50 ${
       emergencyActivated ? 'bg-red-900' : 'bg-slate-900'
     } border-b border-slate-700 shadow-lg`}>
       {/* Main Header */}

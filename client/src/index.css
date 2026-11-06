@@ -173,6 +173,16 @@
 }
 
 @layer components {
+  /* Keep fixed/sticky app chrome clear of iPhone status bars, Dynamic Island,
+     and the home indicator when viewport-fit=cover is active. */
+  .app-safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .app-safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
   /* Skip to main content: off-screen until focused (keyboard/screen reader) */
   .skip-link {
     position: absolute;
