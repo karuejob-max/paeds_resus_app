@@ -201,6 +201,9 @@ interface SearchableDropdownProps {
   clearable?: boolean;
   /** Notify callers as the user types in the dropdown search field. */
   onSearchChange?: (query: string) => void;
+  /** Accessible text for the selected/empty state when the selector is always visible. */
+  selectedStateLabel?: string;
+  emptySelectionLabel?: string;
 }
 
 export function SearchableDropdown({
@@ -214,6 +217,8 @@ export function SearchableDropdown({
   searchAlwaysVisible = false,
   clearable = false,
   onSearchChange,
+  selectedStateLabel = "Presenter selected",
+  emptySelectionLabel = "No option selected",
 }: SearchableDropdownProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -295,7 +300,7 @@ export function SearchableDropdown({
         >
           {selectedOption ? (
             <div className="mb-2 rounded-md border border-emerald-200 bg-emerald-50/70 px-2.5 py-2 text-left dark:border-emerald-900/60 dark:bg-emerald-950/30" aria-live="polite">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Presenter selected</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">{selectedStateLabel}</p>
               <p className="truncate text-sm font-medium text-emerald-950 dark:text-emerald-100">{selectedOption.label}</p>
               {selectedOption.description ? <p className="break-words text-xs leading-snug text-emerald-800/80 dark:text-emerald-200/80">{selectedOption.description}</p> : null}
             </div>
@@ -329,7 +334,7 @@ export function SearchableDropdown({
               setOpen(true);
             }}
           />
-          <span className="sr-only">{selectedOption?.label ?? "No presenter selected"}</span>
+          <span className="sr-only">{selectedOption?.label ?? emptySelectionLabel}</span>
         </div>
       ) : null}
       <div className="flex min-w-0 gap-2">
