@@ -24,6 +24,9 @@ export type AdultAclsCaseFamily =
 /** An event the learner's session must contain. `descriptionIncludes` is matched case-insensitively. */
 export type AdultAclsEventRequirement = {
   type: string;
+  /** Stable event code; preferred over learner-facing description matching. */
+  code?: string;
+  /** @deprecated Use `code` for scoring rules; retained only for legacy definitions. */
   descriptionIncludes?: string;
   /** Requirement is waived if this event type occurred (e.g. instability replaces an ECG and infusion with immediate cardioversion). */
   unlessEventType?: string;
@@ -32,6 +35,9 @@ export type AdultAclsEventRequirement = {
 /** An action that is not dangerous but is not the guideline-preferred choice: caps the score below pass. */
 export type AdultAclsPoorChoice = {
   type: string;
+  /** Stable event code; preferred over learner-facing description matching. */
+  code?: string;
+  /** @deprecated Use `code` for scoring rules; retained only for legacy definitions. */
   descriptionIncludes?: string;
   /** Poor only if it happens before the first event of this type (or if that event never happens). */
   beforeEventType?: string;
@@ -91,7 +97,7 @@ export const ADULT_ACLS_CASE_DEFINITIONS: readonly AdultAclsCaseDefinition[] = [
     requiredEvents: [{ type: "cpr" }, { type: "defibrillation" }],
     requiresPostRoscCare: true,
     requiresRhythmAssessment: true,
-    poorChoices: [{ type: "medication", descriptionIncludes: "epinephrine", beforeEventType: "defibrillation", reason: "In a shockable rhythm, 2025 AHA guidance is to defibrillate first and give epinephrine after initial shocks fail." }],
+    poorChoices: [{ type: "medication", code: "medication.epinephrine", beforeEventType: "defibrillation", reason: "In a shockable rhythm, 2025 AHA guidance is to defibrillate first and give epinephrine after initial shocks fail." }],
     honestPath: [assess("rhythm"), { type: "start_cpr" }, { type: "defibrillate" }, ...POST_ROSC_CARE, END],
     mustNotPassPaths: [{ label: "epinephrine before any shock", path: [assess("rhythm"), { type: "start_cpr" }, { type: "give_epinephrine" }, { type: "defibrillate" }, ...POST_ROSC_CARE, END] }],
   },
@@ -132,7 +138,7 @@ export const ADULT_ACLS_CASE_DEFINITIONS: readonly AdultAclsCaseDefinition[] = [
       "2025 Adult Bradycardia With a Pulse: atropine is first-line, 1 mg IV bolus, repeat every 3 to 5 min, maximum 3 mg.",
       "If atropine is ineffective: transcutaneous pacing and/or dopamine (5-20 mcg/kg/min) or epinephrine (2-10 mcg/min) infusion.",
     ],
-    requiredEvents: [{ type: "medication", descriptionIncludes: "bradycardia response" }],
+    requiredEvents: [{ type: "medication", code: "medication.bradycardia_response" }],
     requiresRhythmAssessment: true,
     honestPath: [assess("rhythm"), { type: "give_atropine" }, REASSESS, END],
     mustNotPassPaths: [{ label: "pacing first, skipping atropine", path: [assess("rhythm"), { type: "pace" }, REASSESS, END] }],
@@ -146,7 +152,7 @@ export const ADULT_ACLS_CASE_DEFINITIONS: readonly AdultAclsCaseDefinition[] = [
     ],
     requiredEvents: [{ type: "pacing" }],
     requiresRhythmAssessment: true,
-    poorChoices: [{ type: "medication", descriptionIncludes: "poor choice", reason: "Atropine is unlikely to work in high-grade AV block and risks delaying pacing." }],
+    poorChoices: [{ type: "medication", code: "medication.atropine_high_grade_poor", reason: "Atropine is unlikely to work in high-grade AV block and risks delaying pacing." }],
     honestPath: [assess("rhythm"), { type: "pace" }, REASSESS, END],
     mustNotPassPaths: [{ label: "atropine first, then pacing", path: [assess("rhythm"), { type: "give_atropine" }, { type: "pace" }, REASSESS, END] }],
   },
@@ -154,7 +160,7 @@ export const ADULT_ACLS_CASE_DEFINITIONS: readonly AdultAclsCaseDefinition[] = [
     id: "stable-narrow-tachycardia",
     family: "tachycardia",
     guidelines: ["2025 Adult Tachyarrhythmia With a Pulse: stable regular narrow-complex tachycardia: vagal maneuvers, then adenosine 6 mg rapid IV push (12 mg if required)."],
-    requiredEvents: [{ type: "medication", descriptionIncludes: "adenosine" }],
+    requiredEvents: [{ type: "medication", code: "medication.adenosine" }],
     requiresRhythmAssessment: true,
     honestPath: [assess("rhythm"), { type: "give_adenosine" }, REASSESS, END],
   },
@@ -174,12 +180,12 @@ export const ADULT_ACLS_CASE_DEFINITIONS: readonly AdultAclsCaseDefinition[] = [
       "Antiarrhythmic infusions for stable wide-QRS tachycardia: procainamide (20-50 mg/min to a maximum 17 mg/kg), amiodarone (150 mg over 10 min), or sotalol (2025, COR 2b).",
       "Adenosine only if regular and monomorphic; it does not treat VT. Hypotension, altered mental status, shock, ischaemic chest discomfort or acute heart failure: synchronized cardioversion.",
     ],
-    requiredEvents: [{ type: "ecg", unlessEventType: "wct_destabilised" }, { type: "medication", descriptionIncludes: "antiarrhythmic infusion given", unlessEventType: "wct_destabilised" }],
+    requiredEvents: [{ type: "ecg", unlessEventType: "wct_destabilised" }, { type: "medication", code: "medication.antiarrhythmic_infusion", unlessEventType: "wct_destabilised" }],
     requiresRhythmAssessment: true,
     conditionalRequirements: [{ whenEventType: "wct_destabilised", require: [{ type: "synchronization" }, { type: "cardioversion" }] }],
     poorChoices: [
-      { type: "medication", descriptionIncludes: "poor choice", reason: "Adenosine does not treat VT, and an antiarrhythmic infusion in an unstable patient delays cardioversion." },
-      { type: "cardioversion", descriptionIncludes: "poor choice", reason: "In a stable wide-complex tachycardia an antiarrhythmic infusion is preferred; cardioversion needs sedation." },
+      { type: "medication", code: "medication.adenosine_poor", reason: "Adenosine does not treat VT, and an antiarrhythmic infusion in an unstable patient delays cardioversion." },
+      { type: "cardioversion", code: "cardioversion.poor_choice", reason: "In a stable wide-complex tachycardia an antiarrhythmic infusion is preferred; cardioversion needs sedation." },
     ],
     honestPath: [assess("rhythm"), { type: "obtain_ecg" }, { type: "give_antiarrhythmic" }, REASSESS, END],
     mustNotPassPaths: [
@@ -194,11 +200,11 @@ export const ADULT_ACLS_CASE_DEFINITIONS: readonly AdultAclsCaseDefinition[] = [
       "2025 Adult Tachyarrhythmia With a Pulse: stable regular narrow-complex tachycardia: vagal maneuvers, then adenosine.",
       "Adenosine IV dose: first dose 6 mg rapid IV push followed by saline flush; second dose 12 mg if required.",
     ],
-    requiredEvents: [{ type: "vagal" }, { type: "medication", descriptionIncludes: "adenosine 6 mg" }, { type: "medication", descriptionIncludes: "adenosine 12 mg" }],
+    requiredEvents: [{ type: "vagal" }, { type: "medication", code: "medication.adenosine_6mg" }, { type: "medication", code: "medication.adenosine_12mg" }],
     requiresRhythmAssessment: true,
     poorChoices: [
-      { type: "medication", descriptionIncludes: "poor choice", reason: "Adenosine dosing is 6 mg first, then 12 mg if required; do not repeat 6 mg or skip to 12 mg." },
-      { type: "medication", descriptionIncludes: "adenosine", beforeEventType: "vagal", reason: "Try vagal manoeuvres first in a stable regular narrow-complex tachycardia." },
+      { type: "medication", code: "medication.adenosine_6mg_poor", reason: "Adenosine dosing is 6 mg first, then 12 mg if required; do not repeat 6 mg or skip to 12 mg." },
+      { type: "medication", code: "medication.adenosine", beforeEventType: "vagal", reason: "Try vagal manoeuvres first in a stable regular narrow-complex tachycardia." },
     ],
     honestPath: [assess("rhythm"), { type: "vagal_manoeuvre" }, { type: "give_adenosine", dose: 6 }, { type: "give_adenosine", dose: 12 }, REASSESS, END],
     mustNotPassPaths: [

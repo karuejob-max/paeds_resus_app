@@ -48,6 +48,15 @@ describe("ACLS case definition harness", () => {
     for (const definition of ADULT_ACLS_CASE_DEFINITIONS) expect(definition.guidelines.length, definition.id).toBeGreaterThan(0);
   });
 
+  it("scores semantic event codes even when learner-facing descriptions are reworded", () => {
+    const { state } = play("unstable-bradycardia", ADULT_ACLS_CASE_DEFINITIONS.find((d) => d.id === "unstable-bradycardia")!.honestPath);
+    expect(state.events.every((event) => event.code && event.codes.length > 0)).toBe(true);
+    const reworded = { ...state, events: state.events.map((event) => ({ ...event, description: "Localized clinical response text" })) };
+    const breakdown = getAdultAclsScoreBreakdown(reworded);
+    expect(breakdown.score).toBeGreaterThanOrEqual(70);
+    expect(breakdown.indicatedAction).toBe(true);
+  });
+
   describe.each(ADULT_ACLS_CASE_DEFINITIONS.map((d) => [d.id, d] as [AdultAclsScenarioId, AdultAclsCaseDefinition]))("%s", (id, definition) => {
     it("can be won honestly with a safe end state, no critical failure, and no poor choice", () => {
       const { state, breakdown } = play(id, definition.honestPath);
