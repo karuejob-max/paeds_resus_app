@@ -45,6 +45,12 @@ function statusLabel(value: string): string {
   return value.replaceAll("_", " ");
 }
 
+function credentialLabel(value: string): string {
+  if (value === "paeds_resus_bls_provider" || value === "paeds_resus_bls_cognitive" || value === "paeds_resus_bls_simulation") return "Paeds Resus BLS Provider";
+  if (value.startsWith("paeds_resus_")) return `Paeds Resus ${value.replace("paeds_resus_", "").replaceAll("_", " ").replace(/\b\w/g, char => char.toUpperCase())}`;
+  return value.replaceAll("_", " ").replace(/\b\w/g, char => char.toUpperCase());
+}
+
 export function ProviderCredentialsCard() {
   const credentialsQuery =
     trpc.institutionAccountability.getMyCredentials.useQuery();
@@ -141,10 +147,20 @@ export function ProviderCredentialsCard() {
   const submitted = useMemo(
     () =>
       (credentialsQuery.data ?? []).filter(
-        row => row.sourceType !== "paeds_resus"
+        row => row.sourceType !== "paeds_resus",
       ),
     [credentialsQuery.data]
   );
+  const derivedSummary = useMemo(() => {
+    const grouped = new Map<string, typeof derived[number]>();
+    for (const row of derived) {
+      const key = row.credentialType.startsWith("paeds_resus_bls_") ? "paeds_resus_bls" : row.credentialType;
+      const existing = grouped.get(key);
+      const preferred = row.credentialType.endsWith("_provider") || !existing || existing.credentialType.endsWith("_cognitive") || existing.credentialType.endsWith("_simulation");
+      if (preferred) grouped.set(key, row);
+    }
+    return Array.from(grouped.values());
+  }, [derived]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -224,32 +240,33 @@ export function ProviderCredentialsCard() {
         <CardDescription>
           Regulatory licences and optional external AHA evidence are private records and
           remain pending until an authorised verifier reviews them. Select the
-          country where you are licensed; nurses in Kenya will see Nursing Council
-          of Kenya (NCK) prefilled. Use this section for your evidence-backed
+          country where you are licensed; the licensing body is suggested from your
+          country and professional identity. Use this section for your evidence-backed
           regulatory licence or external certificate. A current licence requires
           a number, first issue date, Valid until date, and evidence. An expired
           licence blocks clinical duty responsibilities.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid gap-3 md:grid-cols-3">
-          {derived.length ? (
-            derived.map(row => (
-              <div key={row.id} className="rounded-lg border bg-muted/20 p-3">
-                <p className="text-sm font-semibold">
-                  {statusLabel(row.credentialType)}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {row.sourceLabel}
-                </p>
-                <p className="mt-2 flex items-center gap-1 text-xs capitalize">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />{" "}
-                  {statusLabel(row.displayStatus)}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Issued {dateLabel(row.issuedAt)} · Valid until {dateLabel(row.expiresAt)}
-                </p>
-              </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          {derivedSummary.length ? (
+            derivedSummary.map(row => (
+              <details key={row.id} className="rounded-lg border bg-muted/20 p-3">
+                <summary className="cursor-pointer list-none">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">{credentialLabel(row.credentialType)}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{row.sourceLabel}</p>
+                    </div>
+                    <span className="text-xs font-medium text-primary">View details</span>
+                  </div>
+                  <p className="mt-2 flex items-center gap-1 text-xs capitalize"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> {statusLabel(row.displayStatus)}</p>
+                </summary>
+                <div className="mt-3 border-t pt-3 text-xs text-muted-foreground">
+                  <p>Issued {dateLabel(row.issuedAt)} · Valid until {dateLabel(row.expiresAt)}</p>
+                  {row.credentialType === "paeds_resus_bls_provider" ? <p className="mt-1">Cognitive and simulation competency evidence is included in this BLS Provider record.</p> : null}
+                </div>
+              </details>
             ))
           ) : (
             <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground md:col-span-3">
@@ -298,25 +315,6 @@ export function ProviderCredentialsCard() {
                 ))}
               </select>
             </label>
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">
-                {isRegulatory
-                  ? isNurseProfile
-                    ? "Nursing council / licensing body"
-                    : "Professional licensing body"
-                  : "Issuing organisation"}
-              </span>
-              <input
-                className="w-full rounded-md border bg-background px-3 py-2"
-                value={issuer}
-                placeholder={isRegulatory ? "Suggested from your country" : "e.g., American Heart Association"}
-                onChange={event => {
-                  setIssuer(event.target.value);
-                  setIssuerTouched(true);
-                }}
-                required
-              />
-            </label>
             {isRegulatory && (
               <label className="space-y-1 text-sm">
                 <span className="font-medium">Professional cadre *</span>
@@ -346,6 +344,8 @@ export function ProviderCredentialsCard() {
                   placeholder="Search and select a country"
                   searchPlaceholder="Type a few letters…"
                   emptyText="No country found."
+                  selectedStateLabel="Country selected"
+                  emptySelectionLabel="No country selected"
                   searchAlwaysVisible
                 />
               </label>
@@ -360,6 +360,19 @@ export function ProviderCredentialsCard() {
                 />
               </label>
             )}
+            <label className="space-y-1 text-sm">
+              <span className="font-medium">{isRegulatory ? "Licensing body" : "Issuing organisation"}</span>
+              <input
+                className="w-full rounded-md border bg-background px-3 py-2"
+                value={issuer}
+                placeholder={isRegulatory ? "Suggested from your country" : "e.g., American Heart Association"}
+                onChange={event => {
+                  setIssuer(event.target.value);
+                  setIssuerTouched(true);
+                }}
+                required
+              />
+            </label>
             {isRegulatory && isNurseProfile && countryCode === "KE" && (
               <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs md:col-span-2">
                 <p className="font-semibold">Kenya Nursing Council: one practice-licence number</p>

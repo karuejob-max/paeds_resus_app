@@ -24,9 +24,10 @@ import {
   type PracticeLabTrackId,
 } from "../../shared/practice-lab-types";
 import { advanceSimulationWorld, createSimulationWorld, isSimulationWorldCommandAllowed, isSimulationWorldScenarioCompatible, reduceSimulationWorld, replaySimulationWorldAttempt, SIMULATION_WORLD_ROLES, SIMULATION_WORLD_SCENARIOS, type SimulationWorldEvent, type SimulationWorldRole, type SimulationWorldScenarioId, type SimulationWorldState, type SimulationWorldCommand } from "../../shared/simulation-world";
-import { ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS, ADULT_ACLS_SCENARIOS, ADULT_ACLS_SCENARIO_VERSION, ADULT_ACLS_WORLD_VERSION, advanceAdultAclsSimulation, calculateAdultAclsTrainingEvidence, createAdultAclsSimulation, getAdultAclsScoreBreakdown, reduceAdultAclsSimulation, type AdultAclsCommand, type AdultAclsMode, type AdultAclsScenarioId, type AdultAclsState } from "../../shared/adult-acls-simulation-world";
+import { ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS, ADULT_ACLS_SCENARIOS, ADULT_ACLS_SCENARIO_VERSION, ADULT_ACLS_WORLD_VERSION, advanceAdultAclsSimulation, createAdultAclsSimulation, getAdultAclsScoreBreakdown, reduceAdultAclsSimulation, type AdultAclsCommand, type AdultAclsMode, type AdultAclsScenarioId, type AdultAclsState } from "../../shared/adult-acls-simulation-world";
 import { NRP_MAX_ACTION_ADVANCE_SECONDS, NRP_SCENARIOS, NRP_SCENARIO_VERSION, NRP_WORLD_VERSION, advanceNrpSimulation, calculateNrpTrainingEvidence, createNrpSimulation, reduceNrpSimulation, type NrpCommand, type NrpScenarioId, type NrpState } from "../../shared/nrp-simulation-world";
 import { reconcilePhase2Completion } from "../lib/phase2-completion";
+import { persistAdultAclsCompletion } from "../lib/persist-acls-completion";
 import { calculatePhase2AutomationStatus, scoreAuthoritativeChoiceAttempt, scoreCardiacArrestEventLog, scoreDedicatedSimulation, scoreFormativeEventLog } from "../../shared/phase2-automation";
 
 const PHASE2_LEDGER_PROGRAMS = ["acls", "pals", "nrp", "heartsaver"] as const;
@@ -264,23 +265,11 @@ export const practiceLabRouter = router({
       if (state.patient.phase !== "ended" && state.patient.phase !== "failed") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Complete the scenario and reach a stable, post-ROSC, or failed terminal state before saving rehearsal evidence" });
       }
-      const sessionMode = state.mode ?? "standard";
-      const evidence = calculateAdultAclsTrainingEvidence(state);
-      const evidenceWithAuthority = { ...evidence, sessionId: session.id, scenarioVersion: session.scenarioVersion, learnerUserId: session.userId, enrollmentId: session.enrollmentId, role: session.role };
       const scoreBreakdown = getAdultAclsScoreBreakdown(state);
       const automatedScore = scoreBreakdown.score;
-      const evidenceWithRubric = { ...evidenceWithAuthority, score: automatedScore, scoreBreakdown, mode: sessionMode, countsTowardPhase2: sessionMode === "standard" };
-      if (sessionMode === "standard") {
-        await db.insert(ahaPracticeLabAttempts).values({ userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "acls", trackId: "adult_acls_world", scenarioId: session.scenarioId, score: automatedScore, passed: automatedScore >= 70, eventLog: state.events, evidenceStatus: "review_required", scenarioVersion: session.scenarioVersion, criticalFailure: state.criticalFailures.length > 0, durationSeconds: Math.round(state.elapsedSeconds) });
-        await db.insert(simulationWorldEvidence).values({ sessionId: session.id, userId: ctx.user.id, enrollmentId: session.enrollmentId, role: session.role, scenarioId: state.scenarioId, evidenceStatus: "review_required", assessmentJson: evidenceWithRubric });
-        // Reconcile only the deliberately qualifying Standard run.
-        await reconcilePhase2Completion(db, { userId: ctx.user.id, enrollmentId: session.enrollmentId, programType: "acls", source: "completeAdultAclsSession" });
-      } else {
-        // Guided practice is retained as an auditable formative record, but is explicitly rejected from mastery.
-        await db.insert(simulationWorldEvidence).values({ sessionId: session.id, userId: ctx.user.id, enrollmentId: session.enrollmentId, role: session.role, scenarioId: state.scenarioId, evidenceStatus: "rejected", reviewerReason: "Guided formative rehearsal; not eligible for Phase 2 mastery", assessmentJson: evidenceWithRubric });
-      }
+      const persisted = await persistAdultAclsCompletion({ db, session, state, score: automatedScore, scoreBreakdown, userId: ctx.user.id });
       await db.update(simulationWorldSessions).set({ status: "completed", completedAt: new Date() }).where(eq(simulationWorldSessions.id, session.id));
-      return { success: true, evidenceStatus: sessionMode === "standard" ? "review_required" as const : "formative_only" as const, evidence: evidenceWithRubric, syntheticTrainingOnly: true, countsTowardPhase2: sessionMode === "standard" };
+      return { success: true, evidenceStatus: persisted.evidenceStatus, evidence: persisted.evidence, syntheticTrainingOnly: true, countsTowardPhase2: persisted.countsTowardPhase2 };
     }),
 
   startNrpSession: protectedProcedure

@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useWorkspaceAccess } from "@/hooks/useWorkspaceAccess";
 import { Button } from "@/components/ui/button";
-import { Menu, X, ChevronDown, LogOut, Bell, Settings, Stethoscope, Briefcase, Shield } from "lucide-react";
+import { Menu, X, ChevronDown, LogOut, Bell, RefreshCw, Settings, Stethoscope, Briefcase, Shield } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { getLoginUrl } from "@/const";
@@ -334,10 +334,19 @@ export default function Header() {
             </nav>
           )}
 
-          {/* Global actions: alerts, search, appearance, account, and one mobile menu */}
+            {/* Global actions: alerts, search, appearance, account, and one mobile menu */}
           <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-2">
             {isAuthenticated && <NotificationBell />}
             <GlobalSearch />
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              aria-label="Refresh app"
+              title="Refresh app"
+              className="rounded-lg p-2 text-foreground transition hover:bg-accent focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:hidden"
+            >
+              <RefreshCw className="h-5 w-5" />
+            </button>
             <ThemeToggle />
 
             {/* Auth Section */}
@@ -393,14 +402,6 @@ export default function Header() {
                         </Link>
                         {effectiveRole === "provider" && (
                           <>
-                            <Link href="/provider-profile">
-                              <div
-                                className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
-                                onClick={() => setAccountDropdownOpen(false)}
-                              >
-                                Professional profile
-                              </div>
-                            </Link>
                             <Link href="/provider-profile">
                               <div
                                 className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
@@ -607,8 +608,11 @@ export default function Header() {
                 <div className="space-y-1">
                       {effectiveRole === "provider" && (
                         <>
+                          <Link href="/account" onClick={() => setMobileMenuOpen(false)}>
+                            <span className="block rounded px-3 py-2 text-sm font-semibold text-foreground hover:bg-accent">Account &amp; security</span>
+                          </Link>
                           <Link href="/provider-profile" onClick={() => setMobileMenuOpen(false)}>
-                            <span className="block rounded px-3 py-2 text-sm font-semibold text-foreground hover:bg-accent">Professional profile</span>
+                            <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">Professional profile</span>
                           </Link>
                           <Link href="/workplaces" onClick={() => setMobileMenuOpen(false)}>
                             <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">Workplaces &amp; access</span>
@@ -621,9 +625,6 @@ export default function Header() {
                           </Link>
                     </>
                   )}
-                  <Link href="/account" onClick={() => setMobileMenuOpen(false)}>
-                    <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">Account &amp; security</span>
-                  </Link>
                   <Link href="/account/notifications" onClick={() => setMobileMenuOpen(false)}>
                     <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">Notification preferences</span>
                   </Link>
