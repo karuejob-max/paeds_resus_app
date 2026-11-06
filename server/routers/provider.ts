@@ -11,6 +11,12 @@ import {
   institutionalAccounts,
   institutionalStaffMembers,
   professionalCredentials,
+  institutionDepartmentHeads,
+  institutionEducationCoordinators,
+  institutionProductRoles,
+  institutionAccountScopes,
+  facilityDepartments,
+  institutionDepartmentResponseCoordinators,
 } from "../../drizzle/schema";
 import { eq, and, desc, or, sql, isNull } from "drizzle-orm";
 import { autoLinkCpdFacilitiesForUser, syncProviderProfileFacility } from "../services/facility-registry.service";
@@ -24,6 +30,36 @@ type ProviderFacilityHistoryEntry = {
   lastAttendedAt: Date | null;
   departments: string[];
 };
+
+type ProviderAssignedRole = {
+  institutionId: number;
+  institutionName: string;
+  department: string | null;
+  roleKey: string;
+  roleLabel: string;
+  status: string;
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  department_head: "Departmental Head",
+  department_head_deputy: "Deputy Departmental Head",
+  cpd_coordinator: "CPD Coordinator",
+  cpd_coordinator_deputy: "Deputy CPD Coordinator",
+  erco: "Emergency Response Coordinator",
+  deputy_erco: "Deputy Emergency Response Coordinator",
+  iers_coordinator: "IERS Coordinator",
+  iers_governance: "IERS Governance",
+  iers_reviewer: "IERS Reviewer",
+  iers_responder: "IERS Responder",
+  cpd_viewer: "CPD Viewer",
+  cpd_reporter: "CPD Reporter",
+  cpd_reviewer: "CPD Reviewer",
+  credential_manager: "Credential Manager",
+};
+
+function roleLabel(roleKey: string): string {
+  return ROLE_LABELS[roleKey] ?? roleKey.replaceAll("_", " ").replace(/\b\w/g, char => char.toUpperCase());
+}
 
 const LICENSED_PROVIDER_TYPES = new Set([
   "nurse",
@@ -223,6 +259,67 @@ async function getProviderFacilityHistory(
   });
 }
 
+async function getProviderAssignedRoles(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  userId: number,
+): Promise<ProviderAssignedRole[]> {
+  const rows: ProviderAssignedRole[] = [];
+
+  const [heads, coordinators, productRoles, scopes, ercos] = await Promise.all([
+    db.select({ institutionId: institutionDepartmentHeads.institutionalAccountId, institutionName: institutionalAccounts.companyName, department: facilityDepartments.departmentName, roleKey: sql<string>`'department_head'`, status: institutionDepartmentHeads.assignmentStatus, deputyUserId: institutionDepartmentHeads.deputyUserId, deputyStatus: institutionDepartmentHeads.deputyAssignmentStatus })
+      .from(institutionDepartmentHeads)
+      .innerJoin(institutionalAccounts, eq(institutionalAccounts.id, institutionDepartmentHeads.institutionalAccountId))
+      .leftJoin(facilityDepartments, eq(facilityDepartments.id, institutionDepartmentHeads.departmentId))
+      .where(and(eq(institutionDepartmentHeads.userId, userId), eq(institutionDepartmentHeads.assignmentStatus, "active"))),
+    db.select({ institutionId: institutionEducationCoordinators.institutionalAccountId, institutionName: institutionalAccounts.companyName, department: facilityDepartments.departmentName, roleKey: sql<string>`'cpd_coordinator'`, status: institutionEducationCoordinators.assignmentStatus, deputyUserId: institutionEducationCoordinators.deputyUserId, deputyStatus: institutionEducationCoordinators.deputyAssignmentStatus })
+      .from(institutionEducationCoordinators)
+      .innerJoin(institutionalAccounts, eq(institutionalAccounts.id, institutionEducationCoordinators.institutionalAccountId))
+      .leftJoin(facilityDepartments, eq(facilityDepartments.id, institutionEducationCoordinators.departmentId))
+      .where(and(eq(institutionEducationCoordinators.userId, userId), eq(institutionEducationCoordinators.assignmentStatus, "active"))),
+    db.select({ institutionId: institutionProductRoles.institutionalAccountId, institutionName: institutionalAccounts.companyName, roleKey: institutionProductRoles.roleKey, status: institutionProductRoles.roleStatus })
+      .from(institutionProductRoles)
+      .innerJoin(institutionalAccounts, eq(institutionalAccounts.id, institutionProductRoles.institutionalAccountId))
+      .where(and(eq(institutionProductRoles.userId, userId), eq(institutionProductRoles.roleStatus, "active"))),
+    db.select({ institutionId: institutionAccountScopes.institutionalAccountId, institutionName: institutionalAccounts.companyName, roleKey: institutionAccountScopes.scopeKey, status: institutionAccountScopes.scopeStatus })
+      .from(institutionAccountScopes)
+      .innerJoin(institutionalAccounts, eq(institutionalAccounts.id, institutionAccountScopes.institutionalAccountId))
+      .where(and(
+        eq(institutionAccountScopes.userId, userId),
+        eq(institutionAccountScopes.scopeStatus, "active"),
+      )),
+    db.select({ institutionId: institutionDepartmentResponseCoordinators.institutionId, institutionName: institutionalAccounts.companyName, department: facilityDepartments.departmentName, coordinatorUserId: institutionDepartmentResponseCoordinators.coordinatorUserId, deputyUserId: institutionDepartmentResponseCoordinators.deputyUserId, deputyStatus: institutionDepartmentResponseCoordinators.deputyAssignmentStatus, status: institutionDepartmentResponseCoordinators.assignmentStatus })
+      .from(institutionDepartmentResponseCoordinators)
+      .innerJoin(institutionalAccounts, eq(institutionalAccounts.id, institutionDepartmentResponseCoordinators.institutionId))
+      .leftJoin(facilityDepartments, eq(facilityDepartments.id, institutionDepartmentResponseCoordinators.departmentId))
+      .where(and(
+        or(
+          eq(institutionDepartmentResponseCoordinators.coordinatorUserId, userId),
+          eq(institutionDepartmentResponseCoordinators.deputyUserId, userId),
+        ),
+        sql`${institutionDepartmentResponseCoordinators.assignmentStatus} IN ('active', 'pending_acceptance')`,
+      )),
+  ]);
+
+  for (const row of heads) {
+    rows.push({ institutionId: row.institutionId, institutionName: row.institutionName, department: row.department, roleKey: row.roleKey, roleLabel: roleLabel(row.roleKey), status: row.status });
+    if (row.deputyUserId === userId && row.deputyStatus && row.deputyStatus !== "ended") rows.push({ institutionId: row.institutionId, institutionName: row.institutionName, department: row.department, roleKey: "department_head_deputy", roleLabel: roleLabel("department_head_deputy"), status: row.deputyStatus });
+  }
+  for (const row of coordinators) {
+    rows.push({ institutionId: row.institutionId, institutionName: row.institutionName, department: row.department, roleKey: row.roleKey, roleLabel: roleLabel(row.roleKey), status: row.status });
+    if (row.deputyUserId === userId && row.deputyStatus && row.deputyStatus !== "ended") rows.push({ institutionId: row.institutionId, institutionName: row.institutionName, department: row.department, roleKey: "cpd_coordinator_deputy", roleLabel: roleLabel("cpd_coordinator_deputy"), status: row.deputyStatus });
+  }
+  for (const row of productRoles) rows.push({ ...row, department: null, roleLabel: roleLabel(row.roleKey) });
+  for (const row of scopes) rows.push({ ...row, department: null, roleLabel: roleLabel(row.roleKey) });
+  for (const row of ercos) {
+    if (row.coordinatorUserId === userId) rows.push({ institutionId: row.institutionId, institutionName: row.institutionName, department: row.department, roleKey: "erco", roleLabel: roleLabel("erco"), status: row.status });
+    if (row.deputyUserId === userId && row.deputyStatus && row.deputyStatus !== "ended") rows.push({ institutionId: row.institutionId, institutionName: row.institutionName, department: row.department, roleKey: "deputy_erco", roleLabel: roleLabel("deputy_erco"), status: row.deputyStatus });
+  }
+
+  const unique = new Map<string, ProviderAssignedRole>();
+  for (const row of rows) unique.set(`${row.institutionId}:${row.department ?? "all"}:${row.roleKey}`, row);
+  return Array.from(unique.values()).sort((a, b) => a.institutionName.localeCompare(b.institutionName) || a.roleLabel.localeCompare(b.roleLabel));
+}
+
 export const providerRouter = router({
   listProfessionalRoles: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
@@ -302,6 +399,7 @@ export const providerRouter = router({
       profileCompleted: readiness.identityComplete,
       professionalReadiness: readiness,
       facilityHistory: await getProviderFacilityHistory(db, ctx.user.id, ctx.user.email),
+      assignedInstitutionRoles: await getProviderAssignedRoles(db, ctx.user.id),
     };
   }),
 
