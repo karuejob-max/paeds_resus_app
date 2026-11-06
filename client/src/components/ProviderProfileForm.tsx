@@ -97,9 +97,9 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
     <div className="w-full max-w-2xl mx-auto p-4">
       <Card>
         <CardHeader>
-          <CardTitle>Professional profile</CardTitle>
+          <CardTitle>Professional details</CardTitle>
           <CardDescription>
-            Manage your specialization, years of experience, optional language context, and professional biography here. Cadre is captured in Professional Identity. Regulatory licensing and AHA evidence belong in Professional Credentials, where you enter one Licence number with its jurisdiction and verification evidence. Primary care-delivery context is managed in Workplaces &amp; access.
+            Maintain your professional summary, experience context, languages, and optional biography here. Your role and main professional area are managed in Professional Identity. Regulatory licences and external certificates are submitted in Licences and professional evidence. Workplace context is managed in Workplaces &amp; access.
           </CardDescription>
         </CardHeader>
         <CardContent>
