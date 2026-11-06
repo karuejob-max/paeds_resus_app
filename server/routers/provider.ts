@@ -69,6 +69,30 @@ export function calculateProviderIdentityReadiness(
   } as const;
 }
 
+/** Select the effective verified regulatory licence without relying on row order. */
+export function selectEffectiveRegulatoryLicence(
+  credentials: Array<typeof professionalCredentials.$inferSelect>,
+) {
+  return credentials
+    .filter(credential => credential.credentialType === "regulatory_license" && credential.status === "verified")
+    .sort((a, b) => {
+      const issuedAt = (b.issuedAt?.getTime() ?? 0) - (a.issuedAt?.getTime() ?? 0);
+      if (issuedAt !== 0) return issuedAt;
+      return (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0);
+    })[0] ?? null;
+}
+
+export function calculateLicenceExperienceYears(
+  issuedAt: Date | null | undefined,
+  now = new Date(),
+) {
+  if (!issuedAt || issuedAt.getTime() > now.getTime()) return null;
+  const years = now.getUTCFullYear() - issuedAt.getUTCFullYear();
+  const beforeAnniversary = now.getUTCMonth() < issuedAt.getUTCMonth() ||
+    (now.getUTCMonth() === issuedAt.getUTCMonth() && now.getUTCDate() < issuedAt.getUTCDate());
+  return Math.max(0, years - (beforeAnniversary ? 1 : 0));
+}
+
 async function calculateProviderProfileReadiness(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   userId: number,
@@ -93,7 +117,8 @@ async function calculateProviderProfileReadiness(
   const isCurrent = (credential: (typeof credentials)[number]) =>
     credential.status === "verified" &&
     (credential.expiresAt == null || credential.expiresAt.getTime() > now);
-  const licenseCredential = credentials.find(credential => credential.credentialType === "regulatory_license");
+  const licenseCredential = selectEffectiveRegulatoryLicence(credentials);
+  const experienceYears = calculateLicenceExperienceYears(licenseCredential?.issuedAt);
   const lifeSupportCredential = credentials.find(credential =>
     (LIFE_SUPPORT_CREDENTIAL_TYPES as readonly string[]).includes(credential.credentialType) && isCurrent(credential),
   );
@@ -110,6 +135,8 @@ async function calculateProviderProfileReadiness(
     licenseRequired,
     licenseStatus: licenseCredential == null ? "missing" : licenseCredential.status === "verified" && !isCurrent(licenseCredential) ? "expired" : licenseCredential.status,
     lifeSupportStatus: lifeSupportCredential ? "current" : credentials.some(credential => (LIFE_SUPPORT_CREDENTIAL_TYPES as readonly string[]).includes(credential.credentialType) && credential.status === "verified") ? "expired" : "missing",
+    experienceYears,
+    experienceSource: experienceYears == null ? "self_declared_or_unverified" : "verified_first_licence_date",
     credentials,
   } as const;
 }

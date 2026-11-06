@@ -5,9 +5,9 @@ import { deriveSetupChecklist, type SetupChecklistInputs } from "@shared/institu
 const LABELS: Record<keyof SetupChecklistInputs, string> = {
   institutionProfile: "Institution profile",
   staffRoster: "Staff roster",
-  peopleAccess: "People and roles",
+  peopleAccess: "People & Access",
   departments: "Departments",
-  accessLinks: "Admins and access",
+  accessLinks: "Admins & access",
 };
 
 export function SetupChecklist({ activeView, inputs }: { activeView: string; inputs: SetupChecklistInputs }) {

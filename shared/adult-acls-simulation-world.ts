@@ -20,6 +20,8 @@ export const ADULT_ACLS_END_STATE_MIN_SYSTOLIC_BP = 90;
 /** Browser/network delay is bounded so manual interaction is not itself a clinical error. */
 export const ADULT_ACLS_MAX_ACTION_ADVANCE_SECONDS = 5;
 
+export type AdultAclsMode = "guided" | "standard";
+
 export type AdultAclsScenarioId =
   | "unstable-bradycardia"
   | "high-grade-av-block"
@@ -118,6 +120,7 @@ export type AdultAclsEvent = {
 export type AdultAclsState = {
   scenarioId: AdultAclsScenarioId;
   role: SimulationWorldRole;
+  mode: AdultAclsMode;
   elapsedSeconds: number;
   patient: AdultAclsPatient;
   observations: Partial<Record<AdultAclsCommand["type"], string | number>>;
@@ -215,7 +218,7 @@ function hasEvent(state: AdultAclsState, type: string) {
  * This is guidance only: the server still validates and scores every command.
  */
 export function getAdultAclsNextAction(state: AdultAclsState): AdultAclsNextAction | null {
-  if (state.patient.phase === "failed" || state.patient.phase === "ended") return null;
+  if (state.mode === "standard" || state.patient.phase === "failed" || state.patient.phase === "ended") return null;
   if (state.patient.phase === "cardiac_arrest") {
     if (!hasRhythmAssessment(state)) return { label: "Assess rhythm", command: { type: "assess", target: "rhythm" }, reason: "Confirm shockable versus non-shockable rhythm before choosing the arrest pathway." };
     if (!state.environment.cprActive) return { label: "Start CPR", command: { type: "start_cpr" }, reason: "Provide high-quality CPR before the next rhythm-directed intervention." };
@@ -298,9 +301,9 @@ function derivePatient(patient: AdultAclsPatient): AdultAclsPatient {
   return { ...patient, pulse, mentalStatus, breathing, phase, trajectory, spo2: Math.round(clamp(45 + h.oxygenation * 54 - h.oxygenDebt * 0.06, 35, 99)), systolicBp: phase === "cardiac_arrest" ? 0 : Math.round(45 + perfusion * 105), diastolicBp: phase === "cardiac_arrest" ? 0 : Math.round(25 + perfusion * 58), respiratoryRate: breathing === "apnoeic" ? 0 : Math.round(8 + h.ventilation * 22), heartRate: phase === "cardiac_arrest" ? (patient.rhythm === "pulseless_electrical_activity" ? 82 : 0) : patient.heartRate };
 }
 
-export function createAdultAclsSimulation(scenarioId: AdultAclsScenarioId, role: SimulationWorldRole = "team_leader"): AdultAclsState {
+export function createAdultAclsSimulation(scenarioId: AdultAclsScenarioId, role: SimulationWorldRole = "team_leader", mode: AdultAclsMode = "guided"): AdultAclsState {
   const scenario = getAdultAclsScenario(scenarioId);
-  return { scenarioId, role, elapsedSeconds: 0, patient: structuredClone(scenario.initial), observations: {}, events: [], environment: { oxygenAvailable: true, ventilationAvailable: true, defibrillatorReady: true, pacingAvailable: true, synchronized: false, cprActive: false }, criticalFailures: [], competencies: { recognition: 0, interventionSelection: 0, sequencing: 0, execution: 0, reassessment: 0, teamPerformance: 0 } };
+  return { scenarioId, role, mode, elapsedSeconds: 0, patient: structuredClone(scenario.initial), observations: {}, events: [], environment: { oxygenAvailable: true, ventilationAvailable: true, defibrillatorReady: true, pacingAvailable: true, synchronized: false, cprActive: false }, criticalFailures: [], competencies: { recognition: 0, interventionSelection: 0, sequencing: 0, execution: 0, reassessment: 0, teamPerformance: 0 } };
 }
 
 function addEvent(state: AdultAclsState, type: string, description: string, correct?: boolean, consequence?: string): AdultAclsState { return { ...state, events: [...state.events, { timestamp: state.elapsedSeconds, type, description, correct, consequence }] }; }

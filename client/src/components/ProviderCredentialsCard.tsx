@@ -219,11 +219,10 @@ export function ProviderCredentialsCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FileLock2 className="h-5 w-5 text-primary" /> Professional
-          credentials
+          <FileLock2 className="h-5 w-5 text-primary" /> Licences and professional evidence
         </CardTitle>
         <CardDescription>
-          Regulatory licences and external AHA evidence are private records and
+          Regulatory licences and optional external AHA evidence are private records and
           remain pending until an authorised verifier reviews them. Select the
           country where you are licensed; nurses in Kenya will see Nursing Council
           of Kenya (NCK) prefilled. Use this section for your evidence-backed
@@ -267,7 +266,7 @@ export function ProviderCredentialsCard() {
         >
           <div>
             <h3 className="font-semibold">
-              Add or renew a professional credential
+              Add or renew a licence or certificate
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
               For a regulatory licence, choose your jurisdiction first. The
@@ -455,7 +454,7 @@ export function ProviderCredentialsCard() {
         </form>
 
         <div className="space-y-2">
-          <h3 className="font-semibold">Submitted credentials</h3>
+          <h3 className="font-semibold">Recent submissions</h3>
           {submitted.length ? (
             submitted.map(row => (
               <div

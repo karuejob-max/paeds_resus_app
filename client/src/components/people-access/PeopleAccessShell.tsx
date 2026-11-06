@@ -198,7 +198,7 @@ export function PeopleAccessShell({
           <MismatchInbox institutionId={institutionId} focus={focusTarget} />
         </TabsContent>
         <TabsContent value="roles" className="mt-0">
-          <RoleRegister institutionId={institutionId} />
+          <RoleRegister institutionId={institutionId} focus={focus?.kind === "role" ? focus : undefined} />
           <details className="mt-5 rounded-lg border bg-muted/10 p-4">
             <summary className="cursor-pointer text-sm font-medium">Advanced access and responsibilities</summary>
             <div className="mt-4">

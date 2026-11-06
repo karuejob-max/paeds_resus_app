@@ -780,7 +780,7 @@ export const institutionLearningRouter = router({
           .from(institutionEducationCoordinators)
           .where(eq(institutionEducationCoordinators.id, input.assignmentId)).limit(1);
         if (!row?.deputyUserId || row.deputyAssignmentStatus === "ended") throw new TRPCError({ code: "NOT_FOUND", message: "Active Deputy Departmental CPD Coordinator appointment not found." });
-        await db.update(institutionEducationCoordinators).set({ deputyAssignmentStatus: "ended", deputyUserId: null, deputyAcceptedAt: null, deputyDeclinedAt: null, deputyDeclineReason: input.reason ?? null, updatedAt: new Date() }).where(eq(institutionEducationCoordinators.id, input.assignmentId));
+        await db.update(institutionEducationCoordinators).set({ deputyAssignmentStatus: "ended", deputyUserId: null, deputyAcceptedAt: null, deputyDeclinedAt: null, deputyDeclineReason: null, updatedAt: new Date() }).where(eq(institutionEducationCoordinators.id, input.assignmentId));
         return { success: true as const };
       }
       await db
