@@ -401,14 +401,6 @@ export default function Header() {
                                 Professional profile
                               </div>
                             </Link>
-                            <Link href="/provider-profile">
-                              <div
-                                className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
-                                onClick={() => setAccountDropdownOpen(false)}
-                              >
-                                Professional profile
-                              </div>
-                            </Link>
                             <Link href="/workplaces">
                               <div
                                 className="px-3 py-2 text-sm text-foreground hover:bg-accent transition cursor-pointer rounded"
@@ -607,8 +599,11 @@ export default function Header() {
                 <div className="space-y-1">
                       {effectiveRole === "provider" && (
                         <>
+                          <Link href="/account" onClick={() => setMobileMenuOpen(false)}>
+                            <span className="block rounded px-3 py-2 text-sm font-semibold text-foreground hover:bg-accent">Account &amp; security</span>
+                          </Link>
                           <Link href="/provider-profile" onClick={() => setMobileMenuOpen(false)}>
-                            <span className="block rounded px-3 py-2 text-sm font-semibold text-foreground hover:bg-accent">Professional profile</span>
+                            <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">Professional profile</span>
                           </Link>
                           <Link href="/workplaces" onClick={() => setMobileMenuOpen(false)}>
                             <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">Workplaces &amp; access</span>
@@ -621,9 +616,6 @@ export default function Header() {
                           </Link>
                     </>
                   )}
-                  <Link href="/account" onClick={() => setMobileMenuOpen(false)}>
-                    <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">Account &amp; security</span>
-                  </Link>
                   <Link href="/account/notifications" onClick={() => setMobileMenuOpen(false)}>
                     <span className="block rounded px-3 py-2 text-sm text-foreground hover:bg-accent">Notification preferences</span>
                   </Link>

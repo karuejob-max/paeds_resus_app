@@ -178,6 +178,21 @@ export function ProfessionalIdentityCard() {
             <div className="flex flex-wrap gap-2">{providerRolesQuery.data.map(role => <Badge key={role.id} variant={role.cadre === cadre ? "default" : "secondary"}>{role.cadreOther ? `${role.cadre}: ${role.cadreOther}` : role.cadre}</Badge>)}</div>
           ) : null}
         </div>
+        <div className="space-y-2 rounded-lg border border-indigo-200 bg-indigo-50/40 p-3 dark:border-indigo-900/50 dark:bg-indigo-950/20">
+          <div>
+            <p className="text-sm font-semibold">Institution-assigned platform roles</p>
+            <p className="mt-1 text-xs text-muted-foreground">These are read-only and come from institutional appointments. Update them in the relevant institution workspace, not by typing them here.</p>
+          </div>
+          {providerProfileQuery.data?.assignedInstitutionRoles?.length ? (
+            <div className="flex flex-wrap gap-2">
+              {providerProfileQuery.data.assignedInstitutionRoles.map((role, index) => (
+                <Badge key={`${role.institutionId}-${role.roleKey}-${index}`} variant="outline">
+                  {role.roleLabel} · {role.institutionName}{role.department ? ` · ${role.department}` : ""}
+                </Badge>
+              ))}
+            </div>
+          ) : <p className="text-sm text-muted-foreground">No active institutional appointments are linked to this account.</p>}
+        </div>
         <Button type="button" onClick={save} disabled={updateProfile.isPending || updateProviderProfile.isPending || addRoleMutation.isPending}>
           {updateProfile.isPending || updateProviderProfile.isPending || addRoleMutation.isPending ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
