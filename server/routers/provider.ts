@@ -185,7 +185,7 @@ async function getProviderFacilityHistory(
   const normalizedEmail = email?.trim().toLowerCase();
   if (!normalizedEmail) return [];
 
-  const [attendanceRows, membershipRows] = await Promise.all([
+  const [attendanceRows, membershipRows, staffRows] = await Promise.all([
     db
       .select({
         institutionId: cpdAttendees.institutionalAccountId,
@@ -214,6 +214,23 @@ async function getProviderFacilityHistory(
         sql`${institutionMemberships.membershipStatus} IN ('invited', 'active', 'suspended', 'ended')`,
       ))
       .orderBy(desc(institutionMemberships.updatedAt)),
+    db
+      .select({
+        institutionId: institutionalStaffMembers.institutionalAccountId,
+        institutionName: institutionalAccounts.companyName,
+        department: institutionalStaffMembers.department,
+        facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus,
+      })
+      .from(institutionalStaffMembers)
+      .innerJoin(institutionalAccounts, eq(institutionalAccounts.id, institutionalStaffMembers.institutionalAccountId))
+      .where(and(
+        or(
+          eq(institutionalStaffMembers.userId, userId),
+          sql`LOWER(TRIM(${institutionalStaffMembers.staffEmail})) = LOWER(TRIM(${normalizedEmail}))`,
+        ),
+        isNull(institutionalStaffMembers.removedAt),
+        sql`${institutionalStaffMembers.facilityLinkStatus} IN ('linked', 'pending')`,
+      )),
   ]);
 
   const byInstitution = new Map<number, ProviderFacilityHistoryEntry>();
@@ -249,6 +266,25 @@ async function getProviderFacilityHistory(
       membershipStatus: row.membershipStatus,
       lastAttendedAt: null,
       departments: [],
+    });
+  }
+
+  for (const row of staffRows) {
+    if (row.institutionId == null) continue;
+    const existing = byInstitution.get(row.institutionId);
+    const department = row.department?.trim();
+    if (existing) {
+      if (department && !existing.departments.includes(department)) existing.departments.push(department);
+      if (!existing.membershipStatus && row.facilityLinkStatus === "linked") existing.membershipStatus = "active";
+      continue;
+    }
+    byInstitution.set(row.institutionId, {
+      institutionId: row.institutionId,
+      institutionName: row.institutionName,
+      relationship: "permanent_facility",
+      membershipStatus: row.facilityLinkStatus === "linked" ? "active" : "invited",
+      lastAttendedAt: null,
+      departments: department ? [department] : [],
     });
   }
 

@@ -344,6 +344,8 @@ export function ProviderCredentialsCard() {
                   placeholder="Search and select a country"
                   searchPlaceholder="Type a few letters…"
                   emptyText="No country found."
+                  selectedStateLabel="Country selected"
+                  emptySelectionLabel="No country selected"
                   searchAlwaysVisible
                 />
               </label>
