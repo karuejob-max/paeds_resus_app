@@ -58,6 +58,7 @@ export default function ProfessionalProgressPage() {
   const [correctionDescription, setCorrectionDescription] = useState("");
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfReadyUrl, setPdfReadyUrl] = useState<string | null>(null);
+  const [pdfDownloadState, setPdfDownloadState] = useState<"idle" | "downloading" | "downloaded" | "error">("idle");
   const reportInput = useMemo(() => ({ reportType: periodType, reportScope, periodStart, periodEnd }), [periodType, reportScope, periodStart, periodEnd]);
   const progressEnabled = Boolean(user && !verifyParams && section === "progress");
   const keepPreviousReport = (previous: any) => previous;
@@ -68,21 +69,33 @@ export default function ProfessionalProgressPage() {
   const correctionCasesQuery = trpc.professionalProgress.listMyCorrectionCases.useQuery(undefined, { enabled: Boolean(user && !verifyParams && section === "progress"), retry: false });
   const verifyQuery = trpc.professionalProgress.verifyReport.useQuery({ verificationCode: verifyParams?.verificationCode ?? "" }, { enabled: Boolean(verifyParams?.verificationCode), retry: false });
   const utils = trpc.useUtils();
-  const triggerPdfDownload = (pdfUrl: string) => {
-    const isAppleMobile = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
-    if (isAppleMobile) {
-      setPdfReadyUrl(`${pdfUrl}${pdfUrl.includes("?") ? "&" : "?"}view=1`);
-      return;
+  const downloadPdf = async (pdfUrl: string) => {
+    setPdfError(null);
+    setPdfDownloadState("downloading");
+    try {
+      const response = await fetch(pdfUrl, { credentials: "include", headers: { Accept: "application/pdf" } });
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!response.ok) throw new Error(`PDF request failed (${response.status}).`);
+      if (!contentType.toLowerCase().includes("application/pdf")) throw new Error("The server returned a non-PDF response. Please try again or open the verification page.");
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = `paeds-resus-professional-report-${periodType}-${periodStart}-${periodEnd}.pdf`;
+      anchor.rel = "noreferrer";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setPdfReadyUrl(pdfUrl);
+      setPdfDownloadState("downloaded");
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    } catch (error) {
+      setPdfDownloadState("error");
+      setPdfReadyUrl(pdfUrl);
+      setPdfError(error instanceof Error ? error.message : "The report PDF could not be downloaded. Please try again.");
     }
-    const anchor = document.createElement("a");
-    anchor.href = pdfUrl;
-    anchor.download = "";
-    anchor.rel = "noreferrer";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-  };
-  const createReport = trpc.professionalProgress.createVerifiedReport.useMutation({ onSuccess: result => { setVerifiedCode(result.verificationCode); setVerifiedReportId(result.reportId); void utils.professionalProgress.getLatestVerifiedReport.invalidate(reportInput); triggerPdfDownload(result.pdfUrl); } });
+  };;
+  const createReport = trpc.professionalProgress.createVerifiedReport.useMutation({ onSuccess: result => { setVerifiedCode(result.verificationCode); setVerifiedReportId(result.reportId); void utils.professionalProgress.getLatestVerifiedReport.invalidate(reportInput); setPdfReadyUrl(result.pdfUrl); setPdfDownloadState("idle"); setPdfError(null); } });
   const createGoal = trpc.professionalProgress.createGoal.useMutation({ onSuccess: async () => { setGoalTitle(""); await goalsQuery.refetch(); } });
   const createCorrectionCase = trpc.professionalProgress.createCorrectionCase.useMutation({ onSuccess: async () => { setCorrectionSubject(""); setCorrectionEvidenceReference(""); setCorrectionDescription(""); await correctionCasesQuery.refetch(); } });
   const downloadProfessionalReport = async () => {
@@ -98,7 +111,7 @@ export default function ProfessionalProgressPage() {
       // Let the browser handle the authenticated PDF response and its
       // Content-Disposition header directly. This avoids blob downloads being
       // blocked or discarded by mobile browsers after an awaited mutation.
-      triggerPdfDownload(result.pdfUrl);
+      await downloadPdf(result.pdfUrl);
     } catch (error) {
       setPdfError(error instanceof Error ? error.message : "The report PDF could not be downloaded. Please try again.");
     }
@@ -133,9 +146,10 @@ export default function ProfessionalProgressPage() {
   const pathways = (report.pathways ?? []) as Array<{ program: string; source: string; phase: string; percentage: number; status: string; paymentStatus?: string | null; nextAction?: { destination: string; label: string; phase: string } }>;
   const continuationFor = (program: string) => lifeSupport.find((item) => item.program === program)?.nextAction;
   const fellowship = report.fellowship?.overallPercentage ?? 0;
-  const pdfButtonLabel = latestReportQuery.isFetching ? "Checking signed report…" : latestReportQuery.data ? "Download signed PDF" : createReport.isPending ? "Creating PDF…" : "Create & download PDF";
+  const pdfButtonLabel = latestReportQuery.isFetching ? "Checking signed report…" : latestReportQuery.data ? "Download signed PDF" : createReport.isPending ? "Creating snapshot…" : "Create verifiable snapshot";
   return <><style>{`@media print { @page { size: A4; margin: 14mm 12mm; } body { background: #fff !important; } }`}</style><main className="min-h-screen bg-muted/20 px-4 py-8 md:px-8 print:m-0 print:bg-white print:p-0"><div className="mx-auto max-w-6xl space-y-6 print:max-w-none print:space-y-4"><div className="hidden print:flex print:items-start print:justify-between print:border-b-2 print:border-teal-800 print:pb-4"><div className="flex items-center gap-3"><img src="/paeds-resus-logo-brand.png" alt="Paeds Resus" className="h-12 w-auto object-contain" /><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-800">Paeds Resus</p><h1 className="text-2xl font-bold text-slate-950">Professional Progress Report</h1><p className="text-xs text-slate-600">Private professional record · Generated {new Date().toLocaleDateString()}</p></div></div><div className="text-right text-xs text-slate-600"><p className="font-semibold text-slate-900">{user.name}</p><p>{user.cadre || "Healthcare provider"}</p><p>{periodType} · {periodStart} to {periodEnd}</p></div></div><div className="flex flex-wrap items-start justify-between gap-3 print:hidden"><div><p className="text-sm font-semibold uppercase tracking-wider text-teal-700">My Professional Portfolio</p><h1 className="mt-2 text-3xl font-bold">Progress, goals &amp; reports</h1><p className="mt-2 text-muted-foreground">Your life-support, Fellowship, CPD, goals, certificates, and verifiable professional report in one place.</p></div><div className="flex flex-wrap gap-2 print:hidden"><Button asChild variant="outline"><Link href={sectionLink("overview")}>Overview</Link></Button><Button asChild variant="outline"><Link href={sectionLink("records")}>Certificates &amp; records</Link></Button><Button variant="outline" onClick={() => { if (latestReportQuery.data) void downloadProfessionalReport(); else createReport.mutate(reportInput); }} disabled={latestReportQuery.isFetching || createReport.isPending}><FileCheck2 className="mr-2 h-4 w-4" />{pdfButtonLabel}</Button></div></div>
-    <Card className="print:hidden"><CardContent className="flex flex-wrap items-end gap-3 pt-5"><label className="text-sm">Report period<select className="mt-1 block h-10 rounded-md border bg-background px-3" value={periodType} onChange={e => handlePeriodTypeChange(e.target.value as ProfessionalReportType)}><option value="monthly">Monthly · current month</option><option value="quarterly">Quarterly · current quarter</option><option value="annual">Annual · current year</option><option value="custom">Custom dates</option></select></label><label className="text-sm">What should this report show?<select className="mt-1 block h-10 rounded-md border bg-background px-3" value={reportScope} onChange={e => setReportScope(e.target.value as typeof reportScope)}><option value="activity">Activity during this period</option><option value="current_status">Current status now</option></select></label>{periodType === "custom" ? <><label className="text-sm">From<Input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)} /></label><label className="text-sm">To<Input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} /></label></> : <p className="pb-2 text-xs text-muted-foreground">{periodStart} to {periodEnd} · updates automatically</p>}<Button variant="outline" onClick={() => { void reportQuery.refetch(); void evidenceQuery.refetch(); }} disabled={reportQuery.isFetching}>Refresh record</Button><Button variant="secondary" onClick={() => createReport.mutate(reportInput)} disabled={createReport.isPending || latestReportQuery.isFetching}><FileCheck2 className="mr-2 h-4 w-4" />{createReport.isPending ? "Signing…" : "Create verifiable snapshot"}</Button></CardContent></Card>
+    <Card className="print:hidden"><CardContent className="flex flex-wrap items-end gap-3 pt-5"><label className="text-sm">Report period<select className="mt-1 block h-10 rounded-md border bg-background px-3" value={periodType} onChange={e => handlePeriodTypeChange(e.target.value as ProfessionalReportType)}><option value="monthly">Monthly · current month</option><option value="quarterly">Quarterly · current quarter</option><option value="annual">Annual · current year</option><option value="custom">Custom dates</option></select></label><label className="text-sm">What should this report show?<select className="mt-1 block h-10 rounded-md border bg-background px-3" value={reportScope} onChange={e => setReportScope(e.target.value as typeof reportScope)}><option value="activity">Activity during this period</option><option value="current_status">Current status now</option></select></label>{periodType === "custom" ? <><label className="text-sm">From<Input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)} /></label><label className="text-sm">To<Input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} /></label></> : <p className="pb-2 text-xs text-muted-foreground">{periodStart} to {periodEnd} · updates automatically</p>}<Button variant="outline" onClick={() => { void reportQuery.refetch(); void evidenceQuery.refetch(); void latestReportQuery.refetch(); }} disabled={reportQuery.isFetching}>Refresh report data</Button><Button variant="secondary" onClick={() => createReport.mutate(reportInput)} disabled={createReport.isPending || latestReportQuery.isFetching || Boolean(latestReportQuery.data)}><FileCheck2 className="mr-2 h-4 w-4" />{createReport.isPending ? "Signing…" : latestReportQuery.data ? "Snapshot active" : "Create verifiable snapshot"}</Button></CardContent></Card>
+    {(verifiedCode || latestReportQuery.data || pdfReadyUrl) ? <Card className="border-emerald-200 bg-emerald-50 print:hidden"><CardHeader className="pb-2"><CardTitle className="text-emerald-950">Your verifiable professional report is ready</CardTitle><CardDescription className="text-emerald-900">This is a fixed signed record of the selected reporting period. Later changes require a new snapshot.</CardDescription></CardHeader><CardContent className="space-y-3"><div className="text-sm text-emerald-950"><p><strong>Status:</strong> {latestReportQuery.data?.status ?? "active"}</p><p><strong>Verification code:</strong> <code className="rounded bg-white px-2 py-1">{verifiedCode ?? latestReportQuery.data?.verificationCode}</code></p></div><div className="flex flex-wrap gap-2"><Button onClick={() => void downloadProfessionalReport()} disabled={pdfDownloadState === "downloading" || latestReportQuery.isFetching}>{pdfDownloadState === "downloading" ? "Downloading PDF…" : pdfDownloadState === "downloaded" ? "Download again" : "Download signed PDF"}</Button>{pdfReadyUrl ? <Button asChild variant="outline"><a href={pdfReadyUrl} target="_blank" rel="noreferrer">Open PDF</a></Button> : null}{(verifiedCode ?? latestReportQuery.data?.verificationCode) ? <Button asChild variant="outline"><a href={`/verify-progress/${verifiedCode ?? latestReportQuery.data?.verificationCode}`} target="_blank" rel="noreferrer">Open verification page</a></Button> : null}</div>{pdfDownloadState === "downloaded" ? <p className="text-sm font-medium text-emerald-800" role="status">PDF downloaded successfully.</p> : null}{pdfError ? <p className="text-sm font-medium text-red-700" role="alert">{pdfError}</p> : null}</CardContent></Card> : null}
     <Card className="print:break-inside-avoid print:border-slate-300 print:shadow-none"><CardContent className="pt-5 text-sm text-muted-foreground"><strong className="text-foreground">Report scope:</strong> {report.reportScope === "current_status" ? "Current status at the time of generation." : "Activity recorded during the selected period."}<br /><strong className="text-foreground">How to read this report:</strong> {report.periodSemantics}<br /><strong className="text-foreground">Evidence rule:</strong> learning completion, assessment, credentials, and observed competence are separate states.</CardContent></Card>
     {evidenceQuery.data?.nextBestAction ? <Card className="border-teal-200 bg-teal-50 print:break-inside-avoid"><CardHeader className="pb-2"><CardTitle className="text-teal-950">Your next best professional action</CardTitle><CardDescription className="text-teal-900">One clear action is more useful than another score.</CardDescription></CardHeader><CardContent><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-semibold text-teal-950">{evidenceQuery.data.nextBestAction.label}</p><p className="mt-1 text-sm text-teal-900">{(evidenceQuery.data.nextBestAction as any).why ?? (evidenceQuery.data.nextBestAction as any).reason ?? "Continue your professional development."}</p><p className="mt-1 text-xs text-teal-800">Evidence trigger: {(evidenceQuery.data.nextBestAction as any).evidenceTrigger ?? "Current portfolio status"}. Outcome: {(evidenceQuery.data.nextBestAction as any).outcome ?? "Progress is recorded in the Evidence Ledger."}</p></div><Button asChild><a href={(evidenceQuery.data.nextBestAction as any).href || (evidenceQuery.data.nextBestAction as any).destination || "/my-progress?section=development"}>Open next action</a></Button></div></CardContent></Card> : null}
     {report.readinessBottleneck ? <Card className="border-amber-300 bg-amber-50 print:break-inside-avoid"><CardHeader className="pb-2"><CardTitle className="text-amber-950">Readiness / development bottleneck</CardTitle><CardDescription className="text-amber-900">This is the most important unresolved requirement, not a composite readiness score.</CardDescription></CardHeader><CardContent><p className="font-semibold text-amber-950">{report.readinessBottleneck.label}</p><p className="mt-1 text-sm text-amber-900">Current state: {report.readinessBottleneck.currentState}</p><p className="mt-1 text-xs text-amber-800">Evidence: {report.readinessBottleneck.evidence}</p></CardContent></Card> : null}
