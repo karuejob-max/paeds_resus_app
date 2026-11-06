@@ -183,6 +183,16 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
 
+  /* Sheets are fixed layers rendered outside the header, so they need their
+     own Dynamic Island clearance. Keep the close control below that inset too. */
+  .app-safe-area-panel-top {
+    padding-top: env(safe-area-inset-top) !important;
+  }
+
+  .app-safe-area-panel-top > button {
+    top: calc(env(safe-area-inset-top) + 1rem);
+  }
+
   /* Skip to main content: off-screen until focused (keyboard/screen reader) */
   .skip-link {
     position: absolute;
