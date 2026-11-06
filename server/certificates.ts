@@ -1,3 +1,4 @@
+
 import { createHash } from "crypto";
 import { getDb } from "./db";
 import { isPalsEnrollmentModulesComplete } from "./lib/pals-enrollment-completion";
@@ -278,7 +279,7 @@ export async function verifyCertificateByVerificationCode(
   status?: CertificateExpiryStatus;
   error?: string;
   certificate?: {
-    certificateNumber: string;
+    recipientName: string; certificateNumber: string;
     programType: string;
     issueDate: Date | null;
     expiryDate: Date | null;
@@ -312,7 +313,7 @@ export async function verifyCertificateByVerificationCode(
       valid: true,
       status,
       certificate: {
-        certificateNumber: cert.certificateNumber ?? "",
+        recipientName: cert.recipientName ?? "", certificateNumber: cert.certificateNumber ?? "",
         programType: cert.programType,
         issueDate: cert.issueDate,
         expiryDate: cert.expiryDate ?? null,
