@@ -217,7 +217,7 @@ export function SearchableDropdown({
   searchAlwaysVisible = false,
   clearable = false,
   onSearchChange,
-  selectedStateLabel = "Selection",
+  selectedStateLabel = "Presenter selected",
   emptySelectionLabel = "No option selected",
 }: SearchableDropdownProps) {
   const [open, setOpen] = useState(false);
