@@ -123,6 +123,11 @@ export default function ProviderRecords({ focusCertificates = false, embedded = 
     staleTime: 30_000,
     retry: 1,
   });
+  const providerProfileQuery = trpc.provider.getProfile.useQuery(undefined, {
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+    retry: 1,
+  });
   const professionalProgressQuery = trpc.professionalProgress.getMyReport.useQuery({
     reportType: "annual",
     periodStart: "2000-01-01",
@@ -216,6 +221,18 @@ export default function ProviderRecords({ focusCertificates = false, embedded = 
   const cpdRecords: Array<any> = cpdQuery.isSuccess ? (cpdQuery.data?.records ?? []) : [];
   const cpdFallbackNotice = !cpdQuery.isSuccess && !cpdQuery.isError && !cpdQuery.isLoading && Boolean(progressReport?.cpd?.sessions?.length);
   const activeMemberships = (membershipsQuery.data ?? []).filter((membership) => membership.membershipStatus === "active");
+  const workplaceRelationships = activeMemberships.length > 0
+    ? activeMemberships
+    : (providerProfileQuery.data?.facilityHistory ?? [])
+      .filter((institution) => institution.membershipStatus === "active")
+      .map((institution) => ({
+        id: `profile-${institution.institutionId}`,
+        companyName: institution.institutionName,
+        department: institution.departments.join(", "),
+        staffRole: null,
+        responsibilityRole: null,
+        membershipStatus: institution.membershipStatus,
+      }));
   const selectedPathway = LIFE_SUPPORT_COURSES.find((course) => course.key === selectedCourse) ?? LIFE_SUPPORT_COURSES[0];
   const progressCourse = (progressReport?.lifeSupport ?? []).find((record: any) => record.program === selectedCourse.toUpperCase());
   const selectedCompletion = completionRecords.find((record) => record.courseProgramType === selectedCourse && !record.revokedAt) ?? (progressCourse ? {
@@ -373,7 +390,7 @@ export default function ProviderRecords({ focusCertificates = false, embedded = 
           </section>
         )}
 
-        <Card className="border-teal-200 bg-white"><CardHeader><CardTitle className="flex items-center gap-2 text-base"><Building2 className="h-5 w-5 text-teal-700" />Workplace relationships</CardTitle><CardDescription>Facility membership is kept separate from learning records and certificates.</CardDescription></CardHeader><CardContent className="space-y-2">{membershipsQuery.isLoading ? <p className="text-sm text-slate-500">Checking institution relationships…</p> : activeMemberships.length > 0 ? activeMemberships.map((membership) => <div key={membership.id} className="rounded-lg border border-teal-100 p-3"><p className="text-sm font-medium text-slate-900">{membership.companyName}</p><p className="mt-1 text-xs text-slate-500">{[membership.department, membership.staffRole, membership.responsibilityRole].filter(Boolean).join(" · ") || "Active institutional membership"}</p></div>) : <p className="text-sm text-slate-500">No active facility relationship is linked yet.</p>}<Button type="button" variant="outline" className="w-full justify-between" onClick={() => setLocation("/workplaces")}>Open Workplaces &amp; access <span>→</span></Button></CardContent></Card>
+        <Card className="border-teal-200 bg-white"><CardHeader><CardTitle className="flex items-center gap-2 text-base"><Building2 className="h-5 w-5 text-teal-700" />Workplace relationships</CardTitle><CardDescription>Facility membership is kept separate from learning records and certificates.</CardDescription></CardHeader><CardContent className="space-y-2">{membershipsQuery.isLoading || providerProfileQuery.isLoading ? <p className="text-sm text-slate-500">Checking institution relationships…</p> : workplaceRelationships.length > 0 ? workplaceRelationships.map((membership) => <div key={membership.id} className="rounded-lg border border-teal-100 p-3"><p className="text-sm font-medium text-slate-900">{membership.companyName}</p><p className="mt-1 text-xs text-slate-500">{[membership.department, membership.staffRole, membership.responsibilityRole].filter(Boolean).join(" · ") || "Active institutional membership"}</p></div>) : <p className="text-sm text-slate-500">No active facility relationship is linked yet.</p>}<Button type="button" variant="outline" className="w-full justify-between" onClick={() => setLocation("/workplaces")}>Open Workplaces &amp; access <span>→</span></Button></CardContent></Card>
 
         <Card className="border-slate-200 bg-white"><CardHeader><CardTitle className="flex items-center gap-2 text-base"><UserRound className="h-5 w-5 text-slate-700" />Identity and access</CardTitle><CardDescription>Professional identity belongs in your profile; account security belongs in Account.</CardDescription></CardHeader><CardContent className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => setLocation("/provider-profile")}>Professional profile</Button><Button type="button" variant="outline" onClick={() => setLocation("/account")}>Account &amp; security</Button></CardContent></Card>
       </div>
