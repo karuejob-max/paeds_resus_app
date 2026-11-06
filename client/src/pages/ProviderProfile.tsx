@@ -84,7 +84,9 @@ export default function ProviderProfile() {
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
             Keep your professional identity, licence evidence, and provider information accurate in one place. Account security and workplace access remain separate so one field is not mistaken for another.
           </p>
-          {profile?.department ? (
+          {profileQuery.isLoading || workspaceQuery.isLoading ? (
+            <p className="mt-2 text-sm text-muted-foreground">Checking workplace department…</p>
+          ) : profile?.department ? (
             <p className="mt-2 text-sm font-medium text-primary">Current workplace department: {profile.department}{" "}<Link href="/workplaces" className="underline">Change</Link></p>
           ) : (
             <p className="mt-2 text-sm text-muted-foreground">No workplace department set yet. <Link href="/workplaces" className="text-primary underline">Set it in Workplaces & access</Link>.</p>
@@ -109,7 +111,7 @@ export default function ProviderProfile() {
           <CardContent className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Profile details</p><p className="mt-1 text-sm font-semibold">{profile?.profileCompletionPercentage ?? 0}% complete</p></div>
             <div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Required evidence</p><p className="mt-1 text-sm font-semibold">{licenseStatus}</p></div>
-            <div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Workplace access</p><p className="mt-1 text-sm font-semibold">{profile?.department ? `Department: ${profile.department}` : "Not configured"}</p></div>
+            <div className="rounded-lg border bg-muted/20 p-3"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Workplace access</p><p className="mt-1 text-sm font-semibold">{profileQuery.isLoading || workspaceQuery.isLoading ? "Checking…" : profile?.department ? `Department: ${profile.department}` : "Not configured"}</p></div>
           </CardContent>
         </Card>
 
@@ -172,7 +174,8 @@ export default function ProviderProfile() {
                   </Link>
                 </div>
               ))}
-              {!facilityHistory.length && !reviewInstitutions.length ? <p className="text-sm text-muted-foreground">No institution or department is linked to this account yet.</p> : null}
+              {profileQuery.isLoading || workspaceQuery.isLoading ? <p className="text-sm text-muted-foreground">Checking institution and department links…</p> : null}
+              {!profileQuery.isLoading && !workspaceQuery.isLoading && !facilityHistory.length && !reviewInstitutions.length ? <p className="text-sm text-muted-foreground">No institution or department is linked to this account yet.</p> : null}
               {assignedInstitutionRoles.length ? (
                 <div className="border-t pt-4">
                   <p className="text-sm font-semibold">Assigned platform roles</p>
