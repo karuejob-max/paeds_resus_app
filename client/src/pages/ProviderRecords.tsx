@@ -234,6 +234,15 @@ export default function ProviderRecords({ focusCertificates = false, embedded = 
         membershipStatus: institution.membershipStatus,
       }));
   const selectedPathway = LIFE_SUPPORT_COURSES.find((course) => course.key === selectedCourse) ?? LIFE_SUPPORT_COURSES[0];
+  const lifeSupportRecords = (progressReport?.lifeSupport ?? []) as Array<{
+    program?: string;
+    source?: string;
+    phase?: string;
+    percentage?: number;
+    recordStatus?: string;
+    enrollmentId?: number;
+    updatedAt?: Date | string | null;
+  }>;
   const progressCourse = (progressReport?.lifeSupport ?? []).find((record: any) => record.program === selectedCourse.toUpperCase());
   const selectedCompletion = completionRecords.find((record) => record.courseProgramType === selectedCourse && !record.revokedAt) ?? (progressCourse ? {
     courseProgramType: selectedCourse,
@@ -355,6 +364,24 @@ export default function ProviderRecords({ focusCertificates = false, embedded = 
             <Card className="border-emerald-200 bg-white">
               <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Award className="h-5 w-5 text-emerald-700" />Life Support course records</CardTitle><CardDescription>Choose a course to see its actual pathway. Supporting gatepass records are separate from the final provider certificate.</CardDescription></CardHeader>
               <CardContent className="space-y-4">
+                {lifeSupportRecords.length > 0 ? (
+                  <div className="space-y-2" aria-label="Active Life Support learning records">
+                    {lifeSupportRecords.map((record) => (
+                      <div key={`${record.program}-${record.enrollmentId ?? "record"}`} className="rounded-xl border border-blue-100 bg-blue-50/40 p-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">{record.program ?? "Life Support"} learning record</p>
+                            <p className="mt-1 text-xs text-slate-600">{record.source ?? "Independent or linked pathway"} · {record.phase ?? "Learning"} · {Math.round(Number(record.percentage ?? 0))}%</p>
+                          </div>
+                          <Badge variant="outline" className="w-fit border-blue-200 text-blue-800">{String(record.recordStatus ?? "recorded").replaceAll("_", " ")}</Badge>
+                        </div>
+                      </div>
+                    ))}
+                    <Button type="button" variant="outline" className="w-full justify-between" onClick={() => setLocation("/aha-courses")}>
+                      Open Life Support Hub <BookOpen className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : null}
                 <div className="flex flex-wrap gap-2" role="tablist" aria-label="Life Support course records">
                   {LIFE_SUPPORT_COURSES.map((course) => <button key={course.key} type="button" role="tab" aria-selected={selectedCourse === course.key} onClick={() => setSelectedCourse(course.key)} className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${selectedCourse === course.key ? "border-emerald-700 bg-emerald-700 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300"}`}>{course.label}</button>)}
                 </div>

@@ -201,6 +201,10 @@ export default function IerpLanding() {
               phases={journey.phases}
               nextAction={journey.nextAction}
             />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="outline" onClick={() => navigate("/aha-courses")}>Open Life Support Hub</Button>
+              <p className="text-xs text-slate-500">Review or continue BLS/ACLS coursework here; return to IERP for evidence and programme progression.</p>
+            </div>
           </div>
         </section>
       ) : null}

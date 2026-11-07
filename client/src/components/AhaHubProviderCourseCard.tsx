@@ -76,19 +76,13 @@ export const AhaHubProviderCourseCard = memo(function AhaHubProviderCourseCard({
     <FooterButtonSkeleton />
   ) : (
     <div className="space-y-2">
-      {isEnrolled && canAccess && !certIssued && (
+      {isEnrolled && canAccess && (
         <Button
           size="sm"
           className="w-full"
-          onClick={() => {
-            if (pathwayPortal && onOpenPathway) {
-              onOpenPathway(accessDecision?.pathway ?? "");
-            } else if (enrollment?.id) {
-              onContinue(programType, enrollment.id);
-            }
-          }}
+          onClick={() => enrollment?.id && onContinue(programType, enrollment.id)}
         >
-          {pathwayPortal ? "Open programme portal" : enrollment?.id ? "Start course" : "Open learner dashboard"}
+          {enrollment?.id ? (cognitiveComplete ? "Review coursework" : "Continue coursework") : "Open learner dashboard"}
         </Button>
       )}
       {isEnrolled && canAccess && !pathwayPortal && cognitiveComplete && !certIssued && (
@@ -140,10 +134,15 @@ export const AhaHubProviderCourseCard = memo(function AhaHubProviderCourseCard({
         </>
       )}
       {isEnrolled && canAccess && pathwayPortal && (
-        <div className="rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-blue-900">
-          <p className="font-medium">Access belongs to your programme pathway</p>
-          <p className="mt-1">Continue from the dedicated programme portal so your pathway progress and permissions remain linked.</p>
-        </div>
+        <>
+          <Button size="sm" variant="outline" className="w-full" onClick={() => onOpenPathway?.(accessDecision?.pathway ?? "")}>
+            Open {accessDecision?.pathway?.toUpperCase()} programme portal
+          </Button>
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-blue-900">
+            <p className="font-medium">Coursework is available here and in your programme portal</p>
+            <p className="mt-1">Use this hub for BLS/ACLS coursework. Use the programme portal for pathway evidence, payment, and practical progression.</p>
+          </div>
+        </>
       )}
       {!isEnrolled && (
         <>

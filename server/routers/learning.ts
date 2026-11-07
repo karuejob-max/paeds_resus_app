@@ -118,7 +118,8 @@ async function assertAhaCognitiveAccess(
   db: any,
   userId: number | undefined,
   programType: string | null | undefined,
-  pathway?: "ierp"
+  pathway?: "ierp",
+  mode: "read" | "write" = "write",
 ) {
   if (!isAhaProgramType(programType)) return;
   if (!userId) {
@@ -128,7 +129,7 @@ async function assertAhaCognitiveAccess(
   // for every player request, not only the first route load, so module content,
   // quizzes, and summative exams cannot fall back to standalone AHA pricing.
   const ierpPayment = await getIerpPaymentAccessForUser(db, userId);
-  if (ierpPayment && (programType === "bls" || programType === "acls" || pathway === "ierp")) {
+  if (mode === "write" && ierpPayment && (programType === "bls" || programType === "acls" || pathway === "ierp")) {
     const profile = await getIerpInternProfile(db, userId);
     const profileMessage = getIerpInternProfileAccessMessage(profile);
     if (!isIerpInternProfileReady(profile) || profileMessage) {
@@ -139,7 +140,7 @@ async function assertAhaCognitiveAccess(
     }
     return;
   }
-  await assertAhaAccess(db, userId, programType);
+  await assertAhaAccess(db, userId, programType, mode);
 }
 
 async function assertCourseEnrollmentAccess(
@@ -149,7 +150,7 @@ async function assertCourseEnrollmentAccess(
   programType: string | null | undefined
 ) {
   if (isAhaProgramType(programType)) {
-    await assertAhaCognitiveAccess(db, userId, programType);
+    await assertAhaCognitiveAccess(db, userId, programType, undefined, "read");
     return;
   }
   if (!userId) {
