@@ -20,8 +20,6 @@ import {
   enrollments,
 } from "../../drizzle/schema";
 import { ensurePalsAhaCatalog } from "../lib/ensure-pals-aha-catalog";
-import { ensureAhaDiagnosticQuiz } from "../lib/ensure-aha-diagnostic-quiz";
-import { AHA_DIAGNOSTIC_PROGRAMS } from "../data/aha-diagnostic-banks";
 import { ensurePals2025Content } from "../lib/ensure-pals-2025-content";
 import { ensureSeriouslyIllChildFellowshipCatalog } from "../lib/ensure-seriously-ill-child-fellowship-catalog";
 import {
@@ -393,7 +391,9 @@ export const learningRouter = router({
       // the learner's course identity. Catalog repair is handled below only when the
       // selected row is missing/stale, preserving the non-blocking first-paint branch.
       if (input.programType && input.programType !== "paeds_resus_ils") {
-        courseRow = await resolveAhaCourseAnchor(db, input.programType as AhaAnchorProgramType);
+        courseRow = await resolveAhaCourseAnchor(db, input.programType as AhaAnchorProgramType, {
+          skipEnsure: true,
+        });
       }
 
       if (input.programType && (!input.courseId || input.courseId <= 0)) {
@@ -407,7 +407,7 @@ export const learningRouter = router({
             .limit(1);
           courseRow = ilsRows[0] ?? null;
         } else {
-          courseRow = await resolveAhaCourseAnchor(db, input.programType);
+          courseRow = await resolveAhaCourseAnchor(db, input.programType, { skipEnsure: true });
         }
       }
 
@@ -438,7 +438,7 @@ export const learningRouter = router({
             .limit(1);
           courseRow = ilsRows[0] ?? null;
         } else {
-          courseRow = await resolveAhaCourseAnchor(db, input.programType);
+          courseRow = await resolveAhaCourseAnchor(db, input.programType, { skipEnsure: true });
         }
       }
 
@@ -480,7 +480,7 @@ export const learningRouter = router({
       }
       let blsCatalogStale = false;
       let blsModuleCount = 0;
-      if (pt === "bls" && SEEDED_COURSES.has(pt)) {
+      if (pt === "bls") {
         const blsModuleRows = await (db as any)
           .select({ order: modules.order, title: modules.title })
           .from(modules)
@@ -490,18 +490,28 @@ export const learningRouter = router({
         blsCatalogStale = isBlsCatalogShapeStale(blsModuleRows);
       }
 
-      if (pt && (!SEEDED_COURSES.has(pt) || blsCatalogStale)) {
-        if (pt === "bls") {
-          if (blsCatalogStale && blsModuleCount > 0) {
-            // Existing learner content is usable; do not make first paint wait
-            // for a full catalog repair. Repair asynchronously for next load.
-            void synchronizeBlsCatalog(db).catch(error =>
-              console.error("[learning.getCourseDetails] BLS background sync:", error)
-            );
-          } else {
-            await synchronizeBlsCatalog(db);
+      if (pt === "bls") {
+        if (blsModuleCount > 0) {
+          // Existing learner content is usable, including on a cold server
+          // instance. Never make first paint wait for the full sequential
+          // catalogue repair; repair asynchronously for subsequent loads.
+          if (!SEEDED_COURSES.has(pt) || blsCatalogStale) {
+            void synchronizeBlsCatalog(db)
+              .then(() => SEEDED_COURSES.add(pt))
+              .catch(error =>
+                console.error("[learning.getCourseDetails] BLS background sync:", error)
+              );
           }
-        } else if (pt === "acls") {
+        } else {
+          // A row with no modules cannot render any coursework. This is the
+          // only BLS read path that waits for provisioning to create content.
+          await synchronizeBlsCatalog(db);
+          SEEDED_COURSES.add(pt);
+        }
+      } else if (pt && !SEEDED_COURSES.has(pt)) {
+        // Non-BLS catalog provisioning retains its existing behavior. BLS is
+        // handled above because its completed-course read path must stay fast.
+        if (pt === "acls") {
           await ensureAclsCatalog(db);
         } else if (pt === "heartsaver") {
           await ensureHeartsaverCatalog(db);
@@ -529,21 +539,6 @@ export const learningRouter = router({
           await ensureInstitutionalLifeSupportCatalog(db);
         }
         SEEDED_COURSES.add(pt);
-      }
-
-      const diagnosticProgram = AHA_DIAGNOSTIC_PROGRAMS.find(
-        candidate => candidate === pt
-      );
-      if (diagnosticProgram) {
-        const diagnosticAnchor = await resolveAhaCourseAnchor(
-          db,
-          diagnosticProgram
-        );
-        await ensureAhaDiagnosticQuiz(
-          db,
-          diagnosticAnchor?.id ?? courseRow.id,
-          diagnosticProgram
-        );
       }
 
       const courseModules = await (db as any)
