@@ -380,7 +380,7 @@ export const learningRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) {
-        throw new Error("Course not found");
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Course catalogue is temporarily unavailable." });
       }
 
       let courseRow: typeof courses.$inferSelect | null = null;
@@ -389,12 +389,11 @@ export const learningRouter = router({
       // generations. A valid legacy row can still have the same programType, so merely
       // checking that the id exists is not enough: it can select a row with no usable
       // learner content and surface the misleading "Content Not Found" state. Resolve
-      // and seed the canonical program anchor first; the URL slug remains the source of
-      // truth for the learner's course identity.
+      // without seeding on the read path; the URL slug remains the source of truth for
+      // the learner's course identity. Catalog repair is handled below only when the
+      // selected row is missing/stale, preserving the non-blocking first-paint branch.
       if (input.programType && input.programType !== "paeds_resus_ils") {
-        courseRow = await resolveAhaCourseAnchor(db, input.programType as AhaAnchorProgramType, {
-          skipEnsure: false,
-        });
+        courseRow = await resolveAhaCourseAnchor(db, input.programType as AhaAnchorProgramType);
       }
 
       if (input.programType && (!input.courseId || input.courseId <= 0)) {
@@ -444,7 +443,10 @@ export const learningRouter = router({
       }
 
       if (!courseRow) {
-        throw new Error("Course not found");
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `${input.programType?.toUpperCase() ?? "AHA"} course catalogue entry was not found. Please refresh and try again.`,
+        });
       }
 
       const pt = courseRow.programType as string;
