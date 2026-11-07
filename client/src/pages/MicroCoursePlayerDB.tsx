@@ -1413,8 +1413,19 @@ export default function MicroCoursePlayerDB() {
                     setShowSummativeExam(false);
                     setShowCertificateReady(false);
                     setHasResumed(false);
-                    // Navigate to the same course with review=true so isReviewMode is set
-                    navigate(`/micro-course/${slug}?review=true`);
+                    // Re-enter through the stable AHA program slug and preserve the
+                    // enrollment context. A bare numeric URL loses programType and
+                    // makes the completed-course review loader unable to resolve the
+                    // canonical catalog row.
+                    const reviewSegment = isAhaCourse && ahaProgramForUi ? ahaProgramForUi : slug;
+                    const reviewParams = new URLSearchParams({ review: "true" });
+                    if (isAhaCourse && ahaProgramForUi) {
+                      reviewParams.set("programType", ahaProgramForUi);
+                      if ((enrollment as { id?: number } | undefined)?.id) {
+                        reviewParams.set("enrollmentId", String((enrollment as { id: number }).id));
+                      }
+                    }
+                    navigate(`/micro-course/${reviewSegment}?${reviewParams.toString()}`);
                   }}
                 >
                   <BookOpen className="w-5 h-5 mr-2" />
