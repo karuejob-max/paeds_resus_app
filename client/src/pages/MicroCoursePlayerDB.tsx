@@ -232,7 +232,13 @@ export default function MicroCoursePlayerDB() {
         programType: programType ?? undefined,
         pathway: requestedPathway,
       },
-      { enabled: isAhaCourse && !!programType }
+      {
+        enabled: isAhaCourse && !!programType,
+        // A completed-course review must fail visibly and quickly. Retrying a
+        // potentially blocked catalog request keeps the player in a misleading
+        // loading state for ~30 seconds and hides the actionable server error.
+        retry: false,
+      }
     );
 
   // Unified dbCourse: either fellowship or AHA
