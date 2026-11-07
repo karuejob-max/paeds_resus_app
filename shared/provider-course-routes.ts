@@ -102,8 +102,9 @@ function buildMicroCourseDestination(
 
 /**
  * Maps course IDs to their learning destinations.
- * AHA courses use the DB `courses.id` when known (pass `courseDbId`); otherwise the program slug
- * so the player can resolve the catalog row. Fellowship micro-courses use the string courseId.
+ * AHA courses deliberately use the stable program slug rather than a numeric `courses.id`.
+ * Production has legacy/duplicate catalog rows, so the player must resolve the canonical row
+ * by program type. Fellowship micro-courses continue to use their string courseId.
  */
 export function getProviderCourseDestination(
   courseId: string | null | undefined,
@@ -127,8 +128,7 @@ export function getProviderCourseDestination(
   }
 
   if (isAhaProgramSlug(courseId)) {
-    const segment = courseDbId != null ? String(courseDbId) : courseId;
-    return buildMicroCourseDestination(segment, courseId, enrollmentId);
+    return buildMicroCourseDestination(courseId, courseId, enrollmentId);
   }
 
   if (courseId === "intubation-essentials") {

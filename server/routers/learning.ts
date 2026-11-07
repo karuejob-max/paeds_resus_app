@@ -385,6 +385,18 @@ export const learningRouter = router({
 
       let courseRow: typeof courses.$inferSelect | null = null;
 
+      // AHA enrollments historically stored numeric course ids from several catalog
+      // generations. A valid legacy row can still have the same programType, so merely
+      // checking that the id exists is not enough: it can select a row with no usable
+      // learner content and surface the misleading "Content Not Found" state. Resolve
+      // and seed the canonical program anchor first; the URL slug remains the source of
+      // truth for the learner's course identity.
+      if (input.programType && input.programType !== "paeds_resus_ils") {
+        courseRow = await resolveAhaCourseAnchor(db, input.programType as AhaAnchorProgramType, {
+          skipEnsure: false,
+        });
+      }
+
       if (input.programType && (!input.courseId || input.courseId <= 0)) {
         if (input.programType === "paeds_resus_ils") {
           await ensureInstitutionalLifeSupportCatalog(db);

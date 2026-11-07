@@ -25,13 +25,19 @@ describe("provider course routes", () => {
       "/micro-course/paeds-resus-competency?programType=paeds_resus_ils&enrollmentId=42"
     );
   });
+
+  it("uses the stable AHA slug even when a legacy numeric catalog id is supplied", () => {
+    expect(getProviderCourseDestination("bls", 301, "/aha-courses", 47)).toBe(
+      "/micro-course/bls?programType=bls&enrollmentId=301"
+    );
+  });
 });
 
 describe("getAhaNextPhaseAction", () => {
   it("opens the course player for unfinished cognitive learning", () => {
     expect(getAhaNextPhaseAction("bls", 301, 47, false, false, "active")).toEqual({
       phase: "cognitive",
-      destination: "/micro-course/47?programType=bls&enrollmentId=301",
+      destination: "/micro-course/bls?programType=bls&enrollmentId=301",
       label: "Continue cognitive modules",
     });
   });
@@ -63,7 +69,7 @@ describe("getAhaNextPhaseAction", () => {
 
 describe("pathway next actions", () => {
   it("routes NERP to the unfinished BLS, then Phase 2, payment, and Phase 3", () => {
-    expect(getNerpNextAction({ bls: { id: 11, courseId: 101 }, acls: { id: 12, courseId: 102 }, phase2Verified: false, phase3Verified: false, paymentComplete: false })).toMatchObject({ phase: "phase_1", label: "Continue BLS cognitive learning", destination: "/micro-course/101?programType=bls&enrollmentId=11&pathway=nerp" });
+    expect(getNerpNextAction({ bls: { id: 11, courseId: 101 }, acls: { id: 12, courseId: 102 }, phase2Verified: false, phase3Verified: false, paymentComplete: false })).toMatchObject({ phase: "phase_1", label: "Continue BLS cognitive learning", destination: "/micro-course/bls?programType=bls&enrollmentId=11&pathway=nerp" });
     expect(getNerpNextAction({ bls: { id: 11, courseId: 101, cognitiveComplete: true }, acls: { id: 12, courseId: 102 }, phase2Verified: false, phase3Verified: false, paymentComplete: false }).label).toBe("Continue ACLS cognitive learning");
     expect(getNerpNextAction({ bls: { cognitiveComplete: true }, acls: { cognitiveComplete: true }, phase2Verified: false, phase3Verified: false, paymentComplete: false }).label).toBe("Submit AHA eLearning proof");
     expect(getNerpNextAction({ bls: { cognitiveComplete: true }, acls: { cognitiveComplete: true }, ahaEvidenceVerified: true, phase2Verified: true, phase3Verified: false, paymentComplete: false }).phase).toBe("payment");
