@@ -496,7 +496,10 @@ export default function MicroCoursePlayerDB() {
   // so the user can browse freely instead of landing on the final exam.
   const [hasResumed, setHasResumed] = useState(false);
   const [diagnosticPrompted, setDiagnosticPrompted] = useState(false);
-  const isReviewModeRequested = location.includes('review=true');
+  // Wouter's location value is the pathname; query parameters are exposed by
+  // useSearch(). Reading review=true from location therefore left the player
+  // on the completion screen even after the URL changed successfully.
+  const isReviewModeRequested = new URLSearchParams(search).get("review") === "true";
   const isCompletedAhaCourse = isAhaCourse && Boolean((enrollment as { cognitiveModulesComplete?: boolean } | undefined)?.cognitiveModulesComplete);
   const isReviewMode = enrollment?.enrollmentStatus === 'completed' || isCompletedAhaCourse || isReviewModeRequested;
   const isIerpBlsCompletion = requestedPathway === "ierp" && ahaProgramForUi === "bls";
