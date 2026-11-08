@@ -4,6 +4,7 @@ import { examKindFromQuizTitle } from "../../shared/microcourse-exam-policy";
 import { getMicrocourseExamState, resolveCourseSummativeQuizId } from "./microcourse-exam-gate";
 import { isMicroCourseEnrollmentId } from "./sync-micro-course-enrollment-progress";
 import { resolveAhaCourseAnchor, type AhaAnchorProgramType } from "./resolve-aha-course-anchor";
+import { resolvePinnedBlsCourse } from "./resolve-enrollment-course";
 
 export type ResetSummativeResult =
   | { ok: true; progressId: number; quizId: number; previousAttempts: number; previousScore: number | null }
@@ -32,6 +33,12 @@ async function resolveSummativeQuizIdForEnrollment(
   if (courseId == null && enrol.programType) {
     const anchor = await resolveAhaCourseAnchor(db, enrol.programType as AhaAnchorProgramType);
     courseId = anchor?.id ?? null;
+  }
+  if (enrol.programType === "bls") {
+    const blsCourse =
+      (await resolvePinnedBlsCourse(db, { userId, enrollmentId })) ??
+      (await resolveAhaCourseAnchor(db, "bls", { skipEnsure: true }));
+    if (blsCourse) courseId = blsCourse.id;
   }
   if (courseId == null) return null;
   return resolveCourseSummativeQuizId(db, courseId);

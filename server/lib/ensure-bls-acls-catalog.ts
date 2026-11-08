@@ -20,6 +20,7 @@ import { courses, modules, moduleSections, quizzes, quizQuestions, userProgress 
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { BLS_MODULES } from "./bls-modules-data";
+import { getBlsV2Audience } from "./bls-course-versions";
 import { BLS_MODULES_V2, BLS_V2_COURSE_TITLE, BLS_V2_COURSE_DESCRIPTION } from "./bls-modules-v2-data";
 
 export function isBlsCatalogShapeStale(
@@ -707,6 +708,8 @@ let blsEnsureInFlight: Promise<void> | null = null;
 export function ensureBlsCatalog(db: any): Promise<void> {
   // Single-flight across every caller (learner reads, enrolment, seed scripts) so
   // two concurrent first runs cannot create duplicate v2 rows.
+  // BLS_V2_AUDIENCE=off: the updated curriculum is never created.
+  if (getBlsV2Audience() === "off") return Promise.resolve();
   if (!blsEnsureInFlight) {
     blsEnsureInFlight = ensureBlsCatalogOnce(db).finally(() => {
       blsEnsureInFlight = null;

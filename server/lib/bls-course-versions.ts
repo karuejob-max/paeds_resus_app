@@ -11,6 +11,20 @@ import { BLS_MODULES_V2, BLS_V2_COURSE_TITLE } from "./bls-modules-v2-data";
 
 export { BLS_V2_COURSE_TITLE };
 
+/**
+ * Who is served the updated (v2) BLS curriculum. Controlled by BLS_V2_AUDIENCE:
+ *   "everyone"     (default) every learner who opens BLS sees v2. Completion and
+ *                  certificate checks stay tied to a learner's own completed record.
+ *   "new_learners" only enrolments created after v2 exists; everyone else stays on their course.
+ *   "off"          v2 is never created or served (the original course only).
+ */
+export type BlsV2Audience = "everyone" | "new_learners" | "off";
+
+export function getBlsV2Audience(env: Record<string, string | undefined> = process.env): BlsV2Audience {
+  const raw = (env.BLS_V2_AUDIENCE ?? "everyone").trim().toLowerCase();
+  return raw === "off" || raw === "new_learners" ? raw : "everyone";
+}
+
 export function isBlsV2CourseTitle(title: string | null | undefined): boolean {
   return title === BLS_V2_COURSE_TITLE;
 }

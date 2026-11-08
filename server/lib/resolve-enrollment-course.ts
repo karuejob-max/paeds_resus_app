@@ -10,6 +10,7 @@
  */
 import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { courses, enrollments, modules, userProgress } from "../../drizzle/schema";
+import { getBlsV2Audience } from "./bls-course-versions";
 import { resolveAhaCourseAnchor } from "./resolve-aha-course-anchor";
 
 type CourseRow = typeof courses.$inferSelect;
@@ -54,6 +55,11 @@ export async function resolvePinnedBlsCourse(
     | { id: number; courseId: number | null; cognitiveModulesComplete: boolean | null }
     | undefined;
   if (!enrol) return null;
+
+  // Audience "everyone": a learner who has not completed BLS studies the current
+  // course, so completion and exam state must follow it. A completed learner keeps
+  // their own record (certificate eligibility re-checks module progress).
+  if (getBlsV2Audience() === "everyone" && !enrol.cognitiveModulesComplete) return null;
 
   // 1. The course the enrollment was created against.
   const pinned = await usableBlsCourse(db, enrol.courseId);

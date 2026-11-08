@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { courses, enrollments, modules, quizzes, userProgress } from "../../drizzle/schema";
 import { BLS_MODULES_V2, BLS_V2_COURSE_TITLE } from "./bls-modules-v2-data";
+import { getBlsV2Audience } from "./bls-course-versions";
 import { ensureBlsCatalog } from "./ensure-bls-acls-catalog";
 import { resolveAhaCourseAnchor } from "./resolve-aha-course-anchor";
 import { resolvePinnedBlsCourse } from "./resolve-enrollment-course";
@@ -68,7 +69,9 @@ describe("resolveAhaCourseAnchor (BLS versions)", () => {
   });
 });
 
-describe("resolvePinnedBlsCourse", () => {
+describe("resolvePinnedBlsCourse (audience: new_learners)", () => {
+  beforeEach(() => vi.stubEnv("BLS_V2_AUDIENCE", "new_learners"));
+  afterEach(() => vi.unstubAllEnvs());
   type Scenario = { enrol: any | null; courseRows?: Record<number, any>; moduleCounts?: Record<number, number>; progressCourseIds?: number[] };
   const build = (s: Scenario) =>
     fakeDb(({ from, fields, joined, cond }) => {
@@ -159,5 +162,58 @@ describe("ensureBlsCatalog (v2 seeder)", () => {
     };
     expect(await run([{ moduleId: 10 }])).toBe(0);
     expect(await run([])).toBe(1);
+  });
+});
+
+describe("BLS_V2_AUDIENCE", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("defaults to everyone and only accepts the documented values", () => {
+    expect(getBlsV2Audience({})).toBe("everyone");
+    expect(getBlsV2Audience({ BLS_V2_AUDIENCE: " Off " })).toBe("off");
+    expect(getBlsV2Audience({ BLS_V2_AUDIENCE: "new_learners" })).toBe("new_learners");
+    expect(getBlsV2Audience({ BLS_V2_AUDIENCE: "garbage" })).toBe("everyone");
+  });
+
+  const pinDb = (enrol: any, progressCourseIds: number[] = []) =>
+    fakeDb(({ from, fields, cond }) => {
+      if (from === enrollments) return [enrol];
+      if (from === userProgress) return progressCourseIds.map((courseId) => ({ courseId }));
+      const rows = [course(1, V1_TITLE), course(2, BLS_V2_COURSE_TITLE)];
+      if (from === courses) {
+        const ids = params(cond).filter((v) => typeof v === "number") as number[];
+        return ids.length && !fields ? rows.filter((r) => ids.includes(r.id)) : rows;
+      }
+      if (from === modules && fields && "n" in fields) return [{ n: 6 }];
+      if (from === modules && fields && "moduleCount" in fields) return [{ courseId: 1, moduleCount: 6 }, { courseId: 2, moduleCount: 8 }];
+      return [];
+    }).db;
+
+  it("everyone: a learner who has not completed BLS follows the current course, even with old progress", async () => {
+    vi.stubEnv("BLS_V2_AUDIENCE", "everyone");
+    const db = pinDb({ id: 7, courseId: 1, cognitiveModulesComplete: false }, [1, 1]);
+    expect(await resolvePinnedBlsCourse(db, { userId: 9, enrollmentId: 7 })).toBeNull();
+  });
+
+  it("everyone: a completed learner keeps their own course for completion and certificate checks", async () => {
+    vi.stubEnv("BLS_V2_AUDIENCE", "everyone");
+    const db = pinDb({ id: 233, courseId: 1, cognitiveModulesComplete: true });
+    expect((await resolvePinnedBlsCourse(db, { userId: 9, enrollmentId: 233 }))?.id).toBe(1);
+  });
+
+  it("off: the resolver never serves v2 and the seeder creates nothing", async () => {
+    vi.stubEnv("BLS_V2_AUDIENCE", "off");
+    const rows = [course(1, V1_TITLE), course(2, BLS_V2_COURSE_TITLE)];
+    const { db: rdb } = fakeDb(({ from, fields }) => {
+      if (from === courses) return rows;
+      if (from === modules && fields && "moduleCount" in fields) return [{ courseId: 1, moduleCount: 6 }, { courseId: 2, moduleCount: 8 }];
+      return [];
+    });
+    expect((await resolveAhaCourseAnchor(rdb, "bls"))?.id).toBe(1);
+
+    const { db, ops } = fakeDb(() => []);
+    await ensureBlsCatalog(db);
+    expect(ops.inserts).toHaveLength(0);
+    expect(ops.updates).toHaveLength(0);
   });
 });

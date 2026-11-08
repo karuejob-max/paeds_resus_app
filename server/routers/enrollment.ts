@@ -19,7 +19,7 @@ import {
   getSeriouslyIllChildFellowshipCourseId,
 } from "../lib/ensure-seriously-ill-child-fellowship-catalog";
 import { ensureBlsCatalog } from "../lib/ensure-bls-acls-catalog";
-import { isBlsV2Course } from "../lib/bls-course-versions";
+import { getBlsV2Audience, isBlsV2Course } from "../lib/bls-course-versions";
 import {
   resolveAhaCourseAnchor,
   type AhaAnchorProgramType,
@@ -93,7 +93,7 @@ async function resolveTrainingCourseIdOnCreate(
 
   if (isAhaProgramType(input.programType)) {
     let anchor = await resolveAhaCourseAnchor(db, input.programType as AhaAnchorProgramType);
-    if (input.programType === "bls" && !isBlsV2Course(anchor)) {
+    if (input.programType === "bls" && getBlsV2Audience() !== "off" && !isBlsV2Course(anchor)) {
       // New BLS enrolments must start on the current curriculum. If it has not been
       // provisioned yet, create it now (single-flight) rather than pin to the old one.
       try {
