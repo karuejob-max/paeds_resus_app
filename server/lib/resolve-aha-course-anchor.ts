@@ -10,6 +10,8 @@ import { ensurePalsAhaCatalog } from "./ensure-pals-aha-catalog";
 import { ensureNrpCatalog } from "./ensure-nrp-catalog";
 import { ensureAhaDiagnosticQuiz } from "./ensure-aha-diagnostic-quiz";
 import { ensureAhaSummativeQuiz } from "./ensure-aha-summative-quiz";
+import { isBlsV2Course } from "./bls-course-versions";
+import { BLS_MODULES_V2 } from "./bls-modules-v2-data";
 import { ensureInstructorCourseCatalog } from "./ensure-instructor-course-catalog";
 
 export type AhaAnchorProgramType = "bls" | "acls" | "pals" | "heartsaver" | "nrp" | "instructor";
@@ -55,7 +57,7 @@ export async function resolveAhaCourseAnchorCached(
 export async function resolveAhaCourseAnchor(
   db: any,
   programType: AhaAnchorProgramType,
-  options: { skipEnsure?: boolean } = { skipEnsure: true }
+  options: { skipEnsure?: boolean; preferVersion?: "current" | "legacy" } = { skipEnsure: true }
 ): Promise<(typeof courses.$inferSelect) | null> {
   if (options.skipEnsure === false) {
     await ensureAhaProgramCatalog(db, programType);
@@ -95,9 +97,34 @@ export async function resolveAhaCourseAnchor(
 
   const countByCourse = new Map(counts.map((c: { courseId: number; moduleCount: number }) => [c.courseId, c.moduleCount]));
 
-  let best = rows[0] as (typeof courses.$inferSelect);
+  // BLS has two curriculum versions. "current" prefers a fully seeded v2 row (new
+  // enrolments); "legacy" ignores v2 so frozen v1/legacy rows stay reachable for
+  // learners who started on them.
+  let candidates = rows as (typeof courses.$inferSelect)[];
+  if (programType === "bls") {
+    if (options.preferVersion === "legacy") {
+      const legacy = candidates.filter((r) => !isBlsV2Course(r));
+      if (legacy.length) candidates = legacy;
+    } else {
+      const v2 = candidates.find(
+        (r) => isBlsV2Course(r) && Number(countByCourse.get(r.id) ?? 0) >= BLS_MODULES_V2.length
+      );
+      if (v2) {
+        if (!options.skipEnsure) {
+          await ensureAhaDiagnosticQuiz(db, v2.id, programType);
+          await ensureAhaSummativeQuiz(db, v2.id, programType);
+        }
+        return v2;
+      }
+      // v2 not (fully) seeded yet: keep serving the existing rows, never a partial v2.
+      const nonV2 = candidates.filter((r) => !isBlsV2Course(r));
+      if (nonV2.length) candidates = nonV2;
+    }
+  }
+
+  let best = candidates[0] as (typeof courses.$inferSelect);
   let bestCount = countByCourse.get(best.id) ?? 0;
-  for (const row of rows as (typeof courses.$inferSelect)[]) {
+  for (const row of candidates) {
     const n = countByCourse.get(row.id) ?? 0;
     if (n > bestCount) {
       best = row;

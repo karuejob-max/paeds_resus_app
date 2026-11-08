@@ -100,6 +100,13 @@ export default function MicroCoursePlayerDB() {
     return null;
   }, [search]);
   const programType = programFromQuery ?? ahaProgramFromSlug ?? ilsProgramFromSlug;
+  // BLS has more than one curriculum version; the enrollment in the URL tells the
+  // server which one this learner is on.
+  const requestedEnrollmentId = useMemo(() => {
+    const raw = Number(new URLSearchParams(search).get("enrollmentId"));
+    return Number.isInteger(raw) && raw > 0 ? raw : undefined;
+  }, [search]);
+
   const requestedPathway = useMemo(() => {
     return new URLSearchParams(search).get("pathway") === "ierp" ? "ierp" as const : undefined;
   }, [search]);
@@ -231,6 +238,7 @@ export default function MicroCoursePlayerDB() {
         courseId: numericCourseId ?? 0,
         programType: programType ?? undefined,
         pathway: requestedPathway,
+        enrollmentId: requestedEnrollmentId,
       },
       {
         enabled: isAhaCourse && !!programType,
