@@ -15,36 +15,30 @@
 - **The seeder only maintains v2.** It never updates the original course row. It also no longer deletes surplus modules that
   have `userProgress` rows (applies to ACLS too).
 
-## What existing learners experience
+## Who sees the updated course: `BLS_V2_AUDIENCE`
 
-| Learner | Result |
+Set this environment variable on the server (default `everyone`):
+
+| Value | Behaviour |
 |---|---|
-| Completed BLS (any enrollment) | Unchanged. Completion flag and certificates are persisted; review opens the course they completed, read-only. |
-| In progress on the original course | Continues on the original modules, progress and exam. Completion is judged against their own course. |
-| Enrollment with `courseId` unset or pointing at an unusable row | Course inferred from their progress rows; if they have started or finished, they stay on the original curriculum, never moved to v2. |
-| New enrollment / not started | Updated curriculum (v2). |
+| `everyone` (default) | Every learner who opens BLS sees the updated course, including completed learners reviewing. Learners who have **not** completed BLS follow the updated course for progress, exam state and completion. Learners who **have** completed keep their own record for completion and certificate checks (certificate issuance re-checks module progress against the course they completed). |
+| `new_learners` | Only enrolments created after the updated course exists get it. Everyone else stays on the course their enrollment points at. |
+| `off` | The updated course is never created or served. This is the real rollback: setting the course row inactive does NOT work, because the seeder would create a new copy on the next trigger. |
 
-## Deploy order and verification
+Consequences of `everyone`:
+- **Learners partway through the original course start the updated course from its first module.** Their old progress rows are kept (nothing is deleted or altered) but are not credited against the new modules.
+- Completed learners' completion flags and certificates are unchanged.
+- Completed learners reviewing the course see updated content with no per-module ticks (review mode unlocks everything).
 
-1. Deploy the code. No migration to run.
-2. v2 is created automatically on the first of: a new BLS enrollment, a BLS course load (background), or `pnpm seed`
-   (`server/seed.ts` now also runs `ensureBlsCatalog`). Until v2 is fully seeded (8 modules) it is never served.
-3. Verify in production (read-only checks first):
-   - `SELECT id, title, isActive FROM courses WHERE programType='bls';` — expect the original row(s) plus one row titled
-     "BLS Provider Course — Updated Curriculum (AHA 2025)" with 8 modules.
-   - Open a completed learner's review URL (`/micro-course/bls?review=true&programType=bls&enrollmentId=<id>`): the original
-     Module 1 title must still be shown and completion unchanged.
-   - Create a test BLS enrollment: it should show the updated Module 1 and have `enrollments.courseId` = the v2 row id.
-4. Rollback: set the v2 row `isActive = 0`. The resolver then serves the original rows again; no learner data is touched.
-
-## Known limitations / decisions still needed
+## Known limitations## Known limitations / decisions still needed
 
 - **Clinical sign-off required.** v2 text was written from AHA 2025 interim materials and published algorithms; a clinical reviewer
   must verify it against the current AHA BLS Provider Manual before release (especially pad placement wording, infant technique
   wording, naloxone guidance and the choking/pregnancy adaptations).
 - **The original exam keeps its known issues** (items on lone-rescuer pediatric timing, "preferred" two-thumb wording, and the CCF
   stem). It is frozen by design; fixing it needs a separate, explicit one-off repair of the existing exam rows.
-- **In-progress learners are not offered an upgrade.** They finish on the original course. An opt-in upgrade is a follow-up.
+- **No progress credit** carries over from the original modules to the updated ones (module ids differ).
+- Learners who finished every original module but never had the completion flag set are treated as not completed.
 - **No router-level automated test for `getCourseDetails`.** The existing router tests need a database; pin behaviour is covered
   by unit tests of the resolver and a fake-database test, so please smoke-test the review URL above after deploy.
 - Local emergency numbers and naloxone availability are generic in the text ("your local emergency number"; "know your local rules").

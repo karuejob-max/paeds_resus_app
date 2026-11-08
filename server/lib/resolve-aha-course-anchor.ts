@@ -10,7 +10,7 @@ import { ensurePalsAhaCatalog } from "./ensure-pals-aha-catalog";
 import { ensureNrpCatalog } from "./ensure-nrp-catalog";
 import { ensureAhaDiagnosticQuiz } from "./ensure-aha-diagnostic-quiz";
 import { ensureAhaSummativeQuiz } from "./ensure-aha-summative-quiz";
-import { isBlsV2Course } from "./bls-course-versions";
+import { getBlsV2Audience, isBlsV2Course } from "./bls-course-versions";
 import { BLS_MODULES_V2 } from "./bls-modules-v2-data";
 import { ensureInstructorCourseCatalog } from "./ensure-instructor-course-catalog";
 
@@ -102,7 +102,7 @@ export async function resolveAhaCourseAnchor(
   // learners who started on them.
   let candidates = rows as (typeof courses.$inferSelect)[];
   if (programType === "bls") {
-    if (options.preferVersion === "legacy") {
+    if (options.preferVersion === "legacy" || getBlsV2Audience() === "off") {
       const legacy = candidates.filter((r) => !isBlsV2Course(r));
       if (legacy.length) candidates = legacy;
     } else {

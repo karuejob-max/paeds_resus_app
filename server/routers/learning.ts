@@ -40,6 +40,7 @@ import {
 import { ensureBlsCatalog, ensureAclsCatalog } from "../lib/ensure-bls-acls-catalog";
 import {
   getBlsModuleDefinitionForCourse,
+  getBlsV2Audience,
   isBlsCourseShapeStale,
 } from "../lib/bls-course-versions";
 import { resolvePinnedBlsCourse } from "../lib/resolve-enrollment-course";
@@ -447,7 +448,7 @@ export const learningRouter = router({
       // BLS has more than one curriculum version. A learner keeps reading the course
       // their enrollment points at (their modules, progress and exam), whichever
       // version is the current default for new learners.
-      if (input.programType === "bls" && ctx.user?.id) {
+      if (input.programType === "bls" && ctx.user?.id && getBlsV2Audience() !== "everyone") {
         const pinned = await resolvePinnedBlsCourse(db, {
           userId: ctx.user.id,
           enrollmentId: input.enrollmentId,

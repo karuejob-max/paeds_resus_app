@@ -26,7 +26,8 @@ export async function computeAhaEnrollmentProgress(
     return 100;
   }
 
-  let catalogCourseId = enrollment.courseId;
+  // BLS has more than one curriculum: follow the resolver, not the stored course alone.
+  let catalogCourseId = enrollment.programType === "bls" ? null : enrollment.courseId;
   if (catalogCourseId == null && enrollment.programType === "bls") {
     // Unset pin on a BLS enrollment: infer the version the learner is actually on.
     const pinned = await resolvePinnedBlsCourse(db, { userId, enrollmentId: enrollment.id });
