@@ -7,8 +7,8 @@
  *   - learning.getCourses when the BLS/ACLS catalog is empty
  *   - isAhaCognitiveComplete (before checking module completion)
  */
-import { asc, desc, eq, and, gt } from "drizzle-orm";
-import { courses, modules, moduleSections, quizzes, quizQuestions } from "../../drizzle/schema";
+import { asc, desc, eq, and, gt, inArray } from "drizzle-orm";
+import { courses, modules, moduleSections, quizzes, quizQuestions, userProgress } from "../../drizzle/schema";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BLS CATALOG
@@ -20,6 +20,7 @@ import { courses, modules, moduleSections, quizzes, quizQuestions } from "../../
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { BLS_MODULES } from "./bls-modules-data";
+import { BLS_MODULES_V2, BLS_V2_COURSE_TITLE, BLS_V2_COURSE_DESCRIPTION } from "./bls-modules-v2-data";
 
 export function isBlsCatalogShapeStale(
   moduleRows: Array<{ order?: number | null; title?: string | null }>,
@@ -468,17 +469,28 @@ async function ensureCatalog(
   courseDescription: string,
   courseDuration: number,
   courseLevel: "beginner" | "intermediate" | "advanced",
-  moduleDefinitions: typeof BLS_MODULES
+  moduleDefinitions: typeof BLS_MODULES,
+  options: { exactTitle?: boolean } = {}
 ): Promise<void> {
   // Use the same canonical-row rule as the learner resolver: repair the
   // existing course with the richest module catalog, not merely the oldest
   // duplicate row. Production can contain legacy AHA rows created by earlier
   // seed paths; choosing the first row can repair the wrong course while the
   // player continues reading a stale duplicate.
+  // exactTitle targets one versioned course row only (BLS v2) and never falls back
+  // to another row, so frozen rows that learners already use are never rewritten.
   const existing = await db
     .select({ id: courses.id })
     .from(courses)
-    .where(and(eq(courses.programType, programType), eq(courses.isActive, true)))
+    .where(
+      options.exactTitle
+        ? and(
+            eq(courses.programType, programType),
+            eq(courses.isActive, true),
+            eq(courses.title, courseTitle)
+          )
+        : and(eq(courses.programType, programType), eq(courses.isActive, true))
+    )
     .orderBy(asc(courses.id));
 
   let courseId: number | undefined;
@@ -508,7 +520,7 @@ async function ensureCatalog(
     const row = await db
       .select({ id: courses.id })
       .from(courses)
-      .where(eq(courses.programType, programType))
+      .where(and(eq(courses.programType, programType), eq(courses.title, courseTitle)))
       .orderBy(desc(courses.id))
       .limit(1);
     courseId = row[0]!.id;
@@ -531,7 +543,23 @@ async function ensureCatalog(
 
   // Delete modules that are no longer in the definition
   const maxOrder = Math.max(...moduleDefinitions.map(m => m.order));
-  await db.delete(modules).where(and(eq(modules.courseId, courseId), gt(modules.order, maxOrder)));
+  // Never delete a module a learner has progress on; only unused surplus rows go.
+  const surplus = await db
+    .select({ id: modules.id })
+    .from(modules)
+    .where(and(eq(modules.courseId, courseId), gt(modules.order, maxOrder)));
+  if (surplus.length > 0) {
+    const surplusIds = surplus.map((m: { id: number }) => m.id);
+    const withProgress = await db
+      .select({ moduleId: userProgress.moduleId })
+      .from(userProgress)
+      .where(inArray(userProgress.moduleId, surplusIds));
+    const keep = new Set(withProgress.map((r: { moduleId: number }) => r.moduleId));
+    const deletable = surplusIds.filter((id: number) => !keep.has(id));
+    if (deletable.length > 0) {
+      await db.delete(modules).where(inArray(modules.id, deletable));
+    }
+  }
 
   // Ensure each module
   for (const modDef of moduleDefinitions) {
@@ -674,15 +702,31 @@ async function ensureCatalog(
 // PUBLIC API
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function ensureBlsCatalog(db: any): Promise<void> {
+let blsEnsureInFlight: Promise<void> | null = null;
+
+export function ensureBlsCatalog(db: any): Promise<void> {
+  // Single-flight across every caller (learner reads, enrolment, seed scripts) so
+  // two concurrent first runs cannot create duplicate v2 rows.
+  if (!blsEnsureInFlight) {
+    blsEnsureInFlight = ensureBlsCatalogOnce(db).finally(() => {
+      blsEnsureInFlight = null;
+    });
+  }
+  return blsEnsureInFlight;
+}
+
+async function ensureBlsCatalogOnce(db: any): Promise<void> {
+  // Maintains the v2 course row only. The original (v1) course row is frozen so
+  // learners already enrolled keep exactly the content and module ids they started on.
   await ensureCatalog(
     db,
     "bls",
-    "BLS Provider Course — AHA 2025 Guidelines",
-    "American Heart Association Basic Life Support (BLS) Provider Course. Deeply enriched with 2025 Unified Chain of Survival, healthcare-provider depth, and advanced life-saving skills. First Aid content lives in the separate Heartsaver course, matching AHA's own course structure -- BLS Provider stays focused on resuscitation.",
-    BLS_MODULES.reduce((sum, mod) => sum + mod.duration, 0),
+    BLS_V2_COURSE_TITLE,
+    BLS_V2_COURSE_DESCRIPTION,
+    BLS_MODULES_V2.reduce((sum, mod) => sum + mod.duration, 0),
     "intermediate",
-    BLS_MODULES
+    BLS_MODULES_V2,
+    { exactTitle: true }
   );
 }
 

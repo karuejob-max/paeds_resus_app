@@ -2,6 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { enrollments, modules, userProgress } from "../../drizzle/schema";
 import type { getDb } from "../db";
 import { resolveAhaCourseAnchor, type AhaAnchorProgramType } from "./resolve-aha-course-anchor";
+import { resolvePinnedBlsCourse } from "./resolve-enrollment-course";
 
 type Db = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
@@ -26,6 +27,11 @@ export async function computeAhaEnrollmentProgress(
   }
 
   let catalogCourseId = enrollment.courseId;
+  if (catalogCourseId == null && enrollment.programType === "bls") {
+    // Unset pin on a BLS enrollment: infer the version the learner is actually on.
+    const pinned = await resolvePinnedBlsCourse(db, { userId, enrollmentId: enrollment.id });
+    catalogCourseId = pinned?.id ?? null;
+  }
   if (catalogCourseId == null) {
     const anchor = await resolveAhaCourseAnchor(
       db,

@@ -37,12 +37,12 @@ import {
   markAhaCognitiveComplete,
   markIlsCognitiveComplete,
 } from "../certificates";
+import { ensureBlsCatalog, ensureAclsCatalog } from "../lib/ensure-bls-acls-catalog";
 import {
-  ensureBlsCatalog,
-  ensureAclsCatalog,
-  getBlsModuleDefinition,
-  isBlsCatalogShapeStale,
-} from "../lib/ensure-bls-acls-catalog";
+  getBlsModuleDefinitionForCourse,
+  isBlsCourseShapeStale,
+} from "../lib/bls-course-versions";
+import { resolvePinnedBlsCourse } from "../lib/resolve-enrollment-course";
 import { fellowshipSimulations } from "../../drizzle/schema";
 import { ensureHeartsaverCatalog } from "../lib/ensure-heartsaver-catalog";
 import {
@@ -373,6 +373,8 @@ export const learningRouter = router({
           ])
           .optional(),
         pathway: z.enum(["ierp"]).optional(),
+        /** BLS: read the curriculum version this enrollment belongs to. */
+        enrollmentId: z.number().int().positive().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -442,6 +444,17 @@ export const learningRouter = router({
         }
       }
 
+      // BLS has more than one curriculum version. A learner keeps reading the course
+      // their enrollment points at (their modules, progress and exam), whichever
+      // version is the current default for new learners.
+      if (input.programType === "bls" && ctx.user?.id) {
+        const pinned = await resolvePinnedBlsCourse(db, {
+          userId: ctx.user.id,
+          enrollmentId: input.enrollmentId,
+        });
+        if (pinned) courseRow = pinned;
+      }
+
       if (!courseRow) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -487,7 +500,7 @@ export const learningRouter = router({
           .where(eq(modules.courseId, courseRow.id))
           .orderBy(modules.order);
         blsModuleCount = blsModuleRows.length;
-        blsCatalogStale = isBlsCatalogShapeStale(blsModuleRows);
+        blsCatalogStale = isBlsCourseShapeStale(courseRow, blsModuleRows);
       }
 
       if (pt === "bls") {
@@ -507,6 +520,9 @@ export const learningRouter = router({
           // only BLS read path that waits for provisioning to create content.
           await synchronizeBlsCatalog(db);
           SEEDED_COURSES.add(pt);
+          // The seeder maintains the current (v2) row; serve it instead of the empty row.
+          courseRow =
+            (await resolveAhaCourseAnchor(db, "bls", { skipEnsure: true })) ?? courseRow;
         }
       } else if (pt && !SEEDED_COURSES.has(pt)) {
         // Non-BLS catalog provisioning retains its existing behavior. BLS is
@@ -623,12 +639,12 @@ export const learningRouter = router({
       // Repair the catalog once before returning a blank learner experience.
       if (!hasUsableModuleContent(module[0].content, sections)) {
         const courseRow = await (db as any)
-          .select({ programType: courses.programType })
+          .select({ programType: courses.programType, title: courses.title })
           .from(courses)
           .where(eq(courses.id, module[0].courseId))
           .limit(1);
         if (courseRow[0]?.programType === "bls") {
-          const definition = getBlsModuleDefinition(module[0].order);
+          const definition = getBlsModuleDefinitionForCourse(courseRow[0], module[0].order);
           if (definition?.sections.length) {
             // Return source content immediately even when the deployed DB seed is
             // stale. The background sync repairs the database for subsequent loads.
