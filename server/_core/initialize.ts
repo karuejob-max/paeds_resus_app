@@ -19,6 +19,30 @@ export async function runMigrations() {
     if (!db) {
       throw new Error('[Migrations] Database not available; refusing to start without required schema initialization');
     }
+    // 0191: repair a production schema gap where migration 0084 skipped the
+    // simulationRole column on an already-existing retrospectiveRoleClaims table.
+    const [retrospectiveRoleColumns] = await db.execute(sql`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'retrospectiveRoleClaims'
+        AND COLUMN_NAME = 'simulationRole'
+    `);
+    if (Array.isArray(retrospectiveRoleColumns) && (retrospectiveRoleColumns as any[]).length === 0) {
+      console.warn('[Migrations] Adding missing retrospectiveRoleClaims.simulationRole (0191)...');
+      await db.execute(sql`
+        ALTER TABLE \`retrospectiveRoleClaims\`
+        ADD COLUMN \`simulationRole\` ENUM(
+          'team_member', 'team_leader', 'team_member_airway_ventilation',
+          'team_member_compressor_1', 'team_member_compressor_2',
+          'team_member_monitor_defib_cpr_coach', 'team_member_iv_io_meds',
+          'team_member_scribe', 'observer'
+        ) NULL AFTER \`claimantUserId\`
+      `);
+      console.log('[Migrations] ✓ retrospectiveRoleClaims.simulationRole added');
+    } else {
+      console.log('[Migrations] ✓ retrospectiveRoleClaims.simulationRole already exists, skipping');
+    }
+
     // 0039: add microCourseEnrollmentId to certificates (idempotent column-existence check)
     const [cols] = await db.execute(sql`
       SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
