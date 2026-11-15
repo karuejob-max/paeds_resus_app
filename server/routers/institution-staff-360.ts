@@ -24,6 +24,7 @@ import {
   professionalCredentials,
   institutionalQiReports,
   institutionalQiActions,
+  institutionalActionLogs,
 } from "../../drizzle/schema";
 import { resolveStaff360Scope, assertStaff360DepartmentScope } from "../lib/institution-staff-360-access";
 import { isInstitutionAdmin } from "../lib/institution-access";
@@ -45,6 +46,39 @@ async function optionalRead<T>(read: Promise<T>, fallback: T) {
 }
 
 export const institutionStaff360Router = router({
+  requestReview: protectedProcedure.input(z.object({
+    institutionId: z.number().int().positive(),
+    userId: z.number().int().positive(),
+    field: z.enum(["identity", "department", "membership", "role", "training", "credential", "cpd", "quality_signal"]),
+    reason: z.string().trim().min(10).max(1000),
+  })).mutation(async ({ ctx, input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+    const scope = await resolveStaff360Scope(db, ctx.user, input.institutionId);
+    const [staff] = await db.select({ id: institutionalStaffMembers.id, staffName: institutionalStaffMembers.staffName, staffEmail: institutionalStaffMembers.staffEmail, facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId })
+      .from(institutionalStaffMembers)
+      .where(and(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId), eq(institutionalStaffMembers.userId, input.userId), isNull(institutionalStaffMembers.removedAt))).limit(1);
+    if (!staff) throw new TRPCError({ code: "NOT_FOUND", message: "This person is not an active linked member of the institution." });
+    assertStaff360DepartmentScope(scope, staff.facilityDepartmentId);
+    const systemChange = `STAFF_360_REVIEW_REQUEST:${input.userId}:${input.field}`;
+    const [open] = await db.select({ id: institutionalActionLogs.id }).from(institutionalActionLogs).where(and(
+      eq(institutionalActionLogs.institutionalAccountId, input.institutionId),
+      eq(institutionalActionLogs.systemChange, systemChange),
+      eq(institutionalActionLogs.status, "open"),
+    )).limit(1);
+    if (open) return { success: true as const, requestId: open.id, duplicate: true as const };
+    const inserted = await db.insert(institutionalActionLogs).values({
+      institutionalAccountId: input.institutionId,
+      createdByUserId: ctx.user.id,
+      gapIdentified: `Staff 360 review requested for ${staff.staffName || staff.staffEmail}: ${input.field}`,
+      systemChange,
+      status: "open",
+      notes: JSON.stringify({ staffMemberId: staff.id, subjectUserId: input.userId, field: input.field, reason: input.reason.trim(), requestedByUserId: ctx.user.id }),
+    });
+    const requestId = Number((inserted as unknown as { insertId: number }).insertId);
+    void insertAdminAuditLog({ adminUserId: ctx.user.id, procedurePath: "institutionStaff360.requestReview", inputSummary: JSON.stringify({ institutionId: input.institutionId, userId: input.userId, field: input.field, requestId }), createdAt: new Date() });
+    return { success: true as const, requestId, duplicate: false as const };
+  }),
   getDirectory: protectedProcedure.input(inputSchema.extend({ search: z.string().max(200).optional(), page: z.number().int().min(1).default(1) })).query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
