@@ -14,4 +14,14 @@ The Staff 360 UI presents these as three separate sections—standing appointmen
 
 Validation added in this slice includes a pure responsibility-normalization unit suite, strict TypeScript, focused People & Access/provider regression tests, diff checks, and a production build.
 
-This does **not** close the remaining P0/P1 gaps around licence/life-support projections, CPD presentation and target achievement, Care/Code Signal activity, case-management follow-up, field-level source failure isolation, server-side pagination beyond the operating cap, or the complete authenticated role-matrix sign-off. Those remain explicit next work, not hidden assumptions.
+## 6. Follow-up implementation completed — scale, source truth, and QI signals
+
+The subsequent protected releases close three previously open gaps:
+
+- Staff 360 now uses deterministic server-side pagination (50 records per page), a total count, and explicit previous/next controls. The old silent 500-record cap has been removed.
+- Optional professional-credential and CPD-presentation reads are isolated. If those source tables are temporarily unavailable, Staff 360 says so explicitly rather than presenting an empty record as a fact.
+- Staff 360 now projects institution-scoped Care Signal/Code Signal-linked QI reports and owned institutional QI actions from the canonical `institutionalQiReports` and `institutionalQiActions` workflow. It exposes counts and operational follow-up only; it does not expose private narratives or create a clinical-performance score.
+
+Protected PRs #1229 and #1230 merged to `main` as `facae66d` and `6463ae37`. Validation passed for both slices: strict TypeScript, focused tests, production build, and diff checks; protected CI passed on each PR.
+
+Remaining work is narrower and explicitly bounded: complete authenticated role-matrix testing across every institution role, add field-level review/mutation workflows with reason-required audit evidence, and decide whether institution-visible professional goals/target achievement belong in Staff 360 after a privacy review. The current read-only contract does not silently expose learner-owned goals or private clinical narratives.
