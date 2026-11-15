@@ -1405,7 +1405,7 @@ export const institutionRouter = router({
         const [existingStaff] = await tx.select({ id: institutionalStaffMembers.id }).from(institutionalStaffMembers).where(and(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId), eq(institutionalStaffMembers.staffEmail, email))).limit(1);
         let staffMemberId = existingStaff?.id;
         if (!staffMemberId) {
-          const staffInsert = await tx.insert(institutionalStaffMembers).values({
+          const [staffInsert] = await tx.insert(institutionalStaffMembers).values({
             institutionalAccountId: input.institutionId,
             userId: existingUser?.id ?? null,
             staffName: input.staffName,
@@ -1417,7 +1417,7 @@ export const institutionRouter = router({
             enrollmentStatus: "pending",
             facilityLinkStatus: "pending",
           });
-          staffMemberId = (staffInsert as unknown as { insertId: number }).insertId;
+          staffMemberId = Number((staffInsert as unknown as { insertId: number }).insertId);
         } else {
           await tx.update(institutionalStaffMembers).set({ userId: existingUser?.id ?? null, staffName: input.staffName, staffPhone: input.staffPhone || null, staffRole: input.staffRole, department: input.department || null, governanceRole: "general_staff", facilityLinkStatus: "pending", updatedAt: new Date() }).where(eq(institutionalStaffMembers.id, staffMemberId));
         }
@@ -1428,8 +1428,8 @@ export const institutionRouter = router({
           await tx.insert(institutionMembershipEvents).values({ institutionalAccountId: input.institutionId, membershipId: existingMembership.id, staffMemberId, userId: existingUser?.id ?? null, eventType: "reinvited", previousMembershipStatus: existingMembership.membershipStatus, currentMembershipStatus: "invited", actorUserId: ctx.user.id, reason: "Institution access invitation sent again.", occurredAt: now });
           return [{ membershipId: existingMembership.id, status: "reinvited" as const }, input.staffName];
         }
-        const membershipInsert = await tx.insert(institutionMemberships).values({ institutionalAccountId: input.institutionId, userId: existingUser?.id ?? null, invitedEmail: email, staffMemberId, responsibilityRole: "general_staff", membershipStatus: "invited", invitedByUserId: ctx.user.id });
-        const membershipId = (membershipInsert as unknown as { insertId: number }).insertId;
+        const [membershipInsert] = await tx.insert(institutionMemberships).values({ institutionalAccountId: input.institutionId, userId: existingUser?.id ?? null, invitedEmail: email, staffMemberId, responsibilityRole: "general_staff", membershipStatus: "invited", invitedByUserId: ctx.user.id });
+        const membershipId = Number((membershipInsert as unknown as { insertId: number }).insertId);
         await tx.insert(institutionMembershipEvents).values({ institutionalAccountId: input.institutionId, membershipId, staffMemberId, userId: existingUser?.id ?? null, eventType: "invited", previousMembershipStatus: null, currentMembershipStatus: "invited", actorUserId: ctx.user.id, reason: "General institution access invitation sent.", occurredAt: now });
         return [{ membershipId, status: "invited" as const }, input.staffName];
       });
@@ -6432,7 +6432,6 @@ export const institutionRouter = router({
         .limit(1);
       if (!rotation) throw new TRPCError({ code: "NOT_FOUND", message: "ERTL rotation assignment not found." });
       await assertActiveProviderDutyAccess(db, ctx.user, rotation.institutionId);
-      if (input.response === "accept") await assertCurrentClinicalLicence(db, ctx.user.id);
       assertProviderDutyDecision({
         action: "respond_to_assignment",
         requestedInstitutionId: rotation.institutionId,
@@ -6471,7 +6470,6 @@ export const institutionRouter = router({
         .limit(1);
       if (!roster) throw new TRPCError({ code: "NOT_FOUND", message: "Shift UTL assignment not found." });
       await assertActiveProviderDutyAccess(db, ctx.user, roster.institutionId);
-      if (input.response === "accept") await assertCurrentClinicalLicence(db, ctx.user.id);
       assertProviderDutyDecision({
         action: "respond_to_assignment",
         requestedInstitutionId: roster.institutionId,
@@ -6720,7 +6718,6 @@ export const institutionRouter = router({
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "ERCo assignment not found for this provider." });
       await assertActiveProviderDutyAccess(db, ctx.user, assignment.institutionId);
-      if (input.response === "accept") await assertCurrentClinicalLicence(db, ctx.user.id);
       const deputy = input.roleKey === "deputy_erco";
       const currentStatus = deputy ? assignment.deputyAssignmentStatus : assignment.assignmentStatus;
       if (currentStatus !== "pending_acceptance") throw new TRPCError({ code: "BAD_REQUEST", message: "This ERCo assignment is not awaiting a response." });
