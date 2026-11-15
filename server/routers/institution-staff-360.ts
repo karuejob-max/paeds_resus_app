@@ -22,6 +22,8 @@ import {
   users,
   facilityDepartments,
   professionalCredentials,
+  institutionalQiReports,
+  institutionalQiActions,
 } from "../../drizzle/schema";
 import { resolveStaff360Scope, assertStaff360DepartmentScope } from "../lib/institution-staff-360-access";
 import { isInstitutionAdmin } from "../lib/institution-access";
@@ -105,7 +107,7 @@ export const institutionStaff360Router = router({
     assertStaff360DepartmentScope(scope, staff.facilityDepartmentId);
     const [user] = await db.select({ id: users.id, name: users.name, email: users.email, phone: users.phone, providerType: users.providerType, cadre: users.cadre, cadreOther: users.cadreOther, createdAt: users.createdAt, updatedAt: users.updatedAt }).from(users).where(eq(users.id, input.userId)).limit(1);
     if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User account not found" });
-    const [institution, memberships, cpd, credentialRows, presentedRows, coPresentedRows, roles, department, departmentHeadRows, ercoRows, educationRows, ertlDuties, utlDuties] = await Promise.all([
+    const [institution, memberships, cpd, credentialRows, presentedRows, coPresentedRows, roles, department, departmentHeadRows, ercoRows, educationRows, ertlDuties, utlDuties, qiReportsResult, qiActionsResult] = await Promise.all([
       db.select({ companyName: institutionalAccounts.companyName, status: institutionalAccounts.status }).from(institutionalAccounts).where(eq(institutionalAccounts.id, input.institutionId)).limit(1),
       db.select({ id: institutionMemberships.id, membershipStatus: institutionMemberships.membershipStatus, responsibilityRole: institutionMemberships.responsibilityRole, invitedAt: institutionMemberships.invitedAt, acceptedAt: institutionMemberships.acceptedAt, endedAt: institutionMemberships.endedAt }).from(institutionMemberships).where(and(eq(institutionMemberships.institutionalAccountId, input.institutionId), eq(institutionMemberships.userId, input.userId))).orderBy(desc(institutionMemberships.updatedAt)),
       db.select({ attendeeId: cpdAttendees.id, eventId: cpdAttendees.cpdEventId, eventName: cpdEvents.name, eventDate: cpdEvents.eventDate, eventDateAt: cpdEvents.eventDateAt, cpdPoints: cpdEvents.cpdPoints, attendanceStatus: cpdAttendees.attendanceStatus, submittedAt: cpdAttendees.submittedAt, attendanceVerifiedAt: cpdAttendees.attendanceVerifiedAt, department: cpdAttendees.department }).from(cpdAttendees).innerJoin(cpdEvents, eq(cpdAttendees.cpdEventId, cpdEvents.id)).where(and(eq(cpdAttendees.institutionalAccountId, input.institutionId), eq(cpdAttendees.userId, input.userId))).orderBy(desc(cpdAttendees.submittedAt)).limit(100),
@@ -200,6 +202,8 @@ export const institutionStaff360Router = router({
         .leftJoin(facilityDepartments, eq(facilityDepartments.id, shiftUtlRosters.departmentId))
         .where(and(eq(shiftUtlRosters.institutionId, input.institutionId), eq(shiftUtlRosters.utlUserId, input.userId)))
         .orderBy(desc(shiftUtlRosters.shiftDate)).limit(50),
+      optionalRead(db.select({ reportType: institutionalQiReports.sourceType, status: institutionalQiReports.status, title: institutionalQiReports.title, createdAt: institutionalQiReports.createdAt }).from(institutionalQiReports).where(and(eq(institutionalQiReports.institutionalAccountId, input.institutionId), eq(institutionalQiReports.reporterUserId, input.userId))).orderBy(desc(institutionalQiReports.createdAt)).limit(50), []),
+      optionalRead(db.select({ status: institutionalQiActions.status, priority: institutionalQiActions.priority, dueAt: institutionalQiActions.dueAt, actionText: institutionalQiActions.actionText }).from(institutionalQiActions).innerJoin(institutionalQiReports, eq(institutionalQiActions.reportId, institutionalQiReports.id)).where(and(eq(institutionalQiActions.institutionalAccountId, input.institutionId), eq(institutionalQiActions.ownerUserId, input.userId))).orderBy(desc(institutionalQiActions.createdAt)).limit(50), []),
     ]);
     const headRow = departmentHeadRows[0];
     const departmentalAppointment = headRow
@@ -253,6 +257,8 @@ export const institutionStaff360Router = router({
       cpdPresented: presentedRows.data,
       cpdCoPresented: coPresentedRows.data,
       sourceStatus: { professionalCredentials: credentialRows.available ? "available" : "unavailable", cpdPresented: presentedRows.available ? "available" : "unavailable", cpdCoPresented: coPresentedRows.available ? "available" : "unavailable" },
+      qualitySignals: { reports: qiReportsResult.data, ownedActions: qiActionsResult.data },
+      qualitySignalSourceStatus: qiReportsResult.available && qiActionsResult.available ? "available" : "unavailable",
       cpd,
       actions,
       sourceBoundary: "Institution-scoped read-only record. Training, attendance, certificates and assignments are evidence states; none is proof of competence, licensure, dispatch authority or clinical performance.",
