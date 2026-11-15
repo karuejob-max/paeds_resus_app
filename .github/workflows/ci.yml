@@ -60,6 +60,8 @@ jobs:
         run: pnpm run db:verify-critical-schema
 
       - name: Typecheck, clinical lint (app + service worker)
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: pnpm run check
 
       - name: Unit + clinical engine tests
