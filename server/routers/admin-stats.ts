@@ -56,6 +56,7 @@ import {
 } from "../../shared/fellowship-launch-checklist";
 import { FELLOWSHIP_LAUNCH_READINESS } from "../../shared/fellowship-launch-gate";
 import { buildTrainingEnrollmentLedgerView } from "../../shared/training-product-taxonomy";
+import { resolveSettledRead } from "../lib/section-read";
 
 /** EAT = UTC+3. Report "this month" uses calendar month in EAT per PLATFORM_SOURCE_OF_TRUTH. */
 function startOfMonthEAT(year: number, month: number): Date {
@@ -527,8 +528,8 @@ export const adminStatsRouter = router({
 
       if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
 
-      const [enrollmentRows, certificateRows, paymentRows, membershipRows, staffRows, cpdRows] =
-        await Promise.all([
+      const [enrollmentResult, certificateResult, paymentResult, membershipResult, staffResult, cpdResult] =
+        await Promise.allSettled([
           db
             .select({
               enrollmentId: enrollments.id,
@@ -644,6 +645,18 @@ export const adminStatsRouter = router({
             .where(eq(cpdAttendees.userId, input.userId))
             .orderBy(desc(cpdAttendees.submittedAt)),
         ]);
+      const enrollmentRead = resolveSettledRead(enrollmentResult, []);
+      const certificateRead = resolveSettledRead(certificateResult, []);
+      const paymentRead = resolveSettledRead(paymentResult, []);
+      const membershipRead = resolveSettledRead(membershipResult, []);
+      const staffRead = resolveSettledRead(staffResult, []);
+      const cpdRead = resolveSettledRead(cpdResult, []);
+      const enrollmentRows = enrollmentRead.data;
+      const certificateRows = certificateRead.data;
+      const paymentRows = paymentRead.data;
+      const membershipRows = membershipRead.data;
+      const staffRows = staffRead.data;
+      const cpdRows = cpdRead.data;
 
       const now = Date.now();
       const currentCertificates = certificateRows.filter(
@@ -669,6 +682,14 @@ export const adminStatsRouter = router({
       return {
         generatedAt: new Date(),
         sourceBoundary: "Read-only aggregation of authoritative platform records; not a competence or licensure judgement.",
+        sourceStatus: {
+          enrolments: enrollmentRead.available ? "available" : "unavailable",
+          certificates: certificateRead.available ? "available" : "unavailable",
+          payments: paymentRead.available ? "available" : "unavailable",
+          institutions: membershipRead.available ? "available" : "unavailable",
+          staffRecords: staffRead.available ? "available" : "unavailable",
+          cpd: cpdRead.available ? "available" : "unavailable",
+        },
         user,
         summary: {
           activeInstitutionCount: membershipRows.filter(row => row.membershipStatus === "active").length,
