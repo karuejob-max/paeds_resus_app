@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb, insertAdminAuditLog } from "../db";
@@ -28,14 +28,22 @@ import { isInstitutionAdmin } from "../lib/institution-access";
 import { buildStaff360Responsibilities, type Staff360StandingAppointment, type Staff360DatedDuty } from "../lib/institution-staff-360-responsibilities";
 
 const inputSchema = z.object({ institutionId: z.number().int().positive() });
+const directoryPageSize = 50;
 
 function searchPattern(search?: string) {
   const clean = search?.trim().replace(/[%_\\]/g, "") ?? "";
   return clean ? `%${clean}%` : null;
 }
+async function optionalRead<T>(read: Promise<T>, fallback: T) {
+  try {
+    return { data: await read, available: true as const };
+  } catch {
+    return { data: fallback, available: false as const };
+  }
+}
 
 export const institutionStaff360Router = router({
-  getDirectory: protectedProcedure.input(inputSchema.extend({ search: z.string().max(200).optional() })).query(async ({ ctx, input }) => {
+  getDirectory: protectedProcedure.input(inputSchema.extend({ search: z.string().max(200).optional(), page: z.number().int().min(1).default(1) })).query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
     const scope = await resolveStaff360Scope(db, ctx.user, input.institutionId);
@@ -43,7 +51,9 @@ export const institutionStaff360Router = router({
     const predicates = [eq(institutionalStaffMembers.institutionalAccountId, input.institutionId), isNull(institutionalStaffMembers.removedAt)];
     if (!scope.institutionWide) predicates.push(inArray(institutionalStaffMembers.facilityDepartmentId, scope.departmentIds));
     if (pattern) predicates.push(or(like(institutionalStaffMembers.staffName, pattern), like(institutionalStaffMembers.staffEmail, pattern), like(institutionalStaffMembers.department, pattern))!);
-    const rows = await db.select({
+    const [totalRows, rows] = await Promise.all([
+      db.select({ total: count() }).from(institutionalStaffMembers).where(and(...predicates)),
+      db.select({
       staffMemberId: institutionalStaffMembers.id,
       userId: institutionalStaffMembers.userId,
       name: institutionalStaffMembers.staffName,
@@ -55,11 +65,12 @@ export const institutionStaff360Router = router({
       membershipStatus: institutionMemberships.membershipStatus,
       enrollmentStatus: institutionalStaffMembers.enrollmentStatus,
       certificationStatus: institutionalStaffMembers.certificationStatus,
-    }).from(institutionalStaffMembers)
+      }).from(institutionalStaffMembers)
       .leftJoin(institutionMemberships, and(eq(institutionMemberships.institutionalAccountId, input.institutionId), or(eq(institutionMemberships.staffMemberId, institutionalStaffMembers.id), eq(institutionMemberships.userId, institutionalStaffMembers.userId))))
-      .where(and(...predicates)).orderBy(institutionalStaffMembers.staffName).limit(501);
-    const capped = rows.length > 500;
-    return { scope, rows: capped ? rows.slice(0, 500) : rows, institutionId: input.institutionId, capped, returnedCount: capped ? 500 : rows.length };
+      .where(and(...predicates)).orderBy(institutionalStaffMembers.staffName, institutionalStaffMembers.id).limit(directoryPageSize).offset((input.page - 1) * directoryPageSize),
+    ]);
+    const total = Number(totalRows[0]?.total ?? 0);
+    return { scope, rows, institutionId: input.institutionId, page: input.page, pageSize: directoryPageSize, total, hasNext: input.page * directoryPageSize < total, hasPrevious: input.page > 1 };
   }),
 
   getProfile: protectedProcedure.input(inputSchema.extend({ userId: z.number().int().positive() })).query(async ({ ctx, input }) => {
@@ -98,9 +109,9 @@ export const institutionStaff360Router = router({
       db.select({ companyName: institutionalAccounts.companyName, status: institutionalAccounts.status }).from(institutionalAccounts).where(eq(institutionalAccounts.id, input.institutionId)).limit(1),
       db.select({ id: institutionMemberships.id, membershipStatus: institutionMemberships.membershipStatus, responsibilityRole: institutionMemberships.responsibilityRole, invitedAt: institutionMemberships.invitedAt, acceptedAt: institutionMemberships.acceptedAt, endedAt: institutionMemberships.endedAt }).from(institutionMemberships).where(and(eq(institutionMemberships.institutionalAccountId, input.institutionId), eq(institutionMemberships.userId, input.userId))).orderBy(desc(institutionMemberships.updatedAt)),
       db.select({ attendeeId: cpdAttendees.id, eventId: cpdAttendees.cpdEventId, eventName: cpdEvents.name, eventDate: cpdEvents.eventDate, eventDateAt: cpdEvents.eventDateAt, cpdPoints: cpdEvents.cpdPoints, attendanceStatus: cpdAttendees.attendanceStatus, submittedAt: cpdAttendees.submittedAt, attendanceVerifiedAt: cpdAttendees.attendanceVerifiedAt, department: cpdAttendees.department }).from(cpdAttendees).innerJoin(cpdEvents, eq(cpdAttendees.cpdEventId, cpdEvents.id)).where(and(eq(cpdAttendees.institutionalAccountId, input.institutionId), eq(cpdAttendees.userId, input.userId))).orderBy(desc(cpdAttendees.submittedAt)).limit(100),
-      db.select({ id: professionalCredentials.id, credentialType: professionalCredentials.credentialType, sourceType: professionalCredentials.sourceType, issuer: professionalCredentials.issuer, jurisdiction: professionalCredentials.jurisdiction, credentialNumber: professionalCredentials.credentialNumber, issuedAt: professionalCredentials.issuedAt, expiresAt: professionalCredentials.expiresAt, status: professionalCredentials.status, hasEvidence: sql<boolean>`${professionalCredentials.evidenceKey} IS NOT NULL` }).from(professionalCredentials).where(eq(professionalCredentials.userId, input.userId)).orderBy(desc(professionalCredentials.updatedAt)),
-      db.select({ id: cpdEvents.id, name: cpdEvents.name, eventDate: cpdEvents.eventDate, eventDateAt: cpdEvents.eventDateAt, cpdPoints: cpdEvents.cpdPoints }).from(cpdEvents).where(and(eq(cpdEvents.institutionalAccountId, input.institutionId), eq(cpdEvents.presenterUserId, input.userId))).orderBy(desc(cpdEvents.createdAt)).limit(100),
-      db.select({ id: cpdEventCoPresenters.id, eventId: cpdEventCoPresenters.cpdEventId, name: cpdEvents.name, eventDate: cpdEvents.eventDate, eventDateAt: cpdEvents.eventDateAt, cpdPoints: cpdEvents.cpdPoints }).from(cpdEventCoPresenters).innerJoin(cpdEvents, eq(cpdEvents.id, cpdEventCoPresenters.cpdEventId)).where(and(eq(cpdEventCoPresenters.institutionalAccountId, input.institutionId), eq(cpdEventCoPresenters.userId, input.userId))).orderBy(desc(cpdEvents.createdAt)).limit(100),
+      optionalRead(db.select({ id: professionalCredentials.id, credentialType: professionalCredentials.credentialType, sourceType: professionalCredentials.sourceType, issuer: professionalCredentials.issuer, jurisdiction: professionalCredentials.jurisdiction, credentialNumber: professionalCredentials.credentialNumber, issuedAt: professionalCredentials.issuedAt, expiresAt: professionalCredentials.expiresAt, status: professionalCredentials.status, hasEvidence: sql<boolean>`${professionalCredentials.evidenceKey} IS NOT NULL` }).from(professionalCredentials).where(eq(professionalCredentials.userId, input.userId)).orderBy(desc(professionalCredentials.updatedAt)), []),
+      optionalRead(db.select({ id: cpdEvents.id, name: cpdEvents.name, eventDate: cpdEvents.eventDate, eventDateAt: cpdEvents.eventDateAt, cpdPoints: cpdEvents.cpdPoints }).from(cpdEvents).where(and(eq(cpdEvents.institutionalAccountId, input.institutionId), eq(cpdEvents.presenterUserId, input.userId))).orderBy(desc(cpdEvents.createdAt)).limit(100), []),
+      optionalRead(db.select({ id: cpdEventCoPresenters.id, eventId: cpdEventCoPresenters.cpdEventId, name: cpdEvents.name, eventDate: cpdEvents.eventDate, eventDateAt: cpdEvents.eventDateAt, cpdPoints: cpdEvents.cpdPoints }).from(cpdEventCoPresenters).innerJoin(cpdEvents, eq(cpdEvents.id, cpdEventCoPresenters.cpdEventId)).where(and(eq(cpdEventCoPresenters.institutionalAccountId, input.institutionId), eq(cpdEventCoPresenters.userId, input.userId))).orderBy(desc(cpdEvents.createdAt)).limit(100), []),
       db.select({ id: institutionProductRoles.id, roleKey: institutionProductRoles.roleKey, roleStatus: institutionProductRoles.roleStatus, productKey: institutionalProducts.productKey, productName: institutionalProducts.displayName }).from(institutionProductRoles).innerJoin(institutionalProducts, eq(institutionProductRoles.productId, institutionalProducts.id)).where(and(eq(institutionProductRoles.institutionalAccountId, input.institutionId), or(eq(institutionProductRoles.userId, input.userId), eq(institutionProductRoles.invitedEmail, staff.staffEmail.toLowerCase())))),
       staff.facilityDepartmentId ? db.select({ id: facilityDepartments.id, name: facilityDepartments.departmentName, isActive: facilityDepartments.isActive }).from(facilityDepartments).where(eq(facilityDepartments.id, staff.facilityDepartmentId)).limit(1) : Promise.resolve([]),
       db.select({
@@ -238,9 +249,10 @@ export const institutionStaff360Router = router({
       memberships,
       roles,
       responsibilities,
-      professionalCredentials: credentialRows,
-      cpdPresented: presentedRows,
-      cpdCoPresented: coPresentedRows,
+      professionalCredentials: credentialRows.data,
+      cpdPresented: presentedRows.data,
+      cpdCoPresented: coPresentedRows.data,
+      sourceStatus: { professionalCredentials: credentialRows.available ? "available" : "unavailable", cpdPresented: presentedRows.available ? "available" : "unavailable", cpdCoPresented: coPresentedRows.available ? "available" : "unavailable" },
       cpd,
       actions,
       sourceBoundary: "Institution-scoped read-only record. Training, attendance, certificates and assignments are evidence states; none is proof of competence, licensure, dispatch authority or clinical performance.",
