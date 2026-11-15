@@ -182,7 +182,6 @@ export function RoleAssignDrawer({
     assignErco,
   ].some(mutation => mutation.isPending);
   const endWarning = primaryEndWarning(slot.kind);
-  const deputyErcoBlocked = false;
   const replacementBlocked =
     drawerMode === "change" && slot.kind !== "institution_admin";
 
@@ -228,8 +227,7 @@ export function RoleAssignDrawer({
     if (
       replacementBlocked ||
       !selected?.userId ||
-      eligibility.length ||
-      deputyErcoBlocked
+      eligibility.length
     )
       return;
     const departmentId = slot.departmentId ?? undefined;
@@ -311,13 +309,6 @@ export function RoleAssignDrawer({
               {endWarning}
             </p>
           )}
-          {deputyErcoBlocked && (
-            <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-              Deputy ERCo assignment is temporarily unavailable while the
-              primary-acceptance preservation fix is being shipped. Do not
-              re-submit the primary ERCo.
-            </p>
-          )}
           {replacementBlocked && (
             <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
               This slot is occupied. End the current appointment with a reason
@@ -335,7 +326,6 @@ export function RoleAssignDrawer({
               />
             </label>
           ) : (
-            !deputyErcoBlocked &&
             !replacementBlocked && (
               <>
                 {selected ? (
@@ -435,7 +425,7 @@ export function RoleAssignDrawer({
           >
             Cancel
           </Button>
-          {!deputyErcoBlocked && !replacementBlocked && (
+          {!replacementBlocked && (
             <Button
               type="button"
               variant={drawerMode === "end" ? "destructive" : "default"}
