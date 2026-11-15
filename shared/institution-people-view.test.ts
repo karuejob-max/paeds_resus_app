@@ -16,6 +16,21 @@ describe("People and access view helpers", () => {
       { key: "accessLinks", status: "done" },
     ]);
   });
+  it("keeps key roles and unresolved access links visibly incomplete", () => {
+    expect(deriveSetupChecklist({
+      institutionProfile: true,
+      staffRoster: true,
+      peopleAccess: false,
+      departments: true,
+      accessLinks: false,
+    })).toEqual([
+      { key: "institutionProfile", status: "done" },
+      { key: "staffRoster", status: "done" },
+      { key: "peopleAccess", status: "not_done" },
+      { key: "departments", status: "done" },
+      { key: "accessLinks", status: "not_done" },
+    ]);
+  });
   it("adds optional appointment attention without changing clean legacy output", () => {
     expect(getInstitutionAdministrationAttention({ pendingLinkRequests: 0, departmentMismatches: 0, missingDepartments: 0, productIssues: 0, ilsOrdersNeedingAttention: 0, declinedAppointments: 1 })).toMatchObject([
       { label: "1 appointment declined", lane: "institution", peopleView: "inbox", focus: "declined_appointments" },
