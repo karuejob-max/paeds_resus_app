@@ -592,7 +592,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
                       <TableCell><Badge variant={isRemoved ? "destructive" : member.facilityLinkStatus === "linked" ? "default" : "secondary"}>{isRemoved ? "Retired · access ended" : member.facilityLinkStatus === "linked" ? "Linked" : (member.facilityLinkStatus ?? "Roster only")}</Badge></TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-2">
-                        {member.userId && !isRemoved ? <Button type="button" size="sm" variant="outline" className="min-h-11" onClick={() => window.location.assign(`/institution/staff/${member.userId}?institutionId=${institutionId}`)}>Staff 360</Button> : null}
+                        {member.userId && !isRemoved ? <Button type="button" size="sm" variant="outline" className="min-h-11" onClick={() => window.location.assign(`/institution/staff?institutionId=${institutionId}&staffId=${member.userId}`)}>Open Staff 360</Button> : null}
                         {!isRemoved ? <Button type="button" size="sm" variant="outline" className="min-h-11" onClick={() => { setSelectedAssignmentStaffId(member.id); setActiveSection("assignments"); setMoveDepartmentId(""); setDirectDepartmentReason(""); }}>Change department</Button> : null}
                         {isRemoved ? (member.userId ? (
                               <Button type="button" size="sm" variant="outline" className="text-emerald-700" onClick={() => { setRestoreTarget(member); setRestoreReason(""); }} disabled={restoreRetiredLink.isPending}><UserCheck className="mr-2 h-4 w-4" />Restore institution link</Button> ) : ( <span className="text-xs text-muted-foreground">Account link required before restoration</span>) ) : member.membershipId ? (

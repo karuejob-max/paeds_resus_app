@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Link2, Building2, ShieldCheck } from "lucide-react";
+import { Users, Link2, Building2, ShieldCheck, ArrowRight, UserRound } from "lucide-react";
 import {
   resolveAdministrationLocation,
   buildAdministrationUrl,
@@ -146,6 +146,18 @@ export function PeopleAccessShell({
           Institution-scoped
         </Badge>
       </div>
+      <div className="flex flex-col gap-4 rounded-xl border border-teal-200 bg-gradient-to-r from-teal-50 via-white to-orange-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="rounded-lg bg-teal-700 p-2 text-white"><UserRound className="h-5 w-5" /></div>
+          <div>
+            <p className="font-semibold">Staff directory &amp; Staff 360</p>
+            <p className="text-sm text-muted-foreground">Find a staff member, review what needs attention, and keep your search context.</p>
+          </div>
+        </div>
+        <Button type="button" className="w-full shrink-0 sm:w-auto" onClick={() => { window.location.assign(`/institution/staff?institutionId=${institutionId}`); }}>
+          Open Staff 360 <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
       <SetupChecklist activeView={view} inputs={checklistInputs} />
       <nav aria-label="People and access views">
       <Tabs
@@ -173,7 +185,7 @@ export function PeopleAccessShell({
             className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm"
           >
             <Users className="mr-1.5 hidden h-4 w-4 sm:block" />
-            Directory
+            Staff directory
           </TabsTrigger>
           <TabsTrigger
             value="departments"
