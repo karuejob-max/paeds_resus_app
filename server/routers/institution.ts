@@ -5853,8 +5853,19 @@ export const institutionRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      const access = await assertIersInstitutionReadAccess(db, ctx.user, input.institutionId);
-      const departmentIds = "departmentIds" in access ? access.departmentIds : null;
+      // People & Access is an account-administration surface, so an
+      // institution administrator/account admin must be able to resolve the
+      // canonical department list even when IERS has not been configured.
+      // Keep the existing IERS guard as the fallback so departmental role
+      // holders still receive only their authorised department rows.
+      let departmentIds: number[] | null = null;
+      try {
+        await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+      } catch (error) {
+        if (!(error instanceof TRPCError) || !["FORBIDDEN", "PRECONDITION_FAILED"].includes(error.code)) throw error;
+        const access = await assertIersInstitutionReadAccess(db, ctx.user, input.institutionId);
+        departmentIds = "departmentIds" in access ? access.departmentIds ?? null : null;
+      }
 
       try {
         const rows = await db
