@@ -6,6 +6,7 @@ import { getDb, insertAdminAuditLog } from "../db";
 import {
   certificates,
   cpdAttendees,
+  cpdEventCoPresenters,
   cpdEvents,
   enrollments,
   institutionMemberships,
@@ -20,6 +21,7 @@ import {
   shiftUtlRosters,
   users,
   facilityDepartments,
+  professionalCredentials,
 } from "../../drizzle/schema";
 import { resolveStaff360Scope, assertStaff360DepartmentScope } from "../lib/institution-staff-360-access";
 import { isInstitutionAdmin } from "../lib/institution-access";
@@ -92,10 +94,13 @@ export const institutionStaff360Router = router({
     assertStaff360DepartmentScope(scope, staff.facilityDepartmentId);
     const [user] = await db.select({ id: users.id, name: users.name, email: users.email, phone: users.phone, providerType: users.providerType, cadre: users.cadre, cadreOther: users.cadreOther, createdAt: users.createdAt, updatedAt: users.updatedAt }).from(users).where(eq(users.id, input.userId)).limit(1);
     if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "User account not found" });
-    const [institution, memberships, cpd, roles, department, departmentHeadRows, ercoRows, educationRows, ertlDuties, utlDuties] = await Promise.all([
+    const [institution, memberships, cpd, credentialRows, presentedRows, coPresentedRows, roles, department, departmentHeadRows, ercoRows, educationRows, ertlDuties, utlDuties] = await Promise.all([
       db.select({ companyName: institutionalAccounts.companyName, status: institutionalAccounts.status }).from(institutionalAccounts).where(eq(institutionalAccounts.id, input.institutionId)).limit(1),
       db.select({ id: institutionMemberships.id, membershipStatus: institutionMemberships.membershipStatus, responsibilityRole: institutionMemberships.responsibilityRole, invitedAt: institutionMemberships.invitedAt, acceptedAt: institutionMemberships.acceptedAt, endedAt: institutionMemberships.endedAt }).from(institutionMemberships).where(and(eq(institutionMemberships.institutionalAccountId, input.institutionId), eq(institutionMemberships.userId, input.userId))).orderBy(desc(institutionMemberships.updatedAt)),
       db.select({ attendeeId: cpdAttendees.id, eventId: cpdAttendees.cpdEventId, eventName: cpdEvents.name, eventDate: cpdEvents.eventDate, eventDateAt: cpdEvents.eventDateAt, cpdPoints: cpdEvents.cpdPoints, attendanceStatus: cpdAttendees.attendanceStatus, submittedAt: cpdAttendees.submittedAt, attendanceVerifiedAt: cpdAttendees.attendanceVerifiedAt, department: cpdAttendees.department }).from(cpdAttendees).innerJoin(cpdEvents, eq(cpdAttendees.cpdEventId, cpdEvents.id)).where(and(eq(cpdAttendees.institutionalAccountId, input.institutionId), eq(cpdAttendees.userId, input.userId))).orderBy(desc(cpdAttendees.submittedAt)).limit(100),
+      db.select({ id: professionalCredentials.id, credentialType: professionalCredentials.credentialType, sourceType: professionalCredentials.sourceType, issuer: professionalCredentials.issuer, jurisdiction: professionalCredentials.jurisdiction, credentialNumber: professionalCredentials.credentialNumber, issuedAt: professionalCredentials.issuedAt, expiresAt: professionalCredentials.expiresAt, status: professionalCredentials.status, hasEvidence: sql<boolean>`${professionalCredentials.evidenceKey} IS NOT NULL` }).from(professionalCredentials).where(eq(professionalCredentials.userId, input.userId)).orderBy(desc(professionalCredentials.updatedAt)),
+      db.select({ id: cpdEvents.id, name: cpdEvents.name, eventDate: cpdEvents.eventDate, eventDateAt: cpdEvents.eventDateAt, cpdPoints: cpdEvents.cpdPoints }).from(cpdEvents).where(and(eq(cpdEvents.institutionalAccountId, input.institutionId), eq(cpdEvents.presenterUserId, input.userId))).orderBy(desc(cpdEvents.createdAt)).limit(100),
+      db.select({ id: cpdEventCoPresenters.id, eventId: cpdEventCoPresenters.cpdEventId, name: cpdEvents.name, eventDate: cpdEvents.eventDate, eventDateAt: cpdEvents.eventDateAt, cpdPoints: cpdEvents.cpdPoints }).from(cpdEventCoPresenters).innerJoin(cpdEvents, eq(cpdEvents.id, cpdEventCoPresenters.cpdEventId)).where(and(eq(cpdEventCoPresenters.institutionalAccountId, input.institutionId), eq(cpdEventCoPresenters.userId, input.userId))).orderBy(desc(cpdEvents.createdAt)).limit(100),
       db.select({ id: institutionProductRoles.id, roleKey: institutionProductRoles.roleKey, roleStatus: institutionProductRoles.roleStatus, productKey: institutionalProducts.productKey, productName: institutionalProducts.displayName }).from(institutionProductRoles).innerJoin(institutionalProducts, eq(institutionProductRoles.productId, institutionalProducts.id)).where(and(eq(institutionProductRoles.institutionalAccountId, input.institutionId), or(eq(institutionProductRoles.userId, input.userId), eq(institutionProductRoles.invitedEmail, staff.staffEmail.toLowerCase())))),
       staff.facilityDepartmentId ? db.select({ id: facilityDepartments.id, name: facilityDepartments.departmentName, isActive: facilityDepartments.isActive }).from(facilityDepartments).where(eq(facilityDepartments.id, staff.facilityDepartmentId)).limit(1) : Promise.resolve([]),
       db.select({
@@ -233,6 +238,9 @@ export const institutionStaff360Router = router({
       memberships,
       roles,
       responsibilities,
+      professionalCredentials: credentialRows,
+      cpdPresented: presentedRows,
+      cpdCoPresented: coPresentedRows,
       cpd,
       actions,
       sourceBoundary: "Institution-scoped read-only record. Training, attendance, certificates and assignments are evidence states; none is proof of competence, licensure, dispatch authority or clinical performance.",
