@@ -20,6 +20,7 @@ import { PeopleNeedsAttention } from "./PeopleNeedsAttention";
 import { SetupChecklist } from "./SetupChecklist";
 import { MismatchInbox } from "./MismatchInbox";
 import { choosePeopleAccessView } from "./people-access-navigation";
+import { buildRoleRegister } from "@shared/institution-role-register";
 
 function locationFromWindow() {
   return typeof window === "undefined"
@@ -54,6 +55,10 @@ export function PeopleAccessShell({
   const departmentsQuery = trpc.institution.getFacilityDepartments.useQuery(
     { institutionId },
     { staleTime: 60_000 }
+  );
+  const productRolesQuery = trpc.institutionProducts.listProductRoles.useQuery(
+    { institutionId },
+    { staleTime: 30_000 }
   );
   const consumedFocus = useRef(false);
   const [focus, setFocus] = useState(location.focus);
@@ -125,12 +130,30 @@ export function PeopleAccessShell({
     focus?.kind === "link-request" || focus?.kind === "mismatch"
       ? focus
       : undefined;
+  const productRolesReady =
+    !productRolesQuery.isError && !productRolesQuery.isLoading;
+  const roleRegister = buildRoleRegister({
+    departments: { unavailable: true },
+    admins: { unavailable: true },
+    productRoles: productRolesReady ? productRolesQuery.data ?? [] : { unavailable: true },
+    heads: { unavailable: true },
+    ercos: { unavailable: true },
+    cpdCoordinators: { unavailable: true },
+  });
+  const requiredInstitutionRoles = roleRegister.institutionWide.filter(slot =>
+    slot.kind === "iers_coordinator" || slot.kind === "cpd_coordinator"
+  );
+  const keyRolesComplete =
+    requiredInstitutionRoles.length === 2 &&
+    requiredInstitutionRoles.every(slot =>
+      slot.status === "active" || slot.status === "pending_acceptance"
+    );
   const checklistInputs = {
     institutionProfile: institutionProfileReady,
     staffRoster: staffQuery.isError || staffQuery.isLoading ? null : (staffQuery.data?.length ?? 0) > 0,
-    peopleAccess: staffQuery.isError || staffQuery.isLoading ? null : true,
+    peopleAccess: productRolesQuery.isError || productRolesQuery.isLoading ? null : keyRolesComplete,
     departments: departmentsQuery.isError || departmentsQuery.isLoading ? null : (departmentsQuery.data?.length ?? 0) > 0,
-    accessLinks: linksQuery.isError || linksQuery.isLoading ? null : true,
+    accessLinks: linksQuery.isError || linksQuery.isLoading ? null : (linksQuery.data?.length ?? 0) === 0,
   } as const;
   return (
     <main aria-labelledby="people-access-title" className="min-w-0 space-y-5 overflow-x-hidden">

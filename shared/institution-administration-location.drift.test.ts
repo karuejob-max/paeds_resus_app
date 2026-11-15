@@ -19,12 +19,15 @@ function filesUnder(directory: string): string[] {
 }
 
 describe("People & Access URL drift guard", () => {
-  it("does not allow new hand-written adminTab or peopleTab query literals", () => {
+  it("does not allow new hand-written adminTab or peopleTab query literals or setters", () => {
     const violations: string[] = [];
     for (const root of scanRoots.flatMap(relative => filesUnder(path.join(repoRoot, relative)))) {
       if (ignored.has(root)) continue;
       const text = fs.readFileSync(root, "utf8");
-      if (/[?&](?:adminTab|peopleTab)=/.test(text)) {
+      if (
+        /[?&](?:adminTab|peopleTab)=/.test(text) ||
+        /(?:searchParams|params)\.set\(\s*["'](?:adminTab|peopleTab)["']/.test(text)
+      ) {
         violations.push(path.relative(repoRoot, root));
       }
     }

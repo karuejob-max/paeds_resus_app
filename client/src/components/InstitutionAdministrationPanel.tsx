@@ -61,11 +61,11 @@ export function InstitutionAdministrationPanel({ institutionId, institution, det
     if (parameter === "billingTab") setBillingTab(value as typeof billingTab);
     else setDataSupportTab(value as typeof dataSupportTab);
     if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      params.set("section", "administration");
-      params.set("adminTab", parameter === "billingTab" ? "billing" : "data_support");
-      params.set(parameter, value);
-      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+      const base = buildAdministrationUrl({
+        institutionId,
+        lane: parameter === "billingTab" ? "billing" : "data_support",
+      });
+      window.history.replaceState(null, "", `${base}&${parameter}=${encodeURIComponent(value)}`);
     }
   };
 
