@@ -24,4 +24,8 @@ The subsequent protected releases close three previously open gaps:
 
 Protected PRs #1229 and #1230 merged to `main` as `facae66d` and `6463ae37`. Validation passed for both slices: strict TypeScript, focused tests, production build, and diff checks; protected CI passed on each PR.
 
-Remaining work is narrower and explicitly bounded: complete authenticated role-matrix testing across every institution role, add field-level review/mutation workflows with reason-required audit evidence, and decide whether institution-visible professional goals/target achievement belong in Staff 360 after a privacy review. The current read-only contract does not silently expose learner-owned goals or private clinical narratives.
+PR #1233 (`ce86817d`) closes the field-level review-request gap. An authorised Staff 360 viewer can now declare the affected area and submit a reasoned correction request; authoritative records remain unchanged until the owning governed workflow resolves it. Open requests are deduplicated and audited.
+
+Professional goals/target achievement remain intentionally private by default. This is a resolved privacy decision for the current release, not an omitted feature: exposing learner-owned goals institution-wide without explicit consent would violate least privilege and could turn a development target into an employment-performance score.
+
+The remaining operational item is authenticated role-matrix evidence across all listed role personas and cross-tenant cases. The role manifest exists and the server scope helper is fail-closed, but the full disposable-database real-router run still needs to be executed and recorded before claiming that acceptance gate closed.
