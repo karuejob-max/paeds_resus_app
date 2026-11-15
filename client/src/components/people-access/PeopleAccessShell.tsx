@@ -222,6 +222,7 @@ export function PeopleAccessShell({
           <InstitutionPeopleRolesPanel
             institutionId={institutionId}
             initialSection="roster"
+            hideSectionNavigation
           />
           <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>

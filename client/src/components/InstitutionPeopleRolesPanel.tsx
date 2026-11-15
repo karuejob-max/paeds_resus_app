@@ -98,7 +98,8 @@ function formatDutyDate(value: string | Date | null | undefined): string {
 export function InstitutionPeopleRolesPanel({ institutionId ,
   focusMismatchReportId,
   initialSection,
-}: { institutionId: number; focusMismatchReportId?: number; initialSection?: "assignments" | "roster" | "role_map" | "duties" | "product_roles" | "scopes"; }) {
+  hideSectionNavigation = false,
+}: { institutionId: number; focusMismatchReportId?: number; initialSection?: "assignments" | "roster" | "role_map" | "duties" | "product_roles" | "scopes"; hideSectionNavigation?: boolean; }) {
   const utils = trpc.useUtils();
   const [search, setSearch] = useState("");
   const [roleProduct, setRoleProduct] = useState<"iers" | "cpd_portal">("iers");
@@ -399,7 +400,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
           <ShieldCheck className="h-4 w-4 shrink-0" />
           <span>CPD-confirmed permanent and outreach/locum facilities appear here as linked general-staff accounts. Administrators may reallocate a current department or retire a person; neither action creates an IERS responsibility automatically.</span>
         </div>
-        <nav aria-label="People and access sections" className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/20 p-1 sm:grid-cols-3 lg:grid-cols-6">
+        {!hideSectionNavigation && <nav aria-label="People and access sections" className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/20 p-1 sm:grid-cols-3 lg:grid-cols-6">
           {([
             ["assignments", "Role assignments"],
             ["roster", "Directory"],
@@ -410,7 +411,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
           ] as const).map(([value, label]) => (
             <Button key={value} type="button" size="sm" variant={activeSection === value ? "default" : "ghost"} className="min-h-11 min-w-0 whitespace-normal text-xs sm:text-sm" onClick={() => setActiveSection(value)}>{label}</Button>
           ))}
-        </nav>
+        </nav>}
         {activeSection === "assignments" && (
           <Card className="border-primary/20 bg-primary/[0.02]">
             <CardHeader>
