@@ -60,9 +60,9 @@ describe("buildCourseProgressAlerts", () => {
     );
   });
 
-  it("routes AHA enrollments via program slug and course db id", () => {
+  it("routes AHA enrollments via the stable program slug", () => {
     const alerts = buildCourseProgressAlerts([ahaInProgress]);
-    expect(alerts[0]?.actionUrl).toBe("/micro-course/40?programType=pals&enrollmentId=20");
+    expect(alerts[0]?.actionUrl).toBe("/micro-course/pals?programType=pals&enrollmentId=20");
   });
 
   it("routes micro enrollments to /micro-course/{slug}", () => {

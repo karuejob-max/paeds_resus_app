@@ -16,7 +16,7 @@ const compact = (path: readonly { type: string; target?: string; cause?: string;
   }
   return out.join(" -> ");
 };
-const req = (r: { type: string; code?: string; descriptionIncludes?: string; unlessEventType?: string }) => r.type + (r.code ? ` [code: ${r.code}]` : r.descriptionIncludes ? ` (legacy text: "${r.descriptionIncludes}")` : "") + (r.unlessEventType ? ` [waived if ${r.unlessEventType}]` : "");
+const req = (r: { type: string; code?: string; unlessEventType?: string }) => r.type + (r.code ? ` [code: ${r.code}]` : "") + (r.unlessEventType ? ` [waived if ${r.unlessEventType}]` : "");
 
 let md = `# ACLS case definitions for clinical review\n\n_Generated from \`shared/adult-acls-case-definitions.ts\` (engine ${ADULT_ACLS_SCENARIO_VERSION}). Do not edit by hand; run \`npx tsx scripts/export-acls-case-review.ts\`._\n\nBasis: 2025 AHA Guidelines for CPR and ECC. Every row is enforced by the scorer and a generated test harness.\n\n`;
 for (const d of ADULT_ACLS_CASE_DEFINITIONS) {

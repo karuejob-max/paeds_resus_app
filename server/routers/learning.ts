@@ -20,8 +20,6 @@ import {
   enrollments,
 } from "../../drizzle/schema";
 import { ensurePalsAhaCatalog } from "../lib/ensure-pals-aha-catalog";
-import { ensureAhaDiagnosticQuiz } from "../lib/ensure-aha-diagnostic-quiz";
-import { AHA_DIAGNOSTIC_PROGRAMS } from "../data/aha-diagnostic-banks";
 import { ensurePals2025Content } from "../lib/ensure-pals-2025-content";
 import { ensureSeriouslyIllChildFellowshipCatalog } from "../lib/ensure-seriously-ill-child-fellowship-catalog";
 import {
@@ -39,12 +37,13 @@ import {
   markAhaCognitiveComplete,
   markIlsCognitiveComplete,
 } from "../certificates";
+import { ensureBlsCatalog, ensureAclsCatalog } from "../lib/ensure-bls-acls-catalog";
 import {
-  ensureBlsCatalog,
-  ensureAclsCatalog,
-  getBlsModuleDefinition,
-  isBlsCatalogShapeStale,
-} from "../lib/ensure-bls-acls-catalog";
+  getBlsModuleDefinitionForCourse,
+  getBlsV2Audience,
+  isBlsCourseShapeStale,
+} from "../lib/bls-course-versions";
+import { resolvePinnedBlsCourse } from "../lib/resolve-enrollment-course";
 import { fellowshipSimulations } from "../../drizzle/schema";
 import { ensureHeartsaverCatalog } from "../lib/ensure-heartsaver-catalog";
 import {
@@ -118,7 +117,8 @@ async function assertAhaCognitiveAccess(
   db: any,
   userId: number | undefined,
   programType: string | null | undefined,
-  pathway?: "ierp"
+  pathway?: "ierp",
+  mode: "read" | "write" = "write",
 ) {
   if (!isAhaProgramType(programType)) return;
   if (!userId) {
@@ -128,7 +128,7 @@ async function assertAhaCognitiveAccess(
   // for every player request, not only the first route load, so module content,
   // quizzes, and summative exams cannot fall back to standalone AHA pricing.
   const ierpPayment = await getIerpPaymentAccessForUser(db, userId);
-  if (ierpPayment && (programType === "bls" || programType === "acls" || pathway === "ierp")) {
+  if (mode === "write" && ierpPayment && (programType === "bls" || programType === "acls" || pathway === "ierp")) {
     const profile = await getIerpInternProfile(db, userId);
     const profileMessage = getIerpInternProfileAccessMessage(profile);
     if (!isIerpInternProfileReady(profile) || profileMessage) {
@@ -139,7 +139,7 @@ async function assertAhaCognitiveAccess(
     }
     return;
   }
-  await assertAhaAccess(db, userId, programType);
+  await assertAhaAccess(db, userId, programType, mode);
 }
 
 async function assertCourseEnrollmentAccess(
@@ -149,7 +149,7 @@ async function assertCourseEnrollmentAccess(
   programType: string | null | undefined
 ) {
   if (isAhaProgramType(programType)) {
-    await assertAhaCognitiveAccess(db, userId, programType);
+    await assertAhaCognitiveAccess(db, userId, programType, undefined, "read");
     return;
   }
   if (!userId) {
@@ -374,15 +374,30 @@ export const learningRouter = router({
           ])
           .optional(),
         pathway: z.enum(["ierp"]).optional(),
+        /** BLS: read the curriculum version this enrollment belongs to. */
+        enrollmentId: z.number().int().positive().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) {
-        throw new Error("Course not found");
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Course catalogue is temporarily unavailable." });
       }
 
       let courseRow: typeof courses.$inferSelect | null = null;
+
+      // AHA enrollments historically stored numeric course ids from several catalog
+      // generations. A valid legacy row can still have the same programType, so merely
+      // checking that the id exists is not enough: it can select a row with no usable
+      // learner content and surface the misleading "Content Not Found" state. Resolve
+      // without seeding on the read path; the URL slug remains the source of truth for
+      // the learner's course identity. Catalog repair is handled below only when the
+      // selected row is missing/stale, preserving the non-blocking first-paint branch.
+      if (input.programType && input.programType !== "paeds_resus_ils") {
+        courseRow = await resolveAhaCourseAnchor(db, input.programType as AhaAnchorProgramType, {
+          skipEnsure: true,
+        });
+      }
 
       if (input.programType && (!input.courseId || input.courseId <= 0)) {
         if (input.programType === "paeds_resus_ils") {
@@ -395,7 +410,7 @@ export const learningRouter = router({
             .limit(1);
           courseRow = ilsRows[0] ?? null;
         } else {
-          courseRow = await resolveAhaCourseAnchor(db, input.programType);
+          courseRow = await resolveAhaCourseAnchor(db, input.programType, { skipEnsure: true });
         }
       }
 
@@ -426,12 +441,26 @@ export const learningRouter = router({
             .limit(1);
           courseRow = ilsRows[0] ?? null;
         } else {
-          courseRow = await resolveAhaCourseAnchor(db, input.programType);
+          courseRow = await resolveAhaCourseAnchor(db, input.programType, { skipEnsure: true });
         }
       }
 
+      // BLS has more than one curriculum version. A learner keeps reading the course
+      // their enrollment points at (their modules, progress and exam), whichever
+      // version is the current default for new learners.
+      if (input.programType === "bls" && ctx.user?.id && getBlsV2Audience() !== "everyone") {
+        const pinned = await resolvePinnedBlsCourse(db, {
+          userId: ctx.user.id,
+          enrollmentId: input.enrollmentId,
+        });
+        if (pinned) courseRow = pinned;
+      }
+
       if (!courseRow) {
-        throw new Error("Course not found");
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `${input.programType?.toUpperCase() ?? "AHA"} course catalogue entry was not found. Please refresh and try again.`,
+        });
       }
 
       const pt = courseRow.programType as string;
@@ -465,28 +494,41 @@ export const learningRouter = router({
       }
       let blsCatalogStale = false;
       let blsModuleCount = 0;
-      if (pt === "bls" && SEEDED_COURSES.has(pt)) {
+      if (pt === "bls") {
         const blsModuleRows = await (db as any)
           .select({ order: modules.order, title: modules.title })
           .from(modules)
           .where(eq(modules.courseId, courseRow.id))
           .orderBy(modules.order);
         blsModuleCount = blsModuleRows.length;
-        blsCatalogStale = isBlsCatalogShapeStale(blsModuleRows);
+        blsCatalogStale = isBlsCourseShapeStale(courseRow, blsModuleRows);
       }
 
-      if (pt && (!SEEDED_COURSES.has(pt) || blsCatalogStale)) {
-        if (pt === "bls") {
-          if (blsCatalogStale && blsModuleCount > 0) {
-            // Existing learner content is usable; do not make first paint wait
-            // for a full catalog repair. Repair asynchronously for next load.
-            void synchronizeBlsCatalog(db).catch(error =>
-              console.error("[learning.getCourseDetails] BLS background sync:", error)
-            );
-          } else {
-            await synchronizeBlsCatalog(db);
+      if (pt === "bls") {
+        if (blsModuleCount > 0) {
+          // Existing learner content is usable, including on a cold server
+          // instance. Never make first paint wait for the full sequential
+          // catalogue repair; repair asynchronously for subsequent loads.
+          if (!SEEDED_COURSES.has(pt) || blsCatalogStale) {
+            void synchronizeBlsCatalog(db)
+              .then(() => SEEDED_COURSES.add(pt))
+              .catch(error =>
+                console.error("[learning.getCourseDetails] BLS background sync:", error)
+              );
           }
-        } else if (pt === "acls") {
+        } else {
+          // A row with no modules cannot render any coursework. This is the
+          // only BLS read path that waits for provisioning to create content.
+          await synchronizeBlsCatalog(db);
+          SEEDED_COURSES.add(pt);
+          // The seeder maintains the current (v2) row; serve it instead of the empty row.
+          courseRow =
+            (await resolveAhaCourseAnchor(db, "bls", { skipEnsure: true })) ?? courseRow;
+        }
+      } else if (pt && !SEEDED_COURSES.has(pt)) {
+        // Non-BLS catalog provisioning retains its existing behavior. BLS is
+        // handled above because its completed-course read path must stay fast.
+        if (pt === "acls") {
           await ensureAclsCatalog(db);
         } else if (pt === "heartsaver") {
           await ensureHeartsaverCatalog(db);
@@ -514,21 +556,6 @@ export const learningRouter = router({
           await ensureInstitutionalLifeSupportCatalog(db);
         }
         SEEDED_COURSES.add(pt);
-      }
-
-      const diagnosticProgram = AHA_DIAGNOSTIC_PROGRAMS.find(
-        candidate => candidate === pt
-      );
-      if (diagnosticProgram) {
-        const diagnosticAnchor = await resolveAhaCourseAnchor(
-          db,
-          diagnosticProgram
-        );
-        await ensureAhaDiagnosticQuiz(
-          db,
-          diagnosticAnchor?.id ?? courseRow.id,
-          diagnosticProgram
-        );
       }
 
       const courseModules = await (db as any)
@@ -613,12 +640,12 @@ export const learningRouter = router({
       // Repair the catalog once before returning a blank learner experience.
       if (!hasUsableModuleContent(module[0].content, sections)) {
         const courseRow = await (db as any)
-          .select({ programType: courses.programType })
+          .select({ programType: courses.programType, title: courses.title })
           .from(courses)
           .where(eq(courses.id, module[0].courseId))
           .limit(1);
         if (courseRow[0]?.programType === "bls") {
-          const definition = getBlsModuleDefinition(module[0].order);
+          const definition = getBlsModuleDefinitionForCourse(courseRow[0], module[0].order);
           if (definition?.sections.length) {
             // Return source content immediately even when the deployed DB seed is
             // stale. The background sync repairs the database for subsequent loads.

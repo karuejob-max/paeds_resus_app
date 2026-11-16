@@ -250,7 +250,7 @@ export const coursesRouter = router({
         fetchMyAhaEnrollments(ctx.user.id),
         Promise.all(AHA_PROGRAM_TYPES.map(async (programType) => ({
           programType,
-          decision: await getAhaAccessDecision(database, ctx.user.id, programType),
+          decision: await getAhaAccessDecision(database, ctx.user.id, programType, new Date(), "read"),
         }))),
       ]);
       return {
@@ -281,7 +281,7 @@ export const coursesRouter = router({
       assertTrainingWorkspaceOrAdmin(ctx.user);
       const database = await getDb();
       if (!database) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      return getAhaAccessDecision(database, ctx.user.id, input.programType);
+      return getAhaAccessDecision(database, ctx.user.id, input.programType, new Date(), "read");
     }),
 
   /**

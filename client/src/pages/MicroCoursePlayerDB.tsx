@@ -100,6 +100,13 @@ export default function MicroCoursePlayerDB() {
     return null;
   }, [search]);
   const programType = programFromQuery ?? ahaProgramFromSlug ?? ilsProgramFromSlug;
+  // BLS has more than one curriculum version; the enrollment in the URL tells the
+  // server which one this learner is on.
+  const requestedEnrollmentId = useMemo(() => {
+    const raw = Number(new URLSearchParams(search).get("enrollmentId"));
+    return Number.isInteger(raw) && raw > 0 ? raw : undefined;
+  }, [search]);
+
   const requestedPathway = useMemo(() => {
     return new URLSearchParams(search).get("pathway") === "ierp" ? "ierp" as const : undefined;
   }, [search]);
@@ -231,8 +238,15 @@ export default function MicroCoursePlayerDB() {
         courseId: numericCourseId ?? 0,
         programType: programType ?? undefined,
         pathway: requestedPathway,
+        enrollmentId: requestedEnrollmentId,
       },
-      { enabled: isAhaCourse && !!programType }
+      {
+        enabled: isAhaCourse && !!programType,
+        // A completed-course review must fail visibly and quickly. Retrying a
+        // potentially blocked catalog request keeps the player in a misleading
+        // loading state for ~30 seconds and hides the actionable server error.
+        retry: false,
+      }
     );
 
   // Unified dbCourse: either fellowship or AHA
@@ -490,7 +504,10 @@ export default function MicroCoursePlayerDB() {
   // so the user can browse freely instead of landing on the final exam.
   const [hasResumed, setHasResumed] = useState(false);
   const [diagnosticPrompted, setDiagnosticPrompted] = useState(false);
-  const isReviewModeRequested = location.includes('review=true');
+  // Wouter's location value is the pathname; query parameters are exposed by
+  // useSearch(). Reading review=true from location therefore left the player
+  // on the completion screen even after the URL changed successfully.
+  const isReviewModeRequested = new URLSearchParams(search).get("review") === "true";
   const isCompletedAhaCourse = isAhaCourse && Boolean((enrollment as { cognitiveModulesComplete?: boolean } | undefined)?.cognitiveModulesComplete);
   const isReviewMode = enrollment?.enrollmentStatus === 'completed' || isCompletedAhaCourse || isReviewModeRequested;
   const isIerpBlsCompletion = requestedPathway === "ierp" && ahaProgramForUi === "bls";
@@ -1413,8 +1430,19 @@ export default function MicroCoursePlayerDB() {
                     setShowSummativeExam(false);
                     setShowCertificateReady(false);
                     setHasResumed(false);
-                    // Navigate to the same course with review=true so isReviewMode is set
-                    navigate(`/micro-course/${slug}?review=true`);
+                    // Re-enter through the stable AHA program slug and preserve the
+                    // enrollment context. A bare numeric URL loses programType and
+                    // makes the completed-course review loader unable to resolve the
+                    // canonical catalog row.
+                    const reviewSegment = isAhaCourse && ahaProgramForUi ? ahaProgramForUi : slug;
+                    const reviewParams = new URLSearchParams({ review: "true" });
+                    if (isAhaCourse && ahaProgramForUi) {
+                      reviewParams.set("programType", ahaProgramForUi);
+                      if ((enrollment as { id?: number } | undefined)?.id) {
+                        reviewParams.set("enrollmentId", String((enrollment as { id: number }).id));
+                      }
+                    }
+                    navigate(`/micro-course/${reviewSegment}?${reviewParams.toString()}`);
                   }}
                 >
                   <BookOpen className="w-5 h-5 mr-2" />

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Link2, Building2, ShieldCheck } from "lucide-react";
+import { Users, Link2, Building2, ShieldCheck, ArrowRight, UserRound } from "lucide-react";
 import {
   resolveAdministrationLocation,
   buildAdministrationUrl,
@@ -20,6 +20,7 @@ import { PeopleNeedsAttention } from "./PeopleNeedsAttention";
 import { SetupChecklist } from "./SetupChecklist";
 import { MismatchInbox } from "./MismatchInbox";
 import { choosePeopleAccessView } from "./people-access-navigation";
+import { buildRoleRegister } from "@shared/institution-role-register";
 
 function locationFromWindow() {
   return typeof window === "undefined"
@@ -39,21 +40,26 @@ export function PeopleAccessShell({
   const [view, setView] = useState<PeopleView>(
     choosePeopleAccessView({ explicitView })
   );
+  const institutionQueryEnabled = Number.isInteger(institutionId) && institutionId > 0;
   const staffQuery = trpc.institution.getStaffMembers.useQuery(
     { institutionId, includeRemoved: false },
-    { staleTime: 30_000 }
+    { enabled: institutionQueryEnabled, retry: 1, staleTime: 30_000 }
   );
   const linksQuery = trpc.institution.getPendingLinkRequests.useQuery(
     { institutionId },
-    { staleTime: 30_000 }
+    { enabled: institutionQueryEnabled, retry: 1, staleTime: 30_000 }
   );
   const mismatchQuery = trpc.institution.getDepartmentMismatchReports.useQuery(
     { institutionId },
-    { staleTime: 30_000 }
+    { enabled: institutionQueryEnabled, retry: 1, staleTime: 30_000 }
   );
   const departmentsQuery = trpc.institution.getFacilityDepartments.useQuery(
     { institutionId },
-    { staleTime: 60_000 }
+    { enabled: institutionQueryEnabled, retry: 1, staleTime: 60_000 }
+  );
+  const productRolesQuery = trpc.institutionProducts.listProductRoles.useQuery(
+    { institutionId },
+    { staleTime: 30_000 }
   );
   const consumedFocus = useRef(false);
   const [focus, setFocus] = useState(location.focus);
@@ -125,12 +131,30 @@ export function PeopleAccessShell({
     focus?.kind === "link-request" || focus?.kind === "mismatch"
       ? focus
       : undefined;
+  const productRolesReady =
+    !productRolesQuery.isError && !productRolesQuery.isLoading;
+  const roleRegister = buildRoleRegister({
+    departments: { unavailable: true },
+    admins: { unavailable: true },
+    productRoles: productRolesReady ? productRolesQuery.data ?? [] : { unavailable: true },
+    heads: { unavailable: true },
+    ercos: { unavailable: true },
+    cpdCoordinators: { unavailable: true },
+  });
+  const requiredInstitutionRoles = roleRegister.institutionWide.filter(slot =>
+    slot.kind === "iers_coordinator" || slot.kind === "cpd_coordinator"
+  );
+  const keyRolesComplete =
+    requiredInstitutionRoles.length === 2 &&
+    requiredInstitutionRoles.every(slot =>
+      slot.status === "active" || slot.status === "pending_acceptance"
+    );
   const checklistInputs = {
     institutionProfile: institutionProfileReady,
     staffRoster: staffQuery.isError || staffQuery.isLoading ? null : (staffQuery.data?.length ?? 0) > 0,
-    peopleAccess: staffQuery.isError || staffQuery.isLoading ? null : true,
+    peopleAccess: productRolesQuery.isError || productRolesQuery.isLoading ? null : keyRolesComplete,
     departments: departmentsQuery.isError || departmentsQuery.isLoading ? null : (departmentsQuery.data?.length ?? 0) > 0,
-    accessLinks: linksQuery.isError || linksQuery.isLoading ? null : true,
+    accessLinks: linksQuery.isError || linksQuery.isLoading ? null : (linksQuery.data?.length ?? 0) === 0,
   } as const;
   return (
     <main aria-labelledby="people-access-title" className="min-w-0 space-y-5 overflow-x-hidden">
@@ -145,6 +169,18 @@ export function PeopleAccessShell({
         <Badge variant="outline" className="w-fit">
           Institution-scoped
         </Badge>
+      </div>
+      <div className="flex flex-col gap-4 rounded-xl border border-teal-200 bg-gradient-to-r from-teal-50 via-white to-orange-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="rounded-lg bg-teal-700 p-2 text-white"><UserRound className="h-5 w-5" /></div>
+          <div>
+            <p className="font-semibold">Staff directory &amp; Staff 360</p>
+            <p className="text-sm text-muted-foreground">Find a staff member, review what needs attention, and keep your search context.</p>
+          </div>
+        </div>
+        <Button type="button" className="w-full shrink-0 sm:w-auto" onClick={() => { window.location.assign(`/institution/staff?institutionId=${institutionId}`); }}>
+          Open Staff 360 <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
       </div>
       <SetupChecklist activeView={view} inputs={checklistInputs} />
       <nav aria-label="People and access views">
@@ -173,7 +209,7 @@ export function PeopleAccessShell({
             className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm"
           >
             <Users className="mr-1.5 hidden h-4 w-4 sm:block" />
-            Directory
+            Staff directory
           </TabsTrigger>
           <TabsTrigger
             value="departments"
@@ -210,6 +246,7 @@ export function PeopleAccessShell({
           <InstitutionPeopleRolesPanel
             institutionId={institutionId}
             initialSection="roster"
+            hideSectionNavigation
           />
           <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>

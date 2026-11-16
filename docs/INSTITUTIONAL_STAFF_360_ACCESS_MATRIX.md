@@ -1,6 +1,6 @@
 # Institutional Staff 360 — Access Matrix V1
 
-**Status:** Implemented read-only V1 · **Scope:** Administration → People & Roles
+**Status:** Implemented read-only V1 with governed review requests · **Scope:** Administration → People & Roles
 
 Institutional Staff 360 is not Platform Admin User 360. It is an institution-scoped operational record assembled at read time from existing authoritative membership, roster, training and CPD tables.
 
@@ -35,4 +35,6 @@ A course, attendance record, certificate, roster assignment, or accepted duty re
 
 ## V1 boundary
 
-The page is read-only. Mutations remain in their existing governed workflows. A future field-level review/mutation phase must preserve tenant isolation, department scope, reason-required changes, staff notification where appropriate, and append-only audit evidence.
+The operational record remains read-only for authoritative source fields. An authorised viewer may submit a correction request for one declared area (identity, department, membership, role, training, credential, CPD, or quality signal) with a reason of at least 10 characters. Requests are institution-scoped, department-scope checked, deduplicated while open, written to the append-only institutional action log, and recorded in the admin audit stream. Resolution still occurs in the owning governed workflow; Staff 360 never silently overwrites source data.
+
+Professional goals remain learner-owned and private by default. Staff 360 does not return goal titles, targets, or progress until a separate consent/share contract and institutional visibility policy are approved.

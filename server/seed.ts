@@ -7,6 +7,7 @@
 import { ensurePalsAhaCatalog } from "./lib/ensure-pals-aha-catalog";
 import { ensureHeartsaverAhaCatalog } from "./lib/ensure-heartsaver-aha-catalog";
 import { ensureBlsAhaCatalog } from "./lib/ensure-bls-aha-catalog";
+import { ensureBlsCatalog } from "./lib/ensure-bls-acls-catalog";
 import { getDb } from "./db";
 
 const MAX_ATTEMPTS = Math.max(1, parseInt(process.env.SEED_MAX_RETRIES || "3", 10));
@@ -72,6 +73,10 @@ async function main() {
   console.log("Seeding BLS AHA Catalog...");
   await ensureBlsAhaCatalog(db);
   console.log("BLS AHA Catalog seeded successfully.");
+
+  console.log("Seeding BLS updated curriculum (v2)...");
+  await ensureBlsCatalog(db);
+  console.log("BLS updated curriculum seeded successfully.");
 }
 
 main()

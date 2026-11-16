@@ -118,7 +118,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
   const [newEventDate, setNewEventDate] = useState("");
   const [eventType, setEventType] = useState<"cne" | "cme" | "cpd_general" | "grand_rounds" | "journal_club" | "workshop">("cne");
   
-  // Presenter Autocomplete State (Open Event)
+  // Presenter Autocomplete State (New Session)
   const [presenterUserId, setPresenterUserId] = useState<number | null>(null);
   const [presenterName, setPresenterName] = useState("");
   const [presenterCadre, setPresenterCadre] = useState("");
@@ -353,7 +353,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
     onError: (err) => toast.error(err.message || "Failed to update coordinator"),
   });
 
-  const openEventMutation = trpc.cpd.openEvent.useMutation({
+  const createSessionMutation = trpc.institutionLearning.createSession.useMutation({
     onSuccess: () => {
       toast.success("Event opened for registration");
       setNewEventName("");
@@ -371,7 +371,7 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
       void utils.cpd.listEvents.invalidate({ institutionId });
       void utils.cpd.getInstitutionalCpdAnalytics.invalidate({ institutionId });
     },
-    onError: (err) => toast.error(err.message || "Failed to open event"),
+    onError: (err) => toast.error(err.message || "Failed to create CPD session"),
   });
 
   const updateEventPresenterMutation = trpc.cpd.updateEventPresenter.useMutation({
@@ -1455,32 +1455,32 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                         ? customCouncil.trim()
                         : approvingCouncil;
                     const pointsNum = cpdPoints.trim() ? Number(cpdPoints) : null;
-                    const isOtherCadre = ["Other Staff", "Other Intern", "Other Student"].includes(presenterCadre);
-                    const finalPresenterCadreOther = isOtherCadre ? presenterCustomOther : (presenterSubSpecialty === "Other" ? presenterCustomOther : presenterSubSpecialty);
 
-                    openEventMutation.mutate({
+                    createSessionMutation.mutate({
                       institutionId,
                       name: newEventName.trim(),
                       eventDate: newEventDate.trim(),
+                      eventDateAt: /^\d{4}-\d{2}-\d{2}$/.test(newEventDate.trim()) ? newEventDate.trim() : null,
                       eventType,
+                      audienceScope: "facility_wide",
                       presenterUserId,
                       presenterName: presenterName.trim() || null,
                       presenterCadre: presenterCadre.trim() || null,
-                      presenterCadreOther: finalPresenterCadreOther.trim() || null,
                       presenterDepartment: presenterDepartment.trim() || null,
                       approvingCouncil: finalCouncil,
                       cpdPoints: pointsNum,
+                      coPresenters: [],
                     });
                   }}
                   disabled={
-                    openEventMutation.isPending ||
+                    createSessionMutation.isPending ||
                     newEventName.trim().length === 0 ||
                     newEventDate.trim().length === 0 ||
                     !presenterUserId ||
                     (approvingCouncil === "Other" && customCouncil.trim().length === 0)
                   }
                 >
-                  {openEventMutation.isPending ? (
+                  {createSessionMutation.isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <PlusCircle className="mr-2 h-4 w-4" />

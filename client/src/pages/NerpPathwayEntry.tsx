@@ -227,6 +227,9 @@ export default function NerpPathwayEntry() {
                   View linked payment and course records
                 </Link>
               </Button>
+              <Button asChild variant="outline">
+                <Link href="/aha-courses">Open Life Support Hub</Link>
+              </Button>
             </div>
 
             {!paymentConfirmed ? (

@@ -1067,7 +1067,14 @@ export const iersRouter = router({
       if (!roster) throw new TRPCError({ code: "NOT_FOUND", message: "Assigned shift not found." });
       await assertInstitutionProductCapability(db, roster.institutionId, "iers", "iers.team_readiness.operate");
       await assertProviderCanOperate(db, ctx.user, roster.institutionId);
-      await assertCurrentClinicalLicence(db, ctx.user.id);
+      try {
+        await assertCurrentClinicalLicence(db, ctx.user.id);
+      } catch (error) {
+        if (error instanceof TRPCError && error.code === "PRECONDITION_FAILED") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
+        }
+        throw error;
+      }
       assertProviderDutyDecision({
         action: "sign_off_readiness",
         requestedInstitutionId: roster.institutionId,
@@ -1534,10 +1541,6 @@ export const iersRouter = router({
       const [actor] = await db.select({ responder: iersActivationResponders, event: iersActivationEvents }).from(iersActivationResponders).innerJoin(iersActivationEvents, eq(iersActivationEvents.id, iersActivationResponders.activationEventId)).where(and(eq(iersActivationResponders.activationEventId, input.activationEventId), eq(iersActivationResponders.userId, ctx.user.id))).limit(1);
       const [target] = await db.select({ responder: iersActivationResponders, event: iersActivationEvents }).from(iersActivationResponders).innerJoin(iersActivationEvents, eq(iersActivationEvents.id, iersActivationResponders.activationEventId)).where(and(eq(iersActivationResponders.activationEventId, input.activationEventId), eq(iersActivationResponders.userId, targetUserId))).limit(1);
       if (!actor || !target) throw new TRPCError({ code: "FORBIDDEN", message: "Only assigned activation responders can record this arrival." });
-      await assertCurrentClinicalLicence(db, ctx.user.id);
-      if (targetUserId !== ctx.user.id) {
-        await assertCurrentClinicalLicence(db, targetUserId);
-      }
       if (target.responder.notificationStatus === "declined" || target.responder.notificationStatus === "timed_out") throw new TRPCError({ code: "CONFLICT", message: "A provider who declined or timed out cannot be recorded as arrived without a new response." });
       if (target.responder.atSceneAt) {
         return { success: true, status: "at_scene" as const, providerUserId: targetUserId, idempotent: true };
@@ -1545,6 +1548,7 @@ export const iersRouter = router({
       if (input.arrivalType === "self" && targetUserId !== ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "Self arrival can only be recorded for your own provider account." });
       const actorCanWitness = actor.responder.userId === targetUserId || Boolean(actor.responder.atSceneAt) || ["ert_leader", "unit_team_leader"].includes(actor.responder.responsibilityRole);
       if (!actorCanWitness) throw new TRPCError({ code: "FORBIDDEN", message: "You must be at scene or hold the UTL/ERTL role to record another member's arrival." });
+      await assertCurrentClinicalLicence(db, ctx.user.id);
       const [snapshot] = await db.select().from(iersActivationTeamSnapshots).where(and(eq(iersActivationTeamSnapshots.activationEventId, input.activationEventId), eq(iersActivationTeamSnapshots.providerUserId, targetUserId))).orderBy(desc(iersActivationTeamSnapshots.id)).limit(1);
       const now = new Date();
       await db.update(iersActivationResponders).set({
@@ -1569,7 +1573,6 @@ export const iersRouter = router({
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "No responder assignment found for this activation." });
       const continuityDecision = await assertInstitutionProductCapability(db, assignment.event.institutionalAccountId, "iers", "iers.activation.respond");
       assertIersActivationContinuity(continuityDecision);
-      await assertCurrentClinicalLicence(db, ctx.user.id);
       if (["closed", "cancelled", "false_alarm"].includes(assignment.event.status)) {
         throw new TRPCError({ code: "CONFLICT", message: "This activation is already terminal; receipt cannot be added." });
       }

@@ -51,10 +51,11 @@ describe("ACLS case definition harness", () => {
   it("scores semantic event codes even when learner-facing descriptions are reworded", () => {
     const { state } = play("unstable-bradycardia", ADULT_ACLS_CASE_DEFINITIONS.find((d) => d.id === "unstable-bradycardia")!.honestPath);
     expect(state.events.every((event) => event.code && event.codes.length > 0)).toBe(true);
-    const reworded = { ...state, events: state.events.map((event) => ({ ...event, description: "Localized clinical response text" })) };
+    const reworded = { ...state, events: state.events.map((event) => ({ ...event, description: "Localized clinical response text", neutralText: "Catalogue text replaced during mutation test" })) };
     const breakdown = getAdultAclsScoreBreakdown(reworded);
     expect(breakdown.score).toBeGreaterThanOrEqual(70);
     expect(breakdown.indicatedAction).toBe(true);
+    expect(reworded.events.every((event) => event.judgement === "ok" || event.judgement === "poor_choice" || event.judgement === "critical")).toBe(true);
   });
 
   describe.each(ADULT_ACLS_CASE_DEFINITIONS.map((d) => [d.id, d] as [AdultAclsScenarioId, AdultAclsCaseDefinition]))("%s", (id, definition) => {

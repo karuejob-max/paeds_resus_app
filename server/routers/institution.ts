@@ -56,6 +56,7 @@ import {
   iersShiftRoleEvents,
 } from "../../drizzle/schema";
 import { runResusGpsAuditForInstitution } from "../lib/resusgps-auditor";
+import { checkAccountSearchRateLimit, shapeAccountSearchResults } from "../lib/account-directory-guard";
 import { assertNoInstructorDoubleBooking as assertNoInstructorDoubleBookingShared } from "../lib/instructor-double-booking-guard";
 import {
   daysBackForTimeframe,
@@ -1405,7 +1406,7 @@ export const institutionRouter = router({
         const [existingStaff] = await tx.select({ id: institutionalStaffMembers.id }).from(institutionalStaffMembers).where(and(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId), eq(institutionalStaffMembers.staffEmail, email))).limit(1);
         let staffMemberId = existingStaff?.id;
         if (!staffMemberId) {
-          const staffInsert = await tx.insert(institutionalStaffMembers).values({
+          const [staffInsert] = await tx.insert(institutionalStaffMembers).values({
             institutionalAccountId: input.institutionId,
             userId: existingUser?.id ?? null,
             staffName: input.staffName,
@@ -1417,7 +1418,7 @@ export const institutionRouter = router({
             enrollmentStatus: "pending",
             facilityLinkStatus: "pending",
           });
-          staffMemberId = (staffInsert as unknown as { insertId: number }).insertId;
+          staffMemberId = Number((staffInsert as unknown as { insertId: number }).insertId);
         } else {
           await tx.update(institutionalStaffMembers).set({ userId: existingUser?.id ?? null, staffName: input.staffName, staffPhone: input.staffPhone || null, staffRole: input.staffRole, department: input.department || null, governanceRole: "general_staff", facilityLinkStatus: "pending", updatedAt: new Date() }).where(eq(institutionalStaffMembers.id, staffMemberId));
         }
@@ -1428,8 +1429,8 @@ export const institutionRouter = router({
           await tx.insert(institutionMembershipEvents).values({ institutionalAccountId: input.institutionId, membershipId: existingMembership.id, staffMemberId, userId: existingUser?.id ?? null, eventType: "reinvited", previousMembershipStatus: existingMembership.membershipStatus, currentMembershipStatus: "invited", actorUserId: ctx.user.id, reason: "Institution access invitation sent again.", occurredAt: now });
           return [{ membershipId: existingMembership.id, status: "reinvited" as const }, input.staffName];
         }
-        const membershipInsert = await tx.insert(institutionMemberships).values({ institutionalAccountId: input.institutionId, userId: existingUser?.id ?? null, invitedEmail: email, staffMemberId, responsibilityRole: "general_staff", membershipStatus: "invited", invitedByUserId: ctx.user.id });
-        const membershipId = (membershipInsert as unknown as { insertId: number }).insertId;
+        const [membershipInsert] = await tx.insert(institutionMemberships).values({ institutionalAccountId: input.institutionId, userId: existingUser?.id ?? null, invitedEmail: email, staffMemberId, responsibilityRole: "general_staff", membershipStatus: "invited", invitedByUserId: ctx.user.id });
+        const membershipId = Number((membershipInsert as unknown as { insertId: number }).insertId);
         await tx.insert(institutionMembershipEvents).values({ institutionalAccountId: input.institutionId, membershipId, staffMemberId, userId: existingUser?.id ?? null, eventType: "invited", previousMembershipStatus: null, currentMembershipStatus: "invited", actorUserId: ctx.user.id, reason: "General institution access invitation sent.", occurredAt: now });
         return [{ membershipId, status: "invited" as const }, input.staffName];
       });
@@ -2292,6 +2293,13 @@ export const institutionRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       }
 
+      if (!checkAccountSearchRateLimit(ctx.user.id)) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "Too many account searches. Please wait a minute and try again.",
+        });
+      }
+
       const normalizedQuery = input.query.trim().toLowerCase();
       const escapedQuery = normalizedQuery.replace(/[\\%_]/g, "\\\\$&");
       const pattern = `%${escapedQuery}%`;
@@ -2312,11 +2320,13 @@ export const institutionRouter = router({
         .orderBy(asc(users.name), asc(users.id))
         .limit(input.limit);
 
-      return rows.flatMap((row) => {
+      const cleaned = rows.flatMap((row) => {
         const name = row.name?.trim();
         const email = row.email?.trim().toLowerCase();
         return name && email ? [{ id: row.id, name, email }] : [];
       });
+      // Emails are masked unless the caller typed the complete address.
+      return shapeAccountSearchResults(cleaned, input.query);
     }),
 
   /**
@@ -4175,28 +4185,6 @@ export const institutionRouter = router({
     return rollupAllInstitutionalAccounts();
   }),
 
-  verify: publicProcedure
-    .input(z.object({ institutionId: z.number() }))
-    .query(async ({ input }) => {
-      const db = await getDb();
-      if (!db) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
-      }
-      const institution = await db
-        .select()
-        .from(institutionalAccounts)
-        .where(eq(institutionalAccounts.id, input.institutionId))
-        .limit(1);
-
-      return {
-        exists: institution.length > 0,
-        active: institution.length > 0 && institution[0].status === "active",
-      };
-    }),
-
   // Update staff member role (RBAC)
   updateStaffRole: protectedProcedure
     .input(
@@ -4853,7 +4841,7 @@ export const institutionRouter = router({
 
   runResusGpsAudit: protectedProcedure
     .input(z.object({ institutionId: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
@@ -4861,6 +4849,9 @@ export const institutionRouter = router({
           message: "Database connection failed",
         });
       }
+      // The audit reads clinical cases of the institution's staff and spends LLM
+      // budget: only that institution's admins (or a platform admin) may run it.
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
       return await runResusGpsAuditForInstitution(db, input.institutionId);
     }),
 
@@ -4868,8 +4859,8 @@ export const institutionRouter = router({
     .input(
       z.object({
         institutionId: z.number(),
-        gapIdentified: z.string().min(1),
-        systemChange: z.string().min(1),
+        gapIdentified: z.string().trim().min(1).max(4000),
+        systemChange: z.string().trim().min(1).max(4000),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -4881,9 +4872,12 @@ export const institutionRouter = router({
         });
       }
 
+      // Writes into an institution's quality action log: admins of that institution only.
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
       await db.insert(institutionalActionLogs).values({
         institutionalAccountId: input.institutionId,
-        createdByUserId: ctx.user ? ctx.user.id : null,
+        createdByUserId: ctx.user.id,
         gapIdentified: input.gapIdentified,
         systemChange: input.systemChange,
         status: "open",
@@ -5853,8 +5847,19 @@ export const institutionRouter = router({
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-      const access = await assertIersInstitutionReadAccess(db, ctx.user, input.institutionId);
-      const departmentIds = "departmentIds" in access ? access.departmentIds : null;
+      // People & Access is an account-administration surface, so an
+      // institution administrator/account admin must be able to resolve the
+      // canonical department list even when IERS has not been configured.
+      // Keep the existing IERS guard as the fallback so departmental role
+      // holders still receive only their authorised department rows.
+      let departmentIds: number[] | null = null;
+      try {
+        await assertInstitutionAccountScope(db, ctx.user, input.institutionId, ["account_admin"], { allowInstitutionAdmin: true });
+      } catch (error) {
+        if (!(error instanceof TRPCError) || !["FORBIDDEN", "PRECONDITION_FAILED"].includes(error.code)) throw error;
+        const access = await assertIersInstitutionReadAccess(db, ctx.user, input.institutionId);
+        departmentIds = "departmentIds" in access ? access.departmentIds ?? null : null;
+      }
 
       try {
         const rows = await db
@@ -6421,7 +6426,6 @@ export const institutionRouter = router({
         .limit(1);
       if (!rotation) throw new TRPCError({ code: "NOT_FOUND", message: "ERTL rotation assignment not found." });
       await assertActiveProviderDutyAccess(db, ctx.user, rotation.institutionId);
-      if (input.response === "accept") await assertCurrentClinicalLicence(db, ctx.user.id);
       assertProviderDutyDecision({
         action: "respond_to_assignment",
         requestedInstitutionId: rotation.institutionId,
@@ -6460,7 +6464,6 @@ export const institutionRouter = router({
         .limit(1);
       if (!roster) throw new TRPCError({ code: "NOT_FOUND", message: "Shift UTL assignment not found." });
       await assertActiveProviderDutyAccess(db, ctx.user, roster.institutionId);
-      if (input.response === "accept") await assertCurrentClinicalLicence(db, ctx.user.id);
       assertProviderDutyDecision({
         action: "respond_to_assignment",
         requestedInstitutionId: roster.institutionId,
@@ -6709,7 +6712,6 @@ export const institutionRouter = router({
         .limit(1);
       if (!assignment) throw new TRPCError({ code: "NOT_FOUND", message: "ERCo assignment not found for this provider." });
       await assertActiveProviderDutyAccess(db, ctx.user, assignment.institutionId);
-      if (input.response === "accept") await assertCurrentClinicalLicence(db, ctx.user.id);
       const deputy = input.roleKey === "deputy_erco";
       const currentStatus = deputy ? assignment.deputyAssignmentStatus : assignment.assignmentStatus;
       if (currentStatus !== "pending_acceptance") throw new TRPCError({ code: "BAD_REQUEST", message: "This ERCo assignment is not awaiting a response." });

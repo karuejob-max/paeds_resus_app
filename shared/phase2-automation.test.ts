@@ -81,6 +81,19 @@ describe("automated Phase 2 mastery", () => {
     expect(reviewRequired.completedRequirements).toBe(1);
   });
 
+  it("excludes formative-only evidence from Phase 2 mastery", () => {
+    const requirement = getPhase2Requirements("pals")[0];
+    const formative = calculatePhase2AutomationStatus("pals", [{
+      trackId: requirement.trackIds?.[0] ?? "abcde",
+      scenarioId: "unstable_brady_infant",
+      score: 100,
+      passed: true,
+      evidenceStatus: "formative_only",
+    }]);
+    expect(formative.completedRequirements).toBe(0);
+    expect(formative.phase2Ready).toBe(false);
+  });
+
   it("scores dedicated evidence conservatively and caps the result", () => {
     expect(scoreDedicatedSimulation({ recognition: 90, interventionSelection: 85, sequencing: 80, execution: 75, reassessment: 90, teamPerformance: 80 }, 0)).toBe(83);
     expect(scoreDedicatedSimulation({ recognition: 100 }, 4)).toBe(60);

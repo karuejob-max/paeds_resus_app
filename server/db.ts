@@ -16,6 +16,40 @@ function createDrizzle(pool: mysql.Pool) {
 
 type Database = ReturnType<typeof createDrizzle>;
 
+/**
+ * Drizzle/mysql2 may wrap the original ER_BAD_FIELD_ERROR in a generic
+ * "Failed query" Error. Keep the compatibility path narrowly scoped to a
+ * missing-column failure instead of making all database failures look like
+ * an empty user result.
+ */
+export function isUsersSchemaDriftError(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (current && !seen.has(current)) {
+    seen.add(current);
+    if (typeof current === "object") {
+      const record = current as { code?: unknown; errno?: unknown; message?: unknown; cause?: unknown };
+      const code = String(record.code ?? "");
+      const errno = String(record.errno ?? "");
+      const message = String(record.message ?? "");
+      if (
+        /ER_BAD_FIELD_ERROR|ER_NO_SUCH_FIELD|UNKNOWN_COLUMN/i.test(code) ||
+        errno === "1054" ||
+        /unknown column|column .* doesn't exist|bad field/i.test(message)
+      ) {
+        return true;
+      }
+      current = record.cause;
+      continue;
+    }
+    if (/unknown column|column .* doesn't exist|bad field|er_bad_field_error/i.test(String(current))) {
+      return true;
+    }
+    break;
+  }
+  return false;
+}
+
 /** Drizzle client returned by `getDb()` when connected. */
 export type DbClient = Database;
 
@@ -152,8 +186,7 @@ export async function getUserByOpenId(openId: string) {
     const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
     return result.length > 0 ? result[0] : undefined;
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (!/Unknown column|ER_BAD_FIELD_ERROR/i.test(msg)) throw err;
+    if (!isUsersSchemaDriftError(err)) throw err;
     console.warn("[DB] users schema drift detected on getUserByOpenId; using legacy-compatible projection.");
     const fallback = await db
       .select({
@@ -211,8 +244,7 @@ export async function getUserById(userId: number) {
     const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     return result.length > 0 ? result[0] : undefined;
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (!/Unknown column|ER_BAD_FIELD_ERROR/i.test(msg)) throw err;
+    if (!isUsersSchemaDriftError(err)) throw err;
     console.warn("[DB] users schema drift detected on getUserById; using legacy-compatible projection.");
     const fallback = await db
       .select({
@@ -276,8 +308,7 @@ export async function getUserByEmail(email: string) {
       .limit(1);
     return result.length > 0 ? result[0] : undefined;
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (/Unknown column|ER_BAD_FIELD_ERROR/i.test(msg)) {
+    if (isUsersSchemaDriftError(err)) {
       console.warn("[DB] users schema drift detected on getUserByEmail; using legacy-compatible projection.");
       const fallback = await db
         .select({
@@ -293,7 +324,7 @@ export async function getUserByEmail(email: string) {
           lastSignedIn: users.lastSignedIn,
         })
         .from(users)
-        .where(sql`LOWER(${users.email}) = ${normalized}`)
+        .where(sql`LOWER(${users.email}) = ${normalized} OR ${users.openId} = ${openIdMatch}`)
         .limit(1);
       const row = fallback[0];
       if (!row) return undefined;

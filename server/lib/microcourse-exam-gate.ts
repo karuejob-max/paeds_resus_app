@@ -25,6 +25,8 @@ import {
   resolveFellowshipSimulationLevel,
 } from "../../shared/fellowship-simulation-scenario";
 import { fellowshipTitlePrefix } from "../../shared/resolve-fellowship-course";
+import { resolvePinnedBlsCourse } from "./resolve-enrollment-course";
+import { resolveAhaCourseAnchor } from "./resolve-aha-course-anchor";
 import { gradeQuizAnswerAgainstStored, parseStoredQuizCorrectAnswer } from "../../shared/quiz-answer-contract";
 
 export type SummativeQuestionResult = {
@@ -420,6 +422,13 @@ export async function getAhaCourseExamState(
       columns: { id: true },
     } as never);
     courseId = courseRow?.id ?? null;
+  }
+  if (enrollment.programType === "bls") {
+    // Exam state must describe the course the learner is actually studying.
+    const blsCourse =
+      (await resolvePinnedBlsCourse(db, { userId, enrollmentId: ahaEnrollmentId })) ??
+      (await resolveAhaCourseAnchor(db, "bls", { skipEnsure: true }));
+    if (blsCourse) courseId = blsCourse.id;
   }
   if (courseId == null) return null;
 

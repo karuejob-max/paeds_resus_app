@@ -27,6 +27,7 @@ import {
   iersEvidenceRecords,
   careFacilities,
   providerProfiles,
+  professionalCredentials,
   cpdAttendees,
   cpdEvents,
   iersShiftTeams,
@@ -89,7 +90,8 @@ type FixtureIds = {
 };
 
 const now = new Date();
-const today = now.toISOString().slice(0, 10);
+const nairobiToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Nairobi", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+const today = nairobiToday;
 const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 const nextWeek = new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -441,6 +443,23 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       createdAt: now,
       updatedAt: now,
     });
+    await db.insert(professionalCredentials).values([assignedProviderId, replacementProviderId].map((userId, index) => ({
+      userId,
+      credentialType: "regulatory_license" as const,
+      sourceType: "regulatory" as const,
+      issuer: "Disposable staging regulator",
+      jurisdiction: "KE",
+      cadre: "nurse" as const,
+      credentialNumber: `STAGING-LIC-${suffix}-${index}`,
+      issuedAt: new Date(new Date(`${today}T00:00:00Z`).getTime() - 365 * 24 * 60 * 60 * 1000),
+      expiresAt: new Date(new Date(`${nextWeek}T00:00:00Z`).getTime() + 365 * 24 * 60 * 60 * 1000),
+      status: "verified" as const,
+      evidenceKey: `staging/licence-${suffix}-${index}.pdf`,
+      verifiedByUserId: adminId,
+      verifiedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    })));
     const [staffInsert] = await db.insert(institutionalStaffMembers).values({
       institutionalAccountId: institutionId,
       userId: assignedProviderId,
@@ -520,7 +539,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
       institutionId,
       poleId,
       departmentId,
-      shiftDate: new Date(today),
+      shiftDate: new Date(`${nairobiToday}T00:00:00Z`),
       shiftType: "morning",
       utlUserId: assignedProviderId,
       isShiftErtl: false,
@@ -533,10 +552,10 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     const [publishedTeamInsert] = await db.insert(iersShiftTeams).values({
       institutionId,
       poleId,
-      shiftDate: new Date(today),
+      shiftDate: new Date(`${nairobiToday}T00:00:00Z`),
       shiftType: "morning",
-      shiftStartTime: "07:30:00",
-      shiftEndTime: "17:30:00",
+      shiftStartTime: "00:00:00",
+      shiftEndTime: "23:59:00",
       shiftEndDayOffset: 0,
       teamVersion: 1,
       status: "published",
@@ -757,6 +776,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     await db.delete(institutionMembershipEvents).where(inArray(institutionMembershipEvents.institutionalAccountId, institutionIds));
     await db.delete(institutionalStaffMembers).where(inArray(institutionalStaffMembers.institutionalAccountId, institutionIds));
     await db.delete(providerProfiles).where(inArray(providerProfiles.userId, userIds));
+    await db.delete(professionalCredentials).where(inArray(professionalCredentials.userId, userIds));
     await db.delete(inAppNotifications).where(inArray(inAppNotifications.userId, userIds));
     await db.delete(careFacilities).where(eq(careFacilities.id, ids.facilityId));
     await db.delete(facilityDepartments).where(inArray(facilityDepartments.institutionId, institutionIds));
@@ -1210,7 +1230,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
 
     const assignedActivations = await assignedCaller.iers.getMyActivations();
     expect(assignedActivations).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: activationEventId, location: "STAGING WARD", bedNumber: "B-404", responderStatus: "sent", caseQrAvailable: false }),
+      expect.objectContaining({ id: activationEventId, location: "STAGING WARD", bedNumber: "B-404", responderStatus: "pending", caseQrAvailable: false }),
     ]));
     const assignedCaseBeforeQr = await assignedCaller.iers.getMyActivationCase({ activationEventId });
     expect(assignedCaseBeforeQr).toEqual(expect.objectContaining({ caseLinked: false, caseQrAvailable: false, caseToken: null, location: "STAGING WARD", bedNumber: "B-404" }));
@@ -1262,7 +1282,7 @@ describeStaging("real tRPC provider-duty authorization matrix on an ephemeral st
     await expectTrpcError(() => otherTenantCaller.iers.joinByCaseQr({ caseToken: qr.caseToken }), "FORBIDDEN");
 
     const [unrelatedResponder] = await db.select({ notificationStatus: iersActivationResponders.notificationStatus }).from(iersActivationResponders).where(and(eq(iersActivationResponders.activationEventId, activationEventId), eq(iersActivationResponders.userId, ids.unrelatedProviderId))).limit(1);
-    expect(unrelatedResponder?.notificationStatus).toBe("sent");
+    expect(unrelatedResponder?.notificationStatus).toBe("pending");
     await expectTrpcError(() => unrelatedCaller.iers.recordActivationArrival({ activationEventId, providerUserId: ids.assignedProviderId, arrivalType: "witnessed", note: "Not at scene" }), "FORBIDDEN");
     expect((await assignedCaller.iers.recordActivationArrival({ activationEventId, providerUserId: ids.unrelatedProviderId, arrivalType: "witnessed", note: "Staging ERTL witnessed responder arrival" })).status).toBe("at_scene");
     await expectTrpcError(() => assignedCaller.iers.recordActivationArrival({ activationEventId, providerUserId: ids.registeredProviderId, arrivalType: "witnessed", note: "Declined provider must not be recorded" }), "CONFLICT");

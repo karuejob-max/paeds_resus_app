@@ -19,6 +19,7 @@ import { ensureInstitutionalLifeSupportCatalog } from "./lib/ensure-institutiona
 import { getAhaAccessDecision } from "./lib/aha-access";
 import { syncInstructorQualificationsForUser, isInstructorQualifiedForCourse } from "./lib/instructor-qualifications";
 import { resolveAhaCourseAnchor } from "./lib/resolve-aha-course-anchor";
+import { resolvePinnedBlsCourse } from "./lib/resolve-enrollment-course";
 import { generateCertificatePDF as renderBrandedCertificatePdf } from "./certificate-pdf";
 import {
   AHA_CERTIFICATION_PROGRAM_TYPES,
@@ -122,11 +123,18 @@ export async function isAhaCognitiveComplete(
   enrollmentId: number,
   programType: "bls" | "acls" | "heartsaver" | "nrp"
 ): Promise<boolean> {
+  // BLS has more than one curriculum version: judge completion against the course
+  // this enrollment belongs to, never against every BLS row together.
+  const pinnedBls =
+    programType === "bls" ? await resolvePinnedBlsCourse(db, { enrollmentId }) : null;
+
   // Find the course for this program type
-  const courseRows = await db
-    .select({ id: courses.id })
-    .from(courses)
-    .where(eq(courses.programType, programType));
+  const courseRows = pinnedBls
+    ? [{ id: pinnedBls.id }]
+    : await db
+        .select({ id: courses.id })
+        .from(courses)
+        .where(eq(courses.programType, programType));
 
   if (courseRows.length === 0) {
     // No catalog seeded yet — treat as incomplete (do not issue cert)
@@ -725,10 +733,16 @@ export async function markAhaCognitiveComplete(
       enrollment.userId
     );
   } else {
-    const anchor = await resolveAhaCourseAnchor(
-      db,
-      enrollment.programType as "bls" | "acls" | "heartsaver" | "nrp" | "pals"
-    );
+    const pinnedBls =
+      enrollment.programType === "bls"
+        ? await resolvePinnedBlsCourse(db, { userId: enrollment.userId, enrollmentId })
+        : null;
+    const anchor =
+      pinnedBls ??
+      (await resolveAhaCourseAnchor(
+        db,
+        enrollment.programType as "bls" | "acls" | "heartsaver" | "nrp" | "pals"
+      ));
     if (anchor?.id) {
       const modRows = await db
         .select({ id: modules.id })

@@ -114,10 +114,12 @@ export type AdultAclsEvent = {
   type: string;
   /** Stable semantic identifier used by scoring; descriptions are presentation only. */
   code: string;
-  /** Compatibility aliases allow broad rules (e.g. any adenosine) without reading prose. */
+  /** Compatibility aliases support broad semantic requirements without reading prose. */
   codes: readonly string[];
+  judgement: "ok" | "poor_choice" | "critical";
   description: string;
-  correct?: boolean;
+  neutralText: string;
+  correct: boolean;
   consequence?: string;
 };
 
@@ -273,7 +275,7 @@ export function getAdultAclsNextAction(state: AdultAclsState): AdultAclsNextActi
     if (!hasRhythmAssessment(state)) return { label: "Assess rhythm", command: { type: "assess", target: "rhythm" }, reason: "Confirm regular narrow-complex SVT before treatment." };
     if (!hasEvent(state, "vagal")) return { label: "Vagal manoeuvre", command: { type: "vagal_manoeuvre" }, reason: "Try a vagal manoeuvre first while perfusion remains adequate." };
     if (!state.events.some((event) => event.type === "medication" && event.code === "medication.adenosine_6mg")) return { label: "Adenosine 6 mg", command: { type: "give_adenosine", dose: 6 }, reason: "The rhythm persisted after vagal manoeuvre; give the first rapid IV adenosine dose." };
-    if (!state.events.some((event) => event.type === "medication" && event.description.toLowerCase().includes("adenosine 12 mg"))) return { label: "Adenosine 12 mg", command: { type: "give_adenosine", dose: 12 }, reason: "The rhythm persisted after 6 mg; give the second 12 mg dose, then reassess." };
+    if (!state.events.some((event) => event.type === "medication" && event.code === "medication.adenosine_12mg" || event.codes.includes("medication.adenosine_12mg"))) return { label: "Adenosine 12 mg", command: { type: "give_adenosine", dose: 12 }, reason: "The rhythm persisted after 6 mg; give the second 12 mg dose, then reassess." };
   }
   if (state.scenarioId === "unstable-tachycardia") {
     if (!hasRhythmAssessment(state)) return { label: "Assess rhythm", command: { type: "assess", target: "rhythm" }, reason: "Confirm the rhythm before synchronized treatment." };
@@ -310,28 +312,41 @@ export function createAdultAclsSimulation(scenarioId: AdultAclsScenarioId, role:
   return { scenarioId, role, mode, elapsedSeconds: 0, patient: structuredClone(scenario.initial), observations: {}, events: [], environment: { oxygenAvailable: true, ventilationAvailable: true, defibrillatorReady: true, pacingAvailable: true, synchronized: false, cprActive: false }, criticalFailures: [], competencies: { recognition: 0, interventionSelection: 0, sequencing: 0, execution: 0, reassessment: 0, teamPerformance: 0 } };
 }
 
-function stableEventCodes(type: string, description: string): string[] {
-  const normalized = description.toLowerCase();
-  if (type === "assessment" || type === "cause_assessment") {
-    const target = normalized.match(/observed ([a-z_]+)/)?.[1];
-    return [`${type}.${target ?? "finding"}`];
-  }
-  if (type === "medication") {
-    if (normalized.includes("bradycardia response")) return ["medication.bradycardia_response"];
-    if (normalized.includes("high-grade av block")) return ["medication.atropine_high_grade_poor"];
-    if (normalized.includes("epinephrine")) return ["medication.epinephrine"];
-    if (normalized.includes("adenosine 6 mg")) return [normalized.includes("poor choice") ? "medication.adenosine_6mg_poor" : "medication.adenosine_6mg", "medication.adenosine"];
-    if (normalized.includes("adenosine 12 mg")) return [normalized.includes("poor choice") ? "medication.adenosine_12mg_poor" : "medication.adenosine_12mg", "medication.adenosine"];
-    if (normalized.includes("adenosine")) return ["medication.adenosine_poor", "medication.adenosine"];
-    if (normalized.includes("antiarrhythmic infusion")) return [normalized.includes("poor choice") ? "medication.antiarrhythmic_infusion_poor" : "medication.antiarrhythmic_infusion"];
-    if (normalized.includes("atropine")) return [normalized.includes("poor choice") ? "medication.atropine_high_grade_poor" : "medication.atropine"];
-  }
-  if (type === "cardioversion") return [normalized.includes("poor choice") ? "cardioversion.poor_choice" : "cardioversion.delivered"];
-  return [type];
+type AdultAclsEventJudgement = "ok" | "poor_choice" | "critical";
+const STANDARD_NEUTRAL_TEXT: Record<string, string> = {
+  assessment: "The assessment finding was recorded.",
+  cause_assessment: "The cause assessment finding was recorded.",
+  reassessment: "The patient's response was reassessed.",
+  rosc: "Reassessment found an organised rhythm and a pulse.",
+  oxygen: "Supplemental oxygen was applied; the patient response was observed.",
+  ventilation: "Assisted ventilation was delivered; the patient response was observed.",
+  perfusion_support: "Perfusion support was delivered; the patient response was observed.",
+  cpr: "CPR was started; perfusion support was provided.",
+  defibrillation: "A shock was delivered; the rhythm response was observed.",
+  cardioversion: "Synchronized cardioversion was delivered; the rhythm response was observed.",
+  pacing: "Electrical pacing was attempted; capture and pulse were assessed.",
+  medication: "Medication was administered; the patient response was observed.",
+  ecg: "A 12-lead ECG was obtained; the findings were recorded.",
+  acs_medication: "A medication was given after contraindications were checked.",
+  reperfusion: "Senior/cath-lab escalation was activated; the patient response was observed.",
+  cause_treatment: "Cause-specific treatment was delivered; the patient response was observed.",
+  synchronization: "The defibrillator was synchronized; rhythm and stability were checked.",
+  terminal_state: "The rehearsal was closed; the final patient response was recorded.",
+  patient_death: "The patient did not survive the cardiac arrest.",
+  critical_failure: "A clinically significant response was recorded for the final debrief.",
+  time_advanced: "The patient response was observed over time.",
+  repeated_action: "The requested action was repeated while the prior action remained active.",
+  acs_escalation: "The patient's condition progressed to ventricular fibrillation arrest.",
+  wct_destabilised: "The patient's wide-complex rhythm became haemodynamically unstable.",
+  vagal: "A vagal manoeuvre was attempted; the rhythm response was observed.",
 }
-function addEvent(state: AdultAclsState, type: string, description: string, correct?: boolean, consequence?: string): AdultAclsState { return { ...state, events: [...state.events, { timestamp: state.elapsedSeconds, type, code: stableEventCodes(type, description)[0], codes: stableEventCodes(type, description), description, correct, consequence }] }; }
-function fail(state: AdultAclsState, message: string) { return addEvent({ ...state, criticalFailures: [...state.criticalFailures, message], competencies: { ...state.competencies, execution: Math.max(0, state.competencies.execution - 20) } }, "critical_failure", message, false, message); }
-
+function neutralTextFor(code: string, type: string): string {
+  return STANDARD_NEUTRAL_TEXT[code] ?? STANDARD_NEUTRAL_TEXT[type] ?? "The action and patient response were recorded.";
+}
+function addEvent(state: AdultAclsState, type: string, code: string, judgement: AdultAclsEventJudgement, description?: string, consequence?: string, aliases: readonly string[] = []): AdultAclsState {
+  return { ...state, events: [...state.events, { timestamp: state.elapsedSeconds, type, code, codes: [code, ...aliases], judgement, description: description ?? neutralTextFor(code, type), neutralText: neutralTextFor(code, type), correct: judgement === "ok", consequence }] };
+}
+function fail(state: AdultAclsState, message: string) { return addEvent({ ...state, criticalFailures: [...state.criticalFailures, message], competencies: { ...state.competencies, execution: Math.max(0, state.competencies.execution - 20) } }, "critical_failure", "critical_failure", "critical", message, message); }
 export function advanceAdultAclsSimulation(state: AdultAclsState, seconds: number): AdultAclsState {
   if (seconds <= 0 || state.patient.phase === "ended") return state;
   const next = structuredClone(state);
@@ -353,7 +368,7 @@ export function advanceAdultAclsSimulation(state: AdultAclsState, seconds: numbe
     && !next.events.some((event) => event.type === "reperfusion" || event.type === "acs_escalation");
   if (acsStalled) {
     next.patient = { ...structuredClone(getAdultAclsScenario("vf-pulseless-vt").initial), phase: "cardiac_arrest" };
-    next.events = [...next.events, { timestamp: next.elapsedSeconds, type: "acs_escalation", code: "acs_escalation", codes: ["acs_escalation"], description: "Untreated acute coronary syndrome progressed to ventricular fibrillation arrest", correct: false, consequence: "Reperfusion was not activated in time" }];
+    next.events = [...next.events, { timestamp: next.elapsedSeconds, type: "acs_escalation", code: "acs_escalation", codes: ["acs_escalation"], judgement: "critical", description: "Untreated acute coronary syndrome progressed to ventricular fibrillation arrest", neutralText: neutralTextFor("acs_escalation", "acs_escalation"), correct: false, consequence: "Reperfusion was not activated in time" }];
   }
   const wctStalled = next.scenarioId === "stable-wide-complex-tachycardia"
     && next.patient.phase === "stable" && next.patient.rhythm === "ventricular_tachycardia"
@@ -361,11 +376,11 @@ export function advanceAdultAclsSimulation(state: AdultAclsState, seconds: numbe
     && !next.events.some((event) => event.type === "wct_destabilised");
   if (wctStalled) {
     next.patient = structuredClone(getAdultAclsScenario("unstable-tachycardia").initial);
-    next.events = [...next.events, { timestamp: next.elapsedSeconds, type: "wct_destabilised", code: "wct_destabilised", codes: ["wct_destabilised"], description: "Untreated wide-complex tachycardia became haemodynamically unstable (hypotension, altered mental status)", correct: false, consequence: "Synchronized cardioversion is now indicated" }];
+    next.events = [...next.events, { timestamp: next.elapsedSeconds, type: "wct_destabilised", code: "wct_destabilised", codes: ["wct_destabilised"], judgement: "critical", description: "Untreated wide-complex tachycardia became haemodynamically unstable (hypotension, altered mental status)", neutralText: neutralTextFor("wct_destabilised", "wct_destabilised"), correct: false, consequence: "Synchronized cardioversion is now indicated" }];
   }
   next.patient = derivePatient(next.patient);
-  if (next.patient.phase === "failed") return addEvent(next, "patient_death", "Patient died after untreated cardiac arrest; debrief remains available", false, "Scenario failed");
-  return addEvent(next, "time_advanced", `${seconds} seconds elapsed`);
+  if (next.patient.phase === "failed") return addEvent(next, "patient_death", "patient_death", "critical", "Patient died after untreated cardiac arrest; debrief remains available", "Scenario failed");
+  return addEvent(next, "time_advanced", "time_advanced", "ok", `${seconds} seconds elapsed`);
 }
 
 export function canEndAdultAclsSimulation(state: AdultAclsState): boolean {
@@ -379,125 +394,126 @@ export function reduceAdultAclsSimulation(state: AdultAclsState, command: AdultA
   switch (command.type) {
     case "assess":
       next = { ...next, observations: { ...next.observations, [command.target]: command.target === "blood_pressure" ? p.systolicBp : command.target === "spo2" ? p.spo2 : command.target === "heart_rate" ? p.heartRate : getAdultAclsAssessmentCue(next.scenarioId, command.target) }, competencies: { ...next.competencies, recognition: Math.min(100, next.competencies.recognition + 8) } };
-      return addEvent(next, ["breath_sounds", "trachea", "neck_veins", "bleeding", "airway_history"].includes(command.target) ? "cause_assessment" : "assessment", `Observed ${command.target}: ${String((next.observations as Record<string, string | number>)[command.target])}`, true);
+      const isCauseAssessment = ["breath_sounds", "trachea", "neck_veins", "bleeding", "airway_history"].includes(command.target);
+      return addEvent(next, isCauseAssessment ? "cause_assessment" : "assessment", `${isCauseAssessment ? "cause_assessment" : "assessment"}.${command.target}`, "ok", `Observed ${command.target}: ${String((next.observations as Record<string, string | number>)[command.target])}`);
     case "reassess":
       if (p.phase === "cardiac_arrest" && next.environment.cprActive && next.events.some((event) => event.type === "assessment" && event.code === "assessment.rhythm") && next.events.some((event) => event.type === "medication") && next.events.some((event) => event.type === "cause_treatment")) {
         const roscProbability = clamp(next.patient.hidden.probabilityOfRosc);
         const replaySeed = next.scenarioId === "pea" ? 0.12 : next.scenarioId === "asystole" ? 0.18 : 0.24;
-        if (roscProbability < replaySeed) return addEvent(next, "reassessment", "Organised electrical activity remains without a pulse; continue CPR and reassess the cause", false, "No ROSC on this reassessment");
+        if (roscProbability < replaySeed) return addEvent(next, "reassessment", "reassessment", "ok", "Organised electrical activity remains without a pulse; continue CPR and reassess the cause", "No ROSC on this reassessment");
         next.patient = { ...next.patient, phase: "rosc", rhythm: "sinus_rhythm", pulse: "reduced", mentalStatus: "altered", trajectory: "rosc" };
         next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.3);
         next.patient = derivePatient(next.patient);
-        return addEvent({ ...next, competencies: { ...next.competencies, reassessment: Math.min(100, next.competencies.reassessment + 10) } }, "rosc", "Reassessment confirms organised rhythm and a pulse after arrest treatment", true);
+        return addEvent({ ...next, competencies: { ...next.competencies, reassessment: Math.min(100, next.competencies.reassessment + 10) } }, "rosc", "rosc", "ok", "Reassessment confirms organised rhythm and a pulse after arrest treatment");
       }
-      return addEvent({ ...next, competencies: { ...next.competencies, reassessment: Math.min(100, next.competencies.reassessment + 10) } }, "reassessment", "Reassessed rhythm, pulse, pressure, breathing, and mental status", true);
+      return addEvent({ ...next, competencies: { ...next.competencies, reassessment: Math.min(100, next.competencies.reassessment + 10) } }, "reassessment", "reassessment", "ok", "Reassessed rhythm, pulse, pressure, breathing, and mental status");
     case "give_oxygen":
       next.patient.hidden.oxygenation = clamp(next.patient.hidden.oxygenation + 0.12);
-      return addEvent({ ...next, competencies: { ...next.competencies, interventionSelection: next.competencies.interventionSelection + 4 } }, "oxygen", "Supplemental oxygen applied; ventilation remains independently assessed", true);
+      return addEvent({ ...next, competencies: { ...next.competencies, interventionSelection: next.competencies.interventionSelection + 4 } }, "oxygen", "oxygen", "ok", "Supplemental oxygen applied; ventilation remains independently assessed");
     case "assist_ventilation":
       next.patient.hidden.ventilation = clamp(next.patient.hidden.ventilation + 0.22);
       next.environment.ventilationAvailable = true;
       next.patient.hidden.oxygenation = clamp(next.patient.hidden.oxygenation + 0.08);
       next.patient = derivePatient(next.patient);
-      return addEvent(next, "ventilation", "Assisted ventilation delivered; reassess chest movement and CO₂ clearance", true);
+      return addEvent(next, "ventilation", "ventilation", "ok", "Assisted ventilation delivered; reassess chest movement and CO₂ clearance");
     case "support_perfusion":
       if (p.phase !== "post_rosc" && p.phase !== "unstable") return fail(next, "Perfusion support is not indicated in the current state");
       next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.18);
       next.patient.hidden.vascularTone = clamp(next.patient.hidden.vascularTone + 0.12);
       next.patient.hidden.cerebralPerfusion = clamp(next.patient.hidden.cerebralPerfusion + 0.18);
       next.patient = derivePatient(next.patient);
-      return addEvent(next, "perfusion_support", "Perfusion support delivered; reassess blood pressure, pulse, and mental status", true);
+      return addEvent(next, "perfusion_support", "perfusion_support", "ok", "Perfusion support delivered; reassess blood pressure, pulse, and mental status");
     case "start_cpr":
       if (p.phase !== "cardiac_arrest") return fail(next, "CPR started without cardiac arrest; reassess the patient state");
-      if (next.environment.cprActive) return addEvent(next, "repeated_action", "CPR is already active; repeated command did not add perfusion credit", false);
+      if (next.environment.cprActive) return addEvent(next, "repeated_action", "repeated_action", "poor_choice", "CPR is already active; repeated command did not add perfusion credit");
       next.environment.cprActive = true;
       next.patient.hidden.coronaryPerfusion = clamp(next.patient.hidden.coronaryPerfusion + 0.22);
       next.patient.hidden.cerebralPerfusion = clamp(next.patient.hidden.cerebralPerfusion + 0.12);
-      return addEvent(next, "cpr", "CPR started; perfusion is supported but not normal", true);
+      return addEvent(next, "cpr", "cpr", "ok", "CPR started; perfusion is supported but not normal");
     case "defibrillate":
       if (p.phase !== "cardiac_arrest" || !["ventricular_fibrillation", "ventricular_tachycardia"].includes(p.rhythm)) return fail(next, "Defibrillation is not therapeutically indicated for this state");
       if (!next.events.some((event) => event.type === "assessment" && event.code === "assessment.rhythm") || !next.environment.cprActive) return fail(next, "Confirm the shockable rhythm and start CPR before defibrillation");
       next.environment.cprActive = false;
-      if (next.patient.hidden.probabilityOfRosc >= 0.3 && next.patient.hidden.coronaryPerfusion >= 0.2) { next.patient = { ...next.patient, phase: "rosc", rhythm: "sinus_rhythm", pulse: "reduced", mentalStatus: "altered" }; next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.35); return addEvent(next, "defibrillation", "Shock delivered; organised rhythm and pulse require reassessment", true); }
+      if (next.patient.hidden.probabilityOfRosc >= 0.3 && next.patient.hidden.coronaryPerfusion >= 0.2) { next.patient = { ...next.patient, phase: "rosc", rhythm: "sinus_rhythm", pulse: "reduced", mentalStatus: "altered" }; next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.35); return addEvent(next, "defibrillation", "defibrillation", "ok", "Shock delivered; organised rhythm and pulse require reassessment"); }
       next.patient.hidden.probabilityOfRosc = clamp(next.patient.hidden.probabilityOfRosc + 0.08);
-      return addEvent(next, "defibrillation", "Shock delivered; rhythm remains shockable pending reassessment", true);
+      return addEvent(next, "defibrillation", "defibrillation", "ok", "Shock delivered; rhythm remains shockable pending reassessment");
     case "synchronized_cardioversion":
       if (p.phase === "cardiac_arrest" || p.pulse === "absent" || !next.environment.synchronized) return fail(next, "Synchronized cardioversion requires a pulse, appropriate rhythm, and synchronization");
-      if (["supraventricular_tachycardia", "atrial_fibrillation", "atrial_flutter", "ventricular_tachycardia"].includes(p.rhythm)) { next.patient = { ...next.patient, rhythm: "sinus_rhythm", heartRate: 92 }; next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.22); next.patient.hidden.cerebralPerfusion = clamp(next.patient.hidden.cerebralPerfusion + 0.28); const stableWideCardioversion = next.scenarioId === "stable-wide-complex-tachycardia" && p.phase === "stable"; return addEvent(next, "cardioversion", stableWideCardioversion ? "Synchronized cardioversion delivered to a stable patient; this is a poor choice because an antiarrhythmic infusion is preferred and cardioversion needs sedation. Reassess rhythm and perfusion" : "Synchronized cardioversion delivered; reassess rhythm and perfusion", !stableWideCardioversion); }
+      if (["supraventricular_tachycardia", "atrial_fibrillation", "atrial_flutter", "ventricular_tachycardia"].includes(p.rhythm)) { next.patient = { ...next.patient, rhythm: "sinus_rhythm", heartRate: 92 }; next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.22); next.patient.hidden.cerebralPerfusion = clamp(next.patient.hidden.cerebralPerfusion + 0.28); const stableWideCardioversion = next.scenarioId === "stable-wide-complex-tachycardia" && p.phase === "stable"; return addEvent(next, "cardioversion", stableWideCardioversion ? "cardioversion.poor_choice" : "cardioversion.delivered", stableWideCardioversion ? "poor_choice" : "ok", stableWideCardioversion ? "Synchronized cardioversion delivered to a stable patient; this is a poor choice because an antiarrhythmic infusion is preferred and cardioversion needs sedation. Reassess rhythm and perfusion" : "Synchronized cardioversion delivered; reassess rhythm and perfusion"); }
       return fail(next, "Rhythm is not an appropriate synchronized-cardioversion target");
     case "pace":
       if (!hasRhythmAssessment(next)) return fail(next, "Assess the rhythm before pacing");
       if (p.phase === "cardiac_arrest" || !["sinus_bradycardia", "complete_heart_block"].includes(p.rhythm) || !next.environment.pacingAvailable) return fail(next, "Pacing is not valid for the current state");
       next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.18);
       next.patient.hidden.cerebralPerfusion = clamp(next.patient.hidden.cerebralPerfusion + 0.2);
-      return addEvent(next, "pacing", "Electrical pacing attempted; mechanical capture and pulse still require confirmation", true);
+      return addEvent(next, "pacing", "pacing", "ok", "Electrical pacing attempted; mechanical capture and pulse still require confirmation");
     case "give_epinephrine":
       if (p.phase !== "cardiac_arrest") return fail(next, "Arrest medication used outside a validated arrest state");
       next.patient.hidden.vascularTone = clamp(next.patient.hidden.vascularTone + 0.12);
       next.patient.hidden.coronaryPerfusion = clamp(next.patient.hidden.coronaryPerfusion + 0.1);
-      return addEvent(next, "medication", "Protocol-governed epinephrine effect applied; ROSC is not automatic", true);
+      return addEvent(next, "medication", "medication.epinephrine", "ok", "Protocol-governed epinephrine effect applied; ROSC is not automatic");
     case "give_antiarrhythmic":
       if (!["ventricular_fibrillation", "ventricular_tachycardia"].includes(p.rhythm)) return fail(next, "Antiarrhythmic is not validated for this rhythm state");
       if (next.scenarioId === "stable-wide-complex-tachycardia" && p.phase !== "cardiac_arrest") {
         if (!hasRhythmAssessment(next)) return fail(next, "Assess the rhythm before giving an antiarrhythmic");
-        if (p.phase === "unstable") return addEvent(next, "medication", "Antiarrhythmic infusion started in an unstable patient; this is a poor choice because instability needs synchronized cardioversion without delay.", false);
+        if (p.phase === "unstable") return addEvent(next, "medication", "medication.antiarrhythmic_infusion", "poor_choice", "Antiarrhythmic infusion started in an unstable patient; this is a poor choice because instability needs synchronized cardioversion without delay.");
         next.patient = { ...next.patient, rhythm: "sinus_rhythm", heartRate: 86 };
-        return addEvent(next, "medication", "Antiarrhythmic infusion given for stable wide-complex tachycardia; rhythm response observed, reassess stability", true);
+        return addEvent(next, "medication", "medication.antiarrhythmic_infusion", "ok", "Antiarrhythmic infusion given for stable wide-complex tachycardia; rhythm response observed, reassess stability");
       }
       next.patient.hidden.probabilityOfRosc = clamp(next.patient.hidden.probabilityOfRosc + 0.1);
-      return addEvent(next, "medication", "Ventricular antiarrhythmic effect applied; rhythm reassessment required", true);
+      return addEvent(next, "medication", "medication.antiarrhythmic_effect", "ok", "Ventricular antiarrhythmic effect applied; rhythm reassessment required");
     case "give_adenosine": {
       if (next.scenarioId === "stable-wide-complex-tachycardia" && p.rhythm === "ventricular_tachycardia") {
-        return addEvent(next, "medication", "Adenosine given for a wide-complex tachycardia; it does not treat ventricular tachycardia and this is a poor choice. Use an antiarrhythmic infusion and expert consultation.", false);
+        return addEvent(next, "medication", "medication.adenosine_poor", "poor_choice", "Adenosine given for a wide-complex tachycardia; it does not treat ventricular tachycardia and this is a poor choice. Use an antiarrhythmic infusion and expert consultation.", undefined, ["medication.adenosine"]);
       }
       if (p.rhythm !== "supraventricular_tachycardia" || p.phase !== "stable") return fail(next, "Adenosine is not appropriate for this rhythm/stability state");
       if (next.scenarioId === "refractory-svt") {
         const dose = command.dose ?? 6;
         const sixMgGiven = next.events.some((event) => event.type === "medication" && event.code === "medication.adenosine_6mg");
-        if (dose === 6 && sixMgGiven) return addEvent(next, "medication", "Adenosine 6 mg repeated; this is a poor choice because the second dose should be 12 mg.", false);
-        if (dose === 6) return addEvent(next, "medication", "Adenosine 6 mg rapid IV push with saline flush given; no conversion. Reassess; give 12 mg if the rhythm persists.", true);
+        if (dose === 6 && sixMgGiven) return addEvent(next, "medication", "medication.adenosine_6mg_poor", "poor_choice", "Adenosine 6 mg repeated; this is a poor choice because the second dose should be 12 mg.", undefined, ["medication.adenosine"]);
+        if (dose === 6) return addEvent(next, "medication", "medication.adenosine_6mg", "ok", "Adenosine 6 mg rapid IV push with saline flush given; no conversion. Reassess; give 12 mg if the rhythm persists.", undefined, ["medication.adenosine"]);
         next.patient = { ...next.patient, rhythm: "sinus_rhythm", heartRate: 88 };
-        if (!sixMgGiven) return addEvent(next, "medication", "Adenosine 12 mg given without a prior 6 mg dose; this is a poor choice. Give 6 mg first, then 12 mg if required.", false);
-        return addEvent(next, "medication", "Adenosine 12 mg given; conversion to sinus rhythm, reassess stability", true);
+        if (!sixMgGiven) return addEvent(next, "medication", "medication.adenosine_12mg_poor", "poor_choice", "Adenosine 12 mg given without a prior 6 mg dose; this is a poor choice. Give 6 mg first, then 12 mg if required.", undefined, ["medication.adenosine"]);
+        return addEvent(next, "medication", "medication.adenosine_12mg", "ok", "Adenosine 12 mg given; conversion to sinus rhythm, reassess stability", undefined, ["medication.adenosine"]);
       }
       next.patient = { ...next.patient, rhythm: "sinus_rhythm", heartRate: 88 };
-      return addEvent(next, "medication", "Rhythm-dependent adenosine response observed; reassess stability", true);
+      return addEvent(next, "medication", "medication.adenosine_response", "ok", "Rhythm-dependent adenosine response observed; reassess stability", undefined, ["medication.adenosine"]);
     }
     case "vagal_manoeuvre":
       if (p.rhythm !== "supraventricular_tachycardia" || p.phase !== "stable") return fail(next, "Vagal manoeuvres are for a stable regular narrow-complex tachycardia");
-      return addEvent(next, "vagal", "Vagal manoeuvre attempted; no conversion. Continue the stepwise treatment if the rhythm persists.", true);
+      return addEvent(next, "vagal", "vagal", "ok", "Vagal manoeuvre attempted; no conversion. Continue the stepwise treatment if the rhythm persists.");
     case "give_atropine":
       if (!hasRhythmAssessment(next)) return fail(next, "Assess the rhythm before giving atropine");
-      if (p.rhythm === "complete_heart_block" && p.phase === "unstable") return addEvent(next, "medication", "Atropine given first for high-grade AV block; this is a poor choice because it is unlikely to work, but it is not a critical failure. Escalate to pacing or an infusion.", false);
+      if (p.rhythm === "complete_heart_block" && p.phase === "unstable") return addEvent(next, "medication", "medication.atropine_high_grade_poor", "poor_choice", "Atropine given first for high-grade AV block; this is a poor choice because it is unlikely to work, but it is not a critical failure. Escalate to pacing or an infusion.");
       if (p.rhythm !== "sinus_bradycardia" || p.phase !== "unstable") return fail(next, "Atropine is not appropriate for the current rhythm/stability state");
       next.patient = { ...next.patient, heartRate: 64, rhythm: "sinus_rhythm" };
       next.patient.hidden.cardiacOutput = clamp(next.patient.hidden.cardiacOutput + 0.18);
       next.patient.hidden.cerebralPerfusion = clamp(next.patient.hidden.cerebralPerfusion + 0.2);
-      return addEvent(next, "medication", "Bradycardia response observed; reassess pressure and mental status", true);
+      return addEvent(next, "medication", "medication.bradycardia_response", "ok", "Bradycardia response observed; reassess pressure and mental status");
     case "obtain_ecg":
       if (p.phase === "cardiac_arrest") return fail(next, "Obtain the ECG when it will not delay immediate arrest care");
-      return addEvent(next, "ecg", next.scenarioId === "stable-wide-complex-tachycardia" ? "12-lead ECG obtained; regular monomorphic wide-complex tachycardia (QRS 0.12 s or longer)" : "12-lead ECG obtained; ischemic changes require escalation", true);
+      return addEvent(next, "ecg", next.scenarioId === "stable-wide-complex-tachycardia" ? "ecg.wct" : "ecg.acs", "ok", next.scenarioId === "stable-wide-complex-tachycardia" ? "12-lead ECG obtained; regular monomorphic wide-complex tachycardia (QRS 0.12 s or longer)" : "12-lead ECG obtained; ischemic changes require escalation");
     case "give_aspirin":
       if (next.scenarioId !== "acs-to-vf") return fail(next, "Aspirin is not indicated for this scenario");
-      return addEvent(next, "acs_medication", "Aspirin given after confirming no contraindication", true);
+      return addEvent(next, "acs_medication", "acs_medication", "ok", "Aspirin given after confirming no contraindication");
     case "activate_reperfusion":
       if (!next.events.some((event) => event.type === "ecg")) return fail(next, "Obtain and review the 12-lead ECG before activating reperfusion");
       if (next.scenarioId !== "acs-to-vf") return fail(next, "Reperfusion activation is not indicated for this scenario");
-      return addEvent(next, "reperfusion", "Senior/cath-lab escalation activated for suspected acute coronary syndrome", true);
+      return addEvent(next, "reperfusion", "reperfusion", "ok", "Senior/cath-lab escalation activated for suspected acute coronary syndrome");
     case "treat_reversible_cause":
       if (p.phase !== "cardiac_arrest") return fail(next, "Treat the reversible cause only after confirming cardiac arrest and its rhythm");
       if (!hasCueForCause(next, command.cause)) return fail(next, "Assess at least one cue relevant to the selected cause before treating it");
       if (command.cause !== getAdultAclsScenario(next.scenarioId).cause) return fail(next, "The selected reversible cause does not match the scenario findings");
       next.patient.hidden.causeLoad = clamp(next.patient.hidden.causeLoad - 0.35);
       next.patient.hidden.probabilityOfRosc = clamp(next.patient.hidden.probabilityOfRosc + 0.18);
-      return addEvent(next, "cause_treatment", `Cause-specific treatment delivered for ${command.cause}; observe for delayed physiological response`, true);
+      return addEvent(next, "cause_treatment", "cause_treatment", "ok", `Cause-specific treatment delivered for ${command.cause}; observe for delayed physiological response`);
     case "prepare_synchronized_cardioversion":
       if (p.phase === "cardiac_arrest" || p.pulse === "absent") return fail(next, "Synchronization requires a perfusing patient and an appropriate rhythm");
       next.environment.synchronized = true;
-      return addEvent(next, "synchronization", "Defibrillator synchronized; confirm rhythm, pulse, and instability before shock", true);
+      return addEvent(next, "synchronization", "synchronization", "ok", "Defibrillator synchronized; confirm rhythm, pulse, and instability before shock");
     case "end_rehearsal":
       if (!canEndAdultAclsSimulation(next)) return fail(next, "Rehearsal cannot end until the patient is stable or post-ROSC and reassessed");
-      return addEvent({ ...next, patient: { ...next.patient, phase: next.patient.phase === "failed" ? "failed" : "ended" } }, "terminal_state", next.patient.phase === "failed" ? "Failed rehearsal closed; formative debrief is ready" : "Rehearsal ended after a stable or post-ROSC reassessment", next.patient.phase !== "failed");
+      return addEvent({ ...next, patient: { ...next.patient, phase: next.patient.phase === "failed" ? "failed" : "ended" } }, "terminal_state", next.patient.phase === "failed" ? "terminal_state.failed" : "terminal_state.success", next.patient.phase === "failed" ? "critical" : "ok", next.patient.phase === "failed" ? "Failed rehearsal closed; formative debrief is ready" : "Rehearsal ended after a stable or post-ROSC reassessment");
   }
 }
 
@@ -523,8 +539,7 @@ export function getAdultAclsScoreBreakdown(state: AdultAclsState): AdultAclsScor
   const definition = getAdultAclsCaseDefinition(state.scenarioId);
   const matches = (requirement: AdultAclsEventRequirement) => Boolean(requirement.unlessEventType && eventTypes.has(requirement.unlessEventType))
     || state.events.some((event) => event.type === requirement.type
-      && (!requirement.code || event.code === requirement.code || event.codes.includes(requirement.code))
-      && (!requirement.descriptionIncludes || event.description.toLowerCase().includes(requirement.descriptionIncludes.toLowerCase())));
+      && (!requirement.code || event.code === requirement.code || event.codes.includes(requirement.code)));
   const conditionalMet = (definition.conditionalRequirements ?? []).every((rule) => !eventTypes.has(rule.whenEventType) || rule.require.every(matches));
   // Instructor ordering rule: assess BEFORE the first treatment, reassess AFTER it.
   const assessmentTypes = new Set(["assessment", "reassessment", "cause_assessment"]);
@@ -540,8 +555,7 @@ export function getAdultAclsScoreBreakdown(state: AdultAclsState): AdultAclsScor
     && conditionalMet;
   const poorChoices = (definition.poorChoices ?? []).filter((poor) => {
     const index = state.events.findIndex((event) => event.type === poor.type
-      && (!poor.code || event.code === poor.code || event.codes.includes(poor.code))
-      && (!poor.descriptionIncludes || event.description.toLowerCase().includes(poor.descriptionIncludes.toLowerCase())));
+      && (!poor.code || event.code === poor.code || event.codes.includes(poor.code)));
     if (index < 0) return false;
     if (!poor.beforeEventType) return true;
     const gate = state.events.findIndex((event) => event.type === poor.beforeEventType);

@@ -37,6 +37,23 @@ export const IERP_TEAM_MEMBER_REQUIRED = 6;
 
 export type IerpDb = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
+function isMissingSimulationRoleColumnError(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (current && !seen.has(current)) {
+    seen.add(current);
+    if (typeof current !== "object") return /unknown column|bad field/i.test(String(current));
+    const record = current as { code?: unknown; errno?: unknown; message?: unknown; cause?: unknown };
+    if (
+      String(record.code ?? "").toUpperCase() === "ER_BAD_FIELD_ERROR" ||
+      String(record.errno ?? "") === "1054" ||
+      /unknown column .*simulationRole|bad field/i.test(String(record.message ?? ""))
+    ) return true;
+    current = record.cause;
+  }
+  return false;
+}
+
 export async function getIerpEnrollment(db: IerpDb, userId: number) {
   const rows = await db
     .select()
@@ -137,10 +154,16 @@ export async function getAuthoritativePhase2CompletionStatus(db: IerpDb, userId:
     .from(trainingAttendance)
     .where(and(eq(trainingAttendance.staffMemberId, userId), eq(trainingAttendance.simulationCompetencyPassed, true)));
 
-  const approvedClaims = await db
-    .select({ role: retrospectiveRoleClaims.role })
-    .from(retrospectiveRoleClaims)
-    .where(and(eq(retrospectiveRoleClaims.claimantUserId, userId), eq(retrospectiveRoleClaims.status, "approved")));
+  let approvedClaims: Array<{ role: string | null }> = [];
+  try {
+    approvedClaims = await db
+      .select({ role: retrospectiveRoleClaims.role })
+      .from(retrospectiveRoleClaims)
+      .where(and(eq(retrospectiveRoleClaims.claimantUserId, userId), eq(retrospectiveRoleClaims.status, "approved")));
+  } catch (error) {
+    if (!isMissingSimulationRoleColumnError(error)) throw error;
+    console.warn("[IERP] retrospectiveRoleClaims.simulationRole is missing; ignoring retrospective claims until migration 0191 is applied.");
+  }
 
   return calculateAuthoritativePhase2Completion([
     ...confirmedBookings.map((booking) => booking.simulationRole),

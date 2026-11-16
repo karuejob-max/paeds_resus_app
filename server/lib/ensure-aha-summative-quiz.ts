@@ -3,11 +3,11 @@
  * PALS delegates to ensurePals2025Content to preserve #158/#160 fixes.
  */
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { modules, quizQuestions, quizzes } from "../../drizzle/schema";
+import { courses, modules, quizQuestions, quizzes } from "../../drizzle/schema";
 import { encodeQuizCorrectAnswerForStorage } from "../../shared/quiz-answer-contract";
 import { MICROCOURSE_SUMMATIVE_QUIZ_TITLE } from "../../shared/microcourse-exam-policy";
 import {
-  getAhaSummativeBank,
+  getAhaSummativeBankForCourse,
   getAhaSummativeQuizTitle,
 } from "./aha-summative-banks";
 import { ensurePals2025Content } from "./ensure-pals-2025-content";
@@ -31,9 +31,10 @@ async function resolveLastModuleId(db: any, courseId: number): Promise<number | 
 async function upsertSummativeOnModule(
   db: any,
   lastModuleId: number,
-  programType: AhaAnchorProgramType
+  programType: AhaAnchorProgramType,
+  courseRow?: { title?: string | null } | null
 ): Promise<number | null> {
-  const bank = getAhaSummativeBank(programType);
+  const bank = getAhaSummativeBankForCourse(programType, courseRow);
   const title = getAhaSummativeQuizTitle(programType);
   if (bank.length === 0) return null;
 
@@ -140,7 +141,13 @@ export async function ensureAhaSummativeQuiz(
   const lastModuleId = await resolveLastModuleId(db, courseId);
   if (!lastModuleId) return null;
 
-  return upsertSummativeOnModule(db, lastModuleId, programType);
+  const courseRows = await db
+    .select({ title: courses.title })
+    .from(courses)
+    .where(eq(courses.id, courseId))
+    .limit(1);
+
+  return upsertSummativeOnModule(db, lastModuleId, programType, courseRows[0] ?? null);
 }
 
 /** Seed summative exams for all AHA anchor courses. */

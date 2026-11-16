@@ -306,6 +306,11 @@ function Router() {
           <Route path="/institution/cpd">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=cpd_portal" /></RoleGate>}</Route>
           <Route path="/institution/cpd-portal">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=cpd_portal" /></RoleGate>}</Route>
           <Route path="/institution/administration">{() => <RoleGate allowed={["institution"]}><Redirect to="/institution?section=administration" /></RoleGate>}</Route>
+          <Route path="/institution/staff">{() => (
+            <RoleGate allowed={["institution"]}>
+              <InstitutionStaff360 />
+            </RoleGate>
+          )}</Route>
           <Route path="/institution/staff/:userId">{() => (
             <RoleGate allowed={["institution"]}>
               <InstitutionStaff360 />

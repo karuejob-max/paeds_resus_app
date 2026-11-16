@@ -36,6 +36,7 @@ import {
 } from "../lib/institution-learning-analytics";
 import { loadInstitutionLearningDashboard } from "../lib/institution-learning-dashboard";
 import { departmentLabelsMatch } from "../../shared/clinical-departments";
+import { createInstitutionalCpdSession } from "../lib/institutional-cpd-session";
 
 const sessionEventTypes = [
   "cne",
@@ -972,63 +973,45 @@ export const institutionLearningRouter = router({
           });
         }
       }
-      const now = new Date();
-      const [result] = await db.insert(cpdEvents).values({
-        institutionalAccountId: input.institutionId,
+      const { eventId } = await createInstitutionalCpdSession(db, {
+        institutionId: input.institutionId,
+        actorUserId: ctx.user.id,
         name: input.name,
         eventDate: input.eventDate,
-        eventDateAt: input.eventDateAt
-          ? (parseDateOnly(input.eventDateAt) as any)
-          : null,
-        isOpen: true,
-        lifecycleStatus: "open",
-        openedAt: now,
+        eventDateAt: input.eventDateAt ? parseDateOnly(input.eventDateAt) : null,
         eventType: input.eventType,
         audienceScope: input.audienceScope,
         audienceLabel: normalizedAudienceLabel,
         facilityDepartmentId: input.facilityDepartmentId ?? null,
-        presenterUserId: leadPresenter.userId,
-        presenterName: leadPresenter.staffName,
-        presenterCadre: leadPresenter.cadre ?? leadPresenter.staffRole,
-        presenterDepartment: leadPresenter.department,
-        cpdPoints: input.cpdPoints == null ? null : String(input.cpdPoints),
+        presenter: {
+          userId: leadPresenter.userId,
+          staffName: leadPresenter.staffName,
+          staffEmail: leadPresenter.staffEmail,
+          staffRole: leadPresenter.staffRole,
+          cadre: leadPresenter.cadre,
+          department: leadPresenter.department,
+          isInstitutionMember: leadPresenter.isInstitutionMember,
+        },
         approvingCouncil: input.approvingCouncil ?? null,
+        cpdPoints: input.cpdPoints ?? null,
+        coPresenters: coPresenterDirectory.map((member) => {
+          if (!member) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Choose every co-presenter from a valid Paeds Resus account.",
+            });
+          }
+          return {
+            userId: member.userId,
+            staffName: member.staffName,
+            staffEmail: member.staffEmail,
+            staffRole: member.staffRole,
+            cadre: member.cadre,
+            department: member.department,
+            isInstitutionMember: member.isInstitutionMember,
+          };
+        }),
       });
-      const eventId = Number((result as unknown as { insertId: number }).insertId);
-      await db.insert(cpdEventAuditEvents).values({
-        institutionalAccountId: input.institutionId,
-        cpdEventId: eventId,
-        action: "created",
-        previousStatus: null,
-        nextStatus: "open",
-        reason: "CPD session created",
-        changedFields: JSON.stringify(["name", "eventDate", "presenter", "audience", "cpdPoints"]),
-        actorUserId: ctx.user.id,
-      });
-      if (input.coPresenters.length) {
-        await db.insert(cpdEventCoPresenters).values(
-          input.coPresenters.map((presenter, index) => {
-            const member = coPresenterDirectory[index];
-            if (!member) {
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message: "Choose every co-presenter from a valid Paeds Resus account.",
-              });
-            }
-            return {
-              cpdEventId: eventId,
-              institutionalAccountId: input.institutionId,
-              userId: member.userId,
-              participantType: member.isInstitutionMember ? "institution_member" as const : "guest" as const,
-              fullName: member.staffName,
-              email: member.staffEmail || null,
-              cadre: member.cadre ?? member.staffRole,
-              department: member.department,
-              addedByUserId: ctx.user.id,
-            };
-          })
-        );
-      }
       return { success: true as const, eventId };
     }),
 

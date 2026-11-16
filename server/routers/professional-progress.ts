@@ -143,7 +143,7 @@ async function buildProgressSnapshot(
       .where(
         and(
           eq(enrollments.userId, userId),
-          inArray(enrollments.programType, ["bls", "acls", "pals", "nrp"])
+          inArray(enrollments.programType, ["bls", "acls", "pals", "heartsaver", "nrp", "instructor"])
         )
       ),
     db

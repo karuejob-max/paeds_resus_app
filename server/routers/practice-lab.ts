@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createHash, randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lte, ne, sql } from "drizzle-orm";
 import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
 import { invokeLLM } from "../_core/llm";
 import { createAuditLog, getDb } from "../db";
@@ -360,7 +360,7 @@ export const practiceLabRouter = router({
     }),
 
   listAdultAclsEvidence: protectedProcedure
-    .input(z.object({ status: z.enum(["review_required", "accepted", "rejected"]).optional(), programType: z.enum(["acls", "nrp"]).default("acls") }).optional())
+    .input(z.object({ status: z.enum(["review_required", "accepted", "rejected", "formative_only"]).optional(), programType: z.enum(["acls", "nrp"]).default("acls") }).optional())
     .query(async ({ ctx, input }) => {
       const db = await requireAdultAclsReviewer(ctx);
       return db.select({
@@ -381,7 +381,10 @@ export const practiceLabRouter = router({
         .from(simulationWorldEvidence)
         .innerJoin(simulationWorldSessions, eq(simulationWorldSessions.id, simulationWorldEvidence.sessionId))
         .leftJoin(users, eq(users.id, simulationWorldEvidence.userId))
-        .where(and(eq(simulationWorldSessions.programType, input?.programType ?? "acls"), input?.status ? eq(simulationWorldEvidence.evidenceStatus, input.status) : undefined))
+        .where(and(
+          eq(simulationWorldSessions.programType, input?.programType ?? "acls"),
+          input?.status ? eq(simulationWorldEvidence.evidenceStatus, input.status) : ne(simulationWorldEvidence.evidenceStatus, "formative_only"),
+        ))
         .orderBy(desc(simulationWorldEvidence.createdAt));
     }),
 
@@ -396,6 +399,9 @@ export const practiceLabRouter = router({
       const [evidence] = await db.select({ id: simulationWorldEvidence.id, evidenceStatus: simulationWorldEvidence.evidenceStatus, userId: simulationWorldEvidence.userId })
         .from(simulationWorldEvidence).where(eq(simulationWorldEvidence.id, input.evidenceId)).limit(1);
       if (!evidence) throw new TRPCError({ code: "NOT_FOUND", message: "Adult ACLS simulation evidence not found" });
+      if (evidence.evidenceStatus === "formative_only") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Formative-only rehearsal records cannot be reviewed as qualifying evidence." });
+      }
       await db.update(simulationWorldEvidence).set({ evidenceStatus: input.decision, reviewerId: ctx.user.id, reviewerReason: input.reason, reviewedAt: new Date() }).where(eq(simulationWorldEvidence.id, input.evidenceId));
       await createAuditLog({ userId: ctx.user.id, action: "practiceLab.reviewAdultAclsEvidence", details: { evidenceId: input.evidenceId, learnerUserId: evidence.userId, previousStatus: evidence.evidenceStatus, decision: input.decision, reason: input.reason, doesNotGrantCredential: true } });
       return { success: true, evidenceId: input.evidenceId, evidenceStatus: input.decision, doesNotGrantCredential: true, doesNotCompletePhase: true };
