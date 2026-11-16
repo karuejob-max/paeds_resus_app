@@ -3,7 +3,39 @@ import {
   calculateNerpPaymentState,
   deriveNerpPromotionStatus,
   hasConfirmedNerpPayment,
+  validateNerpPaymentAmount,
 } from "./nerp-offer";
+
+describe("NERP flexible payment validation", () => {
+  const base = { amountPaidKes: 0, totalAmountKes: 15000 };
+
+  it("allows a first payment above the suggested KES 2,500 amount", () => {
+    expect(validateNerpPaymentAmount({ ...base, amountKes: 11000 })).toMatchObject({
+      valid: true,
+      amountKes: 11000,
+      balanceKes: 15000,
+    });
+  });
+
+  it("rejects a first payment below KES 2,500", () => {
+    expect(validateNerpPaymentAmount({ ...base, amountKes: 1000 })).toMatchObject({
+      valid: false,
+      reason: expect.stringContaining("2,500"),
+    });
+  });
+
+  it("allows any positive later payment and the exact remaining balance", () => {
+    expect(validateNerpPaymentAmount({ amountKes: 1000, amountPaidKes: 11000, totalAmountKes: 15000 }).valid).toBe(true);
+    expect(validateNerpPaymentAmount({ amountKes: 4000, amountPaidKes: 11000, totalAmountKes: 15000 }).valid).toBe(true);
+  });
+
+  it("rejects a payment above the remaining balance", () => {
+    expect(validateNerpPaymentAmount({ amountKes: 5000, amountPaidKes: 11000, totalAmountKes: 15000 })).toMatchObject({
+      valid: false,
+      reason: expect.stringContaining("4,000"),
+    });
+  });
+});
 
 describe("NERP offer payment state", () => {
   it("starts at installment one with the full balance", () => {
@@ -37,6 +69,15 @@ describe("NERP offer payment state", () => {
     expect(
       calculateNerpPaymentState({ amountPaidKes: 16000 }).amountPaidKes
     ).toBe(15000);
+  });
+
+  it("preserves payment sequence independently of payment size", () => {
+    expect(calculateNerpPaymentState({ amountPaidKes: 11000, nextInstallmentNumber: 2 })).toMatchObject({
+      balanceKes: 4000,
+      nextInstallmentNumber: 2,
+      nextInstallmentAmountKes: 2500,
+      status: "active",
+    });
   });
 });
 
