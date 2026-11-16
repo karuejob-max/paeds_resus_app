@@ -50,6 +50,21 @@ Render output:
 [0193] Institutional performance report snapshots are ready.
 ```
 
+- Render Web Shell migration `0194` completed successfully after the Reports & Insights release:
+
+```bash
+pnpm db:apply-0194
+```
+
+Render output:
+
+```text
+(node:222) [DEP0123] DeprecationWarning: Setting the TLS ServerName to an IP address is not permitted by RFC 6066. This will be ignored in a future version.
+[0194] Institutional performance report scopes are ready.
+```
+
+The TLS message is a Node deprecation warning from the database connection path; the migration exited successfully and returned the expected readiness marker.
+
 - The production `/institution` workspace loaded for the authenticated QA account and preserved institution-scoped access.
 - That QA account did not have `canViewAccountability`, so the executive-report panel was correctly hidden. Do not record this as a report-generation UI smoke-test pass.
 
@@ -134,6 +149,8 @@ Complete one smoke test with an institution administrator or accountability-auth
 6. Download the CSV.
 7. Confirm source freshness and limitations are visible.
 8. Generate the same period twice and confirm the immutable snapshot is returned.
+
+Migration 0194 is now confirmed applied in Render. The browser-level report-centre smoke test remains open until the authorised user confirms the rendered Reports & Insights destination and outputs.
 
 ### Next engineering priorities
 
