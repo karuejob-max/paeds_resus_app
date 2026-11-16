@@ -453,27 +453,47 @@ export async function projectLegacyUtlRosterDecision(
     eq(iersShiftRoleAssignments.departmentId, roster.departmentId),
     eq(iersShiftRoleAssignments.providerUserId, roster.utlUserId),
     eq(iersShiftRoleAssignments.roleScope, "utl"),
-    inArray(iersShiftRoleAssignments.assignmentStatus, ["approved", "pending_acceptance"]),
+    inArray(iersShiftRoleAssignments.assignmentStatus, ["approved", "pending_acceptance", "accepted"]),
     eq(iersShiftTeams.institutionId, roster.institutionId),
     eq(iersShiftTeams.poleId, roster.poleId),
     eq(iersShiftTeams.shiftDate, roster.shiftDate),
     eq(iersShiftTeams.shiftType, roster.shiftType),
-    eq(iersShiftTeams.shiftStartTime, roster.shiftStartTime),
-    eq(iersShiftTeams.shiftEndTime, roster.shiftEndTime),
-    eq(iersShiftTeams.shiftEndDayOffset, roster.shiftEndDayOffset),
     inArray(iersShiftTeams.status, ["published", "active"]),
   ];
+  if (roster.shiftStartTime) candidateWhere.push(eq(iersShiftTeams.shiftStartTime, roster.shiftStartTime));
+  if (roster.shiftEndTime) candidateWhere.push(eq(iersShiftTeams.shiftEndTime, roster.shiftEndTime));
+  if (roster.shiftEndDayOffset != null) candidateWhere.push(eq(iersShiftTeams.shiftEndDayOffset, roster.shiftEndDayOffset));
 
   const linkedWhere = roster.id
     ? [...candidateWhere, eq(iersShiftRoleAssignments.shiftUtlRosterId, roster.id)]
     : candidateWhere;
-  const candidates = await db
+  let candidates = await db
     .select({ assignment: iersShiftRoleAssignments, team: iersShiftTeams })
     .from(iersShiftRoleAssignments)
     .innerJoin(iersShiftTeams, eq(iersShiftTeams.id, iersShiftRoleAssignments.teamId))
     .where(and(...linkedWhere))
     .orderBy(desc(iersShiftTeams.teamVersion), desc(iersShiftRoleAssignments.id))
     .limit(2);
+
+  // Legacy rosters may carry incomplete shift metadata. The explicit roster
+  // link is authoritative in that case; keep the fallback tenant- and
+  // provider-scoped so unrelated assignments cannot be projected.
+  if (candidates.length !== 1 && roster.id) {
+    candidates = await db
+      .select({ assignment: iersShiftRoleAssignments, team: iersShiftTeams })
+      .from(iersShiftRoleAssignments)
+      .innerJoin(iersShiftTeams, eq(iersShiftTeams.id, iersShiftRoleAssignments.teamId))
+      .where(and(
+        eq(iersShiftRoleAssignments.shiftUtlRosterId, roster.id),
+        eq(iersShiftRoleAssignments.institutionId, roster.institutionId),
+        eq(iersShiftRoleAssignments.providerUserId, roster.utlUserId),
+        eq(iersShiftRoleAssignments.roleScope, "utl"),
+        eq(iersShiftTeams.institutionId, roster.institutionId),
+        inArray(iersShiftTeams.status, ["published", "active"]),
+      ))
+      .orderBy(desc(iersShiftTeams.teamVersion), desc(iersShiftRoleAssignments.id))
+      .limit(2);
+  }
 
   if (candidates.length !== 1) {
     return { projected: false as const, reason: candidates.length === 0 ? "no_current_exact_match" : "ambiguous_current_match" };
@@ -494,6 +514,9 @@ export async function projectLegacyUtlRosterDecision(
   }
 
   const nextStatus: ShiftRoleAssignmentStatus = input.decision === "accepted" ? "accepted" : "declined";
+  if (assignment.assignmentStatus === nextStatus) {
+    return { projected: true as const, assignmentId: assignment.id, teamId: team.id, assignmentStatus: nextStatus };
+  }
   assertShiftRoleTransition(assignment.assignmentStatus, nextStatus);
   const now = new Date();
   await db.update(iersShiftRoleAssignments).set({
@@ -529,7 +552,7 @@ export async function projectUtlRosterReassignment(
     actorUserId: number;
   },
 ) {
-  const [row] = await db
+  let [row] = await db
     .select({ assignment: iersShiftRoleAssignments, team: iersShiftTeams })
     .from(iersShiftRoleAssignments)
     .innerJoin(iersShiftTeams, eq(iersShiftTeams.id, iersShiftRoleAssignments.teamId))
@@ -550,7 +573,28 @@ export async function projectUtlRosterReassignment(
     ))
     .orderBy(desc(iersShiftTeams.teamVersion), desc(iersShiftRoleAssignments.id))
     .limit(2);
-  if (!row) return { projected: false as const, reason: "no_current_exact_match" };
+  if (!row) {
+    // Older legacy rosters may not carry the same shift-time metadata as the
+    // published team. The explicit roster link remains authoritative; use it
+    // only within the same tenant/date/shift and current team state.
+    [row] = await db
+      .select({ assignment: iersShiftRoleAssignments, team: iersShiftTeams })
+      .from(iersShiftRoleAssignments)
+      .innerJoin(iersShiftTeams, eq(iersShiftTeams.id, iersShiftRoleAssignments.teamId))
+      .where(and(
+        eq(iersShiftRoleAssignments.shiftUtlRosterId, input.roster.id),
+        eq(iersShiftRoleAssignments.roleScope, "utl"),
+        eq(iersShiftRoleAssignments.institutionId, input.roster.institutionId),
+        eq(iersShiftTeams.institutionId, input.roster.institutionId),
+        eq(iersShiftTeams.poleId, input.roster.poleId),
+        eq(iersShiftTeams.shiftDate, input.roster.shiftDate),
+        eq(iersShiftTeams.shiftType, input.roster.shiftType),
+        inArray(iersShiftTeams.status, ["published", "active"]),
+      ))
+      .orderBy(desc(iersShiftTeams.teamVersion), desc(iersShiftRoleAssignments.id))
+      .limit(1);
+  }
+  if (!row) return { projected: false as const, reason: "no_current_linked_match" };
 
   const [second] = await db
     .select({ id: iersShiftRoleAssignments.id })
