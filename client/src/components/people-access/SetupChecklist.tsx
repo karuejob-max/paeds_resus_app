@@ -22,7 +22,7 @@ export function SetupChecklist({ activeView, inputs }: { activeView: string; inp
         {items.map(item => {
           const active = ({ institutionProfile: "overview", staffRoster: "directory", peopleAccess: "roles", departments: "departments", accessLinks: "admins" } as const)[item.key] === activeView;
           const label = LABELS[item.key];
-          const statusLabel = item.status === "done" ? "Complete" : item.status === "not_done" ? "Needs setup" : "Could not load";
+          const statusLabel = item.status === "done" ? "Complete" : item.status === "not_done" ? "Needs setup" : "Loading or unavailable";
           return (
             <div
               key={item.key}
