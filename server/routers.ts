@@ -84,6 +84,7 @@ import { iersNotificationsRouter } from "./routers/iers-notifications";
 import { cpdRouter } from "./routers/cpd";
 import { institutionLearningRouter } from "./routers/institution-learning";
 import { institutionAccountabilityRouter } from "./routers/institution-accountability";
+import { institutionPerformanceRouter } from "./routers/institution-performance";
 import { institutionProductsRouter } from "./routers/institution-products";
 import { institutionalQiRouter } from "./routers/institutional-qi";
 import { institutionalBillingRouter } from "./routers/institutional-billing";
@@ -540,6 +541,7 @@ export const appRouter = router({
   cpd: cpdRouter,
   institutionLearning: institutionLearningRouter,
   institutionAccountability: institutionAccountabilityRouter,
+  institutionPerformance: institutionPerformanceRouter,
   institutionalNotifications: institutionalNotificationsRouter,
   productionSecurity: productionSecurityRouter,
   localization: localizationRouter,

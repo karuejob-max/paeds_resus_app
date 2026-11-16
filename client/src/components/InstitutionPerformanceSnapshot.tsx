@@ -52,6 +52,15 @@ export function InstitutionPerformanceSnapshot({
       refetchOnWindowFocus: false,
     },
   );
+  const sourceQuery = trpc.institutionPerformance.getSourceSnapshot.useQuery(
+    { institutionId, periodType: "quarterly" },
+    {
+      enabled,
+      staleTime: 30_000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  );
   const qiQuery = trpc.institutionalQi.listReports.useQuery(
     { institutionalAccountId: institutionId, limit: 50 },
     { enabled, staleTime: 30_000, retry: 1, refetchOnWindowFocus: false },
@@ -66,6 +75,9 @@ export function InstitutionPerformanceSnapshot({
     ["severe", "critical"].includes(report.severity),
   );
   const departmentRows = data?.departments ?? [];
+  const sourceRows = sourceQuery.data
+    ? Object.entries(sourceQuery.data.sources).map(([label, source]) => ({ label, status: source.status }))
+    : [];
   const csv = useMemo(() => {
     if (!data) return "";
     const rows = [
@@ -175,7 +187,13 @@ export function InstitutionPerformanceSnapshot({
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-background/70 p-3 text-xs text-muted-foreground dark:border-slate-800">
-          <span>Data quality: {summary.cpdDataQualityStatus}; identity match {summary.cpdIdentityMatchRate == null ? "not available" : `${summary.cpdIdentityMatchRate}%`}; unresolved CPD records {summary.cpdUnresolvedIdentityRecords}.</span>
+          <div>
+            <span>Data quality: {summary.cpdDataQualityStatus}; identity match {summary.cpdIdentityMatchRate == null ? "not available" : `${summary.cpdIdentityMatchRate}%`}; unresolved CPD records {summary.cpdUnresolvedIdentityRecords}.</span>
+            <div className="mt-2 flex flex-wrap gap-2" aria-label="Performance source status">
+              {sourceRows.map(row => <Badge key={row.label} variant={row.status === "unavailable" ? "destructive" : row.status === "empty" ? "outline" : "secondary"}>{row.label}: {row.status}</Badge>)}
+              {sourceQuery.isError ? <Badge variant="destructive">performance source contract unavailable</Badge> : null}
+            </div>
+          </div>
           <span>Source period: {data.learning.period.periodStart} to {data.learning.period.periodEnd} (EAT calendar convention).</span>
         </div>
       </CardContent>

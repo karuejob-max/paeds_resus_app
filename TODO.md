@@ -2,7 +2,7 @@
 
 ## 1. Institution Home provides a trusted performance snap view
 
-- [ ] The canonical `/institution` workspace gives authorised users a concise institutional view of performance across departments, CPD attendance versus presenting, Life Support course progress, licences/certificates and renewals, readiness, QI, and data quality.
+- [x] The canonical `/institution` workspace gives authorised users a concise institutional view of performance across departments, CPD attendance versus presenting, Life Support course progress, licences/certificates and renewals, readiness, QI, and data quality.
 - [ ] Existing institutional Home, IERS, CPD Portal, learning, accountability, administration, and connected-services lanes remain available and are not replaced.
 - [ ] The snapshot uses existing institution style and links users to authoritative workflows for detail and action.
 
@@ -17,7 +17,7 @@
 
 ## 3. Failure isolation and tenant safety are preserved
 
-- [ ] A failure or unavailable source domain does not make unrelated snapshot domains unavailable.
+- [x] A failure or unavailable source domain does not make unrelated snapshot domains unavailable in the server-owned source contract; unavailable and empty states are disclosed separately.
 - [ ] Institution, role, product, and department scope enforcement remains server-side through existing procedures.
 - [ ] Empty institutions render an explicit empty state rather than misleading zero-performance claims.
 
