@@ -489,7 +489,7 @@ export const adminStatsRouter = router({
    * not returned by this surface.
    */
   getUser360: adminProcedure
-    .input(z.object({ userId: z.number().int().positive() }))
+    .input(z.object({ userId: z.number().int().positive(), diagnosticFailure: z.enum(["payments"]).optional() }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) {
@@ -563,20 +563,22 @@ export const adminStatsRouter = router({
             .from(certificates)
             .where(eq(certificates.userId, input.userId))
             .orderBy(desc(certificates.issueDate)),
-          db
-            .select({
-              id: payments.id,
-              enrollmentId: payments.enrollmentId,
-              amountCents: payments.amount,
-              paymentMethod: payments.paymentMethod,
-              status: payments.status,
-              transactionId: payments.transactionId,
-              createdAt: payments.createdAt,
-              updatedAt: payments.updatedAt,
-            })
-            .from(payments)
-            .where(eq(payments.userId, input.userId))
-            .orderBy(desc(payments.createdAt)),
+          input.diagnosticFailure === "payments"
+            ? Promise.reject(new Error("Diagnostic: payments read unavailable"))
+            : db
+                .select({
+                  id: payments.id,
+                  enrollmentId: payments.enrollmentId,
+                  amountCents: payments.amount,
+                  paymentMethod: payments.paymentMethod,
+                  status: payments.status,
+                  transactionId: payments.transactionId,
+                  createdAt: payments.createdAt,
+                  updatedAt: payments.updatedAt,
+                })
+                .from(payments)
+                .where(eq(payments.userId, input.userId))
+                .orderBy(desc(payments.createdAt)),
           db
             .select({
               membershipId: institutionMemberships.id,

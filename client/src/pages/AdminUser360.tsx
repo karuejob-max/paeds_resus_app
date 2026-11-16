@@ -52,13 +52,14 @@ function SectionUnavailable({ label }: { label: string }) {
 
 export default function AdminUser360() {
   const [search, setSearch] = useState("");
+  const diagnosticFailure = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("user360Failure");
   const [selectedId, setSelectedId] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     const value = Number(new URLSearchParams(window.location.search).get("userId"));
     return Number.isInteger(value) && value > 0 ? value : null;
   });
   const usersQuery = trpc.adminStats.getUsers.useQuery({ search: search.trim() || undefined, limit: 100, offset: 0 }, { staleTime: 15_000 });
-  const detailQuery = trpc.adminStats.getUser360.useQuery({ userId: selectedId ?? 0 }, { enabled: selectedId !== null, staleTime: 15_000 });
+  const detailQuery = trpc.adminStats.getUser360.useQuery({ userId: selectedId ?? 0, diagnosticFailure: diagnosticFailure === "payments" ? "payments" : undefined }, { enabled: selectedId !== null, staleTime: 15_000 });
   const users = usersQuery.data?.users ?? [];
   useEffect(() => {
     if (selectedId === null && users.length > 0) setSelectedId(users[0].id);
