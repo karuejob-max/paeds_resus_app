@@ -178,6 +178,14 @@ export const institutionalQiRouter = router({
       return db.select().from(institutionalQiReports).where(and(...predicates)).orderBy(desc(institutionalQiReports.updatedAt)).limit(input.limit);
     }),
 
+  listFailureModes: protectedProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await dbOrThrow();
+      await assertInstitutionAccess(db, ctx.user, input.institutionalAccountId);
+      return db.select({ code: kbFailureModes.failureModeCode, domain: kbFailureModes.failureDomain, name: kbFailureModes.failureModeName, description: kbFailureModes.description }).from(kbFailureModes).where(eq(kbFailureModes.isActive, true)).orderBy(kbFailureModes.failureModeCode);
+    }),
+
   listReportEvents: protectedProcedure
     .input(z.object({ institutionalAccountId: z.number().int().positive(), reportId: z.number().int().positive(), limit: z.number().int().min(1).max(200).default(100) }))
     .query(async ({ ctx, input }) => {
@@ -242,6 +250,14 @@ export const institutionalQiRouter = router({
       const [report] = await db.select({ id: institutionalQiReports.id }).from(institutionalQiReports).where(and(eq(institutionalQiReports.id, input.reportId), eq(institutionalQiReports.institutionalAccountId, input.institutionalAccountId))).limit(1);
       if (!report) throw new TRPCError({ code: "NOT_FOUND", message: "QI report not found." });
       return db.select({ id: institutionalQiCpdLinks.id, relationshipType: institutionalQiCpdLinks.relationshipType, createdAt: institutionalQiCpdLinks.createdAt, cpdEventId: cpdEvents.id, sessionName: cpdEvents.name, eventDate: cpdEvents.eventDate, eventDateAt: cpdEvents.eventDateAt, audienceScope: cpdEvents.audienceScope }).from(institutionalQiCpdLinks).innerJoin(cpdEvents, eq(cpdEvents.id, institutionalQiCpdLinks.cpdEventId)).where(and(eq(institutionalQiCpdLinks.institutionalAccountId, input.institutionalAccountId), eq(institutionalQiCpdLinks.reportId, input.reportId))).orderBy(desc(institutionalQiCpdLinks.createdAt));
+    }),
+
+  listLinkableCpdSessions: protectedProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await dbOrThrow();
+      await assertReviewer(db, ctx.user, input.institutionalAccountId);
+      return db.select({ id: cpdEvents.id, name: cpdEvents.name, eventDate: cpdEvents.eventDate, eventDateAt: cpdEvents.eventDateAt, audienceScope: cpdEvents.audienceScope, facilityDepartmentId: cpdEvents.facilityDepartmentId }).from(cpdEvents).where(eq(cpdEvents.institutionalAccountId, input.institutionalAccountId)).orderBy(desc(cpdEvents.id)).limit(200);
     }),
 
   linkCpdSession: protectedProcedure
