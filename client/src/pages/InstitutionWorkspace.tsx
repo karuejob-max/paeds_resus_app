@@ -47,6 +47,7 @@ import { ContextHeader } from "@/components/ContextHeader";
 import InstitutionHomePanel from "@/components/InstitutionHomePanel";
 import { InstitutionAccountabilityPanel } from "@/components/InstitutionAccountabilityPanel";
 import { InstitutionalQualityBillingPanel } from "@/components/InstitutionalQualityBillingPanel";
+import InstitutionalQiImprovementPanel from "@/components/InstitutionalQiImprovementPanel";
 import { IersWorkforceTab, resolveIersTab, workforceAnchor } from "@/lib/institution-readiness-navigation";
 import { deriveInstitutionWorkspaceAccess } from "@/lib/institution-workspace-access";
 import { buildAdministrationUrl, resolveAdministrationLocation } from "@shared/institution-administration-location";
@@ -402,7 +403,7 @@ export default function InstitutionWorkspace() {
                   </section>
                 </TabsContent>
                 <TabsContent value="plan"><IersImplementationPlanPanel institutionId={institutionId} /></TabsContent>
-                <TabsContent value="report" className="space-y-6"><InstitutionalQualityBillingPanel institutionId={institutionId} canManageBilling={isInstitutionAdmin} /><IersAdaptiveLearningPanel institutionId={institutionId} /><IersExecutiveReportPanel institutionId={institutionId} onOpenEvidence={() => setIersTab("evidence")} /></TabsContent>
+                <TabsContent value="report" className="space-y-6"><InstitutionalQualityBillingPanel institutionId={institutionId} canManageBilling={isInstitutionAdmin} /><InstitutionalQiImprovementPanel institutionId={institutionId} roleKeys={roleKeys} /><IersAdaptiveLearningPanel institutionId={institutionId} /><IersExecutiveReportPanel institutionId={institutionId} onOpenEvidence={() => setIersTab("evidence")} /></TabsContent>
               </Tabs>
             ) : (
               <ProductLockedState product="IERS" status={productStatus.iers} onAdministration={() => setActiveSection("administration")} />
