@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertInstitutionalInvoiceTransition,
   canCloseQiReport,
+  canTransitionQiAction,
   canTransitionInstitutionalInvoice,
   institutionalLedgerDegradedState,
 } from "./institutional-trust-invariants";
@@ -19,6 +20,16 @@ describe("institutional trust invariants", () => {
     expect(canCloseQiReport({ outcome: "not_effective", followUpRequired: true })).toBe(false);
     expect(canCloseQiReport({ outcome: "partially_effective", followUpRequired: true })).toBe(false);
     expect(canCloseQiReport({ outcome: "effective", followUpRequired: false })).toBe(true);
+    expect(canCloseQiReport({ outcome: "effective", followUpRequired: false }, 1)).toBe(false);
+    expect(canCloseQiReport({ outcome: "effective", followUpRequired: false }, 1, "Action remains open because replacement supplies are on order.")).toBe(true);
+  });
+
+  it("allows only forward QI action completion or cancellation", () => {
+    expect(canTransitionQiAction("open", "in_progress")).toBe(true);
+    expect(canTransitionQiAction("in_progress", "completed")).toBe(true);
+    expect(canTransitionQiAction("open", "cancelled")).toBe(true);
+    expect(canTransitionQiAction("completed", "open")).toBe(false);
+    expect(canTransitionQiAction("cancelled", "in_progress")).toBe(false);
   });
 
   it("fails closed when authoritative institutional infrastructure is unavailable", () => {

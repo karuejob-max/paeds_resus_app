@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -8,18 +8,21 @@ import {
   codeSignalEvents,
   institutionalQiActions,
   institutionalQiEffectivenessReviews,
+  institutionalQiCpdLinks,
   institutionalQiParticipationSnapshots,
   institutionalQiReports,
   institutionalQiReportEvents,
   institutionalQiExportRequests,
   institutionalQiRetentionPolicies,
+  cpdEvents,
+  kbFailureModes,
   facilityDepartments,
   institutionMemberships,
 } from "../../drizzle/schema";
-import { assertInstitutionAccess } from "../lib/institution-access";
+import { assertInstitutionAccess, isInstitutionAdmin } from "../lib/institution-access";
 import { assertInstitutionProductRole } from "../lib/institution-product-roles";
 import { participationRequirement, type FacilityLevel } from "@shared/institutional-pricing";
-import { canCloseQiReport } from "../lib/institutional-trust-invariants";
+import { canCloseQiReport, canTransitionQiAction, type QiActionStatus } from "../lib/institutional-trust-invariants";
 
 const reportTypes = ["safety_event", "improvement_project"] as const;
 const reportStatuses = ["draft", "submitted", "triaged", "action_planned", "in_progress", "effectiveness_review", "closed", "reopened"] as const;
@@ -45,6 +48,45 @@ async function assertDepartmentBelongsToInstitution(db: Awaited<ReturnType<typeo
 async function assertActiveInstitutionMember(db: Awaited<ReturnType<typeof dbOrThrow>>, institutionId: number, userId: number) {
   const [membership] = await db.select({ id: institutionMemberships.id }).from(institutionMemberships).where(and(eq(institutionMemberships.institutionalAccountId, institutionId), eq(institutionMemberships.userId, userId), eq(institutionMemberships.membershipStatus, "active"))).limit(1);
   if (!membership) throw new TRPCError({ code: "BAD_REQUEST", message: "The action owner must be an active member of this institution." });
+}
+
+async function assertActionUpdateAuthority(
+  db: Awaited<ReturnType<typeof dbOrThrow>>,
+  user: { id: number; role: string; email: string | null },
+  institutionId: number,
+  ownerUserId: number | null,
+) {
+  if (ownerUserId === user.id || user.role === "admin" || await isInstitutionAdmin(db, user.id, institutionId)) return;
+  try {
+    await assertReviewer(db, user, institutionId);
+  } catch {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Only the action owner, an institution administrator, or an IERS reviewer can update this action." });
+  }
+}
+
+async function validateFailureModeCodes(
+  db: Awaited<ReturnType<typeof dbOrThrow>>,
+  codes: string[] | undefined,
+) {
+  const normalized = [...new Set((codes ?? []).map(code => code.trim()).filter(Boolean))];
+  if (normalized.length > 12) throw new TRPCError({ code: "BAD_REQUEST", message: "Select no more than 12 failure modes." });
+  if (!normalized.length) return null;
+  const rows = await db.select({ code: kbFailureModes.failureModeCode }).from(kbFailureModes).where(and(inArray(kbFailureModes.failureModeCode, normalized), eq(kbFailureModes.isActive, true)));
+  const valid = new Set(rows.map(row => row.code));
+  const invalid = normalized.filter(code => !valid.has(code));
+  if (invalid.length) throw new TRPCError({ code: "BAD_REQUEST", message: `Unknown or retired failure-mode code(s): ${invalid.join(", ")}.` });
+  return JSON.stringify(normalized);
+}
+
+function parseFailureModeCodes(value: string | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return [...new Set(parsed.filter((code): code is string => typeof code === "string").map(code => code.trim()).filter(Boolean))];
+  } catch {
+    return [];
+  }
 }
 
 function assertTransition(current: ReportStatus, next: ReportStatus) {
@@ -84,6 +126,7 @@ export const institutionalQiRouter = router({
       denominator: z.number().int().positive().optional(),
       dataSource: z.string().trim().max(255).optional(),
       targetMeasure: z.number().optional(),
+      failureModeCodes: z.array(z.string().trim().min(1).max(64)).max(12).optional(),
       confidentialityLevel: z.enum(["institution_only", "aggregate_only", "restricted"]).default("institution_only"),
       status: z.enum(["draft", "submitted"]).default("draft"),
     }))
@@ -91,6 +134,7 @@ export const institutionalQiRouter = router({
       const db = await dbOrThrow();
       await assertInstitutionAccess(db, ctx.user, input.institutionalAccountId);
       if (input.facilityDepartmentId) await assertDepartmentBelongsToInstitution(db, input.institutionalAccountId, input.facilityDepartmentId);
+      const failureModeCodes = await validateFailureModeCodes(db, input.failureModeCodes);
       const now = new Date();
       const [created] = await db.insert(institutionalQiReports).values({
         institutionalAccountId: input.institutionalAccountId,
@@ -112,6 +156,7 @@ export const institutionalQiRouter = router({
         denominator: input.denominator ?? null,
         dataSource: input.dataSource ?? null,
         targetMeasure: input.targetMeasure?.toString() ?? null,
+        failureModeCodes,
         confidentialityLevel: input.confidentialityLevel,
         status: input.status,
         reporterUserId: ctx.user.id,
@@ -155,6 +200,88 @@ export const institutionalQiRouter = router({
       return { id: created.id };
     }),
 
+  listActions: protectedProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive(), reportId: z.number().int().positive().optional(), facilityDepartmentId: z.number().int().positive().optional(), ownerUserId: z.number().int().positive().optional(), status: z.enum(["open", "in_progress", "completed", "cancelled"]).optional(), overdue: z.boolean().optional(), limit: z.number().int().min(1).max(200).default(100) }))
+    .query(async ({ ctx, input }) => {
+      const db = await dbOrThrow();
+      await assertInstitutionAccess(db, ctx.user, input.institutionalAccountId);
+      const now = new Date();
+      const predicates = [eq(institutionalQiActions.institutionalAccountId, input.institutionalAccountId)];
+      if (input.reportId) predicates.push(eq(institutionalQiActions.reportId, input.reportId));
+      if (input.facilityDepartmentId) predicates.push(eq(institutionalQiReports.facilityDepartmentId, input.facilityDepartmentId));
+      if (input.ownerUserId) predicates.push(eq(institutionalQiActions.ownerUserId, input.ownerUserId));
+      if (input.status) predicates.push(eq(institutionalQiActions.status, input.status));
+      if (input.overdue === true) predicates.push(lt(institutionalQiActions.dueAt, now), sql`${institutionalQiActions.status} IN ('open', 'in_progress')`);
+      if (input.overdue === false) predicates.push(sql`NOT (${institutionalQiActions.dueAt} < ${now} AND ${institutionalQiActions.status} IN ('open', 'in_progress'))`);
+      const rows = await db.select({ action: institutionalQiActions, reportDepartmentId: institutionalQiReports.facilityDepartmentId }).from(institutionalQiActions).innerJoin(institutionalQiReports, eq(institutionalQiReports.id, institutionalQiActions.reportId)).where(and(...predicates)).orderBy(desc(institutionalQiActions.updatedAt)).limit(input.limit);
+      return rows.map(({ action, reportDepartmentId }) => ({ ...action, reportDepartmentId, overdue: Boolean(action.dueAt && action.dueAt < now && (action.status === "open" || action.status === "in_progress")) }));
+    }),
+
+  updateActionStatus: protectedProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive(), actionId: z.number().int().positive(), status: z.enum(["open", "in_progress", "completed", "cancelled"]), evidenceUrl: z.string().trim().url().max(2000).optional().nullable(), reason: z.string().trim().min(3).max(2000) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await dbOrThrow();
+      await assertInstitutionAccess(db, ctx.user, input.institutionalAccountId);
+      const [action] = await db.select().from(institutionalQiActions).where(and(eq(institutionalQiActions.id, input.actionId), eq(institutionalQiActions.institutionalAccountId, input.institutionalAccountId))).limit(1);
+      if (!action) throw new TRPCError({ code: "NOT_FOUND", message: "QI action not found." });
+      await assertActionUpdateAuthority(db, ctx.user, input.institutionalAccountId, action.ownerUserId);
+      if (!canTransitionQiAction(action.status as QiActionStatus, input.status as QiActionStatus)) throw new TRPCError({ code: "BAD_REQUEST", message: `Cannot move a QI action from ${action.status} to ${input.status}.` });
+      if (input.status === "completed" && !input.evidenceUrl?.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "Completion requires an evidence URL." });
+      if (input.status === "cancelled" && input.reason.trim().length < 10) throw new TRPCError({ code: "BAD_REQUEST", message: "Cancellation requires a clear reason." });
+      const now = new Date();
+      await db.update(institutionalQiActions).set({ status: input.status, evidenceUrl: input.evidenceUrl?.trim() || (input.status === "completed" ? action.evidenceUrl : null), completedAt: input.status === "completed" ? now : null, updatedAt: now }).where(eq(institutionalQiActions.id, input.actionId));
+      await db.insert(institutionalQiReportEvents).values({ institutionalAccountId: input.institutionalAccountId, reportId: action.reportId, fromStatus: action.status, toStatus: action.status, actorUserId: ctx.user.id, actorRole: ctx.user.role, reason: `QI action ${input.status}: ${input.reason}`, occurredAt: now });
+      return { success: true, id: action.id, status: input.status };
+    }),
+
+  listCpdLinks: protectedProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive(), reportId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await dbOrThrow();
+      await assertInstitutionAccess(db, ctx.user, input.institutionalAccountId);
+      const [report] = await db.select({ id: institutionalQiReports.id }).from(institutionalQiReports).where(and(eq(institutionalQiReports.id, input.reportId), eq(institutionalQiReports.institutionalAccountId, input.institutionalAccountId))).limit(1);
+      if (!report) throw new TRPCError({ code: "NOT_FOUND", message: "QI report not found." });
+      return db.select({ id: institutionalQiCpdLinks.id, relationshipType: institutionalQiCpdLinks.relationshipType, createdAt: institutionalQiCpdLinks.createdAt, cpdEventId: cpdEvents.id, sessionName: cpdEvents.name, eventDate: cpdEvents.eventDate, eventDateAt: cpdEvents.eventDateAt, audienceScope: cpdEvents.audienceScope }).from(institutionalQiCpdLinks).innerJoin(cpdEvents, eq(cpdEvents.id, institutionalQiCpdLinks.cpdEventId)).where(and(eq(institutionalQiCpdLinks.institutionalAccountId, input.institutionalAccountId), eq(institutionalQiCpdLinks.reportId, input.reportId))).orderBy(desc(institutionalQiCpdLinks.createdAt));
+    }),
+
+  linkCpdSession: protectedProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive(), reportId: z.number().int().positive(), cpdEventId: z.number().int().positive(), relationshipType: z.enum(["discussion", "improvement_response", "follow_up"]).default("discussion") }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await dbOrThrow();
+      await assertReviewer(db, ctx.user, input.institutionalAccountId);
+      const [report] = await db.select({ id: institutionalQiReports.id }).from(institutionalQiReports).where(and(eq(institutionalQiReports.id, input.reportId), eq(institutionalQiReports.institutionalAccountId, input.institutionalAccountId))).limit(1);
+      const [event] = await db.select({ id: cpdEvents.id }).from(cpdEvents).where(and(eq(cpdEvents.id, input.cpdEventId), eq(cpdEvents.institutionalAccountId, input.institutionalAccountId))).limit(1);
+      if (!report || !event) throw new TRPCError({ code: "NOT_FOUND", message: "QI report or CPD session not found in this institution." });
+      const [existing] = await db.select({ id: institutionalQiCpdLinks.id }).from(institutionalQiCpdLinks).where(and(eq(institutionalQiCpdLinks.institutionalAccountId, input.institutionalAccountId), eq(institutionalQiCpdLinks.reportId, input.reportId), eq(institutionalQiCpdLinks.cpdEventId, input.cpdEventId))).limit(1);
+      if (existing) throw new TRPCError({ code: "CONFLICT", message: "This CPD session is already linked to the QI report." });
+      const [created] = await db.insert(institutionalQiCpdLinks).values({ institutionalAccountId: input.institutionalAccountId, reportId: input.reportId, cpdEventId: input.cpdEventId, relationshipType: input.relationshipType, createdByUserId: ctx.user.id }).$returningId();
+      return { id: created.id };
+    }),
+
+  updateFailureModeTags: protectedProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive(), reportId: z.number().int().positive(), failureModeCodes: z.array(z.string().trim().min(1).max(64)).max(12) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await dbOrThrow();
+      await assertReviewer(db, ctx.user, input.institutionalAccountId);
+      const [report] = await db.select({ id: institutionalQiReports.id }).from(institutionalQiReports).where(and(eq(institutionalQiReports.id, input.reportId), eq(institutionalQiReports.institutionalAccountId, input.institutionalAccountId))).limit(1);
+      if (!report) throw new TRPCError({ code: "NOT_FOUND", message: "QI report not found." });
+      const failureModeCodes = await validateFailureModeCodes(db, input.failureModeCodes);
+      await db.update(institutionalQiReports).set({ failureModeCodes, updatedAt: new Date() }).where(eq(institutionalQiReports.id, input.reportId));
+      await db.insert(institutionalQiReportEvents).values({ institutionalAccountId: input.institutionalAccountId, reportId: input.reportId, fromStatus: "tag_update", toStatus: "tag_update", actorUserId: ctx.user.id, actorRole: ctx.user.role, reason: "QI failure-mode tags updated", occurredAt: new Date() });
+      return { success: true, failureModeCodes: parseFailureModeCodes(failureModeCodes) };
+    }),
+
+  getMeasurementSummary: protectedProcedure
+    .input(z.object({ institutionalAccountId: z.number().int().positive(), reportId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await dbOrThrow();
+      await assertInstitutionAccess(db, ctx.user, input.institutionalAccountId);
+      const [report] = await db.select({ id: institutionalQiReports.id, baselineMeasure: institutionalQiReports.baselineMeasure, numerator: institutionalQiReports.numerator, denominator: institutionalQiReports.denominator, targetMeasure: institutionalQiReports.targetMeasure, dataSource: institutionalQiReports.dataSource, failureModeCodes: institutionalQiReports.failureModeCodes }).from(institutionalQiReports).where(and(eq(institutionalQiReports.id, input.reportId), eq(institutionalQiReports.institutionalAccountId, input.institutionalAccountId))).limit(1);
+      if (!report) throw new TRPCError({ code: "NOT_FOUND", message: "QI report not found." });
+      const reviews = await db.select({ reviewDate: institutionalQiEffectivenessReviews.reviewDate, outcome: institutionalQiEffectivenessReviews.outcome, measureValue: institutionalQiEffectivenessReviews.measureValue, followUpRequired: institutionalQiEffectivenessReviews.followUpRequired }).from(institutionalQiEffectivenessReviews).where(and(eq(institutionalQiEffectivenessReviews.reportId, input.reportId), eq(institutionalQiEffectivenessReviews.institutionalAccountId, input.institutionalAccountId))).orderBy(desc(institutionalQiEffectivenessReviews.reviewDate));
+      return { baselineMeasure: report.baselineMeasure, numerator: report.numerator, denominator: report.denominator, targetMeasure: report.targetMeasure, dataSource: report.dataSource, failureModeCodes: parseFailureModeCodes(report.failureModeCodes), reviews };
+    }),
+
   transitionReport: protectedProcedure
     .input(z.object({ institutionalAccountId: z.number().int().positive(), reportId: z.number().int().positive(), nextStatus: z.enum(reportStatuses), reason: z.string().trim().min(3).max(2000) }))
     .mutation(async ({ ctx, input }) => {
@@ -166,7 +293,9 @@ export const institutionalQiRouter = router({
       assertTransition(report.status as ReportStatus, input.nextStatus);
       if (input.nextStatus === "closed") {
         const [review] = await db.select({ outcome: institutionalQiEffectivenessReviews.outcome, followUpRequired: institutionalQiEffectivenessReviews.followUpRequired }).from(institutionalQiEffectivenessReviews).where(and(eq(institutionalQiEffectivenessReviews.reportId, input.reportId), eq(institutionalQiEffectivenessReviews.institutionalAccountId, input.institutionalAccountId))).orderBy(desc(institutionalQiEffectivenessReviews.reviewDate)).limit(1);
-        if (!canCloseQiReport(review)) throw new TRPCError({ code: "BAD_REQUEST", message: "A verified effectiveness review with no unresolved follow-up is required before closing a QI report." });
+        const [unresolved] = await db.select({ count: sql<number>`count(*)` }).from(institutionalQiActions).where(and(eq(institutionalQiActions.reportId, input.reportId), eq(institutionalQiActions.institutionalAccountId, input.institutionalAccountId), sql`${institutionalQiActions.status} IN ('open', 'in_progress')`));
+        const unresolvedCount = Number(unresolved?.count ?? 0);
+        if (!canCloseQiReport(review, unresolvedCount, input.reason)) throw new TRPCError({ code: "BAD_REQUEST", message: unresolvedCount > 0 ? "Resolve all open/in-progress QI actions before closure, or record an explicit justification in the closure reason." : "A verified effectiveness review with no unresolved follow-up is required before closing a QI report." });
       }
       const now = new Date();
       await db.update(institutionalQiReports).set({ status: input.nextStatus, reviewerUserId: ["triaged", "action_planned", "in_progress", "effectiveness_review", "closed"].includes(input.nextStatus) ? ctx.user.id : report.reviewerUserId, submittedAt: input.nextStatus === "submitted" ? now : report.submittedAt, closedAt: input.nextStatus === "closed" ? now : input.nextStatus === "reopened" ? null : report.closedAt, updatedAt: now }).where(eq(institutionalQiReports.id, input.reportId));
