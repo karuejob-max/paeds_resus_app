@@ -29,8 +29,15 @@
 
 ## 5. Executive reporting is reproducible
 
-- [ ] A monthly/quarterly executive report uses existing EAT calendar-period definitions and supports printable/CSV output from the canonical institutional workspace.
-- [ ] Generated reports are institution-scoped, access-controlled, versioned, and preserved as historical snapshots rather than silently changing when live source rows change.
-- [ ] Reports disclose source availability, report generation time/freshness, denominator limitations, and data-quality exceptions for each reporting period.
-- [ ] Report history supports safe trend comparison only between captured reports with the same metric and period semantics; insufficient history is stated explicitly.
-- [ ] No report claims lives saved, mortality improvement, accreditation, competence, licensure, or clinical performance from current data alone.
+- [x] A monthly/quarterly executive report uses existing EAT calendar-period definitions and supports printable/CSV output from the canonical institutional workspace.
+- [x] Generated reports are institution-scoped, access-controlled, versioned, and preserved as historical snapshots rather than silently changing when live source rows change.
+- [x] Reports disclose source availability, report generation time/freshness, denominator limitations, and data-quality exceptions for each reporting period.
+- [x] Report history supports safe trend comparison only between captured reports with the same metric and period semantics; insufficient history is stated explicitly.
+- [x] No report claims lives saved, mortality improvement, accreditation, competence, licensure, or clinical performance from current data alone.
+
+### Production release evidence
+
+- Phase 3 merged to `main` in PR #1258 at commit `ea6e3928`; required `CI/gate` passed.
+- Render production deployed commit `ea6e3928` successfully.
+- Migration `pnpm db:apply-0193` ran successfully in Render Web Shell on 2026-11-16; Render returned `[0193] Institutional performance report snapshots are ready.`
+- The production canonical `/institution` workspace loaded successfully for the authenticated QA account and preserved scoped access. The executive-report panel was correctly withheld because that account does not hold the accountability-report permission; an authorized institution-admin smoke test remains the appropriate next operational check before using reports with leadership data.
