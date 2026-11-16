@@ -362,7 +362,7 @@ export async function getAhaAccessDecision(
   // Preserve access to completed coursework for review and certificate recovery.
   // This is deliberately read/review access only: incomplete learners still
   // require an approved pathway, grant, or completed independent payment below.
-  if (await hasCompletedAhaEnrollment(db, userId, programType)) {
+  if (mode === "read" && await hasCompletedAhaEnrollment(db, userId, programType)) {
     return allowed("independent", "Access granted to review your completed coursework.");
   }
 
