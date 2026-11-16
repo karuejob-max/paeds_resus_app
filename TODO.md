@@ -47,7 +47,7 @@
 ### Reports & Insights release evidence
 
 - Implementation is pending protected GitHub PR/CI merge and production deployment.
-- Migration `0194` must be applied after deployment with `pnpm db:apply-0194`; record the exact Render output here.
+- Migration `0194` was applied successfully in Render Web Shell with `pnpm db:apply-0194`; Render returned `[0194] Institutional performance report scopes are ready.` A Node TLS ServerName deprecation warning was also displayed and did not prevent successful completion.
 - Authorised institution-admin smoke test remains required for whole-institution monthly, department monthly, quarterly, print, CSV, and repeat-generation immutability.
 
 ### Production release evidence
