@@ -1,4 +1,4 @@
-import { eq, inArray, desc } from "drizzle-orm";
+import { and, eq, inArray, desc, isNull } from "drizzle-orm";
 import { resusGPSCases, institutionalStaffMembers } from "../../drizzle/schema";
 import { invokeLLM } from "../_core/llm";
 import type { DbClient } from "../db";
@@ -32,7 +32,14 @@ export async function runResusGpsAuditForInstitution(
     const staff = await db
       .select({ userId: institutionalStaffMembers.userId })
       .from(institutionalStaffMembers)
-      .where(eq(institutionalStaffMembers.institutionalAccountId, institutionId));
+      .where(
+        and(
+          eq(institutionalStaffMembers.institutionalAccountId, institutionId),
+          // Only people who actually belong: never pending, rejected or removed rows.
+          eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+          isNull(institutionalStaffMembers.removedAt)
+        )
+      );
 
     const userIds = staff.map((s) => s.userId).filter((uid): uid is number => uid !== null);
 

@@ -13,6 +13,12 @@ const mockInvokeLLM = vi.fn().mockResolvedValue({
   ],
 });
 
+// Access control is covered by institution-access-hardening.test.ts; this file tests audit behaviour.
+vi.mock("./institution-access", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./institution-access")>()),
+  assertInstitutionAccess: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("../_core/llm", () => ({
   invokeLLM: (...args: any[]) => mockInvokeLLM(...args),
 }));
