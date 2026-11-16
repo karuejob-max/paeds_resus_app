@@ -31,6 +31,7 @@ import { applyCpdFacilityRelationship, autoLinkCpdFacilitiesForUser } from "../s
 import { canRegisterForEvent, canReviewAttendanceTransition, countsAsVerifiedAttendance, isAudienceEligible } from "../lib/cpd-contract";
 import { bestCpdQuizAttemptPassed, scoreCpdQuiz, type CpdQuizAnswer } from "../lib/cpd-quiz";
 import { getCpdPresenterSearchScope, matchesScopedPresenterDepartment } from "../lib/cpd-presenter-search";
+import { createInstitutionalCpdSession } from "../lib/institutional-cpd-session";
 
 /** Shared cadre validator for input validation, matching the cpdAttendees.cadre column. */
 const cadreEnum = z.string().trim().min(1, "Please select or specify your cadre").max(128);
@@ -611,7 +612,11 @@ export const cpdRouter = router({
       };
     }),
 
-  /** Admin: open a new event. Closes any currently open event for this institution first. */
+  /**
+   * Legacy compatibility adapter. New institutional CPD creation should use
+   * institutionLearning.createSession; this path keeps older clients working
+   * with the same persistence and audit contract.
+   */
   openEvent: protectedProcedure
     .input(
       z.object({
@@ -652,34 +657,27 @@ export const cpdRouter = router({
           message: "Choose a valid Paeds Resus account as the presenter.",
         });
       }
-      const now = new Date();
-      const [result] = await db.insert(cpdEvents).values({
-        institutionalAccountId: input.institutionId,
+      const { eventId } = await createInstitutionalCpdSession(db, {
+        institutionId: input.institutionId,
+        actorUserId: ctx.user.id,
         name: input.name,
         eventDate: input.eventDate,
-        isOpen: true,
-        lifecycleStatus: "open",
-        openedAt: now,
-        approvingCouncil: input.approvingCouncil ?? null,
-        cpdPoints: input.cpdPoints ? String(input.cpdPoints) : null,
         eventType: input.eventType || "cpd_general",
-        presenterUserId: presenter.userId,
-        presenterName: presenter.fullName,
-        presenterCadre: formatEventPresenterCadre(presenter.cadre, presenter.cadreOther),
-        presenterDepartment: presenter.department,
+        audienceScope: "facility_wide",
+        facilityDepartmentId: null,
+        presenter: {
+          userId: presenter.userId,
+          staffName: presenter.fullName,
+          staffEmail: presenter.email,
+          staffRole: presenter.cadre || "other",
+          cadre: formatEventPresenterCadre(presenter.cadre, presenter.cadreOther),
+          department: presenter.department,
+          isInstitutionMember: presenter.isInstitutionMember,
+        },
+        approvingCouncil: input.approvingCouncil ?? null,
+        cpdPoints: input.cpdPoints == null ? null : Number(input.cpdPoints),
         scheduledStartTime: input.scheduledStartTime ?? null,
         scheduledEndTime: input.scheduledEndTime ?? null,
-      });
-      const eventId = result.insertId;
-      await db.insert(cpdEventAuditEvents).values({
-        institutionalAccountId: input.institutionId,
-        cpdEventId: eventId,
-        action: "created",
-        previousStatus: null,
-        nextStatus: "open",
-        reason: "CPD session created",
-        changedFields: JSON.stringify(["name", "eventDate", "presenter", "audience", "cpdPoints"]),
-        actorUserId: ctx.user.id,
       });
 
       if (presenter.isInstitutionMember) {

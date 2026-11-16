@@ -39,8 +39,31 @@ export function assertInstitutionalInvoiceTransition(current: InstitutionalInvoi
   }
 }
 
-export function canCloseQiReport(review: { outcome: string; followUpRequired: boolean } | null | undefined): boolean {
-  return Boolean(review && (review.outcome === "effective" || review.outcome === "partially_effective") && !review.followUpRequired);
+export type QiActionStatus = "open" | "in_progress" | "completed" | "cancelled";
+
+export function canTransitionQiAction(current: QiActionStatus, next: QiActionStatus): boolean {
+  const allowed: Record<QiActionStatus, QiActionStatus[]> = {
+    open: ["in_progress", "completed", "cancelled"],
+    in_progress: ["completed", "cancelled"],
+    completed: [],
+    cancelled: [],
+  };
+  return allowed[current]?.includes(next) ?? false;
+}
+
+export function canCloseQiReport(
+  review: { outcome: string; followUpRequired: boolean } | null | undefined,
+  unresolvedActionCount = 0,
+  unresolvedActionOverrideReason?: string,
+): boolean {
+  const effectivenessVerified = Boolean(
+    review &&
+      (review.outcome === "effective" || review.outcome === "partially_effective") &&
+      !review.followUpRequired,
+  );
+  const actionsResolved = unresolvedActionCount === 0;
+  const overrideRecorded = Boolean(unresolvedActionOverrideReason?.trim() && unresolvedActionOverrideReason.trim().length >= 10);
+  return effectivenessVerified && (actionsResolved || overrideRecorded);
 }
 
 export function institutionalLedgerDegradedState(reason: string) {

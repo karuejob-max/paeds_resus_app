@@ -131,6 +131,8 @@
     "db:apply-0190": "node scripts/apply-0190-formative-only-simulation-evidence.mjs",
     "db:verify-0190": "node scripts/verify-0190-formative-only-simulation-evidence.mjs",
     "db:apply-0191": "node scripts/apply-0191-retrospective-role-claim-simulation-role.mjs",
+    "db:apply-0192": "node scripts/apply-0192-institutional-cpd-qi-links.mjs",
+    "db:verify-0192": "node scripts/verify-0192-institutional-cpd-qi-links.mjs",
     "db:verify-0191": "node scripts/verify-0191-retrospective-role-claim-simulation-role.mjs",
     "db:apply-0165": "node scripts/apply-0165-search-hardening.mjs",
     "db:apply-0166": "node scripts/apply-0166-deputy-institutional-roles.mjs",

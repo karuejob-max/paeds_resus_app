@@ -9998,6 +9998,8 @@ export const institutionalQiReports = mysqlTable(
     denominator: int("denominator"),
     dataSource: varchar("dataSource", { length: 255 }),
     targetMeasure: decimal("targetMeasure", { precision: 12, scale: 4 }),
+    /** FPKB failure-mode codes only; never stores confidential RCA narrative. */
+    failureModeCodes: text("failureModeCodes"),
     confidentialityLevel: mysqlEnum("confidentialityLevel", ["institution_only", "aggregate_only", "restricted"]).default("institution_only").notNull(),
     status: mysqlEnum("status", ["draft", "submitted", "triaged", "action_planned", "in_progress", "effectiveness_review", "closed", "reopened"]).default("draft").notNull(),
     reporterUserId: int("reporterUserId"),
@@ -10015,6 +10017,31 @@ export const institutionalQiReports = mysqlTable(
 );
 export type InstitutionalQiReport = typeof institutionalQiReports.$inferSelect;
 export type InsertInstitutionalQiReport = typeof institutionalQiReports.$inferInsert;
+
+/**
+ * Non-narrative bridge between an institutional QI report and a CPD session.
+ * Coordinators see the linked session metadata, never the restricted QI report
+ * narrative or RCA content through this table.
+ */
+export const institutionalQiCpdLinks = mysqlTable(
+  "institutionalQiCpdLinks",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    reportId: int("reportId").notNull(),
+    cpdEventId: int("cpdEventId").notNull(),
+    relationshipType: mysqlEnum("relationshipType", ["discussion", "improvement_response", "follow_up"]).default("discussion").notNull(),
+    createdByUserId: int("createdByUserId").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    reportIdx: index("institutionalQiCpdLinks_report_idx").on(table.institutionalAccountId, table.reportId),
+    eventIdx: index("institutionalQiCpdLinks_event_idx").on(table.institutionalAccountId, table.cpdEventId),
+    uniqueLink: uniqueIndex("institutionalQiCpdLinks_unique_uq").on(table.institutionalAccountId, table.reportId, table.cpdEventId),
+  }),
+);
+export type InstitutionalQiCpdLink = typeof institutionalQiCpdLinks.$inferSelect;
+export type InsertInstitutionalQiCpdLink = typeof institutionalQiCpdLinks.$inferInsert;
 
 /** Immutable governance history for every QI report state transition. */
 export const institutionalQiReportEvents = mysqlTable(
