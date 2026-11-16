@@ -64,6 +64,13 @@ const LIFE_SUPPORT_TYPES = [
   "external_aha_other",
 ] as const;
 
+const ACCOUNTABILITY_REVIEWER_ROLES = [
+  "iers_chair",
+  "iers_coordinator",
+  "iers_reviewer",
+  "iers_governance",
+] as const;
+
 const LICENSED_PROVIDER_TYPES = new Set([
   "nurse",
   "doctor",
@@ -459,11 +466,32 @@ export const institutionAccountabilityRouter = router({
           eq(institutionAccountScopes.scopeStatus, "active")
         )
       );
+    const reviewerRows = await db
+      .select({
+        institutionId: institutionProductRoles.institutionalAccountId,
+      })
+      .from(institutionProductRoles)
+      .innerJoin(
+        institutionalProducts,
+        eq(institutionalProducts.id, institutionProductRoles.productId)
+      )
+      .where(
+        and(
+          eq(institutionProductRoles.roleStatus, "active"),
+          eq(institutionalProducts.productKey, "iers"),
+          inArray(institutionProductRoles.roleKey, ACCOUNTABILITY_REVIEWER_ROLES),
+          or(
+            eq(institutionProductRoles.userId, ctx.user.id),
+            email ? eq(institutionProductRoles.invitedEmail, email) : sql`1 = 0`,
+          ),
+        )
+      );
     const accountabilityInstitutionIds = new Set([
       ...administeredIds,
       ...headRows.map(row => row.institutionId),
       ...coordinatorRows.map(row => row.institutionId),
       ...credentialScopeRows.map(row => row.institutionId),
+      ...reviewerRows.map(row => row.institutionId),
     ]);
     const institutionIds = Array.from(
       new Set([
