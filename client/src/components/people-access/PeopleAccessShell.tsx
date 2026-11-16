@@ -40,21 +40,22 @@ export function PeopleAccessShell({
   const [view, setView] = useState<PeopleView>(
     choosePeopleAccessView({ explicitView })
   );
+  const institutionQueryEnabled = Number.isInteger(institutionId) && institutionId > 0;
   const staffQuery = trpc.institution.getStaffMembers.useQuery(
     { institutionId, includeRemoved: false },
-    { staleTime: 30_000 }
+    { enabled: institutionQueryEnabled, retry: 1, staleTime: 30_000 }
   );
   const linksQuery = trpc.institution.getPendingLinkRequests.useQuery(
     { institutionId },
-    { staleTime: 30_000 }
+    { enabled: institutionQueryEnabled, retry: 1, staleTime: 30_000 }
   );
   const mismatchQuery = trpc.institution.getDepartmentMismatchReports.useQuery(
     { institutionId },
-    { staleTime: 30_000 }
+    { enabled: institutionQueryEnabled, retry: 1, staleTime: 30_000 }
   );
   const departmentsQuery = trpc.institution.getFacilityDepartments.useQuery(
     { institutionId },
-    { staleTime: 60_000 }
+    { enabled: institutionQueryEnabled, retry: 1, staleTime: 60_000 }
   );
   const productRolesQuery = trpc.institutionProducts.listProductRoles.useQuery(
     { institutionId },

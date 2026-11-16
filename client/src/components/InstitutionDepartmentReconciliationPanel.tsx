@@ -16,6 +16,7 @@ function formatDate(value: Date | string | null | undefined) {
 
 export function InstitutionDepartmentReconciliationPanel({ institutionId }: { institutionId: number }) {
   const utils = trpc.useUtils();
+  const institutionQueryEnabled = Number.isInteger(institutionId) && institutionId > 0;
   const [targetMode, setTargetMode] = useState<Record<string, string>>({});
   const [targetValue, setTargetValue] = useState<Record<string, string>>({});
   const [backfill, setBackfill] = useState<Record<string, boolean>>({});
@@ -28,8 +29,8 @@ export function InstitutionDepartmentReconciliationPanel({ institutionId }: { in
   const [otherReasons, setOtherReasons] = useState<Record<string, string>>({});
   const [traceabilityFilter, setTraceabilityFilter] = useState<"all" | "other" | "custom">("all");
 
-  const dashboardQuery = trpc.institutionDepartmentReconciliation.getDepartmentReconciliationDashboard.useQuery({ institutionId });
-  const otherRegistrationsQuery = trpc.institutionDepartmentReconciliation.getOtherDepartmentRegistrations.useQuery({ institutionId, limit: 100, offset: 0 });
+  const dashboardQuery = trpc.institutionDepartmentReconciliation.getDepartmentReconciliationDashboard.useQuery({ institutionId }, { enabled: institutionQueryEnabled, retry: 1 });
+  const otherRegistrationsQuery = trpc.institutionDepartmentReconciliation.getOtherDepartmentRegistrations.useQuery({ institutionId, limit: 100, offset: 0 }, { enabled: institutionQueryEnabled, retry: 1 });
   const mapMutation = trpc.institutionDepartmentReconciliation.mapDepartmentLabel.useMutation({
     onSuccess: (result) => {
       toast.success(result.backfilledCount > 0 ? `Mapped and linked ${result.backfilledCount} CPD record(s).` : "Department label mapped; historical text was preserved.");
