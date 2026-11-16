@@ -17,6 +17,37 @@ export const NERP_ACLS_OFFER = {
   includedCourses: ["bls", "acls"] as const,
 };
 
+export function validateNerpPaymentAmount(input: {
+  amountKes: number;
+  amountPaidKes: number;
+  totalAmountKes: number;
+  minimumFirstPaymentKes?: number;
+}) {
+  const amount = Number(input.amountKes);
+  const paid = Math.max(0, Number(input.amountPaidKes) || 0);
+  const total = Math.max(0, Number(input.totalAmountKes) || 0);
+  const balance = Math.max(0, total - paid);
+  const minimumFirstPayment =
+    input.minimumFirstPaymentKes ?? NERP_ACLS_OFFER.monthlyInstallmentKes;
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { valid: false as const, reason: "Enter a payment amount greater than zero." };
+  }
+  if (paid <= 0 && amount < minimumFirstPayment) {
+    return {
+      valid: false as const,
+      reason: `Your first NERP payment must be at least KES ${minimumFirstPayment.toLocaleString()}.`,
+    };
+  }
+  if (amount > balance + 0.01) {
+    return {
+      valid: false as const,
+      reason: `Your remaining NERP balance is KES ${balance.toLocaleString()}. Enter that amount or less.`,
+    };
+  }
+  return { valid: true as const, amountKes: amount, balanceKes: balance };
+}
+
 export type NerpPhase = "phase_2" | "phase_3";
 export type NerpPromotionStatus = "eligible" | "suppressed" | "needs_review";
 
@@ -25,6 +56,7 @@ export function calculateNerpPaymentState(input: {
   totalAmountKes?: number;
   monthlyInstallmentKes?: number;
   installmentCount?: number;
+  nextInstallmentNumber?: number;
 }) {
   const total = input.totalAmountKes ?? NERP_ACLS_OFFER.totalAmountKes;
   const monthly =
@@ -37,7 +69,9 @@ export function calculateNerpPaymentState(input: {
     amountPaidKes: paid,
     balanceKes: Math.max(0, total - paid),
     completedInstallments,
-    nextInstallmentNumber: completed ? count + 1 : completedInstallments + 1,
+    nextInstallmentNumber: completed
+      ? Math.max(count + 1, input.nextInstallmentNumber ?? 0)
+      : input.nextInstallmentNumber ?? completedInstallments + 1,
     nextInstallmentAmountKes: completed ? 0 : Math.min(monthly, total - paid),
     status: completed ? ("completed" as const) : ("active" as const),
   };
@@ -178,6 +212,7 @@ export async function applyNerpPaymentCompletion(db: any, paymentId: number) {
     totalAmountKes: Number(offer.totalAmountKes),
     monthlyInstallmentKes: Number(offer.monthlyInstallmentKes),
     installmentCount: offer.installmentCount,
+    nextInstallmentNumber: Number(offer.nextInstallmentNumber ?? 1) + 1,
   });
 
   await db
