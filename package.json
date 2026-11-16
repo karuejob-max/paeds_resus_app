@@ -133,6 +133,7 @@
     "db:apply-0191": "node scripts/apply-0191-retrospective-role-claim-simulation-role.mjs",
     "db:apply-0192": "node scripts/apply-0192-institutional-cpd-qi-links.mjs",
     "db:apply-0193": "node scripts/apply-0193-institution-performance-reports.mjs",
+    "db:apply-0194": "node scripts/apply-0194-institution-performance-report-scopes.mjs",
     "db:verify-0192": "node scripts/verify-0192-institutional-cpd-qi-links.mjs",
     "db:verify-0191": "node scripts/verify-0191-retrospective-role-claim-simulation-role.mjs",
     "db:apply-0165": "node scripts/apply-0165-search-hardening.mjs",

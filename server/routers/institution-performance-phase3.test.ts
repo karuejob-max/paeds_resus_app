@@ -32,11 +32,13 @@ describe("institution executive reporting Phase 3", () => {
 
   it("exposes the report procedures behind protected authentication", async () => {
     expect(appRouter._def.procedures["institutionPerformance.generateExecutiveReport"]).toBeDefined();
+    expect(appRouter._def.procedures["institutionPerformance.getReportScopes"]).toBeDefined();
     expect(appRouter._def.procedures["institutionPerformance.listExecutiveReports"]).toBeDefined();
     expect(appRouter._def.procedures["institutionPerformance.getExecutiveReport"]).toBeDefined();
     const caller = appRouter.createCaller(publicContext());
     await expect(caller.institutionPerformance.generateExecutiveReport({ institutionId: 1, periodType: "quarterly" })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     await expect(caller.institutionPerformance.listExecutiveReports({ institutionId: 0 })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller.institutionPerformance.getReportScopes({ institutionId: 0 })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
   it("validates report identifiers at the router boundary", async () => {

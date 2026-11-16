@@ -1098,6 +1098,9 @@ export const institutionalPerformanceReports = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     institutionalAccountId: int("institutionalAccountId").notNull(),
+    /** "institution" or "department:<facility department id>"; part of snapshot identity. */
+    scopeKey: varchar("scopeKey", { length: 64 }).notNull().default("institution"),
+    scopeDepartmentId: int("scopeDepartmentId"),
     periodType: mysqlEnum("periodType", ["monthly", "quarterly"]).notNull(),
     periodStart: date("periodStart", { mode: "string" }).notNull(),
     periodEnd: date("periodEnd", { mode: "string" }).notNull(),
@@ -1113,6 +1116,7 @@ export const institutionalPerformanceReports = mysqlTable(
   table => ({
     periodUnique: uniqueIndex("institutional_performance_reports_period_uq").on(
       table.institutionalAccountId,
+      table.scopeKey,
       table.periodType,
       table.periodStart,
     ),
