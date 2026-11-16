@@ -21,6 +21,8 @@ import type { AppDb } from "../lib/institution-access";
 const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
 const periodTypes = ["monthly", "quarterly"] as const;
 type PeriodType = (typeof periodTypes)[number];
+type ReportScopeInput = { scopeType?: "institution" | "department"; departmentId?: number };
+type ReportScope = { type: "institution" | "department"; departmentId: number | null; departmentName: string | null; key: string };
 type SourceState = "available" | "unavailable" | "empty";
 
 type AttentionItem = {
@@ -47,6 +49,7 @@ type ReportPeriod = {
 type PerformanceSnapshot = {
   institutionId: number;
   access: { role: string; canViewIndividuals: boolean };
+  scope: { type: "institution" | "department"; departmentId: number | null; departmentName: string | null };
   period: ReportPeriod;
   roster: {
     status: SourceState;
@@ -197,6 +200,22 @@ function reportDisclosures(snapshot: PerformanceSnapshot): ReportDisclosures {
   };
 }
 
+async function resolveReportScope(db: AppDb, user: any, institutionId: number, input: ReportScopeInput = {}): Promise<ReportScope> {
+  const access = await getCredentialAccess(db, user, institutionId);
+  const scopeType = input.scopeType ?? "institution";
+  if (scopeType === "institution") {
+    if (access.departmentIds != null) throw new TRPCError({ code: "FORBIDDEN", message: "Whole-institution reports require institution-wide access." });
+    return { type: "institution", departmentId: null, departmentName: null, key: "institution" };
+  }
+  if (!input.departmentId) throw new TRPCError({ code: "BAD_REQUEST", message: "A department is required for a department report." });
+  if (access.departmentIds != null && !access.departmentIds.includes(input.departmentId)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "You do not have access to this department report." });
+  }
+  const rows = await db.select({ id: facilityDepartments.id, name: facilityDepartments.departmentName }).from(facilityDepartments).where(and(eq(facilityDepartments.id, input.departmentId), eq(facilityDepartments.institutionId, institutionId), eq(facilityDepartments.isActive, true))).limit(1);
+  if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "The selected department is not active in this institution." });
+  return { type: "department", departmentId: rows[0].id, departmentName: rows[0].name, key: `department:${rows[0].id}` };
+}
+
 function hydrateReport(row: typeof institutionalPerformanceReports.$inferSelect) {
   const snapshot = safeJson<PerformanceSnapshot>(row.snapshotJson, {} as PerformanceSnapshot);
   const disclosures = safeJson<ReportDisclosures>(row.sourceSummaryJson, {
@@ -208,6 +227,11 @@ function hydrateReport(row: typeof institutionalPerformanceReports.$inferSelect)
   return {
     id: row.id,
     institutionId: row.institutionalAccountId,
+    scope: {
+      type: row.scopeDepartmentId ? "department" : "institution",
+      departmentId: row.scopeDepartmentId,
+      departmentName: snapshot.scope?.departmentName ?? null,
+    },
     period: {
       type: row.periodType,
       periodStart: row.periodStart,
@@ -224,10 +248,11 @@ function hydrateReport(row: typeof institutionalPerformanceReports.$inferSelect)
   };
 }
 
-async function buildSourceSnapshot(db: AppDb, user: any, institutionId: number, periodType: PeriodType, requestedStart?: string): Promise<PerformanceSnapshot> {
+async function buildSourceSnapshot(db: AppDb, user: any, institutionId: number, periodType: PeriodType, requestedStart?: string, scopeInput?: ReportScopeInput): Promise<PerformanceSnapshot> {
   const access = await getCredentialAccess(db, user, institutionId);
+  const reportScope = await resolveReportScope(db, user, institutionId, scopeInput);
   const period = periodBounds(periodType, requestedStart);
-  const scope = access.departmentIds;
+  const scope = reportScope.type === "department" ? [reportScope.departmentId!] : access.departmentIds;
   const staff = await db
     .select({ id: institutionalStaffMembers.id, userId: institutionalStaffMembers.userId, facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId, department: institutionalStaffMembers.department })
     .from(institutionalStaffMembers)
@@ -293,6 +318,7 @@ async function buildSourceSnapshot(db: AppDb, user: any, institutionId: number, 
   return {
     institutionId,
     access: { role: access.role, canViewIndividuals: access.canViewIndividuals },
+    scope: { type: reportScope.type, departmentId: reportScope.departmentId, departmentName: reportScope.departmentName },
     period: { type: period.type, periodStart: period.periodStart, periodEnd: period.periodEnd, timezone: period.timezone },
     roster: { status: staff.length ? "available" : "empty", activeStaff: staff.length, canonicalDepartmentStaff: staff.filter(row => row.facilityDepartmentId != null).length, unassignedStaff },
     sources: { departments: departmentSource, cpd: cpdSource, quality: qiSource, credentials: credentialSource },
@@ -323,9 +349,14 @@ async function buildSourceSnapshot(db: AppDb, user: any, institutionId: number, 
   };
 }
 
-async function findReport(db: AppDb, institutionId: number, periodType: PeriodType, periodStart: string) {
-  const rows = await db.select().from(institutionalPerformanceReports).where(and(eq(institutionalPerformanceReports.institutionalAccountId, institutionId), eq(institutionalPerformanceReports.periodType, periodType), eq(institutionalPerformanceReports.periodStart, periodStart))).limit(1);
+async function findReport(db: AppDb, institutionId: number, scopeKey: string, periodType: PeriodType, periodStart: string) {
+  const rows = await db.select().from(institutionalPerformanceReports).where(and(eq(institutionalPerformanceReports.institutionalAccountId, institutionId), eq(institutionalPerformanceReports.scopeKey, scopeKey), eq(institutionalPerformanceReports.periodType, periodType), eq(institutionalPerformanceReports.periodStart, periodStart))).limit(1);
   return rows[0] ?? null;
+}
+
+async function assertReportScopeAccess(db: AppDb, user: any, institutionId: number, row: typeof institutionalPerformanceReports.$inferSelect) {
+  const scope = await resolveReportScope(db, user, institutionId, row.scopeDepartmentId ? { scopeType: "department", departmentId: row.scopeDepartmentId } : { scopeType: "institution" });
+  if (scope.key !== row.scopeKey) throw new TRPCError({ code: "FORBIDDEN", message: "You do not have access to this report scope." });
 }
 
 function isDuplicateKeyError(error: unknown): boolean {
@@ -335,23 +366,35 @@ function isDuplicateKeyError(error: unknown): boolean {
 
 export const institutionPerformanceRouter = router({
   getSourceSnapshot: protectedProcedure
-    .input(z.object({ institutionId: z.number().int().positive(), periodType: z.enum(periodTypes).default("quarterly"), periodStart: z.string().optional() }))
+    .input(z.object({ institutionId: z.number().int().positive(), periodType: z.enum(periodTypes).default("quarterly"), periodStart: z.string().optional(), scopeType: z.enum(["institution", "department"]).default("institution"), departmentId: z.number().int().positive().optional() }))
     .query(async ({ ctx, input }) => {
       const db = await requireDb();
-      return buildSourceSnapshot(db, ctx.user, input.institutionId, input.periodType, input.periodStart);
+      return buildSourceSnapshot(db, ctx.user, input.institutionId, input.periodType, input.periodStart, input);
+    }),
+
+  getReportScopes: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      const access = await getCredentialAccess(db, ctx.user, input.institutionId);
+      const departments = await db.select({ id: facilityDepartments.id, name: facilityDepartments.departmentName }).from(facilityDepartments).where(and(eq(facilityDepartments.institutionId, input.institutionId), eq(facilityDepartments.isActive, true), access.departmentIds ? inArray(facilityDepartments.id, access.departmentIds) : undefined));
+      return { wholeInstitution: access.departmentIds == null, departments };
     }),
 
   generateExecutiveReport: protectedProcedure
-    .input(z.object({ institutionId: z.number().int().positive(), periodType: z.enum(periodTypes).default("quarterly"), periodStart: z.string().optional() }))
+    .input(z.object({ institutionId: z.number().int().positive(), periodType: z.enum(periodTypes).default("quarterly"), periodStart: z.string().optional(), scopeType: z.enum(["institution", "department"]).default("institution"), departmentId: z.number().int().positive().optional() }))
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
-      const snapshot = await buildSourceSnapshot(db, ctx.user, input.institutionId, input.periodType, input.periodStart);
-      const existing = await findReport(db, input.institutionId, input.periodType, snapshot.period.periodStart);
+      const snapshot = await buildSourceSnapshot(db, ctx.user, input.institutionId, input.periodType, input.periodStart, input);
+      const scope = await resolveReportScope(db, ctx.user, input.institutionId, input);
+      const existing = await findReport(db, input.institutionId, scope.key, input.periodType, snapshot.period.periodStart);
       if (existing) return hydrateReport(existing);
       const disclosures = reportDisclosures(snapshot);
       try {
         await db.insert(institutionalPerformanceReports).values({
           institutionalAccountId: input.institutionId,
+          scopeKey: scope.key,
+          scopeDepartmentId: scope.departmentId,
           periodType: input.periodType,
           periodStart: snapshot.period.periodStart,
           periodEnd: snapshot.period.periodEnd,
@@ -367,20 +410,20 @@ export const institutionPerformanceRouter = router({
         if (!isDuplicateKeyError(error)) throw error;
         // Another request won the unique period insert. Return the canonical immutable row.
       }
-      const created = await findReport(db, input.institutionId, input.periodType, snapshot.period.periodStart);
+      const created = await findReport(db, input.institutionId, scope.key, input.periodType, snapshot.period.periodStart);
       if (!created) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Executive report could not be persisted." });
       return hydrateReport(created);
     }),
 
   listExecutiveReports: protectedProcedure
-    .input(z.object({ institutionId: z.number().int().positive(), periodType: z.enum(periodTypes).optional(), limit: z.number().int().min(1).max(24).default(12) }))
+    .input(z.object({ institutionId: z.number().int().positive(), periodType: z.enum(periodTypes).optional(), scopeType: z.enum(["institution", "department"]).default("institution"), departmentId: z.number().int().positive().optional(), limit: z.number().int().min(1).max(24).default(12) }))
     .query(async ({ ctx, input }) => {
       const db = await requireDb();
-      await getCredentialAccess(db, ctx.user, input.institutionId);
-      const rows = await db.select().from(institutionalPerformanceReports).where(and(eq(institutionalPerformanceReports.institutionalAccountId, input.institutionId), input.periodType ? eq(institutionalPerformanceReports.periodType, input.periodType) : undefined)).orderBy(desc(institutionalPerformanceReports.periodStart)).limit(input.limit);
+      const scope = await resolveReportScope(db, ctx.user, input.institutionId, input);
+      const rows = await db.select().from(institutionalPerformanceReports).where(and(eq(institutionalPerformanceReports.institutionalAccountId, input.institutionId), eq(institutionalPerformanceReports.scopeKey, scope.key), input.periodType ? eq(institutionalPerformanceReports.periodType, input.periodType) : undefined)).orderBy(desc(institutionalPerformanceReports.periodStart)).limit(input.limit);
       return rows.map(row => {
         const report = hydrateReport(row);
-        return { id: report.id, institutionId: report.institutionId, period: report.period, reportVersion: report.reportVersion, status: report.status, generatedAt: report.generatedAt, metrics: report.snapshot.metrics, sourceAvailability: report.disclosures.sourceAvailability, sourceFreshness: report.disclosures.sourceFreshness, limitations: report.limitations };
+        return { id: report.id, institutionId: report.institutionId, scope: report.scope, period: report.period, reportVersion: report.reportVersion, status: report.status, generatedAt: report.generatedAt, metrics: report.snapshot.metrics, sourceAvailability: report.disclosures.sourceAvailability, sourceFreshness: report.disclosures.sourceFreshness, limitations: report.limitations };
       });
     }),
 
@@ -391,6 +434,7 @@ export const institutionPerformanceRouter = router({
       await getCredentialAccess(db, ctx.user, input.institutionId);
       const rows = await db.select().from(institutionalPerformanceReports).where(and(eq(institutionalPerformanceReports.id, input.reportId), eq(institutionalPerformanceReports.institutionalAccountId, input.institutionId))).limit(1);
       if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Executive report not found." });
+      await assertReportScopeAccess(db, ctx.user, input.institutionId, rows[0]);
       return hydrateReport(rows[0]);
     }),
 });

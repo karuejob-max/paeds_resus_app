@@ -1,7 +1,7 @@
 # Institutional Performance Strategy — Future-Agent Handoff
 
 **Project:** Paeds Resus  
-**Scope:** Institutional performance snapshot and governed executive reporting  
+**Scope:** Institutional performance snapshot, governed executive reporting, and the Reports & Insights nursing one-pager
 **Last verified:** 2026-11-16 (EAT)  
 **Canonical product route:** `/institution`
 
@@ -27,6 +27,10 @@ Phase 1–3 is implemented and deployed:
 - Safe trends only for contiguous, same-period-type, same-report-version captured reports.
 - Department-scoped CPD and QI report/action filtering; unscopable records are excluded rather than leaked.
 - Concurrent report generation is idempotent through the unique institution/period key.
+- Canonical **Reports & Insights** workspace destination with monthly/quarterly EAT selection.
+- Shareable nursing-team one-page report with whole-institution or visible canonical-department scope.
+- Scope is persisted in the immutable snapshot identity; department users cannot request institution-wide or another department's report.
+- One-pager includes what is going well, needs attention, aggregate key measures with denominators, actions-to-close guidance, print, CSV, source availability, and limitations.
 
 ## Production evidence
 
@@ -61,7 +65,16 @@ Render output:
    - Department comparison.
    - Attention queue.
    - Data-quality and source-state badges.
-4. Still on **Home**, scroll to **Executive reporting**. This contains:
+4. Open **Reports & Insights** in the workspace navigation. This is the canonical cross-domain destination; the older Home snapshot remains a concise overview/link and is not the only report location. The centre contains:
+   - Monthly/quarterly EAT period selector.
+   - Whole-institution or authorised canonical-department scope selector.
+   - Nursing team one-page report.
+   - What is going well and needs attention.
+   - Aggregate key measures with denominators and status language.
+   - Actions-to-close guidance without names by default.
+   - **Print** and **CSV** output.
+   - Preserved report history with explicit insufficient/no-comparable-history messaging.
+5. Still on **Home**, scroll to **Executive reporting**. This existing panel contains:
    - Monthly/quarterly selector.
    - **Generate report**.
    - Preserved report history.
@@ -70,9 +83,9 @@ Render output:
    - **Print report**.
    - **CSV report**.
    - Source capture times and limitations.
-5. The executive-report panel is intentionally rendered only when the server says the user has accountability-report access (`canViewAccountability === true`). If **Accountability** is absent from the workspace navigation, the user is not authorised for this panel.
-6. Open **Accountability** for the authoritative staff-level detail and evidence workflow. It includes credential/learning accountability, reporting period selection, licence dates, Life Support states, CPD sessions held/presented, and departments needing support.
-7. Open **Readiness** for IERS operational detail:
+6. The report centre and executive-report panel are intentionally rendered only when the server says the user has accountability-report access (`canViewAccountability === true`). If **Reports & Insights** and **Accountability** are absent from the workspace navigation, the user is not authorised for these reports.
+7. Open **Accountability** for the authoritative staff-level detail and evidence workflow. It includes credential/learning accountability, reporting period selection, licence dates, Life Support states, CPD sessions held/presented, and departments needing support.
+8. Open **Readiness** for IERS operational detail:
    - Command centre.
    - Evidence & actions.
    - Drills & debriefs.
@@ -80,14 +93,13 @@ Render output:
    - Equipment.
    - Implementation plan.
    - IERS Executive snapshot.
-8. Open **Learning** for:
+9. Open **Learning** for:
    - Learning overview.
    - Cohorts & competency.
    - CPD sessions.
-   - Reports & insights.
    - People & targets.
    - Institutional Life Support.
-9. Institution administrators use **Administration** for:
+10. Institution administrators use **Administration** for:
    - Overview.
    - People & access.
    - Products & billing.
@@ -142,7 +154,7 @@ Do not prioritise predictive hospital scoring, hospital rankings, competence sco
 - Enforce institution, role, product, and department scope server-side.
 - Treat empty and unavailable sources differently from zero performance.
 - Use EAT calendar periods; do not introduce a second reporting clock.
-- Preserve report immutability and the unique `(institutionalAccountId, periodType, periodStart)` contract.
+- Preserve report immutability and the unique `(institutionalAccountId, scopeKey, periodType, periodStart)` contract.
 - Keep unsupported clinical/outcome claims out of reports and UI copy.
 - Use protected GitHub workflow: feature branch, PR, required `CI/gate`, merge, branch deletion, and clean local `main`.
 - If the schema changes, run the applicable Render migration through the approved deployment workflow and record the output here.
@@ -151,9 +163,11 @@ Do not prioritise predictive hospital scoring, hospital rankings, competence sco
 
 - `server/routers/institution-performance.ts` — server-owned snapshot, report generation, scope enforcement, disclosures, history/detail procedures.
 - `client/src/components/InstitutionPerformanceSnapshot.tsx` — snapshot, executive reporting, history, trends, print, CSV.
+- `client/src/components/InstitutionReportsInsightsCenter.tsx` — canonical scoped nursing-team one-page report centre.
 - `client/src/components/InstitutionHomePanel.tsx` — permission-gated composition on Institution Home.
 - `client/src/pages/InstitutionWorkspace.tsx` — canonical institutional navigation and section gating.
 - `drizzle/schema.ts` — `institutionalPerformanceReports` schema.
 - `scripts/apply-0193-institution-performance-reports.mjs` — idempotent production migration.
+- `scripts/apply-0194-institution-performance-report-scopes.mjs` — idempotent scope-key migration; run after deployment.
 - `server/routers/institution-performance-phase3.test.ts` — focused EAT/protected-procedure tests.
 - `TODO.md` — completion checklist and production evidence.
