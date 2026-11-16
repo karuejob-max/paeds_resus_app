@@ -29,6 +29,8 @@
 
 ## 5. Executive reporting is reproducible
 
-- [ ] A monthly/quarterly executive report uses existing EAT period definitions and supports printable/CSV output.
-- [ ] Reports disclose source availability, freshness, denominator limitations, and data-quality exceptions.
-- [ ] No report claims lives saved, mortality improvement, accreditation, or competence from current data alone.
+- [ ] A monthly/quarterly executive report uses existing EAT calendar-period definitions and supports printable/CSV output from the canonical institutional workspace.
+- [ ] Generated reports are institution-scoped, access-controlled, versioned, and preserved as historical snapshots rather than silently changing when live source rows change.
+- [ ] Reports disclose source availability, report generation time/freshness, denominator limitations, and data-quality exceptions for each reporting period.
+- [ ] Report history supports safe trend comparison only between captured reports with the same metric and period semantics; insufficient history is stated explicitly.
+- [ ] No report claims lives saved, mortality improvement, accreditation, competence, licensure, or clinical performance from current data alone.

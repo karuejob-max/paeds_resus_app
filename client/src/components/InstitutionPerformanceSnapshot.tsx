@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   BarChart3,
@@ -28,6 +28,16 @@ function percent(value: number, denominator: number): number {
 
 function csvCell(value: string | number | null | undefined): string {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
+}
+
+function nextPeriodStart(periodStart: string, periodType: "monthly" | "quarterly"): string {
+  const date = new Date(`${periodStart}T00:00:00.000Z`);
+  date.setUTCMonth(date.getUTCMonth() + (periodType === "monthly" ? 1 : 3));
+  return date.toISOString().slice(0, 10);
+}
+
+function comparableReports(current: { period: { type: "monthly" | "quarterly"; periodStart: string }; reportVersion: string }, previous?: { period: { type: "monthly" | "quarterly"; periodStart: string }; reportVersion: string; metrics: { activeStaff: number; cpdEvents: number; qiOpenReports: number } }) {
+  return previous && current.period.type === previous.period.type && current.reportVersion === previous.reportVersion && nextPeriodStart(previous.period.periodStart, previous.period.type) === current.period.periodStart ? previous : null;
 }
 
 export function InstitutionPerformanceSnapshot({
@@ -63,6 +73,23 @@ export function InstitutionPerformanceSnapshot({
       refetchOnWindowFocus: false,
     },
   );
+  const [reportPeriodType, setReportPeriodType] = useState<"monthly" | "quarterly">("quarterly");
+  const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
+  const reportHistoryQuery = trpc.institutionPerformance.listExecutiveReports.useQuery(
+    { institutionId, periodType: reportPeriodType, limit: 12 },
+    { enabled, staleTime: 30_000, retry: 1, refetchOnWindowFocus: false },
+  );
+  const selectedHistoryId = selectedReportId ?? reportHistoryQuery.data?.[0]?.id ?? null;
+  const reportDetailQuery = trpc.institutionPerformance.getExecutiveReport.useQuery(
+    { institutionId, reportId: selectedHistoryId ?? 0 },
+    { enabled: enabled && selectedHistoryId != null, staleTime: 60_000, retry: 1, refetchOnWindowFocus: false },
+  );
+  const generateReport = trpc.institutionPerformance.generateExecutiveReport.useMutation({
+    onSuccess: report => {
+      setSelectedReportId(report.id);
+      void reportHistoryQuery.refetch();
+    },
+  });
   const qiQuery = trpc.institutionalQi.listReports.useQuery(
     { institutionalAccountId: institutionId, limit: 50 },
     { enabled, staleTime: 30_000, retry: 1, refetchOnWindowFocus: false },
@@ -137,6 +164,29 @@ export function InstitutionPerformanceSnapshot({
     anchor.click();
     URL.revokeObjectURL(url);
   };
+  const downloadExecutiveReportCsv = () => {
+    const report = reportDetailQuery.data;
+    if (!report) return;
+    const rows = [
+      ["Metric", "Value"],
+      ...Object.entries(report.snapshot.metrics).map(([key, value]) => [key, value]),
+      ["period_start_eat", report.period.periodStart],
+      ["period_end_eat", report.period.periodEnd],
+      ["generated_at", report.generatedAt],
+      ...Object.entries(report.disclosures.sourceAvailability).map(([key, value]) => [`source_${key}`, value]),
+      ...Object.entries(report.disclosures.sourceFreshness).map(([key, value]) => [`source_${key}_queried_at`, value]),
+      ["freshness_note", report.disclosures.freshnessNote],
+      ...report.limitations.map((limitation, index) => [`limitation_${index + 1}`, limitation]),
+    ];
+    const content = rows.map(row => row.map(cell => csvCell(cell)).join(",")).join("\n");
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `paeds-resus-executive-report-${institutionId}-${report.period.periodStart}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
   const licenceRisk = summary.licensedExpired + summary.licensedMissing;
   const lifeSupportRisk = summary.lifeSupportExpired + summary.lifeSupportMissing;
   const qualityUnavailable = qiQuery.isError;
@@ -203,6 +253,46 @@ export function InstitutionPerformanceSnapshot({
           </div>
           <span>Source period: {data.learning.period.periodStart} to {data.learning.period.periodEnd} (EAT calendar convention).</span>
         </div>
+
+        <Card className="bg-background/80">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle className="text-base">Executive reporting</CardTitle>
+                <CardDescription>Generate a preserved EAT-period snapshot for leadership review. Historical reports do not change when live source rows change.</CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <select aria-label="Executive report period" value={reportPeriodType} onChange={event => { setReportPeriodType(event.target.value as "monthly" | "quarterly"); setSelectedReportId(null); }} className="h-9 rounded-md border bg-background px-2 text-sm">
+                  <option value="quarterly">Quarterly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+                <Button size="sm" onClick={() => generateReport.mutate({ institutionId, periodType: reportPeriodType })} disabled={generateReport.isPending}>
+                  {generateReport.isPending ? "Generating…" : "Generate report"}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {generateReport.error ? <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">The report could not be generated. Existing live performance lanes remain available; no executive conclusion is inferred.</p> : null}
+            {reportHistoryQuery.isError ? <p className="text-xs text-muted-foreground">Report history is unavailable. No historical trend is inferred.</p> : reportHistoryQuery.data?.length ? <>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {reportHistoryQuery.data.slice(0, 3).map((report, index, reports) => {
+                  const previous = comparableReports(report, reports[index + 1]);
+                  const delta = previous ? report.metrics.activeStaff - previous.metrics.activeStaff : null;
+                  const trend = previous ? `Trend: roster ${delta! >= 0 ? "+" : ""}${delta}; CPD events ${report.metrics.cpdEvents - previous.metrics.cpdEvents >= 0 ? "+" : ""}${report.metrics.cpdEvents - previous.metrics.cpdEvents}; open QI ${report.metrics.qiOpenReports - previous.metrics.qiOpenReports >= 0 ? "+" : ""}${report.metrics.qiOpenReports - previous.metrics.qiOpenReports}` : "No contiguous same-version comparison";
+                  return <button type="button" key={report.id} onClick={() => setSelectedReportId(report.id)} className={`rounded-lg border p-3 text-left text-xs transition-colors hover:bg-muted ${selectedHistoryId === report.id ? "border-indigo-400 bg-indigo-50/60" : ""}`}><span className="font-medium">{report.period.periodStart} to {report.period.periodEnd}</span><span className="mt-1 block text-muted-foreground">{report.period.type} · {report.sourceAvailability.credentials ?? "unknown"} credentials source</span><span className="mt-2 block">Active roster: {report.metrics.activeStaff}{delta == null ? "" : ` · ${delta >= 0 ? "+" : ""}${delta} vs prior`}</span><span className="mt-1 block text-muted-foreground">{trend}</span></button>;
+                })}
+              </div>
+              {reportDetailQuery.data ? <div className="rounded-lg border border-indigo-200 bg-indigo-50/40 p-3 text-xs dark:border-indigo-900 dark:bg-indigo-950/20">
+                <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-medium">Report {reportDetailQuery.data.period.periodStart} to {reportDetailQuery.data.period.periodEnd}</p><p className="mt-1 text-muted-foreground">Generated {new Date(reportDetailQuery.data.generatedAt).toLocaleString("en-KE", { timeZone: "Africa/Nairobi" })} · {reportDetailQuery.data.period.timezone}</p></div><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => window.print()}>Print report</Button><Button size="sm" variant="outline" onClick={downloadExecutiveReportCsv}>CSV report</Button></div></div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-4"><span>{reportDetailQuery.data.snapshot.metrics.activeStaff} active staff</span><span>{reportDetailQuery.data.snapshot.metrics.cpdEvents} CPD events</span><span>{reportDetailQuery.data.snapshot.metrics.verifiedCredentials} verified credentials</span><span>{reportDetailQuery.data.snapshot.metrics.qiOverdueActions} overdue QI actions</span></div>
+                <div className="mt-3 flex flex-wrap gap-2">{Object.entries(reportDetailQuery.data.disclosures.sourceAvailability).map(([key, value]) => <Badge key={key} variant={value === "unavailable" ? "destructive" : value === "empty" ? "outline" : "secondary"}>{key}: {value}</Badge>)}</div>
+                <div className="mt-3 rounded border bg-background/70 p-2"><p className="font-medium">Source capture times</p>{Object.entries(reportDetailQuery.data.disclosures.sourceFreshness).map(([key, value]) => <p key={key} className="mt-1">{key}: {new Date(value).toLocaleString("en-KE", { timeZone: "Africa/Nairobi" })} EAT</p>)}<p className="mt-2 text-muted-foreground">{reportDetailQuery.data.disclosures.freshnessNote}</p></div>
+                <p className="mt-3 text-muted-foreground">Limitations: {reportDetailQuery.data.limitations.join(" ")}</p>
+              </div> : null}
+            </> : <p className="text-xs text-muted-foreground">No preserved executive reports yet. Generate the first monthly or quarterly snapshot to start a governed history; no trend is shown before two comparable reports exist.</p>}
+          </CardContent>
+        </Card>
       </CardContent>
     </Card>
   );
