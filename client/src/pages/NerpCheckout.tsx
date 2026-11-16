@@ -96,8 +96,10 @@ export default function NerpCheckout() {
             NERP ACLS pathway
           </h1>
           <p className="mt-2 max-w-2xl text-muted-foreground">
-            Your BLS and ACLS learning records are linked to one six-payment
-            pathway. BLS cognitive learning must be complete before ACLS cognitive learning.
+            Your BLS and ACLS learning records are linked to one flexible
+            payment pathway. Your first payment must be at least KES 2,500;
+            after that, pay any amount up to the remaining balance or clear it
+            in full whenever you are ready.
           </p>
         </div>
 
@@ -106,9 +108,12 @@ export default function NerpCheckout() {
             <Card>
               <CardHeader>
                 <CardTitle>Payment plan</CardTitle>
-                <CardDescription>
-                  Use M-Pesa to pay the next installment. Your account phone is
-                  prefilled and can be replaced before sending the prompt.
+                  <CardDescription>
+                    Use M-Pesa to pay an amount of your choice. The suggested
+                    amount is KES {amount.toLocaleString()}, but you can pay
+                    more, pay less after your first payment, or clear the full
+                    balance. Your account phone is prefilled and can be replaced
+                    before sending the prompt.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 sm:grid-cols-3">
@@ -190,6 +195,9 @@ export default function NerpCheckout() {
                 courseId="acls"
                 courseName={`NERP ACLS installment ${installmentNumber} of ${offer.installmentCount}`}
                 amount={amount}
+                minAmount={paymentState.amountPaidKes > 0 ? 1 : 2500}
+                maxAmount={paymentState.balanceKes}
+                allowCustomAmount
                 enrollmentId={enrollmentId}
                 initialPhoneNumber={user?.phone ?? ""}
                 nerpOfferEnrollmentId={offer.id}
@@ -229,10 +237,8 @@ export default function NerpCheckout() {
               </CardContent>
             </Card>
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <Badge variant="outline">
-                Installment {installmentNumber} / {offer.installmentCount}
-              </Badge>
-              <span>Next payment: KES {amount.toLocaleString()}</span>
+              <Badge variant="outline">Payment {installmentNumber}</Badge>
+              <span>Suggested payment: KES {amount.toLocaleString()}</span>
             </div>
           </div>
         </div>

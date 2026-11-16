@@ -10,6 +10,7 @@ import { defaultStkCallbackUrl } from "../lib/mpesa-callback-path";
 import { buildStkAccountReference } from "../lib/daraja-account-reference";
 import { getIndependentAhaPriceKes, type AhaProgramType } from "../../shared/aha-pathways";
 import { trackEvent, trackPaymentInitiation } from "../services/analytics.service";
+import { validateNerpPaymentAmount } from "../lib/nerp-offer";
 import {
   INTUBATION_SAMPLE_MICRO_COURSE_ID,
   ensureIntubationSampleCourseCatalog,
@@ -99,7 +100,7 @@ export const mpesaRouter = router({
         orderId: z.string().optional(),
         enrollmentId: z.number().optional(), // when coming from Enroll page: use existing enrollment, only create payment
         nerpOfferEnrollmentId: z.number().int().positive().optional(),
-        installmentNumber: z.number().int().min(1).max(6).optional(),
+        installmentNumber: z.number().int().min(1).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -135,9 +136,14 @@ export const mpesaRouter = router({
             .limit(1);
           if (!linked[0]) return { success: false, error: "The selected course is not linked to this NERP offer." };
           const paid = Number(offer.amountPaidKes ?? 0);
-          const expected = Math.min(Number(offer.monthlyInstallmentKes), Number(offer.totalAmountKes) - paid);
-          if (Math.abs(Number(input.amount) - expected) > 0.01 || input.installmentNumber !== Number(offer.nextInstallmentNumber)) {
-            return { success: false, error: "The NERP installment amount or sequence is no longer current. Refresh and try again." };
+          const paymentCheck = validateNerpPaymentAmount({
+            amountKes: input.amount,
+            amountPaidKes: paid,
+            totalAmountKes: Number(offer.totalAmountKes),
+          });
+          if (!paymentCheck.valid) return { success: false, error: paymentCheck.reason };
+          if (input.installmentNumber !== Number(offer.nextInstallmentNumber)) {
+            return { success: false, error: "This payment number is no longer current. Refresh and try again." };
           }
           enrollmentId = input.enrollmentId;
         } else if (input.enrollmentId) {

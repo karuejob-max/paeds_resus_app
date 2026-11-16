@@ -14,6 +14,9 @@ interface MpesaPaymentFormProps {
   initialPhoneNumber?: string;
   nerpOfferEnrollmentId?: number;
   installmentNumber?: number;
+  minAmount?: number;
+  maxAmount?: number;
+  allowCustomAmount?: boolean;
   /** Called once when payment is confirmed (webhook/poll), not when STK is only initiated. */
   onPaymentComplete?: () => void;
   onPaymentError?: (error: string) => void;
@@ -27,6 +30,9 @@ export function MpesaPaymentForm({
   initialPhoneNumber,
   nerpOfferEnrollmentId,
   installmentNumber,
+  minAmount,
+  maxAmount,
+  allowCustomAmount = false,
   onPaymentComplete,
   onPaymentError,
 }: MpesaPaymentFormProps) {
@@ -40,6 +46,11 @@ export function MpesaPaymentForm({
   const [pollEnrollmentId, setPollEnrollmentId] = useState<number | null>(null);
   /** Delay STK status polling so Daraja can register the checkout before we query (avoids false failures before the phone prompt). */
   const [pollGateReady, setPollGateReady] = useState(false);
+  const [customAmount, setCustomAmount] = useState(String(amount));
+
+  useEffect(() => {
+    setCustomAmount(String(amount));
+  }, [amount]);
 
   useEffect(() => {
     if (paymentStatus === "idle") {
@@ -177,6 +188,22 @@ export function MpesaPaymentForm({
       setStatusMessage("Enter a valid Kenyan mobile number, for example 254712345678, +254712345678, or 0712345678.");
       return;
     }
+    const payableAmount = allowCustomAmount ? Number(customAmount) : amount;
+    if (!Number.isFinite(payableAmount) || payableAmount <= 0) {
+      setStatusMessage("Enter a payment amount greater than zero.");
+      setPaymentStatus("error");
+      return;
+    }
+    if (minAmount !== undefined && payableAmount < minAmount) {
+      setStatusMessage(`The minimum payment is KES ${minAmount.toLocaleString()}.`);
+      setPaymentStatus("error");
+      return;
+    }
+    if (maxAmount !== undefined && payableAmount > maxAmount) {
+      setStatusMessage(`Your remaining balance is KES ${maxAmount.toLocaleString()}.`);
+      setPaymentStatus("error");
+      return;
+    }
 
     setPhoneNumber(normalizedPhone);
     setIsLoading(true);
@@ -189,7 +216,7 @@ export function MpesaPaymentForm({
 
     initiatePaymentMutation.mutate({
       phoneNumber: normalizedPhone,
-      amount,
+      amount: payableAmount,
       courseId,
       courseName,
                 ...(enrollmentId !== undefined && { enrollmentId }),
@@ -212,9 +239,24 @@ export function MpesaPaymentForm({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="p-4 bg-brand-surface/80 rounded-lg border border-border/60">
             <p className="text-sm text-muted-foreground">Amount to Pay</p>
-            <p className="text-3xl font-bold text-foreground">
-              <span className="text-brand-orange">KES {amount.toLocaleString()}</span>
-            </p>
+            {allowCustomAmount ? (
+              <Input
+                type="number"
+                min={minAmount ?? 1}
+                max={maxAmount}
+                step="1"
+                value={customAmount}
+                onChange={(e) => setCustomAmount(e.target.value)}
+                disabled={isLoading || paymentStatus === "success"}
+                className="mt-2 text-2xl font-bold"
+                aria-label="NERP payment amount in Kenyan shillings"
+              />
+            ) : (
+              <p className="text-3xl font-bold text-foreground">
+                <span className="text-brand-orange">KES {amount.toLocaleString()}</span>
+              </p>
+            )}
+            {allowCustomAmount && <p className="mt-2 text-xs text-muted-foreground">Pay any amount up to KES {maxAmount?.toLocaleString()}. Your first payment must be at least KES {minAmount?.toLocaleString()}.</p>}
           </div>
 
           <div>
