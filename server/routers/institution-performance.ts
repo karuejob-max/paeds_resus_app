@@ -10,6 +10,7 @@ import {
   institutionalQiReports,
   institutionalStaffMembers,
   professionalCredentials,
+  users,
 } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -24,6 +25,19 @@ type SourceState = "available" | "unavailable" | "empty";
 type SourceResult<T> = {
   status: SourceState;
   data: T;
+};
+
+type AttentionItem = {
+  id: string;
+  domain: "credentials" | "roster" | "cpd" | "quality";
+  title: string;
+  detail: string;
+  severity: "urgent" | "high" | "medium" | "info";
+  count: number;
+  ownerUserId: number | null;
+  ownerName?: string | null;
+  dueAt: string | null;
+  action: "accountability" | "administration" | "cpd" | "learning" | "readiness";
 };
 
 function eatDateKey(date: Date): string {
@@ -113,21 +127,94 @@ export const institutionPerformanceRouter = router({
         source("quality", async () => {
           const [reports, actions] = await Promise.all([
             db.select({ severity: institutionalQiReports.severity, status: institutionalQiReports.status }).from(institutionalQiReports).where(eq(institutionalQiReports.institutionalAccountId, input.institutionId)),
-            db.select({ dueAt: institutionalQiActions.dueAt, status: institutionalQiActions.status }).from(institutionalQiActions).where(eq(institutionalQiActions.institutionalAccountId, input.institutionId)),
+            db.select({ id: institutionalQiActions.id, dueAt: institutionalQiActions.dueAt, status: institutionalQiActions.status, ownerUserId: institutionalQiActions.ownerUserId, ownerName: users.name, actionText: institutionalQiActions.actionText }).from(institutionalQiActions).leftJoin(users, eq(users.id, institutionalQiActions.ownerUserId)).where(eq(institutionalQiActions.institutionalAccountId, input.institutionId)),
           ]);
           const openReports = reports.filter(row => row.status !== "closed").length;
           const highSeverityOpenReports = reports.filter(row => row.status !== "closed" && ["severe", "critical"].includes(row.severity)).length;
           const overdueActions = actions.filter(row => ["open", "in_progress"].includes(row.status) && row.dueAt != null && row.dueAt.getTime() < Date.now()).length;
-          return { reports: reports.length, openReports, highSeverityOpenReports, actions: actions.length, overdueActions };
+          return { reports: reports.length, openReports, highSeverityOpenReports, actions: actions.length, overdueActions, overdueActionRows: actions.filter(row => ["open", "in_progress"].includes(row.status) && row.dueAt != null && row.dueAt.getTime() < Date.now()).slice(0, 10) };
         }, value => !value || (value.reports === 0 && value.actions === 0)),
         source("credentials", async () => {
-          if (!staffIds.length) return { linkedStaff: 0, verified: 0, expiringWithin90Days: 0, expired: 0 };
+          if (!staffIds.length) return { linkedStaff: 0, verified: 0, expiringWithin90Days: 0, expired: 0, earliestExpiringAt: null };
           const rows = await db.select({ userId: professionalCredentials.userId, status: professionalCredentials.status, expiresAt: professionalCredentials.expiresAt }).from(professionalCredentials).where(inArray(professionalCredentials.userId, staffIds));
           const now = Date.now();
           const horizon = now + 90 * 24 * 60 * 60 * 1000;
-          return { linkedStaff: new Set(rows.map(row => row.userId)).size, verified: rows.filter(row => row.status === "verified").length, expiringWithin90Days: rows.filter(row => row.status === "verified" && row.expiresAt != null && row.expiresAt.getTime() > now && row.expiresAt.getTime() <= horizon).length, expired: rows.filter(row => row.status === "verified" && row.expiresAt != null && row.expiresAt.getTime() <= now).length };
+          const verifiedRows = rows.filter(row => row.status === "verified");
+          const expiringRows = verifiedRows.filter(row => row.expiresAt != null && row.expiresAt.getTime() > now && row.expiresAt.getTime() <= horizon);
+          return { linkedStaff: new Set(rows.map(row => row.userId)).size, verified: verifiedRows.length, expiringWithin90Days: expiringRows.length, expired: verifiedRows.filter(row => row.expiresAt != null && row.expiresAt.getTime() <= now).length, earliestExpiringAt: expiringRows.sort((a, b) => (a.expiresAt?.getTime() ?? Infinity) - (b.expiresAt?.getTime() ?? Infinity))[0]?.expiresAt?.toISOString() ?? null };
         }, value => !value || value.linkedStaff === 0),
       ]);
+
+      const attention: AttentionItem[] = [];
+      const unassignedStaff = staff.filter(row => row.facilityDepartmentId == null).length;
+      if (unassignedStaff > 0) {
+        attention.push({
+          id: "roster-unassigned-department",
+          domain: "roster",
+          title: "Assign canonical departments",
+          detail: `${unassignedStaff} active roster member(s) have no canonical department link.`,
+          severity: "medium",
+          count: unassignedStaff,
+          ownerUserId: null,
+          dueAt: null,
+          action: "administration",
+        });
+      }
+      if (credentialSource.status === "available" && credentialSource.data.expired > 0) {
+        attention.push({
+          id: "credentials-expired",
+          domain: "credentials",
+          title: "Review expired credential evidence",
+          detail: `${credentialSource.data.expired} verified credential record(s) are past their recorded expiry date.`,
+          severity: "urgent",
+          count: credentialSource.data.expired,
+          ownerUserId: null,
+          dueAt: null,
+          action: "accountability",
+        });
+      }
+      if (credentialSource.status === "available" && credentialSource.data.expiringWithin90Days > 0) {
+        attention.push({
+          id: "credentials-expiring",
+          domain: "credentials",
+          title: "Plan credential renewals",
+          detail: `${credentialSource.data.expiringWithin90Days} verified credential record(s) expire within 90 days.`,
+          severity: "high",
+          count: credentialSource.data.expiringWithin90Days,
+          ownerUserId: null,
+          dueAt: credentialSource.data.earliestExpiringAt,
+          action: "accountability",
+        });
+      }
+      if (cpdSource.status === "available" && cpdSource.data.unresolvedAttendance > 0) {
+        attention.push({
+          id: "cpd-unresolved-identity",
+          domain: "cpd",
+          title: "Resolve CPD attendance identity gaps",
+          detail: `${cpdSource.data.unresolvedAttendance} verified attendance record(s) have no linked user identity.`,
+          severity: "medium",
+          count: cpdSource.data.unresolvedAttendance,
+          ownerUserId: null,
+          dueAt: null,
+          action: "cpd",
+        });
+      }
+      if (qiSource.status === "available") {
+        for (const action of qiSource.data.overdueActionRows) {
+          attention.push({
+            id: `quality-action-${action.id}`,
+            domain: "quality",
+            title: "Review overdue quality action",
+            detail: action.actionText,
+            severity: "urgent",
+            count: 1,
+            ownerUserId: action.ownerUserId,
+            ownerName: access.canViewIndividuals ? action.ownerName : null,
+            dueAt: action.dueAt?.toISOString() ?? null,
+            action: "readiness",
+          });
+        }
+      }
 
       return {
         institutionId: input.institutionId,
@@ -135,6 +222,7 @@ export const institutionPerformanceRouter = router({
         period: { type: input.periodType, periodStart: period.periodStart, periodEnd: period.periodEnd, timezone: "Africa/Nairobi" },
         roster: { status: staff.length ? "available" : "empty", activeStaff: staff.length, canonicalDepartmentStaff: staff.filter(row => row.facilityDepartmentId != null).length, unassignedStaff: staff.filter(row => row.facilityDepartmentId == null).length },
         sources: { departments: departmentSource, cpd: cpdSource, quality: qiSource, credentials: credentialSource },
+        attention,
         generatedAt: new Date().toISOString(),
       };
     }),

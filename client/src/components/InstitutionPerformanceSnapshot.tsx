@@ -36,12 +36,14 @@ export function InstitutionPerformanceSnapshot({
   onOpenAccountability,
   onOpenLearning,
   onOpenReadiness,
+  onOpenAdministration,
 }: {
   institutionId: number;
   enabled: boolean;
   onOpenAccountability: () => void;
   onOpenLearning: () => void;
   onOpenReadiness: () => void;
+  onOpenAdministration: () => void;
 }) {
   const dashboardQuery = trpc.institutionAccountability.getComplianceDashboard.useQuery(
     { institutionId, periodType: "quarterly" },
@@ -138,6 +140,13 @@ export function InstitutionPerformanceSnapshot({
   const licenceRisk = summary.licensedExpired + summary.licensedMissing;
   const lifeSupportRisk = summary.lifeSupportExpired + summary.lifeSupportMissing;
   const qualityUnavailable = qiQuery.isError;
+  const attentionItems = sourceQuery.data?.attention ?? [];
+  const openAction = (action: string) => {
+    if (action === "accountability") onOpenAccountability();
+    else if (action === "administration") onOpenAdministration();
+    else if (action === "readiness") onOpenReadiness();
+    else onOpenLearning();
+  };
 
   return (
     <Card className="border-indigo-200 bg-indigo-50/30 dark:border-indigo-900/60 dark:bg-indigo-950/10">
@@ -177,10 +186,8 @@ export function InstitutionPerformanceSnapshot({
           <Card className="bg-background/80">
             <CardHeader className="pb-3"><CardTitle className="text-base">Attention queue</CardTitle><CardDescription>Explicit records needing review, not an inferred hospital score.</CardDescription></CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <AttentionRow label="Credential renewal/missing" value={licenceRisk} onClick={onOpenAccountability} />
-              <AttentionRow label="Life Support evidence gap" value={lifeSupportRisk} onClick={onOpenLearning} />
-              <AttentionRow label="QI reports still open" value={qualityUnavailable ? null : openQualityReports.length} onClick={onOpenReadiness} unavailable={qualityUnavailable} />
-              <AttentionRow label="High-severity QI reports" value={qualityUnavailable ? null : highSeverityReports.length} onClick={onOpenReadiness} unavailable={qualityUnavailable} />
+              {sourceQuery.isError ? <p className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">The actionable source is unavailable. Open the relevant lane directly; no action is inferred while the queue is unavailable.</p> : attentionItems.length ? attentionItems.map(item => <ActionableAttentionRow key={item.id} item={item} onOpen={() => openAction(item.action)} />) : <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-100"><p className="font-medium">No actionable records returned</p><p className="mt-1">This means no matching records were found in the connected sources, not that institutional competence or safety has been established.</p></div>}
+              {!sourceQuery.isError && !attentionItems.length && (licenceRisk > 0 || lifeSupportRisk > 0 || !qualityUnavailable && (openQualityReports.length > 0 || highSeverityReports.length > 0)) ? <p className="text-xs text-muted-foreground">Some legacy summary signals remain available below; open Accountability, Learning, or Readiness for their authoritative detail.</p> : null}
               <div className="border-t pt-3 text-xs text-muted-foreground">CPD presenting: {summary.cpdSessionsPresented} lead · {summary.cpdSessionsCoPresented} co-presented. Attendance and presenting are separate measures.</div>
             </CardContent>
           </Card>
@@ -205,6 +212,7 @@ function MetricCard({ label, value, detail, icon: Icon, progress, risk }: { labe
   return <Card className="bg-background/80"><CardContent className="p-4"><div className="flex items-center justify-between gap-2"><span className="text-xs font-medium text-muted-foreground">{label}</span><Icon className={`h-4 w-4 ${risk ? "text-amber-700" : "text-indigo-700"}`} /></div><p className="mt-2 text-2xl font-semibold">{value}</p>{progress != null ? <Progress value={progress} className="mt-2 h-1.5" /> : null}<p className="mt-2 text-xs text-muted-foreground">{detail}</p></CardContent></Card>;
 }
 
-function AttentionRow({ label, value, onClick, unavailable }: { label: string; value: number | null; onClick: () => void; unavailable?: boolean }) {
-  return <button type="button" onClick={onClick} className="flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted"><span className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-700" />{label}</span><span className="font-semibold">{unavailable ? "—" : value}</span></button>;
+function ActionableAttentionRow({ item, onOpen }: { item: { title: string; detail: string; severity: string; count: number; ownerUserId: number | null; ownerName?: string | null; dueAt: string | null; action: string }; onOpen: () => void }) {
+  const due = item.dueAt ? new Date(item.dueAt).toLocaleDateString("en-KE", { timeZone: "Africa/Nairobi" }) : null;
+  return <div className="rounded-lg border p-3"><div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /><div><p className="font-medium">{item.title}</p><p className="mt-1 text-xs text-muted-foreground">{item.detail}</p></div></div><Badge variant={item.severity === "urgent" ? "destructive" : item.severity === "high" ? "secondary" : "outline"}>{item.count}</Badge></div><div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><span>{item.ownerName ?? (item.ownerUserId ? `Owner user #${item.ownerUserId}` : "Owner not assigned")}{due ? ` · due ${due}` : ""}</span><Button size="sm" variant="outline" onClick={onOpen}>Open workflow</Button></div></div>;
 }

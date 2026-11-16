@@ -145,6 +145,7 @@ export default function InstitutionHomePanel({
           onOpenAccountability={onOpenAccountability}
           onOpenLearning={onOpenLearning}
           onOpenReadiness={onOpenReadiness}
+          onOpenAdministration={onOpenAdministration}
         />
       ) : null}
       <Card>
