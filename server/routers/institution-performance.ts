@@ -17,6 +17,7 @@ import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { getCredentialAccess } from "./institution-accountability";
 import type { AppDb } from "../lib/institution-access";
+import { buildDepartmentSnapshots, type DepartmentSnapshot } from "../lib/institution-performance-departments";
 
 const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
 const periodTypes = ["monthly", "quarterly"] as const;
@@ -92,6 +93,7 @@ type PerformanceSnapshot = {
       lifeSupportMissing: number;
     }>;
   };
+  departments?: DepartmentSnapshot[];
   metrics: {
     departmentCount: number;
     activeStaff: number;
@@ -307,6 +309,45 @@ async function buildSourceSnapshot(db: AppDb, user: any, institutionId: number, 
     }, value => value.linkedStaff === 0),
   ]);
 
+  const [departmentCredentialRows, departmentCpdRows, departmentAttendeeRows, departmentQiReports, departmentQiActions] = await Promise.all([
+    source("department-credentials", async () => {
+      if (reportScope.type !== "institution" || !staffIds.length) return [];
+      return db.select({ userId: professionalCredentials.userId, credentialType: professionalCredentials.credentialType, status: professionalCredentials.status, expiresAt: professionalCredentials.expiresAt }).from(professionalCredentials).where(inArray(professionalCredentials.userId, staffIds));
+    }, value => value.length === 0),
+    source("department-cpd-events", async () => {
+      if (reportScope.type !== "institution") return [];
+      return db.select({ id: cpdEvents.id, facilityDepartmentId: cpdEvents.facilityDepartmentId }).from(cpdEvents).where(and(eq(cpdEvents.institutionalAccountId, institutionId), gte(cpdEvents.eventDateAt, period.start), lte(cpdEvents.eventDateAt, period.end), notInArray(cpdEvents.lifecycleStatus, ["cancelled", "voided", "archived"])));
+    }, value => value.length === 0),
+    source("department-cpd-attendees", async () => {
+      if (reportScope.type !== "institution") return [];
+      const eventRows = await db.select({ id: cpdEvents.id }).from(cpdEvents).where(and(eq(cpdEvents.institutionalAccountId, institutionId), gte(cpdEvents.eventDateAt, period.start), lte(cpdEvents.eventDateAt, period.end), notInArray(cpdEvents.lifecycleStatus, ["cancelled", "voided", "archived"])));
+      const eventIds = eventRows.map(row => row.id);
+      if (!eventIds.length) return [];
+      return db.select({ cpdEventId: cpdAttendees.cpdEventId, facilityDepartmentId: cpdAttendees.facilityDepartmentId, attendanceStatus: cpdAttendees.attendanceStatus }).from(cpdAttendees).where(and(eq(cpdAttendees.institutionalAccountId, institutionId), inArray(cpdAttendees.cpdEventId, eventIds)));
+    }, value => value.length === 0),
+    source("department-qi-reports", async () => {
+      if (reportScope.type !== "institution") return [];
+      return db.select({ id: institutionalQiReports.id, facilityDepartmentId: institutionalQiReports.facilityDepartmentId, status: institutionalQiReports.status }).from(institutionalQiReports).where(eq(institutionalQiReports.institutionalAccountId, institutionId));
+    }, value => value.length === 0),
+    source("department-qi-actions", async () => {
+      if (reportScope.type !== "institution") return [];
+      return db.select({ reportId: institutionalQiActions.reportId, status: institutionalQiActions.status, dueAt: institutionalQiActions.dueAt }).from(institutionalQiActions).where(eq(institutionalQiActions.institutionalAccountId, institutionId));
+    }, value => value.length === 0),
+  ]);
+  const departments = reportScope.type === "institution" && departmentSource.status !== "unavailable"
+    ? buildDepartmentSnapshots({
+      departments: departmentSource.data,
+      staff,
+      credentials: departmentCredentialRows.status === "unavailable" ? [] : departmentCredentialRows.data,
+      cpdEvents: departmentCpdRows.status === "unavailable" ? [] : departmentCpdRows.data,
+      cpdAttendees: departmentAttendeeRows.status === "unavailable" ? [] : departmentAttendeeRows.data,
+      qiReports: departmentQiReports.status === "unavailable" ? [] : departmentQiReports.data,
+      qiActions: departmentQiActions.status === "unavailable" ? [] : departmentQiActions.data,
+      sourceStates: { credentials: credentialSource.status, cpd: cpdSource.status, quality: qiSource.status },
+      now: new Date(),
+    })
+    : undefined;
+
   const attention: AttentionItem[] = [];
   const unassignedStaff = staff.filter(row => row.facilityDepartmentId == null).length;
   if (unassignedStaff > 0) attention.push({ id: "roster-unassigned-department", domain: "roster", title: "Assign canonical departments", detail: `${unassignedStaff} active roster member(s) have no canonical department link.`, severity: "medium", count: unassignedStaff, ownerUserId: null, dueAt: null, action: "administration" });
@@ -319,6 +360,7 @@ async function buildSourceSnapshot(db: AppDb, user: any, institutionId: number, 
     institutionId,
     access: { role: access.role, canViewIndividuals: access.canViewIndividuals },
     scope: { type: reportScope.type, departmentId: reportScope.departmentId, departmentName: reportScope.departmentName },
+    departments,
     period: { type: period.type, periodStart: period.periodStart, periodEnd: period.periodEnd, timezone: period.timezone },
     roster: { status: staff.length ? "available" : "empty", activeStaff: staff.length, canonicalDepartmentStaff: staff.filter(row => row.facilityDepartmentId != null).length, unassignedStaff },
     sources: { departments: departmentSource, cpd: cpdSource, quality: qiSource, credentials: credentialSource },
@@ -399,7 +441,7 @@ export const institutionPerformanceRouter = router({
           periodStart: snapshot.period.periodStart,
           periodEnd: snapshot.period.periodEnd,
           timezone: "Africa/Nairobi",
-          reportVersion: "v1",
+          reportVersion: snapshot.departments ? "v2" : "v1",
           status: "final",
           generatedByUserId: ctx.user.id,
           snapshotJson: JSON.stringify(snapshot),
