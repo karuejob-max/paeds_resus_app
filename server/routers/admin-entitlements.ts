@@ -5,6 +5,7 @@ import {
   globalEntitlements,
   globalEntitlementRedemptions,
   institutionalAccounts,
+  ierpProgramEnrollments,
   microCourses,
   courses,
   users,
@@ -15,9 +16,11 @@ import {
   GLOBAL_ENTITLEMENT_BENEFIT_TYPES,
   GLOBAL_ENTITLEMENT_PROGRAM_TYPES,
   createAccessCode,
+  consumeGlobalEntitlementInTransaction,
   hashRecipientEmail,
   newEntitlementReference,
 } from "../lib/global-entitlements";
+import { IERP_TOTAL_FEE_KES } from "../lib/ierp-program-state";
 
 const programmeLabels = {
   ierp: "IERP — Intern Emergency Readiness Program",
@@ -367,29 +370,78 @@ export const adminEntitlementsRouter = router({
       }
       const grantReference = newEntitlementReference();
       const accessCode = input.shareable ? createAccessCode() : null;
-      await db.insert(globalEntitlements).values({
-        grantReference,
-        accessCodeHash: accessCode?.hash ?? null,
-        accessCodePrefix: accessCode?.prefix ?? null,
-        recipientEmailHash: input.shareable && recipientEmailForCode
-          ? hashRecipientEmail(recipientEmailForCode)
-          : null,
-        targetUserId: input.targetUserId ?? null,
-        targetInstitutionalAccountId:
-          input.targetInstitutionalAccountId ?? null,
-        programType: input.programType,
-        selfPayCourseId: input.selfPayCourseId ?? null,
-        benefitType: input.benefitType,
-        discountPercent:
-          input.benefitType === "percentage_discount"
-            ? (input.discountPercent ?? null)
+      await db.transaction(async (tx) => {
+        const inserted = await tx.insert(globalEntitlements).values({
+          grantReference,
+          accessCodeHash: accessCode?.hash ?? null,
+          accessCodePrefix: accessCode?.prefix ?? null,
+          recipientEmailHash: input.shareable && recipientEmailForCode
+            ? hashRecipientEmail(recipientEmailForCode)
             : null,
-        reason: input.reason,
-        maxRedemptions: input.maxRedemptions,
-        redemptionCount: 0,
-        status: "active",
-        expiresAt,
-        createdByUserId: ctx.user.id,
+          targetUserId: input.targetUserId ?? null,
+          targetInstitutionalAccountId:
+            input.targetInstitutionalAccountId ?? null,
+          programType: input.programType,
+          selfPayCourseId: input.selfPayCourseId ?? null,
+          benefitType: input.benefitType,
+          discountPercent:
+            input.benefitType === "percentage_discount"
+              ? (input.discountPercent ?? null)
+              : null,
+          reason: input.reason,
+          maxRedemptions: input.maxRedemptions,
+          redemptionCount: 0,
+          status: "active",
+          expiresAt,
+          createdByUserId: ctx.user.id,
+        }).$returningId();
+
+        // A named free IERP grant is a sponsorship, not a cash payment. If
+        // the learner already enrolled, reconcile it now so the learner and
+        // scheduler never observe a pending payment state after access is
+        // granted. The row predicate makes this safe to retry and prevents
+        // overwriting paid, discounted, or previously sponsored enrolments.
+        if (
+          input.programType === "ierp" &&
+          input.benefitType === "free" &&
+          input.targetUserId != null
+        ) {
+          const [enrollment] = await tx
+            .select()
+            .from(ierpProgramEnrollments)
+            .where(
+              and(
+                eq(ierpProgramEnrollments.userId, input.targetUserId),
+                eq(ierpProgramEnrollments.programKey, "ierp"),
+                eq(ierpProgramEnrollments.paymentStatus, "pending"),
+                eq(ierpProgramEnrollments.totalPaidAmount, "0.00"),
+              )
+            )
+            .limit(1);
+          const entitlementId = Number(inserted[0]?.id ?? 0);
+          if (enrollment && entitlementId) {
+            const applied = await consumeGlobalEntitlementInTransaction(tx, {
+              entitlementId,
+              targetUserId: input.targetUserId,
+              programType: "ierp",
+              resourceReference: `ierp-enrollment-${enrollment.id}`,
+              originalAmountKes: IERP_TOTAL_FEE_KES,
+              redeemedByUserId: ctx.user.id,
+            });
+            if (applied?.effectiveAmountKes === 0) {
+              await tx
+                .update(ierpProgramEnrollments)
+                .set({
+                  entitlementId,
+                  effectiveFeeKes: 0,
+                  paymentStatus: "not_required",
+                  paymentLockoutAt: null,
+                  updatedAt: new Date(),
+                })
+                .where(eq(ierpProgramEnrollments.id, enrollment.id));
+            }
+          }
+        }
       });
       return {
         success: true as const,
