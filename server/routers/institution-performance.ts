@@ -18,6 +18,7 @@ import { getDb } from "../db";
 import { getCredentialAccess } from "./institution-accountability";
 import type { AppDb } from "../lib/institution-access";
 import { buildDepartmentSnapshots, type DepartmentSnapshot } from "../lib/institution-performance-departments";
+import { buildExecutiveFindings } from "../lib/institution-executive-findings";
 
 const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
 const periodTypes = ["monthly", "quarterly"] as const;
@@ -245,6 +246,7 @@ function hydrateReport(row: typeof institutionalPerformanceReports.$inferSelect)
     generatedByUserId: row.generatedByUserId,
     generatedAt: row.generatedAt.toISOString(),
     snapshot,
+    findings: snapshot.departments ? buildExecutiveFindings(snapshot.departments, { minimumStaff: 5, lifeSupportFloor: 0.8, cpdAttendanceFloor: 0.5 }) : undefined,
     disclosures,
     limitations: safeJson<string[]>(row.limitationsJson, disclosures.limitations),
   };
