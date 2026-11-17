@@ -274,9 +274,11 @@ export default function InstitutionWorkspace() {
   const cpdEnabled = canUseProduct(productStatus.cpd_portal) && hasCpdRole;
 
   return (
-    <div className="min-h-screen bg-slate-50/70 pb-20 dark:bg-slate-950/30 md:pb-0">
+    <>
+    <style>{`@media print { @page { size: A4; margin: 12mm 10mm; } body { background: #fff !important; } .institution-workspace-shell { min-height: 0 !important; padding: 0 !important; background: #fff !important; } .institution-workspace-content { max-width: none !important; padding: 0 !important; } }`}</style>
+    <div className="institution-workspace-shell min-h-screen bg-slate-50/70 pb-20 dark:bg-slate-950/30 md:pb-0">
       <div className="mx-auto min-w-0 max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-4 flex min-w-0 flex-col justify-between gap-3 md:mb-6 md:flex-row md:items-start md:gap-4">
+        <div className="institution-workspace-chrome mb-4 flex min-w-0 flex-col justify-between gap-3 md:mb-6 md:flex-row md:items-start md:gap-4 print:hidden">
           <div className="min-w-0">
             <ContextHeader
               workspace="Facility workspace"
@@ -344,7 +346,7 @@ export default function InstitutionWorkspace() {
               onSelectAdminTab={setAdminTab}
               onOpenExternal={href => navigate(href)}
             /> : null}
-            <div className="min-w-0">
+            <div className="institution-workspace-content min-w-0">
               <TabsList className="sr-only">
                 <TabsTrigger value="overview">Home</TabsTrigger>
                 {hasIersRole ? <TabsTrigger value="iers">Readiness</TabsTrigger> : null}
@@ -417,7 +419,7 @@ export default function InstitutionWorkspace() {
           </TabsContent>
 
           {canViewAccountability ? <TabsContent value="reports" className="space-y-6">
-            <InstitutionReportsInsightsCenter institutionId={institutionId} />
+            <InstitutionReportsInsightsCenter institutionId={institutionId} institutionName={institutionName} />
           </TabsContent> : null}
 
           {canViewAccountability ? <TabsContent value="accountability" className="space-y-6">
@@ -438,6 +440,7 @@ export default function InstitutionWorkspace() {
         </Tabs>
       </div>
     </div>
+    </>
   );
 }
 
@@ -565,7 +568,7 @@ function InstitutionPortalNavigation({
     <aside
       id="institution-workspace-navigation"
       aria-label="Institution workspace navigation"
-      className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-background/95 p-2 shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)]"
+      className="institution-workspace-chrome flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-background/95 p-2 shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] print:hidden"
     >
       <div className="shrink-0 px-3 pb-2 pt-1">
         <p className="text-sm font-semibold">Workspace navigation</p>
