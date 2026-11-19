@@ -20,6 +20,14 @@ vi.mock("@/lib/trpc", () => ({
       enrollWithPayment: {
         useMutation: vi.fn(),
       },
+      validatePromo: { useQuery: () => ({ data: undefined }) },
+    },
+    mpesa: {
+      getClientPaymentCapabilities: {
+        useQuery: () => ({ data: { stkPushOffered: true } }),
+      },
+      checkPaymentStatus: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      reconcilePayment: { useMutation: () => ({ mutateAsync: vi.fn() }) },
     },
     useUtils: vi.fn(),
   },
@@ -92,6 +100,8 @@ describe("EnrollmentModal Integration Tests", () => {
       success: true,
       enrollmentId: 100,
       learningEnrollmentId: 100,
+      paymentMethod: "admin-free",
+      amountPaid: 0,
     });
 
     render(
@@ -114,7 +124,7 @@ describe("EnrollmentModal Integration Tests", () => {
     await waitFor(() => {
       expect(mockEnrollWithPayment.mutateAsync).toHaveBeenCalledWith({
         courseId: "asthma-i",
-        phoneNumber: "0712345678",
+        phoneNumber: "254712345678",
         paymentPath: "stk_push",
       });
     });
@@ -153,7 +163,7 @@ describe("EnrollmentModal Integration Tests", () => {
     await waitFor(() => {
       expect(mockEnrollWithPayment.mutateAsync).toHaveBeenCalledWith({
         courseId: "asthma-i",
-        phoneNumber: "0712345678",
+        phoneNumber: "254712345678",
         paymentPath: "stk_push",
       });
     });

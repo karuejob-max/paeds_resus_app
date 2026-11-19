@@ -26,14 +26,21 @@ import {
 } from "../lib/institutional-life-support-payments";
 import { reconcileIerpMpesaPayment } from "../lib/ierp-payment-reconciliation";
 import {
+  parseStkCallback,
+  reconcileMicroCourseStkCallback,
+  MpesaCallbackRetryError,
+} from "../lib/micro-course-mpesa-callback";
+import { classifyStkResult } from "../lib/stk-payment-policy";
+import {
   attachMpesaWebhookLogging,
   type MpesaWebhookLogBuilder,
 } from "../lib/mpesa-webhook-log";
 import crypto from "crypto";
 
 /**
- * Verify M-Pesa webhook signature using Daraja API's Passkey
- * Daraja signs callbacks with SHA-256 HMAC using the Initiator Password (Passkey)
+ * Legacy opt-in gateway HMAC check. Standard Daraja STK callbacks are often
+ * unsigned; this header is not provider payment verification. Micro-course
+ * access is independently verified via authenticated server-side STK query.
  */
 function verifyMpesaSignature(body: string, signature: string): boolean {
   try {
@@ -63,9 +70,7 @@ function verifyMpesaSignature(body: string, signature: string): boolean {
     const isValid = crypto.timingSafeEqual(computedBuf, receivedBuf);
 
     if (!isValid) {
-      console.warn(
-        `[M-Pesa] Signature verification failed. Expected: ${computedSignature}, Got: ${signature}`
-      );
+      console.warn("[M-Pesa] Signature verification failed");
     }
 
     return isValid;
@@ -235,7 +240,7 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       return;
     }
 
-    const { Body } = req.body;
+    const Body = req.body?.Body;
 
     if (!Body) {
       log.outcome = "invalid_payload";
@@ -249,7 +254,7 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       return res.status(400).json({ error: "Missing STK callback" });
     }
 
-    const { ResultCode, ResultDesc, CallbackMetadata, CheckoutRequestID } =
+    let { ResultCode, ResultDesc, CallbackMetadata, CheckoutRequestID } =
       stkCallback;
 
     // MPESA-4: Require CheckoutRequestID before touching DB (validates payload; avoids 500 when DB test-mocked)
@@ -259,8 +264,8 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
         : String(CheckoutRequestID ?? "").trim();
 
     log.checkoutRequestId = idempotencyKey || null;
-    log.resultCode =
-      typeof ResultCode === "number" ? ResultCode : Number(ResultCode);
+    log.resultCode = Number.isSafeInteger(Number(ResultCode))
+      ? Number(ResultCode) : null;
     log.resultDesc =
       typeof ResultDesc === "string" ? ResultDesc : String(ResultDesc ?? "");
 
@@ -269,6 +274,13 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       log.outcome = "invalid_payload";
       return res.status(400).json({ error: "Missing CheckoutRequestID" });
     }
+
+    const callback = parseStkCallback(req.body);
+    if (!callback) {
+      log.outcome = "invalid_payload";
+      return res.status(400).json({ error: "Invalid STK callback fields" });
+    }
+    ResultCode = callback.resultCode;
 
     logStructured("mpesa_stk_callback", {
       checkoutRequestId: idempotencyKey,
@@ -283,6 +295,26 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
 
     if (!db) {
       return res.status(500).json({ error: "Database unavailable" });
+    }
+
+    // enrollWithPayment uses microCourseEnrollments, NOT payments/enrollments.
+    // Reconcile its stored checkout before any legacy ledger idempotency shortcut.
+    try {
+      const microResult = await reconcileMicroCourseStkCallback(db, callback);
+      if (microResult) {
+        log.enrollmentId = microResult.enrollmentId;
+        log.amountCents = microResult.amountCents;
+        log.mpesaReceiptNumber = microResult.receipt;
+        log.outcome = microResult.duplicate ? "already_finalized"
+          : microResult.status === "completed" ? "payment_completed" : "payment_failed";
+        return res.status(200).json({ success: true, message: microResult.duplicate
+          ? "Micro-course payment already finalized"
+          : microResult.status === "completed" ? "Micro-course payment verified" : "Micro-course payment failure recorded" });
+      }
+    } catch (error) {
+      log.outcome = error instanceof MpesaCallbackRetryError ? "error" : "persist_error";
+      log.errorMessage = error instanceof Error ? error.message : String(error);
+      return res.status(503).json({ error: "Payment reconciliation unavailable; callback may be retried" });
     }
 
     // Check if this webhook has already been processed
@@ -395,7 +427,9 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       if (paymentRecords.length === 0) {
         console.warn(`Payment not found for CheckoutRequestID: ${lookupId}`);
         log.outcome = "payment_not_found";
-        return res.status(200).json({ success: true }); // Still return 200 to acknowledge
+        // Callback can race checkout persistence after STK initiation. Do not
+        // irreversibly acknowledge an event whose owning row is not visible yet.
+        return res.status(503).json({ error: "Checkout not stored yet; callback may be retried" });
       }
 
       const payment = paymentRecords[0];
@@ -604,8 +638,13 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
       return res
         .status(200)
         .json({ success: true, message: "Payment verified" });
-    } else if (ResultCode === 1) {
-      // Failure: ResultCode 1
+    } else {
+      // Nonterminal processing/provider errors must not become payment failures.
+      if (classifyStkResult({ resultCode: ResultCode, resultDesc: ResultDesc }) === "pending") {
+        log.outcome = "acknowledged";
+        return res.status(200).json({ success: true, message: "Callback acknowledged; payment not yet confirmed" });
+      }
+      // Known terminal STK outcomes (cancel, timeout, insufficient funds).
       console.warn(`Payment failed for CheckoutRequestID: ${lookupId}`);
       const paymentRecords = await db
         .select()
@@ -633,26 +672,21 @@ export async function handleMpesaWebhook(req: Request, res: Response) {
             idempotencyKey: idempotencyKey,
             updatedAt: new Date(),
           })
-          .where(eq(payments.id, payment.id));
+          .where(and(eq(payments.id, payment.id), eq(payments.status, "pending")));
         await applyInstitutionalLifeSupportPaymentFailure(
           db,
           payment.id,
           String(ResultDesc || "M-Pesa payment failed.")
         );
         log.outcome = "payment_failed";
+      } else {
+        log.outcome = "payment_not_found";
+        return res.status(503).json({ error: "Checkout not stored yet; callback may be retried" });
       }
       return res
         .status(200)
         .json({ success: true, message: "Payment failure recorded" });
     }
-
-    console.log(
-      `[M-Pesa] Non-success callback ResultCode=${ResultCode} for ${lookupId}: ${ResultDesc}`
-    );
-    log.outcome = "acknowledged";
-    return res
-      .status(200)
-      .json({ success: true, message: "Callback acknowledged" });
   } catch (error) {
     console.error("[M-Pesa] Webhook handler error:", error);
     log.outcome = "error";
@@ -692,6 +726,9 @@ export async function handleMpesaQueryWebhook(req: Request, res: Response) {
  * Handles user timeout (no PIN entry) callbacks
  */
 export async function handleMpesaTimeoutWebhook(req: Request, res: Response) {
+  // Backward-compatible callers must not bypass checkout-bound reconciliation
+  // simply because a real nested STK callback has a nonzero result code.
+  if (req.body?.Body?.stkCallback) return handleMpesaWebhook(req, res);
   const log: MpesaWebhookLogBuilder = {
     callbackType: "stk_timeout",
     outcome: "received",
@@ -775,7 +812,7 @@ export async function handleMpesaTimeoutWebhook(req: Request, res: Response) {
       if (paymentRecords.length > 0) {
         const payment = paymentRecords[0];
         log.paymentId = payment.id;
-        if (payment.status === "completed" || payment.status === "failed") {
+        if (payment.status === "completed" || payment.status === "failed" || payment.status === "cancelled") {
           log.outcome = "already_finalized";
           return res.status(200).json({ success: true });
         }
@@ -785,7 +822,7 @@ export async function handleMpesaTimeoutWebhook(req: Request, res: Response) {
             status: "failed",
             updatedAt: new Date(),
           })
-          .where(eq(payments.id, payment.id));
+          .where(and(eq(payments.id, payment.id), eq(payments.status, "pending")));
         await applyInstitutionalLifeSupportPaymentFailure(
           db,
           payment.id,
