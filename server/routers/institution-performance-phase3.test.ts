@@ -23,11 +23,17 @@ describe("institution executive reporting Phase 3", () => {
       periodEnd: "2026-12-31",
       timezone: "Africa/Nairobi",
     });
+    expect(periodBounds("annual", "2026-01-01")).toMatchObject({
+      periodStart: "2026-01-01",
+      periodEnd: "2026-12-31",
+      timezone: "Africa/Nairobi",
+    });
   });
 
   it("rejects period starts that are not canonical calendar boundaries", () => {
     expect(() => periodBounds("monthly", "2026-11-02")).toThrow(/first day/);
     expect(() => periodBounds("quarterly", "2026-11-01")).toThrow(/first day/);
+    expect(() => periodBounds("annual", "2026-02-01")).toThrow(/first day/);
   });
 
   it("exposes the report procedures behind protected authentication", async () => {
