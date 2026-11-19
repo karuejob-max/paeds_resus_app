@@ -22,7 +22,7 @@ import { buildExecutiveFindings } from "../lib/institution-executive-findings";
 
 const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
 const periodTypes = ["monthly", "quarterly", "annual"] as const;
-type PeriodType = (typeof periodTypes)[number];
+export type PeriodType = (typeof periodTypes)[number];
 type ReportScopeInput = { scopeType?: "institution" | "department"; departmentId?: number };
 type ReportScope = { type: "institution" | "department"; departmentId: number | null; departmentName: string | null; key: string };
 type SourceState = "available" | "unavailable" | "empty";
@@ -409,6 +409,52 @@ function isDuplicateKeyError(error: unknown): boolean {
   return candidate?.code === "ER_DUP_ENTRY" || candidate?.errno === 1062 || candidate?.message?.toLowerCase().includes("duplicate entry") === true;
 }
 
+type ExecutiveReportInput = {
+  institutionId: number;
+  periodType: PeriodType;
+  periodStart?: string;
+  scopeType: "institution" | "department";
+  departmentId?: number;
+};
+
+export async function generateInstitutionExecutiveReport(
+  db: AppDb,
+  user: any,
+  input: ExecutiveReportInput,
+  options: { automated?: boolean } = {},
+) {
+  const snapshot = await buildSourceSnapshot(db, user, input.institutionId, input.periodType, input.periodStart, input);
+  if (options.automated && Object.values(snapshot.sources).some(sourceResult => sourceResult.status === "unavailable")) {
+    return { skipped: true as const, reason: "required-source-unavailable" as const, period: snapshot.period };
+  }
+  const scope = await resolveReportScope(db, user, input.institutionId, input);
+  const existing = await findReport(db, input.institutionId, scope.key, input.periodType, snapshot.period.periodStart);
+  if (existing) return hydrateReport(existing);
+  const disclosures = reportDisclosures(snapshot);
+  try {
+    await db.insert(institutionalPerformanceReports).values({
+      institutionalAccountId: input.institutionId,
+      scopeKey: scope.key,
+      scopeDepartmentId: scope.departmentId,
+      periodType: input.periodType,
+      periodStart: snapshot.period.periodStart,
+      periodEnd: snapshot.period.periodEnd,
+      timezone: "Africa/Nairobi",
+      reportVersion: snapshot.departments ? "v2" : "v1",
+      status: "final",
+      generatedByUserId: options.automated ? null : user.id,
+      snapshotJson: JSON.stringify(snapshot),
+      sourceSummaryJson: JSON.stringify(disclosures),
+      limitationsJson: JSON.stringify(disclosures.limitations),
+    });
+  } catch (error) {
+    if (!isDuplicateKeyError(error)) throw error;
+  }
+  const created = await findReport(db, input.institutionId, scope.key, input.periodType, snapshot.period.periodStart);
+  if (!created) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Executive report could not be persisted." });
+  return hydrateReport(created);
+}
+
 export const institutionPerformanceRouter = router({
   getSourceSnapshot: protectedProcedure
     .input(z.object({ institutionId: z.number().int().positive(), periodType: z.enum(periodTypes).default("quarterly"), periodStart: z.string().optional(), scopeType: z.enum(["institution", "department"]).default("institution"), departmentId: z.number().int().positive().optional() }))
@@ -430,34 +476,7 @@ export const institutionPerformanceRouter = router({
     .input(z.object({ institutionId: z.number().int().positive(), periodType: z.enum(periodTypes).default("quarterly"), periodStart: z.string().optional(), scopeType: z.enum(["institution", "department"]).default("institution"), departmentId: z.number().int().positive().optional() }))
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
-      const snapshot = await buildSourceSnapshot(db, ctx.user, input.institutionId, input.periodType, input.periodStart, input);
-      const scope = await resolveReportScope(db, ctx.user, input.institutionId, input);
-      const existing = await findReport(db, input.institutionId, scope.key, input.periodType, snapshot.period.periodStart);
-      if (existing) return hydrateReport(existing);
-      const disclosures = reportDisclosures(snapshot);
-      try {
-        await db.insert(institutionalPerformanceReports).values({
-          institutionalAccountId: input.institutionId,
-          scopeKey: scope.key,
-          scopeDepartmentId: scope.departmentId,
-          periodType: input.periodType,
-          periodStart: snapshot.period.periodStart,
-          periodEnd: snapshot.period.periodEnd,
-          timezone: "Africa/Nairobi",
-          reportVersion: snapshot.departments ? "v2" : "v1",
-          status: "final",
-          generatedByUserId: ctx.user.id,
-          snapshotJson: JSON.stringify(snapshot),
-          sourceSummaryJson: JSON.stringify(disclosures),
-          limitationsJson: JSON.stringify(disclosures.limitations),
-        });
-      } catch (error) {
-        if (!isDuplicateKeyError(error)) throw error;
-        // Another request won the unique period insert. Return the canonical immutable row.
-      }
-      const created = await findReport(db, input.institutionId, scope.key, input.periodType, snapshot.period.periodStart);
-      if (!created) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Executive report could not be persisted." });
-      return hydrateReport(created);
+      return generateInstitutionExecutiveReport(db, ctx.user, input);
     }),
 
   listExecutiveReports: protectedProcedure

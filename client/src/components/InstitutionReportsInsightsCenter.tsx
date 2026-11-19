@@ -29,7 +29,7 @@ export function InstitutionReportsInsightsCenter({ institutionId, institutionNam
   const historyQuery = trpc.institutionPerformance.listExecutiveReports.useQuery({ ...scopeInput, limit: 12 }, { staleTime: 30_000, retry: 1 });
   const selectedHistoryId = selectedReportId ?? historyQuery.data?.[0]?.id ?? null;
   const detailQuery = trpc.institutionPerformance.getExecutiveReport.useQuery({ institutionId, reportId: selectedHistoryId ?? 0 }, { enabled: selectedHistoryId != null, staleTime: 60_000, retry: 1 });
-  const generate = trpc.institutionPerformance.generateExecutiveReport.useMutation({ onSuccess: report => { setSelectedReportId(report.id); void historyQuery.refetch(); } });
+  const generate = trpc.institutionPerformance.generateExecutiveReport.useMutation({ onSuccess: report => { if ("id" in report) { setSelectedReportId(report.id); } void historyQuery.refetch(); } });
   const report = detailQuery.data;
   const metrics = report?.snapshot.metrics;
   const scopeLabel = report?.scope?.departmentName ?? (scopeType === "department" ? scopesQuery.data?.departments.find(item => item.id === departmentId)?.name : "Whole institution") ?? "Selected scope";

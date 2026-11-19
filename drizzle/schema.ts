@@ -1107,7 +1107,7 @@ export const institutionalPerformanceReports = mysqlTable(
     timezone: varchar("timezone", { length: 64 }).notNull().default("Africa/Nairobi"),
     reportVersion: varchar("reportVersion", { length: 32 }).notNull().default("v1"),
     status: mysqlEnum("status", ["final"]).notNull().default("final"),
-    generatedByUserId: int("generatedByUserId").notNull(),
+    generatedByUserId: int("generatedByUserId"),
     generatedAt: timestamp("generatedAt").defaultNow().notNull(),
     snapshotJson: text("snapshotJson").notNull(),
     sourceSummaryJson: text("sourceSummaryJson").notNull(),
