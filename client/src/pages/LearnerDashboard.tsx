@@ -1375,7 +1375,9 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
         </div>
         <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
           <span className={summary?.payment.paymentLockoutActive ? "font-semibold text-red-700" : ""}>
-            Payment status: {ierpLedger?.status ?? summary?.payment.status ?? enrollment.paymentStatus}
+            {(ierpLedger?.status ?? summary?.payment.status ?? enrollment.paymentStatus) === "not_required"
+              ? "Payment not required — sponsored access"
+              : `Payment status: ${ierpLedger?.status ?? summary?.payment.status ?? enrollment.paymentStatus}`}
           </span>
           {ierpLedger && <span>Paid KES {ierpLedger.totalPaidKsh.toLocaleString()} · Balance KES {ierpLedger.balanceKsh.toLocaleString()}</span>}
           {summary?.payment.deferredStartWindow && summary.payment.paymentDeadline && !summary.payment.cognitiveAccessLocked && (
@@ -1383,7 +1385,7 @@ export function IerpProgramCard({ enrollmentPage = false }: { enrollmentPage?: b
           )}
           {summary?.payment.cognitiveAccessLocked && <span className="font-semibold text-red-700">Cognitive coursework and Phase 2 access are locked until the full KES 15,000 balance is paid.</span>}
         </div>
-        {ierpLedger && ierpLedger.balanceKsh > 0 && (
+        {ierpLedger && ierpLedger.balanceKsh > 0 && enrollment.paymentStatus !== "not_required" && (
           <div id="ierp-payment" tabIndex={-1} className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-3 space-y-2 outline-none focus-visible:ring-2 focus-visible:ring-teal-500">
             <p className="text-xs font-semibold text-slate-950">{summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? "Pay IERP early (optional)" : "Complete IERP payment"}</p>
             <p className="text-xs text-slate-600">{summary?.payment.deferredStartWindow && !summary.payment.cognitiveAccessLocked ? `Not required yet — you are covered until 1 December EAT. Pay now if you would rather clear the KES ${ierpLedger.balanceKsh.toLocaleString()} balance early.` : `From 1 December EAT, IERP requires the remaining balance of KES ${ierpLedger.balanceKsh.toLocaleString()} in one payment. No instalment plan is used for IERP.`}</p>
