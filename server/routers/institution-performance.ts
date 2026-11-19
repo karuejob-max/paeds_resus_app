@@ -21,7 +21,7 @@ import { buildDepartmentSnapshots, type DepartmentSnapshot } from "../lib/instit
 import { buildExecutiveFindings } from "../lib/institution-executive-findings";
 
 const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
-const periodTypes = ["monthly", "quarterly"] as const;
+const periodTypes = ["monthly", "quarterly", "annual"] as const;
 type PeriodType = (typeof periodTypes)[number];
 type ReportScopeInput = { scopeType?: "institution" | "department"; departmentId?: number };
 type ReportScope = { type: "institution" | "department"; departmentId: number | null; departmentName: string | null; key: string };
@@ -146,16 +146,17 @@ export function periodBounds(periodType: PeriodType, requestedStart?: string, no
     }
     year = requested.getUTCFullYear();
     month = requested.getUTCMonth();
-    if (requested.getUTCDate() !== 1 || (periodType === "quarterly" && month % 3 !== 0) || (periodType === "monthly" && requestedStart !== `${year.toString().padStart(4, "0")}-${(month + 1).toString().padStart(2, "0")}-01`)) {
+    const expectedStart = periodType === "annual"
+      ? `${year.toString().padStart(4, "0")}-01-01`
+      : `${year.toString().padStart(4, "0")}-${(periodType === "quarterly" ? Math.floor(month / 3) * 3 + 1 : month + 1).toString().padStart(2, "0")}-01`;
+    if (requested.getUTCDate() !== 1 || requestedStart !== expectedStart) {
       throw new TRPCError({ code: "BAD_REQUEST", message: `${periodType} reports must start on the first day of a calendar period in EAT.` });
     }
-    if (periodType === "monthly" && requested.getUTCDate() !== 1) {
-      throw new TRPCError({ code: "BAD_REQUEST", message: "Monthly reports must start on the first day of the month in EAT." });
-    }
   }
-  const startMonth = periodType === "quarterly" ? Math.floor(month / 3) * 3 : month;
+  const startMonth = periodType === "annual" ? 0 : periodType === "quarterly" ? Math.floor(month / 3) * 3 : month;
+  const durationMonths = periodType === "annual" ? 12 : periodType === "quarterly" ? 3 : 1;
   const start = new Date(Date.UTC(year, startMonth, 1) - EAT_OFFSET_MS);
-  const end = new Date(Date.UTC(year, startMonth + (periodType === "quarterly" ? 3 : 1), 1) - EAT_OFFSET_MS - 1);
+  const end = new Date(Date.UTC(year, startMonth + durationMonths, 1) - EAT_OFFSET_MS - 1);
   return { type: periodType, periodStart: eatDateKey(start), periodEnd: eatDateKey(end), timezone: "Africa/Nairobi", start, end };
 }
 

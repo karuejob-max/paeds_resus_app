@@ -1101,7 +1101,7 @@ export const institutionalPerformanceReports = mysqlTable(
     /** "institution" or "department:<facility department id>"; part of snapshot identity. */
     scopeKey: varchar("scopeKey", { length: 64 }).notNull().default("institution"),
     scopeDepartmentId: int("scopeDepartmentId"),
-    periodType: mysqlEnum("periodType", ["monthly", "quarterly"]).notNull(),
+    periodType: mysqlEnum("periodType", ["monthly", "quarterly", "annual"]).notNull(),
     periodStart: date("periodStart", { mode: "string" }).notNull(),
     periodEnd: date("periodEnd", { mode: "string" }).notNull(),
     timezone: varchar("timezone", { length: 64 }).notNull().default("Africa/Nairobi"),

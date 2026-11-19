@@ -30,13 +30,13 @@ function csvCell(value: string | number | null | undefined): string {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
 
-function nextPeriodStart(periodStart: string, periodType: "monthly" | "quarterly"): string {
+function nextPeriodStart(periodStart: string, periodType: "monthly" | "quarterly" | "annual"): string {
   const date = new Date(`${periodStart}T00:00:00.000Z`);
-  date.setUTCMonth(date.getUTCMonth() + (periodType === "monthly" ? 1 : 3));
+  date.setUTCMonth(date.getUTCMonth() + (periodType === "monthly" ? 1 : periodType === "annual" ? 12 : 3));
   return date.toISOString().slice(0, 10);
 }
 
-function comparableReports(current: { period: { type: "monthly" | "quarterly"; periodStart: string }; reportVersion: string }, previous?: { period: { type: "monthly" | "quarterly"; periodStart: string }; reportVersion: string; metrics: { activeStaff: number; cpdEvents: number; qiOpenReports: number } }) {
+function comparableReports(current: { period: { type: "monthly" | "quarterly" | "annual"; periodStart: string }; reportVersion: string }, previous?: { period: { type: "monthly" | "quarterly" | "annual"; periodStart: string }; reportVersion: string; metrics: { activeStaff: number; cpdEvents: number; qiOpenReports: number } }) {
   return previous && current.period.type === previous.period.type && current.reportVersion === previous.reportVersion && nextPeriodStart(previous.period.periodStart, previous.period.type) === current.period.periodStart ? previous : null;
 }
 
@@ -73,7 +73,7 @@ export function InstitutionPerformanceSnapshot({
       refetchOnWindowFocus: false,
     },
   );
-  const [reportPeriodType, setReportPeriodType] = useState<"monthly" | "quarterly">("quarterly");
+  const [reportPeriodType, setReportPeriodType] = useState<"monthly" | "quarterly" | "annual">("quarterly");
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
   const reportHistoryQuery = trpc.institutionPerformance.listExecutiveReports.useQuery(
     { institutionId, periodType: reportPeriodType, limit: 12 },
@@ -204,7 +204,7 @@ export function InstitutionPerformanceSnapshot({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-indigo-700" />Institution performance snapshot</CardTitle>
-            <CardDescription className="mt-1">A transparent quarterly operating view. These are evidence and activity states, not competence, accreditation, licence, or clinical-outcome claims.</CardDescription>
+            <CardDescription className="mt-1">A transparent operating view across the selected period. These are evidence and activity states, not competence, accreditation, licence, or clinical-outcome claims.</CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
@@ -262,9 +262,10 @@ export function InstitutionPerformanceSnapshot({
                 <CardDescription>Generate a preserved EAT-period snapshot for leadership review. Historical reports do not change when live source rows change.</CardDescription>
               </div>
               <div className="flex flex-wrap gap-2">
-                <select aria-label="Executive report period" value={reportPeriodType} onChange={event => { setReportPeriodType(event.target.value as "monthly" | "quarterly"); setSelectedReportId(null); }} className="h-9 rounded-md border bg-background px-2 text-sm">
+                <select aria-label="Executive report period" value={reportPeriodType} onChange={event => { setReportPeriodType(event.target.value as "monthly" | "quarterly" | "annual"); setSelectedReportId(null); }} className="h-9 rounded-md border bg-background px-2 text-sm">
                   <option value="quarterly">Quarterly</option>
                   <option value="monthly">Monthly</option>
+                  <option value="annual">Annual calendar year</option>
                 </select>
                 <Button size="sm" onClick={() => generateReport.mutate({ institutionId, periodType: reportPeriodType })} disabled={generateReport.isPending}>
                   {generateReport.isPending ? "Generating…" : "Generate report"}
@@ -290,7 +291,7 @@ export function InstitutionPerformanceSnapshot({
                 <div className="mt-3 rounded border bg-background/70 p-2"><p className="font-medium">Source capture times</p>{Object.entries(reportDetailQuery.data.disclosures.sourceFreshness).map(([key, value]) => <p key={key} className="mt-1">{key}: {new Date(value).toLocaleString("en-KE", { timeZone: "Africa/Nairobi" })} EAT</p>)}<p className="mt-2 text-muted-foreground">{reportDetailQuery.data.disclosures.freshnessNote}</p></div>
                 <p className="mt-3 text-muted-foreground">Limitations: {reportDetailQuery.data.limitations.join(" ")}</p>
               </div> : null}
-            </> : <p className="text-xs text-muted-foreground">No preserved executive reports yet. Generate the first monthly or quarterly snapshot to start a governed history; no trend is shown before two comparable reports exist.</p>}
+            </> : <p className="text-xs text-muted-foreground">No preserved executive reports yet. Generate the first monthly, quarterly, or annual snapshot to start a governed history; no trend is shown before two comparable reports exist.</p>}
           </CardContent>
         </Card>
       </CardContent>
