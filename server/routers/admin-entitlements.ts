@@ -5,7 +5,6 @@ import {
   globalEntitlements,
   globalEntitlementRedemptions,
   institutionalAccounts,
-  ierpProgramEnrollments,
   microCourses,
   courses,
   users,
@@ -16,11 +15,10 @@ import {
   GLOBAL_ENTITLEMENT_BENEFIT_TYPES,
   GLOBAL_ENTITLEMENT_PROGRAM_TYPES,
   createAccessCode,
-  consumeGlobalEntitlementInTransaction,
   hashRecipientEmail,
   newEntitlementReference,
 } from "../lib/global-entitlements";
-import { IERP_TOTAL_FEE_KES } from "../lib/ierp-program-state";
+import { applyIerpEntitlementToPendingEnrollmentInTransaction } from "../lib/ierp-sponsored-access";
 
 const programmeLabels = {
   ierp: "IERP — Intern Emergency Readiness Program",
@@ -396,50 +394,23 @@ export const adminEntitlementsRouter = router({
           createdByUserId: ctx.user.id,
         }).$returningId();
 
-        // A named free IERP grant is a sponsorship, not a cash payment. If
-        // the learner already enrolled, reconcile it now so the learner and
-        // scheduler never observe a pending payment state after access is
-        // granted. The row predicate makes this safe to retry and prevents
-        // overwriting paid, discounted, or previously sponsored enrolments.
+        // A named free IERP grant is a sponsorship, not a cash payment. The
+        // helper locks the unique learner enrollment before consuming the
+        // entitlement, so concurrent grants cannot both be applied.
         if (
           input.programType === "ierp" &&
           input.benefitType === "free" &&
           input.targetUserId != null
         ) {
-          const [enrollment] = await tx
-            .select()
-            .from(ierpProgramEnrollments)
-            .where(
-              and(
-                eq(ierpProgramEnrollments.userId, input.targetUserId),
-                eq(ierpProgramEnrollments.programKey, "ierp"),
-                eq(ierpProgramEnrollments.paymentStatus, "pending"),
-                eq(ierpProgramEnrollments.totalPaidAmount, "0.00"),
-              )
-            )
-            .limit(1);
           const entitlementId = Number(inserted[0]?.id ?? 0);
-          if (enrollment && entitlementId) {
-            const applied = await consumeGlobalEntitlementInTransaction(tx, {
+          if (entitlementId) {
+            await applyIerpEntitlementToPendingEnrollmentInTransaction(tx, {
               entitlementId,
               targetUserId: input.targetUserId,
-              programType: "ierp",
-              resourceReference: `ierp-enrollment-${enrollment.id}`,
-              originalAmountKes: IERP_TOTAL_FEE_KES,
               redeemedByUserId: ctx.user.id,
+              requireFree: true,
+              clearPaymentLockoutAt: true,
             });
-            if (applied?.effectiveAmountKes === 0) {
-              await tx
-                .update(ierpProgramEnrollments)
-                .set({
-                  entitlementId,
-                  effectiveFeeKes: 0,
-                  paymentStatus: "not_required",
-                  paymentLockoutAt: null,
-                  updatedAt: new Date(),
-                })
-                .where(eq(ierpProgramEnrollments.id, enrollment.id));
-            }
           }
         }
       });
