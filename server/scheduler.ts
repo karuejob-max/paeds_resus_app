@@ -18,6 +18,7 @@ import { queueRenewalNotifications } from "./lib/institution-renewal-notificatio
 import { runScheduledProfessionalCredentialReminders } from "./professional-credential-reminders";
 import { getIerpPaymentAccess } from "./lib/ierp-program-state";
 import { sendEmail } from "./email-service";
+import { runScheduledInstitutionalPerformanceReports } from "./lib/institution-performance-scheduler";
 
 function useMpesaMock(): boolean {
   const v = process.env.MPESA_USE_MOCK?.trim().toLowerCase();
@@ -110,8 +111,26 @@ export function initializeScheduler() {
 
   // Care Signal: LLM narrative redaction job (runs every 10 minutes)
   scheduleCareSignalRedaction();
+  // Institutional Reports & Insights: preserve only closed whole-institution periods.
+  scheduleInstitutionalPerformanceReports();
 
   console.log("[Scheduler] All scheduled tasks initialized");
+}
+
+function scheduleInstitutionalPerformanceReports() {
+  cron.schedule(
+    "30 6 1 * *",
+    async () => {
+      try {
+        const db = await requireDb();
+        const result = await runScheduledInstitutionalPerformanceReports(db);
+        console.log(`[Scheduler] institutional performance reports: accounts=${result.accounts} attempted=${result.attempted} generated=${result.generated} existing=${result.existing} skippedUnavailable=${result.skippedUnavailable} failed=${result.failed}`);
+      } catch (error) {
+        console.error("[Scheduler] institutional performance reports failed:", error);
+      }
+    },
+    { timezone: "Africa/Nairobi" },
+  );
 }
 
 function scheduleStaleMpesaReconciliation() {
