@@ -29,11 +29,12 @@ import {
   getAhaSummativeBank,
   getAhaSummativeQuizTitle,
 } from "../server/lib/aha-summative-banks";
-import { BLS_MODULES, ACLS_MODULES } from "../server/lib/ensure-bls-acls-catalog";
+import { BLS_MODULES } from "../server/lib/bls-modules-data";
+import { ACLS_MODULES } from "../server/lib/ensure-bls-acls-catalog";
 import { HEARTSAVER_MODULES } from "../server/lib/heartsaver-modules-data";
 import { NRP_MODULES } from "../server/lib/nrp-modules-data";
 import type { AhaAnchorProgramType } from "../server/lib/resolve-aha-course-anchor";
-import { getDb } from "../server/db";
+import { closeDb, getDb } from "../server/db";
 import { modules, quizzes, quizQuestions } from "../drizzle/schema";
 import { resolveAhaCourseAnchor } from "../server/lib/resolve-aha-course-anchor";
 
@@ -541,12 +542,21 @@ async function main() {
   if (strict) {
     if (needsFix.length > 0) {
       console.error(`Strict audit failed: ${needsFix.map((a) => a.program).join(", ")}`);
-      process.exit(1);
+      process.exitCode = 1;
     }
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    try {
+      await closeDb();
+    } catch (err) {
+      console.error("[Database] Failed to close pool after AHA audit:", err);
+      process.exitCode = 1;
+    }
+  });
