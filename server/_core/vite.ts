@@ -116,6 +116,7 @@ export function serveStatic(app: Express) {
     "/resources/hospital-emergency-readiness-checklist",
     "/resources/paediatric-shock-recognition-first-actions",
     "/training",
+    "/verify",
     "/aha-courses",
     "/fellowship",
     "/for-parents",
