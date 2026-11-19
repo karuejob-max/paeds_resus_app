@@ -15,8 +15,9 @@ describe("instructor double-booking guard", () => {
   it("rejects an end date before the start date", async () => {
     await expect(assertNoInstructorDoubleBooking(dbWithCandidates([]), {
       instructorId: 1,
-      scheduledDate: new Date("2026-08-22T09:00:00Z"),
-      endDate: new Date("2026-08-21T23:59:59Z"),
+      // Use local calendar dates: UTC end-of-day can resolve to the next day in EAT.
+      scheduledDate: new Date(2026, 7, 22, 12),
+      endDate: new Date(2026, 7, 21, 12),
       startTime: "09:00",
       endTime: "17:00",
     })).rejects.toMatchObject({ code: "BAD_REQUEST" });
