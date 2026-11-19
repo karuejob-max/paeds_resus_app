@@ -29,7 +29,7 @@
 
 ## 5. Executive reporting is reproducible
 
-- [x] A monthly/quarterly executive report uses existing EAT calendar-period definitions and supports printable/CSV output from the canonical institutional workspace.
+- [x] A monthly/quarterly/annual executive report uses existing EAT calendar-period definitions and supports printable/CSV output from the canonical institutional workspace; annual periods run 1 January–31 December.
 - [x] Generated reports are institution-scoped, access-controlled, versioned, and preserved as historical snapshots rather than silently changing when live source rows change.
 - [x] Reports disclose source availability, report generation time/freshness, denominator limitations, and data-quality exceptions for each reporting period.
 - [x] Report history supports safe trend comparison only between captured reports with the same metric and period semantics; insufficient history is stated explicitly.
@@ -38,7 +38,7 @@
 ## 6. Reports & Insights is the canonical shareable nursing report centre
 
 - [x] Authorised institutional users have one clear Reports & Insights destination from `/institution`; the Home snapshot remains a concise overview rather than the only report location.
-- [x] Users can select monthly or quarterly EAT periods and whole-institution or an authorised canonical department scope.
+- [x] Users can select monthly, quarterly, or annual EAT periods and whole-institution or an authorised canonical department scope.
 - [x] Scope is enforced server-side, department-scoped records with no matching department are excluded, and immutable snapshot identity includes scope.
 - [x] The nursing-team one-pager shows what is going well, needs attention, aggregate key measures with values/denominators/statuses, actions-to-close guidance, data limitations, source availability, print, and CSV output.
 - [x] Names are excluded by default and copy avoids unsupported ranking, competence, accreditation, mortality, lives-saved, causal-outcome, or hospital-score claims.
@@ -46,9 +46,10 @@
 
 ### Reports & Insights release evidence
 
-- Implementation is pending protected GitHub PR/CI merge and production deployment.
+- Annual support merged in PR #1274 at commit `b2c5c65e`; scheduled generation merged in PR #1275 at commit `e1ce1848`; required `CI/gate` passed for both.
 - Migration `0194` was applied successfully in Render Web Shell with `pnpm db:apply-0194`; Render returned `[0194] Institutional performance report scopes are ready.` A Node TLS ServerName deprecation warning was also displayed and did not prevent successful completion.
-- Authorised institution-admin smoke test remains required for whole-institution monthly, department monthly, quarterly, print, CSV, and repeat-generation immutability.
+- Migrations `0195` and `0196` remain to be applied and verified in Render Web Shell.
+- Authorised institution-admin smoke test remains required for whole-institution monthly, department monthly, quarterly, annual, print, CSV, and repeat-generation immutability.
 
 ### Production release evidence
 
