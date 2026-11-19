@@ -1313,6 +1313,67 @@ export const learningRouter = router({
       };
     }),
 
+  /** Persist a UniversalCapstone result without routing it through quiz grading. */
+  recordCapstoneSimulation: protectedProcedure
+    .input(
+      z.object({
+        enrollmentId: z.number().int().positive(),
+        score: z.number().int().min(0).max(100),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const enrollmentRows = await db
+        .select({ id: enrollments.id, programType: enrollments.programType })
+        .from(enrollments)
+        .where(and(eq(enrollments.id, input.enrollmentId), eq(enrollments.userId, ctx.user.id)))
+        .limit(1);
+      const enrollment = enrollmentRows[0];
+      if (!enrollment || !isAhaProgramType(enrollment.programType)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "This capstone is not available for the selected enrolment." });
+      }
+
+      const existingRows = await db
+        .select()
+        .from(userProgress)
+        .where(
+          and(
+            eq(userProgress.userId, ctx.user.id),
+            eq(userProgress.enrollmentId, input.enrollmentId),
+            eq(userProgress.moduleId, -1),
+            eq(userProgress.quizId, -1),
+          )
+        )
+        .limit(1);
+      const existing = existingRows[0];
+      const score = Math.max(Number(existing?.score ?? 0), input.score);
+      const now = new Date();
+      const values = {
+        score,
+        attempts: Number(existing?.attempts ?? 0) + 1,
+        status: "completed" as const,
+        completedAt: now,
+        updatedAt: now,
+      };
+
+      if (existing) {
+        await db.update(userProgress).set(values).where(eq(userProgress.id, existing.id));
+      } else {
+        await db.insert(userProgress).values({
+          userId: ctx.user.id,
+          enrollmentId: input.enrollmentId,
+          moduleId: -1,
+          quizId: -1,
+          createdAt: now,
+          ...values,
+        });
+      }
+
+      return { success: true, score, passed: score >= 50, passingScore: 50 };
+    }),
+
   completeFellowshipSimulation: protectedProcedure
     .input(
       z.object({

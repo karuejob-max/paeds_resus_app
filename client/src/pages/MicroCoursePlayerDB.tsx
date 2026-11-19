@@ -780,6 +780,12 @@ export default function MicroCoursePlayerDB() {
     },
   });
 
+  const recordCapstoneMutation = trpc.learning.recordCapstoneSimulation.useMutation({
+    onError: (err) => {
+      toast.error(err.message || "Could not save the simulation result. Please try again.");
+    },
+  });
+
   const completeFellowshipSimulation = trpc.learning.completeFellowshipSimulation.useMutation({
     onSuccess: () => {
       void utils.learning.getMicroCourseExamState.invalidate();
@@ -1747,10 +1753,9 @@ export default function MicroCoursePlayerDB() {
             programType={programType as any}
             onComplete={(score, passed) => {
               if (passed) {
-                submitQuizMutation.mutate({
+                recordCapstoneMutation.mutate({
                   enrollmentId: enrollment!.id,
-                  quizId: -1,
-                  answers: [],
+                  score,
                 }, {
                   onSuccess: () => {
                     setShowCapstoneSim(false);
