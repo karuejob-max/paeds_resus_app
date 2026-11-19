@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { InstitutionOrientationActionCentre } from "@/components/OrientationActionCentre";
+import { InstitutionPerformanceSnapshot } from "@/components/InstitutionPerformanceSnapshot";
 
 export default function InstitutionHomePanel({
   institutionId,
@@ -137,6 +138,16 @@ export default function InstitutionHomePanel({
         onOpenReadiness={onOpenReadiness}
         onOpenAdministration={onOpenAdministration}
       />
+      {canViewAccountability ? (
+        <InstitutionPerformanceSnapshot
+          institutionId={institutionId}
+          enabled={canViewAccountability}
+          onOpenAccountability={onOpenAccountability}
+          onOpenLearning={onOpenLearning}
+          onOpenReadiness={onOpenReadiness}
+          onOpenAdministration={onOpenAdministration}
+        />
+      ) : null}
       <Card>
         <CardHeader>
           <CardTitle>Institutional attention</CardTitle>

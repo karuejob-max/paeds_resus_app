@@ -54,6 +54,7 @@ export function isUsersSchemaDriftError(error: unknown): boolean {
 export type DbClient = Database;
 
 let _db: Database | null = null;
+let _dbPool: mysql.Pool | null = null;
 
 // mysql2 expects ssl to be an object (e.g. { rejectUnauthorized: true }), not a boolean.
 // Resolve IPv4 + Aiven SSL servername (see scripts/db-connection-config.mjs).
@@ -92,6 +93,7 @@ export async function getDb() {
       const config = await getConnectionConfig(process.env.DATABASE_URL);
       console.log('[Database] Connection config:', { host: config.host, user: config.user, database: config.database });
       const pool = mysql.createPool(config);
+      _dbPool = pool;
       await pool.query('SELECT 1');
       console.log('[Database] Pool created');
       _db = createDrizzle(pool);
@@ -104,6 +106,19 @@ export async function getDb() {
     console.error('[Database] DATABASE_URL not set in environment');
   }
   return _db;
+}
+
+/** Gracefully close the database pool after a standalone script has finished using it. */
+export async function closeDb(): Promise<void> {
+  const pool = _dbPool;
+  if (!pool) return;
+
+  try {
+    await pool.end();
+  } finally {
+    _db = null;
+    _dbPool = null;
+  }
 }
 
 // Export a typed db facade for legacy synchronous imports.

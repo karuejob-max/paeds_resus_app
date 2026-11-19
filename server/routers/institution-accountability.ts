@@ -203,7 +203,7 @@ function latestCredential(
   );
 }
 
-async function getCredentialAccess(
+export async function getCredentialAccess(
   db: AppDb,
   user: any,
   institutionId: number
