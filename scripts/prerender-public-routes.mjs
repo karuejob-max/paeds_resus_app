@@ -20,6 +20,7 @@ const routes = [
   "/training/acls",
   "/training/pals",
   "/training/nrp",
+  "/verify",
   "/aha-courses",
   "/fellowship",
   "/for-parents",
