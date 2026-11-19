@@ -86,7 +86,7 @@ export function InstitutionPerformanceSnapshot({
   );
   const generateReport = trpc.institutionPerformance.generateExecutiveReport.useMutation({
     onSuccess: report => {
-      setSelectedReportId(report.id);
+      if ("id" in report) { setSelectedReportId(report.id); }
       void reportHistoryQuery.refetch();
     },
   });
