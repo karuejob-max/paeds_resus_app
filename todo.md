@@ -682,6 +682,6 @@
 - [x] Remove chargeable debug endpoint and unsafe mutation replay
 - [x] Bind checkout status, preserve retry attempts, verify callbacks
 - [x] Correct phone/config/promo/polling behavior and add regression coverage
-- [ ] Complete full gates and protected PR merge
-- [ ] Verify exact Render release and authenticated production modal
+- [x] Complete full gates and protected PR merge (#1277; f2702d16)
+- [x] Verify exact Render release and authenticated production modal (Asthma Foundational; no charge)
 - [ ] User handset/PIN completion and receipt/enrollment evidence
