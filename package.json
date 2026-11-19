@@ -7,7 +7,7 @@
     "dev": "cross-env NODE_ENV=development tsx watch server/_core/index.ts",
     "predev": "node scripts/generate-llms-txt.mjs",
     "prebuild": "node scripts/generate-public-metadata.mjs && node scripts/generate-llms-txt.mjs && playwright install chromium",
-    "build": "vite build && node scripts/prerender-public-routes.mjs && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "build": "vite build && node scripts/prerender-public-routes.mjs && node --test scripts/prerender-public-routes.test.mjs && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "cross-env NODE_ENV=production node scripts/start-production.mjs",
     "seed:fellowship-content:all": "node scripts/run-fellowship-auto-seed.mjs --force",
     "deploy:seed-fellowship": "node scripts/run-fellowship-auto-seed.mjs",
@@ -299,7 +299,8 @@
     "db:apply-0188": "node scripts/apply-0188-aha-precourse-evidence.mjs",
     "db:verify-0188": "node scripts/verify-0188-aha-precourse-evidence.mjs",
     "db:apply-0189": "node scripts/apply-0189-institution-accountability-performance.mjs",
-    "db:verify-0189": "node scripts/verify-0189-institution-accountability-performance.mjs"
+    "db:verify-0189": "node scripts/verify-0189-institution-accountability-performance.mjs",
+    "db:reconcile-ierp-sponsored-access": "node scripts/reconcile-ierp-sponsored-access.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

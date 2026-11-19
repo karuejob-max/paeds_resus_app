@@ -18,6 +18,7 @@ import {
   hashRecipientEmail,
   newEntitlementReference,
 } from "../lib/global-entitlements";
+import { applyIerpEntitlementToPendingEnrollmentInTransaction } from "../lib/ierp-sponsored-access";
 
 const programmeLabels = {
   ierp: "IERP — Intern Emergency Readiness Program",
@@ -367,29 +368,51 @@ export const adminEntitlementsRouter = router({
       }
       const grantReference = newEntitlementReference();
       const accessCode = input.shareable ? createAccessCode() : null;
-      await db.insert(globalEntitlements).values({
-        grantReference,
-        accessCodeHash: accessCode?.hash ?? null,
-        accessCodePrefix: accessCode?.prefix ?? null,
-        recipientEmailHash: input.shareable && recipientEmailForCode
-          ? hashRecipientEmail(recipientEmailForCode)
-          : null,
-        targetUserId: input.targetUserId ?? null,
-        targetInstitutionalAccountId:
-          input.targetInstitutionalAccountId ?? null,
-        programType: input.programType,
-        selfPayCourseId: input.selfPayCourseId ?? null,
-        benefitType: input.benefitType,
-        discountPercent:
-          input.benefitType === "percentage_discount"
-            ? (input.discountPercent ?? null)
+      await db.transaction(async (tx) => {
+        const inserted = await tx.insert(globalEntitlements).values({
+          grantReference,
+          accessCodeHash: accessCode?.hash ?? null,
+          accessCodePrefix: accessCode?.prefix ?? null,
+          recipientEmailHash: input.shareable && recipientEmailForCode
+            ? hashRecipientEmail(recipientEmailForCode)
             : null,
-        reason: input.reason,
-        maxRedemptions: input.maxRedemptions,
-        redemptionCount: 0,
-        status: "active",
-        expiresAt,
-        createdByUserId: ctx.user.id,
+          targetUserId: input.targetUserId ?? null,
+          targetInstitutionalAccountId:
+            input.targetInstitutionalAccountId ?? null,
+          programType: input.programType,
+          selfPayCourseId: input.selfPayCourseId ?? null,
+          benefitType: input.benefitType,
+          discountPercent:
+            input.benefitType === "percentage_discount"
+              ? (input.discountPercent ?? null)
+              : null,
+          reason: input.reason,
+          maxRedemptions: input.maxRedemptions,
+          redemptionCount: 0,
+          status: "active",
+          expiresAt,
+          createdByUserId: ctx.user.id,
+        }).$returningId();
+
+        // A named free IERP grant is a sponsorship, not a cash payment. The
+        // helper locks the unique learner enrollment before consuming the
+        // entitlement, so concurrent grants cannot both be applied.
+        if (
+          input.programType === "ierp" &&
+          input.benefitType === "free" &&
+          input.targetUserId != null
+        ) {
+          const entitlementId = Number(inserted[0]?.id ?? 0);
+          if (entitlementId) {
+            await applyIerpEntitlementToPendingEnrollmentInTransaction(tx, {
+              entitlementId,
+              targetUserId: input.targetUserId,
+              redeemedByUserId: ctx.user.id,
+              requireFree: true,
+              clearPaymentLockoutAt: true,
+            });
+          }
+        }
       });
       return {
         success: true as const,
