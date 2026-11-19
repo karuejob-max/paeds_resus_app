@@ -2,7 +2,7 @@
 
 **Project:** Paeds Resus  
 **Scope:** Institutional performance snapshot, governed executive reporting, and the Reports & Insights nursing one-pager
-**Last verified:** 2026-11-16 (EAT)  
+**Last verified:** 2026-11-20 (EAT)  
 **Canonical product route:** `/institution`
 
 ## Mission and operating boundary
@@ -31,6 +31,9 @@ Phase 1–3 is implemented and deployed:
 - Shareable nursing-team one-page report with whole-institution or visible canonical-department scope.
 - Scope is persisted in the immutable snapshot identity; department users cannot request institution-wide or another department's report.
 - One-pager includes what is going well, needs attention, aggregate key measures with denominators, actions-to-close guidance, print, CSV, source availability, and limitations.
+- Annual preserved reports cover 1 January–31 December EAT; annual roster and credential measures are explicitly point-in-time evidence at capture.
+- Previous closed monthly, quarterly, and annual whole-institution reports are scheduled on the first day of each month at 06:30 EAT.
+- Scheduled generation is idempotent, records `generatedByUserId = NULL` for automation, and skips persistence when a required source is unavailable.
 
 ## Production evidence
 
@@ -65,6 +68,15 @@ Render output:
 
 The TLS message is a Node deprecation warning from the database connection path; the migration exited successfully and returned the expected readiness marker.
 
+- Annual report support merged in PR #1274 at `b2c5c65e`; required `CI/gate` passed.
+- Scheduled generation and automated-actor handling merged in PR #1275 at `e1ce1848`; required `CI/gate` passed.
+- Migrations `0195` and `0196` are additive and idempotent but still require production Web Shell execution after the merged deployment:
+
+```bash
+pnpm db:apply-0195
+pnpm db:apply-0196
+```
+
 - The production `/institution` workspace loaded for the authenticated QA account and preserved institution-scoped access.
 - That QA account did not have `canViewAccountability`, so the executive-report panel was correctly hidden. Do not record this as a report-generation UI smoke-test pass.
 
@@ -81,7 +93,7 @@ The TLS message is a Node deprecation warning from the database connection path;
    - Attention queue.
    - Data-quality and source-state badges.
 4. Open **Reports & Insights** in the workspace navigation. This is the canonical cross-domain destination; the older Home snapshot remains a concise overview/link and is not the only report location. The centre contains:
-   - Monthly/quarterly EAT period selector.
+   - Monthly/quarterly/annual EAT period selector.
    - Whole-institution or authorised canonical-department scope selector.
    - Nursing team one-page report.
    - What is going well and needs attention.
@@ -90,7 +102,7 @@ The TLS message is a Node deprecation warning from the database connection path;
    - **Print** and **CSV** output.
    - Preserved report history with explicit insufficient/no-comparable-history messaging.
 5. Still on **Home**, scroll to **Executive reporting**. This existing panel contains:
-   - Monthly/quarterly selector.
+   - Monthly/quarterly/annual selector.
    - **Generate report**.
    - Preserved report history.
    - Safe trend text.
@@ -150,7 +162,7 @@ Complete one smoke test with an institution administrator or accountability-auth
 7. Confirm source freshness and limitations are visible.
 8. Generate the same period twice and confirm the immutable snapshot is returned.
 
-Migration 0194 is now confirmed applied in Render. The browser-level report-centre smoke test remains open until the authorised user confirms the rendered Reports & Insights destination and outputs.
+Migration 0194 is confirmed applied in Render. Migrations 0195 and 0196 remain open until executed and verified in Render. The browser-level report-centre smoke test remains open until an authorised user confirms the rendered Reports & Insights destination and outputs, including annual generation and print/CSV behavior.
 
 ### Next engineering priorities
 
@@ -186,5 +198,8 @@ Do not prioritise predictive hospital scoring, hospital rankings, competence sco
 - `drizzle/schema.ts` — `institutionalPerformanceReports` schema.
 - `scripts/apply-0193-institution-performance-reports.mjs` — idempotent production migration.
 - `scripts/apply-0194-institution-performance-report-scopes.mjs` — idempotent scope-key migration; run after deployment.
+- `scripts/apply-0195-institution-performance-annual-period.mjs` — idempotent annual-period enum migration.
+- `scripts/apply-0196-institution-performance-automated-actor.mjs` — idempotent nullable automated-actor migration.
+- `server/lib/institution-performance-scheduler.ts` — closed-period calculation and scheduled whole-institution generation.
 - `server/routers/institution-performance-phase3.test.ts` — focused EAT/protected-procedure tests.
 - `TODO.md` — completion checklist and production evidence.

@@ -11,3 +11,11 @@ Added a pure server-side department aggregation helper for institution-scope sna
 ## 2026-11-17 — PR 3: deterministic executive findings
 
 Added a pure `buildExecutiveFindings` engine over stored snapshot-v2 department numbers. It emits traceable headline, needs-support, doing-well, decision, and safe-comparison findings with rule IDs and numerator/denominator metadata. Small groups are excluded from strongest-department calls; ties are preserved; no composite rank or score is generated. The report detail response exposes server-owned findings and the institution report renders the executive blocks with rule IDs. Added 15 focused tests covering empty, tiny, zero-staff, unavailable metrics, ties, and missing history. Merged in PR #1265 at `ad63d924` after CI/gate passed.
+
+## 2026-11-20 — PR 4: annual preserved periods
+
+Added annual calendar-year report support across the server period contract, Drizzle enum, Reports & Insights, and the Home executive selector. Annual snapshots use 1 January–31 December EAT bounds, preserve existing immutability and scope identity, and disclose roster/credential point-in-time semantics. Added idempotent migration `0195`. Merged in PR #1274 at `b2c5c65e` after CI/gate passed; focused report boundary tests and TypeScript passed.
+
+## 2026-11-20 — PR 5: scheduled closed-period generation
+
+Added application-native scheduled generation for previous closed monthly, quarterly, and annual whole-institution periods at 06:30 EAT on the first day of each month. Generation reuses the immutable unique key, skips without inserting when required sources are unavailable, and stores automated reports with `generatedByUserId = NULL` rather than attributing them to a human. Added idempotent migration `0196`, deterministic rollover tests, and scheduler registration. Merged in PR #1275 at `e1ce1848` after CI/gate passed. Production migrations and authorised UI smoke testing remain open.
