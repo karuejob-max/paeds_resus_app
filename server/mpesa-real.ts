@@ -11,6 +11,7 @@ import { isMpesaProduction } from "./lib/mpesa-env";
 import { resolveStkCallbackUrlFromEnv } from "./lib/mpesa-callback-path";
 import { getDarajaTimestampNairobi } from "./lib/daraja-timestamp";
 import { normalizeDarajaAccountReference } from "./lib/daraja-account-reference";
+import { normalizeKenyanPhoneNumber } from "../shared/kenyan-phone";
 
 const MPESA_API_URL = "https://api.safaricom.co.ke";
 const MPESA_SANDBOX_URL = "https://sandbox.safaricom.co.ke";
@@ -109,18 +110,15 @@ export async function getMpesaAccessToken(): Promise<string> {
 export async function initiateStkPush(request: MpesaPaymentRequest): Promise<MpesaPaymentResponse> {
   try {
     // Validate phone number
-    let formattedPhone = request.phoneNumber;
-    if (formattedPhone.startsWith("0")) {
-      formattedPhone = "254" + formattedPhone.substring(1);
-    } else if (!formattedPhone.startsWith("254")) {
-      formattedPhone = "254" + formattedPhone;
-    }
-
-    if (!/^254\d{9}$/.test(formattedPhone)) {
+    const formattedPhone = normalizeKenyanPhoneNumber(request.phoneNumber);
+    if (!formattedPhone) {
       return {
         success: false,
-        error: "Invalid phone number format. Use format: 254712345678",
+        error: "Invalid Kenyan mobile number. Use 07XXXXXXXX, 01XXXXXXXX or +254XXXXXXXXX.",
       };
+    }
+    if (!Number.isSafeInteger(request.amount) || request.amount <= 0) {
+      return { success: false, error: "M-Pesa amount must be a positive whole number of KES" };
     }
 
     const shortCode =
@@ -151,13 +149,13 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
       Password: password,
       Timestamp: timestamp,
       TransactionType: "CustomerPayBillOnline",
-      Amount: Math.round(request.amount), // M-Pesa requires whole numbers
+      Amount: request.amount,
       PartyA: formattedPhone,
       PartyB: shortCode,
       PhoneNumber: formattedPhone,
       CallBackURL: callbackUrl,
       AccountReference: normalizeDarajaAccountReference(request.accountReference),
-      TransactionDesc: request.transactionDesc,
+      TransactionDesc: request.transactionDesc.replace(/[^a-zA-Z0-9 ]/g, "").trim().slice(0, 13) || "Paeds Resus",
     };
 
     // Make STK Push request
@@ -173,7 +171,8 @@ export async function initiateStkPush(request: MpesaPaymentRequest): Promise<Mpe
       }
     );
 
-    if (response.data.ResponseCode === "0") {
+    if (String(response.data.ResponseCode) === "0" && response.data.CheckoutRequestID) {
+      console.info("[M-Pesa STK] accepted", JSON.stringify({ checkoutRequestId: response.data.CheckoutRequestID, orderId: request.orderId, amountKes: request.amount, phoneLast4: formattedPhone.slice(-4) }));
       return {
         success: true,
         checkoutRequestID: response.data.CheckoutRequestID,
@@ -239,7 +238,7 @@ export async function queryStk(checkoutRequestID: string): Promise<PaymentStatus
 
     if (!shortCode || !passKey) {
       return {
-        resultCode: "1",
+        resultCode: "CONFIG_ERROR",
         resultDesc: "M-Pesa configuration incomplete",
       };
     }
@@ -291,20 +290,20 @@ export async function queryStk(checkoutRequestID: string): Promise<PaymentStatus
     } else if (resultCode === "1032") {
       return {
         resultCode: "1032",
-        resultDesc: "Request timeout. Please try again",
-        checkoutRequestID,
+        resultDesc: response.data.ResultDesc || "Request cancelled by user",
+        checkoutRequestID: response.data.CheckoutRequestID || checkoutRequestID,
       };
     } else if (resultCode === "1") {
       return {
         resultCode: "1",
-        resultDesc: "The transaction was cancelled by the user",
-        checkoutRequestID,
+        resultDesc: response.data.ResultDesc || "Insufficient balance",
+        checkoutRequestID: response.data.CheckoutRequestID || checkoutRequestID,
       };
     } else {
       return {
         resultCode,
         resultDesc: response.data.ResultDesc || "Query failed",
-        checkoutRequestID,
+        checkoutRequestID: response.data.CheckoutRequestID || checkoutRequestID,
       };
     }
   } catch (error: any) {
@@ -369,12 +368,5 @@ export async function handleMpesaCallback(body: any): Promise<{ ResultCode: numb
  * Validate M-Pesa phone number
  */
 export function validatePhoneNumber(phoneNumber: string): boolean {
-  let formatted = phoneNumber;
-  if (formatted.startsWith("0")) {
-    formatted = "254" + formatted.substring(1);
-  } else if (!formatted.startsWith("254")) {
-    formatted = "254" + formatted;
-  }
-
-  return /^254\d{9}$/.test(formatted);
+  return normalizeKenyanPhoneNumber(phoneNumber) !== null;
 }

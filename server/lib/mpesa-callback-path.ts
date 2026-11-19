@@ -19,14 +19,14 @@ export function defaultStkCallbackUrl(appBase: string): string {
  * Safaricom expects a full URL including the callback path. We append `/api/payment/callback` in that case.
  */
 export function resolveStkCallbackUrlFromEnv(appBaseFallback: string): string {
-  const raw = process.env.MPESA_CALLBACK_URL?.trim();
-  const base = appBaseFallback.replace(/\/$/, "");
-  if (!raw) {
-    return defaultStkCallbackUrl(base);
+  const raw = process.env.MPESA_CALLBACK_URL?.trim() || process.env.CALLBACK_URL?.trim() ||
+    process.env.APP_BASE_URL?.trim() || appBaseFallback;
+  const url = new URL(raw);
+  if (url.protocol !== "https:" || url.username || url.password ||
+      /(^|\.)example\.com$|^localhost$|^127\./i.test(url.hostname)) {
+    throw new Error("M-Pesa callback must be a public HTTPS URL without credentials");
   }
-  const u = raw.replace(/\/$/, "");
-  if (/\/api\/(payment|mpesa)\/callback$/i.test(u)) {
-    return u;
-  }
-  return `${u}${STK_CALLBACK_PATH}`;
+  if (url.pathname === "/" || !url.pathname) url.pathname = STK_CALLBACK_PATH;
+  url.hash = "";
+  return url.toString().replace(/\/$/, "");
 }

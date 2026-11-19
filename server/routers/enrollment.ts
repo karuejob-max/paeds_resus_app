@@ -33,6 +33,11 @@ import {
   ensureIntubationSampleCourseCatalog,
   getIntubationSampleCourseId,
 } from "../lib/ensure-intubation-sample-course-catalog";
+import { checkOwnedMicroCourseStk } from "../lib/micro-course-stk-status";
+import { canStartNewStkAttempt } from "../lib/stk-payment-policy";
+import { withStkCourseLock } from "../lib/stk-course-lock";
+import { getMpesaConfigReadiness } from "../lib/mpesa-config";
+import { normalizeKenyanPhoneNumber } from "../../shared/kenyan-phone";
 // NEW: Enrollment system imports
 // @ts-ignore - dynamic imports
 import type { getCourseDetails, isUserEnrolled, createEnrollment as createEnrollmentDb } from "../db-enrollment";
@@ -458,9 +463,11 @@ export const enrollmentRouter = router({
         phoneNumber: z.string().optional(), // Required for M-Pesa
         promoCode: z.string().optional(),
         paymentPath: z.enum(["stk_push", "manual_lipa"]).optional(),
+        retryStk: z.boolean().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const result = await withStkCourseLock(`${ctx.user.id}:${input.courseId}`, async () => {
       assertTrainingWorkspaceOrAdmin(ctx.user);
       try {
         const { ensureMicroCoursesCatalog } = await import("../lib/micro-course-catalog");
@@ -567,27 +574,70 @@ export const enrollmentRouter = router({
           };
         }
 
+        const isManualLipaPath = input.paymentPath === "manual_lipa";
+        const normalizedPhone = input.phoneNumber ? normalizeKenyanPhoneNumber(input.phoneNumber) : null;
+        if (input.phoneNumber && !normalizedPhone) return { success: false, error: "Enter a valid Kenyan M-Pesa mobile number." };
+        const readiness = getMpesaConfigReadiness();
+
+        async function startStk(enrollmentId: number, amountCents: number, previousPaymentUnconfirmed = false) {
+          const learningEnrollmentId = await ensureIntubationLearningEnrollment("pending", amountCents);
+          if (!normalizedPhone) return { success: false, error: "Phone number required for M-Pesa payment" };
+          if (!readiness.stkPushOffered) return { success: false, error: "M-Pesa checkout is unavailable on this server. Contact support or use manual payment." };
+          const { initiateStkPush } = await import("../mpesa");
+          const { buildStkAccountReference } = await import("../lib/daraja-account-reference");
+          // Persist reservation before the external request. An uncertain transport
+          // outcome must not create repeated prompts when the modal is reopened.
+          await setEnrollmentCheckoutRequestId(enrollmentId, "STK_IN_FLIGHT");
+          const mpesaResult = await initiateStkPush({ phoneNumber: normalizedPhone,
+            amount: Math.ceil(amountCents / 100),
+            accountReference: buildStkAccountReference({ enrollmentId, learnerName: ctx.user.name, userId }),
+            transactionDesc: course!.title, orderId: `ENROLL-${enrollmentId}` });
+          if (!mpesaResult.success || !mpesaResult.checkoutRequestID) {
+            return { success: true, enrollmentId, paymentMethod: "m-pesa", amountPaid: amountCents,
+              learningEnrollmentId, previousPaymentUnconfirmed: true,
+              message: mpesaResult.error || "Payment request outcome is not confirmed. Check your M-Pesa SMS before retrying." };
+          }
+          try { await setEnrollmentCheckoutRequestId(enrollmentId, mpesaResult.checkoutRequestID); }
+          catch (error) {
+            console.error("[M-Pesa STK] accepted but checkout persistence failed", JSON.stringify({ enrollmentId, checkoutRequestId: mpesaResult.checkoutRequestID }));
+            throw error;
+          }
+          void trackPaymentInitiation(userId, Math.ceil(amountCents / 100), "m-pesa", `stk_${mpesaResult.checkoutRequestID}`)
+            .catch(err => console.error("[Analytics] trackPaymentInitiation:", err));
+          return { success: true, enrollmentId, paymentMethod: "m-pesa", amountPaid: amountCents,
+            learningEnrollmentId, checkoutRequestId: mpesaResult.checkoutRequestID, previousPaymentUnconfirmed,
+            message: "Safaricom accepted the payment request. Delivery to your phone is not yet confirmed." };
+        }
+
         const pendingMpesaEnrollment = await getPendingMpesaEnrollment(userId, course.id);
+        if (pendingMpesaEnrollment) {
+          const amountCents = pendingMpesaEnrollment.amountPaid ?? course.price;
+          const checkout = pendingMpesaEnrollment.transactionId;
+          const providerCheckout = Boolean(checkout && checkout.startsWith("ws_"));
+          const status = providerCheckout ? await checkOwnedMicroCourseStk({ enrollmentId: pendingMpesaEnrollment.id, userId, checkoutRequestId: checkout! }) : null;
+          if (status?.status === "completed") {
+            const learningEnrollmentId = await ensureIntubationLearningEnrollment("completed", amountCents);
+            return { success: true, paymentCompleted: true, enrollmentId: pendingMpesaEnrollment.id,
+              paymentMethod: "m-pesa", amountPaid: amountCents, checkoutRequestId: checkout, learningEnrollmentId,
+              message: "Payment confirmed. Your course is active." };
+          }
+          const canRetry = status?.resultCode !== "2031" && canStartNewStkAttempt({ outcome: status?.status ?? "pending",
+            explicitRetry: input.retryStk === true, updatedAt: pendingMpesaEnrollment.createdAt });
+          if (isManualLipaPath || !canRetry) {
+            const learningEnrollmentId = await ensureIntubationLearningEnrollment("pending", amountCents);
+            return { success: true, enrollmentId: pendingMpesaEnrollment.id, paymentMethod: "m-pesa", amountPaid: amountCents,
+              checkoutRequestId: providerCheckout ? checkout : undefined, learningEnrollmentId,
+              previousPaymentUnconfirmed: true, message: status?.errorMessage || "Previous payment is not confirmed. No new prompt was sent. Check your M-Pesa SMS before an explicit retry." };
+          }
+          if (!normalizedPhone) return { success: false, error: "Phone number required for M-Pesa retry" };
+          // Never overwrite the previous checkout: late callbacks remain resolvable.
+          const nextAttempt = await createEnrollmentDb({ userId, microCourseId: course.id, paymentMethod: "m-pesa",
+            amountPaid: amountCents, promoCodeId: pendingMpesaEnrollment.promoCodeId ?? undefined,
+            entitlementId: pendingMpesaEnrollment.entitlementId ?? undefined });
+          return await startStk(nextAttempt.insertId, amountCents, status?.status === "pending" || !status);
+        }
         const namedEntitlement = await findActiveGlobalEntitlement(db, { programType: "self_pay", userId, selfPayCourseId: input.courseId });
         const namedEntitlementPrice = namedEntitlement ? calculateEntitlementPrice(Math.ceil(course.price / 100), namedEntitlement.benefitType, namedEntitlement.discountPercent) : null;
-        const isManualLipaPath = input.paymentPath === "manual_lipa";
-        if (
-          pendingMpesaEnrollment &&
-          (isManualLipaPath || Boolean(pendingMpesaEnrollment.transactionId))
-        ) {
-          const learningEnrollmentId = await ensureIntubationLearningEnrollment("pending", course.price);
-          return {
-            success: true,
-            enrollmentId: pendingMpesaEnrollment.id,
-            message: isManualLipaPath
-              ? "Pending enrollment found - submit your M-Pesa reference after paying via Paybill"
-              : "Pending M-Pesa payment found - continue with your phone prompt",
-            paymentMethod: "m-pesa",
-            checkoutRequestId: pendingMpesaEnrollment.transactionId,
-            amountPaid: pendingMpesaEnrollment.amountPaid ?? course.price,
-            learningEnrollmentId,
-          };
-        }
 
         if (namedEntitlement && namedEntitlementPrice) {
           if (namedEntitlementPrice.effectiveAmountKes === 0) {
@@ -620,14 +670,8 @@ export const enrollmentRouter = router({
           if (!applied) return { success: false, error: "This named entitlement is no longer available. Refresh and try again." };
           const learningEnrollmentId = await ensureIntubationLearningEnrollment("pending", discountedAmountCents);
           if (isManualLipaPath) return { success: true, enrollmentId: enrollment.insertId, message: "Discounted access reserved. Complete Paybill payment, then submit your M-Pesa reference for verification.", paymentMethod: "m-pesa", amountPaid: discountedAmountCents, learningEnrollmentId };
-          const { getMpesaAccessToken, initiateStkPush } = await import("../mpesa");
-          const { buildStkAccountReference } = await import("../lib/daraja-account-reference");
-          await getMpesaAccessToken();
-          const accountReference = buildStkAccountReference({ enrollmentId: enrollment.insertId, learnerName: ctx.user.name, userId: ctx.user.id });
-          const mpesaResult = await initiateStkPush({ phoneNumber: input.phoneNumber, amount: namedEntitlementPrice.effectiveAmountKes, accountReference, transactionDesc: `${course.title} - sponsored discount`, orderId: `ENROLL-${enrollment.insertId}` });
-          if (!mpesaResult.success) return { success: false, error: mpesaResult.error || "Failed to initiate discounted M-Pesa payment" };
-          if (mpesaResult.checkoutRequestID) await setEnrollmentCheckoutRequestId(enrollment.insertId, mpesaResult.checkoutRequestID);
-          return { success: true, enrollmentId: enrollment.insertId, message: "Discounted M-Pesa STK Push initiated — check your phone", paymentMethod: "m-pesa", checkoutRequestId: mpesaResult.checkoutRequestID, amountPaid: discountedAmountCents, learningEnrollmentId };
+          return await startStk(enrollment.insertId, discountedAmountCents);
+
         }
 
         const isAdmin = await isUserAdmin(userId);
@@ -675,40 +719,19 @@ export const enrollmentRouter = router({
             };
           }
 
-          const finalPrice = calculateFinalPrice(course.price, promoDiscount);
-          const learningEnrollmentId = await ensureIntubationLearningEnrollment("completed", finalPrice);
-
-          const enrollment = await createEnrollmentDb({
-            userId,
-            microCourseId: course.id,
-            paymentMethod: "promo-code",
-            promoCodeId,
-            amountPaid: finalPrice,
-          });
-
+          const finalPrice = Math.ceil(calculateFinalPrice(course.price, promoDiscount) / 100) * 100;
+          if (finalPrice > 0 && !normalizedPhone && !isManualLipaPath) return { success: false, error: "Phone number required for the discounted M-Pesa payment" };
+          const learningEnrollmentId = await ensureIntubationLearningEnrollment(finalPrice === 0 ? "completed" : "pending", finalPrice);
+          const enrollment = await createEnrollmentDb({ userId, microCourseId: course.id,
+            paymentMethod: finalPrice === 0 ? "promo-code" : "m-pesa", promoCodeId,
+            amountPaid: finalPrice, paymentStatus: finalPrice === 0 ? "free" : "pending" });
           await incrementPromoCodeUsage(promoCodeId);
-
-          await trackMicroCourseEnrollWithPayment({
-            userId,
-            courseIdSlug: input.courseId,
-            microCourseId: course.id,
-            enrollmentId: enrollment.insertId,
-            paymentMethod: "promo-code",
-            amountPaid: finalPrice,
-            promoCodeId,
-          });
-
-          return {
-            success: true,
-            enrollmentId: enrollment.insertId,
-            message:
-              finalPrice === 0
-                ? "Enrollment successful - Free course via promo code"
-                : `Enrollment successful - ${promoValidation.discountPercent}% discount applied`,
-            paymentMethod: "promo-code",
-            amountPaid: finalPrice,
-            learningEnrollmentId,
-          };
+          await trackMicroCourseEnrollWithPayment({ userId, courseIdSlug: input.courseId, microCourseId: course.id,
+            enrollmentId: enrollment.insertId, paymentMethod: finalPrice === 0 ? "promo-code" : "m-pesa", amountPaid: finalPrice, promoCodeId });
+          if (finalPrice === 0 || isManualLipaPath) return { success: true, enrollmentId: enrollment.insertId,
+            message: finalPrice === 0 ? "Enrollment successful - Free course via promo code" : "Discount applied. Complete manual M-Pesa payment for verification.",
+            paymentMethod: finalPrice === 0 ? "promo-code" : "m-pesa", amountPaid: finalPrice, learningEnrollmentId };
+          return await startStk(enrollment.insertId, finalPrice);
         }
 
         if (!input.phoneNumber) {
@@ -747,54 +770,7 @@ export const enrollmentRouter = router({
           };
         }
 
-        const { getMpesaAccessToken, initiateStkPush } = await import("../mpesa");
-        const { buildStkAccountReference } = await import("../lib/daraja-account-reference");
-
-        const tokenWarm = getMpesaAccessToken();
-        const accountReference = buildStkAccountReference({
-          enrollmentId: enrollment.insertId,
-          learnerName: ctx.user.name,
-          userId: ctx.user.id,
-        });
-        await tokenWarm;
-
-        const mpesaResult = await initiateStkPush({
-          phoneNumber: input.phoneNumber,
-          amount: Math.ceil(course.price / 100),
-          accountReference,
-          transactionDesc: `${course.title} - Paeds Resus Fellowship`,
-          orderId: `ENROLL-${enrollment.insertId}`,
-        });
-
-        if (!mpesaResult.success) {
-          return {
-            success: false,
-            error: mpesaResult.error || "Failed to initiate M-Pesa payment",
-          };
-        }
-
-        if (mpesaResult.checkoutRequestID) {
-          await setEnrollmentCheckoutRequestId(enrollment.insertId, mpesaResult.checkoutRequestID);
-        }
-
-        const kesAmount = Math.ceil(course.price / 100);
-        const checkoutId = mpesaResult.checkoutRequestID || "";
-        void trackPaymentInitiation(
-          userId,
-          kesAmount,
-          "m-pesa",
-          checkoutId ? `stk_${checkoutId}` : `micro_enroll_${enrollment.insertId}`
-        ).catch((err) => console.error("[Analytics] trackPaymentInitiation:", err));
-
-        return {
-          success: true,
-          enrollmentId: enrollment.insertId,
-          message: "M-Pesa STK Push initiated - Check your phone",
-          paymentMethod: "m-pesa",
-          checkoutRequestId: mpesaResult.checkoutRequestID,
-          amountPaid: course.price,
-          learningEnrollmentId,
-        };
+        return await startStk(enrollment.insertId, Math.ceil(course.price / 100) * 100);
       } catch (error) {
         console.error("[Enrollment] Error in enrollWithPayment:", error);
         return {
@@ -803,6 +779,8 @@ export const enrollmentRouter = router({
             error instanceof Error ? error.message : "Enrollment failed",
         };
       }
+      });
+      return { previousPaymentUnconfirmed: false, paymentCompleted: false, ...result };
     }),
 
   submitManualMpesaReference: protectedProcedure

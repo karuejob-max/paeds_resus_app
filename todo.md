@@ -676,3 +676,12 @@
 - [x] Fix sbar-generator-extended.ts (missing closing braces in contexts object)
 - [x] Reduce TS errors from 497 (GitHub baseline) to 178 (pre-existing implicit-any)
 - [x] Push all fixes to GitHub (karuejob-max/paeds_resus_app)
+
+## Fellowship STK reliability — 2026-11-20
+- [x] Synchronize current GitHub source, preserve restored snapshot
+- [x] Remove chargeable debug endpoint and unsafe mutation replay
+- [x] Bind checkout status, preserve retry attempts, verify callbacks
+- [x] Correct phone/config/promo/polling behavior and add regression coverage
+- [ ] Complete full gates and protected PR merge
+- [ ] Verify exact Render release and authenticated production modal
+- [ ] User handset/PIN completion and receipt/enrollment evidence

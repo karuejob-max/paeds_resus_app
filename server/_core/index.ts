@@ -109,11 +109,9 @@ async function startServer() {
       return handleMpesaQueryWebhook(req as any, res);
     }
     if (body?.stkCallback) {
-      const code = body.stkCallback?.ResultCode;
-      if (code === 0) {
-        return handleMpesaWebhook(req as any, res);
-      }
-      return handleMpesaTimeoutWebhook(req as any, res);
+      // All STK outcomes share checkout lookup, verification, and idempotency.
+      // ResultCode may be a string; nonzero codes still arrive in stkCallback.
+      return handleMpesaWebhook(req as any, res);
     }
     return res.status(400).json({ error: "Invalid webhook payload" });
   };

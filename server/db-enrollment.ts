@@ -77,10 +77,10 @@ export function calculateFinalPrice(
   originalPrice: number,
   discountPercent: number
 ): number {
-  if (discountPercent === 0) return 0; // Free course
+  if (discountPercent <= 0) return originalPrice;
   if (discountPercent >= 100) return 0; // 100% discount = free
   const discount = (originalPrice * discountPercent) / 100;
-  return Math.max(0, originalPrice - discount);
+  return Math.max(0, Math.ceil(originalPrice - discount));
 }
 
 /**
@@ -140,23 +140,19 @@ export async function isUserEnrolled(
     return enrollment.length > 0;
   } catch (error) {
     console.error("[DB] Error checking enrollment:", error);
-    return false;
+    throw error;
   }
 }
 
 /**
- * Reuse latest pending M-Pesa enrollment for retry flows.
- * Only returns records updated within the last 5 minutes — stale pending
- * enrollments have expired Safaricom CheckoutRequestIDs (Safaricom rejects
- * queries on IDs older than ~2 minutes with HTTP 500). Ignoring stale records
- * forces a fresh STK Push to be created instead.
+ * Keep the latest pending attempt visible to the retry policy. Age alone is
+ * not proof of non-payment; query the stored checkout before resending.
  */
 export async function getPendingMpesaEnrollment(
   userId: number,
   microCourseId: number
 ) {
   try {
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const enrollment = await db
       .select()
       .from(microCourseEnrollments)
@@ -165,8 +161,7 @@ export async function getPendingMpesaEnrollment(
           eq(microCourseEnrollments.userId, userId),
           eq(microCourseEnrollments.microCourseId, microCourseId),
           eq(microCourseEnrollments.paymentMethod, "m-pesa"),
-          eq(microCourseEnrollments.paymentStatus, "pending"),
-          sql`${microCourseEnrollments.updatedAt} >= ${fiveMinutesAgo}`
+          eq(microCourseEnrollments.paymentStatus, "pending")
         )
       )
       .orderBy(desc(microCourseEnrollments.id))
@@ -175,7 +170,7 @@ export async function getPendingMpesaEnrollment(
     return enrollment[0] ?? null;
   } catch (error) {
     console.error("[DB] Error getting pending M-Pesa enrollment:", error);
-    return null;
+    throw error;
   }
 }
 
@@ -197,6 +192,7 @@ export async function setEnrollmentCheckoutRequestId(
       .where(eq(microCourseEnrollments.id, enrollmentId));
   } catch (error) {
     console.error("[DB] Error setting enrollment checkout request ID:", error);
+    throw error;
   }
 }
 
