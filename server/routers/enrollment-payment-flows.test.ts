@@ -6,7 +6,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { appRouter } from "../routers";
+import { enrollmentRouter } from "./enrollment";
+const appRouter = { createCaller: (ctx: TrpcContext) => ({ enrollment: enrollmentRouter.createCaller(ctx) }) };
 import type { TrpcContext } from "../_core/context";
 import type { User } from "../../drizzle/schema";
 
@@ -19,6 +20,16 @@ vi.mock("../lib/micro-course-catalog", async (importOriginal) => {
   };
 });
 
+vi.mock("../db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../db")>();
+  return { ...actual, getDb: vi.fn().mockResolvedValue({}) };
+});
+vi.mock("../lib/global-entitlements", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/global-entitlements")>();
+  return { ...actual, findActiveGlobalEntitlement: vi.fn().mockResolvedValue(null) };
+});
+vi.mock("../lib/mpesa-config", () => ({ getMpesaConfigReadiness: vi.fn().mockReturnValue({ stkPushOffered: true }) }));
+vi.mock("../lib/micro-course-stk-status", () => ({ checkOwnedMicroCourseStk: vi.fn() }));
 // Mock db-enrollment functions
 vi.mock("../db-enrollment", () => ({
   validatePromoCode: vi.fn(),
@@ -75,7 +86,12 @@ describe("enrollment payment flows", () => {
 
   beforeEach(async () => {
     ctx = createAuthContext();
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    const db = await import("../db"); vi.mocked(db.getDb).mockResolvedValue({} as any);
+    const entitlements = await import("../lib/global-entitlements"); vi.mocked(entitlements.findActiveGlobalEntitlement).mockResolvedValue(null);
+    const config = await import("../lib/mpesa-config"); vi.mocked(config.getMpesaConfigReadiness).mockReturnValue({stkPushOffered:true} as any);
+    const mpesa = await import("../mpesa"); vi.mocked(mpesa.initiateStkPush).mockResolvedValue({success:true,checkoutRequestID:"ws_CO_test_checkout"});
+    const analytics = await import("../services/analytics.service"); vi.mocked(analytics.trackPaymentInitiation).mockResolvedValue(undefined);
     const dbEnrollment = await import("../db-enrollment");
     vi.mocked(dbEnrollment.getPendingMpesaEnrollment).mockResolvedValue(null);
   });
@@ -119,7 +135,7 @@ describe("enrollment payment flows", () => {
       expect(result.enrollmentId).toBeDefined();
     });
 
-    it("should create complimentary enrollment without phone number", async () => {
+    it("should require a phone number or approved free-access grant for non-admin users", async () => {
       const { getCourseDetails, isUserEnrolled, isUserAdmin, createEnrollment } =
         await import("../db-enrollment");
 
@@ -139,9 +155,6 @@ describe("enrollment payment flows", () => {
 
       vi.mocked(isUserEnrolled).mockResolvedValueOnce(false);
       vi.mocked(isUserAdmin).mockResolvedValueOnce(false);
-      vi.mocked(createEnrollment).mockResolvedValueOnce({
-        insertId: 102,
-      });
 
       const caller = appRouter.createCaller(ctx);
 
@@ -149,17 +162,10 @@ describe("enrollment payment flows", () => {
         courseId: "asthma-i",
       });
 
-      expect(result.success).toBe(true);
-      expect(result.paymentMethod).toBe("admin-free");
-      expect(result.enrollmentId).toBe(102);
-      expect(result.message).toContain("free access");
-      expect(createEnrollment).toHaveBeenCalledWith(
-        expect.objectContaining({
-          paymentMethod: "admin-free",
-          amountPaid: 0,
-          paymentStatus: "free",
-        })
-      );
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Phone number required for M-Pesa payment.");
+      expect(result.error).toContain("Use an approved access code or administrator grant for free access.");
+      expect(createEnrollment).not.toHaveBeenCalled();
     });
 
     it("should reject M-Pesa enrollment for non-existent course", async () => {
@@ -246,7 +252,7 @@ describe("enrollment payment flows", () => {
       expect(result.message).toContain("Admin enrollment successful");
     });
 
-    it("should create complimentary enrollment for non-admin users without phone", async () => {
+    it("should not grant free enrollment to non-admin users without an approved access grant", async () => {
       const { getCourseDetails, isUserEnrolled, isUserAdmin, createEnrollment } =
         await import("../db-enrollment");
 
@@ -266,9 +272,6 @@ describe("enrollment payment flows", () => {
 
       vi.mocked(isUserEnrolled).mockResolvedValueOnce(false);
       vi.mocked(isUserAdmin).mockResolvedValueOnce(false);
-      vi.mocked(createEnrollment).mockResolvedValueOnce({
-        insertId: 103,
-      });
 
       const caller = appRouter.createCaller(ctx);
 
@@ -276,9 +279,9 @@ describe("enrollment payment flows", () => {
         courseId: "asthma-i",
       });
 
-      expect(result.success).toBe(true);
-      expect(result.paymentMethod).toBe("admin-free");
-      expect(result.enrollmentId).toBe(103);
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Use an approved access code or administrator grant for free access.");
+      expect(createEnrollment).not.toHaveBeenCalled();
     });
   });
 
@@ -326,12 +329,16 @@ describe("enrollment payment flows", () => {
       const result = await caller.enrollment.enrollWithPayment({
         courseId: "asthma-i",
         promoCode: "HALF50",
+        phoneNumber: "0712345678",
       });
 
       expect(result.success).toBe(true);
-      expect(result.paymentMethod).toBe("promo-code");
+      expect(result.paymentMethod).toBe("m-pesa");
+      expect(createEnrollment).toHaveBeenCalledWith(expect.objectContaining({ paymentStatus: "pending", promoCodeId: 10 }));
+      const mpesa = await import("../mpesa");
+      expect(mpesa.initiateStkPush).toHaveBeenCalledWith(expect.objectContaining({amount:100}));
       expect(result.amountPaid).toBe(10000);
-      expect(result.message).toContain("50% discount applied");
+      expect(result.checkoutRequestId).toBe("ws_CO_test_checkout");
       expect(vi.mocked(incrementPromoCodeUsage)).toHaveBeenCalledWith(10);
     });
 
@@ -536,6 +543,7 @@ describe("enrollment payment flows", () => {
       await caller.enrollment.enrollWithPayment({
         courseId: "asthma-i",
         promoCode: "TRACK",
+        phoneNumber: "0712345678",
       });
 
       // Verify usage was incremented

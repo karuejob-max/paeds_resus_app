@@ -1087,7 +1087,50 @@ export const institutionalAccounts = mysqlTable("institutionalAccounts", {
 export type InstitutionalAccount = typeof institutionalAccounts.$inferSelect;
 export type InsertInstitutionalAccount =
   typeof institutionalAccounts.$inferInsert;
-
+/**
+ * Immutable, institution-scoped executive performance snapshots. The JSON
+ * payloads preserve the exact server-owned source contract and disclosures
+ * used at generation time; they are not live views and must not be rewritten
+ * when source rows change later.
+ */
+export const institutionalPerformanceReports = mysqlTable(
+  "institutionalPerformanceReports",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    /** "institution" or "department:<facility department id>"; part of snapshot identity. */
+    scopeKey: varchar("scopeKey", { length: 64 }).notNull().default("institution"),
+    scopeDepartmentId: int("scopeDepartmentId"),
+    periodType: mysqlEnum("periodType", ["monthly", "quarterly", "annual"]).notNull(),
+    periodStart: date("periodStart", { mode: "string" }).notNull(),
+    periodEnd: date("periodEnd", { mode: "string" }).notNull(),
+    timezone: varchar("timezone", { length: 64 }).notNull().default("Africa/Nairobi"),
+    reportVersion: varchar("reportVersion", { length: 32 }).notNull().default("v1"),
+    status: mysqlEnum("status", ["final"]).notNull().default("final"),
+    generatedByUserId: int("generatedByUserId"),
+    generatedAt: timestamp("generatedAt").defaultNow().notNull(),
+    snapshotJson: text("snapshotJson").notNull(),
+    sourceSummaryJson: text("sourceSummaryJson").notNull(),
+    limitationsJson: text("limitationsJson").notNull(),
+  },
+  table => ({
+    periodUnique: uniqueIndex("institutional_performance_reports_period_uq").on(
+      table.institutionalAccountId,
+      table.scopeKey,
+      table.periodType,
+      table.periodStart,
+    ),
+    institutionPeriodIndex: index("institutional_performance_reports_institution_period_idx").on(
+      table.institutionalAccountId,
+      table.periodType,
+      table.periodStart,
+    ),
+  }),
+);
+export type InstitutionalPerformanceReport =
+  typeof institutionalPerformanceReports.$inferSelect;
+export type InsertInstitutionalPerformanceReport =
+  typeof institutionalPerformanceReports.$inferInsert;
 /**
  * North Star v2.0 §6.1: "the Organisation Actor account belongs to the
  * institution, not the person who created it. A minimum of two named admin

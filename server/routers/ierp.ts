@@ -24,7 +24,8 @@ import {
 import { getPaedsResusCertificateStatusForUser } from "../lib/paeds-resus-certificate-issuance";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { notifyIerpInternProfileDecision, notifyIerpPhase1Decision } from "../lib/cohort-program-notifications";
-import { consumeGlobalEntitlement, findActiveGlobalEntitlement } from "../lib/global-entitlements";
+import { findActiveGlobalEntitlement } from "../lib/global-entitlements";
+import { applyIerpEntitlementToPendingEnrollmentInTransaction } from "../lib/ierp-sponsored-access";
 import { canonicalAhaEnrollmentMap, getCanonicalAhaEnrollments } from "../lib/aha-learning-records";
 
 function parseDateOnly(value: string) {
@@ -256,18 +257,14 @@ export const ierpRouter = router({
         if (!current.entitlementId && current.paymentStatus !== "not_required" && Number(current.totalPaidAmount ?? 0) === 0) {
           const entitlement = await findActiveGlobalEntitlement(db, { programType: "ierp", userId: ctx.user.id });
           if (entitlement) {
-            const applied = await consumeGlobalEntitlement(db, {
-              entitlementId: entitlement.id,
-              targetUserId: ctx.user.id,
-              programType: "ierp",
-              resourceReference: `ierp-enrollment-${current.id}`,
-              originalAmountKes: IERP_TOTAL_FEE_KES,
-              redeemedByUserId: ctx.user.id,
+            await db.transaction(async (tx) => {
+              await applyIerpEntitlementToPendingEnrollmentInTransaction(tx, {
+                entitlementId: entitlement.id,
+                targetUserId: ctx.user.id,
+                redeemedByUserId: ctx.user.id,
+              });
             });
-            if (applied) {
-              await db.update(ierpProgramEnrollments).set({ entitlementId: entitlement.id, effectiveFeeKes: applied.effectiveAmountKes, paymentStatus: applied.effectiveAmountKes === 0 ? "not_required" : "pending", updatedAt: new Date() }).where(eq(ierpProgramEnrollments.id, current.id));
-              current = (await getIerpEnrollment(db, ctx.user.id)) ?? current;
-            }
+            current = (await getIerpEnrollment(db, ctx.user.id)) ?? current;
           }
         }
         const payment = getIerpPaymentAccess({
@@ -279,40 +276,31 @@ export const ierpRouter = router({
 
       const enrolledAt = new Date();
       const entitlement = await findActiveGlobalEntitlement(db, { programType: "ierp", userId: ctx.user.id });
-      const inserted = await db
-        .insert(ierpProgramEnrollments)
-        .values({
-          userId: ctx.user.id,
-          programKey: "ierp",
-          designation: input.designation,
-          lifecycleStatus: "active",
-          phaseStatus: "phase_1",
-          phase1Status: "not_started",
-          paymentStatus: "pending",
-          enrolledAt,
-        })
-        .$returningId();
-      const enrollmentId = (inserted as { id?: number }[])[0]?.id ?? 0;
-      if (!enrollmentId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "IERP enrolment could not be created" });
-      let appliedEntitlement = null;
-      if (entitlement) {
-        appliedEntitlement = await consumeGlobalEntitlement(db, {
-          entitlementId: entitlement.id,
-          targetUserId: ctx.user.id,
-          programType: "ierp",
-          resourceReference: `ierp-enrollment-${enrollmentId}`,
-          originalAmountKes: IERP_TOTAL_FEE_KES,
-          redeemedByUserId: ctx.user.id,
-        });
-        if (appliedEntitlement) {
-          await db.update(ierpProgramEnrollments).set({
-            entitlementId: entitlement.id,
-            effectiveFeeKes: appliedEntitlement.effectiveAmountKes,
-            paymentStatus: appliedEntitlement.effectiveAmountKes === 0 ? "not_required" : "pending",
-            updatedAt: new Date(),
-          }).where(eq(ierpProgramEnrollments.id, enrollmentId));
-        }
-      }
+      const { enrollmentId, appliedEntitlement } = await db.transaction(async (tx) => {
+        const inserted = await tx
+          .insert(ierpProgramEnrollments)
+          .values({
+            userId: ctx.user.id,
+            programKey: "ierp",
+            designation: input.designation,
+            lifecycleStatus: "active",
+            phaseStatus: "phase_1",
+            phase1Status: "not_started",
+            paymentStatus: "pending",
+            enrolledAt,
+          })
+          .$returningId();
+        const enrollmentId = (inserted as { id?: number }[])[0]?.id ?? 0;
+        if (!enrollmentId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "IERP enrolment could not be created" });
+        const appliedEntitlement = entitlement
+          ? await applyIerpEntitlementToPendingEnrollmentInTransaction(tx, {
+              entitlementId: entitlement.id,
+              targetUserId: ctx.user.id,
+              redeemedByUserId: ctx.user.id,
+            })
+          : null;
+        return { enrollmentId, appliedEntitlement };
+      });
       const payment = getIerpPaymentAccess({ enrolledAt, totalPaidAmount: "0.00", effectiveFeeKes: appliedEntitlement?.effectiveAmountKes ?? null, paymentStatus: appliedEntitlement?.effectiveAmountKes === 0 ? "not_required" : "pending" });
       return { success: true, created: true, enrollmentId, designation: input.designation, cognitiveAccessLocked: payment.cognitiveAccessLocked, paymentDeadline: payment.paymentDeadline?.toISOString() ?? null, effectiveFeeKes: payment.requiredFeeKes };
     }),

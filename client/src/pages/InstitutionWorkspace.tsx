@@ -46,13 +46,15 @@ import InstitutionLearningOperationsPanel from "@/components/InstitutionLearning
 import { ContextHeader } from "@/components/ContextHeader";
 import InstitutionHomePanel from "@/components/InstitutionHomePanel";
 import { InstitutionAccountabilityPanel } from "@/components/InstitutionAccountabilityPanel";
+import { InstitutionReportsInsightsCenter } from "@/components/InstitutionReportsInsightsCenter";
 import { InstitutionalQualityBillingPanel } from "@/components/InstitutionalQualityBillingPanel";
+import InstitutionalQiImprovementPanel from "@/components/InstitutionalQiImprovementPanel";
 import { IersWorkforceTab, resolveIersTab, workforceAnchor } from "@/lib/institution-readiness-navigation";
 import { deriveInstitutionWorkspaceAccess } from "@/lib/institution-workspace-access";
 import { buildAdministrationUrl, resolveAdministrationLocation } from "@shared/institution-administration-location";
 
 type ProductKey = "iers" | "cpd_portal" | "ils_program";
-type WorkspaceSection = "overview" | "iers" | "learning" | "accountability" | "administration" | "connected";
+type WorkspaceSection = "overview" | "iers" | "learning" | "reports" | "accountability" | "administration" | "connected";
 type LearningNavigationTab = "overview" | "competency" | "cpd" | "intelligence" | "governance";
 type AdministrationNavigationTab = "overview" | "institution" | "billing" | "program_operations" | "data_support";
 type ProductStatus = "trial" | "active" | "grace" | "past_due" | "expired" | "suspended" | "cancelled" | "legacy_unclassified" | "not_subscribed" | "available";
@@ -61,7 +63,7 @@ function getInitialWorkspaceState(): { section: WorkspaceSection; iersTab: strin
   if (typeof window === "undefined") return { section: "overview", iersTab: "command", workforceTab: "departments", learningTab: "overview", adminTab: "overview" };
   const params = new URLSearchParams(window.location.search);
   const requested = params.get("section");
-  const section: WorkspaceSection = requested === "cpd_portal" ? "learning" : requested === "learning" || requested === "iers" || requested === "accountability" || requested === "administration" || requested === "connected" ? requested : "overview";
+  const section: WorkspaceSection = requested === "cpd_portal" ? "learning" : requested === "learning" || requested === "iers" || requested === "reports" || requested === "accountability" || requested === "administration" || requested === "connected" ? requested : "overview";
   const requestedWorkforceTab = params.get("workforceTab");
   const workforceTab: IersWorkforceTab = requestedWorkforceTab === "erco" || requestedWorkforceTab === "roster" || requestedWorkforceTab === "equipment" ? requestedWorkforceTab : "departments";
   const requestedIersTab = params.get("iersTab") || "command";
@@ -184,7 +186,7 @@ export default function InstitutionWorkspace() {
   const roleKeys = myInstitution?.roleKeys ?? [];
   const { hasIersRole, hasCpdRole, canOperateIers } = deriveInstitutionWorkspaceAccess(isInstitutionAdmin, roleKeys);
   const canViewAccountability = myInstitution?.canViewAccountability === true;
-  const visibleSection = (activeSection === "accountability" && !canViewAccountability) || (activeSection === "connected" && !isInstitutionAdmin) || (activeSection === "iers" && !hasIersRole) || (activeSection === "learning" && !hasCpdRole && !hasIersRole) ? "overview" : activeSection;
+  const visibleSection = (activeSection === "accountability" && !canViewAccountability) || (activeSection === "reports" && !canViewAccountability) || (activeSection === "connected" && !isInstitutionAdmin) || (activeSection === "iers" && !hasIersRole) || (activeSection === "learning" && !hasCpdRole && !hasIersRole) ? "overview" : activeSection;
   const { data: adminInstitutionDetails } = trpc.institution.getDetails.useQuery(
     { institutionId: institutionId ?? 0 },
     {
@@ -272,9 +274,11 @@ export default function InstitutionWorkspace() {
   const cpdEnabled = canUseProduct(productStatus.cpd_portal) && hasCpdRole;
 
   return (
-    <div className="min-h-screen bg-slate-50/70 pb-20 dark:bg-slate-950/30 md:pb-0">
+    <>
+    <style>{`@media print { @page { size: A4; margin: 12mm 10mm; } body { background: #fff !important; } .institution-workspace-shell { min-height: 0 !important; padding: 0 !important; background: #fff !important; } .institution-workspace-content { max-width: none !important; padding: 0 !important; } }`}</style>
+    <div className="institution-workspace-shell min-h-screen bg-slate-50/70 pb-20 dark:bg-slate-950/30 md:pb-0">
       <div className="mx-auto min-w-0 max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-4 flex min-w-0 flex-col justify-between gap-3 md:mb-6 md:flex-row md:items-start md:gap-4">
+        <div className="institution-workspace-chrome mb-4 flex min-w-0 flex-col justify-between gap-3 md:mb-6 md:flex-row md:items-start md:gap-4 print:hidden">
           <div className="min-w-0">
             <ContextHeader
               workspace="Facility workspace"
@@ -342,11 +346,12 @@ export default function InstitutionWorkspace() {
               onSelectAdminTab={setAdminTab}
               onOpenExternal={href => navigate(href)}
             /> : null}
-            <div className="min-w-0">
+            <div className="institution-workspace-content min-w-0">
               <TabsList className="sr-only">
                 <TabsTrigger value="overview">Home</TabsTrigger>
                 {hasIersRole ? <TabsTrigger value="iers">Readiness</TabsTrigger> : null}
                 {hasCpdRole || hasIersRole ? <TabsTrigger value="learning">Learning</TabsTrigger> : null}
+                {canViewAccountability ? <TabsTrigger value="reports">Reports & Insights</TabsTrigger> : null}
                 {canViewAccountability ? <TabsTrigger value="accountability">Accountability</TabsTrigger> : null}
                 {isInstitutionAdmin ? <TabsTrigger value="administration">Administration</TabsTrigger> : null}
                 {isInstitutionAdmin ? <TabsTrigger value="connected">Connected</TabsTrigger> : null}
@@ -402,7 +407,7 @@ export default function InstitutionWorkspace() {
                   </section>
                 </TabsContent>
                 <TabsContent value="plan"><IersImplementationPlanPanel institutionId={institutionId} /></TabsContent>
-                <TabsContent value="report" className="space-y-6"><InstitutionalQualityBillingPanel institutionId={institutionId} canManageBilling={isInstitutionAdmin} /><IersAdaptiveLearningPanel institutionId={institutionId} /><IersExecutiveReportPanel institutionId={institutionId} onOpenEvidence={() => setIersTab("evidence")} /></TabsContent>
+                <TabsContent value="report" className="space-y-6"><InstitutionalQualityBillingPanel institutionId={institutionId} canManageBilling={isInstitutionAdmin} /><InstitutionalQiImprovementPanel institutionId={institutionId} roleKeys={roleKeys} /><IersAdaptiveLearningPanel institutionId={institutionId} /><IersExecutiveReportPanel institutionId={institutionId} onOpenEvidence={() => setIersTab("evidence")} /></TabsContent>
               </Tabs>
             ) : (
               <ProductLockedState product="IERS" status={productStatus.iers} onAdministration={() => setActiveSection("administration")} />
@@ -412,6 +417,10 @@ export default function InstitutionWorkspace() {
           <TabsContent value="learning">
             {iersEnabled || cpdEnabled ?                           <InstitutionLearningOperationsPanel institutionId={institutionId} iersEnabled={iersEnabled} cpdEnabled={cpdEnabled} isInstitutionAdmin={isInstitutionAdmin} controlledActiveTab={activeLearningTab} onLearningTabChange={setLearningTab} hideNavigation onOpenReadiness={() => { setSection("iers"); setIersTab("report"); }} /> : <ProductLockedState product="Learning" status={productStatus.cpd_portal} onAdministration={() => setSection("administration")} />}
           </TabsContent>
+
+          {canViewAccountability ? <TabsContent value="reports" className="space-y-6">
+            <InstitutionReportsInsightsCenter institutionId={institutionId} institutionName={institutionName} />
+          </TabsContent> : null}
 
           {canViewAccountability ? <TabsContent value="accountability" className="space-y-6">
             <InstitutionAccountabilityPanel institutionId={institutionId} isInstitutionAdmin={isInstitutionAdmin} />
@@ -431,6 +440,7 @@ export default function InstitutionWorkspace() {
         </Tabs>
       </div>
     </div>
+    </>
   );
 }
 
@@ -522,7 +532,6 @@ function InstitutionPortalNavigation({
         ...(cpdEnabled
           ? [
               { label: "CPD sessions", value: "cpd", kind: "learning" as const },
-              { label: "Reports & insights", value: "intelligence", kind: "learning" as const },
               { label: "People & targets", value: "governance", kind: "learning" as const },
             ]
           : []),
@@ -531,6 +540,9 @@ function InstitutionPortalNavigation({
     }] : []),
     ...(canViewAccountability
       ? [{ value: "accountability" as const, label: "Accountability", description: "Shared responsibility and evidence", icon: ShieldCheck }]
+      : []),
+    ...(canViewAccountability
+      ? [{ value: "reports" as const, label: "Reports & Insights", description: "Shareable institutional performance reports", icon: FileText }]
       : []),
     ...(isInstitutionAdmin
       ? [
@@ -556,7 +568,7 @@ function InstitutionPortalNavigation({
     <aside
       id="institution-workspace-navigation"
       aria-label="Institution workspace navigation"
-      className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-background/95 p-2 shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)]"
+      className="institution-workspace-chrome flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-background/95 p-2 shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] print:hidden"
     >
       <div className="shrink-0 px-3 pb-2 pt-1">
         <p className="text-sm font-semibold">Workspace navigation</p>

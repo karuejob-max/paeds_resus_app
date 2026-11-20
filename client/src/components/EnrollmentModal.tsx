@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import {
   Dialog,
@@ -20,6 +20,8 @@ import {
   type MicroCourseTier,
 } from "@shared/micro-course-display";
 import { examPolicyHref } from "@shared/exam-policy-learner-content";
+import { normalizeKenyanPhoneNumber } from "@shared/kenyan-phone";
+import { MpesaReconciliationStatus } from "./MpesaReconciliationStatus";
 
 /** High-contrast panels — readable on light and dark backgrounds (no pastel-on-pastel). */
 const panelClass = "rounded-lg border p-3 sm:p-4 text-sm text-foreground";
@@ -62,74 +64,186 @@ export function EnrollmentModal({
     "/fellowship/enrollment-modal"
   );
 
-  // Steps: "confirm" (default) | "success"
-  const [step, setStep] = useState<"confirm" | "success">("confirm");
+  const [step, setStep] = useState<"confirm" | "reconciling" | "success">(
+    "confirm"
+  );
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [enrollmentId, setEnrollmentId] = useState<number>(0);
   const [launchEnrollmentId, setLaunchEnrollmentId] = useState<number>(0);
   const [enrollmentDate, setEnrollmentDate] = useState<string>("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [promoCode, setPromoCode] = useState("");
+  const [checkoutRequestId, setCheckoutRequestId] = useState("");
+  const [paymentMessage, setPaymentMessage] = useState("");
+  const [amountPaid, setAmountPaid] = useState<number | null>(null);
+  const [retryRequested, setRetryRequested] = useState(false);
+  const [previousPaymentUnconfirmed, setPreviousPaymentUnconfirmed] =
+    useState(false);
+  const sessionRef = useRef(0);
+  const submissionRef = useRef(false);
+  const latestRef = useRef({ track, utils, onEnrollmentSuccess });
+  latestRef.current = { track, utils, onEnrollmentSuccess };
+  const capabilitiesQuery = trpc.mpesa.getClientPaymentCapabilities.useQuery(
+    undefined,
+    { enabled: isOpen && Boolean(user) }
+  );
+  const promoQuery = trpc.enrollment.validatePromo.useQuery(
+    { code: promoCode.trim(), coursePrice: course?.price ?? 0 },
+    {
+      enabled:
+        isOpen && Boolean(user) && Boolean(course) && Boolean(promoCode.trim()),
+    }
+  );
+  const stkOffered = capabilitiesQuery.data?.stkPushOffered === true;
+  const adminFree = user?.role === "admin";
+  const zeroPricePromo =
+    Boolean(promoCode.trim()) &&
+    promoQuery.data?.valid === true &&
+    promoQuery.data.finalPrice === 0;
+  const canEnroll =
+    Boolean(user) && (stkOffered || adminFree || zeroPricePromo);
+  const capabilityReason = !user
+    ? "Sign in before starting enrollment."
+    : capabilitiesQuery.data?.stkPushOffered === false
+      ? capabilitiesQuery.data.userMessage ||
+        "M-Pesa checkout is currently unavailable. Contact support."
+      : capabilitiesQuery.isError
+        ? "Unable to check payment availability. Please try again later."
+        : !stkOffered
+          ? "Checking payment availability…"
+          : "";
 
   const enrollWithPaymentMutation =
     trpc.enrollment.enrollWithPayment.useMutation();
 
-  // Reset state when modal opens
+  // Every opening/course change gets a new session. Old responses must not
+  // populate a different course or notify a parent after the modal closes.
   useEffect(() => {
-    if (!isOpen || !course) return;
+    const session = ++sessionRef.current;
     setStep("confirm");
     setStatusMessage("");
     setEnrollmentId(0);
     setLaunchEnrollmentId(0);
+    setEnrollmentDate("");
     setPhoneNumber("");
+    setPromoCode("");
+    setCheckoutRequestId("");
+    setPaymentMessage("");
+    setAmountPaid(null);
+    setRetryRequested(false);
+    setPreviousPaymentUnconfirmed(false);
+    setIsLoading(false);
 
-    track("enrollment_started", "micro_course_enrollment_modal_opened", {
-      courseId: course.courseId,
-      courseTitle: course.title,
-      source: "fellowship_dashboard",
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, course?.courseId]);
+    if (isOpen && course) {
+      latestRef.current.track(
+        "enrollment_started",
+        "micro_course_enrollment_modal_opened",
+        {
+          courseId: course.courseId,
+          courseTitle: course.title,
+          source: "fellowship_dashboard",
+        }
+      );
+    }
+    return () => {
+      if (sessionRef.current === session) sessionRef.current += 1;
+    };
+  }, [isOpen, course?.courseId, course?.id]);
+
+  const confirmEnrollment = () => {
+    setStatusMessage("");
+    setEnrollmentDate(new Date().toLocaleDateString());
+    setStep("success");
+    latestRef.current.onEnrollmentSuccess();
+    void Promise.resolve(
+      latestRef.current.utils.courses.getUserEnrollments.invalidate()
+    ).catch(() => {});
+  };
 
   // ── Start the server-priced payment flow ───────────────────────────────────
   const handleEnroll = async () => {
-    if (!course || !user) return;
-    if (!phoneNumber.trim()) {
-      setStatusMessage("Enter the M-Pesa phone number to start payment.");
+    if (!isOpen || !course || !user || !canEnroll || submissionRef.current)
+      return;
+    const code = promoCode.trim();
+    const normalizedPhone = normalizeKenyanPhoneNumber(phoneNumber);
+    const phoneOptional = zeroPricePromo || adminFree;
+    if (
+      (phoneNumber.trim() && !normalizedPhone) ||
+      (!normalizedPhone && !phoneOptional)
+    ) {
+      setStatusMessage(
+        "Enter a valid Kenyan M-Pesa mobile number, such as 0712345678 or 0112345678."
+      );
       return;
     }
+    const session = sessionRef.current;
+    submissionRef.current = true;
     setIsLoading(true);
     setStatusMessage("");
     try {
       const result = await enrollWithPaymentMutation.mutateAsync({
         courseId: course.courseId,
-        phoneNumber: phoneNumber.trim(),
+        ...(normalizedPhone ? { phoneNumber: normalizedPhone } : {}),
+        ...(code ? { promoCode: code } : {}),
+        ...(retryRequested ? { retryStk: true } : {}),
         paymentPath: "stk_push",
       });
+      if (sessionRef.current !== session) return;
       if (result.success) {
-        track("provider_conversion", "paid_enrollment_started", {
-          courseId: course.courseId,
-          paymentMethod: result.paymentMethod ?? "m-pesa",
-        });
+        latestRef.current.track(
+          "provider_conversion",
+          "paid_enrollment_started",
+          {
+            courseId: course.courseId,
+            paymentMethod: result.paymentMethod ?? "m-pesa",
+          }
+        );
         setEnrollmentId(Number(result.enrollmentId || 0));
         setLaunchEnrollmentId(
           Number(result.learningEnrollmentId || result.enrollmentId || 0)
         );
-        setEnrollmentDate(new Date().toLocaleDateString());
-        setStep("success");
-        await utils.courses.getUserEnrollments.invalidate();
-        onEnrollmentSuccess();
+        const confirmedAmount =
+          typeof result.amountPaid === "number"
+            ? result.amountPaid
+            : result.paymentMethod === "admin-free"
+              ? 0
+              : null;
+        setAmountPaid(confirmedAmount);
+        setPreviousPaymentUnconfirmed(
+          "previousPaymentUnconfirmed" in result &&
+            result.previousPaymentUnconfirmed === true
+        );
+        setRetryRequested(false);
+        if (normalizedPhone) setPhoneNumber(normalizedPhone);
+        const checkoutId = result.checkoutRequestId?.trim() || "";
+        setCheckoutRequestId(checkoutId);
+        setPaymentMessage(result.message || "");
+        const freeSuccess =
+          !checkoutId &&
+          (result.paymentMethod === "admin-free" || confirmedAmount === 0);
+        if (
+          freeSuccess ||
+          ("paymentCompleted" in result && result.paymentCompleted === true)
+        ) {
+          confirmEnrollment();
+        } else {
+          setStep("reconciling");
+        }
       } else {
         setStatusMessage(
           result.error || "Enrollment failed. Please try again."
         );
       }
     } catch (error) {
-      setStatusMessage(
-        error instanceof Error ? error.message : "Error during enrollment"
-      );
+      if (sessionRef.current === session) {
+        setStatusMessage(
+          error instanceof Error ? error.message : "Error during enrollment"
+        );
+      }
     } finally {
-      setIsLoading(false);
+      submissionRef.current = false;
+      if (sessionRef.current === session) setIsLoading(false);
     }
   };
 
@@ -162,6 +276,7 @@ export function EnrollmentModal({
           <DialogDescription>
             {step === "confirm" &&
               "Start payment — access follows confirmation"}
+            {step === "reconciling" && "Waiting for payment confirmation"}
             {step === "success" && "Enrollment confirmed"}
           </DialogDescription>
         </DialogHeader>
@@ -196,7 +311,10 @@ export function EnrollmentModal({
 
               <div className={panelInfo}>
                 <p className="font-semibold text-foreground">
-                  KES {Math.ceil(course.price / 100).toLocaleString()}
+                  KES{" "}
+                  {(course.price / 100).toLocaleString(undefined, {
+                    maximumFractionDigits: 2,
+                  })}
                 </p>
                 <p className="mt-1 text-muted-foreground">
                   Payment is reconciled before course access or certificate
@@ -222,9 +340,47 @@ export function EnrollmentModal({
                 />
               </div>
 
-              {statusMessage && (
-                <p className="text-sm text-destructive" role="alert">
-                  {statusMessage}
+              <div className="space-y-2">
+                <label
+                  htmlFor="enrollment-promo-code"
+                  className="text-sm font-medium"
+                >
+                  Promo or access code (optional)
+                </label>
+                <Input
+                  id="enrollment-promo-code"
+                  value={promoCode}
+                  onChange={event => setPromoCode(event.target.value)}
+                  disabled={isLoading}
+                  autoComplete="off"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Any discount is validated and priced by the server when you
+                  submit. The confirmed amount will be shown with the payment
+                  request.
+                </p>
+                {zeroPricePromo && (
+                  <p className="text-sm">
+                    This code provides free access; no M-Pesa payment is
+                    required.
+                  </p>
+                )}
+                {promoCode.trim() && promoQuery.data?.valid === false && (
+                  <p className="text-sm text-destructive">
+                    {promoQuery.data.error || "This promo code is not valid."}
+                  </p>
+                )}
+              </div>
+              {retryRequested && (
+                <p className={panelMuted}>
+                  Check your M-Pesa SMS first; do not retry if payment was
+                  deducted. Submitting again requests another payment and may
+                  cause a second charge.
+                </p>
+              )}
+              {capabilityReason && (
+                <p className={panelMuted} role="status">
+                  {capabilityReason}
                 </p>
               )}
 
@@ -240,7 +396,7 @@ export function EnrollmentModal({
 
               <Button
                 onClick={handleEnroll}
-                disabled={isLoading}
+                disabled={isLoading || !canEnroll}
                 className="w-full"
                 size="lg"
               >
@@ -249,6 +405,8 @@ export function EnrollmentModal({
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Enrolling…
                   </>
+                ) : adminFree || zeroPricePromo ? (
+                  "Confirm free enrollment"
                 ) : (
                   "Start M-Pesa payment"
                 )}
@@ -262,6 +420,37 @@ export function EnrollmentModal({
               >
                 Cancel
               </Button>
+            </div>
+          )}
+
+          {step === "reconciling" && (
+            <div
+              className="space-y-4"
+              data-testid="enrollment-reconciliation-step"
+            >
+              {paymentMessage && <p className={panelMuted}>{paymentMessage}</p>}
+              {previousPaymentUnconfirmed && (
+                <p className={panelMuted}>
+                  A previous payment is still unconfirmed. Check your M-Pesa SMS
+                  first; do not retry if payment was deducted.
+                </p>
+              )}
+              <MpesaReconciliationStatus
+                key={`${enrollmentId}:${checkoutRequestId}`}
+                enrollmentId={enrollmentId}
+                checkoutRequestId={checkoutRequestId}
+                phoneNumber={phoneNumber}
+                amount={amountPaid ?? course.price}
+                onPaymentComplete={success => {
+                  if (success) confirmEnrollment();
+                }}
+                onRetryPayment={() => {
+                  setRetryRequested(true);
+                  setCheckoutRequestId("");
+                  setStatusMessage("");
+                  setStep("confirm");
+                }}
+              />
             </div>
           )}
 
@@ -294,8 +483,14 @@ export function EnrollmentModal({
                   <span className="text-foreground">{enrollmentDate}</span>
                 </p>
                 <p>
-                  <span className="font-semibold text-foreground">Access:</span>{" "}
-                  <span className="text-foreground">Free</span>
+                  <span className="font-semibold text-foreground">Amount:</span>{" "}
+                  <span className="text-foreground">
+                    {amountPaid === 0
+                      ? "Free"
+                      : amountPaid !== null
+                        ? `KES ${(amountPaid / 100).toFixed(2)}`
+                        : "Payment confirmed"}
+                  </span>
                 </p>
                 {enrollmentId > 0 && (
                   <p>

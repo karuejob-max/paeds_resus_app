@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 
 function getSessionId(): string {
@@ -17,10 +17,14 @@ export function useProviderConversionAnalytics(pageUrl: string) {
     ((trpc as unknown as {
       events?: { trackEvent?: { useMutation?: () => { mutate?: (input: unknown) => void } } };
     }).events?.trackEvent?.useMutation?.() as { mutate?: (input: unknown) => void } | undefined) ?? null;
+  // Mutation results are new objects on pending/success/error renders. Depending
+  // on that object makes effects using `track` send another event on every render.
+  const mutateRef = useRef(trackEventMutation?.mutate);
+  mutateRef.current = trackEventMutation?.mutate;
 
   const track = useCallback(
     (eventType: string, eventName: string, eventData?: Record<string, unknown>) => {
-      trackEventMutation?.mutate?.({
+      mutateRef.current?.({
         eventType,
         eventName,
         pageUrl,
@@ -31,7 +35,7 @@ export function useProviderConversionAnalytics(pageUrl: string) {
         },
       });
     },
-    [pageUrl, sessionId, trackEventMutation]
+    [pageUrl, sessionId]
   );
 
   return { track };

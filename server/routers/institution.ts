@@ -56,6 +56,7 @@ import {
   iersShiftRoleEvents,
 } from "../../drizzle/schema";
 import { runResusGpsAuditForInstitution } from "../lib/resusgps-auditor";
+import { checkAccountSearchRateLimit, shapeAccountSearchResults } from "../lib/account-directory-guard";
 import { assertNoInstructorDoubleBooking as assertNoInstructorDoubleBookingShared } from "../lib/instructor-double-booking-guard";
 import {
   daysBackForTimeframe,
@@ -2292,6 +2293,13 @@ export const institutionRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       }
 
+      if (!checkAccountSearchRateLimit(ctx.user.id)) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "Too many account searches. Please wait a minute and try again.",
+        });
+      }
+
       const normalizedQuery = input.query.trim().toLowerCase();
       const escapedQuery = normalizedQuery.replace(/[\\%_]/g, "\\\\$&");
       const pattern = `%${escapedQuery}%`;
@@ -2312,11 +2320,13 @@ export const institutionRouter = router({
         .orderBy(asc(users.name), asc(users.id))
         .limit(input.limit);
 
-      return rows.flatMap((row) => {
+      const cleaned = rows.flatMap((row) => {
         const name = row.name?.trim();
         const email = row.email?.trim().toLowerCase();
         return name && email ? [{ id: row.id, name, email }] : [];
       });
+      // Emails are masked unless the caller typed the complete address.
+      return shapeAccountSearchResults(cleaned, input.query);
     }),
 
   /**
@@ -4175,28 +4185,6 @@ export const institutionRouter = router({
     return rollupAllInstitutionalAccounts();
   }),
 
-  verify: publicProcedure
-    .input(z.object({ institutionId: z.number() }))
-    .query(async ({ input }) => {
-      const db = await getDb();
-      if (!db) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Database connection failed",
-        });
-      }
-      const institution = await db
-        .select()
-        .from(institutionalAccounts)
-        .where(eq(institutionalAccounts.id, input.institutionId))
-        .limit(1);
-
-      return {
-        exists: institution.length > 0,
-        active: institution.length > 0 && institution[0].status === "active",
-      };
-    }),
-
   // Update staff member role (RBAC)
   updateStaffRole: protectedProcedure
     .input(
@@ -4853,7 +4841,7 @@ export const institutionRouter = router({
 
   runResusGpsAudit: protectedProcedure
     .input(z.object({ institutionId: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) {
         throw new TRPCError({
@@ -4861,6 +4849,9 @@ export const institutionRouter = router({
           message: "Database connection failed",
         });
       }
+      // The audit reads clinical cases of the institution's staff and spends LLM
+      // budget: only that institution's admins (or a platform admin) may run it.
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
       return await runResusGpsAuditForInstitution(db, input.institutionId);
     }),
 
@@ -4868,8 +4859,8 @@ export const institutionRouter = router({
     .input(
       z.object({
         institutionId: z.number(),
-        gapIdentified: z.string().min(1),
-        systemChange: z.string().min(1),
+        gapIdentified: z.string().trim().min(1).max(4000),
+        systemChange: z.string().trim().min(1).max(4000),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -4881,9 +4872,12 @@ export const institutionRouter = router({
         });
       }
 
+      // Writes into an institution's quality action log: admins of that institution only.
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+
       await db.insert(institutionalActionLogs).values({
         institutionalAccountId: input.institutionId,
-        createdByUserId: ctx.user ? ctx.user.id : null,
+        createdByUserId: ctx.user.id,
         gapIdentified: input.gapIdentified,
         systemChange: input.systemChange,
         status: "open",

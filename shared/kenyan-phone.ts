@@ -11,7 +11,9 @@
 export function normalizeKenyanPhoneNumber(
   value: string | null | undefined
 ): string | null {
-  const digits = String(value ?? "").replace(/\D/g, "");
+  const raw = String(value ?? "").trim().replace(/[\s()-]/g, "");
+  if (!/^\+?\d+$/.test(raw)) return null;
+  const digits = raw.replace(/^\+/, "");
   let normalized = digits;
 
   if (normalized.startsWith("00")) {
@@ -19,11 +21,11 @@ export function normalizeKenyanPhoneNumber(
   }
   if (normalized.startsWith("0")) {
     normalized = `254${normalized.slice(1)}`;
-  } else if (normalized.length === 9 && normalized.startsWith("7")) {
+  } else if (normalized.length === 9 && /^[17]/.test(normalized)) {
     normalized = `254${normalized}`;
   }
 
-  return /^2547\d{8}$/.test(normalized) ? normalized : null;
+  return /^254[17]\d{8}$/.test(normalized) ? normalized : null;
 }
 
 export function isValidKenyanPhoneNumber(
@@ -37,3 +39,6 @@ export function formatKenyanPhoneForDisplay(
 ): string {
   return normalizeKenyanPhoneNumber(value) ?? String(value ?? "").trim();
 }
+
+export const normalizeKenyanPhone = normalizeKenyanPhoneNumber;
+export const isValidKenyanPhone = isValidKenyanPhoneNumber;

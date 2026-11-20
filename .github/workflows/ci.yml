@@ -9,7 +9,7 @@ on:
 
 jobs:
   gate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       # MySQL 8.0 -- same version as staging/production (see docs/STAGING_DEPLOYMENT.md).
       # Throwaway per-run container; schema is shaped fresh every run via
@@ -86,7 +86,7 @@ jobs:
   # E2E_PROVIDER_EMAIL / E2E_PROVIDER_PASSWORD (secrets cannot be used in job `if`).
   e2e-holistic:
     if: vars.E2E_HOLISTIC_ENABLED == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

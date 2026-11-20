@@ -6,10 +6,12 @@ import { payments, enrollments, microCourseEnrollments, microCourses, nerpOfferE
 import { eq, and, desc, lt } from "drizzle-orm";
 import { reconcilePaymentRowByStkQuery } from "../mpesa-reconciliation";
 import { getMpesaDeploymentMode, getMpesaEnvironmentSource } from "../lib/mpesa-env";
-import { defaultStkCallbackUrl } from "../lib/mpesa-callback-path";
+import { getMpesaConfigReadiness } from "../lib/mpesa-config";
+import { checkOwnedMicroCourseStk } from "../lib/micro-course-stk-status";
 import { buildStkAccountReference } from "../lib/daraja-account-reference";
 import { getIndependentAhaPriceKes, type AhaProgramType } from "../../shared/aha-pathways";
 import { trackEvent, trackPaymentInitiation } from "../services/analytics.service";
+import { validateNerpPaymentAmount } from "../lib/nerp-offer";
 import {
   INTUBATION_SAMPLE_MICRO_COURSE_ID,
   ensureIntubationSampleCourseCatalog,
@@ -71,6 +73,18 @@ async function syncIntubationLearningEnrollmentOnMicroPaymentSuccess(params: {
     .where(eq(enrollments.id, linked[0].id));
 }
 
+async function checkMicroStatusAndSync(input: { enrollmentId: number; checkoutRequestId: string }, userId: number) {
+  const result = await checkOwnedMicroCourseStk({ ...input, userId });
+  if (result.status === "completed") {
+    const db = await getDb();
+    if (!db) throw new Error("Payment database unavailable");
+    await syncIntubationLearningEnrollmentOnMicroPaymentSuccess({ db, userId,
+      microEnrollmentId: input.enrollmentId, amountPaidCents: result.enrollment.amountPaid });
+  }
+  const { enrollment: _enrollment, ...publicResult } = result;
+  return publicResult;
+}
+
 export const mpesaRouter = router({
   /**
    * Prefetch Daraja OAuth token while the user enters their phone number.
@@ -99,7 +113,7 @@ export const mpesaRouter = router({
         orderId: z.string().optional(),
         enrollmentId: z.number().optional(), // when coming from Enroll page: use existing enrollment, only create payment
         nerpOfferEnrollmentId: z.number().int().positive().optional(),
-        installmentNumber: z.number().int().min(1).max(6).optional(),
+        installmentNumber: z.number().int().min(1).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -135,9 +149,14 @@ export const mpesaRouter = router({
             .limit(1);
           if (!linked[0]) return { success: false, error: "The selected course is not linked to this NERP offer." };
           const paid = Number(offer.amountPaidKes ?? 0);
-          const expected = Math.min(Number(offer.monthlyInstallmentKes), Number(offer.totalAmountKes) - paid);
-          if (Math.abs(Number(input.amount) - expected) > 0.01 || input.installmentNumber !== Number(offer.nextInstallmentNumber)) {
-            return { success: false, error: "The NERP installment amount or sequence is no longer current. Refresh and try again." };
+          const paymentCheck = validateNerpPaymentAmount({
+            amountKes: input.amount,
+            amountPaidKes: paid,
+            totalAmountKes: Number(offer.totalAmountKes),
+          });
+          if (!paymentCheck.valid) return { success: false, error: paymentCheck.reason };
+          if (input.installmentNumber !== Number(offer.nextInstallmentNumber)) {
+            return { success: false, error: "This payment number is no longer current. Refresh and try again." };
           }
           enrollmentId = input.enrollmentId;
         } else if (input.enrollmentId) {
@@ -260,153 +279,14 @@ export const mpesaRouter = router({
       }
     }),
 
-  /**
-   * Compatibility endpoint used by enrollment modal polling.
-   * Checks Daraja status by CheckoutRequestID and syncs micro-course enrollment state.
-   */
+  /** Both polling endpoints use the stored learner-owned checkout, never a supplied successful unrelated payment. */
   checkPaymentStatus: protectedProcedure
-    .input(
-      z.object({
-        checkoutRequestId: z.string().min(1),
-        enrollmentId: z.coerce.number().int().positive(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      const db = await getDb();
-      if (!db) {
-        return { status: "pending" as const, errorMessage: "Database unavailable" };
-      }
+    .input(z.object({ checkoutRequestId: z.string().min(1), enrollmentId: z.coerce.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => checkMicroStatusAndSync(input, ctx.user.id)),
 
-      const enrollmentRows = await db
-        .select()
-        .from(microCourseEnrollments)
-        .where(
-          and(
-            eq(microCourseEnrollments.id, input.enrollmentId),
-            eq(microCourseEnrollments.userId, ctx.user.id)
-          )
-        )
-        .limit(1);
-
-      if (!enrollmentRows.length) {
-        return { status: "failed" as const, errorMessage: "Enrollment not found" };
-      }
-
-      const enrollment = enrollmentRows[0];
-      if (enrollment.paymentStatus === "completed") {
-        return { status: "completed" as const, transactionId: enrollment.transactionId || undefined };
-      }
-
-      const stk = await queryStk(input.checkoutRequestId);
-      const resultCode = String(stk.resultCode ?? "");
-      const receipt = (stk as { mpesaReceiptNumber?: string }).mpesaReceiptNumber;
-
-      if (resultCode === "0") {
-        await db
-          .update(microCourseEnrollments)
-          .set({
-            paymentStatus: "completed",
-            enrollmentStatus: "active",
-            transactionId: receipt || input.checkoutRequestId,
-            updatedAt: new Date(),
-          })
-          .where(eq(microCourseEnrollments.id, input.enrollmentId));
-
-        await syncIntubationLearningEnrollmentOnMicroPaymentSuccess({
-          db,
-          userId: ctx.user.id,
-          microEnrollmentId: input.enrollmentId,
-          amountPaidCents: enrollment.amountPaid,
-        });
-
-        return {
-          status: "completed" as const,
-          transactionId: receipt || input.checkoutRequestId,
-        };
-      }
-
-      if (resultCode === "1") {
-        return { status: "cancelled" as const, errorMessage: stk.resultDesc || "Payment cancelled" };
-      }
-
-      // Surface transport errors so the client can stop polling after 3 consecutive failures
-      if (resultCode === "QUERY_TRANSPORT_ERROR") {
-        return { status: "pending" as const, errorMessage: "QUERY_TRANSPORT_ERROR: " + (stk.resultDesc || "Safaricom query failed") };
-      }
-
-      return { status: "pending" as const, errorMessage: stk.resultDesc || undefined };
-    }),
-
-  /**
-   * Manual poll trigger from learner modal; uses same logic as automatic status check.
-   */
   reconcilePayment: protectedProcedure
-    .input(
-      z.object({
-        checkoutRequestId: z.string().min(1),
-        enrollmentId: z.coerce.number().int().positive(),
-      })
-    )
-    .mutation(async ({ input, ctx }) => {
-      const db = await getDb();
-      if (!db) {
-        return { status: "pending" as const, errorMessage: "Database unavailable" };
-      }
-
-      const enrollmentRows = await db
-        .select()
-        .from(microCourseEnrollments)
-        .where(
-          and(
-            eq(microCourseEnrollments.id, input.enrollmentId),
-            eq(microCourseEnrollments.userId, ctx.user.id)
-          )
-        )
-        .limit(1);
-
-      if (!enrollmentRows.length) {
-        return { status: "failed" as const, errorMessage: "Enrollment not found" };
-      }
-
-      const enrollment = enrollmentRows[0];
-      if (enrollment.paymentStatus === "completed") {
-        return { status: "completed" as const, transactionId: enrollment.transactionId || undefined };
-      }
-
-      const stk = await queryStk(input.checkoutRequestId);
-      const resultCode = String(stk.resultCode ?? "");
-      const receipt = (stk as { mpesaReceiptNumber?: string }).mpesaReceiptNumber;
-
-      if (resultCode === "0") {
-        await db
-          .update(microCourseEnrollments)
-          .set({
-            paymentStatus: "completed",
-            enrollmentStatus: "active",
-            transactionId: receipt || input.checkoutRequestId,
-            updatedAt: new Date(),
-          })
-          .where(eq(microCourseEnrollments.id, input.enrollmentId));
-
-        await syncIntubationLearningEnrollmentOnMicroPaymentSuccess({
-          db,
-          userId: ctx.user.id,
-          microEnrollmentId: input.enrollmentId,
-          amountPaidCents: enrollment.amountPaid,
-        });
-
-        return {
-          status: "completed" as const,
-          transactionId: receipt || input.checkoutRequestId,
-        };
-      }
-
-      if (resultCode === "1") {
-        return { status: "cancelled" as const, errorMessage: stk.resultDesc || "Payment cancelled" };
-      }
-
-      return { status: "pending" as const, errorMessage: stk.resultDesc || undefined };
-    }),
+    .input(z.object({ checkoutRequestId: z.string().min(1), enrollmentId: z.coerce.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => checkMicroStatusAndSync(input, ctx.user.id)),
 
   /**
    * Poll local DB for STK outcome (webhook updates this row; transactionId stays as CheckoutRequestID).
@@ -684,16 +564,8 @@ export const mpesaRouter = router({
   /**
    * Get payment statistics (admin only)
    */
-  getPaymentStats: protectedProcedure.query(async ({ ctx }) => {
+  getPaymentStats: adminProcedure.query(async () => {
     try {
-      // Check if user is admin (skip for now, allow all)
-      // if (ctx.user?.role !== "admin") {
-      //   return {
-      //     success: false,
-      //     error: "Unauthorized",
-      //   };
-      // }
-
       const db = await getDb();
       if (!db) throw new Error("Database not available");
       
@@ -773,131 +645,27 @@ export const mpesaRouter = router({
    * Learner-facing: whether to promote STK vs bank (no secrets). Honors DISABLE_MPESA_STK.
    */
   getClientPaymentCapabilities: protectedProcedure.query(async () => {
-    const mpesaEnv = getMpesaDeploymentMode();
-    const disabled =
-      process.env.DISABLE_MPESA_STK === "1" ||
-      process.env.DISABLE_MPESA_STK === "true" ||
-      process.env.DISABLE_MPESA_STK === "yes";
-
-    const callbackRaw =
-      process.env.MPESA_CALLBACK_URL?.trim() ||
-      (process.env.CALLBACK_URL?.trim()
-        ? defaultStkCallbackUrl(process.env.CALLBACK_URL)
-        : "");
-    const callbackOk = Boolean(callbackRaw && !callbackRaw.includes("example.com"));
-
-    const keyPair =
-      (Boolean(process.env.DARAJA_CONSUMER_KEY?.trim()) &&
-        Boolean(process.env.DARAJA_CONSUMER_SECRET?.trim())) ||
-      (Boolean(process.env.MPESA_CONSUMER_KEY?.trim()) &&
-        Boolean(process.env.MPESA_CONSUMER_SECRET?.trim()));
-
-    const paybillOk = Boolean(
-      process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim()
-    );
-    const passkeyOk = Boolean(process.env.MPESA_PASSKEY?.trim());
-    const paybillNumber =
-      process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim() || null;
-    const accountNumber = process.env.MPESA_ACCOUNT?.trim() || null;
-
-    const stkInfrastructureReady = keyPair && paybillOk && passkeyOk && callbackOk;
-    const stkOffered = !disabled && stkInfrastructureReady;
-
+    const readiness = getMpesaConfigReadiness();
     return {
-      mpesaEnvironment: mpesaEnv,
-      stkPushOffered: stkOffered,
-      stkDisabledByConfig: disabled,
+      mpesaEnvironment: getMpesaDeploymentMode(),
+      stkPushOffered: readiness.stkPushOffered,
+      stkDisabledByConfig: readiness.disabled,
       bankTransferAvailable: true,
-      paybillNumber,
-      accountNumber,
-      userMessage: disabled
-        ? "Mobile Money (STK) checkout is temporarily turned off. Use bank transfer below, or contact support."
-        : !stkInfrastructureReady
-          ? "Mobile Money is not fully configured on this server. Use bank transfer—we’ll confirm your payment and activate your course."
-          : null,
+      paybillNumber: readiness.shortcode,
+      accountNumber: process.env.MPESA_ACCOUNT?.trim() || null,
+      userMessage: readiness.stkPushOffered ? null :
+        "M-Pesa checkout is currently unavailable. Use the supported manual payment route or contact support.",
     };
   }),
 
-  /**
-   * P0-PAY-1 / ops: non-secret config flags for production readiness (admin only).
-   */
   getOperationalReadiness: adminProcedure.query(async () => {
     const db = await getDb();
-    const callback =
-      process.env.MPESA_CALLBACK_URL?.trim() ||
-      (process.env.CALLBACK_URL?.trim()
-        ? defaultStkCallbackUrl(process.env.CALLBACK_URL)
-        : "");
-    const mpesaEnv = getMpesaDeploymentMode();
-    const darajaOrMpesaKey =
-      Boolean(process.env.DARAJA_CONSUMER_KEY?.trim()) ||
-      Boolean(process.env.MPESA_CONSUMER_KEY?.trim());
-    const darajaOrMpesaSecret =
-      Boolean(process.env.DARAJA_CONSUMER_SECRET?.trim()) ||
-      Boolean(process.env.MPESA_CONSUMER_SECRET?.trim());
-    return {
-      databaseConnected: !!db,
-      mpesaEnvironment: mpesaEnv,
+    const config = getMpesaConfigReadiness();
+    return { databaseConnected: !!db, mpesaEnvironment: getMpesaDeploymentMode(),
       mpesaEnvironmentSource: getMpesaEnvironmentSource(),
-      consumerKeySet: darajaOrMpesaKey,
-      consumerSecretSet: darajaOrMpesaSecret,
-      shortcodeSet: Boolean(
-        process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim()
-      ),
-      passkeySet: Boolean(process.env.MPESA_PASSKEY?.trim()),
-      callbackUrlSet: Boolean(callback && !callback.includes("example.com")),
+      consumerKeySet: config.consumerKeySet, consumerSecretSet: config.consumerSecretSet,
+      shortcodeSet: config.shortcodeSet, passkeySet: config.passkeySet, callbackUrlSet: config.callbackUrlSet,
       callbackIpAllowlistSet: Boolean(process.env.MPESA_CALLBACK_IP_ALLOWLIST?.trim()),
-      disableStkFlagSet: Boolean(
-        process.env.DISABLE_MPESA_STK === "1" ||
-          process.env.DISABLE_MPESA_STK === "true" ||
-          process.env.DISABLE_MPESA_STK === "yes"
-      ),
-      allRequiredForStk:
-        darajaOrMpesaKey &&
-        darajaOrMpesaSecret &&
-        Boolean(process.env.MPESA_SHORTCODE?.trim() || process.env.MPESA_PAYBILL?.trim()) &&
-        Boolean(process.env.MPESA_PASSKEY?.trim()) &&
-        Boolean(callback && !callback.includes("example.com")),
-    };
+      disableStkFlagSet: config.disabled, allRequiredForStk: config.allRequiredForStk };
   }),
-
-  // TEMPORARY DEBUG: returns raw Safaricom STK Push response — remove after diagnosis
-  debugStkPush: protectedProcedure
-    .input(z.object({ phoneNumber: z.string() }))
-    .mutation(async ({ input }) => {
-      try {
-        const result = await initiateStkPush({
-          phoneNumber: input.phoneNumber,
-          amount: 1,
-          accountReference: "DEBUG_TEST",
-          transactionDesc: "Debug STK Push Test",
-          orderId: "debug_" + Date.now(),
-        });
-        return {
-          ok: true,
-          result,
-          config: {
-            env: process.env.MPESA_ENVIRONMENT,
-            shortcode: process.env.MPESA_PAYBILL || process.env.MPESA_SHORTCODE,
-            passkeySet: !!process.env.MPESA_PASSKEY,
-            callbackUrl: process.env.MPESA_CALLBACK_URL || process.env.APP_BASE_URL,
-            consumerKeySet: !!(process.env.DARAJA_CONSUMER_KEY || process.env.MPESA_CONSUMER_KEY),
-          },
-        };
-      } catch (err: any) {
-        return {
-          ok: false,
-          error: err.message,
-          status: err?.response?.status,
-          daraja: err?.response?.data,
-          config: {
-            env: process.env.MPESA_ENVIRONMENT,
-            shortcode: process.env.MPESA_PAYBILL || process.env.MPESA_SHORTCODE,
-            passkeySet: !!process.env.MPESA_PASSKEY,
-            callbackUrl: process.env.MPESA_CALLBACK_URL || process.env.APP_BASE_URL,
-            consumerKeySet: !!(process.env.DARAJA_CONSUMER_KEY || process.env.MPESA_CONSUMER_KEY),
-          },
-        };
-      }
-    }),
 });
