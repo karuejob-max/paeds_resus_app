@@ -22,6 +22,7 @@ import { courses, modules, moduleSections, quizzes, quizQuestions, userProgress 
 import { BLS_MODULES } from "./bls-modules-data";
 import { getBlsV2Audience } from "./bls-course-versions";
 import { BLS_MODULES_V2, BLS_V2_COURSE_TITLE, BLS_V2_COURSE_DESCRIPTION } from "./bls-modules-v2-data";
+import { ensureAhaSummativeQuiz } from "./ensure-aha-summative-quiz";
 
 export function isBlsCatalogShapeStale(
   moduleRows: Array<{ order?: number | null; title?: string | null }>,
@@ -731,6 +732,23 @@ async function ensureBlsCatalogOnce(db: any): Promise<void> {
     BLS_MODULES_V2,
     { exactTitle: true }
   );
+
+  // Existing deployments may already have the updated row and all eight
+  // modules but no course-level summative quiz. Repair that state idempotently
+  // whenever the BLS catalogue is synchronized.
+  const v2Rows = await db
+    .select({ id: courses.id })
+    .from(courses)
+    .where(and(
+      eq(courses.programType, "bls"),
+      eq(courses.isActive, true),
+      eq(courses.title, BLS_V2_COURSE_TITLE),
+    ))
+    .orderBy(desc(courses.id))
+    .limit(1);
+  if (v2Rows[0]?.id) {
+    await ensureAhaSummativeQuiz(db, v2Rows[0].id, "bls");
+  }
 }
 
 export async function ensureAclsCatalog(db: any): Promise<void> {
