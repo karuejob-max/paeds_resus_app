@@ -4,7 +4,7 @@
 
 This document is the minimum operating contract for the Institutional Life Support Training Program (ILS). The platform records enrolment, payment, learning progress, practical assessment, certificates, reminders, support cases, and pilot metrics. It does not replace the approved clinical curriculum, local policy, instructor judgement, or regulator requirements.
 
-ILS is an **institution-paid provider-cohort programme**. The institution selects linked Paeds Resus accounts, pays one bulk order at KES 10,000 per provider, and is responsible for coordinating attendance and practical completion. Individual providers do not purchase the base ILS programme from the learner page.
+ILS is an **institution-paid provider-cohort programme**. The institution selects linked Paeds Resus accounts, pays one bulk order at the KES 7,000 institutional rate per provider, and is responsible for coordinating attendance and practical completion. Individual providers do not purchase the base ILS programme from the learner page.
 
 ILS produces a **Paeds Resus competency certificate** after the cognitive and practical requirements are complete. It is not an AHA certificate and must not be described as an AHA equivalent. An optional AHA credentialing request may be made after Paeds Resus certification within 90 days, subject to payment and authorized review.
 
@@ -22,7 +22,7 @@ An institution must not pay for a cohort until all of the following are confirme
 | Equipment | Required training equipment available for the session | Lead instructor |
 | Date | Practical assessment date confirmed | Coordinator and instructor |
 | Claims | Certificate and AHA boundary acknowledged | Coordinator |
-| Payment | One aggregated M-Pesa order shows provider count × KES 10,000 | Finance/coordinator |
+| Payment | One aggregated M-Pesa order shows provider count × KES 7,000 at the institutional rate | Finance/coordinator |
 
 The platform must block payment if the delivery session is not confirmed or if any readiness gate is incomplete. A successful M-Pesa callback must also match both the order total and the payment-ledger amount; a mismatch fails the payment, releases reserved capacity, blocks the order, and opens a high-priority reconciliation case.
 
@@ -47,12 +47,7 @@ The certificate must state its programme name, issue date, expiry policy, verifi
 
 ## AHA credentialing boundary
 
-AHA credentialing is a separate optional pathway. During the open 90-day window after Paeds Resus certificate issue, the learner may request and pay for an add-on at:
-
-- BLS credentialing: KES 7,500.
-- ACLS credentialing: KES 10,000.
-
-The request must move through payment confirmation and authorized review. Payment does not automatically issue an AHA certificate. After the 90-day window, a new full training enrolment is required at the applicable full-training price. The learner page must show requested, payment-confirmed/awaiting-review, approved, rejected, and expired states distinctly. Unpaid requests are expired by the scheduled control at the deadline; a late-settling payment is retained for audit and routed to manual reconciliation rather than auto-approved.
+AHA credentialing is a separate optional pathway. During the open 90-day window after Paeds Resus certificate issue, one **KES 18,000** add-on creates a single request for both AHA BLS and AHA ACLS credentialing. With the KES 7,000 ILSP provider rate, the combined amount is **KES 25,000 per provider**. The request and payment must be completed within the window. The request must move through payment confirmation and authorized review; payment does not automatically issue an AHA certificate. After the 90-day window, a new full training enrolment is required at the applicable unchanged standalone prices: BLS KES 10,000 or ACLS KES 20,000. The learner page must show requested, payment-confirmed/awaiting-review, approved, rejected, and expired states distinctly. Unpaid requests are expired by the scheduled control at the deadline; a late-settling payment is retained for audit and routed to manual reconciliation rather than auto-approved.
 
 ## Pilot operating model
 

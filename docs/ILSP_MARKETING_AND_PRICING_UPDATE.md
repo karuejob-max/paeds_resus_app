@@ -15,6 +15,8 @@ Use the following client-facing description:
 
 The catalog price field is **KES 7,000 per staff member**. The certificate boundary remains a Paeds Resus certificate unless a separate official AHA pathway is contracted and delivered under the applicable requirements.
 
+For a provider who has completed Paeds Resus certification, one optional **KES 18,000** add-on within **90 days** requests both AHA BLS and AHA ACLS credentialing. The combined ILSP provider fee and add-on total is **KES 25,000 per provider**. Request and payment must be completed in the window; AHA certificate issuance remains subject to authorized review, and the add-on does not alter the independent BLS and ACLS full-training prices.
+
 ## IERS — Institutional Emergency Readiness System
 
 IERS is a hospital-wide operating layer for emergency response: team activation, roster and role clarity, equipment readiness, drills, evidence review, corrective actions, leadership reporting, and ResusGPS bedside guidance.

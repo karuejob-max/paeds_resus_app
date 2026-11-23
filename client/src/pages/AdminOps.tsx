@@ -22,6 +22,7 @@ import {
   Bell,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatIlsCredentialLabel } from "@shared/institutional-life-support";
 
 export default function AdminOps() {
   const { user, isAuthenticated, loading } = useAuth();
@@ -278,7 +279,7 @@ export default function AdminOps() {
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
                             <p className="font-medium">#{request.id} · {" "}
-                              {request.credentialType.toUpperCase()} · {" "}
+                              {formatIlsCredentialLabel(request.credentialType)} · {" "}
                               {request.userName ?? "Unnamed account"}</p>
                             <p className="text-xs text-muted-foreground">{request.userEmail ?? "No email"} · KES {" "}
                               {request.amountKes.toLocaleString()} · deadline {" "}

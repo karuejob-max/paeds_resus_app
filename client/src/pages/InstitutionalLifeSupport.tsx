@@ -30,10 +30,11 @@ import { IlsRelatedCourseAccess } from "@/components/IlsRelatedCourseAccess";
 import { IlsAhaAccessCodeCard } from "@/components/IlsAhaAccessCodeCard";
 import { IlsAhaAccessCodeManagerCard } from "@/components/IlsAhaAccessCodeManagerCard";
 import {
-  PAEDS_RESUS_ILS_BASE_PRICE_KES,
-  PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES,
+  PAEDS_RESUS_ILS_INSTITUTIONAL_PRICE_KES,
+  PAEDS_RESUS_ILS_AHA_ADD_ON_PRICE_KES,
   PAEDS_RESUS_ILS_AHA_FULL_TRAINING_PRICES_KES,
   PAEDS_RESUS_ILS_DELIVERY_LABEL,
+  formatIlsCredentialLabel,
 } from "@shared/institutional-life-support";
 
 import { getIlsPilotAcceptanceGaps } from "@shared/ils-operations";
@@ -236,7 +237,7 @@ export default function InstitutionalLifeSupport() {
       onSuccess: request => {
         setActiveCredentialRequestId(request.id);
         setMessage(
-          `${request.credentialType.toUpperCase()} credentialing request created. Pay ${kes(request.amountKes)} before the deadline to send it for review.`
+          `${formatIlsCredentialLabel(request.credentialType)} credentialing request created. Pay ${kes(request.amountKes)} before the deadline to send it for review.`
         );
         void credentialRequestsQuery.refetch();
       },
@@ -345,6 +346,8 @@ export default function InstitutionalLifeSupport() {
 
   const course = catalogQuery.data?.course;
   const pricing = catalogQuery.data?.pricing;
+  const providerPriceKes =
+    pricing?.providerPriceKes ?? PAEDS_RESUS_ILS_INSTITUTIONAL_PRICE_KES;
   const enrollment = enrollmentQuery.data;
   const activeCredentialRequest = useMemo(
     () =>
@@ -354,8 +357,7 @@ export default function InstitutionalLifeSupport() {
     [activeCredentialRequestId, credentialRequestsQuery.data]
   );
   const selectedProviderCount = selectedStaffIds.length;
-  const selectedProviderTotal =
-    selectedProviderCount * PAEDS_RESUS_ILS_BASE_PRICE_KES;
+  const selectedProviderTotal = selectedProviderCount * providerPriceKes;
 
   const selectedSession = sessionsQuery.data?.find(
     session => session.id === selectedSessionId
@@ -444,9 +446,7 @@ export default function InstitutionalLifeSupport() {
                   Per provider
                 </p>
                 <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">
-                  {kes(
-                    pricing?.providerPriceKes ?? PAEDS_RESUS_ILS_BASE_PRICE_KES
-                  )}
+                  {kes(providerPriceKes)}
                 </p>
               </div>
             </div>
@@ -854,7 +854,7 @@ export default function InstitutionalLifeSupport() {
                   <CardDescription>
                     Select active roster members who already have Paeds Resus
                     accounts. The institution pays{" "}
-                    {kes(PAEDS_RESUS_ILS_BASE_PRICE_KES)} per provider in one
+                    {kes(providerPriceKes)} per provider in one
                     auditable M-Pesa order.
                   </CardDescription>
                 </CardHeader>
@@ -1935,41 +1935,41 @@ export default function InstitutionalLifeSupport() {
               <CardHeader>
                 <CardTitle>Optional AHA credentialing</CardTitle>
                 <CardDescription>
-                  Available only after Paeds Resus certification, without extra
-                  training during the open window.
+                  One post-certification top-up requests both AHA BLS and AHA
+                  ACLS credentialing; approval remains subject to review.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
                   <Clock3 className="mb-2 h-5 w-5" />
                   <p>
-                    <strong>Three-month window:</strong> the request and payment
-                    must be completed within 90 days of the Paeds Resus
-                    certificate issue date.
+                    <strong>One combined add-on:</strong>{" "}
+                    {kes(PAEDS_RESUS_ILS_AHA_ADD_ON_PRICE_KES)} requests both
+                    AHA BLS and AHA ACLS credentialing. With the{" "}
+                    {kes(providerPriceKes)} ILSP fee, the combined total is{" "}
+                    {kes(providerPriceKes + PAEDS_RESUS_ILS_AHA_ADD_ON_PRICE_KES)}
+                    {" "}per provider. Submit the request and payment within 90
+                    days of the Paeds Resus certificate issue date; no extra
+                    training is charged during this window.
                   </p>
                 </div>
                 {enrollment?.credentialingWindowOpen ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {(["bls", "acls"] as const).map(credential => (
-                      <Button
-                        key={credential}
-                        variant="outline"
-                        disabled={
-                          !enrollment.certificateNumber ||
-                          requestCredential.isPending
-                        }
-                        onClick={() =>
-                          requestCredential.mutate({
-                            enrollmentId: enrollment.id,
-                            credentialType: credential,
-                          })
-                        }
-                      >
-                        {credential.toUpperCase()} add-on ·{" "}
-                        {kes(PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES[credential])}
-                      </Button>
-                    ))}
-                  </div>
+                  <Button
+                    variant="outline"
+                    disabled={
+                      !enrollment.certificateNumber ||
+                      requestCredential.isPending
+                    }
+                    onClick={() =>
+                      requestCredential.mutate({
+                        enrollmentId: enrollment.id,
+                        credentialType: "bls_acls",
+                      })
+                    }
+                  >
+                    Request AHA BLS + ACLS ·{" "}
+                    {kes(PAEDS_RESUS_ILS_AHA_ADD_ON_PRICE_KES)}
+                  </Button>
                 ) : (
                   <p className="text-sm text-muted-foreground">
                     Complete Paeds Resus certification to open this option.
@@ -1982,7 +1982,7 @@ export default function InstitutionalLifeSupport() {
                 {activeCredentialRequest && (
                   <div className="space-y-3 rounded-lg border p-4 text-sm">
                     <p className="font-semibold">
-                      {activeCredentialRequest.credentialType.toUpperCase()}{" "}
+                      {formatIlsCredentialLabel(activeCredentialRequest.credentialType)}{" "}
                       request · {activeCredentialRequest.status}
                     </p>
                     <p className="text-muted-foreground">
@@ -2320,7 +2320,7 @@ function ProgrammeDetails({
   pricing?: {
     providerPriceKes: number;
     credentialingWindowDays: number;
-    ahaAddOnPricesKes: { bls: number; acls: number };
+    ahaAddOnPriceKes: number;
     ahaFullTrainingPricesKes: { bls: number; acls: number };
   };
 }) {
@@ -2336,7 +2336,7 @@ function ProgrammeDetails({
         <ul className="list-disc space-y-2 pl-5">
           <li>
             Provider fee:{" "}
-            {kes(pricing?.providerPriceKes ?? PAEDS_RESUS_ILS_BASE_PRICE_KES)}{" "}
+            {kes(pricing?.providerPriceKes ?? PAEDS_RESUS_ILS_INSTITUTIONAL_PRICE_KES)}{" "}
             per provider.
           </li>
           <li>
@@ -2344,18 +2344,16 @@ function ProgrammeDetails({
             issue an AHA certificate.
           </li>
           <li>
-            After certification, BLS credentialing is{" "}
+            After certification, one AHA add-on of{" "}
+            {kes(pricing?.ahaAddOnPriceKes ?? PAEDS_RESUS_ILS_AHA_ADD_ON_PRICE_KES)}{" "}
+            requests both AHA BLS and AHA ACLS credentialing within{" "}
+            {pricing?.credentialingWindowDays ?? 90} days. The combined ILSP
+            and AHA add-on total is{" "}
             {kes(
-              pricing?.ahaAddOnPricesKes.bls ??
-                PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES.bls
+              (pricing?.providerPriceKes ?? PAEDS_RESUS_ILS_INSTITUTIONAL_PRICE_KES) +
+                (pricing?.ahaAddOnPriceKes ?? PAEDS_RESUS_ILS_AHA_ADD_ON_PRICE_KES)
             )}{" "}
-            and ACLS credentialing is{" "}
-            {kes(
-              pricing?.ahaAddOnPricesKes.acls ??
-                PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES.acls
-            )}{" "}
-            when requested and paid within{" "}
-            {pricing?.credentialingWindowDays ?? 90} days.
+            per provider.
           </li>
           <li>
             No extra training is required for an in-window add-on, but the

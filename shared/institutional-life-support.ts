@@ -17,10 +17,8 @@ export const PAEDS_RESUS_ILS_INSTITUTIONAL_PRICE_KES =
   );
 export const PAEDS_RESUS_ILS_CREDENTIALING_WINDOW_DAYS = 90;
 
-export const PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES = {
-  bls: 7_500,
-  acls: 10_000,
-} as const;
+/** One optional post-certification ILSP add-on for both AHA BLS and ACLS credentials. */
+export const PAEDS_RESUS_ILS_AHA_ADD_ON_PRICE_KES = 18_000;
 
 export const PAEDS_RESUS_ILS_AHA_FULL_TRAINING_PRICES_KES = {
   bls: 10_000,
@@ -28,7 +26,10 @@ export const PAEDS_RESUS_ILS_AHA_FULL_TRAINING_PRICES_KES = {
 } as const;
 
 export type PaedsResusIlsAhaCredential =
-  keyof typeof PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES;
+  keyof typeof PAEDS_RESUS_ILS_AHA_FULL_TRAINING_PRICES_KES;
+export type PaedsResusIlsCredentialType =
+  | PaedsResusIlsAhaCredential
+  | "bls_acls";
 
 export const PAEDS_RESUS_ILS_CREDENTIAL_REQUEST_STATUSES = [
   "payment_pending",
@@ -76,12 +77,11 @@ export function isCredentialingWindowOpen(
 }
 
 export function getAhaCredentialingPriceKes(
-  credential: PaedsResusIlsAhaCredential,
   completedAt: Date,
   now: Date = new Date()
 ): number | null {
   return isCredentialingWindowOpen(completedAt, now)
-    ? PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES[credential]
+    ? PAEDS_RESUS_ILS_AHA_ADD_ON_PRICE_KES
     : null;
 }
 
@@ -92,9 +92,11 @@ export function getAhaFullTrainingPriceKes(
 }
 
 export function formatIlsCredentialLabel(
-  credential: PaedsResusIlsAhaCredential
+  credential: PaedsResusIlsCredentialType
 ): string {
-  return credential.toUpperCase();
+  return credential === "bls_acls"
+    ? "AHA BLS + ACLS"
+    : `AHA ${credential.toUpperCase()}`;
 }
 
 export interface IlsEnrollmentCancellationState {

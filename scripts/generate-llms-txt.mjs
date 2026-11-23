@@ -60,6 +60,9 @@ const nerpInstallment = readNumber("NERP_INSTALLMENT").toLocaleString("en-KE");
 const ilsBasePrice = readLifeSupportNumber(/PAEDS_RESUS_ILS_BASE_PRICE_KES\s*=\s*([0-9_]+)/, "ILSP base price");
 const ilsDiscountPercent = readLifeSupportNumber(/PAEDS_RESUS_ILS_AUTOMATIC_DISCOUNT_PERCENT\s*=\s*([0-9_]+)/, "ILSP cohort discount");
 const ilspPrice = Math.round(ilsBasePrice * (100 - ilsDiscountPercent) / 100).toLocaleString("en-KE");
+const ilsAhaAddOnPriceValue = readLifeSupportNumber(/PAEDS_RESUS_ILS_AHA_ADD_ON_PRICE_KES\s*=\s*([0-9_]+)/, "ILSP AHA add-on price");
+const ilsAhaAddOnPrice = ilsAhaAddOnPriceValue.toLocaleString("en-KE");
+const ilspAhaCombinedPrice = (Math.round(ilsBasePrice * (100 - ilsDiscountPercent) / 100) + ilsAhaAddOnPriceValue).toLocaleString("en-KE");
 const iersPrice = [
   readSharedNumber(/level_4:\s*([0-9_]+)/, "IERS Level 4"),
   readSharedNumber(/level_5:\s*([0-9_]+)/, "IERS Level 5"),
@@ -86,7 +89,7 @@ const output = `# Paeds Resus
 
 ### Institutional products
 
-- ILSP: Institutional Life Support Program for institution-paid life-support cohorts, delivery, practical assessment, and completion evidence. Paeds Resus BLS and ACLS training is KES ${ilspPrice} per provider for institution-paid cohorts; optional AHA certification is a separate add-on, with current pricing shown in the applicable course offer.
+- ILSP: Institutional Life Support Program for institution-paid life-support cohorts, delivery, practical assessment, and completion evidence. Paeds Resus BLS and ACLS certification is KES ${ilspPrice} per provider; one optional KES ${ilsAhaAddOnPrice} add-on requests both AHA BLS and AHA ACLS certification within 90 days after Paeds Resus programme certification. The combined ILSP-plus-AHA-add-on total is KES ${ilspAhaCombinedPrice} per provider. AHA certificate issuance remains subject to the applicable AHA review.
 - IERS: Institutional Emergency Readiness System for hospital-wide emergency-response governance, activation, readiness evidence, drills, equipment gaps, corrective actions, and reporting. Annual price tiers (Levels 4/5/6): KES ${iersPrice}.
 - ICPD: Institutional Continuous Professional Development for verified professional-development activity, attendance, targets, certificates, and leadership reporting. Per-staff price tiers: KES ${icpdPrice}, based on verified staff bands.
 

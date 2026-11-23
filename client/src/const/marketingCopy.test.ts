@@ -23,6 +23,8 @@ describe("public marketing copy", () => {
       "utf8"
     );
     expect(llms).toContain(`for ${COHORT_LABEL}`);
+    expect(llms).toContain("one optional KES 18,000 add-on requests both AHA BLS and AHA ACLS certification");
+    expect(llms).toContain("combined ILSP-plus-AHA-add-on total is KES 25,000 per provider");
   });
 
   it("states the IERP standard fee, included certificates, and enrolment cutoff", () => {
@@ -37,7 +39,7 @@ describe("public marketing copy", () => {
     expect(copy).not.toMatch(/save|one-time|offer deadline/i);
   });
 
-  it("states the confirmed ILSP price and separate AHA top-up on the training page", () => {
+  it("states the confirmed ILSP price and bundled AHA top-up on the training page", () => {
     const trainingHub = readFileSync(
       resolve(process.cwd(), "client/src/pages/TrainingHub.tsx"),
       "utf8"
@@ -46,11 +48,13 @@ describe("public marketing copy", () => {
     expect(trainingHub).toContain(
       "Paeds Resus BLS and ACLS certification · KES 7,000 per provider"
     );
-    expect(trainingHub).toContain("This fee covers Paeds Resus BLS and ACLS certification.");
-    expect(trainingHub).toContain("KES 18,000 top-up");
+    expect(trainingHub).toContain(
+      "The KES 7,000 fee covers Paeds Resus BLS and ACLS certification."
+    );
+    expect(trainingHub).toContain("One optional KES 18,000 top-up requests both AHA BLS and AHA ACLS certification");
+    expect(trainingHub).toContain("the combined total is KES 25,000 per provider");
     expect(trainingHub).toContain("within 90 days after programme certification");
     expect(trainingHub).not.toContain("KES 10,000 per provider");
-    expect(trainingHub).not.toContain("KES 25,000");
   });
 
   it("keeps the NERP installment structure explicit", () => {

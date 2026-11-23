@@ -77,18 +77,16 @@ CPD and IERS are independently gated but share canonical institution-scoped depa
 
 ILSP is a unique institutional bulk-training offering. It is not an individual checkout flow.
 
-Current commercial rules:
+Current commercial rules (reconciled 2026-11-23):
 
-- Base Paeds Resus ILSP price: **KES 10,000 per provider**.
+- List price: **KES 10,000 per provider**; approved institution-paid cohort rate: **KES 7,000 per provider**.
 - Institution pays in bulk through an institutional training order.
 - No AHA certification is included by default.
-- A learner may separately request an AHA credential within three months of Paeds Resus certification:
-  - ACLS credential pathway: additional **KES 10,000**.
-  - BLS credential pathway: additional **KES 7,500**.
-- After three months, the learner must pay the full training price:
+- Within 90 days after Paeds Resus certification, one optional **KES 18,000** add-on requests both AHA BLS and AHA ACLS credentialing. Combined with the KES 7,000 institutional rate, the total is **KES 25,000 per provider**. Request and payment must be completed within the window; AHA certificate issuance remains subject to authorized review.
+- After 90 days, a new full training enrolment applies at the unchanged standalone prices:
   - ACLS: **KES 20,000**.
   - BLS: **KES 10,000**.
-- ILSP is cohort/order based and should never be represented as a personal “Pay KES 10,000” link.
+- ILSP is cohort/order based and should never be represented as a personal base-programme checkout link.
 
 ### 2.4 Administration
 

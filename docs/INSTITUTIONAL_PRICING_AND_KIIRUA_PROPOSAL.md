@@ -41,6 +41,8 @@ The Kiirua proposal uses the following planning assumptions, subject to HR verif
 
 The proposal uses a facility-level IERS price rather than a percentage surcharge. The IERS is a productised institutional capability, not a percentage add-on. The original KES 2,600,000 planning anchor assumed approximately 200 staff at KES 10,000 each plus KES 200,000 IERS and KES 400,000 ICPD; it must be recalculated using the approved ILSP KES 7,000 rate and Kiirua’s verified facility level.
 
+**ILSP AHA add-on boundary:** The KES 7,000 ILSP provider fee covers Paeds Resus BLS and ACLS certification. Within 90 days after Paeds Resus certification, one optional KES 18,000 add-on creates a combined request for AHA BLS and AHA ACLS credentialing. The combined ILSP-plus-add-on amount is KES 25,000 per provider; request and payment must be completed within the window, and AHA certificate issuance remains subject to authorized review. This learner add-on is separate from the facility-level proposal totals above.
+
 ### 3.1 Milestone payment structure
 
 The preferred payment structure matches payment to visible delivery:

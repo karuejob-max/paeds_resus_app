@@ -27,7 +27,7 @@ Paeds Resus is a clinical learning, emergency-readiness, quality-improvement, an
 - **IERS / institutional emergency readiness:** facility-level pricing anchors are Level 4 **KES 200,000**, Level 5 **KES 350,000**, and Level 6 **KES 600,000**. Quaternary scope is custom and should not be quoted as an automatic fixed tier.
 - **ICPD / CPD Portal:** staff-count tiered pricing: KES 1,000 (1–100), KES 900 (101–300), KES 800 (301–500), KES 700 (501–1,000), and KES 600 (1,001–2,000) per staff member per year. Above 2,000 staff is negotiated.
 - **ILSP:** KES 10,000 list price and **KES 7,000 per provider** for institution-paid cohorts. Percentage discounts do not stack with this institutional rate; full waivers remain possible through governed entitlements.
-- **AHA add-ons:** an ILSP learner may request BLS or ACLS credentialing within the allowed post-certificate window at the approved add-on price. Paeds Resus ILSP completion is not an AHA card.
+- **ILSP AHA add-on:** within 90 days after Paeds Resus certification, one KES 18,000 add-on creates a request for both AHA BLS and AHA ACLS credentialing. Combined with the KES 7,000 institutional provider rate, the total is KES 25,000 per provider. Requests remain subject to authorized AHA review; Paeds Resus ILSP completion is not an AHA card.
 - **Currencies:** KES is the settlement currency for Kenyan institutional invoices. USD is only a reference/display currency when explicitly labelled with the FX snapshot and must not silently replace the KES invoice amount.
 - **Renewal:** annual invoice-first renewal is the default; card autopay is optional. M-Pesa and bank transfer remain fallback routes where configured.
 

@@ -14,7 +14,7 @@
 
 ### Institutional products
 
-- ILSP: Institutional Life Support Program for institution-paid life-support cohorts, delivery, practical assessment, and completion evidence. Paeds Resus BLS and ACLS training is KES 7,000 per provider for institution-paid cohorts; optional AHA certification is a separate add-on, with current pricing shown in the applicable course offer.
+- ILSP: Institutional Life Support Program for institution-paid life-support cohorts, delivery, practical assessment, and completion evidence. Paeds Resus BLS and ACLS certification is KES 7,000 per provider; one optional KES 18,000 add-on requests both AHA BLS and AHA ACLS certification within 90 days after Paeds Resus programme certification. The combined ILSP-plus-AHA-add-on total is KES 25,000 per provider. AHA certificate issuance remains subject to the applicable AHA review.
 - IERS: Institutional Emergency Readiness System for hospital-wide emergency-response governance, activation, readiness evidence, drills, equipment gaps, corrective actions, and reporting. Annual price tiers (Levels 4/5/6): KES 200,000 / 350,000 / 600,000.
 - ICPD: Institutional Continuous Professional Development for verified professional-development activity, attendance, targets, certificates, and leadership reporting. Per-staff price tiers: KES 1,000 / 900 / 800 / 700 / 600, based on verified staff bands.
 

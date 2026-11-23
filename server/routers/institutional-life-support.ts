@@ -50,8 +50,9 @@ import { isMpesaConfigured } from "../_core/mpesa";
 import {
   getAhaCredentialingPriceKes,
   getAhaFullTrainingPriceKes,
+  formatIlsCredentialLabel,
   getCredentialingDeadline,
-  PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES,
+  PAEDS_RESUS_ILS_AHA_ADD_ON_PRICE_KES,
   PAEDS_RESUS_ILS_AHA_FULL_TRAINING_PRICES_KES,
   PAEDS_RESUS_ILS_BASE_PRICE_KES,
   PAEDS_RESUS_ILS_AUTOMATIC_DISCOUNT_PERCENT,
@@ -62,7 +63,6 @@ import {
   PAEDS_RESUS_ILS_DELIVERY_MODEL,
   PAEDS_RESUS_ILS_PROGRAM_TYPE,
   canCancelPendingIlsEnrollment,
-  type PaedsResusIlsAhaCredential,
 } from "@shared/institutional-life-support";
 import {
   canReplaceIlsProvider,
@@ -79,17 +79,17 @@ import {
   signOffPracticalSkills,
 } from "../certificates";
 
-const credentialTypeSchema = z.enum(["bls", "acls"]);
+const credentialTypeSchema = z.enum(["bls_acls"]);
 const ilsAhaProgramTypeSchema = z.enum(["bls", "acls", "pals", "nrp"]);
 const credentialingDeadlineMs =
   PAEDS_RESUS_ILS_CREDENTIALING_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
-function asCredential(value: string): PaedsResusIlsAhaCredential {
-  return value as PaedsResusIlsAhaCredential;
-}
-
 function centsFromKes(amountKes: number): number {
   return amountKes * 100;
+}
+
+function getAhaFullTrainingPriceSummary(): string {
+  return `BLS KES ${getAhaFullTrainingPriceKes("bls").toLocaleString()}; ACLS KES ${getAhaFullTrainingPriceKes("acls").toLocaleString()}`;
 }
 
 async function getIlsCourse(db: any) {
@@ -260,7 +260,7 @@ export const institutionalLifeSupportRouter = router({
         providerPriceKes: PAEDS_RESUS_ILS_INSTITUTIONAL_PRICE_KES,
         automaticDiscountPercent: PAEDS_RESUS_ILS_AUTOMATIC_DISCOUNT_PERCENT,
         credentialingWindowDays: PAEDS_RESUS_ILS_CREDENTIALING_WINDOW_DAYS,
-        ahaAddOnPricesKes: PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES,
+        ahaAddOnPriceKes: PAEDS_RESUS_ILS_AHA_ADD_ON_PRICE_KES,
         ahaFullTrainingPricesKes: PAEDS_RESUS_ILS_AHA_FULL_TRAINING_PRICES_KES,
         certificateBoundary:
           "Paeds Resus certificate; no AHA certificate is issued by this programme.",
@@ -2423,14 +2423,11 @@ export const institutionalLifeSupportRouter = router({
           message:
             "Complete the Paeds Resus programme and receive the Paeds Resus certificate before requesting AHA credentialing.",
         });
-      const price = getAhaCredentialingPriceKes(
-        input.credentialType,
-        certificate.issueDate
-      );
+      const price = getAhaCredentialingPriceKes(certificate.issueDate);
       if (price == null)
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
-          message: `The three-month credentialing window has closed. A new ${input.credentialType.toUpperCase()} training enrolment is required at KES ${getAhaFullTrainingPriceKes(input.credentialType).toLocaleString()}.`,
+          message: `The 90-day ILSP AHA add-on window has closed. A new full AHA course enrolment is required at current standalone prices: ${getAhaFullTrainingPriceSummary()}.`,
         });
       const existing = await db
         .select()
@@ -2541,7 +2538,7 @@ export const institutionalLifeSupportRouter = router({
       if (Date.now() >= request.credentialingDeadline.getTime())
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
-          message: `The three-month credentialing window has closed. A new ${request.credentialType.toUpperCase()} training enrolment is required at KES ${getAhaFullTrainingPriceKes(asCredential(request.credentialType)).toLocaleString()}.`,
+          message: `The 90-day ILSP AHA add-on window has closed. A new full AHA course enrolment is required at current standalone prices: ${getAhaFullTrainingPriceSummary()}.`,
         });
       if (request.status !== "payment_pending")
         return { success: true, alreadyStarted: true, status: request.status };
@@ -2580,7 +2577,7 @@ export const institutionalLifeSupportRouter = router({
         phoneNumber: input.phoneNumber,
         amount: request.amountKes,
         accountReference: `PAEDSILS-AHA-${request.id}`,
-        transactionDesc: `Paeds Resus AHA ${request.credentialType.toUpperCase()} credentialing request`,
+        transactionDesc: `Paeds Resus ${formatIlsCredentialLabel(request.credentialType)} credentialing request`,
         orderId: `ils-aha-${request.id}`,
       });
       if (!response.success || !response.checkoutRequestID) {
