@@ -49,3 +49,21 @@ Now:
 
 Behaviour change for admins: a newly added registered nurse is not assignable to rotas until
 they accept. Existing active memberships are unaffected; no data migration.
+
+## PR F — choosing a facility no longer creates roster rows
+
+`syncProviderProfileFacility` (called when a provider saves a facility on their profile, and
+when a **named** Care Signal event is submitted with a facility) used to call
+`reconcileInstitutionalStaffMember`, which inserted an `institutionalStaffMembers` row —
+name, email, phone — into the chosen institution's roster as `pending`, with no request and
+no consent. Reporting a clinical event could therefore put someone on a roster.
+
+Now `reconcileInstitutionalStaffMember` takes `createIfMissing` (default `true`, so the explicit
+CPD facility-relationship flow is unchanged). The profile/Care Signal sync passes `false`:
+- An existing roster row is refreshed (department etc.); a retired row is never revived.
+- A person with an **active** membership keeps their row maintained.
+- Anyone else gets no row. Joining a facility goes through the explicit facility-link request
+  (`facility-linking`), which the institution admin approves.
+
+Behaviour change: institution admins no longer see providers in "pending" merely because those
+providers picked their facility. No data migration; existing rows are left as they are.
