@@ -298,6 +298,13 @@ export type InstitutionalStaffSyncInput = {
   department?: string | null;
   facilityDepartmentId?: number | null;
   enrollmentStatus?: "pending" | "enrolled" | "in_progress" | "completed" | "dropped";
+  /**
+   * When false, an existing roster row is refreshed but a missing one is NOT created
+   * (unless the person already holds an active membership). Used by passive paths such as
+   * choosing a facility on a profile, which must not place someone on an institution's
+   * roster without an explicit request. Defaults to true for explicit flows.
+   */
+  createIfMissing?: boolean;
 };
 
 type InstitutionalStaffRole = "nurse" | "doctor" | "paramedic" | "midwife" | "lab_tech" | "respiratory_therapist" | "support_staff" | "other";
@@ -361,6 +368,10 @@ export async function reconcileInstitutionalStaffMember(
       : "pending" as const;
   if (existing?.removedAt) {
     return { staffMemberId: existing.id, facilityLinkStatus: "rejected" as const, membershipStatus: membership?.membershipStatus ?? null };
+  }
+  if (!existing && input.createIfMissing === false && membership?.membershipStatus !== "active") {
+    // Passive facility selection: no roster row, no PII copied to the institution.
+    return { staffMemberId: null as number | null, facilityLinkStatus, membershipStatus: membership?.membershipStatus ?? null };
   }
   const departmentConflict = Boolean(
     existing
@@ -441,6 +452,10 @@ export async function applyCpdFacilityRelationship(
     facilityDepartmentId: input.facilityDepartmentId,
     enrollmentStatus: "enrolled",
   });
+  if (reconciled.staffMemberId == null) {
+    throw new Error("Explicit facility relationship did not produce a staff record.");
+  }
+  const reconciledStaffMemberId: number = reconciled.staffMemberId;
 
   const [staff] = await db
     .select({
@@ -449,7 +464,7 @@ export async function applyCpdFacilityRelationship(
       removedAt: institutionalStaffMembers.removedAt,
     })
     .from(institutionalStaffMembers)
-    .where(eq(institutionalStaffMembers.id, reconciled.staffMemberId))
+    .where(eq(institutionalStaffMembers.id, reconciledStaffMemberId))
     .limit(1);
 
   const [membership] = await db
@@ -478,7 +493,7 @@ export async function applyCpdFacilityRelationship(
       status: "admin_review_required",
       membershipId: membership?.id ?? null,
       membershipStatus: membership?.membershipStatus ?? null,
-      staffMemberId: reconciled.staffMemberId,
+      staffMemberId: reconciledStaffMemberId,
     };
   }
 
@@ -490,7 +505,7 @@ export async function applyCpdFacilityRelationship(
         .update(institutionMemberships)
         .set({
           userId: input.userId,
-          staffMemberId: reconciled.staffMemberId,
+          staffMemberId: reconciledStaffMemberId,
           membershipStatus: "active",
           acceptedAt: now,
           updatedAt: now,
@@ -502,7 +517,7 @@ export async function applyCpdFacilityRelationship(
         status: "admin_review_required",
         membershipId: membership.id,
         membershipStatus: membership.membershipStatus,
-        staffMemberId: reconciled.staffMemberId,
+        staffMemberId: reconciledStaffMemberId,
       };
     }
   } else {
@@ -510,7 +525,7 @@ export async function applyCpdFacilityRelationship(
       institutionalAccountId: input.institutionalAccountId,
       userId: input.userId,
       invitedEmail: email,
-      staffMemberId: reconciled.staffMemberId,
+      staffMemberId: reconciledStaffMemberId,
       membershipStatus: "active",
       responsibilityRole: "general_staff",
       invitedByUserId: null,
@@ -526,7 +541,7 @@ export async function applyCpdFacilityRelationship(
       facilityLinkStatus: "linked",
       updatedAt: now,
     })
-    .where(eq(institutionalStaffMembers.id, reconciled.staffMemberId));
+    .where(eq(institutionalStaffMembers.id, reconciledStaffMemberId));
 
   const [facility] = await db
     .select({ id: careFacilities.id, name: careFacilities.name, county: careFacilities.county, country: careFacilities.country })
@@ -555,7 +570,7 @@ export async function applyCpdFacilityRelationship(
     status: "linked",
     membershipId,
     membershipStatus: "active",
-    staffMemberId: reconciled.staffMemberId,
+    staffMemberId: reconciledStaffMemberId,
   };
 }
 
@@ -798,6 +813,9 @@ export async function syncProviderProfileFacility(
         cadreOther: user.cadreOther,
         department: normalizedProviderDepartment,
         facilityDepartmentId: canonicalDepartmentId,
+        // Selecting a facility is not a request to join its roster. Refresh an existing
+        // relationship only; joining goes through the explicit facility-link request.
+        createIfMissing: false,
       });
     }
   } else {
