@@ -29,7 +29,7 @@ const phases = [
     number: "01",
     title: "Build your foundation",
     technicalTitle: "Phase 1 · Cognitive learning",
-    description: "Complete BLS first, then continue to ACLS and submit the two required AHA completion certificates.",
+    description: "Complete BLS first, then continue to ACLS and submit the required AHA completion evidence for pre-course verification.",
     icon: ClipboardCheck,
   },
   {
@@ -56,7 +56,7 @@ const outcomeTiles = [
   },
   {
     title: "Prove",
-    description: "Submit the two private AHA certificates that confirm your external pre-course work.",
+    description: "Submit the required private AHA completion evidence for external pre-course verification; this is not the final IERP outcome.",
     icon: FileCheck2,
   },
   {
@@ -76,7 +76,7 @@ export default function IerpLanding() {
   usePageMeta({
     title: "IERP Kenya — Intern Emergency Readiness Program | Paeds Resus",
     description:
-      "IERP is Paeds Resus's individual intern emergency-readiness pathway in Kenya: BLS, ACLS, evidence, online simulations, hands-on assessment, and a KES 15,000 programme fee.",
+      "IERP is Paeds Resus's individual intern emergency-readiness pathway in Kenya: AHA ACLS plus Paeds Resus BLS, evidence, online simulations, hands-on assessment, and a KES 15,000 one-time programme fee for the current offer.",
     path: "/programs/ierp",
   });
   const jsonLd = buildJsonLdGraph([
@@ -135,7 +135,7 @@ export default function IerpLanding() {
         phase2Action: { label: "Continue to online simulations", destination: "/ierp" },
         paymentAction: { label: "Review programme payment", destination: "/programs/ierp" },
         phase3Action: { label: "Open hands-on assessment", destination: "/ierp" },
-        phase2LockedReason: "Complete BLS, ACLS, and submit the required AHA certificates first.",
+        phase2LockedReason: "Complete BLS, ACLS, and submit the required AHA completion evidence first.",
         phase3LockedReason: "Complete online simulations and the full programme payment first.",
       })
     : null;
@@ -334,7 +334,7 @@ export default function IerpLanding() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-700">How payment works</p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">Transparent requirements, shown at the right time.</h2>
-              <p className="mt-4 leading-7 text-slate-600">The full programme fee is {formatKes(IERP_FULL_PRICE)}. Your account shows the payment timing that applies to your internship start window.</p>
+              <p className="mt-4 leading-7 text-slate-600">The current offer is {formatKes(IERP_FULL_PRICE)} one-time for AHA ACLS plus Paeds Resus BLS, with a stated offer deadline of 30 November 2026. Enrollment displays the account-specific access and payment timing that applies to your internship start window; no later price is stated here.</p>
             </div>
             <div className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-3">

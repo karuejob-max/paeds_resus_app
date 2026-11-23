@@ -31,11 +31,8 @@ export function formatCohortLine(base: number, cohort: number): string {
   return `${formatKes(base)} per person; ${formatKes(cohort)} per person for ${COHORT_LABEL}`;
 }
 
-export const IERP_STANDALONE_TOTAL = BLS_PRICE + ACLS_PRICE;
-export const IERP_SAVINGS = IERP_STANDALONE_TOTAL - IERP_FULL_PRICE;
-
 export function formatIerpValueLine(): string {
-  return `${formatKes(IERP_FULL_PRICE)} for AHA ACLS + BLS bundled — save ${formatKes(IERP_SAVINGS)} vs booking them separately`;
+  return `${formatKes(IERP_FULL_PRICE)} one-time for AHA ACLS + Paeds Resus BLS`;
 }
 
 export function formatNerpValueLine(): string {

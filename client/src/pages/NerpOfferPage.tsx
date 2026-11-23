@@ -253,7 +253,7 @@ export default function NerpOfferPage() {
               "Access to the AHA ACLS cognitive pathway after BLS completion",
               "Six-month KES 2,500 payment plan",
               "Payment progress and remaining balance in one ledger",
-              "Free Paeds Resus BLS Certificate on completion of its requirements",
+              "Paeds Resus BLS Certificate included on completion of its requirements",
               "Clear next steps for any practical or skills requirements",
             ].map(item => (
               <div key={item} className="flex items-start gap-2">

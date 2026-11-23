@@ -5,7 +5,6 @@ import {
   ACLS_PRICE,
   BLS_PRICE,
   IERP_FULL_PRICE,
-  IERP_SAVINGS,
   ILSP_PRICE_PER_STAFF,
   ILSP_LIST_PRICE_PER_STAFF,
   NERP_INSTALLMENT,
@@ -27,9 +26,11 @@ describe("public marketing copy", () => {
     expect(llms).toContain(`for ${COHORT_LABEL}`);
   });
 
-  it("computes the IERP bundle saving from canonical prices", () => {
-    expect(IERP_SAVINGS).toBe(BLS_PRICE + ACLS_PRICE - IERP_FULL_PRICE);
-    expect(formatIerpValueLine()).toContain(`${formatKes(IERP_SAVINGS)}`);
+  it("states the confirmed IERP bundle without unsupported savings", () => {
+    expect(formatIerpValueLine()).toBe(
+      `${formatKes(IERP_FULL_PRICE)} one-time for AHA ACLS + Paeds Resus BLS`
+    );
+    expect(formatIerpValueLine()).not.toContain("save");
   });
 
   it("keeps the NERP installment structure explicit", () => {

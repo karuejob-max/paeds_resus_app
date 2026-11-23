@@ -27,6 +27,12 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://www.paedsresus.com/resources/acls-course-cost-kenya</loc>
+    <lastmod>2026-11-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://www.paedsresus.com/resources/hospital-emergency-readiness-checklist</loc>
     <lastmod>2026-09-04</lastmod>
     <changefreq>monthly</changefreq>
@@ -107,21 +113,6 @@
     <loc>https://www.paedsresus.com/fellowship</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://www.paedsresus.com/enroll</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://www.paedsresus.com/login</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://www.paedsresus.com/register</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://www.paedsresus.com/privacy</loc>

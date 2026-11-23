@@ -23,8 +23,6 @@ export const PUBLIC_SEO_ROUTES = [
   "/resources/paediatric-shock-recognition-first-actions",
   "/help",
   "/verify",
-  "/login",
-  "/register",
   "/privacy",
   "/terms",
   "/legal/cookies",

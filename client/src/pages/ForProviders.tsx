@@ -82,7 +82,7 @@ const INDIVIDUAL_PRODUCTS = [
     tagline: 'Go from "I got through it" to "I know exactly what to do."',
     supporting:
       "Deep paediatric pattern recognition, for the provider who wants to be the one others call.",
-    price: "Explore the catalogue",
+    price: "Free micro-courses",
     href: "/fellowship",
   },
 ];

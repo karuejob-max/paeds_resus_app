@@ -99,7 +99,7 @@ export function createNerpCampaignMessage(input: {
 
 If AHA ACLS is part of your professional development plan, Paeds Resus has introduced a flexible Lipa Mdogo Mdogo option at KSh 2,500 per month for six months.
 
-The guided pathway checks your BLS cognitive completion first. If BLS cognitive is not yet complete, you will complete that step before continuing to the ACLS cognitive pathway. On successful completion of the programme requirements, you will receive your AHA ACLS certification, together with a free Paeds Resus BLS Certificate.
+The guided pathway checks your BLS cognitive completion first. If BLS cognitive is not yet complete, you will complete that step before continuing to the ACLS cognitive pathway. On successful completion of the programme requirements, you will receive your AHA ACLS certification, together with the included Paeds Resus BLS Certificate.
 
 Learn more and check the next steps: ${enrollmentUrl}
 
@@ -115,7 +115,7 @@ Paeds Resus`;
       <h1 style="color:#1a4d4d">Paeds Resus</h1>
       <p>Hello ${safeName},</p>
       <p>If AHA ACLS is part of your professional development plan, Paeds Resus has introduced a flexible Lipa Mdogo Mdogo option at <strong>KSh 2,500 per month for six months</strong>.</p>
-      <p>The guided pathway checks your <strong>BLS cognitive completion first</strong>. If BLS cognitive is not yet complete, you will complete that step before continuing to the ACLS cognitive pathway. On successful completion of the programme requirements, you will receive your AHA ACLS certification, together with a free Paeds Resus BLS Certificate.</p>
+      <p>The guided pathway checks your <strong>BLS cognitive completion first</strong>. If BLS cognitive is not yet complete, you will complete that step before continuing to the ACLS cognitive pathway. On successful completion of the programme requirements, you will receive your AHA ACLS certification, together with the included Paeds Resus BLS Certificate.</p>
       <p><a href="${safeEnrollmentUrl}" style="display:inline-block;background:#ff6633;color:#fff;padding:12px 20px;text-decoration:none;border-radius:4px">Learn more and check the next steps</a></p>
       <p>This opportunity is optional and is not an institutional performance assessment.</p>
       <p>Questions or clarification? Call <strong>${NERP_SUPPORT_PHONE}</strong> or email <a href="mailto:${NERP_SUPPORT_EMAIL}">${NERP_SUPPORT_EMAIL}</a>.</p>

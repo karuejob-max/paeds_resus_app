@@ -5,7 +5,7 @@ export const DEFAULT_PAGE_TITLE =
   "Paeds Resus — Emergency Care Training & Institutional Readiness (Kenya)";
 
 export const DEFAULT_PAGE_DESCRIPTION =
-  "Paeds Resus provides emergency care training for individual healthcare providers and institutional readiness products for hospitals in Kenya: AHA-aligned BLS, ACLS, PALS, NRP, NERP, IERP, ILSP, IERS with ResusGPS and Care Signal, and ICPD. Always follow local clinical protocols.";
+  "Paeds Resus provides emergency care training for individual healthcare providers and institutional readiness products for hospitals in Kenya: AHA-aligned BLS, ACLS, PALS, NRP, paid NERP and IERP pathways, free Paeds Resus Fellowship micro-courses, ILSP, IERS with ResusGPS and Care Signal, and ICPD. Always follow local clinical protocols.";
 
 export const OG_IMAGE_PATH = "/og-image.png";
 export const OG_IMAGE_WIDTH = 1200;
