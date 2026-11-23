@@ -104,6 +104,9 @@ export default function ForInstitutions() {
               emergency readiness, and ICPD for continuous professional
               development.
             </p>
+            <p className="mt-4 max-w-3xl text-base leading-relaxed text-teal-50/90">
+              Helping hospitals build emergency readiness through practical training, team learning, and continuous improvement.
+            </p>
             <AcronymGlossary />
             <div className="mt-8 flex flex-wrap gap-3">
               <a href="#products">

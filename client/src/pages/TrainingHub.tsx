@@ -18,9 +18,9 @@ const MICRO_COURSE_NOTE =
 export default function TrainingHub() {
   useScrollToTop();
   usePageMeta({
-    title: "Paediatric & AHA-Aligned Training Kenya | Paeds Resus",
+    title: "Emergency Care and AHA-Aligned Training Kenya | Paeds Resus",
     description:
-      "Browse BLS, ACLS, PALS, NRP, Heartsaver, and micro-courses from Paeds Resus Limited — AHA-aligned training for healthcare providers in Kenya and East Africa.",
+      "Browse BLS, ACLS, PALS, NRP, Heartsaver, and paediatric Fellowship micro-courses from Paeds Resus Limited — AHA-aligned emergency training for healthcare providers in Kenya and East Africa.",
     path: "/training",
   });
 
@@ -34,7 +34,7 @@ export default function TrainingHub() {
             <p className="text-sm font-medium text-brand-teal">Paeds Resus Limited</p>
           </div>
           <h1 className="text-3xl md:text-4xl font-bold mb-4">
-            Training & certification for paediatric emergency care
+            Emergency care training for healthcare providers
           </h1>
           <p className="text-lg text-muted-foreground leading-relaxed">
             Healthcare providers across Kenya and the East African Community use Paeds Resus for AHA-aligned

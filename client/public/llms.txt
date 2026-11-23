@@ -1,20 +1,20 @@
 # Paeds Resus
 
-> Paeds Resus is an emergency-care organisation and platform based in Kenya, serving providers and institutions across all patient populations. Current institutional focus is Central Kenya; expansion across Kenya is planned, while East African Community expansion is not yet active.
+> Paeds Resus is an AHA-aligned Training Site and emergency-care organisation and platform based in Kenya, serving providers and institutions across all patient populations. Current institutional focus is Central Kenya; expansion across Kenya is planned, while East African Community expansion is not yet active.
 
 ## Canonical product architecture
 
 ### Individual products
 
-- AHA BLS: basic life support training for individual healthcare providers. Price anchor: KES 10,000 per person; KES 7,500 per person for cohorts of 7 or more.
-- AHA ACLS: advanced cardiovascular life support training for individual healthcare providers. Price anchor: KES 20,000 per person; KES 17,500 per person for cohorts of 7 or more.
-- NERP: Nurses Emergency Readiness Program. Individual nurse pathway; request the current offer.
-- IERP: Interns Emergency Readiness Program. Individual intern pathway; request the current offer.
-- Paeds Resus Fellowship: individual paediatric emergency micro-course pathway; catalogue pricing applies.
+- Self-Pay BLS: basic life support training for individual healthcare providers. Standard price: KES 10,000; current self-pay offer: KES 7,500; Black November offer: KES 5,500. The separate cohort rate is KES 7,500 per person for cohorts of 7 or more.
+- Self-Pay ACLS: advanced cardiovascular life support training for individual healthcare providers. Standard price: KES 20,000; current self-pay offer: KES 17,500; Black November offer: KES 15,000. The separate cohort rate is KES 17,500 per person for cohorts of 7 or more.
+- NERP: Nurses Emergency Readiness Program. Individual nurse pathway: KES 15,000 total, with minimum KES 2,500 monthly instalments; includes AHA ACLS certification and Paeds Resus BLS certification.
+- IERP: Interns Emergency Readiness Program. Individual intern pathway: KES 15,000 paid in one payment; includes AHA ACLS certification and Paeds Resus BLS certification. Payment timing depends on the intern's start cohort; check the public program page and enrollment flow for the applicable rule.
+- Paeds Resus Fellowship: individual paediatric emergency micro-course pathway. Fellowship micro-courses are free and distinct from paid life-support courses.
 
 ### Institutional products
 
-- ILSP: Institutional Life Support Program for institution-paid life-support cohorts, delivery, practical assessment, and completion evidence.
+- ILSP: Institutional Life Support Program for institution-paid life-support cohorts, delivery, practical assessment, and completion evidence. Paeds Resus BLS and ACLS training is KES 7,000 per provider for institution-paid cohorts; optional AHA certification is a separate add-on, with current pricing shown in the applicable course offer.
 - IERS: Institutional Emergency Readiness System for hospital-wide emergency-response governance, activation, readiness evidence, drills, equipment gaps, corrective actions, and reporting. Annual price tiers (Levels 4/5/6): KES 200,000 / 350,000 / 600,000.
 - ICPD: Institutional Continuous Professional Development for verified professional-development activity, attendance, targets, certificates, and leadership reporting. Per-staff price tiers: KES 1,000 / 900 / 800 / 700 / 600, based on verified staff bands.
 
@@ -39,6 +39,7 @@
 - Family & Caregiver Safe-Truth: https://www.paedsresus.com/parent-safe-truth
 
 ## Institutional presence
+Helping hospitals build emergency readiness through practical training, team learning, and continuous improvement.
 
 Paeds Resus is based in Kenya, with our current institutional focus in Central Kenya. ILSP, IERS, and ICPD are built to scale to any facility in Kenya as we grow — East African Community expansion is planned, not yet active. Contact us to discuss your facility.
 
