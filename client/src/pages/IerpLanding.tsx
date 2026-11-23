@@ -51,7 +51,7 @@ const phases = [
 const outcomeTiles = [
   {
     title: "Learn",
-    description: "Build a reliable BLS-to-ACLS cognitive foundation for paediatric emergencies.",
+    description: "Build a reliable BLS-to-ACLS cognitive foundation for healthcare emergencies.",
     icon: GraduationCap,
   },
   {
@@ -215,7 +215,7 @@ export default function IerpLanding() {
             <div>
               <p className="mb-4 text-xs font-semibold uppercase tracking-[0.22em] text-teal-700">Paeds Resus · Intern pathway</p>
               <h2 className="max-w-3xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl md:text-6xl">
-                Build readiness for paediatric emergencies during internship.
+                Build readiness for healthcare emergencies during internship.
               </h2>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
                 IERP takes you from BLS and ACLS learning to team-based simulation and hands-on assessment in one visible route.
