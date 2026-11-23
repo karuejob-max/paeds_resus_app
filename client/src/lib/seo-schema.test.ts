@@ -152,8 +152,11 @@ describe("public discovery copy boundaries", () => {
     expect(llms).toContain("Black November offer: KES 5,500");
     expect(llms).toContain("Black November offer: KES 15,000");
     expect(llms).toContain("KES 15,000 total, with minimum KES 2,500 monthly instalments");
-    expect(llms).toContain("KES 15,000 paid in one payment");
-    expect(llms).toContain("Payment timing depends on the intern's start cohort");
+    expect(llms).toContain("The campaign enrolment cutoff is 30 November 2026; it is an enrolment deadline, not a payment deadline or temporary discount.");
+    expect(llms).toContain("The standard fee remains KES 15,000 after the cutoff, with no post-cutoff price increase.");
+    expect(llms).toContain("For interns whose IERP start date falls from 1 August through 30 November, Phase 1 online cognitive coursework and Phase 2 online team simulations may begin before payment.");
+    expect(llms).toContain("From 1 December EAT, the full remaining balance must be paid in one payment before continued access to cognitive coursework or booking further Phase 2 sessions.");
+    expect(llms).toContain("For interns whose IERP start date falls from 1 December through 31 July, the full KES 15,000 fee must be paid before Phase 1 or Phase 2 access.");
     expect(llms).toContain("AHA ACLS certification and Paeds Resus BLS certification");
     expect(llms).toContain("Fellowship micro-courses are free and distinct from paid life-support courses");
     expect(llms).not.toContain("catalogue pricing applies");

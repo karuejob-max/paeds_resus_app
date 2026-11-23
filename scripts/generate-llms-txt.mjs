@@ -54,6 +54,7 @@ const aclsCohortPrice = readNumber("ACLS_COHORT_PRICE").toLocaleString("en-KE");
 const aclsCurrentSelfPayPrice = readNumber("ACLS_CURRENT_SELF_PAY_PRICE").toLocaleString("en-KE");
 const aclsBlackNovemberPrice = readNumber("ACLS_BLACK_NOVEMBER_PRICE").toLocaleString("en-KE");
 const ierpPrice = readNumber("IERP_FULL_PRICE").toLocaleString("en-KE");
+const ierpEnrollmentCutoff = readString("IERP_ENROLLMENT_CUTOFF");
 const nerpPrice = readNumber("NERP_TOTAL_PRICE").toLocaleString("en-KE");
 const nerpInstallment = readNumber("NERP_INSTALLMENT").toLocaleString("en-KE");
 const ilsBasePrice = readLifeSupportNumber(/PAEDS_RESUS_ILS_BASE_PRICE_KES\s*=\s*([0-9_]+)/, "ILSP base price");
@@ -80,7 +81,7 @@ const output = `# Paeds Resus
 - Self-Pay BLS: basic life support training for individual healthcare providers. Standard price: KES ${blsPrice}; current self-pay offer: KES ${blsCurrentSelfPayPrice}; Black November offer: KES ${blsBlackNovemberPrice}. The separate cohort rate is KES ${blsCohortPrice} per person for ${cohortLabel}.
 - Self-Pay ACLS: advanced cardiovascular life support training for individual healthcare providers. Standard price: KES ${aclsPrice}; current self-pay offer: KES ${aclsCurrentSelfPayPrice}; Black November offer: KES ${aclsBlackNovemberPrice}. The separate cohort rate is KES ${aclsCohortPrice} per person for ${cohortLabel}.
 - NERP: Nurses Emergency Readiness Program. Individual nurse pathway: KES ${nerpPrice} total, with minimum KES ${nerpInstallment} monthly instalments; includes AHA ACLS certification and Paeds Resus BLS certification.
-- IERP: Interns Emergency Readiness Program. Individual intern pathway: KES ${ierpPrice} paid in one payment; includes AHA ACLS certification and Paeds Resus BLS certification. Payment timing depends on the intern's start cohort; check the public program page and enrollment flow for the applicable rule.
+- IERP: Interns Emergency Readiness Program. The standard individual pathway fee is KES ${ierpPrice}; it includes AHA ACLS certification and Paeds Resus BLS certification. The campaign enrolment cutoff is ${ierpEnrollmentCutoff}; it is an enrolment deadline, not a payment deadline or temporary discount. The standard fee remains KES ${ierpPrice} after the cutoff, with no post-cutoff price increase. For interns whose IERP start date falls from 1 August through 30 November, Phase 1 online cognitive coursework and Phase 2 online team simulations may begin before payment. From 1 December EAT, the full remaining balance must be paid in one payment before continued access to cognitive coursework or booking further Phase 2 sessions. For interns whose IERP start date falls from 1 December through 31 July, the full KES ${ierpPrice} fee must be paid before Phase 1 or Phase 2 access.
 - Paeds Resus Fellowship: individual paediatric emergency micro-course pathway. Fellowship micro-courses are free and distinct from paid life-support courses.
 
 ### Institutional products
