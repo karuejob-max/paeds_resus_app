@@ -56,6 +56,22 @@ describe("Institutional Life Support institutional delivery contract", () => {
     expect(procedures).not.toContain("initiateEnrollmentPayment");
   });
 
+  it("accepts only one combined AHA BLS+ACLS request for the ILSP add-on", () => {
+    const inputParser = (
+      institutionalLifeSupportRouter._def.procedures.requestAhaCredential as any
+    )._def.inputs[0];
+
+    expect(
+      inputParser.safeParse({ enrollmentId: 1, credentialType: "bls_acls" }).success
+    ).toBe(true);
+    expect(
+      inputParser.safeParse({ enrollmentId: 1, credentialType: "bls" }).success
+    ).toBe(false);
+    expect(
+      inputParser.safeParse({ enrollmentId: 1, credentialType: "acls" }).success
+    ).toBe(false);
+  });
+
   it("requires final roster confirmation before an institution order can start payment", () => {
     const inputParser = (
       institutionalLifeSupportRouter._def.procedures

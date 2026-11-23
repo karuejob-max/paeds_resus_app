@@ -146,7 +146,7 @@ export const INSTITUTION_PLATFORM_NEED_OPTIONS = [
     value: "paeds_resus_training",
     label: "Institutional Life Support Training Program",
     description:
-      "Enroll providers in Paeds Resus competency-based training at KES 10,000 per provider. This creates Paeds Resus certification, not an AHA certificate.",
+      "Enroll providers in Paeds Resus BLS and ACLS competency-based training at KES 7,000 per provider. This creates Paeds Resus certification, not an AHA certificate.",
   },
   {
     value: "other_support",

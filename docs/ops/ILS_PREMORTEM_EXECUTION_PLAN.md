@@ -47,7 +47,7 @@ An institution-paid order must not be accepted as operationally ready until all 
 
 - The institution has a named coordinator with a valid Paeds Resus account.
 - Every provider is an existing Paeds Resus account with a confirmed name and email.
-- The roster shows the provider count and total as `KES 10,000 × provider count`.
+- The roster shows the provider count and total as `KES 7,000 × provider count` at the approved institutional rate.
 - The coordinator records a final provider-roster confirmation immediately before payment; the server rejects an order without it.
 - The institution confirms the preferred training date.
 - An approved instructor, venue, equipment plan, and practical-assessment capacity are recorded.
@@ -60,7 +60,7 @@ A provider may receive a Paeds Resus competency certificate only when the requir
 
 ## AHA credentialing boundary
 
-The optional AHA pathway remains separate. The platform may record a request and payment, but only an authorized reviewer may approve or reject it. Within the 90-day window after Paeds Resus certification, the add-on prices are BLS KES 7,500 and ACLS KES 10,000. After the window, full-training prices apply: BLS KES 10,000 and ACLS KES 20,000. No UI, payment status, or request status may imply automatic AHA certification.
+The optional AHA pathway remains separate. The platform may record a request and payment, but only an authorized reviewer may approve or reject it. Within the 90-day window after Paeds Resus certification, one KES 18,000 add-on creates a single request for both AHA BLS and AHA ACLS credentialing; combined with the KES 7,000 ILSP provider rate, the total is KES 25,000 per provider. Request and payment must be completed within the window. After it closes, standalone full-training prices remain BLS KES 10,000 and ACLS KES 20,000. No UI, payment status, or request status may imply automatic AHA certification.
 
 ## Minimum operational reports
 

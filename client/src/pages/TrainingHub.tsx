@@ -113,7 +113,7 @@ export default function TrainingHub() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-blue-950/80">
-                Complete the structured online modules and knowledge checks, then attend an approved practical assessment. This fee covers Paeds Resus BLS and ACLS certification. Optional AHA certification is separate and requires a KES 18,000 top-up; requests and payment must be completed within 90 days after programme certification.
+                Complete the structured online modules and knowledge checks, then attend an approved practical assessment. The KES 7,000 fee covers Paeds Resus BLS and ACLS certification. One optional KES 18,000 top-up requests both AHA BLS and AHA ACLS certification; the combined total is KES 25,000 per provider. Submit the request and payment within 90 days after programme certification. AHA certificate issuance remains subject to the applicable AHA review.
               </p>
               <Link href="/training/institutional-life-support">
                 <Button variant="outline" size="sm" className="border-blue-300 text-blue-900 hover:bg-blue-100">

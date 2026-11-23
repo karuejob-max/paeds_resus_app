@@ -182,15 +182,16 @@ Do not confuse IERP with IERS. **IERP is the intern training pathway; IERS is th
 **Headline:** Build one life-support standard across the facility.  
 **Body:** ILSP helps hospitals organise institution-paid life-support training around a defined cohort, agreed delivery plan, readiness requirements, practical assessment, and accountable completion evidence.  
 **Price:** **KES 7,000 per staff member**
+**Optional AHA add-on:** **KES 18,000** for one request covering both AHA BLS and AHA ACLS credentialing within 90 days after Paeds Resus certification; the combined total is **KES 25,000 per provider**, subject to authorized AHA review.
 **CTA:** **Plan an institutional cohort**
 
 ### Short institutional message
 
-> **ILSP — KES 10,000 list price; KES 7,000 per provider for institution-paid cohorts.** Institution-paid life-support training with roster control, learning, delivery, readiness coordination, practical assessment, and Paeds Resus certification. The institution may absorb the cost or use an approved recovery arrangement such as payroll deduction.
+> **ILSP — KES 10,000 list price; KES 7,000 per provider for institution-paid cohorts.** Institution-paid life-support training with roster control, learning, delivery, readiness coordination, practical assessment, and Paeds Resus certification. Within 90 days after certification, one optional KES 18,000 add-on requests both AHA BLS and AHA ACLS credentialing; the combined total is KES 25,000 per provider, subject to authorized review. The institution may absorb the ILSP cost or use an approved recovery arrangement such as payroll deduction.
 
 ### WhatsApp message
 
-> **ILSP — Institutional Life Support Training Program.** A managed, institution-paid facility cohort for life-support learning, delivery, practical assessment, and completion evidence, scoped around your staff list, departments, and schedule. The list price is **KES 10,000** and the institutional cohort rate is **KES 7,000 per provider**. Participants receive a Paeds Resus ILSP completion certificate, not an AHA BLS or ACLS provider card. Institutions can absorb the cost or recover it through options such as payroll deduction. Contact us to plan your institutional cohort.
+> **ILSP — Institutional Life Support Training Program.** A managed, institution-paid facility cohort for life-support learning, delivery, practical assessment, and completion evidence, scoped around your staff list, departments, and schedule. The list price is **KES 10,000** and the institutional cohort rate is **KES 7,000 per provider**. Participants receive a Paeds Resus ILSP completion certificate, not an AHA BLS or ACLS provider card. Within 90 days after Paeds Resus certification, one optional **KES 18,000** top-up requests both AHA BLS and AHA ACLS credentialing; combined with ILSP, the total is **KES 25,000 per provider**, subject to authorized review. Institutions can absorb the ILSP cost or recover it through options such as payroll deduction. Contact us to plan your institutional cohort.
 
 ### Institutional sales message
 
@@ -198,7 +199,7 @@ Do not confuse IERP with IERS. **IERP is the intern training pathway; IERS is th
 
 ### Guardrail
 
-ILSP is institution-paid and cohort-scoped. Do not market it as individual free access, an anonymous coupon, or a substitute for IERS. State whether the agreed pathway is Paeds Resus certification, an AHA pathway, or both.
+ILSP is institution-paid and cohort-scoped. Do not market it as individual free access, an anonymous coupon, or a substitute for IERS. State whether the agreed pathway is Paeds Resus certification, an AHA pathway, or both. The optional ILSP AHA add-on is one KES 18,000 request for both AHA BLS and AHA ACLS, within 90 days; do not present separate BLS/ACLS ILSP add-on prices or imply automatic AHA certificate issuance.
 
 ---
 
@@ -348,7 +349,7 @@ Never say that ICPD proves a provider is ready for an emergency, competent at th
 | IERS | “From KES 200,000/year, tiered by facility level” with scope, implementation, and renewal boundaries stated in the proposal |
 | ICPD | “KES 1,000 / 900 / 800 / 700 / 600 per staff per year, based on verified total facility staff; more than 2,000 quoted individually” with staff scope, departments, support, reporting, and exclusions stated in the proposal |
 | NERP, IERP | “Request the current cohort offer” or “Quoted by cohort and scope” until pricing is formally approved |
-| ILSP | “KES 10,000 list price; KES 7,000 per provider for institution-paid cohorts” with the Paeds Resus completion certificate and AHA distinction stated clearly |
+| ILSP | “KES 10,000 list price; KES 7,000 per provider for institution-paid cohorts; optional KES 18,000 add-on for both AHA BLS and ACLS requests within 90 days; KES 25,000 combined per provider” with the Paeds Resus certificate boundary and authorized AHA review stated clearly |
 | AHA credential | State the exact pathway, practical requirements, official credential scope, and included/excluded fees |
 | Institutional offer | Present training, IERS, and ICPD as separate components even when sold together |
 

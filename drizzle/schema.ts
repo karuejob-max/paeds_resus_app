@@ -1369,12 +1369,12 @@ export type InstitutionalTrainingOrderProvider =
 export type InsertInstitutionalTrainingOrderProvider =
   typeof institutionalTrainingOrderProviders.$inferInsert;
 
-/** Paid request for an individual AHA credentialing add-on after ILS completion. */
+/** Paid AHA credentialing request after ILS completion; bls/acls are retained for historical rows. */
 export const ilsCredentialRequests = mysqlTable("ilsCredentialRequests", {
   id: int("id").autoincrement().primaryKey(),
   enrollmentId: int("enrollmentId").notNull(),
   userId: int("userId").notNull(),
-  credentialType: mysqlEnum("credentialType", ["bls", "acls"]).notNull(),
+  credentialType: mysqlEnum("credentialType", ["bls", "acls", "bls_acls"]).notNull(),
   amountKes: int("amountKes").notNull(),
   credentialingDeadline: timestamp("credentialingDeadline").notNull(),
   status: mysqlEnum("status", [

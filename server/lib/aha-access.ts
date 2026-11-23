@@ -256,19 +256,28 @@ function nerpAccessBlockMessage(state: NerpCredentialState): string {
   return "Submit complete Nursing Council of Kenya licence evidence and a licence number before continuing NERP.";
 }
 
+export function getIlspCredentialTypesForProgramType(
+  programType: AhaProgramType
+): Array<"bls" | "acls" | "bls_acls"> {
+  if (programType === "bls") return ["bls", "bls_acls"];
+  if (programType === "acls") return ["acls", "bls_acls"];
+  return [];
+}
+
 async function hasIlspPathway(
   db: AhaAccessDb,
   userId: number,
   programType: AhaProgramType,
 ): Promise<boolean> {
-  if (programType !== "bls" && programType !== "acls") return false;
+  const credentialTypes = getIlspCredentialTypesForProgramType(programType);
+  if (credentialTypes.length === 0) return false;
   const rows = await db
     .select({ id: ilsCredentialRequests.id })
     .from(ilsCredentialRequests)
     .where(
       and(
         eq(ilsCredentialRequests.userId, userId),
-        eq(ilsCredentialRequests.credentialType, programType),
+        inArray(ilsCredentialRequests.credentialType, credentialTypes),
         eq(ilsCredentialRequests.status, "approved"),
       ),
     )
