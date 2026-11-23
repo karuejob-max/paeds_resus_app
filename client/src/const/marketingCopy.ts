@@ -10,6 +10,11 @@ export const BLS_PRICE = 10_000;
 export const BLS_COHORT_PRICE = 7_500;
 export const ACLS_PRICE = 20_000;
 export const ACLS_COHORT_PRICE = 17_500;
+// Owner-confirmed current self-pay offers; these do not change checkout pricing.
+export const BLS_CURRENT_SELF_PAY_PRICE = 7_500;
+export const BLS_BLACK_NOVEMBER_PRICE = 5_500;
+export const ACLS_CURRENT_SELF_PAY_PRICE = 17_500;
+export const ACLS_BLACK_NOVEMBER_PRICE = 15_000;
 export const IERP_FULL_PRICE = 15_000;
 export const NERP_TOTAL_PRICE = 15_000;
 export const NERP_INSTALLMENT = 2_500;

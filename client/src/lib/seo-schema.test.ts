@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   PUBLIC_SEO_ROUTES,
   buildBreadcrumbListJsonLd,
@@ -130,5 +132,30 @@ describe("TRAINING_LANDING_CONFIGS", () => {
       const wordCount = text.split(/\s+/).filter(Boolean).length;
       expect(wordCount, `${config.slug} has ${wordCount} words`).toBeGreaterThanOrEqual(400);
     }
+  });
+});
+
+describe("public discovery copy boundaries", () => {
+  it("keeps whole-provider and institutional discovery copy distinct from paediatric-only products", () => {
+    const providers = readFileSync(resolve(process.cwd(), "client/src/pages/ForProviders.tsx"), "utf8");
+    const training = readFileSync(resolve(process.cwd(), "client/src/pages/TrainingHub.tsx"), "utf8");
+    const institutions = readFileSync(resolve(process.cwd(), "client/src/pages/ForInstitutions.tsx"), "utf8");
+    const llms = readFileSync(resolve(process.cwd(), "client/public/llms.txt"), "utf8");
+
+    expect(providers).toContain("Emergency Training for Healthcare Providers in Kenya");
+    expect(providers).toContain("the paediatric Paeds Resus Fellowship");
+    expect(training).toContain("Emergency care training for healthcare providers");
+    expect(training).toContain("paediatric Fellowship micro-courses");
+    expect(institutions).toContain("Helping hospitals build emergency readiness through practical training, team learning, and continuous improvement.");
+    expect(llms).toContain("AHA-aligned Training Site");
+    expect(llms).toContain("Helping hospitals build emergency readiness through practical training, team learning, and continuous improvement.");
+    expect(llms).toContain("Black November offer: KES 5,500");
+    expect(llms).toContain("Black November offer: KES 15,000");
+    expect(llms).toContain("KES 15,000 total, with minimum KES 2,500 monthly instalments");
+    expect(llms).toContain("KES 15,000 paid in one payment");
+    expect(llms).toContain("Payment timing depends on the intern's start cohort");
+    expect(llms).toContain("AHA ACLS certification and Paeds Resus BLS certification");
+    expect(llms).toContain("Fellowship micro-courses are free and distinct from paid life-support courses");
+    expect(llms).not.toContain("catalogue pricing applies");
   });
 });
