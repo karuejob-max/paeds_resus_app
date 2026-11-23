@@ -16,6 +16,8 @@ export const BLS_BLACK_NOVEMBER_PRICE = 5_500;
 export const ACLS_CURRENT_SELF_PAY_PRICE = 17_500;
 export const ACLS_BLACK_NOVEMBER_PRICE = 15_000;
 export const IERP_FULL_PRICE = 15_000;
+// Owner-confirmed campaign cutoff; this is not a payment deadline or price change.
+export const IERP_ENROLLMENT_CUTOFF = "30 November 2026";
 export const NERP_TOTAL_PRICE = 15_000;
 export const NERP_INSTALLMENT = 2_500;
 export const NERP_INSTALLMENT_COUNT = 6;
