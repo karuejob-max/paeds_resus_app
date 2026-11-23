@@ -29,3 +29,23 @@ Source: institutional onboarding audit (see the audit document). This file track
 | I | Provider leave/pause; unlink stops resetting to pending | no |
 | J | Invitation expiry and single-use tokens | yes |
 | K | Delete `directHospitalOnboarding` and retired `register`; remove legacy approval path | no |
+
+## PR B — admin-added staff become invitations
+
+`addStaffMember`, `bulkImportStaff` and `addDepartmentNurseCandidate` previously called
+`ensureProviderMembershipForStaff`, which set the membership to `active` (with `acceptedAt`)
+and linked the roster row whenever the email matched an existing account. An institution
+admin could therefore attach any registered user to their institution without consent.
+
+Now:
+- The helper always creates or refreshes an `invited` membership (`general_staff` only) and
+  writes an `institution_membership_events` row (`invited` / `reinvited`) naming the admin.
+- The roster row is created with `facilityLinkStatus = "pending"` and is linked only by
+  `acceptMembershipInvite`.
+- An existing `active` membership is left untouched.
+- The in-app notification and email are sent; a delivery failure does not undo the invite.
+- A missing `insertId` now fails loudly instead of falling back to id `1`, which could have
+  attached a membership to the wrong roster row.
+
+Behaviour change for admins: a newly added registered nurse is not assignable to rotas until
+they accept. Existing active memberships are unaffected; no data migration.
