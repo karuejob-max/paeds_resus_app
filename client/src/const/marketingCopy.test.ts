@@ -2,10 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  ACLS_PRICE,
-  BLS_PRICE,
   IERP_FULL_PRICE,
-  IERP_SAVINGS,
+  IERP_ENROLLMENT_CUTOFF,
   ILSP_PRICE_PER_STAFF,
   ILSP_LIST_PRICE_PER_STAFF,
   NERP_INSTALLMENT,
@@ -27,9 +25,32 @@ describe("public marketing copy", () => {
     expect(llms).toContain(`for ${COHORT_LABEL}`);
   });
 
-  it("computes the IERP bundle saving from canonical prices", () => {
-    expect(IERP_SAVINGS).toBe(BLS_PRICE + ACLS_PRICE - IERP_FULL_PRICE);
-    expect(formatIerpValueLine()).toContain(`${formatKes(IERP_SAVINGS)}`);
+  it("states the IERP standard fee, included certificates, and enrolment cutoff", () => {
+    const copy = formatIerpValueLine();
+
+    expect(copy).toContain(`Standard fee: ${formatKes(IERP_FULL_PRICE)}`);
+    expect(copy).toContain(
+      "Includes AHA ACLS certification plus Paeds Resus BLS certification"
+    );
+    expect(copy).toContain(`Enrolment cutoff: ${IERP_ENROLLMENT_CUTOFF}`);
+    expect(copy).toContain("not a payment deadline");
+    expect(copy).not.toMatch(/save|one-time|offer deadline/i);
+  });
+
+  it("states the confirmed ILSP price and separate AHA top-up on the training page", () => {
+    const trainingHub = readFileSync(
+      resolve(process.cwd(), "client/src/pages/TrainingHub.tsx"),
+      "utf8"
+    );
+
+    expect(trainingHub).toContain(
+      "Paeds Resus BLS and ACLS certification · KES 7,000 per provider"
+    );
+    expect(trainingHub).toContain("This fee covers Paeds Resus BLS and ACLS certification.");
+    expect(trainingHub).toContain("KES 18,000 top-up");
+    expect(trainingHub).toContain("within 90 days after programme certification");
+    expect(trainingHub).not.toContain("KES 10,000 per provider");
+    expect(trainingHub).not.toContain("KES 25,000");
   });
 
   it("keeps the NERP installment structure explicit", () => {

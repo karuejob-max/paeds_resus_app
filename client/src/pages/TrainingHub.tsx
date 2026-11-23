@@ -108,12 +108,12 @@ export default function TrainingHub() {
             <CardHeader>
               <CardTitle className="text-lg text-blue-950">Institutional Life Support Training Program</CardTitle>
               <CardDescription>
-                Paeds Resus competency-based training for individual providers and institutional cohorts · KES 10,000 per provider
+                Paeds Resus BLS and ACLS certification · KES 7,000 per provider
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-blue-950/80">
-                Complete the structured online modules and knowledge checks, then attend an approved practical assessment. This programme issues a Paeds Resus competency certificate, not an AHA certificate. Optional BLS/ACLS credentialing has a separate 90-day request and payment window after certification.
+                Complete the structured online modules and knowledge checks, then attend an approved practical assessment. This fee covers Paeds Resus BLS and ACLS certification. Optional AHA certification is separate and requires a KES 18,000 top-up; requests and payment must be completed within 90 days after programme certification.
               </p>
               <Link href="/training/institutional-life-support">
                 <Button variant="outline" size="sm" className="border-blue-300 text-blue-900 hover:bg-blue-100">

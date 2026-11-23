@@ -38,11 +38,8 @@ export function formatCohortLine(base: number, cohort: number): string {
   return `${formatKes(base)} per person; ${formatKes(cohort)} per person for ${COHORT_LABEL}`;
 }
 
-export const IERP_STANDALONE_TOTAL = BLS_PRICE + ACLS_PRICE;
-export const IERP_SAVINGS = IERP_STANDALONE_TOTAL - IERP_FULL_PRICE;
-
 export function formatIerpValueLine(): string {
-  return `${formatKes(IERP_FULL_PRICE)} for AHA ACLS + BLS bundled — save ${formatKes(IERP_SAVINGS)} vs booking them separately`;
+  return `Standard fee: ${formatKes(IERP_FULL_PRICE)}. Includes AHA ACLS certification plus Paeds Resus BLS certification. Enrolment cutoff: ${IERP_ENROLLMENT_CUTOFF} (not a payment deadline).`;
 }
 
 export function formatNerpValueLine(): string {
