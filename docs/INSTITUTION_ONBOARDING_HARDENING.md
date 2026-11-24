@@ -122,3 +122,14 @@ Behaviour change: a newly registered institution has one administrator until the
 administrator accepts; the second administrator is listed under pending invites meanwhile.
 Order of deployment: run the migration before or immediately after deploying the code. If the code
 is live first, inviting an admin fails on the missing audit table until 0198 runs.
+
+
+## PR I: provider leave, and unlink no longer resets to pending
+
+- New `institution.leaveInstitution` (provider): ends the caller's own active membership, roles, scopes, coordinator seats and future rotations/shifts. Writes a `removed` membership event (actor = the provider), and notifies the owner and administrators.
+- Owners and administrators cannot leave until they hand over the administrator role.
+- Shared cleanup lives in `server/lib/institution-membership-exit.ts` (`endMembershipAccess`); admin unlink uses it too.
+- Unlink and leave set the roster row to `rejected` (was `pending`), so a person who has left is not put back in the approval queue. Coming back needs a new invitation or an admin-approved request.
+- Unlink now also writes a membership audit event.
+- "Pause" is not included: there is no status for it and no owner decision yet.
+- No migration.

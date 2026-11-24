@@ -99,6 +99,7 @@ import { ensurePublishedTeamForLegacyUtlRoster, notifyDepartmentErcoOfUtlDecline
 import { ensureDefaultUtlReadinessTemplate } from "../services/iers-readiness-template.service";
 import { autoLinkCpdFacilitiesForInstitution } from "../services/facility-registry.service";
 import { createAdminInvite } from "../lib/institution-admin-grants";
+import { endMembershipAccess, leaveInstitutionMembership } from "../lib/institution-membership-exit";
 import { getIsoWeekKey, getIsoWeekRange, getMonthlyShiftRows, monthStartFromShiftDate, normalizeMonthStart } from "../lib/iers-monthly-rota";
 import { insertCanonicalFacilityDepartments } from "../lib/iers-department-setup";
 import { DEFAULT_SHIFT_TEMPLATES, formatShiftInterval, shiftTemplateForType, validateShiftInterval } from "../lib/iers-shift-times";
@@ -1528,6 +1529,15 @@ export const institutionRouter = router({
         return membership.institutionalAccountId;
       });
       return { success: true, institutionalAccountId: result, membershipScope: "general_staff" as const, nextStep: "Institution access accepted. Standing roles and dated duties require separate assignment and acceptance." };
+    }),
+  /** Provider: end my own institution access. Ends roles and future duties; administrators are told. */
+  leaveInstitution: protectedProcedure
+    .input(z.object({ membershipId: z.number().int().positive(), reason: z.string().trim().min(3).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      const result = await leaveInstitutionMembership(db, ctx.user, input);
+      return { success: true as const, institutionalAccountId: result.institutionalAccountId };
     }),
   /** Provider: decline institution access without deleting the invitation history. */
   declineMembershipInvite: protectedProcedure
@@ -5360,17 +5370,19 @@ export const institutionRouter = router({
       if (membership.membershipStatus === "ended") return { success: true as const, alreadyUnlinked: true as const };
       const now = new Date();
       await db.transaction(async (tx) => {
-        await tx.update(institutionMemberships).set({ membershipStatus: "ended", endedAt: now, updatedAt: now }).where(and(eq(institutionMemberships.id, membership.id), eq(institutionMemberships.institutionalAccountId, input.institutionId)));
-        if (membership.staffMemberId) {
-          await tx.update(institutionalStaffMembers).set({ facilityLinkStatus: "pending", updatedAt: now }).where(and(eq(institutionalStaffMembers.id, membership.staffMemberId), eq(institutionalStaffMembers.institutionalAccountId, input.institutionId), isNull(institutionalStaffMembers.removedAt)));
-        }
-        if (membership.userId != null) {
-          await tx.update(institutionProductRoles).set({ roleStatus: "ended", endedAt: now, updatedAt: now }).where(and(eq(institutionProductRoles.institutionalAccountId, input.institutionId), eq(institutionProductRoles.userId, membership.userId), or(eq(institutionProductRoles.roleStatus, "active"), eq(institutionProductRoles.roleStatus, "suspended"))));
-          await tx.update(institutionAccountScopes).set({ scopeStatus: "ended", endedAt: now, updatedAt: now }).where(and(eq(institutionAccountScopes.institutionalAccountId, input.institutionId), eq(institutionAccountScopes.userId, membership.userId), or(eq(institutionAccountScopes.scopeStatus, "active"), eq(institutionAccountScopes.scopeStatus, "suspended"))));
-          await tx.update(institutionDepartmentResponseCoordinators).set({ assignmentStatus: "ended", updatedAt: now }).where(and(eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId), or(eq(institutionDepartmentResponseCoordinators.coordinatorUserId, membership.userId), eq(institutionDepartmentResponseCoordinators.backupUserId, membership.userId)), or(eq(institutionDepartmentResponseCoordinators.assignmentStatus, "active"), eq(institutionDepartmentResponseCoordinators.assignmentStatus, "pending_acceptance"))));
-          await tx.update(monthlyUtlRotations).set({ assignmentStatus: "ended", providerUserId: null, updatedAt: now }).where(and(eq(monthlyUtlRotations.institutionId, input.institutionId), eq(monthlyUtlRotations.providerUserId, membership.userId), or(eq(monthlyUtlRotations.assignmentStatus, "unassigned"), eq(monthlyUtlRotations.assignmentStatus, "pending_acceptance"), eq(monthlyUtlRotations.assignmentStatus, "active"))));
-          await tx.update(shiftUtlRosters).set({ assignmentStatus: "ended", status: "absent" }).where(and(eq(shiftUtlRosters.institutionId, input.institutionId), eq(shiftUtlRosters.utlUserId, membership.userId), gte(shiftUtlRosters.shiftDate, now), or(eq(shiftUtlRosters.assignmentStatus, "unassigned"), eq(shiftUtlRosters.assignmentStatus, "pending_acceptance"), eq(shiftUtlRosters.assignmentStatus, "active"))));
-        }
+        await endMembershipAccess(tx, { institutionId: input.institutionId, membership, now });
+        await tx.insert(institutionMembershipEvents).values({
+          institutionalAccountId: input.institutionId,
+          membershipId: membership.id,
+          staffMemberId: membership.staffMemberId,
+          userId: membership.userId,
+          eventType: "removed",
+          previousMembershipStatus: membership.membershipStatus,
+          currentMembershipStatus: "ended",
+          actorUserId: ctx.user.id,
+          reason: input.reason.trim(),
+          occurredAt: now,
+        });
         await tx.insert(institutionalActionLogs).values({
           institutionalAccountId: input.institutionId,
           createdByUserId: ctx.user.id,
