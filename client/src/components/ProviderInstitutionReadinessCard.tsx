@@ -41,6 +41,14 @@ export default function ProviderInstitutionReadinessCard() {
     onError: (error) => toast.error(error.message || "Could not decline the institution invitation."),
   });
 
+  const leaveInstitution = trpc.institution.leaveInstitution.useMutation({
+    onSuccess: async () => {
+      toast.success("You have left the institution. Any roles and future duties there were ended.");
+      await utils.institution.getMyMemberships.invalidate();
+    },
+    onError: (error) => toast.error(error.message || "Could not leave the institution."),
+  });
+
   if (membershipsQuery.isLoading || membershipsQuery.isError) return null;
 
   const memberships = membershipsQuery.data ?? [];
@@ -119,6 +127,21 @@ export default function ProviderInstitutionReadinessCard() {
             <div className="mt-3 flex items-start gap-2 rounded-md bg-slate-50 p-2.5 text-xs text-slate-600">
               <ShieldCheck className="h-4 w-4 text-teal-700 shrink-0 mt-0.5" />
               <span>Readiness tasks, shift responsibilities, activations, drills, and quality-improvement actions will be assigned to you here as your institution activates IERS.</span>
+            </div>
+            <div className="mt-2 flex justify-end">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-slate-500 hover:text-red-700"
+                disabled={leaveInstitution.isPending}
+                onClick={() => {
+                  if (!window.confirm(`Leave ${membership.companyName}? Your roles and future duties there will end, and its administrators will be told.`)) return;
+                  const reason = window.prompt("Why are you leaving this institution?")?.trim();
+                  if (reason && reason.length >= 3) leaveInstitution.mutate({ membershipId: membership.id, reason });
+                }}
+              >
+                Leave institution
+              </Button>
             </div>
           </div>
         ))}
