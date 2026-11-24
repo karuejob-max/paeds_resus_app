@@ -1,6 +1,7 @@
 import { and, eq, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import type { getDb } from "../db";
+import { INVITATION_EXPIRED_MESSAGE, invitationTtlDays, isInvitationExpired } from "./invitation-expiry";
 import {
   inAppNotifications,
   institutionalAccountAdmins,
@@ -111,7 +112,7 @@ export async function createAdminInvite(
   if (alreadyAdmin) return { status: "already_admin", inviteId: null };
 
   const [pending] = await db
-    .select({ id: institutionalAdminInvites.id })
+    .select({ id: institutionalAdminInvites.id, createdAt: institutionalAdminInvites.createdAt, source: institutionalAdminInvites.source })
     .from(institutionalAdminInvites)
     .where(and(
       eq(institutionalAdminInvites.institutionalAccountId, input.institutionId),
@@ -119,7 +120,24 @@ export async function createAdminInvite(
       eq(institutionalAdminInvites.status, "pending"),
     ))
     .limit(1);
-  if (pending) return { status: "already_invited", inviteId: pending.id };
+  if (pending && !isInvitationExpired(pending.createdAt, invitationTtlDays(pending.source))) {
+    return { status: "already_invited", inviteId: pending.id };
+  }
+  if (pending) {
+    // A stale invitation is retired so a fresh one (with a fresh clock) can replace it.
+    await db
+      .update(institutionalAdminInvites)
+      .set({ status: "revoked" })
+      .where(and(eq(institutionalAdminInvites.id, pending.id), eq(institutionalAdminInvites.status, "pending")));
+    await recordAdminEvent(db, {
+      institutionalAccountId: input.institutionId,
+      eventType: "revoked",
+      subjectEmail: email,
+      actorUserId: input.actorUserId,
+      inviteId: pending.id,
+      note: "Previous invitation expired and was replaced.",
+    });
+  }
 
   const [inserted] = await db.insert(institutionalAdminInvites).values({
     institutionalAccountId: input.institutionId,
@@ -177,6 +195,9 @@ async function findPendingInviteForUser(db: Db, user: { email?: string | null },
     ))
     .limit(1);
   if (!invite) throw new TRPCError({ code: "NOT_FOUND", message: "No matching pending invite found." });
+  if (isInvitationExpired(invite.createdAt, invitationTtlDays(invite.source))) {
+    throw new TRPCError({ code: "FORBIDDEN", message: INVITATION_EXPIRED_MESSAGE });
+  }
   return invite;
 }
 

@@ -79,14 +79,17 @@ export default function ProviderInstitutionReadinessCard() {
                 </p>
               </div>
               <Badge variant="outline" className="border-amber-300 text-amber-800 shrink-0">
-                <Clock3 className="h-3 w-3 mr-1" /> Pending
+                <Clock3 className="h-3 w-3 mr-1" /> {membership.invitationExpired ? "Expired" : "Pending"}
               </Badge>
             </div>
+            {membership.invitationExpired ? (
+              <p className="text-xs text-amber-900">This invitation has expired. Ask {membership.companyName} to send you a new one.</p>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
                 className="bg-teal-700 hover:bg-teal-800 text-white"
-                disabled={acceptInvite.isPending || declineInvite.isPending}
+                disabled={acceptInvite.isPending || declineInvite.isPending || membership.invitationExpired}
                 onClick={() => acceptInvite.mutate({ membershipId: membership.id })}
               >
                 <UserCheck className="h-4 w-4 mr-2" />

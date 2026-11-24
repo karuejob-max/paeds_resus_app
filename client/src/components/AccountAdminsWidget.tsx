@@ -146,7 +146,7 @@ export function AccountAdminsWidget({
                         variant="outline"
                         className="border-amber-300 text-amber-700"
                       >
-                        Not linked — account required
+                        {invite.expired ? "Expired — invite again" : "Invited — awaiting acceptance"}
                       </Badge>
                     </td>
                     <td className="py-2 px-3" />

@@ -8,8 +8,8 @@ import {
 } from "../../drizzle/schema";
 import { acceptAdminInvite, createAdminInvite, declineAdminInvite, revokeAdminInvite } from "./institution-admin-grants";
 
-type Invite = { id: number; institutionalAccountId: number; invitedEmail: string; invitedName: string | null; invitedByUserId: number | null; source: string; status: string };
-type Rows = { admins?: { id: number; userId: number }[]; existingAdmin?: { id: number } | null; pendingInvite?: { id: number } | null; invite?: Invite | null };
+type Invite = { id: number; institutionalAccountId: number; invitedEmail: string; invitedName: string | null; invitedByUserId: number | null; source: string; status: string; createdAt?: Date };
+type Rows = { admins?: { id: number; userId: number }[]; existingAdmin?: { id: number } | null; pendingInvite?: { id: number; createdAt?: Date; source?: string } | null; invite?: Invite | null };
 
 function fakeDb(rows: Rows) {
   const inserts: { table: unknown; values: any }[] = [];
@@ -45,7 +45,7 @@ function fakeDb(rows: Rows) {
 }
 
 const invitee = { id: 42, name: "Dr Second", email: "Second@Example.com" };
-const invite = (over: Partial<Invite> = {}): Invite => ({ id: 9, institutionalAccountId: 5, invitedEmail: "second@example.com", invitedName: "Dr Second", invitedByUserId: 1, source: "admin_invite", status: "pending", ...over });
+const invite = (over: Partial<Invite> = {}): Invite => ({ id: 9, institutionalAccountId: 5, invitedEmail: "second@example.com", invitedName: "Dr Second", invitedByUserId: 1, source: "admin_invite", status: "pending", createdAt: new Date(), ...over });
 const adminInserts = (inserts: { table: unknown }[]) => inserts.filter((i) => i.table === institutionalAccountAdmins);
 const eventInserts = (inserts: { table: unknown; values: any }[]) => inserts.filter((i) => i.table === institutionalAdminEvents).map((i) => i.values);
 
@@ -71,7 +71,7 @@ describe("administrator grants are invitations", () => {
     const a = fakeDb({ existingAdmin: { id: 1 } });
     expect((await createAdminInvite(a.db, { institutionId: 5, invitee, actorUserId: 1, source: "admin_invite" })).status).toBe("already_admin");
     expect(a.inserts).toHaveLength(0);
-    const b = fakeDb({ pendingInvite: { id: 4 } });
+    const b = fakeDb({ pendingInvite: { id: 4, createdAt: new Date(), source: "admin_invite" } });
     expect(await createAdminInvite(b.db, { institutionId: 5, invitee, actorUserId: 1, source: "admin_invite" })).toEqual({ status: "already_invited", inviteId: 4 });
     expect(b.inserts).toHaveLength(0);
   });
@@ -86,10 +86,33 @@ describe("administrator grants are invitations", () => {
   });
 
   it("a recovery grant past its cooling-off period transfers ownership and says so in the audit", async () => {
-    const { db, inserts, updates } = fakeDb({ invite: invite({ source: "recovery_approval", invitedByUserId: null, createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }) });
+    const { db, inserts, updates } = fakeDb({ invite: invite({ source: "recovery_approval", invitedByUserId: null, createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) }) });
     await acceptAdminInvite(db, { id: 42, email: "second@example.com" }, 9);
     expect(updates.find((u) => u.table === institutionalAccounts)!.set).toMatchObject({ userId: 42 });
     expect(eventInserts(inserts).map((e) => e.eventType)).toContain("owner_transferred");
+  });
+
+  it("an expired administrator invitation cannot be accepted or declined", async () => {
+    const old = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000);
+    const { db, inserts } = fakeDb({ invite: invite({ createdAt: old }) });
+    await expect(acceptAdminInvite(db, { id: 42, email: "second@example.com" }, 9)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(declineAdminInvite(db, { id: 42, email: "second@example.com" }, 9)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(adminInserts(inserts)).toHaveLength(0);
+  });
+
+  it("re-inviting someone whose invitation expired retires the old one and creates a new one", async () => {
+    const old = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000);
+    const { db, inserts, updates } = fakeDb({ pendingInvite: { id: 3, createdAt: old, source: "admin_invite" } });
+    const result = await createAdminInvite(db, { institutionId: 5, invitee: { id: 42, name: "Dr Second", email: "second@example.com" }, actorUserId: 1, source: "admin_invite" });
+    expect(result.status).toBe("invited");
+    expect(updates.find((u) => u.table === institutionalAdminInvites)!.set).toMatchObject({ status: "revoked" });
+    expect(inserts.some((i) => i.table === institutionalAdminInvites)).toBe(true);
+  });
+
+  it("a live pending invitation is still reported as already invited", async () => {
+    const { db } = fakeDb({ pendingInvite: { id: 3, createdAt: new Date(), source: "admin_invite" } });
+    const result = await createAdminInvite(db, { institutionId: 5, invitee: { id: 42, name: "Dr Second", email: "second@example.com" }, actorUserId: 1, source: "admin_invite" });
+    expect(result).toEqual({ status: "already_invited", inviteId: 3 });
   });
 
   it("declining adds no admin row and is recorded", async () => {
