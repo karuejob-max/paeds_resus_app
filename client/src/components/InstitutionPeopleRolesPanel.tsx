@@ -298,7 +298,7 @@ export function InstitutionPeopleRolesPanel({ institutionId ,
     },
     onError: error => toast.error(error.message || "Could not unlink this person"),
   });
-  const inviteInstitutionAdmin = trpc.institutionAdmins.invite.useMutation({ onSuccess: () => { toast.success("Institutional administrator assigned"); }, onError: error => toast.error(error.message) });
+  const inviteInstitutionAdmin = trpc.institutionAdmins.invite.useMutation({ onSuccess: () => { toast.success("Administrator invitation sent; they must accept before they have access"); }, onError: error => toast.error(error.message) });
   const assignDepartmentHead = trpc.institutionAccountability.assignDepartmentHead.useMutation({
     onSuccess: async () => {
       toast.success("Departmental Head assigned");

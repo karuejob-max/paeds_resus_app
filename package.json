@@ -137,6 +137,7 @@
     "db:apply-0195": "node scripts/apply-0195-institution-performance-annual-period.mjs",
     "db:apply-0196": "node scripts/apply-0196-institution-performance-automated-actor.mjs",
     "db:apply-0197": "node scripts/apply-0197-ils-aha-bls-acls-bundle.mjs",
+    "db:apply-0198": "node scripts/apply-0198-institution-admin-grants.mjs",
     "db:verify-0192": "node scripts/verify-0192-institutional-cpd-qi-links.mjs",
     "db:verify-0191": "node scripts/verify-0191-retrospective-role-claim-simulation-role.mjs",
     "db:verify-0197": "node scripts/verify-0197-ils-aha-bls-acls-bundle.mjs",

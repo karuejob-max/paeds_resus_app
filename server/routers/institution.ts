@@ -98,6 +98,7 @@ import { canAddDeputyToAcceptedErcoPrimary, validateDepartmentErcoAssignment } f
 import { ensurePublishedTeamForLegacyUtlRoster, notifyDepartmentErcoOfUtlDecline, projectLegacyUtlRosterDecision, projectUtlRosterReassignment } from "../services/iers-utl-sync.service";
 import { ensureDefaultUtlReadinessTemplate } from "../services/iers-readiness-template.service";
 import { autoLinkCpdFacilitiesForInstitution } from "../services/facility-registry.service";
+import { createAdminInvite } from "../lib/institution-admin-grants";
 import { getIsoWeekKey, getIsoWeekRange, getMonthlyShiftRows, monthStartFromShiftDate, normalizeMonthStart } from "../lib/iers-monthly-rota";
 import { insertCanonicalFacilityDepartments } from "../lib/iers-department-setup";
 import { DEFAULT_SHIFT_TEMPLATES, formatShiftInterval, shiftTemplateForType, validateShiftInterval } from "../lib/iers-shift-times";
@@ -2540,13 +2541,14 @@ export const institutionRouter = router({
         addedByUserId: null,
       });
 
-      // Second admin — link only the account selected from the existing
-      // Paeds Resus directory. Initial onboarding never creates a free-text
-      // invite or accepts an unregistered email address.
-      await db.insert(institutionalAccountAdmins).values({
-        institutionalAccountId: institutionId,
-        userId: secondAdmin.id,
-        addedByUserId: ctx.user.id,
+      // Second admin — an invitation to the account selected from the existing
+      // Paeds Resus directory. It takes effect only when that person accepts; initial
+      // onboarding never creates a free-text invite or accepts an unregistered email.
+      await createAdminInvite(db, {
+        institutionId,
+        invitee: { id: secondAdmin.id, name: secondAdminName, email: secondAdminEmail },
+        actorUserId: ctx.user.id,
+        source: "registration",
       });
 
       await insertCanonicalFacilityDepartments(db, {
