@@ -28,6 +28,14 @@ export function PendingAdminInviteBanner() {
     onError: (err) => toast.error(err.message),
   });
 
+  const decline = trpc.institutionAdmins.declineInvite.useMutation({
+    onSuccess: () => {
+      toast.success("Invitation declined.");
+      void utils.institutionAdmins.myPendingInvites.invalidate();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
   if (!isAuthenticated) return null;
   const invites = (data?.invites ?? []).filter((i) => !dismissedIds.has(i.id));
   if (invites.length === 0) return null;
@@ -54,6 +62,14 @@ export function PendingAdminInviteBanner() {
               disabled={accept.isPending}
             >
               Accept
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => decline.mutate({ inviteId: invite.id })}
+              disabled={decline.isPending || accept.isPending}
+            >
+              Decline
             </Button>
             <button
               type="button"

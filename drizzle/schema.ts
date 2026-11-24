@@ -1188,12 +1188,47 @@ export const institutionalAdminInvites = mysqlTable(
       "admin_invite",
       "recovery_approval",
     ]).notNull(),
-    status: mysqlEnum("status", ["pending", "accepted", "revoked"]).default(
-      "pending"
-    ),
+    status: mysqlEnum("status", [
+      "pending",
+      "accepted",
+      "revoked",
+      "declined",
+    ]).default("pending"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     acceptedAt: timestamp("acceptedAt"),
   }
+);
+
+/**
+ * Append-only audit of administrator grants: who was invited, by whom, and what the
+ * invitee did. Written for every invite, acceptance, decline, revocation and removal.
+ */
+export const institutionalAdminEvents = mysqlTable(
+  "institutionalAdminEvents",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    eventType: mysqlEnum("eventType", [
+      "invited",
+      "accepted",
+      "declined",
+      "revoked",
+      "removed",
+      "owner_transferred",
+    ]).notNull(),
+    subjectUserId: int("subjectUserId"),
+    subjectEmail: varchar("subjectEmail", { length: 320 }),
+    actorUserId: int("actorUserId"),
+    inviteId: int("inviteId"),
+    note: varchar("note", { length: 500 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    accountIdx: index("institutionalAdminEvents_account_idx").on(
+      table.institutionalAccountId,
+      table.createdAt
+    ),
+  })
 );
 
 export type InstitutionalAdminInvite =

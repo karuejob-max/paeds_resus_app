@@ -95,3 +95,30 @@ Now:
 setting on the institution (migration) and is left for a later change; until then every institution
 uses the request path. Existing active memberships created by the old path are unchanged — the
 membership-origin query is how we decide what to do about those.
+
+## PR C — administrator grants are invitations (migration 0198)
+
+Two paths made someone an institution administrator the moment an admin named them, with no
+acceptance and no record beyond `addedByUserId`: `institutionAdmins.invite` (any existing account
+picked from the directory) and the **second administrator at registration**
+(`completeOnboarding`). Decision 2: grants require the invitee's acceptance, notify existing
+admins, and are audited.
+
+Now both create a pending `institutionalAdminInvites` row (deduped per institution + email) and
+**no** `institutionalAccountAdmins` row. The invitee is notified in-app and sees the existing
+post-login banner, which now has **Accept** and **Decline**. Other administrators are notified when
+an invitation is sent, accepted or declined. A pending invite can be cancelled with
+`institutionAdmins.revokeInvite`. Every step (invited, accepted, declined, revoked, removed,
+owner_transferred) is written to the append-only `institutionalAdminEvents` table. The recovery
+approval path is unchanged in behaviour (acceptance already required) but is now audited as
+`owner_transferred`; PR D reworks recovery itself.
+
+**Migration 0198** (`pnpm run db:apply-0198`, idempotent, additive):
+- creates `institutionalAdminEvents`;
+- adds `'declined'` to `institutionalAdminInvites.status`;
+- backfills one `accepted` event per existing administrator (no access is changed).
+
+Behaviour change: a newly registered institution has one administrator until the named second
+administrator accepts; the second administrator is listed under pending invites meanwhile.
+Order of deployment: run the migration before or immediately after deploying the code. If the code
+is live first, inviting an admin fails on the missing audit table until 0198 runs.
