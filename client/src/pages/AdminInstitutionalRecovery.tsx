@@ -22,7 +22,11 @@ export default function AdminInstitutionalRecovery() {
 
   const review = trpc.institutionRecovery.review.useMutation({
     onSuccess: (result) => {
-      toast.success(result.status === "approved" ? "Approved — invite created" : "Request rejected");
+      toast.success(
+        result.status === "approved"
+          ? `Approved. Current administrators were notified; the claimant can accept from ${new Date((result as { effectiveAt?: string | Date }).effectiveAt ?? Date.now()).toLocaleDateString()}.`
+          : "Request rejected",
+      );
       void utils.institutionRecovery.list.invalidate({ status: "pending" });
     },
     onError: (err) => toast.error(err.message),

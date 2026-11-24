@@ -133,3 +133,17 @@ is live first, inviting an admin fails on the missing audit table until 0198 run
 - Unlink now also writes a membership audit event.
 - "Pause" is not included: there is no status for it and no owner decision yet.
 - No migration.
+
+
+## PR D: recovery is a cooling-off grant
+
+Approving a recovery request used to set the institution owner to `0` and delete every administrator at once (or, if the claimant already had an account, hand over ownership immediately). A mistaken or fraudulent approval locked the real administrators out.
+
+Now:
+- Approval creates a pending `recovery_approval` grant for the claimant. Owner and administrators are untouched.
+- Every current administrator is notified and can revoke the grant under Administrators. The approval and the notification are in the admin audit table.
+- The claimant can accept only after `RECOVERY_COOLING_OFF_DAYS` (7). A grant with no creation time fails closed.
+- On acceptance, ownership moves to the claimant and the former administrators are removed, with a `removed` audit event and a notice to each.
+- `submit`: evidence link must be https; at most 3 pending requests per email; email is lower-cased.
+- Not done: evidence upload (still a link), and a per-IP limit on the public form.
+- No migration.

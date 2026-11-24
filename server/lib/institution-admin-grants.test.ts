@@ -38,6 +38,7 @@ function fakeDb(rows: Rows) {
       },
     }),
     insert: (table: unknown) => ({ values: async (values: any) => { inserts.push({ table, values }); return [{ insertId: 88 }]; } }),
+    delete: () => ({ where: async () => undefined }),
     update: (table: unknown) => ({ set: (set: any) => ({ where: async () => { updates.push({ table, set }); } }) }),
   };
   return { db: db as never, inserts, updates };
@@ -84,11 +85,11 @@ describe("administrator grants are invitations", () => {
     expect(inserts.some((i) => i.table === inAppNotifications)).toBe(true);
   });
 
-  it("a recovery grant still transfers ownership and says so in the audit", async () => {
-    const { db, inserts, updates } = fakeDb({ invite: invite({ source: "recovery_approval", invitedByUserId: null }) });
+  it("a recovery grant past its cooling-off period transfers ownership and says so in the audit", async () => {
+    const { db, inserts, updates } = fakeDb({ invite: invite({ source: "recovery_approval", invitedByUserId: null, createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }) });
     await acceptAdminInvite(db, { id: 42, email: "second@example.com" }, 9);
     expect(updates.find((u) => u.table === institutionalAccounts)!.set).toMatchObject({ userId: 42 });
-    expect(eventInserts(inserts)[0].eventType).toBe("owner_transferred");
+    expect(eventInserts(inserts).map((e) => e.eventType)).toContain("owner_transferred");
   });
 
   it("declining adds no admin row and is recorded", async () => {
