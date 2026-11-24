@@ -26,6 +26,7 @@ import { classifyShiftInterval, currentShiftSortWeight, shiftSortKey, type Shift
 import { assertShiftRoleTransition, normalizeShiftRoleKey, type ShiftRoleAssignmentStatus } from "../lib/iers-shift-role-state";
 import { isMissingTableError } from "../lib/is-missing-db-table";
 import { ensurePublishedTeamForLegacyUtlRoster, projectShiftRoleDecisionToLegacyUtlRoster, requestErtlAcceptance } from "../services/iers-utl-sync.service";
+import { activeStaffCondition } from "../lib/institution-active-member";
 
 const IERS_PROVIDER_ROLES: InstitutionalProductRoleKey[] = ["iers_coordinator", "iers_responder", "iers_reviewer", "iers_governance", "iers_viewer"];
 const ERT_MEMBER_ROLES = new Set([
@@ -623,7 +624,7 @@ export const iersShiftTeamRouter = router({
         .innerJoin(institutionalStaffMembers, and(
           eq(institutionalStaffMembers.userId, users.id),
           eq(institutionalStaffMembers.institutionalAccountId, team.institutionId),
-          eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+          activeStaffCondition(),
           isNull(institutionalStaffMembers.removedAt),
         ))
         .innerJoin(institutionMemberships, and(
@@ -672,7 +673,7 @@ export const iersShiftTeamRouter = router({
         .innerJoin(institutionalStaffMembers, and(
           eq(institutionalStaffMembers.userId, users.id),
           eq(institutionalStaffMembers.institutionalAccountId, team.institutionId),
-          eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+          activeStaffCondition(),
           isNull(institutionalStaffMembers.removedAt),
         ))
         .innerJoin(institutionMemberships, and(

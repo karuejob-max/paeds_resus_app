@@ -15,6 +15,7 @@ import {
 import type { DbClient } from "../db";
 import { assertShiftRoleTransition, type ShiftRoleAssignmentStatus } from "../lib/iers-shift-role-state";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
+import { activeStaffCondition } from "../lib/institution-active-member";
 
 type DbExecutor = Pick<DbClient, "select" | "update" | "insert">;
 
@@ -147,7 +148,7 @@ async function getLinkedRnProvider(
     ))
     .where(and(
       eq(users.id, input.providerUserId),
-      eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+      activeStaffCondition(),
       isNull(institutionalStaffMembers.removedAt),
     ))
     .limit(1);

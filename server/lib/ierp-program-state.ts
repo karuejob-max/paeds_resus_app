@@ -8,6 +8,7 @@ import {
 } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { isMissingTableError } from "./is-missing-db-table";
+import { activeStaffCondition } from "./institution-active-member";
 
 export const IERP_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"] as const;
 export type IerpDesignation = (typeof IERP_DESIGNATIONS)[number];
@@ -270,7 +271,7 @@ export async function getIerpPaymentAccessForUser(db: IerpDb, userId: number) {
   const [staff] = await db
     .select({ designation: institutionalStaffMembers.designation, totalPaidAmount: institutionalStaffMembers.totalPaidAmount, enrollmentDate: institutionalStaffMembers.enrollmentDate, createdAt: institutionalStaffMembers.createdAt })
     .from(institutionalStaffMembers)
-    .where(and(eq(institutionalStaffMembers.userId, userId), eq(institutionalStaffMembers.facilityLinkStatus, "linked")))
+    .where(and(eq(institutionalStaffMembers.userId, userId), activeStaffCondition()))
     .limit(1);
   if (!staff || !isIerpDesignation(staff.designation)) return null;
   return getIerpPaymentAccess({
