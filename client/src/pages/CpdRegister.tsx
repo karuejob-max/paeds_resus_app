@@ -412,6 +412,10 @@ export default function CpdRegister() {
                 <p className="mt-3 rounded-md bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-800">
                   This hospital is now linked to your account as a locum/outreach facility. Your primary facility was not changed, but this facility is included in your facility history; any IERS duty still requires a separate institutional assignment and your explicit acceptance.
                 </p>
+              ) : submitMutation.data?.facilityLinkStatus === "request_pending" ? (
+                <p className="mt-3 rounded-md bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-800">
+                  Attendance was recorded. We sent a request to link this hospital to your account; its administrator needs to approve it before it becomes an active institutional link.
+                </p>
               ) : submitMutation.data?.facilityLinkStatus === "admin_review_required" ? (
                 <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
                   Attendance was recorded, but this facility relationship needs administrator review before it can become an active institutional link.
