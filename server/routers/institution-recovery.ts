@@ -4,12 +4,10 @@ import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
 import {
   institutionalRecoveryRequests,
-  institutionalAdminInvites,
   institutionalAccounts,
-  users,
-  institutionalAccountAdmins,
 } from "../../drizzle/schema";
-import { eq, desc, and, ne, or, like } from "drizzle-orm";
+import { eq, desc, and, or, like } from "drizzle-orm";
+import { createRecoveryGrant } from "../lib/institution-admin-grants";
 
 /**
  * North Star v2.0 §6.1: "Account recovery requires institutional identity
@@ -38,7 +36,7 @@ export const institutionRecoveryRouter = router({
         requesterEmail: z.string().email(),
         requesterPhone: z.string().optional(),
         requesterRoleClaim: z.string().optional(),
-        letterheadUrl: z.string().url(),
+        letterheadUrl: z.string().url().refine((u) => u.startsWith("https://"), "Evidence link must use https"),
         notes: z.string().optional(),
       })
     )
@@ -48,11 +46,21 @@ export const institutionRecoveryRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       }
 
+      const email = input.requesterEmail.trim().toLowerCase();
+      const recent = await db
+        .select({ id: institutionalRecoveryRequests.id })
+        .from(institutionalRecoveryRequests)
+        .where(and(eq(institutionalRecoveryRequests.requesterEmail, email), eq(institutionalRecoveryRequests.status, "pending")))
+        .limit(3);
+      if (recent.length >= 3) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "You already have recovery requests awaiting review. We will contact you." });
+      }
+
       const result = await db.insert(institutionalRecoveryRequests).values({
         companyNameClaimed: input.companyNameClaimed,
         claimedRegistrationNumber: input.claimedRegistrationNumber,
         requesterName: input.requesterName,
-        requesterEmail: input.requesterEmail,
+        requesterEmail: email,
         requesterPhone: input.requesterPhone,
         requesterRoleClaim: input.requesterRoleClaim,
         letterheadUrl: input.letterheadUrl,
@@ -151,83 +159,14 @@ export const institutionRecoveryRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Matched institution not found" });
       }
 
-      // Check if a user with the requester's email already exists
-      const [existingUser] = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.email, request.requesterEmail))
-        .limit(1);
-
-      // Clean up/revoke all existing pending invites for this institution
-      await db
-        .update(institutionalAdminInvites)
-        .set({ status: "revoked" })
-        .where(
-          and(
-            eq(institutionalAdminInvites.institutionalAccountId, input.matchedInstitutionalAccountId),
-            eq(institutionalAdminInvites.status, "pending")
-          )
-        );
-
-      if (existingUser) {
-        // Assign the existing verified user as admin directly
-        const [alreadyAdmin] = await db
-          .select({ id: institutionalAccountAdmins.id })
-          .from(institutionalAccountAdmins)
-          .where(
-            and(
-              eq(institutionalAccountAdmins.institutionalAccountId, input.matchedInstitutionalAccountId),
-              eq(institutionalAccountAdmins.userId, existingUser.id)
-            )
-          )
-          .limit(1);
-
-        if (!alreadyAdmin) {
-          await db.insert(institutionalAccountAdmins).values({
-            institutionalAccountId: input.matchedInstitutionalAccountId,
-            userId: existingUser.id,
-            addedByUserId: ctx.user.id,
-          });
-        }
-
-        // Set the primary owner (founding admin) to the new admin
-        await db
-          .update(institutionalAccounts)
-          .set({ userId: existingUser.id })
-          .where(eq(institutionalAccounts.id, input.matchedInstitutionalAccountId));
-
-        // Remove all former admins (excluding the newly added admin) to secure the account
-        await db
-          .delete(institutionalAccountAdmins)
-          .where(
-            and(
-              eq(institutionalAccountAdmins.institutionalAccountId, input.matchedInstitutionalAccountId),
-              ne(institutionalAccountAdmins.userId, existingUser.id)
-            )
-          );
-      } else {
-        // Set the primary owner to 0 (unreachable) to secure the account immediately
-        await db
-          .update(institutionalAccounts)
-          .set({ userId: 0 })
-          .where(eq(institutionalAccounts.id, input.matchedInstitutionalAccountId));
-
-        // Remove all former admins to secure the account immediately
-        await db
-          .delete(institutionalAccountAdmins)
-          .where(eq(institutionalAccountAdmins.institutionalAccountId, input.matchedInstitutionalAccountId));
-
-        // Create a pending recovery invite
-        await db.insert(institutionalAdminInvites).values({
-          institutionalAccountId: input.matchedInstitutionalAccountId,
-          invitedEmail: request.requesterEmail,
-          invitedName: request.requesterName,
-          invitedPhone: request.requesterPhone,
-          invitedByUserId: null,
-          source: "recovery_approval",
-          status: "pending",
-        });
-      }
+      // Nothing changes for the current administrators yet: the claimant gets a pending grant that
+      // can be accepted only after the cooling-off period, and current administrators are told.
+      const grant = await createRecoveryGrant(db, {
+        institutionId: input.matchedInstitutionalAccountId,
+        requester: { name: request.requesterName, email: request.requesterEmail, phone: request.requesterPhone },
+        reviewerUserId: ctx.user.id,
+        requestId: request.id,
+      });
 
       await db
         .update(institutionalRecoveryRequests)
@@ -240,7 +179,7 @@ export const institutionRecoveryRouter = router({
         })
         .where(eq(institutionalRecoveryRequests.id, input.requestId));
 
-      return { success: true, status: "approved" as const };
+      return { success: true, status: "approved" as const, effectiveAt: grant.effectiveAt };
     }),
 
   /** Search institutions by companyName or registrationNumber. Admin only. */

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import type { getDb } from "../db";
 import {
@@ -63,7 +63,7 @@ export async function getInstitutionAdminUserIds(db: Db, institutionId: number):
   );
 }
 
-async function notifyUsers(
+export async function notifyUsers(
   db: Db,
   userIds: number[],
   note: { title: string; body: string; relatedId: number; actionUrl: string },
@@ -80,7 +80,7 @@ async function notifyUsers(
   }
 }
 
-async function companyName(db: Db, institutionId: number) {
+export async function companyName(db: Db, institutionId: number) {
   const [account] = await db
     .select({ companyName: institutionalAccounts.companyName })
     .from(institutionalAccounts)
@@ -180,8 +180,82 @@ async function findPendingInviteForUser(db: Db, user: { email?: string | null },
   return invite;
 }
 
+/** Days a recovery grant waits so the institution's current administrators can object. */
+export const RECOVERY_COOLING_OFF_DAYS = 7;
+
+export function recoveryEffectiveAt(createdAt: Date | string | null | undefined): Date {
+  const start = createdAt ? new Date(createdAt) : new Date();
+  return new Date(start.getTime() + RECOVERY_COOLING_OFF_DAYS * 24 * 60 * 60 * 1000);
+}
+
+/**
+ * Raised by a platform-admin-approved recovery request. Nothing changes for the current
+ * administrators now: the claimant gets a pending grant that can be accepted only after the
+ * cooling-off period, and every current administrator is told so they can revoke it.
+ */
+export async function createRecoveryGrant(
+  db: Db,
+  input: {
+    institutionId: number;
+    requester: { name: string; email: string; phone?: string | null };
+    reviewerUserId: number;
+    requestId: number;
+  },
+): Promise<{ inviteId: number; effectiveAt: Date }> {
+  const email = input.requester.email.trim().toLowerCase();
+  await db
+    .update(institutionalAdminInvites)
+    .set({ status: "revoked" })
+    .where(and(
+      eq(institutionalAdminInvites.institutionalAccountId, input.institutionId),
+      eq(institutionalAdminInvites.invitedEmail, email),
+      eq(institutionalAdminInvites.source, "recovery_approval"),
+      eq(institutionalAdminInvites.status, "pending"),
+    ));
+  const [inserted] = await db.insert(institutionalAdminInvites).values({
+    institutionalAccountId: input.institutionId,
+    invitedEmail: email,
+    invitedName: input.requester.name,
+    invitedPhone: input.requester.phone ?? null,
+    invitedByUserId: null,
+    source: "recovery_approval",
+    status: "pending",
+  });
+  const inviteId = Number((inserted as unknown as { insertId?: number }).insertId);
+  if (!Number.isFinite(inviteId) || inviteId <= 0) {
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not record the recovery grant." });
+  }
+  const effectiveAt = recoveryEffectiveAt(new Date());
+  await recordAdminEvent(db, {
+    institutionalAccountId: input.institutionId,
+    eventType: "invited",
+    subjectEmail: email,
+    actorUserId: input.reviewerUserId,
+    inviteId,
+    note: `Recovery request #${input.requestId} approved by a platform administrator. Can be accepted from ${effectiveAt.toISOString().slice(0, 10)}.`,
+  });
+  const name = await companyName(db, input.institutionId);
+  const current = await getInstitutionAdminUserIds(db, input.institutionId);
+  await notifyUsers(db, current, {
+    title: `Recovery requested for ${name}`,
+    body: `${input.requester.name} (${email}) asked to take over administration of ${name} and a platform administrator approved it. It takes effect on ${effectiveAt.toISOString().slice(0, 10)} unless you revoke it under Administrators. If you did not expect this, revoke it now.`,
+    relatedId: inviteId,
+    actionUrl: "/institution",
+  });
+  return { inviteId, effectiveAt };
+}
+
 export async function acceptAdminInvite(db: Db, user: { id: number; email?: string | null }, inviteId: number) {
   const invite = await findPendingInviteForUser(db, user, inviteId);
+  if (invite.source === "recovery_approval") {
+    const effectiveAt = recoveryEffectiveAt((invite as { createdAt?: Date | null }).createdAt);
+    if (Date.now() < effectiveAt.getTime()) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: `This recovery grant can be accepted from ${effectiveAt.toISOString().slice(0, 10)}. Current administrators have been told and can object until then.`,
+      });
+    }
+  }
 
   const [alreadyAdmin] = await db
     .select({ id: institutionalAccountAdmins.id })
@@ -199,10 +273,35 @@ export async function acceptAdminInvite(db: Db, user: { id: number; email?: stri
     });
   }
   if (invite.source === "recovery_approval") {
+    // Only now, with the claimant's own acceptance, do the former administrators step aside.
+    const former = (await getInstitutionAdminUserIds(db, invite.institutionalAccountId)).filter((id) => id !== user.id);
     await db
       .update(institutionalAccounts)
       .set({ userId: user.id })
       .where(eq(institutionalAccounts.id, invite.institutionalAccountId));
+    await db
+      .delete(institutionalAccountAdmins)
+      .where(and(
+        eq(institutionalAccountAdmins.institutionalAccountId, invite.institutionalAccountId),
+        ne(institutionalAccountAdmins.userId, user.id),
+      ));
+    for (const formerId of former) {
+      await recordAdminEvent(db, {
+        institutionalAccountId: invite.institutionalAccountId,
+        eventType: "removed",
+        subjectUserId: formerId,
+        actorUserId: user.id,
+        inviteId: invite.id,
+        note: "Replaced by an approved recovery.",
+      });
+    }
+    const recoveredName = await companyName(db, invite.institutionalAccountId);
+    await notifyUsers(db, former, {
+      title: "Administrator access ended",
+      body: `Administration of ${recoveredName} was transferred through an approved recovery request. Contact support if this is a mistake.`,
+      relatedId: invite.id,
+      actionUrl: "/institution",
+    });
   }
   await db
     .update(institutionalAdminInvites)
