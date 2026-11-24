@@ -67,3 +67,31 @@ CPD facility-relationship flow is unchanged). The profile/Care Signal sync passe
 
 Behaviour change: institution admins no longer see providers in "pending" merely because those
 providers picked their facility. No data migration; existing rows are left as they are.
+
+## PR G — CPD attendance raises a request; it never activates membership
+
+`applyCpdFacilityRelationship` (CPD registration, `confirmPermanentFacilityFromCpd`, and the
+background `autoLinkCpdFacilitiesForUser` / `autoLinkCpdFacilitiesForInstitution`) used to set the
+membership to `active` — creating it, or converting an `invited` membership to `active` on the
+person's behalf — and mark the roster row `linked`. Showing up to an event therefore granted
+institutional access, and could accept an administrator's invitation for the invitee.
+
+Now:
+- An existing **active** membership is kept; its roster row is refreshed, and a permanent
+  relationship still updates the provider's primary facility. Locum/outreach never changes it.
+- Everyone else gets a **pending facility-link request** (same queue and approve/reject path as
+  `facility-linking.requestFacilityMembership`; deduped by the pending-request key) and the
+  institution's owner and admins get an in-app notification. An `invited` membership stays
+  invited until the person accepts.
+- Suspended, ended, rejected or removed relationships still need the administrator. An institution
+  with no facility record falls back to administrator review.
+- New result status `request_pending`; the CPD registration page and "My CPD certificates" explain
+  that approval is pending.
+- Background reconciliation on login/profile save creates at most one request per person and
+  institution; a rejected or withdrawn request marks the roster row `rejected`, so it is not
+  re-raised.
+
+**Not in this PR:** decision 3 also allows an institution to opt in to auto-link. That needs a
+setting on the institution (migration) and is left for a later change; until then every institution
+uses the request path. Existing active memberships created by the old path are unchanged — the
+membership-origin query is how we decide what to do about those.
