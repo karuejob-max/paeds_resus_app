@@ -47,6 +47,7 @@ import { getCanonicalAhaEnrollment } from "../lib/aha-learning-records";
 import { selectBestCurrentEnrollments } from "../lib/professional-progress-calculation";
 import { supportsAutomatedPhase3Gate } from "../../shared/phase2-automation";
 import { reconcilePhase2Completion } from "../lib/phase2-completion";
+import { activeStaffCondition } from "../lib/institution-active-member";
 
 const AHA_PROGRAM_TYPES = ['bls', 'acls', 'pals', 'heartsaver', 'nrp', 'instructor'] as const;
 
@@ -1055,7 +1056,7 @@ export const coursesRouter = router({
         .from(institutionalStaffMembers)
         .where(and(
           eq(institutionalStaffMembers.userId, ctx.user.id),
-          eq(institutionalStaffMembers.facilityLinkStatus, "linked")
+          activeStaffCondition()
         ))
         .limit(1);
 
@@ -1926,7 +1927,7 @@ export const coursesRouter = router({
           createdAt: institutionalStaffMembers.createdAt,
         })
         .from(institutionalStaffMembers)
-        .where(and(eq(institutionalStaffMembers.userId, ctx.user.id), eq(institutionalStaffMembers.facilityLinkStatus, "linked")))
+        .where(and(eq(institutionalStaffMembers.userId, ctx.user.id), activeStaffCondition()))
         .limit(1);
 
       if (!ierpEnrollment && staffRow) {
@@ -2165,7 +2166,7 @@ export const coursesRouter = router({
       .from(institutionalStaffMembers)
       .where(and(
         eq(institutionalStaffMembers.userId, ctx.user.id),
-        eq(institutionalStaffMembers.facilityLinkStatus, "linked")
+        activeStaffCondition()
       ))
       .limit(1);
 

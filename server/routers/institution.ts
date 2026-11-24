@@ -121,6 +121,7 @@ import {
   requiresSystemChangeOnResolve,
   type ActionLogStatus,
 } from "../lib/institutional-action-log-status";
+import { activeStaffCondition } from "../lib/institution-active-member";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
@@ -646,7 +647,7 @@ async function resolveCanonicalDepartmentProvider(
     ))
     .where(and(
       eq(institutionalStaffMembers.institutionalAccountId, institutionId),
-      eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+      activeStaffCondition(),
       isNull(institutionalStaffMembers.removedAt),
       eq(institutionMemberships.membershipStatus, "active"),
       isNotNull(institutionalStaffMembers.userId),
@@ -5931,7 +5932,7 @@ export const institutionRouter = router({
       await assertCanManageDepartmentHead(db, ctx.user, input.institutionId);
       const [department] = await db.select({ id: facilityDepartments.id }).from(facilityDepartments).where(and(eq(facilityDepartments.id, input.departmentId), eq(facilityDepartments.institutionId, input.institutionId), eq(facilityDepartments.isActive, true))).limit(1);
       if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "Active department not found in this institution." });
-      const [staff] = await db.select({ userId: institutionalStaffMembers.userId, facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId, facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus }).from(institutionalStaffMembers).where(and(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId), eq(institutionalStaffMembers.userId, input.userId), eq(institutionalStaffMembers.facilityDepartmentId, input.departmentId), eq(institutionalStaffMembers.facilityLinkStatus, "linked"))).limit(1);
+      const [staff] = await db.select({ userId: institutionalStaffMembers.userId, facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId, facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus }).from(institutionalStaffMembers).where(and(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId), eq(institutionalStaffMembers.userId, input.userId), eq(institutionalStaffMembers.facilityDepartmentId, input.departmentId), activeStaffCondition())).limit(1);
       if (!staff?.userId) throw new TRPCError({ code: "BAD_REQUEST", message: "Select an active linked staff member assigned to this department." });
       await db.transaction(async tx => {
         await tx.update(institutionDepartmentHeads).set({ assignmentStatus: "ended", endedAt: new Date(), updatedAt: new Date() }).where(and(eq(institutionDepartmentHeads.institutionalAccountId, input.institutionId), eq(institutionDepartmentHeads.departmentId, input.departmentId), eq(institutionDepartmentHeads.assignmentStatus, "active")));
@@ -6654,7 +6655,7 @@ export const institutionRouter = router({
           .where(and(
             eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
             inArray(institutionalStaffMembers.userId, requestedUserIds),
-            eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+            activeStaffCondition(),
           )),
       ]);
       const activeMemberIds = new Set(members.map((member) => member.userId).filter((userId): userId is number => userId != null));

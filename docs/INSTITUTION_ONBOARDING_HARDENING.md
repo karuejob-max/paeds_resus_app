@@ -147,3 +147,13 @@ Now:
 - `submit`: evidence link must be https; at most 3 pending requests per email; email is lower-cased.
 - Not done: evidence upload (still a link), and a per-IP limit on the public form.
 - No migration.
+
+## PR H: one definition of "active member"
+
+The roster row (`facilityLinkStatus`) and the membership row (`membershipStatus`) were checked separately, so a person whose membership was suspended or ended could still count as a member in some places (audit, course access, payments, IERP, rota and UTL queries) and not in others.
+
+- New `server/lib/institution-active-member.ts`: `isActiveMember(row)` and `activeStaffCondition()` (SQL form).
+- Active member = roster row `linked`, not removed, and the membership is not suspended, ended or declined. A linked roster row with no membership row (older data) still counts, so nobody who was never migrated disappears.
+- Replaced the bare `facilityLinkStatus = 'linked'` filters in `resusgps-auditor`, `courses`, `payments`, `ierp-program-state`, `iers-shift-team`, `iers-utl-sync` and `institution` (13 sites).
+- Not changed: places that already require both a linked roster row and an active membership (rota assignability, staff 360 link action, CPD link check), and the facility-registry reconcile logic, which looks for linked rows on purpose.
+- No migration.
