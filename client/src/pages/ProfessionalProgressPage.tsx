@@ -95,7 +95,24 @@ export default function ProfessionalProgressPage() {
       setPdfError(error instanceof Error ? error.message : "The report PDF could not be downloaded. Please try again.");
     }
   };;
-  const createReport = trpc.professionalProgress.createVerifiedReport.useMutation({ onSuccess: result => { setVerifiedCode(result.verificationCode); setVerifiedReportId(result.reportId); void utils.professionalProgress.getLatestVerifiedReport.invalidate(reportInput); setPdfReadyUrl(result.pdfUrl); setPdfDownloadState("idle"); setPdfError(null); } });
+  const createReport = trpc.professionalProgress.createVerifiedReport.useMutation({
+    onSuccess: async result => {
+      setVerifiedCode(result.verificationCode);
+      setVerifiedReportId(result.reportId);
+      setPdfReadyUrl(result.pdfUrl);
+      setPdfDownloadState("idle");
+      setPdfError(null);
+      await utils.professionalProgress.getLatestVerifiedReport.invalidate(reportInput);
+      await latestReportQuery.refetch();
+    },
+    onError: error => {
+      setVerifiedCode(null);
+      setVerifiedReportId(null);
+      setPdfReadyUrl(null);
+      setPdfDownloadState("error");
+      setPdfError(error instanceof Error ? error.message : "We could not create the signed snapshot. No document was created. Please try again.");
+    },
+  });
   const createGoal = trpc.professionalProgress.createGoal.useMutation({ onSuccess: async () => { setGoalTitle(""); await goalsQuery.refetch(); } });
   const createCorrectionCase = trpc.professionalProgress.createCorrectionCase.useMutation({ onSuccess: async () => { setCorrectionSubject(""); setCorrectionEvidenceReference(""); setCorrectionDescription(""); await correctionCasesQuery.refetch(); } });
   const downloadProfessionalReport = async () => {
