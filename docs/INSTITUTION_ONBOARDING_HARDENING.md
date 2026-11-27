@@ -213,3 +213,7 @@ Not in E1 (planned for E2): evidence upload (currently a link), automatic eviden
 - Assign department: institution level only. Sets the roster department so the person then reaches that department's reviewers.
 
 Unassigned people (typical for CPD-event joiners) are visible only to institution-level reviewers. The panel is shown in the institution people directory and on the provider workspace card, and hides itself for anyone with no review responsibility.
+
+## PR O: archive duplicate or mistaken institutions
+
+A platform administrator can archive an institution from **Institution verification**. Nothing is deleted. Archive needs a reason, is refused while the institution is verified (revoke first), has administrators other than its creator, or has active members, and is recorded in the verification history. An archived institution is hidden from the review queues (see the **Archived** tab), cannot be verified or sent evidence, and can be restored. Run `pnpm run db:apply-0201` before deploying.
