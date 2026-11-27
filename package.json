@@ -141,6 +141,7 @@
     "db:apply-0199": "node scripts/apply-0199-institution-verification.mjs",
     "db:apply-0200": "node scripts/apply-0200-legacy-membership-reviews.mjs",
     "db:apply-0201": "node scripts/apply-0201-institution-archive.mjs",
+    "db:apply-0202": "node scripts/apply-0202-verification-evidence-upload.mjs",
     "db:verify-0192": "node scripts/verify-0192-institutional-cpd-qi-links.mjs",
     "db:verify-0191": "node scripts/verify-0191-retrospective-role-claim-simulation-role.mjs",
     "db:verify-0197": "node scripts/verify-0197-ils-aha-bls-acls-bundle.mjs",

@@ -1,14 +1,15 @@
 import { and, count, eq, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import type { getDb } from "../db";
-import { institutionalAccountAdmins, institutionalAccounts, institutionalStaffMembers, institutionVerificationEvents } from "../../drizzle/schema";
+import { institutionalAccountAdmins, institutionalAccounts, institutionalStaffMembers, institutionVerificationEvents, kmhflFacilities } from "../../drizzle/schema";
 import { activeStaffCondition } from "./institution-active-member";
 import { getInstitutionAdminUserIds, notifyUsers } from "./institution-admin-grants";
 
 type Db = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
 export type VerificationStatus = "unverified" | "pending_review" | "verified" | "rejected";
-export const VERIFICATION_METHODS = ["letterhead", "facility_domain_email", "other"] as const;
+/** kmpdc_licence: private, faith-based and community facilities. county_letter: public facilities. The rest are kept so older submissions still display. */
+export const VERIFICATION_METHODS = ["kmpdc_licence", "county_letter", "letterhead", "facility_domain_email", "other"] as const;
 export type VerificationMethod = (typeof VERIFICATION_METHODS)[number];
 
 export const ARCHIVED_MESSAGE = "This institution has been archived. Restore it first.";
@@ -77,13 +78,86 @@ export async function findVerifiedKmhflConflict(db: Db, institutionId: number): 
   return other ? { institutionId: other.id } : null;
 }
 
+const GENERIC_NAME_WORDS = new Set(["hospital", "health", "centre", "center", "clinic", "dispensary", "the", "of", "and", "medical", "level", "county", "sub", "nursing", "home", "services", "ltd", "limited"]);
+
+function nameTokens(value: string): string[] {
+  const all = value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  const distinctive = all.filter((token) => !GENERIC_NAME_WORDS.has(token));
+  return distinctive.length > 0 ? distinctive : all;
+}
+
+/** How closely the name an institution typed matches the registry name. Advisory only; the reviewer decides. */
+export function registryNameMatch(institutionName: string, registryName: string | null | undefined): "match" | "partial" | "different" | "none" {
+  if (!registryName) return "none";
+  const a = new Set(nameTokens(institutionName));
+  const b = new Set(nameTokens(registryName));
+  if (a.size === 0 || b.size === 0) return "different";
+  const shared = [...a].filter((token) => b.has(token)).length;
+  if (shared === 0) return "different";
+  const ratio = shared / Math.max(a.size, b.size);
+  return ratio >= 0.75 ? "match" : "partial";
+}
+
+/**
+ * Link an institution to a facility in the Ministry of Health registry (KMHFL). The MFL code is
+ * copied onto the institution so reviewers see it. An institution administrator may do this only
+ * before review; once an institution is awaiting review or verified, only a platform administrator may change it.
+ */
+export async function setInstitutionFacility(
+  db: Db,
+  input: { institutionId: number; kmhflFacilityId: number; asPlatformAdmin: boolean },
+): Promise<{ facilityName: string; code: string | null }> {
+  const [account] = await db
+    .select({
+      verificationStatus: institutionalAccounts.verificationStatus,
+      archivedAt: institutionalAccounts.archivedAt,
+    })
+    .from(institutionalAccounts)
+    .where(eq(institutionalAccounts.id, input.institutionId))
+    .limit(1);
+  if (!account) throw new TRPCError({ code: "NOT_FOUND", message: "Institution not found" });
+  if (account.archivedAt) throw new TRPCError({ code: "BAD_REQUEST", message: ARCHIVED_MESSAGE });
+  if (!input.asPlatformAdmin && (account.verificationStatus === "verified" || account.verificationStatus === "pending_review")) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "The facility can no longer be changed here. Ask a platform administrator." });
+  }
+  const [facility] = await db
+    .select({ id: kmhflFacilities.id, name: kmhflFacilities.name, code: kmhflFacilities.code, operationalStatus: kmhflFacilities.operationalStatus })
+    .from(kmhflFacilities)
+    .where(eq(kmhflFacilities.id, input.kmhflFacilityId))
+    .limit(1);
+  if (!facility) throw new TRPCError({ code: "NOT_FOUND", message: "That facility is not in the registry list." });
+  if (facility.operationalStatus && facility.operationalStatus !== "operational") {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "The registry lists that facility as not operational." });
+  }
+  await db
+    .update(institutionalAccounts)
+    .set({ kmhflFacilityId: facility.id, ...(facility.code ? { registrationNumber: facility.code } : {}) })
+    .where(eq(institutionalAccounts.id, input.institutionId));
+  return { facilityName: facility.name, code: facility.code ?? null };
+}
+
 /** An institution administrator submits evidence for platform-admin review. */
 export async function submitVerificationEvidence(
   db: Db,
-  input: { institutionId: number; actorUserId: number; method: VerificationMethod; evidenceUrl: string; note?: string | null },
+  input: {
+    institutionId: number;
+    actorUserId: number;
+    method: VerificationMethod;
+    /** A link, a stored upload, or both. At least one is required. */
+    evidenceUrl?: string | null;
+    evidenceFile?: { key: string; fileName: string; contentType: string } | null;
+    licenceNumber?: string | null;
+    /** The institution is not a registry facility (training body, county office) or is not listed yet. */
+    facilityNotListed?: boolean;
+    note?: string | null;
+  },
 ) {
   const [account] = await db
-    .select({ verificationStatus: institutionalAccounts.verificationStatus, archivedAt: institutionalAccounts.archivedAt })
+    .select({
+      verificationStatus: institutionalAccounts.verificationStatus,
+      archivedAt: institutionalAccounts.archivedAt,
+      kmhflFacilityId: institutionalAccounts.kmhflFacilityId,
+    })
     .from(institutionalAccounts)
     .where(eq(institutionalAccounts.id, input.institutionId))
     .limit(1);
@@ -95,12 +169,30 @@ export async function submitVerificationEvidence(
   if (account.verificationStatus === "pending_review") {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Evidence is already awaiting review." });
   }
+  const facilityNotListed = Boolean(input.facilityNotListed);
+  if (!account.kmhflFacilityId && !facilityNotListed) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Choose your facility from the registry list, or say that it is not listed." });
+  }
+  if (facilityNotListed && (input.note?.trim().length ?? 0) < 10) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Tell the reviewer in a sentence why your institution is not in the registry list." });
+  }
+  if (!input.evidenceUrl && !input.evidenceFile) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Attach your evidence (a file or a link)." });
+  }
+  if (input.method === "kmpdc_licence" && (input.licenceNumber?.trim().length ?? 0) < 3) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Enter your KMPDC licence or registration number." });
+  }
   await db
     .update(institutionalAccounts)
     .set({
       verificationStatus: "pending_review",
       verificationMethod: input.method,
-      verificationEvidenceUrl: input.evidenceUrl,
+      verificationEvidenceUrl: input.evidenceUrl ?? null,
+      verificationEvidenceKey: input.evidenceFile?.key ?? null,
+      verificationEvidenceFileName: input.evidenceFile?.fileName ?? null,
+      verificationEvidenceContentType: input.evidenceFile?.contentType ?? null,
+      verificationLicenceNumber: input.licenceNumber?.trim() || null,
+      verificationFacilityNotListed: facilityNotListed,
       verificationEvidenceNote: input.note?.trim() || null,
       verificationSubmittedAt: new Date(),
       verificationReviewNote: null,
@@ -118,10 +210,16 @@ export async function submitVerificationEvidence(
 /** A platform administrator decides. Verifying is refused while another institution holds the same KMHFL facility. */
 export async function reviewInstitutionVerification(
   db: Db,
-  input: { institutionId: number; reviewerUserId: number; decision: "verify" | "reject" | "revoke"; note: string },
+  input: { institutionId: number; reviewerUserId: number; decision: "verify" | "reject" | "revoke"; note: string; allowWithoutRegistry?: boolean },
 ): Promise<{ status: VerificationStatus }> {
   const [account] = await db
-    .select({ verificationStatus: institutionalAccounts.verificationStatus, verificationMethod: institutionalAccounts.verificationMethod, archivedAt: institutionalAccounts.archivedAt })
+    .select({
+      verificationStatus: institutionalAccounts.verificationStatus,
+      verificationMethod: institutionalAccounts.verificationMethod,
+      archivedAt: institutionalAccounts.archivedAt,
+      kmhflFacilityId: institutionalAccounts.kmhflFacilityId,
+      verificationFacilityNotListed: institutionalAccounts.verificationFacilityNotListed,
+    })
     .from(institutionalAccounts)
     .where(eq(institutionalAccounts.id, input.institutionId))
     .limit(1);
@@ -131,6 +229,12 @@ export async function reviewInstitutionVerification(
   if (input.decision === "verify") {
     if (account.verificationStatus === "verified" && account.verificationMethod !== "grandfathered") {
       throw new TRPCError({ code: "BAD_REQUEST", message: "This institution is already verified." });
+    }
+    if (!account.kmhflFacilityId && !input.allowWithoutRegistry && !account.verificationFacilityNotListed) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Link this institution to its registry facility first, or confirm that it is not a registry facility.",
+      });
     }
     const conflict = await findVerifiedKmhflConflict(db, input.institutionId);
     if (conflict) {
