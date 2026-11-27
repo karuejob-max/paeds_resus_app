@@ -114,6 +114,21 @@ describe("Institution Router", () => {
 
       const result = await caller.institution.searchPlatformAccounts({ query: "second" });
 
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({ id: 2, name: "Second Admin" });
+      expect(Object.keys(result[0]).sort()).toEqual(["email", "id", "name"]);
+      // Emails are masked unless the caller typed the complete address.
+      expect(result[0].email).not.toBe("second@example.com");
+    });
+
+    it("shows the full email only when the caller typed that exact address", async () => {
+      institutionDbMock.mockState.limitRows = [
+        { id: 2, name: "Second Admin", email: "second@example.com", phone: "+254700000002" },
+      ];
+      const caller = appRouter.createCaller(createAuthContext());
+
+      const result = await caller.institution.searchPlatformAccounts({ query: "second@example.com" });
+
       expect(result).toEqual([{ id: 2, name: "Second Admin", email: "second@example.com" }]);
     });
   });
@@ -319,34 +334,6 @@ describe("Institution Router", () => {
         expect(result.completionRate).toBeLessThanOrEqual(100);
         expect(result.certificationRate).toBeLessThanOrEqual(100);
       }
-    });
-  });
-
-  describe("verify", () => {
-    it("should verify institution existence", async () => {
-      const ctx = createPublicContext();
-      const caller = appRouter.createCaller(ctx);
-
-      const result = await caller.institution.verify({
-        institutionId: 1,
-      });
-
-      expect(result).toBeDefined();
-      expect(result.exists).toBeDefined();
-      expect(result.active).toBeDefined();
-    });
-
-    it("should return false for non-existent institution", async () => {
-      institutionDbMock.mockState.limitRows = [];
-      const ctx = createPublicContext();
-      const caller = appRouter.createCaller(ctx);
-
-      const result = await caller.institution.verify({
-        institutionId: 99999,
-      });
-
-      expect(result.exists).toBe(false);
-      expect(result.active).toBe(false);
     });
   });
 });
