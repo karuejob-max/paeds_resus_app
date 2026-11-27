@@ -189,7 +189,7 @@ Pending invitations never lapsed, and acceptance relied only on matching the sig
 Behaviour:
 - Provider link requests: `facilityLinking.requestLink` refuses an unverified institution. A CPD attendee at an unverified institution gets `admin_review_required` and no roster row, request or notification is created. Someone who is already an active member keeps their relationship.
 - Institution administrators: new "Institution verification" card (Administrators tab). They submit method + https evidence link + note; status moves to `pending_review`.
-- Platform administrators: `/admin-institution-verification` lists institutions awaiting review and grandfathered ones. Verify, reject or revoke each, with a required note. Every decision is an audit event and the institution's administrators are notified.
+- Platform administrators: `/admin/institution-verification` lists institutions awaiting review and grandfathered ones. Verify, reject or revoke each, with a required note. Every decision is an audit event and the institution's administrators are notified.
 - One verified claim per KMHFL id: verifying is refused while another institution is verified for the same facility; the reviewer must revoke that claim first. Institution administrators are only told "claimed elsewhere", never which institution.
 - Existing invitations (admin-added staff) are unaffected: they already require the provider's acceptance.
 
