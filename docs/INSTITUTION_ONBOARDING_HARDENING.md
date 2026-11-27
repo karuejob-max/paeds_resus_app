@@ -194,3 +194,22 @@ Behaviour:
 - Existing invitations (admin-added staff) are unaffected: they already require the provider's acceptance.
 
 Not in E1 (planned for E2): evidence upload (currently a link), automatic evidence from a facility-domain email, a dispute workflow, and stopping name-based facility seeding on search.
+
+## PR L: review of legacy members
+
+128 active memberships (116 at one institution, from a CPD event) existed with no audit event: people who chose a facility or attended CPD before institutions had to approve members. They stay active. This PR gives the institution a way to confirm or clear them.
+
+**Migration 0200** (`pnpm run db:apply-0200`): new `institutionMembershipReviews` table. For every active membership with no audit event it (1) opens a `legacy_pending` review and (2) writes an `accepted` membership event ("Legacy: self-selected before institution approval was required (backfilled)"). Nobody is removed or changed. Safe to re-run.
+
+**Who reviews**
+- Institution level (see everyone, including unassigned): institution administrators, and active `cpd_coordinator`, `iers_coordinator` or `iers_chair` product roles.
+- Department level (see only members of their own department): department heads and deputies, department CPD (education) coordinators and deputies, department emergency-response coordinators, backups and deputies.
+- Institution-level deputies are not covered: no such role exists in the data model.
+
+**Actions** (one person at a time; there is no "confirm all")
+- Confirm: both levels. Closes the review.
+- Not in my department: department level only; requires a note; ends nothing and keeps the person active. The person moves to the institution-level queue, with a "flagged by N" count and the notes visible only to institution-level reviewers.
+- Remove: institution level only. Uses the same cleanup as unlink and provider leave (roster row becomes `rejected`), writes a `removed` membership event, closes the review, and notifies the person.
+- Assign department: institution level only. Sets the roster department so the person then reaches that department's reviewers.
+
+Unassigned people (typical for CPD-event joiners) are visible only to institution-level reviewers. The panel is shown in the institution people directory and on the provider workspace card, and hides itself for anyone with no review responsibility.

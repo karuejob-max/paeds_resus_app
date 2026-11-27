@@ -1219,6 +1219,37 @@ export const institutionalAdminInvites = mysqlTable(
  * Append-only audit of administrator grants: who was invited, by whom, and what the
  * invitee did. Written for every invite, acceptance, decline, revocation and removal.
  */
+/**
+ * Review trail for memberships that existed before institutions approved their members
+ * (migration 0200). `legacy_pending` opens a review; `confirmed` or `removed` closes it.
+ * `not_in_my_department` and `department_assigned` keep it open and move it to an
+ * institution-level reviewer.
+ */
+export const institutionMembershipReviews = mysqlTable(
+  "institutionMembershipReviews",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    membershipId: int("membershipId").notNull(),
+    decision: mysqlEnum("decision", [
+      "legacy_pending",
+      "confirmed",
+      "not_in_my_department",
+      "department_assigned",
+      "removed",
+    ]).notNull(),
+    reviewerUserId: int("reviewerUserId"),
+    reviewerRole: varchar("reviewerRole", { length: 64 }),
+    departmentId: int("departmentId"),
+    note: varchar("note", { length: 500 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    membershipIdx: index("institutionMembershipReviews_membership_idx").on(table.membershipId, table.id),
+    institutionIdx: index("institutionMembershipReviews_institution_idx").on(table.institutionalAccountId, table.decision),
+  })
+);
+
 /** Audit trail for institution verification decisions (migration 0199). */
 export const institutionVerificationEvents = mysqlTable(
   "institutionVerificationEvents",
