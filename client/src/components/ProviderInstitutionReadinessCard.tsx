@@ -1,4 +1,5 @@
 import { Building2, CheckCircle2, Clock3, ShieldCheck, UserCheck, X } from "lucide-react";
+import { LegacyMemberReviewPanel } from "@/components/LegacyMemberReviewPanel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -147,6 +148,9 @@ export default function ProviderInstitutionReadinessCard() {
               </Button>
             </div>
           </div>
+        ))}
+        {active.map((membership) => (
+          <LegacyMemberReviewPanel key={`review-${membership.institutionalAccountId}`} institutionId={membership.institutionalAccountId} />
         ))}
       </CardContent>
     </Card>
