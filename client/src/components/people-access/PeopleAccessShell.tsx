@@ -14,6 +14,7 @@ import { InstitutionPeopleRolesPanel } from "@/components/InstitutionPeopleRoles
 import { RoleRegister } from "./RoleRegister";
 import { InstitutionDepartmentReconciliationPanel } from "@/components/InstitutionDepartmentReconciliationPanel";
 import { AccountAdminsWidget } from "@/components/AccountAdminsWidget";
+import { InstitutionVerificationCard } from "@/components/InstitutionVerificationCard";
 import { PendingLinkRequestsWidget } from "@/components/PendingLinkRequestsWidget";
 import StaffBulkImport from "@/components/StaffBulkImport";
 import { PeopleNeedsAttention } from "./PeopleNeedsAttention";
@@ -282,6 +283,7 @@ export function PeopleAccessShell({
           className="mt-0 grid min-w-0 gap-6 xl:grid-cols-2"
         >
           <AccountAdminsWidget institutionId={institutionId} />
+          <InstitutionVerificationCard institutionId={institutionId} />
           <PendingLinkRequestsWidget
             institutionId={institutionId}
             focusRequestId={

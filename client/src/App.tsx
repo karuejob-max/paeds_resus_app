@@ -119,6 +119,7 @@ const InstitutionalOnboarding = lazy(() => import("./pages/InstitutionalOnboardi
 const InstitutionalLifeSupport = lazy(() => import("./pages/InstitutionalLifeSupport"));
 const InstitutionalRecovery = lazy(() => import("./pages/InstitutionalRecovery"));
 const AdminInstitutionalRecovery = lazy(() => import("./pages/AdminInstitutionalRecovery"));
+const AdminInstitutionVerification = lazy(() => import("./pages/AdminInstitutionVerification"));
 const CareSignalAnalytics = lazy(() => import("./pages/CareSignalAnalytics"));
 const FailurePatternAtlas = lazy(() => import("./pages/FailurePatternAtlas"));
 const KnowledgeStewardship = lazy(() => import("./pages/KnowledgeStewardship"));
@@ -684,6 +685,11 @@ function Router() {
           <Route path="/admin-institutional-recovery">{() => (
             <AdminGate>
               <AdminInstitutionalRecovery />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin-institution-verification">{() => (
+            <AdminGate>
+              <AdminInstitutionVerification />
             </AdminGate>
           )}</Route>
           <Route path="/courses">{() => <Redirect to="/fellowship" />}</Route>

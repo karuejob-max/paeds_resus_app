@@ -177,3 +177,20 @@ Pending invitations never lapsed, and acceptance relied only on matching the sig
 - Removed the tests that called `institution.register` (`institution.test.ts`, `e2e-tests.test.ts`) and pointed the E2E flow at a fixture institution; README no longer lists `institution.register` or the removed `institution.verify`.
 - The plan also mentioned a "legacy approval path". Searching for institution approve/activate procedures found none (the only approval flows are staff facility links, Phase 1 proof, readiness templates and data lifecycle), so nothing else was removed.
 - No migration.
+
+## PR E1: institutions must be verified before providers can send them link requests
+
+**Migration 0199** (`pnpm run db:apply-0199`, run it BEFORE deploying this code):
+- `institutionalAccounts` gains `verificationStatus` (`unverified` | `pending_review` | `verified` | `rejected`), `verificationMethod`, evidence url/note, submitted/verified timestamps, `verifiedByUserId` and a review note.
+- New `institutionVerificationEvents` audit table.
+- Every institution whose `status` is `active` is marked `verified` with method `grandfathered`, so nothing stops working on deploy. They are listed under "Grandfathered" in the platform-admin page for review.
+- The script prints (and changes nothing about) KMHFL facilities claimed by more than one institution.
+
+Behaviour:
+- Provider link requests: `facilityLinking.requestLink` refuses an unverified institution. A CPD attendee at an unverified institution gets `admin_review_required` and no roster row, request or notification is created. Someone who is already an active member keeps their relationship.
+- Institution administrators: new "Institution verification" card (Administrators tab). They submit method + https evidence link + note; status moves to `pending_review`.
+- Platform administrators: `/admin-institution-verification` lists institutions awaiting review and grandfathered ones. Verify, reject or revoke each, with a required note. Every decision is an audit event and the institution's administrators are notified.
+- One verified claim per KMHFL id: verifying is refused while another institution is verified for the same facility; the reviewer must revoke that claim first. Institution administrators are only told "claimed elsewhere", never which institution.
+- Existing invitations (admin-added staff) are unaffected: they already require the provider's acceptance.
+
+Not in E1 (planned for E2): evidence upload (currently a link), automatic evidence from a facility-domain email, a dispute workflow, and stopping name-based facility seeding on search.

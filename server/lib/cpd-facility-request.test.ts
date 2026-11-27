@@ -19,6 +19,7 @@ type Rows = {
   staff?: { id: number; facilityLinkStatus: string; removedAt: Date | null; facilityDepartmentId: null; department: null; designation: string; enrollmentStatus: string } | null;
   request?: { id: number } | null;
   facility?: { id: number; name: string; county: string | null; country: string } | null;
+  unverified?: boolean;
 };
 
 function fakeDb(rows: Rows) {
@@ -29,7 +30,7 @@ function fakeDb(rows: Rows) {
     if (table === institutionalStaffMembers) return rows.staff ? [rows.staff] : [];
     if (table === facilityMembershipRequests) return rows.request ? [rows.request] : [];
     if (table === careFacilities) return rows.facility === null ? [] : [rows.facility ?? { id: 3, name: "Test Hospital", county: "Nairobi", country: "Kenya" }];
-    if (table === institutionalAccounts) return [{ ownerUserId: 1 }];
+    if (table === institutionalAccounts) return [{ ownerUserId: 1, verificationStatus: rows.unverified ? "unverified" : "verified" }];
     if (table === institutionalAccountAdmins) return [{ userId: 2 }];
     return [];
   };
@@ -128,6 +129,27 @@ describe("CPD attendance raises a request; it never activates membership", () =>
     const { db, inserts } = fakeDb({ staff: staff(), facility: null });
     const result = await applyCpdFacilityRelationship(db, input);
     expect(result.status).toBe("admin_review_required");
+    expect(inserts.filter((i) => i.table === facilityMembershipRequests)).toHaveLength(0);
+  });
+});
+
+describe("an unverified institution cannot receive CPD link requests", () => {
+  it("creates no roster row, request or notification and asks for administrator review", async () => {
+    const { db, inserts, updates } = fakeDb({ unverified: true });
+    const result = await applyCpdFacilityRelationship(db, input);
+    expect(result.status).toBe("admin_review_required");
+    expect(inserts).toHaveLength(0);
+    expect(updates).toHaveLength(0);
+  });
+
+  it("a person who is already an active member keeps their relationship", async () => {
+    const { db, inserts } = fakeDb({
+      unverified: true,
+      staff: staff({ facilityLinkStatus: "linked" }),
+      membership: { id: 7, userId: 42, membershipStatus: "active", staffMemberId: 5 },
+    });
+    const result = await applyCpdFacilityRelationship(db, input);
+    expect(result.status).toBe("linked");
     expect(inserts.filter((i) => i.table === facilityMembershipRequests)).toHaveLength(0);
   });
 });
