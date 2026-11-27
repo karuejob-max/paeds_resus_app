@@ -1,12 +1,14 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { institutionalAccounts, institutionVerificationEvents } from "../../drizzle/schema";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import {
   VERIFICATION_METHODS,
+  archiveInstitution,
+  restoreInstitution,
   findVerifiedKmhflConflict,
   reviewInstitutionVerification,
   submitVerificationEvidence,
@@ -76,7 +78,7 @@ export const institutionVerificationRouter = router({
 
   /** Platform administrator: institutions awaiting review, and grandfathered ones still to be reviewed. */
   listForReview: adminProcedure
-    .input(z.object({ filter: z.enum(["pending_review", "grandfathered", "unverified"]).default("pending_review") }))
+    .input(z.object({ filter: z.enum(["pending_review", "grandfathered", "unverified", "archived"]).default("pending_review") }))
     .query(async ({ input }) => {
       const db = await requireDb();
       const rows = await db
@@ -92,14 +94,21 @@ export const institutionVerificationRouter = router({
           verificationEvidenceUrl: institutionalAccounts.verificationEvidenceUrl,
           verificationEvidenceNote: institutionalAccounts.verificationEvidenceNote,
           verificationSubmittedAt: institutionalAccounts.verificationSubmittedAt,
+          archivedAt: institutionalAccounts.archivedAt,
+          archiveReason: institutionalAccounts.archiveReason,
         })
         .from(institutionalAccounts)
         .where(
-          input.filter === "pending_review"
-            ? eq(institutionalAccounts.verificationStatus, "pending_review")
-            : input.filter === "unverified"
-              ? eq(institutionalAccounts.verificationStatus, "unverified")
-              : eq(institutionalAccounts.verificationMethod, "grandfathered"),
+          input.filter === "archived"
+            ? isNotNull(institutionalAccounts.archivedAt)
+            : and(
+                isNull(institutionalAccounts.archivedAt),
+                input.filter === "pending_review"
+                  ? eq(institutionalAccounts.verificationStatus, "pending_review")
+                  : input.filter === "unverified"
+                    ? eq(institutionalAccounts.verificationStatus, "unverified")
+                    : eq(institutionalAccounts.verificationMethod, "grandfathered"),
+              ),
         )
         .orderBy(desc(institutionalAccounts.id))
         .limit(200);
@@ -128,6 +137,23 @@ export const institutionVerificationRouter = router({
         note: input.note,
       });
       return { success: true as const, status: result.status };
+    }),
+
+  /** Platform administrator: archive a duplicate or mistaken institution (reversible, recorded). */
+  archive: adminProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), reason: z.string().trim().min(3).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await archiveInstitution(db, { institutionId: input.institutionId, actorUserId: ctx.user.id, reason: input.reason });
+      return { success: true as const };
+    }),
+
+  restore: adminProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), reason: z.string().trim().min(3).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      await restoreInstitution(db, { institutionId: input.institutionId, actorUserId: ctx.user.id, reason: input.reason });
+      return { success: true as const };
     }),
 
   /** Platform administrator: decision history for one institution. */

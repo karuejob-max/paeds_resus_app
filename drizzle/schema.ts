@@ -1096,6 +1096,10 @@ export const institutionalAccounts = mysqlTable("institutionalAccounts", {
   verifiedAt: timestamp("verifiedAt"),
   verifiedByUserId: int("verifiedByUserId"),
   verificationReviewNote: text("verificationReviewNote"),
+  /** Set when a platform administrator archives a duplicate or mistaken institution (migration 0201). Archived institutions are hidden and cannot be verified or linked to. */
+  archivedAt: timestamp("archivedAt"),
+  archivedByUserId: int("archivedByUserId"),
+  archiveReason: varchar("archiveReason", { length: 500 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -1256,7 +1260,7 @@ export const institutionVerificationEvents = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     institutionalAccountId: int("institutionalAccountId").notNull(),
-    eventType: mysqlEnum("eventType", ["submitted", "verified", "rejected", "revoked", "grandfathered"]).notNull(),
+    eventType: mysqlEnum("eventType", ["submitted", "verified", "rejected", "revoked", "grandfathered", "archived", "restored"]).notNull(),
     actorUserId: int("actorUserId"),
     method: varchar("method", { length: 32 }),
     note: varchar("note", { length: 1000 }),

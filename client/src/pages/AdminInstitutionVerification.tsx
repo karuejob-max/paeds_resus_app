@@ -14,12 +14,26 @@ import { trpc } from "@/lib/trpc";
  */
 export default function AdminInstitutionVerification() {
   const utils = trpc.useUtils();
-  const [filter, setFilter] = useState<"pending_review" | "grandfathered" | "unverified">("pending_review");
+  const [filter, setFilter] = useState<"pending_review" | "grandfathered" | "unverified" | "archived">("pending_review");
   const { data, isLoading } = trpc.institutionVerification.listForReview.useQuery({ filter });
   const [notes, setNotes] = useState<Record<number, string>>({});
   const review = trpc.institutionVerification.review.useMutation({
     onSuccess: (result) => {
       toast.success(`Institution is now ${result.status.replace("_", " ")}.`);
+      void utils.institutionVerification.listForReview.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const archive = trpc.institutionVerification.archive.useMutation({
+    onSuccess: () => {
+      toast.success("Institution archived.");
+      void utils.institutionVerification.listForReview.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const restore = trpc.institutionVerification.restore.useMutation({
+    onSuccess: () => {
+      toast.success("Institution restored.");
       void utils.institutionVerification.listForReview.invalidate();
     },
     onError: (error) => toast.error(error.message),
@@ -36,6 +50,7 @@ export default function AdminInstitutionVerification() {
         <Button size="sm" variant={filter === "pending_review" ? "default" : "outline"} onClick={() => setFilter("pending_review")}>Awaiting review</Button>
         <Button size="sm" variant={filter === "grandfathered" ? "default" : "outline"} onClick={() => setFilter("grandfathered")}>Grandfathered</Button>
         <Button size="sm" variant={filter === "unverified" ? "default" : "outline"} onClick={() => setFilter("unverified")}>Unverified</Button>
+        <Button size="sm" variant={filter === "archived" ? "default" : "outline"} onClick={() => setFilter("archived")}>Archived</Button>
       </div>
       {isLoading ? (
         <p className="text-sm text-slate-500">Loading…</p>
@@ -71,19 +86,30 @@ export default function AdminInstitutionVerification() {
                   {institution.conflictingInstitutionId ? (
                     <p className="text-amber-800">Institution #{institution.conflictingInstitutionId} is already verified for this KMHFL facility. Revoke that claim before verifying this one.</p>
                   ) : null}
+                  {institution.archivedAt ? (
+                    <p className="text-slate-600">Archived: {institution.archiveReason}</p>
+                  ) : null}
                   <Input
                     placeholder="Decision note (required, recorded in the audit trail)"
                     value={note}
                     onChange={(event) => setNotes((current) => ({ ...current, [institution.id]: event.target.value }))}
                   />
                   <div className="flex flex-wrap gap-2">
+                    {institution.archivedAt ? (
+                      <Button size="sm" variant="outline" disabled={restore.isPending || note.trim().length < 3} onClick={() => restore.mutate({ institutionId: institution.id, reason: note })}>Restore</Button>
+                    ) : (
+                      <>
                     <Button size="sm" disabled={review.isPending || note.trim().length < 3 || Boolean(institution.conflictingInstitutionId)} onClick={() => decide("verify")}>Verify</Button>
                     {institution.verificationStatus === "pending_review" ? (
                       <Button size="sm" variant="outline" disabled={review.isPending || note.trim().length < 3} onClick={() => decide("reject")}>Reject</Button>
                     ) : null}
                     {institution.verificationStatus === "verified" ? (
                       <Button size="sm" variant="outline" disabled={review.isPending || note.trim().length < 3} onClick={() => decide("revoke")}>Revoke</Button>
-                    ) : null}
+                    ) : (
+                      <Button size="sm" variant="outline" disabled={archive.isPending || note.trim().length < 3} onClick={() => archive.mutate({ institutionId: institution.id, reason: note })}>Archive (duplicate or mistake)</Button>
+                    )}
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>
