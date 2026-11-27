@@ -6849,6 +6849,11 @@ export const careFacilities = mysqlTable("careFacilities", {
   /** Points to canonical row after admin merge */
   mergedIntoId: int("mergedIntoId"),
   institutionalAccountId: int("institutionalAccountId"),
+  /** Official Ministry of Health MFL code (numeric). Identifies the real facility, so similarly named ones are never confused (migration 0204). */
+  mflCode: varchar("mflCode", { length: 10 }),
+  /** A reporter added this facility because it was not in the registry; a platform administrator must check it. */
+  needsReview: boolean("needsReview").default(false).notNull(),
+  createdByUserId: int("createdByUserId"),
   isSystem: boolean("isSystem").default(false).notNull(),
   /** Stable key for seeded system rows (e.g. outreach-mobile) */
   systemSlug: varchar("systemSlug", { length: 64 }),

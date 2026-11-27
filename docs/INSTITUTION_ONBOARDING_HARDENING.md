@@ -238,3 +238,12 @@ The platform-admin page shows the linked registry facility (name, MFL code, coun
 3. `pnpm run kmhfl:import -- "C:\path\to\facilities.csv" --dry-run`, check the counts, then run it again without `--dry-run`.
 4. `pnpm run kmhfl:import -- "C:\path\to\facilities.csv" --retire-samples` hides leftover sample rows that no institution uses (nothing is deleted).
 5. `pnpm run kmhfl:check` should now show thousands of official codes.
+
+## PR E2b: Care Signal and Code Signal facility identity
+
+- Every care facility can carry its official MFL code (`careFacilities.mflCode`). Searching the facility picker also searches the official registry (by name or MFL code) and turns official matches into the single care facility for that code. An older same-name facility without a code is adopted, not duplicated. Placeholder codes are never used.
+- The picker shows the MFL code, county and a badge (Verified institution / Registry facility / Not in registry (under review) / Community) so similarly named facilities can be told apart. An unverified institution is no longer shown as a "Registered hospital".
+- Facilities are no longer created from institution company names on search. A verified institution linked to an official registry facility is attached to that facility's care record when it is verified.
+- A reporter who adds a facility that is in the registry gets the official entry. Otherwise it is saved flagged `needsReview`. Platform administrators resolve these on **Institution verification** (bottom of the page): match to the registry facility (Care Signal and Code Signal reports and profiles move across) or confirm it is genuinely unlisted.
+- Merging facilities now also moves Code Signal reports.
+- Run `pnpm run db:apply-0204` before deploying. Facilities added by hand before this change are not flagged retroactively.

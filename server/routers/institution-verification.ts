@@ -5,6 +5,7 @@ import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { institutionalAccounts, institutionVerificationEvents, kmhflFacilities } from "../../drizzle/schema";
 import { storageGet } from "../storage";
+import { linkVerifiedInstitutionFacility } from "../services/facility-registry.service";
 import { storeEvidenceFile } from "../lib/institution-verification-evidence";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import {
@@ -239,6 +240,12 @@ export const institutionVerificationRouter = router({
         note: input.note,
         allowWithoutRegistry: input.allowWithoutRegistry,
       });
+      if (result.status === "verified") {
+        // Attach the verified institution to its registry facility's care record. Never blocks the decision.
+        await linkVerifiedInstitutionFacility(input.institutionId).catch((error) =>
+          console.error("[institution-verification] could not link care facility", error),
+        );
+      }
       return { success: true as const, status: result.status };
     }),
 

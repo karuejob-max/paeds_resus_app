@@ -3,12 +3,15 @@ import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
 import { insertAdminAuditLog } from "../db";
 import {
+  confirmUnlistedFacility,
   createCareFacility,
   ensureFacilityRegistrySeeded,
   getFacilityById,
+  listFacilitiesAwaitingReview,
   listFacilitiesForAdminMerge,
   listGeographicAreas,
   mergeCareFacilities,
+  resolveUnlistedFacilityToRegistry,
   searchCareFacilities,
   syncProviderProfileFacility,
   getGeographicCareSignalDashboard,
@@ -128,6 +131,39 @@ export const facilitiesRouter = router({
         }).slice(0, 4000),
       });
       return result;
+    }),
+
+  /** Platform administrator: facilities reporters added because they were not in the registry. */
+  listAwaitingReview: adminProcedure.query(async () => listFacilitiesAwaitingReview()),
+
+  /** Platform administrator: this unlisted facility is really that registry facility (reports move across). */
+  resolveUnlisted: adminProcedure
+    .input(z.object({ facilityId: z.number().int().positive(), kmhflFacilityId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const result = await resolveUnlistedFacilityToRegistry({ ...input, adminUserId: ctx.user.id });
+        await insertAdminAuditLog({
+          adminUserId: ctx.user.id,
+          procedurePath: "facilities.resolveUnlisted",
+          inputSummary: JSON.stringify({ ...input, result }).slice(0, 4000),
+        });
+        return result;
+      } catch (error) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not resolve the facility" });
+      }
+    }),
+
+  /** Platform administrator: it is genuinely not in the registry; keep it as its own facility. */
+  confirmUnlisted: adminProcedure
+    .input(z.object({ facilityId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      await confirmUnlistedFacility(input.facilityId);
+      await insertAdminAuditLog({
+        adminUserId: ctx.user.id,
+        procedurePath: "facilities.confirmUnlisted",
+        inputSummary: JSON.stringify(input),
+      });
+      return { success: true as const };
     }),
 
   ensureSeeded: adminProcedure.mutation(async () => {

@@ -35,6 +35,7 @@ export default defineConfig({
       "server/routers/e2e-tests.test.ts",
       "server/routers/enrollment-payment-flows.test.ts",
       "server/lib/**/*.test.ts",
+      "server/services/facility-registry.service.test.ts",
       "server/routers/fellowship-care-signal-streak.test.ts",
       "server/routers/platform-feedback.test.ts",
       "server/_core/**/*.test.ts",

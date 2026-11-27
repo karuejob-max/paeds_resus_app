@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ExternalLink, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { UnlistedFacilitiesReview } from "@/components/UnlistedFacilitiesReview";
 import { FacilityRegistryPicker, KMHFR_PUBLIC_URL, describeFacility, isOfficialMflCode } from "@/components/FacilityRegistryPicker";
 
 /**
@@ -189,6 +190,7 @@ export default function AdminInstitutionVerification() {
           })}
         </div>
       )}
+      <UnlistedFacilitiesReview />
     </div>
   );
 }
