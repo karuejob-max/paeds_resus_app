@@ -51,8 +51,16 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     icon: Users,
     items: [
       {
+        label: "Institution verification",
+        href: "/admin/institution-verification",
+        description: "Verify institutions before providers can send them link requests, and review grandfathered ones.",
+        icon: ShieldCheck,
+        risk: "review",
+        badge: "New",
+      },
+      {
         label: "Institutional recovery",
-        href: "/admin-institutional-recovery",
+        href: "/admin/institutional-recovery",
         description: "Review verified institution recovery requests.",
         icon: RefreshCw,
         risk: "operational",
