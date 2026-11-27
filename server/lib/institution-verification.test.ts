@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { inAppNotifications, institutionalAccountAdmins, institutionalAccounts, institutionVerificationEvents, kmhflFacilities } from "../../drizzle/schema";
 import {
   VERIFICATION_REQUIRED_MESSAGE,
+  isOfficialMflCode,
   registryNameMatch,
   setInstitutionFacility,
   assertInstitutionVerified,
@@ -214,6 +215,26 @@ describe("setInstitutionFacility", () => {
     await expect(setInstitutionFacility(fakeDb({ account: { verificationStatus: "unverified" }, registry: [] }).db, { institutionId: 5, kmhflFacilityId: 99, asPlatformAdmin: false })).rejects.toMatchObject({ code: "NOT_FOUND" });
     const closed = fakeDb({ account: { verificationStatus: "unverified" }, registry: [{ id: 12, name: "Closed Clinic", code: "2", operationalStatus: "non_operational" }] });
     await expect(setInstitutionFacility(closed.db, { institutionId: 5, kmhflFacilityId: 12, asPlatformAdmin: false })).rejects.toThrow(/not operational/);
+  });
+});
+
+describe("facility link audit and placeholder codes", () => {
+  it("records who linked which facility", async () => {
+    const { db, inserts } = fakeDb({ account: { verificationStatus: "unverified" } });
+    await setInstitutionFacility(db, { institutionId: 5, kmhflFacilityId: 12, asPlatformAdmin: true, actorUserId: 9 });
+    expect(events(inserts)[0]).toMatchObject({ eventType: "facility_linked", actorUserId: 9, note: "Consolata Hospital Mathari (code 11111)" });
+  });
+
+  it("does not copy a placeholder code onto the institution as its registration number", async () => {
+    const { db, updates } = fakeDb({ account: { verificationStatus: "unverified" }, registry: [{ id: 12, name: "Consolata Hospital Mathari", code: "CHM-001", operationalStatus: "operational" }] });
+    await setInstitutionFacility(db, { institutionId: 5, kmhflFacilityId: 12, asPlatformAdmin: false });
+    expect(updates[0].set).toEqual({ kmhflFacilityId: 12 });
+  });
+
+  it("official MFL codes are numeric", () => {
+    expect(isOfficialMflCode("11111")).toBe(true);
+    expect(isOfficialMflCode("CHM-001")).toBe(false);
+    expect(isOfficialMflCode(null)).toBe(false);
   });
 });
 

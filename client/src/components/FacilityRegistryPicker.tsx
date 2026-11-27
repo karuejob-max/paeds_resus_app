@@ -16,7 +16,13 @@ export const KMHFR_PUBLIC_URL = "https://kmhfr.health.go.ke/public/facilities";
 
 /** Describes a registry facility on one line so similarly named facilities can be told apart. */
 export function describeFacility(facility: RegistryFacility): string {
-  return [facility.code ? `MFL code ${facility.code}` : "no MFL code", facility.county, facility.facilityType].filter(Boolean).join(" · ");
+  const code = facility.code ? (isOfficialMflCode(facility.code) ? `MFL code ${facility.code}` : `sample entry ${facility.code} (not an official MFL code)`) : "no MFL code";
+  return [code, facility.county, facility.facilityType].filter(Boolean).join(" · ");
+}
+
+/** Official MFL codes are numeric. Anything else came from the sample list. */
+export function isOfficialMflCode(code: string | null | undefined): boolean {
+  return /^\d{4,6}$/.test((code ?? "").trim());
 }
 
 /**

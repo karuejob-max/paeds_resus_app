@@ -1268,7 +1268,7 @@ export const institutionVerificationEvents = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     institutionalAccountId: int("institutionalAccountId").notNull(),
-    eventType: mysqlEnum("eventType", ["submitted", "verified", "rejected", "revoked", "grandfathered", "archived", "restored"]).notNull(),
+    eventType: mysqlEnum("eventType", ["submitted", "verified", "rejected", "revoked", "grandfathered", "archived", "restored", "facility_linked"]).notNull(),
     actorUserId: int("actorUserId"),
     method: varchar("method", { length: 32 }),
     note: varchar("note", { length: 1000 }),

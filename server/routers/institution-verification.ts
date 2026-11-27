@@ -89,7 +89,7 @@ export const institutionVerificationRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
-      const facility = await setInstitutionFacility(db, { ...input, asPlatformAdmin: false });
+      const facility = await setInstitutionFacility(db, { ...input, asPlatformAdmin: false, actorUserId: ctx.user.id });
       return { success: true as const, ...facility };
     }),
 
@@ -114,7 +114,7 @@ export const institutionVerificationRouter = router({
       const db = await requireDb();
       await assertInstitutionAccess(db, ctx.user, input.institutionId);
       if (input.kmhflFacilityId && !input.facilityNotListed) {
-        await setInstitutionFacility(db, { institutionId: input.institutionId, kmhflFacilityId: input.kmhflFacilityId, asPlatformAdmin: false });
+        await setInstitutionFacility(db, { institutionId: input.institutionId, kmhflFacilityId: input.kmhflFacilityId, asPlatformAdmin: false, actorUserId: ctx.user.id });
       }
       let evidenceFile: { key: string; fileName: string; contentType: string } | null = null;
       if (input.evidenceBase64) {
@@ -213,9 +213,9 @@ export const institutionVerificationRouter = router({
   /** Platform administrator: link or correct the registry facility on any institution. */
   adminSetFacility: adminProcedure
     .input(z.object({ institutionId: z.number().int().positive(), kmhflFacilityId: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
-      const facility = await setInstitutionFacility(db, { ...input, asPlatformAdmin: true });
+      const facility = await setInstitutionFacility(db, { ...input, asPlatformAdmin: true, actorUserId: ctx.user.id });
       return { success: true as const, ...facility };
     }),
 
