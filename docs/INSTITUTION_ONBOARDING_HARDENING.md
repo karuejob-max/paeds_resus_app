@@ -230,3 +230,11 @@ The platform-admin page shows the linked registry facility (name, MFL code, coun
 - Linking a facility is now recorded in the verification history (`facility_linked`). Run `pnpm run db:apply-0203`.
 - Placeholder codes are never copied onto an institution's registration number, and the admin page warns when a linked entry has no official code.
 - `institution.test.ts` and `e2e-tests.test.ts` are part of the CI unit gate.
+
+### Loading the official list
+
+1. On https://kmhfr.health.go.ke/public/facilities use **Export** (Excel) with no filters, to get every facility with its MFL code.
+2. Open it in Excel and **Save As → CSV (UTF-8)**.
+3. `pnpm run kmhfl:import -- "C:\path\to\facilities.csv" --dry-run`, check the counts, then run it again without `--dry-run`.
+4. `pnpm run kmhfl:import -- "C:\path\to\facilities.csv" --retire-samples` hides leftover sample rows that no institution uses (nothing is deleted).
+5. `pnpm run kmhfl:check` should now show thousands of official codes.
