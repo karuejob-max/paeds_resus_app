@@ -122,6 +122,7 @@ import {
   type ActionLogStatus,
 } from "../lib/institutional-action-log-status";
 import { activeStaffCondition } from "../lib/institution-active-member";
+import { INVITATION_EXPIRED_MESSAGE, invitationExpiresAt, isInvitationExpired, updateMatchedNoRows } from "../lib/invitation-expiry";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
@@ -1306,6 +1307,7 @@ export const institutionRouter = router({
           responsibilityRole: institutionMemberships.responsibilityRole,
           staffMemberId: institutionMemberships.staffMemberId,
           acceptedAt: institutionMemberships.acceptedAt,
+          invitedAt: institutionMemberships.invitedAt,
           companyName: institutionalAccounts.companyName,
           staffName: institutionalStaffMembers.staffName,
           staffRole: institutionalStaffMembers.staffRole,
@@ -1327,6 +1329,8 @@ export const institutionRouter = router({
       // acceptance. The membership status, not userId nullability, is the
       // source of truth for pending provider access.
       isPendingInvite: row.membershipStatus === "invited",
+      invitationExpired: row.membershipStatus === "invited" && isInvitationExpired(row.invitedAt),
+      invitationExpiresAt: row.membershipStatus === "invited" ? invitationExpiresAt(row.invitedAt) : null,
     }));
   }),
 
@@ -1523,8 +1527,11 @@ export const institutionRouter = router({
       const result = await db.transaction(async tx => {
         const [membership] = await tx.select().from(institutionMemberships).where(and(eq(institutionMemberships.id, input.membershipId), eq(institutionMemberships.invitedEmail, email), eq(institutionMemberships.membershipStatus, "invited"))).limit(1);
         if (!membership) throw new TRPCError({ code: "NOT_FOUND", message: "No matching institution invitation found." });
+        if (isInvitationExpired(membership.invitedAt)) throw new TRPCError({ code: "FORBIDDEN", message: INVITATION_EXPIRED_MESSAGE });
         const now = new Date();
-        await tx.update(institutionMemberships).set({ userId: ctx.user.id, membershipStatus: "active", acceptedAt: now, updatedAt: now }).where(and(eq(institutionMemberships.id, membership.id), eq(institutionMemberships.membershipStatus, "invited")));
+        const claimed = await tx.update(institutionMemberships).set({ userId: ctx.user.id, membershipStatus: "active", acceptedAt: now, updatedAt: now }).where(and(eq(institutionMemberships.id, membership.id), eq(institutionMemberships.membershipStatus, "invited")));
+        // Single use: if another request already consumed this invitation, do nothing further.
+        if (updateMatchedNoRows(claimed)) throw new TRPCError({ code: "CONFLICT", message: "This invitation was already answered." });
         if (membership.staffMemberId) await tx.update(institutionalStaffMembers).set({ userId: ctx.user.id, facilityLinkStatus: "linked", updatedAt: now }).where(eq(institutionalStaffMembers.id, membership.staffMemberId));
         await tx.insert(institutionMembershipEvents).values({ institutionalAccountId: membership.institutionalAccountId, membershipId: membership.id, staffMemberId: membership.staffMemberId, userId: ctx.user.id, eventType: "accepted", previousMembershipStatus: "invited", currentMembershipStatus: "active", actorUserId: ctx.user.id, reason: "Provider accepted general institution access.", occurredAt: now });
         return membership.institutionalAccountId;

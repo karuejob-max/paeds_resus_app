@@ -157,3 +157,15 @@ The roster row (`facilityLinkStatus`) and the membership row (`membershipStatus`
 - Replaced the bare `facilityLinkStatus = 'linked'` filters in `resusgps-auditor`, `courses`, `payments`, `ierp-program-state`, `iers-shift-team`, `iers-utl-sync` and `institution` (13 sites).
 - Not changed: places that already require both a linked roster row and an active membership (rota assignability, staff 360 link action, CPD link check), and the facility-registry reconcile logic, which looks for linked rows on purpose.
 - No migration.
+
+## PR J: invitations expire
+
+Pending invitations never lapsed, and acceptance relied only on matching the signed-in email. Invitation emails carry no token (the link is the plain `/workplaces-and-access` page), so there is nothing to make single-use; acceptance already requires being signed in as the invited address.
+
+- Expiry is derived from the send time, so no migration: `institutionMemberships.invitedAt` for institution access, `institutionalAdminInvites.createdAt` for administrator grants. `server/lib/invitation-expiry.ts` holds the rules: 14 days, 30 days for recovery grants (which first wait out the 7-day cooling-off). A missing send time counts as expired.
+- Accepting an expired institution-access or administrator invitation is refused. Declining an expired administrator invitation is refused too (it no longer appears).
+- Re-sending resets the clock: institution invites already set `invitedAt` again; re-inviting an administrator whose invitation expired retires the old one (audited) and creates a new one.
+- Institution-access acceptance is single use: if the invitation was already answered, the second request gets a conflict instead of writing a second audit event.
+- UI: expired institution invitations show "Expired" with no Accept button; the Administrators table shows "Expired — invite again"; the post-login admin-invite banner hides expired invitations.
+- Existing pending invitations older than 14 days become expired immediately. They can be re-sent.
+- Not done: verifying that the invited email address belongs to the signed-in user (depends on how email verification works at sign-up), and an automatic clean-up job. Expired rows simply stay `pending`/`invited` in the database.

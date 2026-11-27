@@ -98,3 +98,12 @@ describe("accepting a recovery grant", () => {
     expect(recoveryEffectiveAt(start).getTime() - start.getTime()).toBe(RECOVERY_COOLING_OFF_DAYS * DAY);
   });
 });
+
+describe("a recovery grant that is never accepted lapses", () => {
+  it("cannot be accepted after its 30-day window", async () => {
+    const stale = new Date(Date.now() - 31 * DAY);
+    const { db, updates } = fakeDb({ invite: { id: 5, institutionalAccountId: 1, invitedEmail: "claimant@hosp.com", invitedName: "C", invitedByUserId: null, source: "recovery_approval", status: "pending", createdAt: stale } });
+    await expect(acceptAdminInvite(db, { id: 40, email: "claimant@hosp.com" }, 5)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(updates).toHaveLength(0);
+  });
+});

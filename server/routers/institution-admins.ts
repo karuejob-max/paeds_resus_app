@@ -21,6 +21,7 @@ import {
   assertRemovalKeepsMinimumAdmins,
   MINIMUM_INSTITUTION_ADMINS,
 } from "../lib/institution-access";
+import { invitationTtlDays, isInvitationExpired } from "../lib/invitation-expiry";
 
 /**
  * Institutional multi-admin management (North Star v2.0 §6.1: "the
@@ -99,6 +100,12 @@ export const institutionAdminsRouter = router({
             eq(institutionalAdminInvites.institutionalAccountId, input.institutionId),
             eq(institutionalAdminInvites.status, "pending")
           )
+        )
+        .then((rows) =>
+          rows.map((row) => ({
+            ...row,
+            expired: isInvitationExpired(row.createdAt, invitationTtlDays(row.source)),
+          })),
         );
 
       return { admins, pendingInvites, minimumRequired: MINIMUM_INSTITUTION_ADMINS };
@@ -264,7 +271,7 @@ export const institutionAdminsRouter = router({
         )
       );
 
-    return { invites: rows };
+    return { invites: rows.filter((row) => !isInvitationExpired(row.createdAt, invitationTtlDays(row.source))) };
   }),
 
   /** Accepts one pending invite addressed to the logged-in user's own email. */
