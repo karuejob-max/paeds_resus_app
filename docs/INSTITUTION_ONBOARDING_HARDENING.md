@@ -169,3 +169,11 @@ Pending invitations never lapsed, and acceptance relied only on matching the sig
 - UI: expired institution invitations show "Expired" with no Accept button; the Administrators table shows "Expired — invite again"; the post-login admin-invite banner hides expired invitations.
 - Existing pending invitations older than 14 days become expired immediately. They can be re-sent.
 - Not done: verifying that the invited email address belongs to the signed-in user (depends on how email verification works at sign-up), and an automatic clean-up job. Expired rows simply stay `pending`/`invited` in the database.
+
+## PR K: remove retired onboarding code
+
+- Deleted `server/routers/direct-hospital-onboarding.ts`. It was not mounted in the app router (only a commented-out reference remained) and its `registerHospitalInstant` returned invented ids and API keys without writing anything. Nothing imported it.
+- Deleted the `institution.register` procedure. It only threw "retired" and had no callers in the client. Institutions are created through `completeOnboarding` (second administrator required).
+- Removed the tests that called `institution.register` (`institution.test.ts`, `e2e-tests.test.ts`) and pointed the E2E flow at a fixture institution; README no longer lists `institution.register` or the removed `institution.verify`.
+- The plan also mentioned a "legacy approval path". Searching for institution approve/activate procedures found none (the only approval flows are staff facility links, Phase 1 proof, readiness templates and data lifecycle), so nothing else was removed.
+- No migration.
