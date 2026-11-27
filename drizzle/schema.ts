@@ -1080,6 +1080,22 @@ export const institutionalAccounts = mysqlTable("institutionalAccounts", {
   status: mysqlEnum("status", ["prospect", "active", "inactive"]).default(
     "prospect"
   ),
+  /**
+   * Whether the institution has been shown to be who it says it is (migration 0199). Only
+   * verified institutions can receive provider link requests. Institutions that were active
+   * before verification existed are marked `grandfathered` and stay flagged for review.
+   */
+  verificationStatus: mysqlEnum("verificationStatus", ["unverified", "pending_review", "verified", "rejected"])
+    .notNull()
+    .default("unverified"),
+  /** grandfathered | letterhead | facility_domain_email | platform_admin | other */
+  verificationMethod: varchar("verificationMethod", { length: 32 }),
+  verificationEvidenceUrl: varchar("verificationEvidenceUrl", { length: 1000 }),
+  verificationEvidenceNote: text("verificationEvidenceNote"),
+  verificationSubmittedAt: timestamp("verificationSubmittedAt"),
+  verifiedAt: timestamp("verifiedAt"),
+  verifiedByUserId: int("verifiedByUserId"),
+  verificationReviewNote: text("verificationReviewNote"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -1203,6 +1219,26 @@ export const institutionalAdminInvites = mysqlTable(
  * Append-only audit of administrator grants: who was invited, by whom, and what the
  * invitee did. Written for every invite, acceptance, decline, revocation and removal.
  */
+/** Audit trail for institution verification decisions (migration 0199). */
+export const institutionVerificationEvents = mysqlTable(
+  "institutionVerificationEvents",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    eventType: mysqlEnum("eventType", ["submitted", "verified", "rejected", "revoked", "grandfathered"]).notNull(),
+    actorUserId: int("actorUserId"),
+    method: varchar("method", { length: 32 }),
+    note: varchar("note", { length: 1000 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    accountIdx: index("institutionVerificationEvents_account_idx").on(
+      table.institutionalAccountId,
+      table.createdAt
+    ),
+  })
+);
+
 export const institutionalAdminEvents = mysqlTable(
   "institutionalAdminEvents",
   {

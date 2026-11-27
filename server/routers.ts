@@ -75,6 +75,7 @@ import { institutionRouter } from "./routers/institution";
 import { institutionStaff360Router } from "./routers/institution-staff-360";
 import { institutionAdminsRouter } from "./routers/institution-admins";
 import { institutionRecoveryRouter } from "./routers/institution-recovery";
+import { institutionVerificationRouter } from "./routers/institution-verification";
 import { iersRouter } from "./routers/iers";
 import { iersShiftTeamRouter } from "./routers/iers-shift-team";
 import { iersReadinessRouter } from "./routers/iers-readiness";
@@ -532,6 +533,7 @@ export const appRouter = router({
   institutionalLifeSupport: institutionalLifeSupportRouter,
   institutionAdmins: institutionAdminsRouter,
   institutionRecovery: institutionRecoveryRouter,
+  institutionVerification: institutionVerificationRouter,
   iers: iersRouter,
   iersShiftTeam: iersShiftTeamRouter,
   iersReadiness: iersReadinessRouter,

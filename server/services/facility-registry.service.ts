@@ -23,6 +23,7 @@ import { inferDesignationFromCadre } from "../../shared/cadre-designation-mappin
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { DEFAULT_FACILITY_COUNTRY } from "../../shared/kenya-counties";
 import { DEPARTMENT_ALIASES, canonicalizeDepartmentLabel, departmentLabelsMatch } from "../../shared/clinical-departments";
+import { isInstitutionVerified } from "../lib/institution-verification";
 
 export type FacilitySearchResult = {
   id: number;
@@ -524,6 +525,31 @@ export async function applyCpdFacilityRelationship(
   },
 ): Promise<CpdFacilityLinkResult> {
   const email = input.staffEmail.trim().toLowerCase();
+
+  // An unverified institution cannot receive link requests. Someone who is already an active
+  // member keeps their relationship; anyone else is left for administrator review with no
+  // roster row or request created, so attending a CPD event never reaches an unverified account.
+  if (!(await isInstitutionVerified(db, input.institutionalAccountId))) {
+    const [activeMembership] = await db
+      .select({ id: institutionMemberships.id })
+      .from(institutionMemberships)
+      .where(and(
+        eq(institutionMemberships.institutionalAccountId, input.institutionalAccountId),
+        eq(institutionMemberships.userId, input.userId),
+        eq(institutionMemberships.membershipStatus, "active"),
+      ))
+      .limit(1);
+    if (!activeMembership) {
+      return {
+        relationship: input.relationship,
+        status: "admin_review_required",
+        membershipId: null,
+        membershipStatus: null,
+        staffMemberId: null,
+      };
+    }
+  }
+
   const reconciled = await reconcileInstitutionalStaffMember(db, {
     institutionalAccountId: input.institutionalAccountId,
     userId: input.userId,
