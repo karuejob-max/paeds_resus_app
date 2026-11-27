@@ -1092,6 +1092,14 @@ export const institutionalAccounts = mysqlTable("institutionalAccounts", {
   verificationMethod: varchar("verificationMethod", { length: 32 }),
   verificationEvidenceUrl: varchar("verificationEvidenceUrl", { length: 1000 }),
   verificationEvidenceNote: text("verificationEvidenceNote"),
+  /** Private storage key of an uploaded evidence file (migration 0202); reviewers get a short-lived link. */
+  verificationEvidenceKey: varchar("verificationEvidenceKey", { length: 500 }),
+  verificationEvidenceFileName: varchar("verificationEvidenceFileName", { length: 255 }),
+  verificationEvidenceContentType: varchar("verificationEvidenceContentType", { length: 100 }),
+  /** KMPDC licence / registration number quoted by the institution, for the reviewer to check. */
+  verificationLicenceNumber: varchar("verificationLicenceNumber", { length: 100 }),
+  /** The institution says it is not a registry facility (training body, county office) or is not listed yet. */
+  verificationFacilityNotListed: boolean("verificationFacilityNotListed").notNull().default(false),
   verificationSubmittedAt: timestamp("verificationSubmittedAt"),
   verifiedAt: timestamp("verifiedAt"),
   verifiedByUserId: int("verifiedByUserId"),
@@ -1260,7 +1268,7 @@ export const institutionVerificationEvents = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     institutionalAccountId: int("institutionalAccountId").notNull(),
-    eventType: mysqlEnum("eventType", ["submitted", "verified", "rejected", "revoked", "grandfathered", "archived", "restored"]).notNull(),
+    eventType: mysqlEnum("eventType", ["submitted", "verified", "rejected", "revoked", "grandfathered", "archived", "restored", "facility_linked"]).notNull(),
     actorUserId: int("actorUserId"),
     method: varchar("method", { length: 32 }),
     note: varchar("note", { length: 1000 }),
