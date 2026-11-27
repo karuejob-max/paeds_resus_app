@@ -18,12 +18,14 @@ import {
   facilityMembershipRequests,
   institutionalAccountAdmins,
   inAppNotifications,
+  kmhflFacilities,
+  codeSignalEvents,
 } from "../../drizzle/schema";
 import { inferDesignationFromCadre } from "../../shared/cadre-designation-mapping";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { DEFAULT_FACILITY_COUNTRY } from "../../shared/kenya-counties";
 import { DEPARTMENT_ALIASES, canonicalizeDepartmentLabel, departmentLabelsMatch } from "../../shared/clinical-departments";
-import { isInstitutionVerified } from "../lib/institution-verification";
+import { isInstitutionVerified, isOfficialMflCode } from "../lib/institution-verification";
 
 export type FacilitySearchResult = {
   id: number;
@@ -52,6 +54,10 @@ export type FacilitySearchResult = {
    * field going forward.
    */
   adminLevel2: string | null;
+  /** Official Ministry of Health MFL code, when the facility is a registry facility. */
+  mflCode: string | null;
+  /** Added by a reporter and not yet checked against the registry. */
+  needsReview: boolean;
 };
 
 const OUTREACH_SLUG = "outreach-mobile";
@@ -101,6 +107,102 @@ export async function getFacilityById(facilityId: number) {
   return row ? { ...row, adminLevel2: row.adminLevel2 ?? row.subCounty ?? null } : null;
 }
 
+const OFFICIAL_CODE_SQL = sql`REGEXP '^[0-9]{4,6}$'`;
+
+type Db = NonNullable<Awaited<ReturnType<typeof getDb>>>;
+
+/** What a reporter sees next to a facility so similarly named ones can be told apart. */
+export function facilityBadge(input: {
+  isSystem: boolean;
+  institutionalAccountId: number | null;
+  institutionVerificationStatus?: string | null;
+  mflCode: string | null;
+  needsReview: boolean;
+}): string {
+  if (input.isSystem) return "System";
+  if (input.institutionalAccountId && input.institutionVerificationStatus === "verified") return "Verified institution";
+  if (isOfficialMflCode(input.mflCode)) return "Registry facility";
+  if (input.needsReview) return "Not in registry (under review)";
+  return "Community";
+}
+
+/**
+ * Turn an official registry row into the one care facility for its MFL code. If a care facility with
+ * the same name already exists without a code (older data), it is adopted instead of duplicated.
+ * Only official registry rows are ever matched by name, so a typed name can never hijack a facility.
+ */
+export async function materializeRegistryFacility(
+  db: Db,
+  registry: { name: string; code: string | null; county: string | null },
+): Promise<number | null> {
+  if (!isOfficialMflCode(registry.code)) return null;
+  const code = registry.code!.trim();
+  const [byCode] = await db
+    .select({ id: careFacilities.id })
+    .from(careFacilities)
+    .where(and(eq(careFacilities.mflCode, code), isNull(careFacilities.mergedIntoId)))
+    .limit(1);
+  if (byCode) return byCode.id;
+
+  const [byName] = await db
+    .select({ id: careFacilities.id, county: careFacilities.county })
+    .from(careFacilities)
+    .where(
+      and(
+        sql`LOWER(${careFacilities.name}) = LOWER(${registry.name})`,
+        isNull(careFacilities.mflCode),
+        isNull(careFacilities.mergedIntoId),
+        eq(careFacilities.isSystem, false),
+      ),
+    )
+    .limit(1);
+  if (byName && (!byName.county || !registry.county || byName.county.toLowerCase() === registry.county.toLowerCase())) {
+    await db
+      .update(careFacilities)
+      .set({ mflCode: code, needsReview: false, county: byName.county ?? registry.county, updatedAt: new Date() })
+      .where(eq(careFacilities.id, byName.id));
+    return byName.id;
+  }
+
+  const insertResult = await db.insert(careFacilities).values({
+    name: registry.name.trim(),
+    county: registry.county,
+    country: DEFAULT_FACILITY_COUNTRY,
+    mflCode: code,
+    needsReview: false,
+  });
+  return Number((insertResult as unknown as { insertId: number }).insertId);
+}
+
+/** A verified institution that has chosen its registry facility is attached to that facility's care record. */
+export async function linkVerifiedInstitutionFacility(institutionId: number): Promise<number | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const [inst] = await db
+    .select({
+      verificationStatus: institutionalAccounts.verificationStatus,
+      kmhflFacilityId: institutionalAccounts.kmhflFacilityId,
+      archivedAt: institutionalAccounts.archivedAt,
+    })
+    .from(institutionalAccounts)
+    .where(eq(institutionalAccounts.id, institutionId))
+    .limit(1);
+  if (!inst || inst.archivedAt || inst.verificationStatus !== "verified" || !inst.kmhflFacilityId) return null;
+  const [registry] = await db
+    .select({ name: kmhflFacilities.name, code: kmhflFacilities.code, county: kmhflFacilities.county })
+    .from(kmhflFacilities)
+    .where(eq(kmhflFacilities.id, inst.kmhflFacilityId))
+    .limit(1);
+  if (!registry) return null;
+  const careId = await materializeRegistryFacility(db, registry);
+  if (!careId) return null;
+  await db
+    .update(careFacilities)
+    .set({ institutionalAccountId: institutionId, updatedAt: new Date() })
+    .where(and(eq(careFacilities.id, careId), or(isNull(careFacilities.institutionalAccountId), eq(careFacilities.institutionalAccountId, institutionId))));
+  return careId;
+}
+
 /** Seed outreach row + import institutions and accredited facilities (idempotent). */
 export async function ensureFacilityRegistrySeeded() {
   const db = await getDb();
@@ -121,46 +223,22 @@ export async function ensureFacilityRegistrySeeded() {
     });
   }
 
-  const institutions = await db
-    .select({
-      id: institutionalAccounts.id,
-      companyName: institutionalAccounts.companyName,
-    })
-    .from(institutionalAccounts);
-
-  for (const inst of institutions) {
-    const name = inst.companyName?.trim();
-    if (!name) continue;
-    const [existing] = await db
-      .select({ id: careFacilities.id })
-      .from(careFacilities)
-      .where(
-        and(
-          eq(careFacilities.institutionalAccountId, inst.id),
-          isNull(careFacilities.mergedIntoId)
-        )
-      )
-      .limit(1);
-    if (existing) continue;
-
-    const [byName] = await db
-      .select({ id: careFacilities.id })
-      .from(careFacilities)
-      .where(and(eq(careFacilities.name, name), isNull(careFacilities.mergedIntoId)))
-      .limit(1);
-
-    if (byName) {
-      await db
-        .update(careFacilities)
-        .set({ institutionalAccountId: inst.id })
-        .where(eq(careFacilities.id, byName.id));
-    } else {
-      await db.insert(careFacilities).values({
-        name,
-        country: DEFAULT_FACILITY_COUNTRY,
-        institutionalAccountId: inst.id,
-      });
-    }
+  // Institutions get a care facility only once they are verified AND linked to an official registry
+  // facility. A typed company name never creates or adopts a facility (that is how typos and
+  // duplicates used to appear as "registered hospitals").
+  const pending = await db
+    .select({ id: institutionalAccounts.id })
+    .from(institutionalAccounts)
+    .where(
+      and(
+        eq(institutionalAccounts.verificationStatus, "verified"),
+        isNotNull(institutionalAccounts.kmhflFacilityId),
+        isNull(institutionalAccounts.archivedAt),
+        sql`NOT EXISTS (SELECT 1 FROM ${careFacilities} cf WHERE cf.institutionalAccountId = ${institutionalAccounts.id} AND cf.mergedIntoId IS NULL)`,
+      ),
+    );
+  for (const inst of pending) {
+    await linkVerifiedInstitutionFacility(inst.id);
   }
 
   const accredited = await db.select().from(accreditedFacilities);
@@ -203,9 +281,27 @@ export async function searchCareFacilities(input: {
   if (q.length < 1) return { results: [] };
 
   const pattern = `%${q}%`;
+
+  // Official registry matches become care facilities (one per MFL code) so a reporter can pick them.
+  // Only official numeric codes qualify; the old sample rows never appear.
+  const registryRows = await db
+    .select({ name: kmhflFacilities.name, code: kmhflFacilities.code, county: kmhflFacilities.county })
+    .from(kmhflFacilities)
+    .where(
+      and(
+        sql`${kmhflFacilities.code} ${OFFICIAL_CODE_SQL}`,
+        or(isNull(kmhflFacilities.operationalStatus), sql`${kmhflFacilities.operationalStatus} <> 'non_operational'`),
+        or(like(kmhflFacilities.name, pattern), like(kmhflFacilities.code, `${q}%`)),
+      ),
+    )
+    .limit(limit);
+  for (const registry of registryRows) {
+    await materializeRegistryFacility(db, registry);
+  }
+
   const filters = [
     isNull(careFacilities.mergedIntoId),
-    like(careFacilities.name, pattern),
+    or(like(careFacilities.name, pattern), like(careFacilities.mflCode, `${q}%`)),
   ];
   if (input.country?.trim()) {
     filters.push(eq(careFacilities.country, input.country.trim()));
@@ -220,6 +316,9 @@ export async function searchCareFacilities(input: {
       subCounty: careFacilities.subCounty,
       institutionalAccountId: careFacilities.institutionalAccountId,
       isSystem: careFacilities.isSystem,
+      mflCode: careFacilities.mflCode,
+      needsReview: careFacilities.needsReview,
+      institutionVerificationStatus: institutionalAccounts.verificationStatus,
       facilityOwnership: facilities.facilityOwnership,
       countryCode: facilities.countryCode,
       facilityLevelWho: facilities.facilityLevelWho,
@@ -227,8 +326,10 @@ export async function searchCareFacilities(input: {
     })
     .from(careFacilities)
     .leftJoin(facilities, eq(facilities.legacyCareFacilityId, careFacilities.id))
+    .leftJoin(institutionalAccounts, eq(institutionalAccounts.id, careFacilities.institutionalAccountId))
     .where(and(...filters))
-    .orderBy(desc(careFacilities.id))
+    // Registry facilities first (they have a code), then by name.
+    .orderBy(sql`${careFacilities.mflCode} IS NULL`, careFacilities.name)
     .limit(limit);
 
   return {
@@ -238,11 +339,15 @@ export async function searchCareFacilities(input: {
       county: r.county,
       country: r.country,
       institutionalAccountId: r.institutionalAccountId ?? null,
-      badge: r.isSystem
-        ? "System"
-        : r.institutionalAccountId
-          ? "Registered hospital"
-          : "Community",
+      badge: facilityBadge({
+        isSystem: Boolean(r.isSystem),
+        institutionalAccountId: r.institutionalAccountId ?? null,
+        institutionVerificationStatus: r.institutionVerificationStatus,
+        mflCode: r.mflCode,
+        needsReview: Boolean(r.needsReview),
+      }),
+      mflCode: r.mflCode ?? null,
+      needsReview: Boolean(r.needsReview),
       facilityOwnership: r.facilityOwnership,
       countryCode: r.countryCode,
       facilityLevelWho: r.facilityLevelWho,
@@ -271,23 +376,102 @@ export async function createCareFacility(input: {
   const name = input.name.trim();
   if (name.length < 2) throw new Error("Facility name is too short");
 
+  // If the official registry already lists this facility (same name, and same county when given), use it.
+  const county = input.county?.trim() || null;
+  const [registry] = await db
+    .select({ name: kmhflFacilities.name, code: kmhflFacilities.code, county: kmhflFacilities.county })
+    .from(kmhflFacilities)
+    .where(
+      and(
+        sql`LOWER(${kmhflFacilities.name}) = LOWER(${name})`,
+        sql`${kmhflFacilities.code} ${OFFICIAL_CODE_SQL}`,
+        county ? sql`LOWER(${kmhflFacilities.county}) = LOWER(${county})` : sql`1 = 1`,
+      ),
+    )
+    .limit(1);
+  if (registry) {
+    const registryId = await materializeRegistryFacility(db, registry);
+    if (registryId) return { id: registryId, created: false as const, matchedRegistry: true as const };
+  }
+
   const [dup] = await db
     .select({ id: careFacilities.id })
     .from(careFacilities)
-    .where(and(eq(careFacilities.name, name), isNull(careFacilities.mergedIntoId)))
+    .where(and(sql`LOWER(${careFacilities.name}) = LOWER(${name})`, isNull(careFacilities.mergedIntoId), county ? sql`LOWER(${careFacilities.county}) = LOWER(${county})` : sql`1 = 1`))
     .limit(1);
 
-  if (dup) return { id: dup.id, created: false as const };
+  if (dup) return { id: dup.id, created: false as const, matchedRegistry: false as const };
 
+  // Not in the registry: record it, but flag it so a platform administrator checks it.
   const insertResult = await db.insert(careFacilities).values({
     name,
-    county: input.county?.trim() || null,
+    county,
     country: input.country.trim() || DEFAULT_FACILITY_COUNTRY,
     facilityType: input.facilityType ?? null,
+    needsReview: true,
+    createdByUserId: input.createdByUserId ?? null,
   });
 
   const id = (insertResult as unknown as { insertId: number }).insertId;
-  return { id, created: true as const };
+  return { id, created: true as const, matchedRegistry: false as const };
+}
+
+/** Platform administrator: facilities that reporters added because they were not in the registry. */
+export async function listFacilitiesAwaitingReview() {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select({
+      id: careFacilities.id,
+      name: careFacilities.name,
+      county: careFacilities.county,
+      country: careFacilities.country,
+      createdByUserId: careFacilities.createdByUserId,
+      createdAt: careFacilities.createdAt,
+    })
+    .from(careFacilities)
+    .where(and(eq(careFacilities.needsReview, true), isNull(careFacilities.mergedIntoId)))
+    .orderBy(careFacilities.createdAt)
+    .limit(200);
+  if (rows.length === 0) return [];
+  const ids = rows.map((r) => r.id);
+  const careCounts = await db
+    .select({ facilityId: careSignalEvents.facilityId, total: sql<number>`COUNT(*)` })
+    .from(careSignalEvents)
+    .where(inArray(careSignalEvents.facilityId, ids))
+    .groupBy(careSignalEvents.facilityId);
+  const codeCounts = await db
+    .select({ facilityId: codeSignalEvents.facilityId, total: sql<number>`COUNT(*)` })
+    .from(codeSignalEvents)
+    .where(inArray(codeSignalEvents.facilityId, ids))
+    .groupBy(codeSignalEvents.facilityId);
+  const count = (list: { facilityId: number | null; total: number }[], id: number) => Number(list.find((c) => c.facilityId === id)?.total ?? 0);
+  return rows.map((r) => ({ ...r, careSignalReports: count(careCounts, r.id), codeSignalReports: count(codeCounts, r.id) }));
+}
+
+/** Platform administrator: this unlisted facility is really that registry facility. Reports and profiles move across. */
+export async function resolveUnlistedFacilityToRegistry(input: { facilityId: number; kmhflFacilityId: number; adminUserId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const [registry] = await db
+    .select({ name: kmhflFacilities.name, code: kmhflFacilities.code, county: kmhflFacilities.county })
+    .from(kmhflFacilities)
+    .where(eq(kmhflFacilities.id, input.kmhflFacilityId))
+    .limit(1);
+  if (!registry) throw new Error("That facility is not in the registry list.");
+  if (!isOfficialMflCode(registry.code)) throw new Error("That registry entry has no official MFL code. Load the official list first.");
+  const targetId = await materializeRegistryFacility(db, registry);
+  if (!targetId) throw new Error("Could not create the registry facility.");
+  const result = await mergeCareFacilities({ sourceFacilityId: input.facilityId, targetFacilityId: targetId, adminUserId: input.adminUserId });
+  await db.update(careFacilities).set({ needsReview: false, updatedAt: new Date() }).where(eq(careFacilities.id, input.facilityId));
+  return { ...result, targetFacilityId: targetId, mflCode: registry.code };
+}
+
+/** Platform administrator: this facility is genuinely not in the registry (for example a new facility). */
+export async function confirmUnlistedFacility(facilityId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  await db.update(careFacilities).set({ needsReview: false, updatedAt: new Date() }).where(eq(careFacilities.id, facilityId));
 }
 
 export type InstitutionalStaffSyncInput = {
@@ -996,6 +1180,11 @@ export async function mergeCareFacilities(input: {
     .update(careSignalEvents)
     .set({ facilityId: targetId })
     .where(eq(careSignalEvents.facilityId, sourceId));
+
+  await db
+    .update(codeSignalEvents)
+    .set({ facilityId: targetId })
+    .where(eq(codeSignalEvents.facilityId, sourceId));
 
   const profilesUpdated = await db
     .update(providerProfiles)

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Building2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { COMMON_FACILITY_COUNTRIES, KENYA_COUNTIES } from "@shared/kenya-counties";
 
 export type FacilitySelection = {
@@ -76,6 +77,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
 
   const createFacility = trpc.facilities.createCommunityFacility.useMutation({
     onSuccess: (r) => {
+      if (r.matchedRegistry) toast.info("That facility is in the Ministry of Health list, so we used the official entry.");
       void setMyFacility.mutateAsync({ facilityId: r.id });
       setShowAddForm(false);
     },
@@ -177,7 +179,8 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
                   onClick={() => selectResult(f)}
                 >
                   <span>{f.name}</span>
-                  <span className="text-xs text-slate-600 shrink-0">
+                  <span className="text-xs text-slate-600 shrink-0 text-right">
+                    {f.mflCode ? `MFL ${f.mflCode} · ` : ""}
                     {f.badge}
                     {f.county ? ` · ${f.county}` : ""}
                     {f.country ? ` · ${f.country}` : ""}
@@ -186,7 +189,7 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
               ))}
             </div>
           ) : query.trim().length >= 2 ? (
-            <p className="text-xs text-slate-600">No matches — add your facility below.</p>
+            <p className="text-xs text-slate-600">No match in the Ministry of Health list. Check the spelling, or search by MFL code. If it is truly not listed, add it below.</p>
           ) : null}
         </>
       )}
@@ -213,7 +216,8 @@ export function FacilityPicker({ value, onChange, required, showProfileHint = tr
 
       {showAddForm && !value ? (
         <div className="border rounded-lg p-3 space-y-3 bg-slate-50/80">
-          <p className="text-sm font-medium">Add your facility</p>
+          <p className="text-sm font-medium">Add a facility that is not in the Ministry of Health list</p>
+          <p className="text-xs text-slate-600">An administrator will check it against the official list. If it is listed, your report is moved to the correct facility.</p>
           <div className="space-y-2">
             <Label>Facility name</Label>
             <Input value={newName} onChange={(e) => setNewName(e.target.value)} />
