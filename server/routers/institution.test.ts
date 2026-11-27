@@ -105,85 +105,6 @@ describe("Institution Router", () => {
     institutionDbMock.mockState.limitQueue = [];
   });
 
-  describe("register", () => {
-    it("should reject the retired legacy registration endpoint", async () => {
-      institutionDbMock.mockState.limitRows = [];
-      const ctx = createAuthContext();
-      const caller = appRouter.createCaller(ctx);
-
-      await expect(caller.institution.register({
-        hospitalName: "Test Hospital",
-        hospitalType: "private",
-        county: "Nairobi",
-        phone: "+254712345678",
-        email: "hospital@test.com",
-        website: "https://hospital.test.com",
-        adminFirstName: "John",
-        adminLastName: "Doe",
-        adminEmail: "john@hospital.test.com",
-        adminPhone: "+254712345679",
-        adminTitle: "Administrator",
-        planId: "plan_basic",
-        planPrice: 50000,
-        maxStaff: 100,
-      })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-    });
-
-    it("should reject invalid hospital name", async () => {
-      const ctx = createAuthContext();
-      const caller = appRouter.createCaller(ctx);
-
-      try {
-        await caller.institution.register({
-          hospitalName: "AB", // Too short
-          hospitalType: "private",
-          county: "Nairobi",
-          phone: "+254712345678",
-          email: "hospital@test.com",
-          website: "https://hospital.test.com",
-          adminFirstName: "John",
-          adminLastName: "Doe",
-          adminEmail: "john@hospital.test.com",
-          adminPhone: "+254712345679",
-          adminTitle: "Administrator",
-          planId: "plan_basic",
-          planPrice: 50000,
-          maxStaff: 100,
-        });
-        expect.fail("Should have thrown validation error");
-      } catch (error: any) {
-        expect(error.message).toContain("Too small");
-      }
-    });
-
-    it("should reject invalid email", async () => {
-      const ctx = createAuthContext();
-      const caller = appRouter.createCaller(ctx);
-
-      try {
-        await caller.institution.register({
-          hospitalName: "Test Hospital",
-          hospitalType: "private",
-          county: "Nairobi",
-          phone: "+254712345678",
-          email: "invalid-email", // Invalid email
-          website: "https://hospital.test.com",
-          adminFirstName: "John",
-          adminLastName: "Doe",
-          adminEmail: "john@hospital.test.com",
-          adminPhone: "+254712345679",
-          adminTitle: "Administrator",
-          planId: "plan_basic",
-          planPrice: 50000,
-          maxStaff: 100,
-        });
-        expect.fail("Should have thrown validation error");
-      } catch (error: any) {
-        expect(error.message).toContain("Invalid email");
-      }
-    });
-  });
-
   describe("searchPlatformAccounts", () => {
     it("returns only the minimal account identity fields for matching administrators", async () => {
       institutionDbMock.mockState.limitRows = [
@@ -192,6 +113,21 @@ describe("Institution Router", () => {
       const caller = appRouter.createCaller(createAuthContext());
 
       const result = await caller.institution.searchPlatformAccounts({ query: "second" });
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({ id: 2, name: "Second Admin" });
+      expect(Object.keys(result[0]).sort()).toEqual(["email", "id", "name"]);
+      // Emails are masked unless the caller typed the complete address.
+      expect(result[0].email).not.toBe("second@example.com");
+    });
+
+    it("shows the full email only when the caller typed that exact address", async () => {
+      institutionDbMock.mockState.limitRows = [
+        { id: 2, name: "Second Admin", email: "second@example.com", phone: "+254700000002" },
+      ];
+      const caller = appRouter.createCaller(createAuthContext());
+
+      const result = await caller.institution.searchPlatformAccounts({ query: "second@example.com" });
 
       expect(result).toEqual([{ id: 2, name: "Second Admin", email: "second@example.com" }]);
     });
@@ -398,34 +334,6 @@ describe("Institution Router", () => {
         expect(result.completionRate).toBeLessThanOrEqual(100);
         expect(result.certificationRate).toBeLessThanOrEqual(100);
       }
-    });
-  });
-
-  describe("verify", () => {
-    it("should verify institution existence", async () => {
-      const ctx = createPublicContext();
-      const caller = appRouter.createCaller(ctx);
-
-      const result = await caller.institution.verify({
-        institutionId: 1,
-      });
-
-      expect(result).toBeDefined();
-      expect(result.exists).toBeDefined();
-      expect(result.active).toBeDefined();
-    });
-
-    it("should return false for non-existent institution", async () => {
-      institutionDbMock.mockState.limitRows = [];
-      const ctx = createPublicContext();
-      const caller = appRouter.createCaller(ctx);
-
-      const result = await caller.institution.verify({
-        institutionId: 99999,
-      });
-
-      expect(result.exists).toBe(false);
-      expect(result.active).toBe(false);
     });
   });
 });

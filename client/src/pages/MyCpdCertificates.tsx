@@ -63,6 +63,8 @@ export default function MyCpdCertificates() {
     onSuccess: async (result) => {
       if (result.status === "linked") {
         toast.success("Permanent facility confirmed and account linked");
+      } else if (result.status === "request_pending") {
+        toast.message("Request sent. The facility administrator needs to approve it before your account is linked");
       } else {
         toast.message("Administrator review is still required for this facility");
       }

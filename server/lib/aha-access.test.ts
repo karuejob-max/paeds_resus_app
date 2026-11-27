@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canStartNerpWithCredential,
+  getIlspCredentialTypesForProgramType,
   getNerpCredentialState,
   isActiveGrant,
   isCurrentNckLicence,
@@ -84,5 +85,17 @@ describe("AHA access primitives", () => {
   it("rejects revoked or expired grants", () => {
     expect(isActiveGrant({ programType: "acls", revokedAt: new Date("2026-08-28T08:00:00.000Z"), expiresAt: null }, "acls", now)).toBe(false);
     expect(isActiveGrant({ programType: "acls", revokedAt: null, expiresAt: new Date("2026-08-28T08:59:59.000Z") }, "acls", now)).toBe(false);
+  });
+
+  it("maps the ILSP bundle to both AHA course pathways and keeps legacy requests scoped", () => {
+    expect(getIlspCredentialTypesForProgramType("bls")).toEqual([
+      "bls",
+      "bls_acls",
+    ]);
+    expect(getIlspCredentialTypesForProgramType("acls")).toEqual([
+      "acls",
+      "bls_acls",
+    ]);
+    expect(getIlspCredentialTypesForProgramType("pals")).toEqual([]);
   });
 });

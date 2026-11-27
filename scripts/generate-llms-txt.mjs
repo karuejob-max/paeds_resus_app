@@ -10,6 +10,10 @@ const institutionalPricingSource = readFileSync(
   resolve(root, "shared/institutional-pricing.ts"),
   "utf8"
 );
+const institutionalLifeSupportSource = readFileSync(
+  resolve(root, "shared/institutional-life-support.ts"),
+  "utf8"
+);
 
 function readNumber(name) {
   const match = source.match(new RegExp(`export const ${name} = ([0-9_]+);`));
@@ -34,11 +38,31 @@ function readSharedNumber(pattern, name) {
   return Number(match[1].replaceAll("_", ""));
 }
 
+function readLifeSupportNumber(pattern, name) {
+  const match = institutionalLifeSupportSource.match(pattern);
+  if (!match) throw new Error(`Missing life-support pricing constant: ${name}`);
+  return Number(match[1].replaceAll("_", ""));
+}
+
 const cohortLabel = readString("COHORT_LABEL");
 const blsPrice = readNumber("BLS_PRICE").toLocaleString("en-KE");
 const blsCohortPrice = readNumber("BLS_COHORT_PRICE").toLocaleString("en-KE");
+const blsCurrentSelfPayPrice = readNumber("BLS_CURRENT_SELF_PAY_PRICE").toLocaleString("en-KE");
+const blsBlackNovemberPrice = readNumber("BLS_BLACK_NOVEMBER_PRICE").toLocaleString("en-KE");
 const aclsPrice = readNumber("ACLS_PRICE").toLocaleString("en-KE");
 const aclsCohortPrice = readNumber("ACLS_COHORT_PRICE").toLocaleString("en-KE");
+const aclsCurrentSelfPayPrice = readNumber("ACLS_CURRENT_SELF_PAY_PRICE").toLocaleString("en-KE");
+const aclsBlackNovemberPrice = readNumber("ACLS_BLACK_NOVEMBER_PRICE").toLocaleString("en-KE");
+const ierpPrice = readNumber("IERP_FULL_PRICE").toLocaleString("en-KE");
+const ierpEnrollmentCutoff = readString("IERP_ENROLLMENT_CUTOFF");
+const nerpPrice = readNumber("NERP_TOTAL_PRICE").toLocaleString("en-KE");
+const nerpInstallment = readNumber("NERP_INSTALLMENT").toLocaleString("en-KE");
+const ilsBasePrice = readLifeSupportNumber(/PAEDS_RESUS_ILS_BASE_PRICE_KES\s*=\s*([0-9_]+)/, "ILSP base price");
+const ilsDiscountPercent = readLifeSupportNumber(/PAEDS_RESUS_ILS_AUTOMATIC_DISCOUNT_PERCENT\s*=\s*([0-9_]+)/, "ILSP cohort discount");
+const ilspPrice = Math.round(ilsBasePrice * (100 - ilsDiscountPercent) / 100).toLocaleString("en-KE");
+const ilsAhaAddOnPriceValue = readLifeSupportNumber(/PAEDS_RESUS_ILS_AHA_ADD_ON_PRICE_KES\s*=\s*([0-9_]+)/, "ILSP AHA add-on price");
+const ilsAhaAddOnPrice = ilsAhaAddOnPriceValue.toLocaleString("en-KE");
+const ilspAhaCombinedPrice = (Math.round(ilsBasePrice * (100 - ilsDiscountPercent) / 100) + ilsAhaAddOnPriceValue).toLocaleString("en-KE");
 const iersPrice = [
   readSharedNumber(/level_4:\s*([0-9_]+)/, "IERS Level 4"),
   readSharedNumber(/level_5:\s*([0-9_]+)/, "IERS Level 5"),
@@ -51,21 +75,21 @@ const geography = readString("INSTITUTIONAL_GEOGRAPHY_COPY");
 
 const output = `# Paeds Resus
 
-> Paeds Resus is an emergency-care organisation and platform based in Kenya, serving providers and institutions across all patient populations. Current institutional focus is Central Kenya; expansion across Kenya is planned, while East African Community expansion is not yet active.
+> Paeds Resus is an AHA-aligned Training Site and emergency-care organisation and platform based in Kenya, serving providers and institutions across all patient populations. Current institutional focus is Central Kenya; expansion across Kenya is planned, while East African Community expansion is not yet active.
 
 ## Canonical product architecture
 
 ### Individual products
 
-- AHA BLS: basic life support training for individual healthcare providers. Price anchor: KES ${blsPrice} per person; KES ${blsCohortPrice} per person for ${cohortLabel}.
-- AHA ACLS: advanced cardiovascular life support training for individual healthcare providers. Price anchor: KES ${aclsPrice} per person; KES ${aclsCohortPrice} per person for ${cohortLabel}.
-- NERP: Nurses Emergency Readiness Program. Individual nurse pathway; request the current offer.
-- IERP: Interns Emergency Readiness Program. Individual intern pathway; request the current offer.
-- Paeds Resus Fellowship: individual paediatric emergency micro-course pathway; catalogue pricing applies.
+- Self-Pay BLS: basic life support training for individual healthcare providers. Standard price: KES ${blsPrice}; current self-pay offer: KES ${blsCurrentSelfPayPrice}; Black November offer: KES ${blsBlackNovemberPrice}. The separate cohort rate is KES ${blsCohortPrice} per person for ${cohortLabel}.
+- Self-Pay ACLS: advanced cardiovascular life support training for individual healthcare providers. Standard price: KES ${aclsPrice}; current self-pay offer: KES ${aclsCurrentSelfPayPrice}; Black November offer: KES ${aclsBlackNovemberPrice}. The separate cohort rate is KES ${aclsCohortPrice} per person for ${cohortLabel}.
+- NERP: Nurses Emergency Readiness Program. Individual nurse pathway: KES ${nerpPrice} total, with minimum KES ${nerpInstallment} monthly instalments; includes AHA ACLS certification and Paeds Resus BLS certification.
+- IERP: Interns Emergency Readiness Program. The standard individual pathway fee is KES ${ierpPrice}; it includes AHA ACLS certification and Paeds Resus BLS certification. The campaign enrolment cutoff is ${ierpEnrollmentCutoff}; it is an enrolment deadline, not a payment deadline or temporary discount. The standard fee remains KES ${ierpPrice} after the cutoff, with no post-cutoff price increase. For interns whose IERP start date falls from 1 August through 30 November, Phase 1 online cognitive coursework and Phase 2 online team simulations may begin before payment. From 1 December EAT, the full remaining balance must be paid in one payment before continued access to cognitive coursework or booking further Phase 2 sessions. For interns whose IERP start date falls from 1 December through 31 July, the full KES ${ierpPrice} fee must be paid before Phase 1 or Phase 2 access.
+- Paeds Resus Fellowship: individual paediatric emergency micro-course pathway. Fellowship micro-courses are free and distinct from paid life-support courses.
 
 ### Institutional products
 
-- ILSP: Institutional Life Support Program for institution-paid life-support cohorts, delivery, practical assessment, and completion evidence.
+- ILSP: Institutional Life Support Program for institution-paid life-support cohorts, delivery, practical assessment, and completion evidence. Paeds Resus BLS and ACLS certification is KES ${ilspPrice} per provider; one optional KES ${ilsAhaAddOnPrice} add-on requests both AHA BLS and AHA ACLS certification within 90 days after Paeds Resus programme certification. The combined ILSP-plus-AHA-add-on total is KES ${ilspAhaCombinedPrice} per provider. AHA certificate issuance remains subject to the applicable AHA review.
 - IERS: Institutional Emergency Readiness System for hospital-wide emergency-response governance, activation, readiness evidence, drills, equipment gaps, corrective actions, and reporting. Annual price tiers (Levels 4/5/6): KES ${iersPrice}.
 - ICPD: Institutional Continuous Professional Development for verified professional-development activity, attendance, targets, certificates, and leadership reporting. Per-staff price tiers: KES ${icpdPrice}, based on verified staff bands.
 
@@ -90,6 +114,7 @@ const output = `# Paeds Resus
 - Family & Caregiver Safe-Truth: https://www.paedsresus.com/parent-safe-truth
 
 ## Institutional presence
+Helping hospitals build emergency readiness through practical training, team learning, and continuous improvement.
 
 ${geography}
 

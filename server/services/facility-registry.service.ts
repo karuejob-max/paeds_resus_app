@@ -15,11 +15,15 @@ import {
   institutionMemberships,
   facilityDepartments,
   cpdAttendees,
+  facilityMembershipRequests,
+  institutionalAccountAdmins,
+  inAppNotifications,
 } from "../../drizzle/schema";
 import { inferDesignationFromCadre } from "../../shared/cadre-designation-mapping";
 import { isRegisteredRnProfile } from "../lib/iers-provider-eligibility";
 import { DEFAULT_FACILITY_COUNTRY } from "../../shared/kenya-counties";
 import { DEPARTMENT_ALIASES, canonicalizeDepartmentLabel, departmentLabelsMatch } from "../../shared/clinical-departments";
+import { isInstitutionVerified } from "../lib/institution-verification";
 
 export type FacilitySearchResult = {
   id: number;
@@ -298,6 +302,13 @@ export type InstitutionalStaffSyncInput = {
   department?: string | null;
   facilityDepartmentId?: number | null;
   enrollmentStatus?: "pending" | "enrolled" | "in_progress" | "completed" | "dropped";
+  /**
+   * When false, an existing roster row is refreshed but a missing one is NOT created
+   * (unless the person already holds an active membership). Used by passive paths such as
+   * choosing a facility on a profile, which must not place someone on an institution's
+   * roster without an explicit request. Defaults to true for explicit flows.
+   */
+  createIfMissing?: boolean;
 };
 
 type InstitutionalStaffRole = "nurse" | "doctor" | "paramedic" | "midwife" | "lab_tech" | "respiratory_therapist" | "support_staff" | "other";
@@ -362,6 +373,10 @@ export async function reconcileInstitutionalStaffMember(
   if (existing?.removedAt) {
     return { staffMemberId: existing.id, facilityLinkStatus: "rejected" as const, membershipStatus: membership?.membershipStatus ?? null };
   }
+  if (!existing && input.createIfMissing === false && membership?.membershipStatus !== "active") {
+    // Passive facility selection: no roster row, no PII copied to the institution.
+    return { staffMemberId: null as number | null, facilityLinkStatus, membershipStatus: membership?.membershipStatus ?? null };
+  }
   const departmentConflict = Boolean(
     existing
     && existing.facilityDepartmentId != null
@@ -395,21 +410,103 @@ export type CpdFacilityRelationship = "permanent_facility" | "locum_outreach";
 
 export type CpdFacilityLinkResult = {
   relationship: CpdFacilityRelationship;
-  status: "linked" | "admin_review_required";
+  status: "linked" | "request_pending" | "admin_review_required";
   membershipId: number | null;
   membershipStatus: "active" | "invited" | "suspended" | "ended" | "declined" | null;
   staffMemberId: number | null;
 };
 
+async function raiseCpdFacilityLinkRequest(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  input: {
+    institutionalAccountId: number;
+    careFacilityId: number;
+    facilityName: string;
+    userId: number;
+    email: string;
+    name: string;
+    relationship: CpdFacilityRelationship;
+    department: string | null;
+    facilityDepartmentId: number | null;
+    staffMemberId: number;
+  },
+): Promise<{ requestId: number | null; created: boolean }> {
+  const pendingKey = `${input.institutionalAccountId}:${input.userId}`;
+  const [existing] = await db
+    .select({ id: facilityMembershipRequests.id })
+    .from(facilityMembershipRequests)
+    .where(eq(facilityMembershipRequests.pendingRequestKey, pendingKey))
+    .limit(1);
+  if (existing) return { requestId: existing.id, created: false };
+
+  let requestId: number | null = null;
+  try {
+    const [inserted] = await db.insert(facilityMembershipRequests).values({
+      institutionalAccountId: input.institutionalAccountId,
+      careFacilityId: input.careFacilityId,
+      userId: input.userId,
+      requesterEmail: input.email,
+      requesterName: input.name,
+      relationshipType: input.relationship === "locum_outreach" ? "locum_outreach" : "permanent_staff",
+      pendingRequestKey: pendingKey,
+      department: input.department,
+      facilityDepartmentId: input.facilityDepartmentId,
+      status: "pending",
+      staffMemberId: input.staffMemberId,
+    });
+    requestId = Number((inserted as unknown as { insertId?: number }).insertId) || null;
+  } catch {
+    // A concurrent request for the same person/institution won the unique key; that is fine.
+    const [raced] = await db
+      .select({ id: facilityMembershipRequests.id })
+      .from(facilityMembershipRequests)
+      .where(eq(facilityMembershipRequests.pendingRequestKey, pendingKey))
+      .limit(1);
+    return { requestId: raced?.id ?? null, created: false };
+  }
+
+  try {
+    const [account] = await db
+      .select({ ownerUserId: institutionalAccounts.userId })
+      .from(institutionalAccounts)
+      .where(eq(institutionalAccounts.id, input.institutionalAccountId))
+      .limit(1);
+    const admins = await db
+      .select({ userId: institutionalAccountAdmins.userId })
+      .from(institutionalAccountAdmins)
+      .where(eq(institutionalAccountAdmins.institutionalAccountId, input.institutionalAccountId));
+    const adminIds = Array.from(new Set(
+      [account?.ownerUserId, ...admins.map((row) => row.userId)].filter((id): id is number => id != null && id > 0),
+    ));
+    if (adminIds.length > 0) {
+      await db.insert(inAppNotifications).values(adminIds.map((userId) => ({
+        userId,
+        type: "facility_membership",
+        title: "New facility link request",
+        body: `${input.name || input.email} attended a CPD event and asked to link to ${input.facilityName}. Review it in Access & links.`,
+        relatedId: requestId ?? 0,
+        actionUrl: "/institution",
+      })));
+    }
+  } catch (error) {
+    // The request exists; a notification failure must not undo it.
+    console.error("[facility-registry] CPD link request notification failed", error);
+  }
+  return { requestId, created: true };
+}
+
 /**
  * Apply an authenticated CPD attendee's explicit facility relationship.
  *
- * A signed-in CPD attendee's explicit facility relationship links the attendee to
- * the host facility. Both permanent and locum/outreach selections create or accept
- * only a general-staff facility membership; neither creates an IERS product role or
- * dated emergency duty. Permanent updates the provider's primary facility, while
- * locum/outreach remains a secondary facility history. Suspended, ended, rejected,
- * or removed relationships remain administrator-controlled.
+ * Attending a CPD event is evidence of association, not consent from the institution and
+ * not an acceptance of an invitation. It therefore NEVER activates a membership:
+ *  - an existing ACTIVE membership is kept and its roster row refreshed (primary facility is
+ *    updated for permanent relationships);
+ *  - anyone else gets a pending facility-link request (the same queue the administrator
+ *    already reviews under Access & links) and the admins are notified. An `invited`
+ *    membership stays invited until the person accepts it.
+ * Suspended, ended, rejected, or removed relationships stay administrator-controlled.
+ * Neither path creates an IERS product role or dated emergency duty.
  */
 export async function applyCpdFacilityRelationship(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
@@ -428,6 +525,31 @@ export async function applyCpdFacilityRelationship(
   },
 ): Promise<CpdFacilityLinkResult> {
   const email = input.staffEmail.trim().toLowerCase();
+
+  // An unverified institution cannot receive link requests. Someone who is already an active
+  // member keeps their relationship; anyone else is left for administrator review with no
+  // roster row or request created, so attending a CPD event never reaches an unverified account.
+  if (!(await isInstitutionVerified(db, input.institutionalAccountId))) {
+    const [activeMembership] = await db
+      .select({ id: institutionMemberships.id })
+      .from(institutionMemberships)
+      .where(and(
+        eq(institutionMemberships.institutionalAccountId, input.institutionalAccountId),
+        eq(institutionMemberships.userId, input.userId),
+        eq(institutionMemberships.membershipStatus, "active"),
+      ))
+      .limit(1);
+    if (!activeMembership) {
+      return {
+        relationship: input.relationship,
+        status: "admin_review_required",
+        membershipId: null,
+        membershipStatus: null,
+        staffMemberId: null,
+      };
+    }
+  }
+
   const reconciled = await reconcileInstitutionalStaffMember(db, {
     institutionalAccountId: input.institutionalAccountId,
     userId: input.userId,
@@ -441,6 +563,10 @@ export async function applyCpdFacilityRelationship(
     facilityDepartmentId: input.facilityDepartmentId,
     enrollmentStatus: "enrolled",
   });
+  if (reconciled.staffMemberId == null) {
+    throw new Error("Explicit facility relationship did not produce a staff record.");
+  }
+  const reconciledStaffMemberId: number = reconciled.staffMemberId;
 
   const [staff] = await db
     .select({
@@ -449,7 +575,7 @@ export async function applyCpdFacilityRelationship(
       removedAt: institutionalStaffMembers.removedAt,
     })
     .from(institutionalStaffMembers)
-    .where(eq(institutionalStaffMembers.id, reconciled.staffMemberId))
+    .where(eq(institutionalStaffMembers.id, reconciledStaffMemberId))
     .limit(1);
 
   const [membership] = await db
@@ -478,56 +604,11 @@ export async function applyCpdFacilityRelationship(
       status: "admin_review_required",
       membershipId: membership?.id ?? null,
       membershipStatus: membership?.membershipStatus ?? null,
-      staffMemberId: reconciled.staffMemberId,
+      staffMemberId: reconciledStaffMemberId,
     };
   }
 
   const now = new Date();
-  let membershipId = membership?.id ?? null;
-  if (membership?.id) {
-    if (membership.membershipStatus === "invited") {
-      await db
-        .update(institutionMemberships)
-        .set({
-          userId: input.userId,
-          staffMemberId: reconciled.staffMemberId,
-          membershipStatus: "active",
-          acceptedAt: now,
-          updatedAt: now,
-        })
-        .where(eq(institutionMemberships.id, membership.id));
-    } else if (membership.membershipStatus !== "active") {
-      return {
-        relationship: input.relationship,
-        status: "admin_review_required",
-        membershipId: membership.id,
-        membershipStatus: membership.membershipStatus,
-        staffMemberId: reconciled.staffMemberId,
-      };
-    }
-  } else {
-    const [inserted] = await db.insert(institutionMemberships).values({
-      institutionalAccountId: input.institutionalAccountId,
-      userId: input.userId,
-      invitedEmail: email,
-      staffMemberId: reconciled.staffMemberId,
-      membershipStatus: "active",
-      responsibilityRole: "general_staff",
-      invitedByUserId: null,
-      acceptedAt: now,
-    });
-    membershipId = inserted.insertId;
-  }
-
-  await db
-    .update(institutionalStaffMembers)
-    .set({
-      userId: input.userId,
-      facilityLinkStatus: "linked",
-      updatedAt: now,
-    })
-    .where(eq(institutionalStaffMembers.id, reconciled.staffMemberId));
-
   const [facility] = await db
     .select({ id: careFacilities.id, name: careFacilities.name, county: careFacilities.county, country: careFacilities.country })
     .from(careFacilities)
@@ -537,6 +618,48 @@ export async function applyCpdFacilityRelationship(
     ))
     .orderBy(desc(careFacilities.id))
     .limit(1);
+
+  if (membership?.membershipStatus !== "active") {
+    if (!facility) {
+      return {
+        relationship: input.relationship,
+        status: "admin_review_required",
+        membershipId: membership?.id ?? null,
+        membershipStatus: membership?.membershipStatus ?? null,
+        staffMemberId: reconciledStaffMemberId,
+      };
+    }
+    await raiseCpdFacilityLinkRequest(db, {
+      institutionalAccountId: input.institutionalAccountId,
+      careFacilityId: facility.id,
+      facilityName: facility.name,
+      userId: input.userId,
+      email,
+      name: input.staffName,
+      relationship: input.relationship,
+      department: input.department ?? null,
+      facilityDepartmentId: input.facilityDepartmentId ?? null,
+      staffMemberId: reconciledStaffMemberId,
+    });
+    return {
+      relationship: input.relationship,
+      status: "request_pending",
+      membershipId: membership?.id ?? null,
+      membershipStatus: membership?.membershipStatus ?? null,
+      staffMemberId: reconciledStaffMemberId,
+    };
+  }
+  const membershipId = membership.id;
+
+  await db
+    .update(institutionalStaffMembers)
+    .set({
+      userId: input.userId,
+      facilityLinkStatus: "linked",
+      updatedAt: now,
+    })
+    .where(eq(institutionalStaffMembers.id, reconciledStaffMemberId));
+
   if (facility && input.relationship === "permanent_facility") {
     await db
       .update(providerProfiles)
@@ -555,7 +678,7 @@ export async function applyCpdFacilityRelationship(
     status: "linked",
     membershipId,
     membershipStatus: "active",
-    staffMemberId: reconciled.staffMemberId,
+    staffMemberId: reconciledStaffMemberId,
   };
 }
 
@@ -798,6 +921,9 @@ export async function syncProviderProfileFacility(
         cadreOther: user.cadreOther,
         department: normalizedProviderDepartment,
         facilityDepartmentId: canonicalDepartmentId,
+        // Selecting a facility is not a request to join its roster. Refresh an existing
+        // relationship only; joining goes through the explicit facility-link request.
+        createIfMissing: false,
       });
     }
   } else {

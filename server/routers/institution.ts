@@ -98,6 +98,8 @@ import { canAddDeputyToAcceptedErcoPrimary, validateDepartmentErcoAssignment } f
 import { ensurePublishedTeamForLegacyUtlRoster, notifyDepartmentErcoOfUtlDecline, projectLegacyUtlRosterDecision, projectUtlRosterReassignment } from "../services/iers-utl-sync.service";
 import { ensureDefaultUtlReadinessTemplate } from "../services/iers-readiness-template.service";
 import { autoLinkCpdFacilitiesForInstitution } from "../services/facility-registry.service";
+import { createAdminInvite } from "../lib/institution-admin-grants";
+import { endMembershipAccess, leaveInstitutionMembership } from "../lib/institution-membership-exit";
 import { getIsoWeekKey, getIsoWeekRange, getMonthlyShiftRows, monthStartFromShiftDate, normalizeMonthStart } from "../lib/iers-monthly-rota";
 import { insertCanonicalFacilityDepartments } from "../lib/iers-department-setup";
 import { DEFAULT_SHIFT_TEMPLATES, formatShiftInterval, shiftTemplateForType, validateShiftInterval } from "../lib/iers-shift-times";
@@ -119,6 +121,8 @@ import {
   requiresSystemChangeOnResolve,
   type ActionLogStatus,
 } from "../lib/institutional-action-log-status";
+import { activeStaffCondition } from "../lib/institution-active-member";
+import { INVITATION_EXPIRED_MESSAGE, invitationExpiresAt, isInvitationExpired, updateMatchedNoRows } from "../lib/invitation-expiry";
 
 type DbClient = NonNullable<Awaited<ReturnType<typeof getDb>>>;
 
@@ -644,7 +648,7 @@ async function resolveCanonicalDepartmentProvider(
     ))
     .where(and(
       eq(institutionalStaffMembers.institutionalAccountId, institutionId),
-      eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+      activeStaffCondition(),
       isNull(institutionalStaffMembers.removedAt),
       eq(institutionMemberships.membershipStatus, "active"),
       isNotNull(institutionalStaffMembers.userId),
@@ -891,15 +895,24 @@ async function ensureMonthlyUtlShifts(
   return generatedShifts;
 }
 
-async function ensureProviderMembershipForStaff(
+/**
+ * Admin-side roster adds create an INVITATION, never an active membership. An institution
+ * admin typing an email must not be able to attach an existing account to the institution
+ * without that person's acceptance (see acceptMembershipInvite). The staff row is left
+ * unlinked until acceptance, and an already-active membership is left untouched.
+ */
+export async function ensureProviderMembershipForStaff(
   db: DbClient,
   input: {
     institutionId: number;
     staffMemberId: number;
     email: string;
-    responsibilityRole?: "executive" | "erc_chair" | "erc_member" | "er_coordinator" | "unit_team_leader" | "ert_leader" | "ert_responder" | "general_staff";
+    staffName?: string;
+    actor: { id: number; name?: string | null };
+    /** Send the in-app notification and email. Defaults to true. */
+    notify?: boolean;
   },
-) {
+): Promise<{ membershipId: number | null; status: "active" | "invited" | "reinvited" }> {
   const email = input.email.trim().toLowerCase();
   const [existingUser] = await db
     .select({ id: users.id })
@@ -908,7 +921,7 @@ async function ensureProviderMembershipForStaff(
     .limit(1);
 
   const [existingMembership] = await db
-    .select({ id: institutionMemberships.id })
+    .select({ id: institutionMemberships.id, membershipStatus: institutionMemberships.membershipStatus })
     .from(institutionMemberships)
     .where(and(
       eq(institutionMemberships.institutionalAccountId, input.institutionId),
@@ -916,38 +929,99 @@ async function ensureProviderMembershipForStaff(
     ))
     .limit(1);
 
-  const membershipStatus = existingUser ? "active" : "invited";
-  const responsibilityRole = input.responsibilityRole ?? "general_staff";
+  if (existingMembership?.membershipStatus === "active") {
+    return { membershipId: existingMembership.id, status: "active" };
+  }
+
+  const now = new Date();
+  const actorUserId = input.actor.id;
+  let membershipId: number;
+  let status: "invited" | "reinvited";
   if (existingMembership) {
+    membershipId = existingMembership.id;
+    status = "reinvited";
     await db
       .update(institutionMemberships)
       .set({
         userId: existingUser?.id ?? null,
         staffMemberId: input.staffMemberId,
-        membershipStatus,
-        responsibilityRole,
-        acceptedAt: existingUser ? new Date() : null,
-        updatedAt: new Date(),
+        membershipStatus: "invited",
+        responsibilityRole: "general_staff",
+        invitedByUserId: actorUserId,
+        invitedAt: now,
+        acceptedAt: null,
+        suspendedAt: null,
+        endedAt: null,
+        updatedAt: now,
       })
       .where(eq(institutionMemberships.id, existingMembership.id));
   } else {
-    await db.insert(institutionMemberships).values({
+    status = "invited";
+    const [inserted] = await db.insert(institutionMemberships).values({
       institutionalAccountId: input.institutionId,
       userId: existingUser?.id ?? null,
       invitedEmail: email,
       staffMemberId: input.staffMemberId,
-      membershipStatus,
-      responsibilityRole,
-      acceptedAt: existingUser ? new Date() : null,
+      membershipStatus: "invited",
+      responsibilityRole: "general_staff",
+      invitedByUserId: actorUserId,
     });
+    membershipId = Number((inserted as unknown as { insertId: number }).insertId);
+    if (!Number.isFinite(membershipId) || membershipId <= 0) {
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not record the institution invitation." });
+    }
   }
 
-  if (existingUser) {
-    await db
-      .update(institutionalStaffMembers)
-      .set({ userId: existingUser.id, facilityLinkStatus: "linked", updatedAt: new Date() })
-      .where(eq(institutionalStaffMembers.id, input.staffMemberId));
+  await db.insert(institutionMembershipEvents).values({
+    institutionalAccountId: input.institutionId,
+    membershipId,
+    staffMemberId: input.staffMemberId,
+    userId: existingUser?.id ?? null,
+    eventType: status,
+    previousMembershipStatus: existingMembership?.membershipStatus ?? null,
+    currentMembershipStatus: "invited",
+    actorUserId,
+    reason: "Institution access invitation created from the staff roster.",
+    occurredAt: now,
+  });
+
+  if (input.notify !== false) {
+    try {
+      const [account] = await db
+        .select({ companyName: institutionalAccounts.companyName })
+        .from(institutionalAccounts)
+        .where(eq(institutionalAccounts.id, input.institutionId))
+        .limit(1);
+      const institutionName = account?.companyName ?? "your institution";
+      const actionUrl = "/workplaces-and-access";
+      if (existingUser) {
+        await createCanonicalNotification({
+          userId: existingUser.id,
+          type: "institution_membership_invitation",
+          domain: "role",
+          severity: "action_required",
+          requiresAction: true,
+          title: `Invitation to join ${institutionName}`,
+          body: "Review and accept institution access. This is not an emergency role or dated duty.",
+          actionUrl,
+          relatedId: membershipId,
+          data: { institutionId: input.institutionId, membershipId, action: "accept_or_decline" },
+          dedupeKey: `institution-membership-invitation:${membershipId}`,
+        });
+      }
+      await sendEmail(email, "institutionProviderInvitation", {
+        providerName: input.staffName ?? email,
+        inviterName: input.actor.name?.trim() || "Your institution administrator",
+        institutionName,
+        actionUrl,
+      });
+    } catch (error) {
+      // The invitation is recorded; a delivery failure must not undo it or fail the roster add.
+      console.error("[institution] membership invitation delivery failed", error);
+    }
   }
+
+  return { membershipId, status };
 }
 
 async function assertApprovedInstructorUser(db: DbClient, userId: number) {
@@ -1233,6 +1307,7 @@ export const institutionRouter = router({
           responsibilityRole: institutionMemberships.responsibilityRole,
           staffMemberId: institutionMemberships.staffMemberId,
           acceptedAt: institutionMemberships.acceptedAt,
+          invitedAt: institutionMemberships.invitedAt,
           companyName: institutionalAccounts.companyName,
           staffName: institutionalStaffMembers.staffName,
           staffRole: institutionalStaffMembers.staffRole,
@@ -1254,6 +1329,8 @@ export const institutionRouter = router({
       // acceptance. The membership status, not userId nullability, is the
       // source of truth for pending provider access.
       isPendingInvite: row.membershipStatus === "invited",
+      invitationExpired: row.membershipStatus === "invited" && isInvitationExpired(row.invitedAt),
+      invitationExpiresAt: row.membershipStatus === "invited" ? invitationExpiresAt(row.invitedAt) : null,
     }));
   }),
 
@@ -1450,13 +1527,25 @@ export const institutionRouter = router({
       const result = await db.transaction(async tx => {
         const [membership] = await tx.select().from(institutionMemberships).where(and(eq(institutionMemberships.id, input.membershipId), eq(institutionMemberships.invitedEmail, email), eq(institutionMemberships.membershipStatus, "invited"))).limit(1);
         if (!membership) throw new TRPCError({ code: "NOT_FOUND", message: "No matching institution invitation found." });
+        if (isInvitationExpired(membership.invitedAt)) throw new TRPCError({ code: "FORBIDDEN", message: INVITATION_EXPIRED_MESSAGE });
         const now = new Date();
-        await tx.update(institutionMemberships).set({ userId: ctx.user.id, membershipStatus: "active", acceptedAt: now, updatedAt: now }).where(and(eq(institutionMemberships.id, membership.id), eq(institutionMemberships.membershipStatus, "invited")));
+        const claimed = await tx.update(institutionMemberships).set({ userId: ctx.user.id, membershipStatus: "active", acceptedAt: now, updatedAt: now }).where(and(eq(institutionMemberships.id, membership.id), eq(institutionMemberships.membershipStatus, "invited")));
+        // Single use: if another request already consumed this invitation, do nothing further.
+        if (updateMatchedNoRows(claimed)) throw new TRPCError({ code: "CONFLICT", message: "This invitation was already answered." });
         if (membership.staffMemberId) await tx.update(institutionalStaffMembers).set({ userId: ctx.user.id, facilityLinkStatus: "linked", updatedAt: now }).where(eq(institutionalStaffMembers.id, membership.staffMemberId));
         await tx.insert(institutionMembershipEvents).values({ institutionalAccountId: membership.institutionalAccountId, membershipId: membership.id, staffMemberId: membership.staffMemberId, userId: ctx.user.id, eventType: "accepted", previousMembershipStatus: "invited", currentMembershipStatus: "active", actorUserId: ctx.user.id, reason: "Provider accepted general institution access.", occurredAt: now });
         return membership.institutionalAccountId;
       });
       return { success: true, institutionalAccountId: result, membershipScope: "general_staff" as const, nextStep: "Institution access accepted. Standing roles and dated duties require separate assignment and acceptance." };
+    }),
+  /** Provider: end my own institution access. Ends roles and future duties; administrators are told. */
+  leaveInstitution: protectedProcedure
+    .input(z.object({ membershipId: z.number().int().positive(), reason: z.string().trim().min(3).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      const result = await leaveInstitutionMembership(db, ctx.user, input);
+      return { success: true as const, institutionalAccountId: result.institutionalAccountId };
     }),
   /** Provider: decline institution access without deleting the invitation history. */
   declineMembershipInvite: protectedProcedure
@@ -2245,37 +2334,6 @@ export const institutionRouter = router({
     }),
 
   /**
-   * Register an institution (authenticated). Links account to ctx.user.id.
-   * If this user already has an institutional account, returns that id (idempotent).
-   */
-  register: protectedProcedure
-    .input(
-      z.object({
-        hospitalName: z.string().min(3),
-        hospitalType: z.string(),
-        county: z.string().optional(),
-        phone: z.string(),
-        email: z.string().email(),
-        website: z.string().optional(),
-        adminFirstName: z.string(),
-        adminLastName: z.string(),
-        adminEmail: z.string().email(),
-        adminPhone: z.string(),
-        adminTitle: z.string(),
-        planId: z.string(),
-        planPrice: z.number(),
-        maxStaff: z.number(),
-      })
-    )
-    .mutation(async () => {
-      throw new TRPCError({
-        code: "PRECONDITION_FAILED",
-        message:
-          "This legacy registration endpoint is retired. Use the institution onboarding workflow, which requires a second administrator and payment/entitlement checks.",
-      });
-    }),
-
-  /**
    * Return a small, authenticated directory of existing Paeds Resus accounts
    * for onboarding and institution-admin selection. Only name and email are
    * returned; the current user is excluded and results are bounded.
@@ -2470,13 +2528,14 @@ export const institutionRouter = router({
         addedByUserId: null,
       });
 
-      // Second admin — link only the account selected from the existing
-      // Paeds Resus directory. Initial onboarding never creates a free-text
-      // invite or accepts an unregistered email address.
-      await db.insert(institutionalAccountAdmins).values({
-        institutionalAccountId: institutionId,
-        userId: secondAdmin.id,
-        addedByUserId: ctx.user.id,
+      // Second admin — an invitation to the account selected from the existing
+      // Paeds Resus directory. It takes effect only when that person accepts; initial
+      // onboarding never creates a free-text invite or accepts an unregistered email.
+      await createAdminInvite(db, {
+        institutionId,
+        invitee: { id: secondAdmin.id, name: secondAdminName, email: secondAdminEmail },
+        actorUserId: ctx.user.id,
+        source: "registration",
       });
 
       await insertCanonicalFacilityDepartments(db, {
@@ -2976,7 +3035,7 @@ export const institutionRouter = router({
           staffRole: "nurse",
           department: department.departmentName,
           facilityDepartmentId: department.id,
-          facilityLinkStatus: "linked",
+          facilityLinkStatus: "pending",
           updatedAt: new Date(),
         }).where(eq(institutionalStaffMembers.id, existing.id));
         staffId = existing.id;
@@ -2991,11 +3050,11 @@ export const institutionRouter = router({
           department: department.departmentName,
           facilityDepartmentId: department.id,
           enrollmentStatus: "pending",
-          facilityLinkStatus: "linked",
+          facilityLinkStatus: "pending",
         });
         staffId = Number(result.insertId);
       }
-      await ensureProviderMembershipForStaff(db, { institutionId: input.institutionId, staffMemberId: staffId, email });
+      await ensureProviderMembershipForStaff(db, { institutionId: input.institutionId, staffMemberId: staffId, email, staffName: input.staffName, actor: ctx.user });
       const [linked] = await db
         .select({ userId: institutionalStaffMembers.userId })
         .from(institutionalStaffMembers)
@@ -3065,19 +3124,28 @@ export const institutionRouter = router({
         facilityDepartmentId,
         yearsOfExperience: input.yearsOfExperience || 0,
         enrollmentStatus: "pending",
-        facilityLinkStatus: "linked", // manual add by admin is auto-approved
+        facilityLinkStatus: "pending", // linked only after the person accepts the invitation
       });
-      const staffId = (result as unknown as { insertId: number }).insertId || 1;
-      await ensureProviderMembershipForStaff(db, {
+      const staffId = Number((result as unknown as { insertId: number }).insertId);
+      if (!Number.isFinite(staffId) || staffId <= 0) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not record the staff member." });
+      }
+      const invitation = await ensureProviderMembershipForStaff(db, {
         institutionId: input.institutionId,
         staffMemberId: staffId,
         email: input.staffEmail,
+        staffName: input.staffName,
+        actor: ctx.user,
       });
 
       return {
         success: true,
         staffId,
-        message: "Staff member added and provider responsibility recorded",
+        membershipStatus: invitation.status,
+        message:
+          invitation.status === "active"
+            ? "Staff member added; they already have institution access"
+            : "Staff member added and an institution access invitation was sent",
       };
     }),
 
@@ -3141,13 +3209,18 @@ export const institutionRouter = router({
             department: staff.department || null,
             yearsOfExperience: staff.yearsOfExperience || 0,
             enrollmentStatus: "pending",
-            facilityLinkStatus: "linked", // manual bulk import is auto-approved
+            facilityLinkStatus: "pending", // linked only after the person accepts the invitation
           });
-          const staffId = (result as unknown as { insertId: number }).insertId || 1;
+          const staffId = Number((result as unknown as { insertId: number }).insertId);
+          if (!Number.isFinite(staffId) || staffId <= 0) {
+            throw new Error("Could not record the staff member.");
+          }
           await ensureProviderMembershipForStaff(db, {
             institutionId: input.institutionId,
             staffMemberId: staffId,
             email: staff.staffEmail,
+            staffName: staff.staffName,
+            actor: ctx.user,
           });
 
           imported.push({
@@ -3166,7 +3239,7 @@ export const institutionRouter = router({
         success: true,
         imported: imported.length,
         errors: errors.length,
-        message: `Successfully imported ${imported.length} staff members`,
+        message: `Imported ${imported.length} staff members; institution access invitations were sent`,
         data: { imported, errors },
       };
     }),
@@ -5274,17 +5347,19 @@ export const institutionRouter = router({
       if (membership.membershipStatus === "ended") return { success: true as const, alreadyUnlinked: true as const };
       const now = new Date();
       await db.transaction(async (tx) => {
-        await tx.update(institutionMemberships).set({ membershipStatus: "ended", endedAt: now, updatedAt: now }).where(and(eq(institutionMemberships.id, membership.id), eq(institutionMemberships.institutionalAccountId, input.institutionId)));
-        if (membership.staffMemberId) {
-          await tx.update(institutionalStaffMembers).set({ facilityLinkStatus: "pending", updatedAt: now }).where(and(eq(institutionalStaffMembers.id, membership.staffMemberId), eq(institutionalStaffMembers.institutionalAccountId, input.institutionId), isNull(institutionalStaffMembers.removedAt)));
-        }
-        if (membership.userId != null) {
-          await tx.update(institutionProductRoles).set({ roleStatus: "ended", endedAt: now, updatedAt: now }).where(and(eq(institutionProductRoles.institutionalAccountId, input.institutionId), eq(institutionProductRoles.userId, membership.userId), or(eq(institutionProductRoles.roleStatus, "active"), eq(institutionProductRoles.roleStatus, "suspended"))));
-          await tx.update(institutionAccountScopes).set({ scopeStatus: "ended", endedAt: now, updatedAt: now }).where(and(eq(institutionAccountScopes.institutionalAccountId, input.institutionId), eq(institutionAccountScopes.userId, membership.userId), or(eq(institutionAccountScopes.scopeStatus, "active"), eq(institutionAccountScopes.scopeStatus, "suspended"))));
-          await tx.update(institutionDepartmentResponseCoordinators).set({ assignmentStatus: "ended", updatedAt: now }).where(and(eq(institutionDepartmentResponseCoordinators.institutionId, input.institutionId), or(eq(institutionDepartmentResponseCoordinators.coordinatorUserId, membership.userId), eq(institutionDepartmentResponseCoordinators.backupUserId, membership.userId)), or(eq(institutionDepartmentResponseCoordinators.assignmentStatus, "active"), eq(institutionDepartmentResponseCoordinators.assignmentStatus, "pending_acceptance"))));
-          await tx.update(monthlyUtlRotations).set({ assignmentStatus: "ended", providerUserId: null, updatedAt: now }).where(and(eq(monthlyUtlRotations.institutionId, input.institutionId), eq(monthlyUtlRotations.providerUserId, membership.userId), or(eq(monthlyUtlRotations.assignmentStatus, "unassigned"), eq(monthlyUtlRotations.assignmentStatus, "pending_acceptance"), eq(monthlyUtlRotations.assignmentStatus, "active"))));
-          await tx.update(shiftUtlRosters).set({ assignmentStatus: "ended", status: "absent" }).where(and(eq(shiftUtlRosters.institutionId, input.institutionId), eq(shiftUtlRosters.utlUserId, membership.userId), gte(shiftUtlRosters.shiftDate, now), or(eq(shiftUtlRosters.assignmentStatus, "unassigned"), eq(shiftUtlRosters.assignmentStatus, "pending_acceptance"), eq(shiftUtlRosters.assignmentStatus, "active"))));
-        }
+        await endMembershipAccess(tx, { institutionId: input.institutionId, membership, now });
+        await tx.insert(institutionMembershipEvents).values({
+          institutionalAccountId: input.institutionId,
+          membershipId: membership.id,
+          staffMemberId: membership.staffMemberId,
+          userId: membership.userId,
+          eventType: "removed",
+          previousMembershipStatus: membership.membershipStatus,
+          currentMembershipStatus: "ended",
+          actorUserId: ctx.user.id,
+          reason: input.reason.trim(),
+          occurredAt: now,
+        });
         await tx.insert(institutionalActionLogs).values({
           institutionalAccountId: input.institutionId,
           createdByUserId: ctx.user.id,
@@ -5833,7 +5908,7 @@ export const institutionRouter = router({
       await assertCanManageDepartmentHead(db, ctx.user, input.institutionId);
       const [department] = await db.select({ id: facilityDepartments.id }).from(facilityDepartments).where(and(eq(facilityDepartments.id, input.departmentId), eq(facilityDepartments.institutionId, input.institutionId), eq(facilityDepartments.isActive, true))).limit(1);
       if (!department) throw new TRPCError({ code: "NOT_FOUND", message: "Active department not found in this institution." });
-      const [staff] = await db.select({ userId: institutionalStaffMembers.userId, facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId, facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus }).from(institutionalStaffMembers).where(and(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId), eq(institutionalStaffMembers.userId, input.userId), eq(institutionalStaffMembers.facilityDepartmentId, input.departmentId), eq(institutionalStaffMembers.facilityLinkStatus, "linked"))).limit(1);
+      const [staff] = await db.select({ userId: institutionalStaffMembers.userId, facilityDepartmentId: institutionalStaffMembers.facilityDepartmentId, facilityLinkStatus: institutionalStaffMembers.facilityLinkStatus }).from(institutionalStaffMembers).where(and(eq(institutionalStaffMembers.institutionalAccountId, input.institutionId), eq(institutionalStaffMembers.userId, input.userId), eq(institutionalStaffMembers.facilityDepartmentId, input.departmentId), activeStaffCondition())).limit(1);
       if (!staff?.userId) throw new TRPCError({ code: "BAD_REQUEST", message: "Select an active linked staff member assigned to this department." });
       await db.transaction(async tx => {
         await tx.update(institutionDepartmentHeads).set({ assignmentStatus: "ended", endedAt: new Date(), updatedAt: new Date() }).where(and(eq(institutionDepartmentHeads.institutionalAccountId, input.institutionId), eq(institutionDepartmentHeads.departmentId, input.departmentId), eq(institutionDepartmentHeads.assignmentStatus, "active")));
@@ -6556,7 +6631,7 @@ export const institutionRouter = router({
           .where(and(
             eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
             inArray(institutionalStaffMembers.userId, requestedUserIds),
-            eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+            activeStaffCondition(),
           )),
       ]);
       const activeMemberIds = new Set(members.map((member) => member.userId).filter((userId): userId is number => userId != null));

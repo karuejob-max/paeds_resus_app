@@ -34,7 +34,8 @@ export function AccountAdminsWidget({
   const inviteMutation = trpc.institutionAdmins.invite.useMutation({
     onSuccess: result => {
       const messages: Record<string, string> = {
-        linked: "Administrator account linked.",
+        invited: "Invitation sent. They become an administrator when they accept.",
+        already_invited: "That person already has a pending invitation.",
         already_admin: "That person is already an administrator.",
       };
       toast.success(messages[result.status] ?? "Done");
@@ -145,7 +146,7 @@ export function AccountAdminsWidget({
                         variant="outline"
                         className="border-amber-300 text-amber-700"
                       >
-                        Not linked — account required
+                        {invite.expired ? "Expired — invite again" : "Invited — awaiting acceptance"}
                       </Badge>
                     </td>
                     <td className="py-2 px-3" />

@@ -2,6 +2,7 @@ import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
 import { z } from "zod";
 import { paymentService } from "../payments";
 import { getMpesaService } from "../services/mpesa";
+import { activeStaffCondition } from "../lib/institution-active-member";
 
 export const paymentsRouter = router({
   /**
@@ -423,7 +424,7 @@ export const paymentsRouter = router({
           .from(institutionalStaffMembers)
           .where(and(
             eq(institutionalStaffMembers.userId, enrollment.userId),
-            eq(institutionalStaffMembers.facilityLinkStatus, "linked")
+            activeStaffCondition()
           ))
           .limit(1);
 
@@ -510,7 +511,7 @@ export const paymentsRouter = router({
     const [staffRow] = await db
       .select({ designation: institutionalStaffMembers.designation })
       .from(institutionalStaffMembers)
-      .where(and(eq(institutionalStaffMembers.userId, ctx.user.id), eq(institutionalStaffMembers.facilityLinkStatus, "linked")))
+      .where(and(eq(institutionalStaffMembers.userId, ctx.user.id), activeStaffCondition()))
       .limit(1);
     if (staffRow) {
       const INTERN_DESIGNATIONS = ["noi", "coi_bsc", "coi_diploma", "moi"] as const;

@@ -1080,6 +1080,22 @@ export const institutionalAccounts = mysqlTable("institutionalAccounts", {
   status: mysqlEnum("status", ["prospect", "active", "inactive"]).default(
     "prospect"
   ),
+  /**
+   * Whether the institution has been shown to be who it says it is (migration 0199). Only
+   * verified institutions can receive provider link requests. Institutions that were active
+   * before verification existed are marked `grandfathered` and stay flagged for review.
+   */
+  verificationStatus: mysqlEnum("verificationStatus", ["unverified", "pending_review", "verified", "rejected"])
+    .notNull()
+    .default("unverified"),
+  /** grandfathered | letterhead | facility_domain_email | platform_admin | other */
+  verificationMethod: varchar("verificationMethod", { length: 32 }),
+  verificationEvidenceUrl: varchar("verificationEvidenceUrl", { length: 1000 }),
+  verificationEvidenceNote: text("verificationEvidenceNote"),
+  verificationSubmittedAt: timestamp("verificationSubmittedAt"),
+  verifiedAt: timestamp("verifiedAt"),
+  verifiedByUserId: int("verifiedByUserId"),
+  verificationReviewNote: text("verificationReviewNote"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -1188,12 +1204,98 @@ export const institutionalAdminInvites = mysqlTable(
       "admin_invite",
       "recovery_approval",
     ]).notNull(),
-    status: mysqlEnum("status", ["pending", "accepted", "revoked"]).default(
-      "pending"
-    ),
+    status: mysqlEnum("status", [
+      "pending",
+      "accepted",
+      "revoked",
+      "declined",
+    ]).default("pending"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     acceptedAt: timestamp("acceptedAt"),
   }
+);
+
+/**
+ * Append-only audit of administrator grants: who was invited, by whom, and what the
+ * invitee did. Written for every invite, acceptance, decline, revocation and removal.
+ */
+/**
+ * Review trail for memberships that existed before institutions approved their members
+ * (migration 0200). `legacy_pending` opens a review; `confirmed` or `removed` closes it.
+ * `not_in_my_department` and `department_assigned` keep it open and move it to an
+ * institution-level reviewer.
+ */
+export const institutionMembershipReviews = mysqlTable(
+  "institutionMembershipReviews",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    membershipId: int("membershipId").notNull(),
+    decision: mysqlEnum("decision", [
+      "legacy_pending",
+      "confirmed",
+      "not_in_my_department",
+      "department_assigned",
+      "removed",
+    ]).notNull(),
+    reviewerUserId: int("reviewerUserId"),
+    reviewerRole: varchar("reviewerRole", { length: 64 }),
+    departmentId: int("departmentId"),
+    note: varchar("note", { length: 500 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    membershipIdx: index("institutionMembershipReviews_membership_idx").on(table.membershipId, table.id),
+    institutionIdx: index("institutionMembershipReviews_institution_idx").on(table.institutionalAccountId, table.decision),
+  })
+);
+
+/** Audit trail for institution verification decisions (migration 0199). */
+export const institutionVerificationEvents = mysqlTable(
+  "institutionVerificationEvents",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    eventType: mysqlEnum("eventType", ["submitted", "verified", "rejected", "revoked", "grandfathered"]).notNull(),
+    actorUserId: int("actorUserId"),
+    method: varchar("method", { length: 32 }),
+    note: varchar("note", { length: 1000 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    accountIdx: index("institutionVerificationEvents_account_idx").on(
+      table.institutionalAccountId,
+      table.createdAt
+    ),
+  })
+);
+
+export const institutionalAdminEvents = mysqlTable(
+  "institutionalAdminEvents",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    institutionalAccountId: int("institutionalAccountId").notNull(),
+    eventType: mysqlEnum("eventType", [
+      "invited",
+      "accepted",
+      "declined",
+      "revoked",
+      "removed",
+      "owner_transferred",
+    ]).notNull(),
+    subjectUserId: int("subjectUserId"),
+    subjectEmail: varchar("subjectEmail", { length: 320 }),
+    actorUserId: int("actorUserId"),
+    inviteId: int("inviteId"),
+    note: varchar("note", { length: 500 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => ({
+    accountIdx: index("institutionalAdminEvents_account_idx").on(
+      table.institutionalAccountId,
+      table.createdAt
+    ),
+  })
 );
 
 export type InstitutionalAdminInvite =
@@ -1369,12 +1471,12 @@ export type InstitutionalTrainingOrderProvider =
 export type InsertInstitutionalTrainingOrderProvider =
   typeof institutionalTrainingOrderProviders.$inferInsert;
 
-/** Paid request for an individual AHA credentialing add-on after ILS completion. */
+/** Paid AHA credentialing request after ILS completion; bls/acls are retained for historical rows. */
 export const ilsCredentialRequests = mysqlTable("ilsCredentialRequests", {
   id: int("id").autoincrement().primaryKey(),
   enrollmentId: int("enrollmentId").notNull(),
   userId: int("userId").notNull(),
-  credentialType: mysqlEnum("credentialType", ["bls", "acls"]).notNull(),
+  credentialType: mysqlEnum("credentialType", ["bls", "acls", "bls_acls"]).notNull(),
   amountKes: int("amountKes").notNull(),
   credentialingDeadline: timestamp("credentialingDeadline").notNull(),
   status: mysqlEnum("status", [

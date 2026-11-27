@@ -14,6 +14,8 @@ import { InstitutionPeopleRolesPanel } from "@/components/InstitutionPeopleRoles
 import { RoleRegister } from "./RoleRegister";
 import { InstitutionDepartmentReconciliationPanel } from "@/components/InstitutionDepartmentReconciliationPanel";
 import { AccountAdminsWidget } from "@/components/AccountAdminsWidget";
+import { InstitutionVerificationCard } from "@/components/InstitutionVerificationCard";
+import { LegacyMemberReviewPanel } from "@/components/LegacyMemberReviewPanel";
 import { PendingLinkRequestsWidget } from "@/components/PendingLinkRequestsWidget";
 import StaffBulkImport from "@/components/StaffBulkImport";
 import { PeopleNeedsAttention } from "./PeopleNeedsAttention";
@@ -243,6 +245,7 @@ export function PeopleAccessShell({
           </details>
         </TabsContent>
         <TabsContent value="directory" className="mt-0 space-y-5">
+          <LegacyMemberReviewPanel institutionId={institutionId} />
           <InstitutionPeopleRolesPanel
             institutionId={institutionId}
             initialSection="roster"
@@ -282,6 +285,7 @@ export function PeopleAccessShell({
           className="mt-0 grid min-w-0 gap-6 xl:grid-cols-2"
         >
           <AccountAdminsWidget institutionId={institutionId} />
+          <InstitutionVerificationCard institutionId={institutionId} />
           <PendingLinkRequestsWidget
             institutionId={institutionId}
             focusRequestId={

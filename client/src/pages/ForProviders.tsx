@@ -90,10 +90,9 @@ const INDIVIDUAL_PRODUCTS = [
 export default function ForProviders() {
   useScrollToTop();
   usePageMeta({
-    title:
-      "Paediatric Emergency Training for Healthcare Providers | Paeds Resus",
+    title: "Emergency Training for Healthcare Providers in Kenya | Paeds Resus",
     description:
-      "Individual paediatric emergency pathways for healthcare providers in Kenya and East Africa: AHA BLS, AHA ACLS, NERP, IERP, and the Paeds Resus Fellowship.",
+      "Individual emergency-readiness pathways for healthcare providers in Kenya and East Africa: AHA-aligned BLS and ACLS, NERP for nurses, IERP for interns, and the paediatric Paeds Resus Fellowship.",
     path: "/for-providers",
   });
 

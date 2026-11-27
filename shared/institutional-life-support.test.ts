@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES,
+  PAEDS_RESUS_ILS_AHA_ADD_ON_PRICE_KES,
   PAEDS_RESUS_ILS_AHA_FULL_TRAINING_PRICES_KES,
   PAEDS_RESUS_ILS_BASE_PRICE_KES,
   PAEDS_RESUS_ILS_AUTOMATIC_DISCOUNT_PERCENT,
@@ -14,6 +14,7 @@ import {
   getAhaFullTrainingPriceKes,
   getCredentialingDeadline,
   isCredentialingWindowOpen,
+  formatIlsCredentialLabel,
 } from "./institutional-life-support";
 
 describe("Institutional Life Support business rules", () => {
@@ -31,10 +32,11 @@ describe("Institutional Life Support business rules", () => {
     expect(getIlsInstitutionalPriceKes(0)).toBe(0);
     expect(getIlsCheckoutPriceKes(2, "percentage_discount")).toBe(14_000);
     expect(getIlsCheckoutPriceKes(2, "free")).toBe(0);
-    expect(PAEDS_RESUS_ILS_AHA_ADD_ON_PRICES_KES).toEqual({
-      bls: 7_500,
-      acls: 10_000,
-    });
+    expect(PAEDS_RESUS_ILS_AHA_ADD_ON_PRICE_KES).toBe(18_000);
+    expect(
+      PAEDS_RESUS_ILS_INSTITUTIONAL_PRICE_KES +
+        PAEDS_RESUS_ILS_AHA_ADD_ON_PRICE_KES
+    ).toBe(25_000);
     expect(PAEDS_RESUS_ILS_AHA_FULL_TRAINING_PRICES_KES).toEqual({
       bls: 10_000,
       acls: 20_000,
@@ -86,29 +88,26 @@ describe("Institutional Life Support business rules", () => {
     ).toBe(false);
   });
 
-  it("uses add-on pricing before the cutoff and full-training pricing after it", () => {
+  it("uses one BLS-and-ACLS add-on before the cutoff and preserves standalone prices", () => {
     expect(
       getAhaCredentialingPriceKes(
-        "bls",
         certificateDate,
         new Date("2026-02-01T00:00:00.000Z")
       )
-    ).toBe(7_500);
+    ).toBe(18_000);
     expect(
       getAhaCredentialingPriceKes(
-        "acls",
-        certificateDate,
-        new Date("2026-02-01T00:00:00.000Z")
-      )
-    ).toBe(10_000);
-    expect(
-      getAhaCredentialingPriceKes(
-        "bls",
         certificateDate,
         new Date("2026-04-01T00:00:00.000Z")
       )
     ).toBeNull();
     expect(getAhaFullTrainingPriceKes("bls")).toBe(10_000);
     expect(getAhaFullTrainingPriceKes("acls")).toBe(20_000);
+  });
+
+  it("labels the bundle as both AHA credentials and preserves legacy request labels", () => {
+    expect(formatIlsCredentialLabel("bls_acls")).toBe("AHA BLS + ACLS");
+    expect(formatIlsCredentialLabel("bls")).toBe("AHA BLS");
+    expect(formatIlsCredentialLabel("acls")).toBe("AHA ACLS");
   });
 });

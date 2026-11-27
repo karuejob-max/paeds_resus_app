@@ -94,6 +94,17 @@ async function upsertSummativeOnModule(
 
   if (!summativeQuizId) return null;
 
+  // The catalog synchronizer can run on learner reads. Preserve existing
+  // question IDs and attempts when the bank is already complete; only repair
+  // missing or incomplete summative banks.
+  const existingQuestions = await db
+    .select({ id: quizQuestions.id })
+    .from(quizQuestions)
+    .where(eq(quizQuestions.quizId, summativeQuizId));
+  if (existingQuestions.length >= bank.length) {
+    return summativeQuizId;
+  }
+
   let order = 1;
   for (const q of bank) {
     await db.insert(quizQuestions).values({

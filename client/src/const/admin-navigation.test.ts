@@ -10,6 +10,8 @@ describe("Global Admin navigation registry", () => {
     const hrefs = adminPrimaryRoutes.map(item => item.href);
     expect(new Set(hrefs).size).toBe(hrefs.length);
     expect(hrefs).toContain("/admin/access-grants");
+    expect(hrefs).toContain("/admin/institution-verification");
+    expect(hrefs).toContain("/admin/institutional-recovery");
     expect(adminNavigationGroups.length).toBeGreaterThan(1);
   });
 

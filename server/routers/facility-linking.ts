@@ -18,6 +18,7 @@ import { getDb } from "../db";
 import { assertInstitutionAccess } from "../lib/institution-access";
 import { protectedProcedure, router } from "../_core/trpc";
 import { buildAdministrationUrl } from "../../shared/institution-administration-location";
+import { VERIFICATION_REQUIRED_MESSAGE, isVerifiedStatus } from "../lib/institution-verification";
 
 const requestRelationshipSchema = z.literal("permanent_staff");
 
@@ -523,6 +524,7 @@ export const facilityLinkingRouter = router({
           id: institutionalAccounts.id,
           companyName: institutionalAccounts.companyName,
           status: institutionalAccounts.status,
+          verificationStatus: institutionalAccounts.verificationStatus,
         })
         .from(institutionalAccounts)
         .where(eq(institutionalAccounts.id, institutionId))
@@ -532,6 +534,12 @@ export const facilityLinkingRouter = router({
           code: "BAD_REQUEST",
           message:
             "This facility’s institutional account is not currently accepting link requests.",
+        });
+      }
+      if (!isVerifiedStatus(institution.verificationStatus)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: VERIFICATION_REQUIRED_MESSAGE,
         });
       }
       const context = await getProviderContext(db, ctx.user.id);

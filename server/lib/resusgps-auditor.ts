@@ -2,6 +2,7 @@ import { and, eq, inArray, desc, isNull } from "drizzle-orm";
 import { resusGPSCases, institutionalStaffMembers } from "../../drizzle/schema";
 import { invokeLLM } from "../_core/llm";
 import type { DbClient } from "../db";
+import { activeStaffCondition } from "./institution-active-member";
 
 export interface SuggestedAction {
   gapIdentified: string;
@@ -36,7 +37,7 @@ export async function runResusGpsAuditForInstitution(
         and(
           eq(institutionalStaffMembers.institutionalAccountId, institutionId),
           // Only people who actually belong: never pending, rejected or removed rows.
-          eq(institutionalStaffMembers.facilityLinkStatus, "linked"),
+          activeStaffCondition(),
           isNull(institutionalStaffMembers.removedAt)
         )
       );

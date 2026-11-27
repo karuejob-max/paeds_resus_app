@@ -119,6 +119,7 @@ const InstitutionalOnboarding = lazy(() => import("./pages/InstitutionalOnboardi
 const InstitutionalLifeSupport = lazy(() => import("./pages/InstitutionalLifeSupport"));
 const InstitutionalRecovery = lazy(() => import("./pages/InstitutionalRecovery"));
 const AdminInstitutionalRecovery = lazy(() => import("./pages/AdminInstitutionalRecovery"));
+const AdminInstitutionVerification = lazy(() => import("./pages/AdminInstitutionVerification"));
 const CareSignalAnalytics = lazy(() => import("./pages/CareSignalAnalytics"));
 const FailurePatternAtlas = lazy(() => import("./pages/FailurePatternAtlas"));
 const KnowledgeStewardship = lazy(() => import("./pages/KnowledgeStewardship"));
@@ -681,11 +682,19 @@ function Router() {
           )}</Route>
           {/* Public — no login required, since the scenario is "nobody at this institution can log in" (North Star §6.1). */}
           <Route path="/institutional-recovery" component={InstitutionalRecovery} />
-          <Route path="/admin-institutional-recovery">{() => (
+          <Route path="/admin/institutional-recovery">{() => (
             <AdminGate>
               <AdminInstitutionalRecovery />
             </AdminGate>
           )}</Route>
+          <Route path="/admin/institution-verification">{() => (
+            <AdminGate>
+              <AdminInstitutionVerification />
+            </AdminGate>
+          )}</Route>
+          {/* Earlier URLs, kept so existing bookmarks still work. */}
+          <Route path="/admin-institutional-recovery">{() => <Redirect to="/admin/institutional-recovery" />}</Route>
+          <Route path="/admin-institution-verification">{() => <Redirect to="/admin/institution-verification" />}</Route>
           <Route path="/courses">{() => <Redirect to="/fellowship" />}</Route>
              <Route path="/micro-courses">{() => (
             <ErrorBoundary>

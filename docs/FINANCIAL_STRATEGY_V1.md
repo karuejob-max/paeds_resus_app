@@ -193,6 +193,8 @@ Rules: use the HR-verified total facility headcount, not only the clinical train
 
 The Institutional Life Support Program is an institution-paid facility cohort. The list price is KES 10,000 per provider, but the approved automatic institutional rate is **KES 7,000 per staff member for every ILSP checkout**. Manual percentage entitlements do not stack with this automatic reduction; a manual full-waiver entitlement may still reduce an eligible order to zero.
 
+Within 90 days after Paeds Resus ILSP certification, one optional **KES 18,000** add-on creates a single request for both AHA BLS and AHA ACLS credentialing. Combined with the KES 7,000 institutional provider rate, the amount is **KES 25,000 per provider**. Request and payment must be completed within the window, and AHA certificate issuance remains subject to authorized review. After the window, new training follows the unchanged standalone prices in §3.1.
+
 ### 4.6  Kiirua Institutional Proposal — Commercial Case Record
 
 The revised St. Theresa Mission Hospital – Kiirua proposal is archived at [`docs/proposals/Kiirua_Institutional_Proposal_Revised.pdf`](./proposals/Kiirua_Institutional_Proposal_Revised.pdf) and indexed in [`INSTITUTIONAL_PRICING_AND_KIIRUA_PROPOSAL.md`](./INSTITUTIONAL_PRICING_AND_KIIRUA_PROPOSAL.md). It is the reference example for applying the ERS-first institutional model to a named hospital opportunity.

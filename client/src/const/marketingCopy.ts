@@ -10,7 +10,14 @@ export const BLS_PRICE = 10_000;
 export const BLS_COHORT_PRICE = 7_500;
 export const ACLS_PRICE = 20_000;
 export const ACLS_COHORT_PRICE = 17_500;
+// Owner-confirmed current self-pay offers; these do not change checkout pricing.
+export const BLS_CURRENT_SELF_PAY_PRICE = 7_500;
+export const BLS_BLACK_NOVEMBER_PRICE = 5_500;
+export const ACLS_CURRENT_SELF_PAY_PRICE = 17_500;
+export const ACLS_BLACK_NOVEMBER_PRICE = 15_000;
 export const IERP_FULL_PRICE = 15_000;
+// Owner-confirmed campaign cutoff; this is not a payment deadline or price change.
+export const IERP_ENROLLMENT_CUTOFF = "30 November 2026";
 export const NERP_TOTAL_PRICE = 15_000;
 export const NERP_INSTALLMENT = 2_500;
 export const NERP_INSTALLMENT_COUNT = 6;
@@ -31,11 +38,8 @@ export function formatCohortLine(base: number, cohort: number): string {
   return `${formatKes(base)} per person; ${formatKes(cohort)} per person for ${COHORT_LABEL}`;
 }
 
-export const IERP_STANDALONE_TOTAL = BLS_PRICE + ACLS_PRICE;
-export const IERP_SAVINGS = IERP_STANDALONE_TOTAL - IERP_FULL_PRICE;
-
 export function formatIerpValueLine(): string {
-  return `${formatKes(IERP_FULL_PRICE)} for AHA ACLS + BLS bundled — save ${formatKes(IERP_SAVINGS)} vs booking them separately`;
+  return `Standard fee: ${formatKes(IERP_FULL_PRICE)}. Includes AHA ACLS certification plus Paeds Resus BLS certification. Enrolment cutoff: ${IERP_ENROLLMENT_CUTOFF} (not a payment deadline).`;
 }
 
 export function formatNerpValueLine(): string {

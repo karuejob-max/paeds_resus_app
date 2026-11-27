@@ -14,6 +14,7 @@ import {
   getIndependentAhaPriceKes,
   isAhaProgramType,
 } from "../../shared/aha-pathways";
+import { formatIlsCredentialLabel } from "@shared/institutional-life-support";
 import { IERP_TOTAL_FEE_KES } from "./ierp-program-state";
 
 export type UnifiedLedgerProgramKey = "nerp" | "ierp" | "ilsp" | "independent" | "other";
@@ -172,7 +173,7 @@ export async function getUnifiedPaymentLedger(db: any, userId: number) {
       .reduce((sum: number, row: any) => sum + numberOrZero(row.amount) / 100, 0);
     programs.push({
       key: "ilsp",
-      label: `ILSP — AHA ${String(request.credentialType).toUpperCase()} credentialing`,
+      label: `ILSP — ${formatIlsCredentialLabel(request.credentialType)} credentialing`,
       referenceId: request.id,
       totalDueKes,
       totalPaidKes,

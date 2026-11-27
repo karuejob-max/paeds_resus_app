@@ -10,10 +10,18 @@ import {
 } from "../../drizzle/schema";
 import { eq, and, inArray, ne } from "drizzle-orm";
 import {
+  acceptAdminInvite,
+  createAdminInvite,
+  declineAdminInvite,
+  recordAdminEvent,
+  revokeAdminInvite,
+} from "../lib/institution-admin-grants";
+import {
   assertInstitutionAccess,
   assertRemovalKeepsMinimumAdmins,
   MINIMUM_INSTITUTION_ADMINS,
 } from "../lib/institution-access";
+import { invitationTtlDays, isInvitationExpired } from "../lib/invitation-expiry";
 
 /**
  * Institutional multi-admin management (North Star v2.0 §6.1: "the
@@ -92,15 +100,21 @@ export const institutionAdminsRouter = router({
             eq(institutionalAdminInvites.institutionalAccountId, input.institutionId),
             eq(institutionalAdminInvites.status, "pending")
           )
+        )
+        .then((rows) =>
+          rows.map((row) => ({
+            ...row,
+            expired: isInvitationExpired(row.createdAt, invitationTtlDays(row.source)),
+          })),
         );
 
       return { admins, pendingInvites, minimumRequired: MINIMUM_INSTITUTION_ADMINS };
     }),
 
   /**
-   * Grant admin access to an existing Paeds Resus account. New account
-   * creation belongs in the public registration flow; this mutation only
-   * links an account whose identity is already present in `users`.
+   * Invite an existing Paeds Resus account to become an administrator. The grant takes
+   * effect only when that person accepts (acceptInvite); other administrators are notified
+   * and every step is recorded in institutionalAdminEvents.
    */
   invite: protectedProcedure
     .input(
@@ -135,27 +149,25 @@ export const institutionAdminsRouter = router({
         });
       }
 
-      const [alreadyAdmin] = await db
-        .select({ id: institutionalAccountAdmins.id })
-        .from(institutionalAccountAdmins)
-        .where(
-          and(
-            eq(institutionalAccountAdmins.institutionalAccountId, input.institutionId),
-            eq(institutionalAccountAdmins.userId, existingUser.id)
-          )
-        )
-        .limit(1);
-
-      if (alreadyAdmin) {
-        return { status: "already_admin" as const };
-      }
-
-      await db.insert(institutionalAccountAdmins).values({
-        institutionalAccountId: input.institutionId,
-        userId: existingUser.id,
-        addedByUserId: ctx.user.id,
+      const result = await createAdminInvite(db, {
+        institutionId: input.institutionId,
+        invitee: { id: existingUser.id, name: existingUser.name, email: existingUser.email },
+        actorUserId: ctx.user.id,
+        source: "admin_invite",
       });
-      return { status: "linked" as const };
+      return { status: result.status };
+    }),
+
+  /** Cancels a pending administrator invitation before it is accepted. */
+  revokeInvite: protectedProcedure
+    .input(z.object({ institutionId: z.number().int().positive(), inviteId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
+      }
+      await assertInstitutionAccess(db, ctx.user, input.institutionId);
+      return revokeAdminInvite(db, ctx.user.id, input.institutionId, input.inviteId);
     }),
 
   /**
@@ -224,6 +236,13 @@ export const institutionAdminsRouter = router({
           )
         );
 
+      await recordAdminEvent(db, {
+        institutionalAccountId: input.institutionId,
+        eventType: "removed",
+        subjectUserId: input.adminUserId,
+        actorUserId: ctx.user.id,
+      });
+
       return { success: true };
     }),
 
@@ -252,10 +271,10 @@ export const institutionAdminsRouter = router({
         )
       );
 
-    return { invites: rows };
+    return { invites: rows.filter((row) => !isInvitationExpired(row.createdAt, invitationTtlDays(row.source))) };
   }),
 
-  /** Accepts every pending invite addressed to the logged-in user's own email. */
+  /** Accepts one pending invite addressed to the logged-in user's own email. */
   acceptInvite: protectedProcedure
     .input(z.object({ inviteId: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
@@ -263,57 +282,19 @@ export const institutionAdminsRouter = router({
       if (!db) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       }
-      if (!ctx.user.email) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Your account has no email on file to match this invite." });
+      const result = await acceptAdminInvite(db, ctx.user, input.inviteId);
+      return { success: true, institutionalAccountId: result.institutionalAccountId };
+    }),
+
+  /** Declines a pending invite addressed to the logged-in user's own email. */
+  declineInvite: protectedProcedure
+    .input(z.object({ inviteId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database connection failed" });
       }
-
-      const [invite] = await db
-        .select()
-        .from(institutionalAdminInvites)
-        .where(
-          and(
-            eq(institutionalAdminInvites.id, input.inviteId),
-            eq(institutionalAdminInvites.invitedEmail, ctx.user.email),
-            eq(institutionalAdminInvites.status, "pending")
-          )
-        )
-        .limit(1);
-
-      if (!invite) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "No matching pending invite found." });
-      }
-
-      const [alreadyAdmin] = await db
-        .select({ id: institutionalAccountAdmins.id })
-        .from(institutionalAccountAdmins)
-        .where(
-          and(
-            eq(institutionalAccountAdmins.institutionalAccountId, invite.institutionalAccountId),
-            eq(institutionalAccountAdmins.userId, ctx.user.id)
-          )
-        )
-        .limit(1);
-
-      if (!alreadyAdmin) {
-        await db.insert(institutionalAccountAdmins).values({
-          institutionalAccountId: invite.institutionalAccountId,
-          userId: ctx.user.id,
-          addedByUserId: invite.invitedByUserId,
-        });
-      }
-
-      if (invite.source === "recovery_approval") {
-        await db
-          .update(institutionalAccounts)
-          .set({ userId: ctx.user.id })
-          .where(eq(institutionalAccounts.id, invite.institutionalAccountId));
-      }
-
-      await db
-        .update(institutionalAdminInvites)
-        .set({ status: "accepted", acceptedAt: new Date() })
-        .where(eq(institutionalAdminInvites.id, invite.id));
-
-      return { success: true, institutionalAccountId: invite.institutionalAccountId };
+      const result = await declineAdminInvite(db, ctx.user, input.inviteId);
+      return { success: true, institutionalAccountId: result.institutionalAccountId };
     }),
 });

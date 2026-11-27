@@ -1,4 +1,5 @@
 import { Building2, CheckCircle2, Clock3, ShieldCheck, UserCheck, X } from "lucide-react";
+import { LegacyMemberReviewPanel } from "@/components/LegacyMemberReviewPanel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +42,14 @@ export default function ProviderInstitutionReadinessCard() {
     onError: (error) => toast.error(error.message || "Could not decline the institution invitation."),
   });
 
+  const leaveInstitution = trpc.institution.leaveInstitution.useMutation({
+    onSuccess: async () => {
+      toast.success("You have left the institution. Any roles and future duties there were ended.");
+      await utils.institution.getMyMemberships.invalidate();
+    },
+    onError: (error) => toast.error(error.message || "Could not leave the institution."),
+  });
+
   if (membershipsQuery.isLoading || membershipsQuery.isError) return null;
 
   const memberships = membershipsQuery.data ?? [];
@@ -71,14 +80,17 @@ export default function ProviderInstitutionReadinessCard() {
                 </p>
               </div>
               <Badge variant="outline" className="border-amber-300 text-amber-800 shrink-0">
-                <Clock3 className="h-3 w-3 mr-1" /> Pending
+                <Clock3 className="h-3 w-3 mr-1" /> {membership.invitationExpired ? "Expired" : "Pending"}
               </Badge>
             </div>
+            {membership.invitationExpired ? (
+              <p className="text-xs text-amber-900">This invitation has expired. Ask {membership.companyName} to send you a new one.</p>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
                 className="bg-teal-700 hover:bg-teal-800 text-white"
-                disabled={acceptInvite.isPending || declineInvite.isPending}
+                disabled={acceptInvite.isPending || declineInvite.isPending || membership.invitationExpired}
                 onClick={() => acceptInvite.mutate({ membershipId: membership.id })}
               >
                 <UserCheck className="h-4 w-4 mr-2" />
@@ -120,7 +132,25 @@ export default function ProviderInstitutionReadinessCard() {
               <ShieldCheck className="h-4 w-4 text-teal-700 shrink-0 mt-0.5" />
               <span>Readiness tasks, shift responsibilities, activations, drills, and quality-improvement actions will be assigned to you here as your institution activates IERS.</span>
             </div>
+            <div className="mt-2 flex justify-end">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-slate-500 hover:text-red-700"
+                disabled={leaveInstitution.isPending}
+                onClick={() => {
+                  if (!window.confirm(`Leave ${membership.companyName}? Your roles and future duties there will end, and its administrators will be told.`)) return;
+                  const reason = window.prompt("Why are you leaving this institution?")?.trim();
+                  if (reason && reason.length >= 3) leaveInstitution.mutate({ membershipId: membership.id, reason });
+                }}
+              >
+                Leave institution
+              </Button>
+            </div>
           </div>
+        ))}
+        {active.map((membership) => (
+          <LegacyMemberReviewPanel key={`review-${membership.institutionalAccountId}`} institutionId={membership.institutionalAccountId} />
         ))}
       </CardContent>
     </Card>

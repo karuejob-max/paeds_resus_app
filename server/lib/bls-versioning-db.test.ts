@@ -145,6 +145,11 @@ describe("ensureBlsCatalog (v2 seeder)", () => {
     expect(courseInserts[0]!.values.title).toBe(BLS_V2_COURSE_TITLE);
     expect(ops.updates.filter((u) => u.table === courses)).toHaveLength(0);
     expect(ops.inserts.filter((i) => i.table === modules)).toHaveLength(BLS_MODULES_V2.length);
+    expect(
+      ops.inserts.some(
+        (i) => i.table === quizzes && i.values.title === "BLS Summative Exam"
+      )
+    ).toBe(true);
     expect(ops.deletes).toHaveLength(0);
   });
 
