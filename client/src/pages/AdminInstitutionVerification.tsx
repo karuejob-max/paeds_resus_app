@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ExternalLink, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
-import { FacilityRegistryPicker, KMHFR_PUBLIC_URL, describeFacility } from "@/components/FacilityRegistryPicker";
+import { FacilityRegistryPicker, KMHFR_PUBLIC_URL, describeFacility, isOfficialMflCode } from "@/components/FacilityRegistryPicker";
 
 /**
  * Platform-admin queue for institution verification. A verified institution can receive provider
@@ -106,6 +106,9 @@ export default function AdminInstitutionVerification() {
                               ? `The names are only partly alike: "${institution.companyName}" vs "${institution.facility.name}". Check this is the right facility.`
                               : `The names differ: "${institution.companyName}" vs "${institution.facility.name}". Check this is the right facility.`}
                         </p>
+                        {!isOfficialMflCode(institution.facility.code) ? (
+                          <p className="text-amber-800">This entry has no official MFL code, so it came from the sample list. Check the real code on the registry before verifying.</p>
+                        ) : null}
                         <Button type="button" size="sm" variant="ghost" onClick={() => setChangingFacility((c) => ({ ...c, [institution.id]: true }))}>Change facility</Button>
                       </>
                     ) : (

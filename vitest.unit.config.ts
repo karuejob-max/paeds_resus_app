@@ -31,6 +31,8 @@ export default defineConfig({
       "client/src/pages/**/*.test.tsx",
       "shared/**/*.test.ts",
       "server/routers/events.trackEvent.test.ts",
+      "server/routers/institution.test.ts",
+      "server/routers/e2e-tests.test.ts",
       "server/routers/enrollment-payment-flows.test.ts",
       "server/lib/**/*.test.ts",
       "server/routers/fellowship-care-signal-streak.test.ts",

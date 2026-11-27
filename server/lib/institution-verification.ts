@@ -43,7 +43,7 @@ export async function assertInstitutionVerified(db: Db, institutionId: number): 
 
 async function recordVerificationEvent(
   db: Db,
-  input: { institutionId: number; eventType: "submitted" | "verified" | "rejected" | "revoked" | "archived" | "restored"; actorUserId: number; method?: string | null; note?: string | null },
+  input: { institutionId: number; eventType: "submitted" | "verified" | "rejected" | "revoked" | "archived" | "restored" | "facility_linked"; actorUserId: number; method?: string | null; note?: string | null },
 ) {
   await db.insert(institutionVerificationEvents).values({
     institutionalAccountId: input.institutionId,
@@ -98,6 +98,11 @@ export function registryNameMatch(institutionName: string, registryName: string 
   return ratio >= 0.75 ? "match" : "partial";
 }
 
+/** Official MFL codes are numeric (e.g. 12345). Sample or placeholder codes (e.g. CHM-001) are not official. */
+export function isOfficialMflCode(code: string | null | undefined): boolean {
+  return /^\d{4,6}$/.test((code ?? "").trim());
+}
+
 /**
  * Link an institution to a facility in the Ministry of Health registry (KMHFL). The MFL code is
  * copied onto the institution so reviewers see it. An institution administrator may do this only
@@ -105,7 +110,7 @@ export function registryNameMatch(institutionName: string, registryName: string 
  */
 export async function setInstitutionFacility(
   db: Db,
-  input: { institutionId: number; kmhflFacilityId: number; asPlatformAdmin: boolean },
+  input: { institutionId: number; kmhflFacilityId: number; asPlatformAdmin: boolean; actorUserId?: number },
 ): Promise<{ facilityName: string; code: string | null }> {
   const [account] = await db
     .select({
@@ -131,8 +136,16 @@ export async function setInstitutionFacility(
   }
   await db
     .update(institutionalAccounts)
-    .set({ kmhflFacilityId: facility.id, ...(facility.code ? { registrationNumber: facility.code } : {}) })
+    .set({ kmhflFacilityId: facility.id, ...(isOfficialMflCode(facility.code) ? { registrationNumber: facility.code } : {}) })
     .where(eq(institutionalAccounts.id, input.institutionId));
+  if (input.actorUserId) {
+    await recordVerificationEvent(db, {
+      institutionId: input.institutionId,
+      eventType: "facility_linked",
+      actorUserId: input.actorUserId,
+      note: `${facility.name}${facility.code ? ` (code ${facility.code})` : ""}`,
+    });
+  }
   return { facilityName: facility.name, code: facility.code ?? null };
 }
 
