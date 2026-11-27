@@ -125,7 +125,8 @@ vi.mock("../services/facility-registry.service", () => ({
  */
 
 describe("Hospital Workflow E2E Tests", () => {
-  let institutionId: number;
+  // Institutions are created through completeOnboarding in production; these tests use a fixture.
+  const institutionId = 1;
   let staffMemberId: number;
   let enrollmentId: number;
   let certificateNumber: string;
@@ -161,31 +162,6 @@ describe("Hospital Workflow E2E Tests", () => {
   });
 
   describe("Phase 1: Institutional Registration", () => {
-    it("should register a new hospital", async () => {
-      e2eDbMock.mockState.limitRows = [];
-      const result = await appRouter.createCaller(createTestContext(1, "admin")).institution.register({
-        hospitalName: "Test Hospital",
-        hospitalType: "private",
-        county: "Nairobi",
-        phone: "+254712345678",
-        email: "hospital@test.com",
-        website: "https://test.com",
-        adminFirstName: "Test",
-        adminLastName: "Admin",
-        adminEmail: "admin@hospital.com",
-        adminPhone: "+254712345678",
-        adminTitle: "Director",
-        planId: "professional",
-        planPrice: 50000,
-        maxStaff: 50,
-      });
-
-      expect(result.success).toBe(true);
-      expect(result.institutionId).toBeDefined();
-      institutionId = result.institutionId!;
-      console.log("✓ Phase 1.1: Institution registered with ID", institutionId);
-    });
-
     it("should fetch institution details", async () => {
       expect(institutionId).toBeGreaterThan(0);
       
@@ -481,29 +457,5 @@ describe("Error Handling & Edge Cases", () => {
       expect(error).toBeDefined();
       console.log("✓ Error Handling 1: Invalid institution ID handled (error thrown)");
     }
-  });
-
-  it("should require authentication for institution.register", async () => {
-    const ctx = { user: null, req: {} as any, res: {} as any };
-    const caller = appRouter.createCaller(ctx as any);
-    await expect(
-      caller.institution.register({
-        hospitalName: "No Auth Hospital",
-        hospitalType: "private",
-        county: "Nairobi",
-        phone: "+254712345678",
-        email: "hospital@test.com",
-        website: "https://test.com",
-        adminFirstName: "Test",
-        adminLastName: "Admin",
-        adminEmail: "admin@test.com",
-        adminPhone: "+254712345678",
-        adminTitle: "Director",
-        planId: "basic",
-        planPrice: 5000,
-        maxStaff: 20,
-      })
-    ).rejects.toThrow();
-    console.log("✓ Error Handling 2: Unauthenticated register rejected");
   });
 });

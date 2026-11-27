@@ -580,7 +580,6 @@ export const appRouter = router({
   // aiPersonalization,
   // globalCoordination,
   // autonomousGlobalOps,
-  // directHospitalOnboarding,
   // healthcareWorkerCommunity,
   // directRevenue,
   // realTimeImpact,

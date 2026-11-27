@@ -2334,37 +2334,6 @@ export const institutionRouter = router({
     }),
 
   /**
-   * Register an institution (authenticated). Links account to ctx.user.id.
-   * If this user already has an institutional account, returns that id (idempotent).
-   */
-  register: protectedProcedure
-    .input(
-      z.object({
-        hospitalName: z.string().min(3),
-        hospitalType: z.string(),
-        county: z.string().optional(),
-        phone: z.string(),
-        email: z.string().email(),
-        website: z.string().optional(),
-        adminFirstName: z.string(),
-        adminLastName: z.string(),
-        adminEmail: z.string().email(),
-        adminPhone: z.string(),
-        adminTitle: z.string(),
-        planId: z.string(),
-        planPrice: z.number(),
-        maxStaff: z.number(),
-      })
-    )
-    .mutation(async () => {
-      throw new TRPCError({
-        code: "PRECONDITION_FAILED",
-        message:
-          "This legacy registration endpoint is retired. Use the institution onboarding workflow, which requires a second administrator and payment/entitlement checks.",
-      });
-    }),
-
-  /**
    * Return a small, authenticated directory of existing Paeds Resus accounts
    * for onboarding and institution-admin selection. Only name and email are
    * returned; the current user is excluded and results are bounded.
