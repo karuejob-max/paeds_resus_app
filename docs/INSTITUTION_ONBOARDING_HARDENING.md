@@ -217,3 +217,9 @@ Unassigned people (typical for CPD-event joiners) are visible only to institutio
 ## PR O: archive duplicate or mistaken institutions
 
 A platform administrator can archive an institution from **Institution verification**. Nothing is deleted. Archive needs a reason, is refused while the institution is verified (revoke first), has administrators other than its creator, or has active members, and is recorded in the verification history. An archived institution is hidden from the review queues (see the **Archived** tab), cannot be verified or sent evidence, and can be restored. Run `pnpm run db:apply-0201` before deploying.
+
+## PR E2a: guided verification
+
+An institution administrator verifies in one short form (Administrators tab): pick the facility from the Kenya Master Health Facility List (the MFL code is copied onto the institution), say what kind of institution it is (private/faith-based/community needs a KMPDC licence number; public needs a letter from the Medical Superintendent or county/sub-county health office), and attach a PDF/JPG/PNG up to 5 MB (or a link). Institutions that are not registry facilities, or not listed yet, say so with a reason. Files are stored privately; only platform administrators get a short-lived link.
+
+The platform-admin page shows the linked registry facility (name, MFL code, county, type), whether the names match, the licence number, and the uploaded file. A platform administrator can link or correct the registry facility on any institution. Verifying needs a registry facility unless the institution said it is not one, or the administrator confirms it. Run `pnpm run db:apply-0202` before deploying.
