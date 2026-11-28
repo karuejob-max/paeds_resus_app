@@ -579,8 +579,29 @@ export async function calculateFellowshipStatus(userId: number): Promise<{
   };
 }
 
+const FELLOWSHIP_READ_CACHE_MS = 20_000;
+const fellowshipReadCache = new Map<number, { at: number; value: Promise<Awaited<ReturnType<typeof syncFellowshipProgressForUser>>> }>();
+
+/**
+ * For page reads only. Recomputing all pillars and writing the cached row on
+ * every dashboard view is the slowest call on the Fellowship page, so repeated
+ * reads within a few seconds share one result. Mutations keep calling
+ * syncFellowshipProgressForUser directly and refresh this cache.
+ */
+export function syncFellowshipProgressForRead(userId: number) {
+  const hit = fellowshipReadCache.get(userId);
+  if (hit && Date.now() - hit.at < FELLOWSHIP_READ_CACHE_MS) return hit.value;
+  const value = syncFellowshipProgressForUser(userId);
+  fellowshipReadCache.set(userId, { at: Date.now(), value });
+  value.catch(() => {
+    if (fellowshipReadCache.get(userId)?.value === value) fellowshipReadCache.delete(userId);
+  });
+  return value;
+}
+
 /** Upsert `fellowshipProgress` from live pillar calculations. */
 export async function syncFellowshipProgressForUser(userId: number) {
+  fellowshipReadCache.delete(userId);
   const status = await calculateFellowshipStatus(userId);
   const existing = await getFellowshipProgress(userId);
   const now = new Date();

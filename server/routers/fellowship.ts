@@ -19,6 +19,7 @@ import { getResusGpsAccessForClient } from "../lib/resusgps-access";
 import {
   calculateFellowshipStatus,
   syncFellowshipProgressForUser,
+  syncFellowshipProgressForRead,
   calculateCareSignalPillarForToken,
 } from "../services/fellowship-progress.service";
 import { generateTokenId, generateRecoveryCode, hashRecoveryCode, verifyRecoveryCode, hashRecoveryCodeForLookup } from "../lib/fellowship-token";
@@ -79,7 +80,7 @@ export const fellowshipRouter = router({
    */
   getProgress: protectedProcedure.query(async ({ ctx }) => {
     try {
-      const { status } = await syncFellowshipProgressForUser(ctx.user.id);
+      const { status } = await syncFellowshipProgressForRead(ctx.user.id);
       const db = await getDb();
       let resusGpsAccessExpiresAt: Date | null = null;
       if (db) {
