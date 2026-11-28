@@ -78,7 +78,10 @@ async function getConnectionConfig(databaseUrl: string): Promise<mysql.PoolOptio
     database: database || undefined,
     connectTimeout: connectTimeoutMs,
     enableKeepAlive: true,
-    connectionLimit: 5,
+    // A page load fires several tRPC batches that each run many queries in
+    // parallel; five connections queued them behind each other. Override with
+    // DB_POOL_SIZE if the database plan has a tighter connection cap.
+    connectionLimit: Math.min(30, Math.max(2, Number(process.env.DB_POOL_SIZE) || 12)),
   };
   if (needsSsl) {
     config.ssl = { rejectUnauthorized: false, servername: url.hostname } as mysql.SslOptions;
