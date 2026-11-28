@@ -200,7 +200,7 @@ export const ProviderProfileForm: React.FC<ProviderProfileFormProps> = ({ onComp
               <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <AlertCircle className="w-5 h-5 text-yellow-600" />
                 <span className="text-sm text-yellow-700">
-                  Add {80 - completionPercentage}% more of your professional details to strengthen your profile record. This does not block account or course access.
+                  Your details are {completionPercentage}% complete. Adding more makes your profile stronger. It never blocks account or course access.
                 </span>
               </div>
             )}

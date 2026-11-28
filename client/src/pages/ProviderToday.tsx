@@ -422,11 +422,11 @@ export default function ProviderToday() {
 
         <ContextHeader
           workspace="Today"
-          title={`Welcome back${user.name ? `, ${user.name.split(" ")[0]}` : ""}`}
+          title="Overview"
           description="Your personal starting point for duty, readiness, credentials, learning, and safe response."
           institution={primaryMembership?.companyName ?? (activeMemberships.length > 1 ? `${activeMemberships.length} active institutions` : null)}
           department={activeMemberships.length === 1 ? primaryMembership?.department : null}
-          scope={activeMemberships.length === 1 ? primaryMembership?.staffRole : "Confirm scope before institution-sensitive actions"}
+          scope={activeMemberships.length === 1 ? (primaryMembership?.staffRole && primaryMembership.staffRole !== "other" ? primaryMembership.staffRole.replaceAll("_", " ") : null) : "Confirm scope before institution-sensitive actions"}
           status={isRefreshing ? "Refreshing" : activeMemberships.length > 1 ? "Multiple institutions" : primaryMembership ? "Current workplace" : "No workplace linked"}
         />
 

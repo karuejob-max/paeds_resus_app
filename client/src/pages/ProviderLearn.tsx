@@ -160,7 +160,7 @@ export default function ProviderLearn() {
         <Card className="border-orange-200 bg-orange-50/30">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-5 w-5 text-orange-700" />Life Support Training</CardTitle>
-            <CardDescription>Our Financial Strategy 1: Life Support certification pathways for providers and interns, separate from the Fellowship.</CardDescription>
+            <CardDescription>Life Support certification pathways for providers and interns, separate from the Fellowship.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
             {nerpJourney ? (

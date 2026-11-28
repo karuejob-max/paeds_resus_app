@@ -45,7 +45,7 @@ export default function ProviderProfile() {
         : readiness.licenseStatus === "verified"
           ? "Licence verified"
           : "Licence awaiting review"
-    : "No licence required for this profile";
+    : "Set your professional role to see whether a licence applies";
   const reviewInstitutions = (workspaceQuery.data?.institutions ?? []).filter(institution =>
     (workspaceQuery.data?.accountabilityInstitutionIds ?? []).includes(institution.id)
   );
