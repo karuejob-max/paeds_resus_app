@@ -13,3 +13,6 @@ Scope reviewed: provider dashboard, header and bottom navigation, licence flow, 
 3. Dashboard still stacks up to nine duty cards before learning. Collapse them into one "On duty" section that shows only when the person has a duty role.
 4. Dashboard copy mixes "Cognitive modules", "Phase 2" and "Practical skills". Use "Online learning" and "Hands-on session" everywhere.
 5. Review the first-run path (sign-up, choose role, first screen) with a real new user. Screen recordings of two or three new CHM staff would find more than reading code.
+
+## Correction (PR AA)
+`ProviderDashboard.tsx` is not routed anywhere. Signing in lands on `/home` (`Home` -> `ProviderToday`). The licence card (PR U) and the next-step buttons (PR Z) were built on the unrouted page and were never visible. PR AA puts the licence task into the real Today action queue. `ProviderDashboard.tsx` should be deleted or routed in a separate clean-up, after checking nothing else needs it.
