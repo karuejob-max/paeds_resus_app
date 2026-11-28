@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   ImageIcon,
   KeyRound,
+  Tag,
   Loader2,
   Shield,
 } from "lucide-react";
@@ -101,6 +102,13 @@ export default function AdminHub() {
           href="/admin/access-grants"
           icon={<KeyRound className="h-5 w-5 text-primary" />}
           action="Open grants"
+        />
+        <PriorityCard
+          title="Pricing and offers"
+          description="Change self-pay prices and run limited-time offers such as Black November."
+          href="/admin/pricing"
+          icon={<Tag className="h-5 w-5 text-emerald-600" />}
+          action="Open pricing"
         />
         <PriorityCard
           title="Platform Ops"

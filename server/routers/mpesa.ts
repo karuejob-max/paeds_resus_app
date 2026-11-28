@@ -9,7 +9,9 @@ import { getMpesaDeploymentMode, getMpesaEnvironmentSource } from "../lib/mpesa-
 import { getMpesaConfigReadiness } from "../lib/mpesa-config";
 import { checkOwnedMicroCourseStk } from "../lib/micro-course-stk-status";
 import { buildStkAccountReference } from "../lib/daraja-account-reference";
-import { getIndependentAhaPriceKes, type AhaProgramType } from "../../shared/aha-pathways";
+import { isAhaProgramType, type AhaProgramType } from "../../shared/aha-pathways";
+import { resolvePrice } from "../../shared/service-pricing";
+import { loadPriceRows } from "../lib/service-pricing";
 import { trackEvent, trackPaymentInitiation } from "../services/analytics.service";
 import { validateNerpPaymentAmount } from "../lib/nerp-offer";
 import {
@@ -123,7 +125,7 @@ export const mpesaRouter = router({
         if (!db) throw new Error("Database not available");
 
         let enrollmentId: number;
-        const independentPriceKes = getIndependentAhaPriceKes(input.courseId as AhaProgramType);
+        const independentPriceKes = isAhaProgramType(input.courseId) ? resolvePrice(input.courseId, await loadPriceRows(db))?.priceKes ?? null : null;
         if (independentPriceKes !== null && !input.nerpOfferEnrollmentId && Number(input.amount) !== independentPriceKes) {
           return {
             success: false,

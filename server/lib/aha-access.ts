@@ -1,3 +1,5 @@
+import { requiredKesForPayments } from "../../shared/service-pricing";
+import { loadPriceRows } from "./service-pricing";
 import { and, desc, eq, gt, inArray, isNull, ne, or } from "drizzle-orm";
 import {
   ahaAccessGrants,
@@ -323,8 +325,7 @@ async function hasIndependentPayment(
   userId: number,
   programType: AhaProgramType,
 ): Promise<boolean> {
-  const requiredKes = getIndependentAhaPriceKes(programType);
-  if (requiredKes == null) return false;
+  if (getIndependentAhaPriceKes(programType) == null) return false;
   const enrollmentRows = await db
     .select({ id: enrollments.id })
     .from(enrollments)
@@ -338,7 +339,7 @@ async function hasIndependentPayment(
   if (!enrollmentRows.length) return false;
   const enrollmentIds = enrollmentRows.map((row) => row.id);
   const paymentRows = await db
-    .select({ amount: payments.amount })
+    .select({ amount: payments.amount, createdAt: payments.createdAt })
     .from(payments)
     .where(
       and(
@@ -348,7 +349,9 @@ async function hasIndependentPayment(
       ),
     );
   const paidKes = paymentRows.reduce((total, row) => total + Number(row.amount ?? 0), 0);
-  return paidKes >= requiredKes;
+  // The price that applied when the learner first paid, so an offer price keeps working after the offer ends.
+  const requiredKes = requiredKesForPayments(programType, await loadPriceRows(db as never), paymentRows);
+  return requiredKes != null && paidKes >= requiredKes;
 }
 
 /**

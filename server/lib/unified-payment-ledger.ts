@@ -1,3 +1,5 @@
+import { requiredKesForPayments } from "../../shared/service-pricing";
+import { loadPriceRows } from "./service-pricing";
 import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import {
   courses,
@@ -11,7 +13,6 @@ import {
 } from "../../drizzle/schema";
 import {
   AHA_PROGRAM_LABELS,
-  getIndependentAhaPriceKes,
   isAhaProgramType,
 } from "../../shared/aha-pathways";
 import { formatIlsCredentialLabel } from "@shared/institutional-life-support";
@@ -200,6 +201,7 @@ export async function getUnifiedPaymentLedger(db: any, userId: number) {
       .map((row: any) => Number(row.id)),
   );
 
+  const priceRows = await loadPriceRows(db);
   for (const row of learnerEnrollments) {
     const enrollment = row.enrollment as any;
     const enrollmentId = Number(enrollment.id);
@@ -211,7 +213,9 @@ export async function getUnifiedPaymentLedger(db: any, userId: number) {
 
     const programType = String(enrollment.programType ?? "other");
     const isIndependentAha = isAhaProgramType(programType);
-    const totalDueKes = isIndependentAha ? getIndependentAhaPriceKes(programType) : null;
+    const totalDueKes = isIndependentAha
+      ? requiredKesForPayments(programType, priceRows, relatedPayments.filter((payment: any) => payment.status === "completed"))
+      : null;
     const totalPaidKes = relatedPayments
       .filter((payment: any) => payment.status === "completed")
       .reduce((sum: number, payment: any) => {

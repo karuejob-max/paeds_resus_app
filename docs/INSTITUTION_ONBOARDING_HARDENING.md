@@ -254,3 +254,7 @@ The platform-admin page shows the linked registry facility (name, MFL code, coun
 - Providers see an "Add your professional licence" card on the dashboard (also asks for their professional role when unset).
 - Institution admins, credential managers and department heads see a "Professional licences" panel under People and access > Directory: counts, deadline (admins only), weekly-capped "Remind" button.
 - Due date per person = later of the institution deadline and 30 days after joining. Enforcement is visibility plus existing role gates; learning is never blocked.
+
+## Admin-managed pricing (PR W)
+
+Migration 0206 adds `servicePrices`. Admins set standard prices and dated offers at /admin/pricing. STK push, the access check and the payment ledgers all read the same list. A learner is held to the price in force when they first paid, so an offer payment keeps working after the offer ends.
