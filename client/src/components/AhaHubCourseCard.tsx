@@ -5,6 +5,7 @@ import { AhaCourseDurationLines } from "@/components/AhaCourseDurationLines";
 import { formatPrice, getIndividualCoursePrice } from "@/const/pricing";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useLivePrices } from "@/hooks/useLivePrices";
 
 const BADGE_COLORS: Record<AhaProgramType, string> = {
   bls: "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300",
@@ -36,7 +37,11 @@ export const AhaHubCourseCard = memo(function AhaHubCourseCard({
   price,
 }: AhaHubCourseCardProps) {
   const meta = getAhaCourseMetadata(programType);
-  const displayPrice = price !== undefined ? price : getIndividualCoursePrice(programType);
+  const { priceFor } = useLivePrices();
+  const basePrice = price !== undefined ? price : getIndividualCoursePrice(programType);
+  // An explicit price prop wins; otherwise show the live price from the admin price list, including any offer.
+  const live = price === undefined && basePrice != null ? priceFor(programType, basePrice) : null;
+  const displayPrice = live ? live.price : basePrice;
 
   return (
     <Card
@@ -72,6 +77,11 @@ export const AhaHubCourseCard = memo(function AhaHubCourseCard({
         {displayPrice != null && (
           <p className="text-sm font-semibold text-foreground tabular-nums">{formatPrice(displayPrice)}</p>
         )}
+        {live?.offerLabel ? (
+          <p className="-mt-3 text-xs font-medium text-emerald-700">
+            {live.offerLabel} · was <span className="line-through">{formatPrice(live.standard)}</span>
+          </p>
+        ) : null}
         {middle}
         {footer}
       </CardContent>
