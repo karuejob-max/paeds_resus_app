@@ -39,11 +39,11 @@ export default function AdminCredentialVerification() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"pending" | "verified" | "rejected" | "revoked" | "all">("pending");
   const [evidenceTarget, setEvidenceTarget] = useState<{
-    institutionId: number;
+    institutionId?: number;
     credentialId: number;
   } | null>(null);
   const [rejectionTarget, setRejectionTarget] = useState<{
-    institutionId: number;
+    institutionId?: number;
     credentialId: number;
     providerName: string;
   } | null>(null);
@@ -65,13 +65,21 @@ export default function AdminCredentialVerification() {
   });
   const evidence =
     trpc.institutionAccountability.getScopedCredentialEvidenceUrl.useQuery(
-      evidenceTarget ?? { institutionId: 1, credentialId: 1 },
+      evidenceTarget ?? { credentialId: 1 },
       { enabled: evidenceTarget != null, retry: false }
     );
 
   const openEvidence = (institutionId: number | null, credentialId: number) => {
-    if (institutionId) setEvidenceTarget({ institutionId, credentialId });
+    setEvidenceTarget({ institutionId: institutionId ?? undefined, credentialId });
   };
+
+  const QUICK_REASONS = [
+    "The photo is blurry or cut off. Please upload a clear, full-page photo or scan.",
+    "The licence number does not match the document. Please re-enter it exactly as printed.",
+    "The licence has expired or the valid-until date does not match the document.",
+    "The name on the document does not match your profile.",
+    "This is not a regulatory licence. Please upload your practising licence.",
+  ];
 
   const submitRejection = () => {
     if (!rejectionTarget || rejectionReason.trim().length < 3) return;
@@ -217,7 +225,7 @@ export default function AdminCredentialVerification() {
                 </div>
                 {item.reviewReason ? <p className="mt-2 rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">Review note: {item.reviewReason}</p> : null}
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {item.evidenceUploaded && item.institutionId ? (
+                  {item.evidenceUploaded ? (
                     <Button
                       type="button"
                       size="sm"
@@ -231,13 +239,13 @@ export default function AdminCredentialVerification() {
                       View evidence
                     </Button>
                   ) : null}
-                  {item.institutionId && item.status === "pending" ? (
+                  {item.status === "pending" ? (
                     <Button
                       type="button"
                       size="sm"
                       onClick={() =>
                         review.mutate({
-                          institutionId: item.institutionId!,
+                          institutionId: item.institutionId ?? undefined,
                           credentialId: item.id,
                           decision: "verified",
                           reason:
@@ -249,7 +257,7 @@ export default function AdminCredentialVerification() {
                       Verify
                     </Button>
                   ) : null}
-                  {item.institutionId && item.status === "pending" ? (
+                  {item.status === "pending" ? (
                     <Button
                       type="button"
                       size="sm"
@@ -257,7 +265,7 @@ export default function AdminCredentialVerification() {
                       onClick={() => {
                         setRejectionReason("");
                         setRejectionTarget({
-                          institutionId: item.institutionId!,
+                          institutionId: item.institutionId ?? undefined,
                           credentialId: item.id,
                           providerName: item.userName || "this provider",
                         });
@@ -290,6 +298,13 @@ export default function AdminCredentialVerification() {
               so they know what to correct before resubmitting.
             </DialogDescription>
           </DialogHeader>
+          <div className="flex flex-wrap gap-2">
+            {QUICK_REASONS.map(reason => (
+              <button key={reason} type="button" className="rounded-full border px-3 py-1 text-left text-xs hover:bg-muted" onClick={() => setRejectionReason(reason)}>
+                {reason.split(".")[0]}
+              </button>
+            ))}
+          </div>
           <textarea
             className="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm"
             value={rejectionReason}

@@ -258,3 +258,10 @@ The platform-admin page shows the linked registry facility (name, MFL code, coun
 ## Admin-managed pricing (PR W)
 
 Migration 0206 adds `servicePrices`. Admins set standard prices and dated offers at /admin/pricing. STK push, the access check and the payment ledgers all read the same list. A learner is held to the price in force when they first paid, so an offer payment keeps working after the offer ends.
+
+## Credential flow fixes (PR X)
+
+- Learner: status banner (not added / waiting / rejected with reviewer's note / expiring / verified), a short licence form with Kenya, the licensing body and cadre suggestions preset, and a plain "what happens next" message.
+- A renewal no longer replaces the verified licence it renews. The old licence stays in force until the new one is verified, so providers do not drop off duty while they wait.
+- Platform administrators can verify, reject and open evidence for providers who are not linked to an institution (these were stuck pending).
+- Review queue lists each credential once; rejection has quick reasons; decision notifications open the licence section.
