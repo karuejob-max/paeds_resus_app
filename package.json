@@ -145,6 +145,7 @@
     "db:apply-0203": "node scripts/apply-0203-facility-link-audit.mjs",
     "db:apply-0204": "node scripts/apply-0204-care-facility-mfl.mjs",
     "kmhfl:check": "node scripts/check-kmhfl-registry.mjs",
+    "report:licences": "node scripts/report-institution-licences.mjs",
     "kmhfl:import": "node scripts/import-kmhfl-csv.mjs",
     "db:verify-0192": "node scripts/verify-0192-institutional-cpd-qi-links.mjs",
     "db:verify-0191": "node scripts/verify-0191-retrospective-role-claim-simulation-role.mjs",
