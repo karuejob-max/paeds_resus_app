@@ -2,7 +2,7 @@
  * Collapsible "folder" wrapper for a group of certificates — CEO-requested
  * 2026-08-11 ("organize My Certificates into grouped folders: Life
  * Support, Fellowship, CPD"). Purely presentational; each group's actual
- * data/filtering lives in ProviderDashboard.tsx.
+ * data/filtering lives in the page that renders it.
  */
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
