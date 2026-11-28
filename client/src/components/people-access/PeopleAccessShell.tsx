@@ -16,6 +16,7 @@ import { InstitutionDepartmentReconciliationPanel } from "@/components/Instituti
 import { AccountAdminsWidget } from "@/components/AccountAdminsWidget";
 import { InstitutionVerificationCard } from "@/components/InstitutionVerificationCard";
 import { LegacyMemberReviewPanel } from "@/components/LegacyMemberReviewPanel";
+import { LicenceFollowUpPanel } from "@/components/LicenceFollowUpPanel";
 import { PendingLinkRequestsWidget } from "@/components/PendingLinkRequestsWidget";
 import StaffBulkImport from "@/components/StaffBulkImport";
 import { PeopleNeedsAttention } from "./PeopleNeedsAttention";
@@ -246,6 +247,7 @@ export function PeopleAccessShell({
         </TabsContent>
         <TabsContent value="directory" className="mt-0 space-y-5">
           <LegacyMemberReviewPanel institutionId={institutionId} />
+          <LicenceFollowUpPanel institutionId={institutionId} />
           <InstitutionPeopleRolesPanel
             institutionId={institutionId}
             initialSection="roster"

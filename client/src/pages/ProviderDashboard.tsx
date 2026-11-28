@@ -1,3 +1,4 @@
+import { ProviderLicenceTaskCard } from "@/components/ProviderLicenceTaskCard";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
@@ -503,6 +504,7 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
         </div>
 
         {/* ── Institutional readiness responsibility ──────────────────────────── */}
+        <ProviderLicenceTaskCard />
         <ProviderInstitutionReadinessCard />
         <ProviderIersShiftTeamCard />
         <ProviderIersActivationCard />
