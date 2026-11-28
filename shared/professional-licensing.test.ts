@@ -27,3 +27,12 @@ describe("professional licensing taxonomy", () => {
     ).toBe("Exampleland nursing council / licensing body");
   });
 });
+
+describe("Kenya regulator defaults", () => {
+  it("suggests the regulator that matches the professional identity", () => {
+    expect(getDefaultLicensingBody({ countryCode: "KE", isNurse: true, providerType: "nurse" })).toContain("Nursing Council of Kenya");
+    expect(getDefaultLicensingBody({ countryCode: "KE", isNurse: false, providerType: "doctor" })).toContain("KMPDC");
+    expect(getDefaultLicensingBody({ countryCode: "KE", isNurse: false, providerType: "pharmacist" })).toContain("Pharmacy and Poisons Board");
+    expect(getDefaultLicensingBody({ countryCode: "UG", isNurse: false, providerType: "doctor" })).toContain("professional licensing body");
+  });
+});

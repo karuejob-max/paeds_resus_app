@@ -61,6 +61,11 @@ export function LicenceFollowUpPanel({ institutionId }: { institutionId: number 
             </div>
           ))}
         </div>
+        {counts.pending > 0 ? (
+          <p className="rounded-md border border-blue-200 bg-blue-50 p-2.5 text-xs text-blue-900">
+            {counts.pending} {counts.pending === 1 ? "licence is" : "licences are"} waiting for review. Open the Accountability tab of the workspace to verify or reject them. Staff are notified of each decision.
+          </p>
+        ) : null}
         {counts.identityMissing > 0 ? (
           <p className="text-xs text-muted-foreground">{counts.identityMissing} people have not set their professional role yet, so we cannot tell whether a licence applies to them. They are reminded as well.</p>
         ) : null}

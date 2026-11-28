@@ -1031,13 +1031,26 @@ export const KNOWN_NURSING_REGULATORS: Readonly<Record<string, string>> = {
   "ZW": "Nurses Council of Zimbabwe (NCZ)"
 } as const;
 
+/** Kenyan regulators by professional identity, so staff do not have to type the body's name. */
+export const KENYA_REGULATORS: Readonly<Record<string, string>> = {
+  nurse: 'Nursing Council of Kenya (NCK)',
+  midwife: 'Nursing Council of Kenya (NCK)',
+  doctor: 'Kenya Medical Practitioners and Dentists Council (KMPDC)',
+  pharmacist: 'Pharmacy and Poisons Board (PPB)',
+  lab_tech: 'Kenya Medical Laboratory Technicians and Technologists Board (KMLTTB)',
+};
+
 export function getDefaultLicensingBody(input: {
   countryCode?: string | null;
   countryName?: string | null;
   isNurse: boolean;
+  providerType?: string | null;
 }): string {
   const code = input.countryCode?.trim().toUpperCase();
   const countryName = input.countryName?.trim() || 'Your country';
+  if (code === 'KE' && input.providerType && KENYA_REGULATORS[input.providerType]) {
+    return KENYA_REGULATORS[input.providerType];
+  }
   if (input.isNurse) {
     return (code && KNOWN_NURSING_REGULATORS[code]) || `${countryName} nursing council / licensing body`;
   }

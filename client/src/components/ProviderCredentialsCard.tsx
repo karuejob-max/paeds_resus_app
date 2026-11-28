@@ -8,7 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AlertCircle, CheckCircle2, FileLock2, Upload } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Clock, FileLock2, Upload } from "lucide-react";
+import { toast } from "sonner";
 import { SearchableDropdown } from "./CadreProgressiveSelector";
 import {
   getDefaultLicensingBody,
@@ -51,108 +52,177 @@ function credentialLabel(value: string): string {
   return value.replaceAll("_", " ").replace(/\b\w/g, char => char.toUpperCase());
 }
 
+const LICENSED_IDENTITIES = new Set(["nurse", "doctor", "pharmacist", "paramedic", "lab_tech", "respiratory_therapist", "midwife"]);
+const KENYA_CADRE_SUGGESTIONS = ["KRCHN", "KRN", "KRM", "KRPCCN", "Clinical Officer", "Medical Officer", "Pharmacist", "Pharmaceutical Technologist", "Laboratory Technologist"];
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+type SubmittedRow = {
+  id: number;
+  credentialType: string;
+  displayStatus: string;
+  issuedAt: string | Date | null;
+  expiresAt: string | Date | null;
+  reviewReason?: string | null;
+  createdAt?: string | Date | null;
+};
+
+/** One plain sentence about where the learner's licence stands and what to do next. */
+function LicenceStatusBanner({ licence, renewalPending }: { licence: SubmittedRow | undefined; renewalPending?: SubmittedRow }) {
+  if (licence && renewalPending && licence.displayStatus !== "pending") {
+    return (
+      <div className="flex items-start gap-3 rounded-lg border border-blue-300 bg-blue-50 p-4 text-sm">
+        <Clock className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />
+        <div>
+          <p className="font-semibold">Your renewal is waiting for review</p>
+          <p className="mt-1 text-muted-foreground">Submitted {dateLabel(renewalPending.createdAt)}. Your current licence stays valid until {dateLabel(licence.expiresAt)}. You will be notified when the renewal is decided.</p>
+        </div>
+      </div>
+    );
+  }
+  if (!licence) {
+    return (
+      <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm">
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+        <div>
+          <p className="font-semibold">You have not added your professional licence yet</p>
+          <p className="mt-1 text-muted-foreground">Add it once and we will track the renewal date for you. It unlocks emergency-response roles and shows you as duty-ready.</p>
+        </div>
+      </div>
+    );
+  }
+  const expires = licence.expiresAt ? new Date(licence.expiresAt) : null;
+  const daysLeft = expires ? Math.ceil((expires.getTime() - Date.now()) / DAY_MS) : null;
+  switch (licence.displayStatus) {
+    case "pending":
+      return (
+        <div className="flex items-start gap-3 rounded-lg border border-blue-300 bg-blue-50 p-4 text-sm">
+          <Clock className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />
+          <div>
+            <p className="font-semibold">Your licence is waiting for review</p>
+            <p className="mt-1 text-muted-foreground">Submitted {dateLabel(licence.createdAt)}. You do not need to do anything else. You will get a notification and an email when it is decided.</p>
+          </div>
+        </div>
+      );
+    case "rejected":
+      return (
+        <div className="flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 p-4 text-sm">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-700" />
+          <div>
+            <p className="font-semibold">Your licence was not accepted</p>
+            <p className="mt-1">{licence.reviewReason ? `Reviewer's note: ${licence.reviewReason}` : "Open the form below and submit it again."}</p>
+            <p className="mt-1 text-muted-foreground">Correct that and submit it again below.</p>
+          </div>
+        </div>
+      );
+    case "revoked":
+      return (
+        <div className="flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 p-4 text-sm">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-700" />
+          <div>
+            <p className="font-semibold">Your licence was withdrawn</p>
+            <p className="mt-1">{licence.reviewReason ? `Reason: ${licence.reviewReason}` : "Submit your current licence below."}</p>
+          </div>
+        </div>
+      );
+    case "expired":
+      return (
+        <div className="flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 p-4 text-sm">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-700" />
+          <div>
+            <p className="font-semibold">Your licence expired on {dateLabel(licence.expiresAt)}</p>
+            <p className="mt-1 text-muted-foreground">Submit your renewed licence below. Until it is verified you cannot take clinical emergency-response duties.</p>
+          </div>
+        </div>
+      );
+    case "expiring":
+      return (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+          <div>
+            <p className="font-semibold">Your licence expires in {daysLeft} {daysLeft === 1 ? "day" : "days"} ({dateLabel(licence.expiresAt)})</p>
+            <p className="mt-1 text-muted-foreground">Add your renewed licence now. The current one stays valid while the new one is reviewed.</p>
+          </div>
+        </div>
+      );
+    default:
+      return (
+        <div className="flex items-start gap-3 rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-sm">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
+          <div>
+            <p className="font-semibold">Your licence is verified</p>
+            <p className="mt-1 text-muted-foreground">Valid until {dateLabel(licence.expiresAt)}. We will remind you before it expires.</p>
+          </div>
+        </div>
+      );
+  }
+}
+
 export function ProviderCredentialsCard() {
-  const credentialsQuery =
-    trpc.institutionAccountability.getMyCredentials.useQuery();
+  const credentialsQuery = trpc.institutionAccountability.getMyCredentials.useQuery();
   const { data: user } = trpc.auth.me.useQuery();
-  const submitCredential =
-    trpc.institutionAccountability.submitCredential.useMutation({
-      onSuccess: async () => {
-        setMessage("Credential submitted for verification.");
-        setEvidenceFile(null);
-        await credentialsQuery.refetch();
-      },
-      onError: error => setMessage(error.message),
-    });
-  const [credentialType, setCredentialType] =
-    useState<CredentialType>("regulatory_license");
+  const [credentialType, setCredentialType] = useState<CredentialType>("regulatory_license");
   const [issuer, setIssuer] = useState("");
   const [issuerTouched, setIssuerTouched] = useState(false);
-  const [countryCode, setCountryCode] = useState("");
-  const [jurisdiction, setJurisdiction] = useState("");
+  const [editIssuer, setEditIssuer] = useState(false);
+  const [countryCode, setCountryCode] = useState("KE");
+  const [jurisdiction, setJurisdiction] = useState("Kenya");
   const [cadre, setCadre] = useState("");
   const [credentialNumber, setCredentialNumber] = useState("");
   const [issuedAt, setIssuedAt] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
+  const [showForm, setShowForm] = useState<boolean | null>(null);
 
+  const submitCredential = trpc.institutionAccountability.submitCredential.useMutation({
+    onSuccess: async () => {
+      toast.success("Submitted. You will be notified when it has been reviewed.");
+      setMessage("");
+      setEvidenceFile(null);
+      setCredentialNumber("");
+      setIssuedAt("");
+      setExpiresAt("");
+      setShowForm(false);
+      await credentialsQuery.refetch();
+    },
+    onError: error => setMessage(error.message),
+  });
+
+  const providerType = (user as { providerType?: string | null } | null | undefined)?.providerType ?? null;
   const isNurseProfile = useMemo(() => {
-    const providerType = (user as { providerType?: string | null } | null | undefined)?.providerType;
-    const cadre = (user as { cadre?: string | null } | null | undefined)?.cadre ?? "";
-    const registeredNurseCadres = new Set([
-      "MSN",
-      "HND",
-      "BSN",
-      "BSM",
-      "KRCHN",
-      "KRNM",
-      "KRN",
-      "KRM",
-      "KECHN",
-      "Other RN",
-      "Other Diploma RN",
-      "Other Certificate RN",
-    ]);
-    return providerType === "nurse" || registeredNurseCadres.has(cadre);
-  }, [user]);
+    const profileCadre = (user as { cadre?: string | null } | null | undefined)?.cadre ?? "";
+    const registeredNurseCadres = new Set(["MSN", "HND", "BSN", "BSM", "KRCHN", "KRNM", "KRN", "KRM", "KECHN", "Other RN", "Other Diploma RN", "Other Certificate RN"]);
+    return providerType === "nurse" || registeredNurseCadres.has(profileCadre);
+  }, [providerType, user]);
+  const hasLicensedIdentity = isNurseProfile || (providerType != null && LICENSED_IDENTITIES.has(providerType));
 
-  const countryOptions = useMemo(
-    () => PROFESSIONAL_COUNTRIES.map(country => ({ value: country.code, label: country.name })),
-    []
-  );
+  const countryOptions = useMemo(() => PROFESSIONAL_COUNTRIES.map(country => ({ value: country.code, label: country.name })), []);
   const isRegulatory = credentialType === "regulatory_license";
   const selectedCountryName = getCountryName(countryCode);
 
   useEffect(() => {
     if (!isRegulatory || !countryCode || issuerTouched) return;
-    const defaultIssuer = getDefaultLicensingBody({
-      countryCode,
-      countryName: selectedCountryName,
-      isNurse: isNurseProfile,
-    });
-    setIssuer(defaultIssuer);
+    setIssuer(getDefaultLicensingBody({ countryCode, countryName: selectedCountryName, isNurse: isNurseProfile, providerType }));
     setJurisdiction(selectedCountryName ?? "");
-  }, [countryCode, isNurseProfile, isRegulatory, issuerTouched, selectedCountryName]);
+  }, [countryCode, isNurseProfile, isRegulatory, issuerTouched, providerType, selectedCountryName]);
 
   useEffect(() => {
-    const regulatory = (credentialsQuery.data ?? []).find(
-      row => row.credentialType === "regulatory_license" && row.sourceType !== "paeds_resus"
-    );
-    if (!regulatory) return;
-    if (!issuer) setIssuer(regulatory.issuer ?? "");
-    if (!jurisdiction && regulatory.jurisdiction) {
-      setJurisdiction(regulatory.jurisdiction);
-      const matchingCountry = PROFESSIONAL_COUNTRIES.find(
-        country => country.name.toLowerCase() === regulatory.jurisdiction?.trim().toLowerCase()
-      );
-      if (matchingCountry) setCountryCode(matchingCountry.code);
-    }
-  }, [credentialsQuery.data, issuer, jurisdiction]);
-
-  useEffect(() => {
-    if (!cadre) {
-      const profileCadre = (user as { cadre?: string | null } | null | undefined)?.cadre?.trim();
-      if (profileCadre) setCadre(profileCadre);
-    }
+    if (cadre) return;
+    const profileCadre = (user as { cadre?: string | null } | null | undefined)?.cadre?.trim();
+    if (profileCadre) setCadre(profileCadre);
   }, [cadre, user]);
 
-  const derived = useMemo(
-    () =>
-      (credentialsQuery.data ?? []).filter(
-        row => row.sourceType === "paeds_resus"
-      ),
-    [credentialsQuery.data]
-  );
   const submitted = useMemo(
-    () =>
-      (credentialsQuery.data ?? []).filter(
-        row => row.sourceType !== "paeds_resus",
-      ),
-    [credentialsQuery.data]
+    () => (credentialsQuery.data ?? []).filter(row => row.sourceType !== "paeds_resus" && row.displayStatus !== "superseded"),
+    [credentialsQuery.data],
   );
+  const derived = useMemo(() => (credentialsQuery.data ?? []).filter(row => row.sourceType === "paeds_resus"), [credentialsQuery.data]);
+  const regulatoryRows = submitted.filter(row => row.credentialType === "regulatory_license");
+  const renewalPending = regulatoryRows.find(row => row.displayStatus === "pending");
+  // The licence in force wins over a renewal waiting for review; otherwise the newest record.
+  const licence = regulatoryRows.find(row => ["current", "expiring", "expired"].includes(row.displayStatus)) ?? regulatoryRows[0];
   const derivedSummary = useMemo(() => {
-    const grouped = new Map<string, typeof derived[number]>();
+    const grouped = new Map<string, (typeof derived)[number]>();
     for (const row of derived) {
       const key = row.credentialType.startsWith("paeds_resus_bls_") ? "paeds_resus_bls" : row.credentialType;
       const existing = grouped.get(key);
@@ -162,55 +232,53 @@ export function ProviderCredentialsCard() {
     return Array.from(grouped.values());
   }, [derived]);
 
+  // Open the form straight away when there is something to do; keep it tucked away when the licence is fine.
+  const needsLicence = !licence || (["rejected", "revoked", "expired"].includes(licence.displayStatus) && !renewalPending);
+  const formOpen = showForm ?? (needsLicence && credentialType === "regulatory_license");
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
-    if (isRegulatory && !countryCode) {
-      setMessage("Select the country where your regulatory licence is held.");
-      return;
-    }
     const missing = [
-      !issuer.trim() && "issuing organisation",
-      isRegulatory && !cadre.trim() && "professional cadre",
+      isRegulatory && !countryCode && "country",
+      !issuer.trim() && "licensing body",
+      isRegulatory && !cadre.trim() && "cadre (for example KRCHN)",
       isRegulatory && !credentialNumber.trim() && "licence number",
-      !issuedAt && (isRegulatory ? "first licence issue date" : "issue date"),
-      !expiresAt && "Valid until date",
-      !evidenceFile && "evidence file",
+      !issuedAt && (isRegulatory ? "date first licensed" : "issue date"),
+      !expiresAt && "valid-until date",
+      !evidenceFile && "photo or PDF of the licence",
     ].filter(Boolean) as string[];
     if (missing.length) {
-      setMessage(`Complete the following before submitting: ${missing.join(", ")}.`);
+      setMessage(`Still needed: ${missing.join(", ")}.`);
       return;
     }
-    if (issuedAt && expiresAt && issuedAt >= expiresAt) {
-      setMessage("The Valid until date must be after the issue date.");
+    if (issuedAt >= expiresAt) {
+      setMessage("The valid-until date must be after the date first licensed.");
       return;
     }
-    if (issuedAt && new Date(`${issuedAt}T00:00:00`) > new Date()) {
-      setMessage("The issue date cannot be in the future.");
+    if (new Date(`${issuedAt}T00:00:00`) > new Date()) {
+      setMessage("The date first licensed cannot be in the future.");
+      return;
+    }
+    if (expiresAt && new Date(`${expiresAt}T23:59:59`) < new Date()) {
+      setMessage("That licence has already expired. Submit the renewed licence instead.");
       return;
     }
     if (evidenceFile) {
-      const allowedTypes = new Set(["application/pdf", "image/jpeg", "image/png"]);
-      if (!allowedTypes.has(evidenceFile.type)) {
-        setMessage("Evidence must be a PDF, JPG, or PNG file.");
+      if (!["application/pdf", "image/jpeg", "image/png"].includes(evidenceFile.type)) {
+        setMessage("Use a PDF, JPG or PNG file. Photos from your phone camera are fine.");
         return;
       }
       if (evidenceFile.size > 5 * 1024 * 1024) {
-        setMessage("Evidence files must be 5 MB or smaller.");
+        setMessage("That file is over 5 MB. Take the photo again at a lower quality or scan it as a PDF.");
         return;
       }
     }
     try {
-      const evidenceBase64 = evidenceFile
-        ? await asDataUrl(evidenceFile)
-        : undefined;
+      const evidenceBase64 = evidenceFile ? await asDataUrl(evidenceFile) : undefined;
       await submitCredential.mutateAsync({
         credentialType,
-        issuer: issuer.trim() || getDefaultLicensingBody({
-          countryCode,
-          countryName: selectedCountryName,
-          isNurse: isNurseProfile,
-        }),
+        issuer: issuer.trim(),
         jurisdiction: selectedCountryName || jurisdiction || undefined,
         cadre: cadre.trim() || undefined,
         credentialNumber: credentialNumber.trim() || undefined,
@@ -218,282 +286,192 @@ export function ProviderCredentialsCard() {
         expiresAt: expiresAt || undefined,
         evidenceBase64,
         evidenceFileName: evidenceFile?.name,
-        evidenceContentType: evidenceFile?.type as
-          | "application/pdf"
-          | "image/jpeg"
-          | "image/png"
-          | undefined,
+        evidenceContentType: evidenceFile?.type as "application/pdf" | "image/jpeg" | "image/png" | undefined,
       });
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Credential submission failed."
-      );
+      setMessage(error instanceof Error ? error.message : "Submission failed. Please try again.");
     }
   }
+
+  const identityBlocked = isRegulatory && !hasLicensedIdentity && providerType == null;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <FileLock2 className="h-5 w-5 text-primary" /> Licences and professional evidence
+          <FileLock2 className="h-5 w-5 text-primary" /> Your professional licence
         </CardTitle>
         <CardDescription>
-          Regulatory licences and optional external AHA evidence are private records and
-          remain pending until an authorised verifier reviews them. Select the
-          country where you are licensed; the licensing body is suggested from your
-          country and professional identity. Use this section for your evidence-backed
-          regulatory licence or external certificate. A current licence requires
-          a number, first issue date, Valid until date, and evidence. An expired
-          licence blocks clinical duty responsibilities.
+          Your licence and certificates are private. Only authorised reviewers can see them. Keeping a verified, current licence on file unlocks emergency-response roles.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid gap-3 md:grid-cols-2">
-          {derivedSummary.length ? (
-            derivedSummary.map(row => (
-              <details key={row.id} className="rounded-lg border bg-muted/20 p-3">
-                <summary className="cursor-pointer list-none">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold">{credentialLabel(row.credentialType)}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{row.sourceLabel}</p>
-                    </div>
-                    <span className="text-xs font-medium text-primary">View details</span>
-                  </div>
-                  <p className="mt-2 flex items-center gap-1 text-xs capitalize"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> {statusLabel(row.displayStatus)}</p>
-                </summary>
-                <div className="mt-3 border-t pt-3 text-xs text-muted-foreground">
-                  <p>Issued {dateLabel(row.issuedAt)} · Valid until {dateLabel(row.expiresAt)}</p>
-                  {row.credentialType === "paeds_resus_bls_provider" ? <p className="mt-1">Cognitive and simulation competency evidence is included in this BLS Provider record.</p> : null}
-                </div>
-              </details>
-            ))
-          ) : (
-            <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground md:col-span-3">
-              No Paeds Resus Life Support competency has been derived yet.
-              Complete the relevant learning and competency gates in the
-              Learning Portal.
+      <CardContent className="space-y-5">
+        <LicenceStatusBanner licence={licence} renewalPending={renewalPending} />
+
+        {identityBlocked ? (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm">
+            <p className="font-semibold">First tell us your professional role</p>
+            <p className="mt-1 text-muted-foreground">We use it to suggest your licensing body and to check that a licence applies to you.</p>
+            <a href="#identity" className="mt-2 inline-block font-medium text-primary underline">Set my professional role</a>
+          </div>
+        ) : null}
+
+        {!formOpen ? (
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={() => { setCredentialType("regulatory_license"); setShowForm(true); }}>
+              {licence ? "Renew or replace my licence" : "Add my licence"}
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => { setCredentialType("external_aha_bls"); setIssuerTouched(false); setIssuer(""); setShowForm(true); }}>
+              Add an AHA certificate
+            </Button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-semibold">{isRegulatory ? "Add your licence" : "Add an AHA certificate"}</h3>
+              <Button type="button" size="sm" variant="ghost" onClick={() => { setShowForm(false); setMessage(""); setCredentialType("regulatory_license"); }}>
+                Cancel
+              </Button>
             </div>
-          )}
-        </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 rounded-lg border p-4"
-        >
-          <div>
-            <h3 className="font-semibold">
-              Add or renew a licence or certificate
-            </h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              For a regulatory licence, choose your jurisdiction first. The
-              licensing body is suggested from your country and professional
-              identity, but you can edit it when your regulator is regional or
-              profession-specific. Enter your professional cadre separately from
-              the current regulator-issued Licence number. Do not enter a cadre,
-              registration, index, degree, or qualification number in the Licence
-              number field. Add the first licence date, Valid until date, and
-              evidence for review. Maximum file size is 5 MB; PDF, JPG, and PNG
-              are accepted.
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">Credential type</span>
-              <select
-                className="w-full rounded-md border bg-background px-3 py-2"
-                value={credentialType}
-                onChange={event =>
-                  setCredentialType(event.target.value as CredentialType)
-                }
-              >
-                <option value="regulatory_license">Regulatory licence</option>
-                {externalTypes.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {isRegulatory && (
+            {!isRegulatory ? (
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium">Which certificate?</span>
+                <select className="w-full rounded-md border bg-background px-3 py-2" value={credentialType} onChange={event => setCredentialType(event.target.value as CredentialType)}>
+                  {externalTypes.map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {isRegulatory ? (
+                <>
+                  <label className="space-y-1 text-sm">
+                    <span className="font-medium">Country where you are licensed *</span>
+                    <SearchableDropdown
+                      value={countryCode}
+                      onChange={value => { setCountryCode(value); setJurisdiction(getCountryName(value) ?? ""); setIssuerTouched(false); }}
+                      options={countryOptions}
+                      placeholder="Search and select a country"
+                      searchPlaceholder="Type a few letters…"
+                      emptyText="No country found."
+                      selectedStateLabel="Country selected"
+                      emptySelectionLabel="No country selected"
+                      searchAlwaysVisible
+                    />
+                  </label>
+                  <div className="space-y-1 text-sm">
+                    <span className="font-medium">Licensing body</span>
+                    {editIssuer ? (
+                      <input className="w-full rounded-md border bg-background px-3 py-2" value={issuer} onChange={event => { setIssuer(event.target.value); setIssuerTouched(true); }} />
+                    ) : (
+                      <p className="rounded-md border bg-muted/30 px-3 py-2">
+                        {issuer || "Choose your country first"}{" "}
+                        <button type="button" className="ml-1 text-xs font-medium text-primary underline" onClick={() => setEditIssuer(true)}>Change</button>
+                      </p>
+                    )}
+                  </div>
+                  <label className="space-y-1 text-sm">
+                    <span className="font-medium">Cadre *</span>
+                    <input className="w-full rounded-md border bg-background px-3 py-2" list="licence-cadres" value={cadre} onChange={event => setCadre(event.target.value)} placeholder="Start typing, for example KRCHN" />
+                    <datalist id="licence-cadres">
+                      {KENYA_CADRE_SUGGESTIONS.map(option => <option key={option} value={option} />)}
+                    </datalist>
+                  </label>
+                  <label className="space-y-1 text-sm">
+                    <span className="font-medium">Licence number *</span>
+                    <input className="w-full rounded-md border bg-background px-3 py-2" value={credentialNumber} onChange={event => setCredentialNumber(event.target.value)} placeholder="As printed on your current licence" />
+                    <span className="block text-xs text-muted-foreground">Use the number labelled “Licence number”, not your index, registration or degree number.</span>
+                  </label>
+                </>
+              ) : (
+                <label className="space-y-1 text-sm md:col-span-2">
+                  <span className="font-medium">Issuing organisation *</span>
+                  <input className="w-full rounded-md border bg-background px-3 py-2" value={issuer} onChange={event => { setIssuer(event.target.value); setIssuerTouched(true); }} placeholder="e.g., American Heart Association" />
+                </label>
+              )}
               <label className="space-y-1 text-sm">
-                <span className="font-medium">Professional cadre *</span>
-                <input
-                  className="w-full rounded-md border bg-background px-3 py-2"
-                  value={cadre}
-                  onChange={event => setCadre(event.target.value)}
-                  placeholder="e.g., KRCHN, KRPCCN, KRN, BScN"
-                  required
-                />
-                <span className="block text-xs text-muted-foreground">
-                  Enter the cadre shown on your evidence. For NCK, keep one current licence record even when you hold multiple cadres; do not replace the licence number with a cadre number.
+                <span className="font-medium">{isRegulatory ? "Date first licensed *" : "Issue date *"}</span>
+                <input className="w-full rounded-md border bg-background px-3 py-2" type="date" value={issuedAt} onChange={event => setIssuedAt(event.target.value)} />
+                {isRegulatory ? <span className="block text-xs text-muted-foreground">Not the latest renewal. If you cannot find it, use the earliest date on your documents. A reviewer can correct it.</span> : null}
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="font-medium">Valid until *</span>
+                <input className="w-full rounded-md border bg-background px-3 py-2" type="date" value={expiresAt} onChange={event => setExpiresAt(event.target.value)} />
+              </label>
+            </div>
+
+            <label className="flex cursor-pointer flex-wrap items-center gap-2 rounded-md border border-dashed p-3 text-sm">
+              <Upload className="h-4 w-4" />
+              <span className="flex-1">Photo or PDF of your {isRegulatory ? "licence" : "certificate"} *</span>
+              <input className="max-w-[240px] text-xs" type="file" accept="application/pdf,image/jpeg,image/png" onChange={event => setEvidenceFile(event.target.files?.[0] ?? null)} />
+              <span className="w-full text-xs text-muted-foreground">{evidenceFile?.name ?? "PDF, JPG or PNG, up to 5 MB. A clear phone photo is fine."}</span>
+            </label>
+
+            {message ? (
+              <p className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  {message}
+                  {message.toLowerCase().includes("professional identity") ? <> <a href="#identity" className="font-medium underline">Set my professional role</a></> : null}
                 </span>
-              </label>
-            )}
-            {isRegulatory ? (
-              <label className="space-y-1 text-sm">
-                <span className="font-medium">Licence jurisdiction / country *</span>
-                <SearchableDropdown
-                  value={countryCode}
-                  onChange={value => {
-                    setCountryCode(value);
-                    const countryName = getCountryName(value);
-                    setJurisdiction(countryName ?? "");
-                  }}
-                  options={countryOptions}
-                  placeholder="Search and select a country"
-                  searchPlaceholder="Type a few letters…"
-                  emptyText="No country found."
-                  selectedStateLabel="Country selected"
-                  emptySelectionLabel="No country selected"
-                  searchAlwaysVisible
-                />
-              </label>
-            ) : (
-              <label className="space-y-1 text-sm">
-                <span className="font-medium">Jurisdiction (optional)</span>
-                <input
-                  className="w-full rounded-md border bg-background px-3 py-2"
-                  placeholder="Country or regulator jurisdiction"
-                  value={jurisdiction}
-                  onChange={event => setJurisdiction(event.target.value)}
-                />
-              </label>
-            )}
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">{isRegulatory ? "Licensing body" : "Issuing organisation"}</span>
-              <input
-                className="w-full rounded-md border bg-background px-3 py-2"
-                value={issuer}
-                placeholder={isRegulatory ? "Suggested from your country" : "e.g., American Heart Association"}
-                onChange={event => {
-                  setIssuer(event.target.value);
-                  setIssuerTouched(true);
-                }}
-                required
-              />
-            </label>
-            {isRegulatory && isNurseProfile && countryCode === "KE" && (
-              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs md:col-span-2">
-                <p className="font-semibold">Kenya Nursing Council: one practice-licence number</p>
-                <p className="mt-1 text-muted-foreground">
-                  NCK uses one current practice-licence number for you, even if you hold more than one cadre. Enter your cadre above (for example KRCHN or KRPCCN), but enter the single number printed as <strong>Licence Number</strong> on your current NCK practice licence below. Do not enter a cadre, registration, index, degree, or qualification number here.
-                </p>
-              </div>
-            )}
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">
-                {isRegulatory ? "Licence number *" : "Reference (optional — not a licence number)"}
-              </span>
-              <input
-                className="w-full rounded-md border bg-background px-3 py-2"
-                value={credentialNumber}
-                onChange={event => setCredentialNumber(event.target.value)}
-                placeholder={isRegulatory ? "Number printed as Licence Number on the current regulator licence" : "Optional course reference"}
-                required={isRegulatory}
-              />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">
-                {isRegulatory ? "First Licence issued on *" : "Issue date *"}
-              </span>
-              <input
-                className="w-full rounded-md border bg-background px-3 py-2"
-                type="date"
-                value={issuedAt}
-                onChange={event => {
-                  const nextIssuedAt = event.target.value;
-                  setIssuedAt(nextIssuedAt);
-                }}
-                required
-              />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">
-                Valid until *
-              </span>
-              <input
-                className="w-full rounded-md border bg-background px-3 py-2"
-                type="date"
-                value={expiresAt}
-                onChange={event => setExpiresAt(event.target.value)}
-                required
-              />
-            </label>
-            {isRegulatory ? (
-              <p className="md:col-span-2 text-xs text-muted-foreground">
-                Enter the date your first professional licence was issued—not the
-                date of your most recent renewal. The licence must be current on
-                the date of review.
               </p>
-            ) : (
-              <div className="md:col-span-2 rounded-lg border border-blue-200 bg-blue-50/70 p-3 text-sm dark:border-blue-900/50 dark:bg-blue-950/20">
-                <p className="font-semibold text-blue-950 dark:text-blue-100">Adding an AHA certificate</p>
-                <p className="mt-1 text-blue-900/80 dark:text-blue-100/80">
-                  Choose External AHA BLS, ACLS, PALS, NRP, or other above, enter the issuing organisation and certificate reference, add the issue and Valid until dates, then upload the certificate below for verification.
-                </p>
-              </div>
-            )}
-          </div>
-          <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed p-3 text-sm">
-            <Upload className="h-4 w-4" />
-            <span className="flex-1">
-              {isRegulatory ? "Upload private licence evidence" : "Upload AHA certificate evidence"}
-            </span>
-            <input
-              className="max-w-[220px] text-xs"
-              type="file"
-              accept="application/pdf,image/jpeg,image/png"
-              onChange={event =>
-                setEvidenceFile(event.target.files?.[0] ?? null)
-              }
-              required
-            />
-            <span className="text-xs text-muted-foreground">
-              {evidenceFile?.name ?? "No file selected"}
-            </span>
-          </label>
-          {message ? (
-            <p className="flex items-start gap-2 text-sm text-muted-foreground">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              {message}
-            </p>
-          ) : null}
-          <Button type="submit" disabled={submitCredential.isPending}>
-            {submitCredential.isPending
-              ? "Uploading…"
-              : "Submit for verification"}
-          </Button>
-        </form>
+            ) : null}
+            <Button type="submit" disabled={submitCredential.isPending}>
+              {submitCredential.isPending ? "Uploading…" : "Submit for review"}
+            </Button>
+          </form>
+        )}
 
-        <div className="space-y-2">
-          <h3 className="font-semibold">Recent submissions</h3>
-          {submitted.length ? (
-            submitted.map(row => (
-              <div
-                key={row.id}
-                className="flex flex-col gap-1 rounded-lg border p-3 text-sm md:flex-row md:items-center md:justify-between"
-              >
-                <div>
-                  <p className="font-medium">{row.sourceLabel}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {row.issuer}
-                    {row.credentialNumber
-                      ? ` · ${row.credentialType === "regulatory_license" ? "Licence no." : "Reference"}: ${row.credentialNumber}`
-                      : ""} · Valid until {dateLabel(row.expiresAt)}
-                  </p>
+        {submitted.length ? (
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">Your submissions</h3>
+            {submitted.map(row => (
+              <div key={row.id} className="rounded-lg border p-3 text-sm">
+                <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="font-medium">{row.sourceLabel}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {row.issuer}
+                      {row.credentialNumber ? ` · ${row.credentialType === "regulatory_license" ? "Licence no." : "Reference"}: ${row.credentialNumber}` : ""} · Valid until {dateLabel(row.expiresAt)}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-muted px-2 py-1 text-xs capitalize">{statusLabel(row.displayStatus)}</span>
                 </div>
-                <span className="rounded-full bg-muted px-2 py-1 text-xs capitalize">
-                  {statusLabel(row.displayStatus)}
-                </span>
+                {row.reviewReason && (row.displayStatus === "rejected" || row.displayStatus === "revoked") ? (
+                  <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-800">Reviewer's note: {row.reviewReason}</p>
+                ) : null}
               </div>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No regulatory or external AHA credentials submitted.
-            </p>
-          )}
-        </div>
+            ))}
+          </div>
+        ) : null}
+
+        {derivedSummary.length ? (
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">Paeds Resus certificates you have earned</h3>
+            <div className="grid gap-3 md:grid-cols-2">
+              {derivedSummary.map(row => (
+                <details key={row.id} className="rounded-lg border bg-muted/20 p-3">
+                  <summary className="cursor-pointer list-none">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">{credentialLabel(row.credentialType)}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{row.sourceLabel}</p>
+                      </div>
+                      <span className="text-xs font-medium text-primary">View details</span>
+                    </div>
+                    <p className="mt-2 flex items-center gap-1 text-xs capitalize"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> {statusLabel(row.displayStatus)}</p>
+                  </summary>
+                  <div className="mt-3 border-t pt-3 text-xs text-muted-foreground">
+                    <p>Issued {dateLabel(row.issuedAt)} · Valid until {dateLabel(row.expiresAt)}</p>
+                  </div>
+                </details>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

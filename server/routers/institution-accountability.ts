@@ -355,7 +355,10 @@ export const institutionAccountabilityRouter = router({
         ))
         .orderBy(input.status === "pending" ? asc(professionalCredentials.createdAt) : desc(professionalCredentials.updatedAt))
         .limit(input.limit);
-      return rows.map(row => ({
+      // A provider linked to several institutions appears once per link; show each credential once.
+      const seen = new Set<number>();
+      const unique = rows.filter(row => (seen.has(row.credential.id) ? false : (seen.add(row.credential.id), true)));
+      return unique.map(row => ({
         id: row.credential.id,
         userId: row.credential.userId,
         userName: row.userName,
@@ -745,6 +748,8 @@ export const institutionAccountabilityRouter = router({
         evidenceSizeBytes = buffer.length;
       }
 
+      // Only an earlier pending submission is replaced. A verified licence stays in force until the
+      // renewal is verified, so a renewal never switches a provider off duty while it waits for review.
       await db
         .update(professionalCredentials)
         .set({ status: "superseded", updatedAt: new Date() })
@@ -752,10 +757,7 @@ export const institutionAccountabilityRouter = router({
           and(
             eq(professionalCredentials.userId, ctx.user.id),
             eq(professionalCredentials.credentialType, input.credentialType),
-            or(
-              eq(professionalCredentials.status, "pending"),
-              eq(professionalCredentials.status, "verified")
-            )
+            eq(professionalCredentials.status, "pending")
           )
         );
 
@@ -810,9 +812,21 @@ export const institutionAccountabilityRouter = router({
 
   /** Scoped verifier may obtain a short-lived private evidence URL for review. */
   getScopedCredentialEvidenceUrl: protectedProcedure
-    .input(z.object({ institutionId: z.number().int().positive(), credentialId: z.number().int().positive() }))
+    .input(z.object({ institutionId: z.number().int().positive().optional(), credentialId: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
       const db = await requireDb();
+      if (input.institutionId == null) {
+        if (ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Evidence verification is not available for your role." });
+        }
+        const [row] = await db
+          .select({ evidenceKey: professionalCredentials.evidenceKey })
+          .from(professionalCredentials)
+          .where(eq(professionalCredentials.id, input.credentialId))
+          .limit(1);
+        if (!row?.evidenceKey) throw new TRPCError({ code: "NOT_FOUND", message: "Credential evidence not found." });
+        return storageGet(row.evidenceKey);
+      }
       const access = await getCredentialAccess(db, ctx.user, input.institutionId);
       if (!access.canViewEvidence) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Evidence verification is not available for your role." });
@@ -843,7 +857,8 @@ export const institutionAccountabilityRouter = router({
   reviewCredential: protectedProcedure
     .input(
       z.object({
-        institutionId: z.number().int().positive(),
+        /** Omit only when a platform administrator reviews a provider who is not linked to an institution. */
+        institutionId: z.number().int().positive().optional(),
         credentialId: z.number().int().positive(),
         decision: z.enum(["verified", "rejected", "revoked"]),
         reason: z.string().trim().min(3).max(1000),
@@ -851,11 +866,6 @@ export const institutionAccountabilityRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
-      const access = await getCredentialAccess(
-        db,
-        ctx.user,
-        input.institutionId
-      );
       const [credential] = await db
         .select()
         .from(professionalCredentials)
@@ -866,46 +876,60 @@ export const institutionAccountabilityRouter = router({
           code: "NOT_FOUND",
           message: "Credential not found.",
         });
-      const staffRows = await db
-        .select({
-          departmentId: institutionalStaffMembers.facilityDepartmentId,
-        })
-        .from(institutionalStaffMembers)
-        .where(
-          and(
-            eq(
-              institutionalStaffMembers.institutionalAccountId,
-              input.institutionId
-            ),
-            eq(institutionalStaffMembers.userId, credential.userId),
-            sql`${institutionalStaffMembers.removedAt} IS NULL`
-          )
+      if (input.institutionId == null) {
+        if (ctx.user.role !== "admin") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Only a platform administrator can review a credential without an institution.",
+          });
+        }
+      } else {
+        const access = await getCredentialAccess(
+          db,
+          ctx.user,
+          input.institutionId
         );
-      if (!staffRows.length)
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message:
-            "This credential owner is not an active staff member of the institution.",
-        });
-      if (
-        access.departmentIds &&
-        !staffRows.some(
-          row =>
-            row.departmentId != null &&
-            access.departmentIds!.includes(row.departmentId)
-        )
-      ) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "This credential is outside your assigned department scope.",
-        });
-      }
-      if (!access.canViewEvidence) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message:
-            "Evidence verification requires an institution administrator, credential manager, or authorized Departmental Head.",
-        });
+        const staffRows = await db
+          .select({
+            departmentId: institutionalStaffMembers.facilityDepartmentId,
+          })
+          .from(institutionalStaffMembers)
+          .where(
+            and(
+              eq(
+                institutionalStaffMembers.institutionalAccountId,
+                input.institutionId
+              ),
+              eq(institutionalStaffMembers.userId, credential.userId),
+              sql`${institutionalStaffMembers.removedAt} IS NULL`
+            )
+          );
+        if (!staffRows.length)
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "This credential owner is not an active staff member of the institution.",
+          });
+        if (
+          access.departmentIds &&
+          !staffRows.some(
+            row =>
+              row.departmentId != null &&
+              access.departmentIds!.includes(row.departmentId)
+          )
+        ) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "This credential is outside your assigned department scope.",
+          });
+        }
+        if (!access.canViewEvidence) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Evidence verification requires an institution administrator, credential manager, or authorized Departmental Head.",
+          });
+        }
       }
       if (
         input.decision === "verified" &&
@@ -956,6 +980,20 @@ export const institutionAccountabilityRouter = router({
           updatedAt: new Date(),
         })
         .where(eq(professionalCredentials.id, credential.id));
+      if (input.decision === "verified") {
+        // The renewal is now the licence in force; retire the one it replaces.
+        await db
+          .update(professionalCredentials)
+          .set({ status: "superseded", updatedAt: new Date() })
+          .where(
+            and(
+              eq(professionalCredentials.userId, credential.userId),
+              eq(professionalCredentials.credentialType, credential.credentialType),
+              eq(professionalCredentials.status, "verified"),
+              ne(professionalCredentials.id, credential.id)
+            )
+          );
+      }
       const [recipient] = await db
         .select({ name: users.name, email: users.email })
         .from(users)
@@ -972,7 +1010,7 @@ export const institutionAccountabilityRouter = router({
         requiresAction: input.decision !== "verified",
         title: `Credential ${decisionLabel}`,
         body: notificationBody,
-        actionUrl: "/provider-profile",
+        actionUrl: "/provider-profile#professional-credentials",
         relatedId: credential.id,
         dataJson: JSON.stringify({ decision: input.decision, reason: input.reason }),
       });
