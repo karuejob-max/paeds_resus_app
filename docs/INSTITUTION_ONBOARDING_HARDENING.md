@@ -265,3 +265,7 @@ Migration 0206 adds `servicePrices`. Admins set standard prices and dated offers
 - A renewal no longer replaces the verified licence it renews. The old licence stays in force until the new one is verified, so providers do not drop off duty while they wait.
 - Platform administrators can verify, reject and open evidence for providers who are not linked to an institution (these were stuck pending).
 - Review queue lists each credential once; rejection has quick reasons; decision notifications open the licence section.
+
+## Licence review queue (PR Y)
+
+People & Access > Directory shows a "Licences to review" card for institution admins, credential managers and department heads. It lists pending licences oldest first, one at a time: open the evidence (Verify unlocks only after it has been opened), then verify or return with a reason using quick-reason chips. Department heads see only their departments.

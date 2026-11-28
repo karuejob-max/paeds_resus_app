@@ -1,7 +1,10 @@
 import { z } from "zod";
+import { and, asc, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
+import { institutionalStaffMembers, professionalCredentials } from "../../drizzle/schema";
+import { activeStaffCondition } from "../lib/institution-active-member";
 import { getCredentialAccess } from "./institution-accountability";
 import {
   buildLicenceFollowUp,
@@ -50,6 +53,51 @@ export const institutionLicenceFollowupRouter = router({
         .sort((a, b) => Number(b.overdue) - Number(a.overdue) || a.name.localeCompare(b.name))
         .slice(0, 300),
     };
+  }),
+
+  /** Pending licences the caller may review, oldest first. Empty when the caller cannot review evidence. */
+  pendingLicences: protectedProcedure.input(institutionInput).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    let access;
+    try {
+      access = await getCredentialAccess(db, ctx.user, input.institutionId);
+    } catch (error) {
+      if (error instanceof TRPCError && error.code === "FORBIDDEN") return [];
+      throw error;
+    }
+    if (!access.canViewEvidence) return [];
+    const rows = await db
+      .select({
+        credentialId: professionalCredentials.id,
+        name: institutionalStaffMembers.staffName,
+        department: institutionalStaffMembers.department,
+        departmentId: institutionalStaffMembers.facilityDepartmentId,
+        cadre: professionalCredentials.cadre,
+        issuer: professionalCredentials.issuer,
+        jurisdiction: professionalCredentials.jurisdiction,
+        credentialNumber: professionalCredentials.credentialNumber,
+        issuedAt: professionalCredentials.issuedAt,
+        expiresAt: professionalCredentials.expiresAt,
+        submittedAt: professionalCredentials.createdAt,
+        evidenceUploaded: professionalCredentials.evidenceKey,
+      })
+      .from(professionalCredentials)
+      .innerJoin(institutionalStaffMembers, eq(institutionalStaffMembers.userId, professionalCredentials.userId))
+      .where(
+        and(
+          eq(institutionalStaffMembers.institutionalAccountId, input.institutionId),
+          activeStaffCondition(),
+          eq(professionalCredentials.credentialType, "regulatory_license"),
+          eq(professionalCredentials.status, "pending"),
+        ),
+      )
+      .orderBy(asc(professionalCredentials.createdAt))
+      .limit(400);
+    const seen = new Set<number>();
+    return rows
+      .filter((row) => !access.departmentIds || (row.departmentId != null && access.departmentIds.includes(row.departmentId)))
+      .filter((row) => (seen.has(row.credentialId) ? false : (seen.add(row.credentialId), true)))
+      .map(({ evidenceUploaded, departmentId: _departmentId, ...row }) => ({ ...row, evidenceUploaded: evidenceUploaded != null }));
   }),
 
   setDeadline: protectedProcedure
