@@ -15,7 +15,23 @@ import "./index.css";
 import { registerServiceWorker } from "@/lib/registerSW";
 import { PatientDemographicsProvider } from "@/contexts/PatientDemographicsContext";
 
-const queryClient = new QueryClient();
+// Defaults tuned for a slow, shared API: without a stale window every page
+// navigation re-fetched the same global queries (profile, workspace,
+// notifications), and three automatic retries kept failing pages spinning for
+// many seconds. Individual queries can still override these.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+      retry: (failureCount, error) => {
+        const code = (error as { data?: { code?: string } } | null)?.data?.code;
+        if (code === "UNAUTHORIZED" || code === "FORBIDDEN" || code === "NOT_FOUND" || code === "BAD_REQUEST") return false;
+        return failureCount < 1;
+      },
+    },
+  },
+});
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
