@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { askReason, askConfirm } from "@/lib/ask-reason";
 import {
   AlertCircle,
   CheckCircle2,
@@ -768,7 +769,7 @@ export default function AdminNerpVerification() {
               <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full min-w-[720px] text-sm">
                   <thead className="bg-muted/40"><tr><th className="p-3 text-left">Match</th><th className="p-3 text-left">Reason</th><th className="p-3 text-left">Note</th><th className="p-3 text-right">Action</th></tr></thead>
-                  <tbody>{suppressions.data.map(row => <tr key={row.id} className="border-t"><td className="p-3"><div className="font-medium">{row.matchValue}</div><div className="text-xs text-muted-foreground">{row.matchType === "exact_name" ? "Exact full name" : "Email"}</div></td><td className="p-3">{row.reasonCode.replaceAll("_", " ")}</td><td className="p-3 text-muted-foreground">{row.note || "—"}</td><td className="p-3 text-right"><Button type="button" size="sm" variant="outline" onClick={() => { const reason = window.prompt("Reason for removing this suppression:"); if (reason?.trim()) deactivateSuppression.mutate({ institutionalAccountId: 3, suppressionId: row.id, reason: reason.trim() }); }} disabled={deactivateSuppression.isPending}><Trash2 className="mr-1 h-4 w-4" />Deactivate</Button></td></tr>)}</tbody>
+                  <tbody>{suppressions.data.map(row => <tr key={row.id} className="border-t"><td className="p-3"><div className="font-medium">{row.matchValue}</div><div className="text-xs text-muted-foreground">{row.matchType === "exact_name" ? "Exact full name" : "Email"}</div></td><td className="p-3">{row.reasonCode.replaceAll("_", " ")}</td><td className="p-3 text-muted-foreground">{row.note || "—"}</td><td className="p-3 text-right"><Button type="button" size="sm" variant="outline" onClick={async () => { const reason = await askReason("Reason for removing this suppression:", { title: "Remove suppression", confirmLabel: "Deactivate" }); if (reason?.trim()) deactivateSuppression.mutate({ institutionalAccountId: 3, suppressionId: row.id, reason: reason.trim() }); }} disabled={deactivateSuppression.isPending}><Trash2 className="mr-1 h-4 w-4" />Deactivate</Button></td></tr>)}</tbody>
                 </table>
               </div>
             ) : <p className="text-sm text-muted-foreground">No active suppressions stored.</p>}

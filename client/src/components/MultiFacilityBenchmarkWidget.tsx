@@ -12,6 +12,7 @@
  * Used in: CareSignal page, HospitalAdminDashboard
  */
 
+import { toast } from "sonner";
 import React, { useState } from 'react';
 import { trpc } from '@/lib/trpc';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -75,7 +76,7 @@ export default function MultiFacilityBenchmarkWidget() {
   // Build and download CSV from MOH export data
   function downloadMOHCSV(rows: typeof mohData extends { rows: infer R } | undefined ? R : never) {
     if (!rows || rows.length === 0) {
-      alert('No data available for the selected timeframe (minimum 5 reports per gap required).');
+      toast.error('No data available for the selected timeframe (minimum 5 reports per gap required).');
       return;
     }
     const header = 'Intervention,Reports,Severity,First Reported,Last Reported,Timeframe';

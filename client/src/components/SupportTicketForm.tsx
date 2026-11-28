@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,7 +20,7 @@ export function SupportTicketForm() {
     e.preventDefault();
 
     if (!subject.trim() || !description.trim()) {
-      alert("Please fill in all required fields");
+      toast.error("Please fill in all required fields");
       return;
     }
 
@@ -37,7 +38,7 @@ export function SupportTicketForm() {
       setDescription("");
       setTimeout(() => setSubmitted(false), 5000);
     } catch (error) {
-      alert("Failed to create ticket. Please try again.");
+      toast.error("Failed to create ticket. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

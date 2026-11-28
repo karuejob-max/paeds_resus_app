@@ -5,6 +5,7 @@
  * with integrated severity assessment and intervention tracking
  */
 
+import { toast } from "sonner";
 import React, { useState, useCallback } from 'react';
 import {
   assessDKASeverity,
@@ -57,7 +58,7 @@ export const DKAEmergencyFlow: React.FC<DKAFlowProps> = ({
       assessment.pH === undefined ||
       assessment.bicarbonate === undefined
     ) {
-      alert('Please complete all laboratory values');
+      toast.error('Please complete all laboratory values');
       return;
     }
 

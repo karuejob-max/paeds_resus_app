@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { usePageMeta } from "@/hooks/usePageMeta";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -64,7 +65,7 @@ export default function Enroll() {
       setTimeout(() => setLocation("/home"), 3000);
     },
     onError: (error) => {
-      alert(`Enrollment failed: ${error.message}`);
+      toast.error(`Enrollment failed: ${error.message}`);
     },
   });
 
@@ -396,7 +397,7 @@ export default function Enroll() {
                                   onSubmit={(e) => {
                     e.preventDefault();
                     if (!agreeToTerms) {
-                      alert("Please agree to terms and conditions");
+                      toast.error("Please agree to terms and conditions");
                       return;
                     }
                     if (isAhaProgramSlug(selectedCourse)) {

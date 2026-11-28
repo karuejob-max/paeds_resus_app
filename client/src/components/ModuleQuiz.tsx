@@ -10,6 +10,7 @@
  * - Retry capability with score history
  */
 
+import { toast } from "sonner";
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -76,7 +77,7 @@ export function ModuleQuiz({ quiz, onComplete, onSkip }: ModuleQuizProps) {
 
   const handleSubmitAnswer = () => {
     if (!state.answers[state.currentQuestionIndex]) {
-      alert('Please select an answer');
+      toast.error('Please select an answer');
       return;
     }
 

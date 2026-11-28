@@ -1,4 +1,5 @@
 import { Building2, CheckCircle2, Clock3, ShieldCheck, UserCheck, X } from "lucide-react";
+import { askReason, askConfirm } from "@/lib/ask-reason";
 import { LegacyMemberReviewPanel } from "@/components/LegacyMemberReviewPanel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -100,9 +101,9 @@ export default function ProviderInstitutionReadinessCard() {
                 size="sm"
                 variant="outline"
                 disabled={acceptInvite.isPending || declineInvite.isPending}
-                onClick={() => {
-                  const reason = window.prompt("Why are you declining this institution invitation?")?.trim();
-                  if (reason && reason.length >= 3) declineInvite.mutate({ membershipId: membership.id, reason });
+                onClick={async () => {
+                  const reason = await askReason("Why are you declining this institution invitation?", { title: "Decline invitation", confirmLabel: "Decline" });
+                  if (reason) declineInvite.mutate({ membershipId: membership.id, reason });
                 }}
               >
                 <X className="h-4 w-4 mr-2" />
@@ -138,10 +139,10 @@ export default function ProviderInstitutionReadinessCard() {
                 variant="ghost"
                 className="text-slate-500 hover:text-red-700"
                 disabled={leaveInstitution.isPending}
-                onClick={() => {
-                  if (!window.confirm(`Leave ${membership.companyName}? Your roles and future duties there will end, and its administrators will be told.`)) return;
-                  const reason = window.prompt("Why are you leaving this institution?")?.trim();
-                  if (reason && reason.length >= 3) leaveInstitution.mutate({ membershipId: membership.id, reason });
+                onClick={async () => {
+                  if (!(await askConfirm(`Leave ${membership.companyName}? Your roles and future duties there will end, and its administrators will be told.`, { title: "Leave institution", confirmLabel: "Continue" }))) return;
+                  const reason = await askReason("Why are you leaving this institution?", { title: "Leave institution", confirmLabel: "Leave" });
+                  if (reason) leaveInstitution.mutate({ membershipId: membership.id, reason });
                 }}
               >
                 Leave institution

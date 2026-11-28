@@ -12,6 +12,7 @@
  * - Real-time timer display
  */
 
+import { toast } from "sonner";
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -242,7 +243,7 @@ export function InterventionSidebar({
           const timeline = timerService.exportTimeline(sessionId);
           console.log(timeline);
           // TODO: Add export to file functionality
-          alert('Timeline exported to console');
+          toast.success('Timeline exported to console');
         }}
         className="w-full border-gray-600 text-white"
       >

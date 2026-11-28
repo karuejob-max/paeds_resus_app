@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { askReason, askConfirm } from "@/lib/ask-reason";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,9 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { BriefcaseBusiness, CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
-function declineReason(): string | null {
-  const value = window.prompt("Why are you declining this role? The institution needs a reason to arrange cover.");
-  return value?.trim() || null;
+function declineReason(): Promise<string | null> {
+  return askReason("Why are you declining this role? The institution needs a reason to arrange cover.", { title: "Decline this role", confirmLabel: "Decline" });
 }
 
 function statusLabel(status: string): string {
@@ -43,8 +43,8 @@ export default function ProviderInstitutionRoleAssignmentsCard() {
   const ercoRows = (ercoAssignments ?? []).filter((row: any) => row.roleKey === "erco" || row.roleKey === "deputy_erco");
   if (headRows.length === 0 && educationRows.length === 0 && ercoRows.length === 0) return null;
 
-  const respond = (kind: "head" | "education" | "erco", id: number, response: "accept" | "decline", roleKey?: string) => {
-    const reason = response === "decline" ? declineReason() : undefined;
+  const respond = async (kind: "head" | "education" | "erco", id: number, response: "accept" | "decline", roleKey?: string) => {
+    const reason = response === "decline" ? await declineReason() : undefined;
     if (response === "decline" && !reason) return;
     setBusyKey(`${kind}-${id}`);
     if (kind === "head") respondHead.mutate({ assignmentId: id, response, declineReason: reason ?? undefined, roleKey: roleKey === "deputy_department_head" ? "deputy_department_head" : "department_head" });

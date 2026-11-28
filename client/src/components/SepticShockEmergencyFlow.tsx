@@ -5,6 +5,7 @@
  * with integrated severity assessment and intervention tracking
  */
 
+import { toast } from "sonner";
 import React, { useState, useCallback } from 'react';
 import {
   assessSepticShockSeverity,
@@ -46,7 +47,7 @@ export const SepticShockEmergencyFlow: React.FC<SepticShockFlowProps> = ({
 
   const handleAssessmentComplete = useCallback(() => {
     if (!assessment.temperature || assessment.heartRate === undefined || !assessment.systolicBP) {
-      alert('Please complete all vital signs');
+      toast.error('Please complete all vital signs');
       return;
     }
 

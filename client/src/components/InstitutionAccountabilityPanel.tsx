@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { askReason, askConfirm } from "@/lib/ask-reason";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -432,14 +433,14 @@ export function InstitutionAccountabilityPanel({
                                 <Button type="button" size="sm" disabled={reviewCredential.isPending} onClick={() => reviewCredential.mutate({ institutionId, credentialId: row.regulatoryCredential!.id, decision: "verified", reason: "Licence evidence reviewed by an authorised institutional verifier." })}>Verify</Button>
                               ) : null}
                               {row.regulatoryCredential.status === "pending" ? (
-                                <Button type="button" size="sm" variant="destructive" disabled={reviewCredential.isPending} onClick={() => {
-                                  const reason = window.prompt("Reason for rejecting this licence evidence:");
+                                <Button type="button" size="sm" variant="destructive" disabled={reviewCredential.isPending} onClick={async () => {
+                                  const reason = await askReason("Reason for rejecting this licence evidence:", { title: "Reject licence evidence", confirmLabel: "Reject" });
                                   if (reason?.trim()) reviewCredential.mutate({ institutionId, credentialId: row.regulatoryCredential!.id, decision: "rejected", reason: reason.trim() });
                                 }}>Reject</Button>
                               ) : null}
                               {row.regulatoryCredential.status === "verified" ? (
-                                <Button type="button" size="sm" variant="destructive" disabled={reviewCredential.isPending} onClick={() => {
-                                  const reason = window.prompt("Reason for revoking this licence verification:");
+                                <Button type="button" size="sm" variant="destructive" disabled={reviewCredential.isPending} onClick={async () => {
+                                  const reason = await askReason("Reason for revoking this licence verification:", { title: "Revoke licence verification", confirmLabel: "Revoke" });
                                   if (reason?.trim()) reviewCredential.mutate({ institutionId, credentialId: row.regulatoryCredential!.id, decision: "revoked", reason: reason.trim() });
                                 }}>Revoke</Button>
                               ) : null}

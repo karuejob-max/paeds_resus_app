@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { askReason, askConfirm } from "@/lib/ask-reason";
 import { TicketCheck } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -177,11 +178,12 @@ export function IlsAhaAccessCodeManagerCard({
                       variant="outline"
                       size="sm"
                       disabled={revoke.isPending}
-                      onClick={() => {
-                        const reason = window.prompt(
-                          "Reason for revoking this code (minimum 10 characters):"
+                      onClick={async () => {
+                        const reason = await askReason(
+                          "Reason for revoking this code (minimum 10 characters):",
+                          { title: "Revoke code", confirmLabel: "Revoke", minLength: 10 }
                         );
-                        if (reason && reason.trim().length >= 10)
+                        if (reason)
                           revoke.mutate({
                             institutionId,
                             entitlementId: code.id,

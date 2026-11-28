@@ -5,6 +5,7 @@
  * Supports PDF and text export for seamless care transitions
  */
 
+import { toast } from "sonner";
 import React, { useState } from 'react';
 import { Download, FileText, Share2 } from 'lucide-react';
 import type { SBARReport } from '@/lib/resus/sbar-generator';
@@ -93,7 +94,7 @@ export const SBARReportViewer: React.FC<SBARReportViewerProps> = ({
   const handleCopyToClipboard = () => {
     const textContent = formatSBARAsText(report);
     navigator.clipboard.writeText(textContent).then(() => {
-      alert('SBAR report copied to clipboard');
+      toast.success('SBAR report copied to clipboard');
     }).catch((error) => {
       console.error('Error copying to clipboard:', error);
     });
