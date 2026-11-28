@@ -2,6 +2,7 @@ import "dotenv/config";
 import fs from "node:fs";
 import mysql from "mysql2/promise";
 import { getConnectionConfig } from "./db-connection-config.mjs";
+import { planImport } from "./kmhfl-import-plan.mjs";
 
 /**
  * Load the official Kenya Master Health Facility List from a CSV export.
@@ -79,36 +80,45 @@ console.log("[kmhfl] First rows:");
 console.table(rows.slice(0, 3).map((r) => ({ name: r[col.name], code: r[col.code], county: col.county >= 0 ? r[col.county] : "", type: col.type >= 0 ? r[col.type] : "" })));
 console.log(`[kmhfl] ${rows.length} data rows read.`);
 
-const connection = await mysql.createConnection(await getConnectionConfig(process.env.DATABASE_URL));
-let inserted = 0, updated = 0, converted = 0, skipped = 0;
-try {
-  for (const row of rows) {
-    const name = (row[col.name] ?? "").trim();
-    const code = (row[col.code] ?? "").trim();
-    const county = col.county >= 0 ? (row[col.county] ?? "").trim() || null : null;
-    const facilityType = col.type >= 0 ? (row[col.type] ?? "").trim() || null : null;
-    const rawStatus = col.status >= 0 ? (row[col.status] ?? "").trim().toLowerCase() : "";
-    const operationalStatus = rawStatus ? (/non|not|closed|inactive/.test(rawStatus) ? "non_operational" : "operational") : "operational";
-    if (!name || !/^[0-9]{4,6}$/.test(code)) { skipped += 1; continue; }
+const incoming = rows.map((row) => {
+  const rawStatus = col.status >= 0 ? (row[col.status] ?? "").trim().toLowerCase() : "";
+  return {
+    name: (row[col.name] ?? "").trim(),
+    code: (row[col.code] ?? "").trim(),
+    county: col.county >= 0 ? (row[col.county] ?? "").trim() || null : null,
+    facilityType: col.type >= 0 ? (row[col.type] ?? "").trim() || null : null,
+    operationalStatus: rawStatus && /non|not|closed|inactive/.test(rawStatus) ? "non_operational" : "operational",
+  };
+});
 
-    const [byCode] = await connection.query("SELECT id FROM kmhflFacilities WHERE code = ? LIMIT 1", [code]);
-    if (byCode.length > 0) {
-      if (!dryRun) await connection.execute("UPDATE kmhflFacilities SET name=?, county=?, facilityType=?, operationalStatus=?, sourceSystem='KMHFL' WHERE id=?", [name, county, facilityType, operationalStatus, byCode[0].id]);
-      updated += 1;
-      continue;
+const connection = await mysql.createConnection(await getConnectionConfig(process.env.DATABASE_URL));
+try {
+  // One read of the whole list, then batched writes: a few dozen round trips instead of tens of thousands.
+  const [existing] = await connection.query("SELECT id, name, code, county, facilityType, operationalStatus FROM kmhflFacilities");
+  const plan = planImport(incoming, existing);
+  console.log(`[kmhfl] Plan: ${plan.inserts.length} to insert, ${plan.updates.length} to update, ${plan.converted.length} sample rows to convert, ${plan.skipped} skipped (no usable code), ${plan.duplicates} repeated codes ignored.`);
+
+  if (!dryRun) {
+    const BATCH = 500;
+    for (let i = 0; i < plan.inserts.length; i += BATCH) {
+      const chunk = plan.inserts.slice(i, i + BATCH);
+      await connection.query(
+        "INSERT INTO kmhflFacilities (name, code, county, facilityType, operationalStatus, sourceSystem) VALUES ?",
+        [chunk.map((r) => [r.name, r.code, r.county, r.facilityType, r.operationalStatus, "KMHFL"])],
+      );
+      console.log(`[kmhfl] inserted ${Math.min(i + BATCH, plan.inserts.length)} / ${plan.inserts.length}`);
     }
-    const [sample] = await connection.query(
-      "SELECT id FROM kmhflFacilities WHERE LOWER(name) = LOWER(?) AND (code IS NULL OR code NOT REGEXP '^[0-9]{4,6}$') AND (county <=> ? OR ? IS NULL) LIMIT 1",
-      [name, county, county],
-    );
-    if (sample.length > 0) {
-      if (!dryRun) await connection.execute("UPDATE kmhflFacilities SET code=?, county=?, facilityType=?, operationalStatus=?, sourceSystem='KMHFL' WHERE id=?", [code, county, facilityType, operationalStatus, sample[0].id]);
-      converted += 1;
-      continue;
+    let done = 0;
+    for (const r of [...plan.updates, ...plan.converted]) {
+      await connection.execute(
+        "UPDATE kmhflFacilities SET name=?, code=?, county=?, facilityType=?, operationalStatus=?, sourceSystem='KMHFL' WHERE id=?",
+        [r.name, r.code, r.county, r.facilityType, r.operationalStatus, r.id],
+      );
+      done += 1;
+      if (done % 100 === 0) console.log(`[kmhfl] updated ${done} / ${plan.updates.length + plan.converted.length}`);
     }
-    if (!dryRun) await connection.execute("INSERT INTO kmhflFacilities (name, code, county, facilityType, operationalStatus, sourceSystem) VALUES (?,?,?,?,?, 'KMHFL')", [name, code, county, facilityType, operationalStatus]);
-    inserted += 1;
   }
+
   if (retireSamples) {
     const [[pending]] = await connection.query(`
       SELECT COUNT(*) AS n FROM kmhflFacilities f
@@ -126,7 +136,7 @@ try {
     }
     console.log(`[kmhfl] ${dryRun ? "DRY RUN. Would hide" : "Hid"} ${pending.n} leftover sample row(s).`);
   }
-  console.log(`[kmhfl] ${dryRun ? "DRY RUN. " : ""}inserted ${inserted}, updated ${updated}, converted sample rows ${converted}, skipped ${skipped}.`);
+  console.log(`[kmhfl] ${dryRun ? "DRY RUN finished. Nothing was written." : "Import finished."}`);
 } finally {
   await connection.end();
 }
