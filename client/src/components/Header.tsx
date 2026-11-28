@@ -80,10 +80,10 @@ export default function Header() {
         // Safe-Truth vs Care Signal below) applies here too. Keeping them
         // adjacent, not scattered, is what actually prevents mix-ups.
         { label: "Code Signal", href: "/code-signal", icon: "🫀", group: "safety" },
-        // Financial Strategy 1: life-support offers are discoverable before
+        // Life-support offers are discoverable before
         // the Fellowship in the Learn surface and dropdown.
-        { label: "NERP", href: "/programs/nerp-acls", icon: "🩺", group: "learn" },
-        { label: "IERP", href: "/programs/ierp", icon: "🩺", group: "learn" },
+        { label: "Nurse programme", href: "/programs/nerp-acls", icon: "🩺", group: "learn" },
+        { label: "Intern programme", href: "/programs/ierp", icon: "🩺", group: "learn" },
         { label: "Fellowship", href: "/fellowship", icon: "📚", group: "learn" },
         { label: "Learning guide", href: "/learning/guide", icon: "🧭", group: "learn" },
         { label: "Fellowship guide", href: "/fellowship/about", icon: "📖", group: "learn" },

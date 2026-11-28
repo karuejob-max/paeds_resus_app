@@ -29,6 +29,8 @@ import {
   buildMedicalOrganizationJsonLd,
   buildOrganizationJsonLd,
 } from "@/lib/seo-schema";
+import { useLivePrices } from "@/hooks/useLivePrices";
+import { COHORT_LABEL, formatKes } from "@/const/marketingCopy";
 import { PROVIDER_FAQ } from "@/const/publicFaq";
 import PublicFaqSection from "@/components/PublicFaqSection";
 
@@ -43,6 +45,9 @@ const INDIVIDUAL_PRODUCTS = [
       "AHA-aligned certification that opens doors, not just a line on a CV.",
     price: formatCohortLine(BLS_PRICE, BLS_COHORT_PRICE),
     href: "/training/bls",
+    courseId: "bls",
+    basePrice: BLS_PRICE,
+    cohortPrice: BLS_COHORT_PRICE,
   },
   {
     title: "AHA ACLS",
@@ -54,6 +59,9 @@ const INDIVIDUAL_PRODUCTS = [
       "AHA-aligned certification that opens doors, not just a line on a CV.",
     price: formatCohortLine(ACLS_PRICE, ACLS_COHORT_PRICE),
     href: "/training/acls",
+    courseId: "acls",
+    basePrice: ACLS_PRICE,
+    cohortPrice: ACLS_COHORT_PRICE,
   },
   {
     title: "NERP",
@@ -89,6 +97,14 @@ const INDIVIDUAL_PRODUCTS = [
 
 export default function ForProviders() {
   useScrollToTop();
+  const { priceFor } = useLivePrices();
+  const priceLine = (product: (typeof INDIVIDUAL_PRODUCTS)[number]) => {
+    const { courseId, basePrice, cohortPrice } = product as { courseId?: string; basePrice?: number; cohortPrice?: number };
+    if (!courseId || basePrice == null || cohortPrice == null) return product.price;
+    const live = priceFor(courseId, basePrice);
+    if (!live.offerLabel) return `${formatKes(live.price)} per person; ${formatKes(cohortPrice)} per person for ${COHORT_LABEL}`;
+    return `${live.offerLabel}: ${formatKes(live.price)} (was ${formatKes(live.standard)})`;
+  };
   usePageMeta({
     title: "Emergency Training for Healthcare Providers in Kenya | Paeds Resus",
     description:
@@ -233,7 +249,7 @@ export default function ForProviders() {
                     <p className="leading-relaxed">{product.supporting}</p>
                     <p className="leading-relaxed">{product.body}</p>
                     <p className="mt-auto rounded-lg bg-muted/60 px-3 py-2 text-xs font-semibold text-foreground">
-                      {product.price}
+                      {priceLine(product)}
                     </p>
                     <Link href={product.href}>
                       <Button variant="outline" className="w-full">
