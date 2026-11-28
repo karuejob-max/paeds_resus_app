@@ -234,7 +234,8 @@ export function ProviderCredentialsCard() {
 
   // Open the form straight away when there is something to do; keep it tucked away when the licence is fine.
   const needsLicence = !licence || (["rejected", "revoked", "expired"].includes(licence.displayStatus) && !renewalPending);
-  const formOpen = showForm ?? (needsLicence && credentialType === "regulatory_license");
+  const identityBlocked = isRegulatory && !hasLicensedIdentity && providerType == null;
+  const formOpen = !identityBlocked && (showForm ?? (needsLicence && credentialType === "regulatory_license"));
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -293,8 +294,6 @@ export function ProviderCredentialsCard() {
     }
   }
 
-  const identityBlocked = isRegulatory && !hasLicensedIdentity && providerType == null;
-
   return (
     <Card>
       <CardHeader>
@@ -306,7 +305,7 @@ export function ProviderCredentialsCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        <LicenceStatusBanner licence={licence} renewalPending={renewalPending} />
+        {identityBlocked ? null : <LicenceStatusBanner licence={licence} renewalPending={renewalPending} />}
 
         {identityBlocked ? (
           <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm">
@@ -318,9 +317,11 @@ export function ProviderCredentialsCard() {
 
         {!formOpen ? (
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={() => { setCredentialType("regulatory_license"); setShowForm(true); }}>
-              {licence ? "Renew or replace my licence" : "Add my licence"}
-            </Button>
+            {identityBlocked ? null : (
+              <Button type="button" variant="outline" onClick={() => { setCredentialType("regulatory_license"); setShowForm(true); }}>
+                {licence ? "Renew or replace my licence" : "Add my licence"}
+              </Button>
+            )}
             <Button type="button" variant="ghost" onClick={() => { setCredentialType("external_aha_bls"); setIssuerTouched(false); setIssuer(""); setShowForm(true); }}>
               Add an AHA certificate
             </Button>
