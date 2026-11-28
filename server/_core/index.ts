@@ -8,6 +8,7 @@ if (!process.env.DATABASE_URL?.trim()) {
 
 import express from "express";
 import { createServer } from "http";
+import { securityHeaders } from "./security-headers";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
@@ -59,6 +60,8 @@ async function startServer() {
   if (process.env.TRUST_PROXY === "true" || process.env.TRUST_PROXY === "1") {
     app.set("trust proxy", true);
   }
+  app.disable("x-powered-by");
+  app.use(securityHeaders);
   registerCanonicalDomainRedirect(app);
   // Provider webhook: raw body is required for HMAC verification and is registered before the global JSON parser.
   app.post("/api/payments/institutional/webhook", express.raw({ type: "application/json", limit: "2mb" }), (req, res) => handleInstitutionalPaymentWebhook(req, res));
