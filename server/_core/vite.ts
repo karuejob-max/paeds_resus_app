@@ -144,7 +144,18 @@ export function serveStatic(app: Express) {
     });
   }
 
-  app.use(express.static(distPath));
+  // Vite fingerprints its JS/CSS/font output in /assets, so those files can be cached
+  // for a year. Without this they were served with max-age=0 and revalidated
+  // (or re-downloaded) on every visit. HTML and the service worker stay fresh.
+  app.use(
+    express.static(distPath, {
+      setHeaders(res, filePath) {
+        if (/[\\/]assets[\\/][^\\/]+-[A-Za-z0-9_-]{8}\.(js|css|woff2?)$/.test(filePath)) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        }
+      },
+    })
+  );
 
   // Authenticated routes retain the SPA shell because role gates resolve them
   // after the session is read. Anonymous unknown paths must return a real 404
