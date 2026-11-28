@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -70,7 +71,7 @@ export const EmergencyProtocols: React.FC = () => {
           category={selectedProtocol as any}
           patientId={selectedPatientId || 1}
           onComplete={(outcome) => {
-            alert(`Protocol completed with outcome: ${outcome}`);
+            toast.success(`Protocol completed with outcome: ${outcome}`);
             setShowViewer(false);
             setSelectedProtocol(null);
           }}

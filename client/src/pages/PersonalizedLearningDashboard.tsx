@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Clock, TrendingUp, Users, Home, ArrowLeft, Play } from "lucide-react";
@@ -70,7 +71,7 @@ export default function PersonalizedLearningDashboard() {
     if (!startedCourses.includes(courseId)) {
       setStartedCourses([...startedCourses, courseId]);
     }
-    alert("Course started! You can continue learning at your own pace.");
+    toast.success("Course started! You can continue learning at your own pace.");
   };
 
   const completedCount = courses.filter((c) => c.status === "completed").length;

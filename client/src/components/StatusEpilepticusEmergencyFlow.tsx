@@ -5,6 +5,7 @@
  * with time-based escalation and intervention tracking
  */
 
+import { toast } from "sonner";
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   assessStatusEpilepticusSeverity,
@@ -64,7 +65,7 @@ export const StatusEpilepticusEmergencyFlow: React.FC<StatusEpilepticusFlowProps
       assessment.airwayPatency === undefined ||
       assessment.oxygenSaturation === undefined
     ) {
-      alert('Please complete all clinical assessments');
+      toast.error('Please complete all clinical assessments');
       return;
     }
 

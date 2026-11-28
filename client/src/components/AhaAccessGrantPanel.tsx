@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { askReason, askConfirm } from "@/lib/ask-reason";
 import { ShieldCheck, UserPlus, XCircle } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -111,7 +112,7 @@ export default function AhaAccessGrantPanel() {
                   <p className="font-medium">{grant.userName || grant.userEmail || `User #${grant.userId}`} · {grant.programType ? AHA_PROGRAM_LABELS[grant.programType] : "All Life Support courses"}</p>
                   <p className="text-xs text-muted-foreground">{grant.reason}{grant.expiresAt ? ` · expires ${new Date(grant.expiresAt).toLocaleDateString()}` : " · no expiry"}</p>
                 </div>
-                {active ? <Button type="button" size="sm" variant="outline" onClick={() => { const revokeReason = window.prompt("Reason for revoking this grant:"); if (revokeReason?.trim()) revokeMutation.mutate({ grantId: grant.id, reason: revokeReason.trim() }); }} disabled={revokeMutation.isPending}><XCircle className="mr-1 h-4 w-4" />Revoke</Button> : <span className="text-xs text-muted-foreground">Inactive</span>}
+                {active ? <Button type="button" size="sm" variant="outline" onClick={async () => { const revokeReason = await askReason("Reason for revoking this grant:", { title: "Revoke grant", confirmLabel: "Revoke" }); if (revokeReason?.trim()) revokeMutation.mutate({ grantId: grant.id, reason: revokeReason.trim() }); }} disabled={revokeMutation.isPending}><XCircle className="mr-1 h-4 w-4" />Revoke</Button> : <span className="text-xs text-muted-foreground">Inactive</span>}
               </div>
             );
           }) : <p className="text-sm text-muted-foreground">No named-user Life Support grants recorded.</p>}

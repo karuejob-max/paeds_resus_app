@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { askReason, askConfirm } from "@/lib/ask-reason";
 import { trpc } from "@/lib/trpc";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -17,9 +18,8 @@ function formatShiftInterval(startTime: string | null | undefined, endTime: stri
   return `${startTime.slice(0, 5)}–${endTime.slice(0, 5)}${endDayOffset === 1 ? " (+1 day)" : ""}`;
 }
 
-function responseReason(): string | null {
-  const reason = window.prompt("Why are you declining? This helps the institution arrange cover.");
-  return reason?.trim() || null;
+function responseReason(): Promise<string | null> {
+  return askReason("Why are you declining? This helps the institution arrange cover.", { title: "Decline this duty", confirmLabel: "Decline" });
 }
 
 export default function ProviderIersDutyAssignmentCard() {
@@ -66,12 +66,12 @@ export default function ProviderIersDutyAssignmentCard() {
 
   const renderErtlActions = (assignment: NonNullable<typeof dutyAssignments>["ertl"][number]) => {
     if (assignment.assignmentStatus !== "pending_acceptance") return null;
-    return <div className="mt-3 flex flex-wrap gap-2"><Button size="sm" onClick={() => respondErtl.mutate({ rotationId: assignment.id, response: "accept" })} disabled={respondErtl.isPending}><CheckCircle2 className="mr-1.5 h-4 w-4" />Accept ERTL duty</Button><Button size="sm" variant="outline" onClick={() => { const reason = responseReason(); if (reason) respondErtl.mutate({ rotationId: assignment.id, response: "decline", declineReason: reason }); }} disabled={respondErtl.isPending}><XCircle className="mr-1.5 h-4 w-4" />Decline</Button></div>;
+    return <div className="mt-3 flex flex-wrap gap-2"><Button size="sm" onClick={() => respondErtl.mutate({ rotationId: assignment.id, response: "accept" })} disabled={respondErtl.isPending}><CheckCircle2 className="mr-1.5 h-4 w-4" />Accept ERTL duty</Button><Button size="sm" variant="outline" onClick={async () => { const reason = await responseReason(); if (reason) respondErtl.mutate({ rotationId: assignment.id, response: "decline", declineReason: reason }); }} disabled={respondErtl.isPending}><XCircle className="mr-1.5 h-4 w-4" />Decline</Button></div>;
   };
 
   const renderUtlActions = (assignment: NonNullable<typeof dutyAssignments>["utl"][number]) => {
     if (assignment.assignmentStatus !== "pending_acceptance") return null;
-    return <div className="mt-3 flex flex-wrap gap-2"><Button size="sm" onClick={() => respondUtl.mutate({ rosterId: assignment.id, response: "accept" })} disabled={respondUtl.isPending}><CheckCircle2 className="mr-1.5 h-4 w-4" />Accept shift duty</Button><Button size="sm" variant="outline" onClick={() => { const reason = responseReason(); if (reason) respondUtl.mutate({ rosterId: assignment.id, response: "decline", declineReason: reason }); }} disabled={respondUtl.isPending}><XCircle className="mr-1.5 h-4 w-4" />Decline</Button></div>;
+    return <div className="mt-3 flex flex-wrap gap-2"><Button size="sm" onClick={() => respondUtl.mutate({ rosterId: assignment.id, response: "accept" })} disabled={respondUtl.isPending}><CheckCircle2 className="mr-1.5 h-4 w-4" />Accept shift duty</Button><Button size="sm" variant="outline" onClick={async () => { const reason = await responseReason(); if (reason) respondUtl.mutate({ rosterId: assignment.id, response: "decline", declineReason: reason }); }} disabled={respondUtl.isPending}><XCircle className="mr-1.5 h-4 w-4" />Decline</Button></div>;
   };
 
   return (
@@ -115,8 +115,8 @@ export default function ProviderIersDutyAssignmentCard() {
                       <Clock3 className="h-4 w-4 text-amber-700" />
                       <AlertTitle>Confirm your governance appointment</AlertTitle>
                       <AlertDescription className="mt-2 flex flex-wrap gap-2">
-                        {needsCoordinatorResponse && <><Button size="sm" onClick={() => respondCoordinator.mutate({ assignmentId: assignment.id, response: "accept" })} disabled={respondCoordinator.isPending}><CheckCircle2 className="mr-1.5 h-4 w-4" />Accept ERCo appointment</Button><Button size="sm" variant="outline" onClick={() => { const reason = responseReason(); if (reason) respondCoordinator.mutate({ assignmentId: assignment.id, response: "decline", declineReason: reason }); }} disabled={respondCoordinator.isPending}><XCircle className="mr-1.5 h-4 w-4" />Decline</Button></>}
-                        {needsAssistantResponse && <><Button size="sm" onClick={() => respondAssistant.mutate({ assignmentId: assignment.id, response: "accept" })} disabled={respondAssistant.isPending}><CheckCircle2 className="mr-1.5 h-4 w-4" />Accept additional cover</Button><Button size="sm" variant="outline" onClick={() => { const reason = responseReason(); if (reason) respondAssistant.mutate({ assignmentId: assignment.id, response: "decline", declineReason: reason }); }} disabled={respondAssistant.isPending}><XCircle className="mr-1.5 h-4 w-4" />Decline</Button></>}
+                        {needsCoordinatorResponse && <><Button size="sm" onClick={() => respondCoordinator.mutate({ assignmentId: assignment.id, response: "accept" })} disabled={respondCoordinator.isPending}><CheckCircle2 className="mr-1.5 h-4 w-4" />Accept ERCo appointment</Button><Button size="sm" variant="outline" onClick={async () => { const reason = await responseReason(); if (reason) respondCoordinator.mutate({ assignmentId: assignment.id, response: "decline", declineReason: reason }); }} disabled={respondCoordinator.isPending}><XCircle className="mr-1.5 h-4 w-4" />Decline</Button></>}
+                        {needsAssistantResponse && <><Button size="sm" onClick={() => respondAssistant.mutate({ assignmentId: assignment.id, response: "accept" })} disabled={respondAssistant.isPending}><CheckCircle2 className="mr-1.5 h-4 w-4" />Accept additional cover</Button><Button size="sm" variant="outline" onClick={async () => { const reason = await responseReason(); if (reason) respondAssistant.mutate({ assignmentId: assignment.id, response: "decline", declineReason: reason }); }} disabled={respondAssistant.isPending}><XCircle className="mr-1.5 h-4 w-4" />Decline</Button></>}
                       </AlertDescription>
                     </Alert>
                   )}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { askReason, askConfirm } from "@/lib/ask-reason";
 import { QRCodeSVG } from "qrcode.react";
 import { trpc } from "@/lib/trpc";
 import SignaturePad from "@/components/SignaturePad";
@@ -1090,10 +1091,10 @@ export default function CpdPanel({ institutionId, compact = false }: CpdPanelPro
                                   title="Void CPD session (requires a reason; records preserved)"
                                   className="text-amber-700 hover:text-amber-800 hover:bg-amber-50"
                                   disabled={voidEventMutation.isPending}
-                                  onClick={() => {
-                                    const reason = window.prompt("Why is this CPD session being voided? This action preserves the audit trail.");
+                                  onClick={async () => {
+                                    const reason = await askReason("Why is this CPD session being voided? This action preserves the audit trail.", { title: "Void CPD session", confirmLabel: "Continue" });
                                     if (!reason?.trim()) return;
-                                    if (!window.confirm("Void this CPD session? Attendance records will be cancelled and the action cannot be undone.")) return;
+                                    if (!(await askConfirm("Void this CPD session? Attendance records will be cancelled and the action cannot be undone.", { title: "Void CPD session", confirmLabel: "Void session" }))) return;
                                     voidEventMutation.mutate({ institutionId, eventId: event.id, reason: reason.trim() });
                                   }}
                                 >

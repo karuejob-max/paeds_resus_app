@@ -18,6 +18,7 @@ import { buildLoginUrl, getCurrentAppPath } from "@/lib/authRedirect";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
+import { ReasonDialogHost } from "@/lib/ask-reason";
 import { LegalReconsentGate } from "@/components/LegalReconsentGate";
 import { trpc } from "@/lib/trpc";
 import { AHA_HUB_STALE_MS } from "@/const/aha-hub-query";
@@ -823,6 +824,7 @@ function App() {
       <ThemeProvider defaultTheme="light" switchable>
         <TooltipProvider>
           <Toaster />
+          <ReasonDialogHost />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

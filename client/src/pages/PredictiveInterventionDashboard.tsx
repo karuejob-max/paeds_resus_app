@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle, Clock, TrendingUp, Activity, Zap, Home, ArrowLeft } from "lucide-react";
@@ -57,7 +58,7 @@ export default function PredictiveInterventionDashboard() {
 
   const handleConfirmAction = (patientId: string) => {
     setConfirmedActions([...confirmedActions, patientId]);
-    alert(`Action confirmed for patient. Healthcare team has been notified.`);
+    toast.success(`Action confirmed for patient. Healthcare team has been notified.`);
   };
 
   const getSeverityColor = (severity: string) => {

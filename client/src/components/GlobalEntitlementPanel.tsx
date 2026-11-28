@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { askReason, askConfirm } from "@/lib/ask-reason";
 import {
   BadgePercent,
   Building2,
@@ -599,9 +600,10 @@ export default function GlobalEntitlementPanel() {
                       type="button"
                       size="sm"
                       variant="outline"
-                      onClick={() => {
-                        const revokeReason = window.prompt(
-                          "Reason for revoking this entitlement:"
+                      onClick={async () => {
+                        const revokeReason = await askReason(
+                          "Reason for revoking this entitlement:",
+                          { title: "Revoke entitlement", confirmLabel: "Revoke" }
                         );
                         if (revokeReason?.trim())
                           revokeMutation.mutate({

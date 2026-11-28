@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -22,7 +23,7 @@ export function NPSSurveyWidget() {
 
   const handleSubmit = async () => {
     if (score === null) {
-      alert("Please select a score");
+      toast.error("Please select a score");
       return;
     }
 

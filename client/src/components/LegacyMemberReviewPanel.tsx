@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { askReason } from "@/lib/ask-reason";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +34,7 @@ export function LegacyMemberReviewPanel({ institutionId }: { institutionId: numb
   const isInstitution = list.data.tier === "institution";
   const busy = confirm.isPending || notMine.isPending || remove.isPending || assign.isPending;
 
-  const ask = (question: string) => window.prompt(question)?.trim() ?? "";
+  const ask = async (question: string) => (await askReason(question)) ?? "";
 
   return (
     <Card>
@@ -71,8 +72,8 @@ export function LegacyMemberReviewPanel({ institutionId }: { institutionId: numb
                   size="sm"
                   variant="outline"
                   disabled={busy}
-                  onClick={() => {
-                    const note = ask("Why is this person not in your department? (for example: works in theatre, or I don't recognise them)");
+                  onClick={async () => {
+                    const note = await ask("Why is this person not in your department? (for example: works in theatre, or I don't recognise them)");
                     if (note.length >= 3) notMine.mutate({ institutionId, membershipId: member.membershipId, note });
                   }}
                 >
@@ -101,8 +102,8 @@ export function LegacyMemberReviewPanel({ institutionId }: { institutionId: numb
                     variant="outline"
                     className="text-red-700"
                     disabled={busy}
-                    onClick={() => {
-                      const reason = ask(`Why is ${member.name} being removed? Their access, roles and future duties here will end.`);
+                    onClick={async () => {
+                      const reason = await ask(`Why is ${member.name} being removed? Their access, roles and future duties here will end.`);
                       if (reason.length >= 3) remove.mutate({ institutionId, membershipId: member.membershipId, reason });
                     }}
                   >
