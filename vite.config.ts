@@ -26,10 +26,16 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
-          if (id.includes("react-dom")) return "vendor-react-dom";
-          if (id.includes("@tanstack/react-query")) return "vendor-rq";
-          if (id.includes("@trpc")) return "vendor-trpc";
-          if (id.includes("lucide-react")) return "vendor-icons";
+          // Match the real package name only. With pnpm, the directory name of
+          // any package that lists react-dom as a peer (every Radix package,
+          // for example) contains the text "react-dom", so a substring match
+          // pulled them all into one ~770 KB eagerly loaded chunk.
+          const segments = id.split("node_modules/");
+          const pkg = segments[segments.length - 1].split("/").slice(0, id.includes("node_modules/@") && segments[segments.length - 1].startsWith("@") ? 2 : 1).join("/");
+          if (pkg === "react-dom" || pkg === "scheduler" || pkg === "react" || pkg === "react/jsx-runtime") return "vendor-react-dom";
+          if (pkg === "@tanstack/react-query" || pkg === "@tanstack/query-core") return "vendor-rq";
+          if (pkg.startsWith("@trpc/")) return "vendor-trpc";
+          if (pkg === "lucide-react") return "vendor-icons";
         },
       },
     },
