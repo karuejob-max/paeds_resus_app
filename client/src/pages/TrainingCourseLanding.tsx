@@ -13,6 +13,7 @@ import { usePageMeta } from "@/hooks/usePageMeta";
 import { useScrollToTop } from "@/hooks/useScrollToTop";
 import { getLoginUrl } from "@/const";
 import { formatPrice } from "@/const/pricing";
+import { useLivePrices } from "@/hooks/useLivePrices";
 import { AhaCourseDurationLines } from "@/components/AhaCourseDurationLines";
 import {
   TRAINING_LANDING_CONFIGS,
@@ -35,7 +36,10 @@ type Props = {
 
 export default function TrainingCourseLanding({ slug }: Props) {
   const config = TRAINING_LANDING_CONFIGS[slug];
-  const price = getTrainingPrice(slug);
+  const standardPrice = getTrainingPrice(slug);
+  const { priceFor } = useLivePrices();
+  const live = config.priceCourseId && standardPrice != null ? priceFor(config.priceCourseId, standardPrice) : null;
+  const price = live ? live.price : standardPrice;
 
   useScrollToTop();
   usePageMeta({
@@ -52,7 +56,7 @@ export default function TrainingCourseLanding({ slug }: Props) {
       path: config.path,
       courseCode: config.courseCode,
       duration: config.duration,
-      priceKes: price,
+      priceKes: standardPrice,
     }),
     buildFaqPageJsonLd(config.faqs, config.path),
     buildBreadcrumbListJsonLd([
@@ -83,6 +87,11 @@ export default function TrainingCourseLanding({ slug }: Props) {
               <p className="mt-4 text-white/80 text-sm">
                 Individual enrollment from <strong className="text-white">{formatPrice(price)}</strong> — institutional
                 cohort pricing available.
+                {live?.offerLabel ? (
+                  <span className="ml-2 inline-block rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-200">
+                    {live.offerLabel} · was <span className="line-through">{formatPrice(live.standard)}</span>
+                  </span>
+                ) : null}
               </p>
             )}
             <div className="flex flex-wrap gap-3 mt-6">
