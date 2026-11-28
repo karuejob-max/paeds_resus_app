@@ -8,6 +8,7 @@ import {
   users,
 } from "../../drizzle/schema";
 import type { getDb } from "../db";
+import { sendEmail } from "../email";
 import { activeStaffCondition } from "./institution-active-member";
 
 type Db = NonNullable<Awaited<ReturnType<typeof getDb>>>;
@@ -71,6 +72,7 @@ export type LicencePerson = {
   staffId: number;
   userId: number | null;
   name: string;
+  email: string;
   department: string | null;
   licensed: boolean;
   identityMissing: boolean;
@@ -90,6 +92,7 @@ export function buildLicenceFollowUp(rows: StaffLicenceRow[], institutionDeadlin
       staffId: row.staffId,
       userId: row.userId,
       name: row.name,
+      email: row.email,
       department: row.department,
       licensed,
       identityMissing: !licensed && !row.providerType,
@@ -188,30 +191,72 @@ function dateLabel(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+function escapeHtml(value: string) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function messageFor(person: LicencePerson, institutionName: string, deadline: Date | null, announcement: boolean) {
+  const due = person.dueAt ?? deadline;
+  const title = person.identityMissing
+    ? "Set your professional role"
+    : announcement
+      ? `${institutionName} now requires your professional licence`
+      : "Add your professional licence";
+  const body = person.identityMissing
+    ? `Tell us your professional role (nurse, doctor, clinical officer and so on) so ${institutionName} can see whether a licence is needed and unlock the right emergency-response roles.`
+    : person.state === "expired"
+      ? `Your professional licence has expired. Submit your renewed licence so ${institutionName} can verify it.`
+      : person.state === "rejected" || person.state === "revoked"
+        ? "Your submitted licence was not accepted. Open Professional Credentials, read the reason, and submit it again."
+        : `${institutionName} needs your regulatory licence number and a copy of your licence${person.dueAt ? ` by ${dateLabel(person.dueAt)}` : ""}. It unlocks emergency-response roles and shows you as duty-ready.`;
+  return { title, body, due };
+}
+
 async function notifyPeople(db: Db, institutionId: number, institutionName: string, targets: LicencePerson[], deadline: Date | null, announcement: boolean) {
-  const rows = targets
-    .filter((person) => person.userId != null)
-    .map((person) => ({
+  const reachable = targets.filter((person) => person.userId != null);
+  const rows = reachable.map((person) => {
+    const { title, body, due } = messageFor(person, institutionName, deadline, announcement);
+    return {
       userId: person.userId!,
       type: LICENCE_NOTIFICATION_TYPE,
       domain: "credentials",
       severity: person.overdue ? "high" : "normal",
       requiresAction: true,
       institutionId,
-      dueAt: person.dueAt ?? deadline,
-      title: person.identityMissing ? "Set your professional role" : announcement ? `${institutionName} now requires your professional licence` : "Add your professional licence",
-      body: person.identityMissing
-        ? `Tell us your professional role (nurse, doctor, clinical officer and so on) so ${institutionName} can see whether a licence is needed and unlock the right emergency-response roles.`
-        : person.state === "expired"
-        ? `Your professional licence has expired. Submit your renewed licence so ${institutionName} can verify it.`
-        : person.state === "rejected" || person.state === "revoked"
-          ? `Your submitted licence was not accepted. Open Professional Credentials, read the reason, and submit it again.`
-          : `${institutionName} needs your regulatory licence number and a copy of your licence${person.dueAt ? ` by ${dateLabel(person.dueAt)}` : ""}. It unlocks emergency-response roles and shows you as duty-ready.`,
+      dueAt: due,
+      title,
+      body,
       actionUrl: actionUrl(),
       relatedId: institutionId,
-    }));
+    };
+  });
   if (rows.length > 0) await db.insert(inAppNotifications).values(rows);
-  return rows.length;
+
+  // Email as well: many staff rarely open the app. A failed email never fails the reminder.
+  let emailed = 0;
+  const link = actionUrl();
+  for (let i = 0; i < reachable.length; i += 10) {
+    const batch = reachable.slice(i, i + 10);
+    const results = await Promise.all(
+      batch.map(async (person) => {
+        if (!person.email || !person.email.includes("@")) return false;
+        const { title, body } = messageFor(person, institutionName, deadline, announcement);
+        try {
+          const result = await sendEmail({
+            to: person.email,
+            subject: title,
+            htmlBody: `<p>Hello ${escapeHtml(person.name)},</p><p>${escapeHtml(body)}</p><p><a href="${link}">Open my professional credentials</a></p><p>Paeds Resus</p>`,
+            textBody: `Hello ${person.name},\n\n${body}\n\nOpen: ${link}\n\nPaeds Resus`,
+          });
+          return result.success;
+        } catch {
+          return false;
+        }
+      }),
+    );
+    emailed += results.filter(Boolean).length;
+  }
+  return { sent: rows.length, emailed };
 }
 
 /** Send a reminder to everyone who must act and has not been reminded in the last week. */
@@ -233,8 +278,8 @@ export async function remindMissingLicences(db: Db, input: { institutionId: numb
         .where(and(inArray(inAppNotifications.userId, ids), eq(inAppNotifications.type, LICENCE_NOTIFICATION_TYPE), eq(inAppNotifications.institutionId, input.institutionId), gte(inAppNotifications.createdAt, since)))
     : [];
   const { targets, skippedRecently } = pickReminderTargets(people, new Set(recent.map((r) => r.userId)));
-  const sent = await notifyPeople(db, input.institutionId, inst.name, targets, inst.deadline, false);
-  return { sent, skippedRecently };
+  const { sent, emailed } = await notifyPeople(db, input.institutionId, inst.name, targets, inst.deadline, false);
+  return { sent, emailed, skippedRecently };
 }
 
 /** An institution administrator sets (or clears) the date by which licensed staff must hold a verified licence. */
@@ -252,11 +297,11 @@ export async function setLicenceDeadline(db: Db, input: { institutionId: number;
     .update(institutionalAccounts)
     .set({ licenceDeadlineAt: input.deadline, licenceDeadlineSetByUserId: input.deadline ? input.actorUserId : null })
     .where(eq(institutionalAccounts.id, input.institutionId));
-  if (!input.deadline || !input.notifyStaff) return { announced: 0 };
+  if (!input.deadline || !input.notifyStaff) return { announced: 0, emailed: 0 };
   const rows = await loadStaffLicenceRows(db, input.institutionId, null);
   const { people } = buildLicenceFollowUp(rows, input.deadline);
-  const announced = await notifyPeople(db, input.institutionId, inst.name, people.filter((p) => p.mustAct || p.identityMissing), input.deadline, true);
-  return { announced };
+  const { sent: announced, emailed } = await notifyPeople(db, input.institutionId, inst.name, people.filter((p) => p.mustAct || p.identityMissing), input.deadline, true);
+  return { announced, emailed };
 }
 
 /** What the signed-in provider has to do about their licence, per institution they belong to. */

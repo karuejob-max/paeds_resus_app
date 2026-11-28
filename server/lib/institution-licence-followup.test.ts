@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+vi.mock("../email", () => ({ sendEmail: vi.fn(async () => ({ success: true, messageId: "x" })) }));
 import {
   buildLicenceFollowUp,
   licenceDueAt,

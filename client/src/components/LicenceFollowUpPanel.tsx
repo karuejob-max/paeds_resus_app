@@ -24,11 +24,11 @@ export function LicenceFollowUpPanel({ institutionId }: { institutionId: number 
   const [date, setDate] = useState("");
   const refresh = () => utils.institutionLicenceFollowup.summary.invalidate({ institutionId });
   const setDeadline = trpc.institutionLicenceFollowup.setDeadline.useMutation({
-    onSuccess: (r) => { toast.success(r.announced ? `Deadline saved. ${r.announced} people were notified.` : "Deadline saved."); void refresh(); },
+    onSuccess: (r) => { toast.success(r.announced ? `Deadline saved. ${r.announced} people were notified in the app and ${r.emailed} by email.` : "Deadline saved."); void refresh(); },
     onError: (e) => toast.error(e.message),
   });
   const remind = trpc.institutionLicenceFollowup.remindMissing.useMutation({
-    onSuccess: (r) => { toast.success(`Reminded ${r.sent} people.${r.skippedRecently ? ` ${r.skippedRecently} were reminded within the last week and were skipped.` : ""}`); void refresh(); },
+    onSuccess: (r) => { toast.success(`Reminded ${r.sent} people (${r.emailed} emails sent).${r.skippedRecently ? ` ${r.skippedRecently} were reminded within the last week and were skipped.` : ""}`); void refresh(); },
     onError: (e) => toast.error(e.message),
   });
   const data = summary.data;
@@ -43,7 +43,7 @@ export function LicenceFollowUpPanel({ institutionId }: { institutionId: number 
           {counts.mustAct > 0 ? <Badge variant="outline" className="border-amber-300 text-amber-800">{counts.mustAct} to follow up</Badge> : null}
         </CardTitle>
         <CardDescription>
-          Licensed staff need a verified licence for emergency-response roles and so renewals are tracked. People are reminded in the app; nobody is locked out of learning.
+          Licensed staff need a verified licence for emergency-response roles and so renewals are tracked. People are reminded in the app and by email; nobody is locked out of learning.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
@@ -84,7 +84,7 @@ export function LicenceFollowUpPanel({ institutionId }: { institutionId: number 
         ) : null}
 
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground">Each person is reminded at most once a week.</p>
+          <p className="text-xs text-muted-foreground">Each person is reminded in the app and by email at most once a week.</p>
           <Button size="sm" variant="outline" disabled={counts.mustAct + counts.identityMissing === 0 || remind.isPending} onClick={() => remind.mutate({ institutionId })}>
             Remind {counts.mustAct} {counts.mustAct === 1 ? "person" : "people"}
           </Button>
