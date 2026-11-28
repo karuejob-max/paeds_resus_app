@@ -247,3 +247,10 @@ The platform-admin page shows the linked registry facility (name, MFL code, coun
 - A reporter who adds a facility that is in the registry gets the official entry. Otherwise it is saved flagged `needsReview`. Platform administrators resolve these on **Institution verification** (bottom of the page): match to the registry facility (Care Signal and Code Signal reports and profiles move across) or confirm it is genuinely unlisted.
 - Merging facilities now also moves Code Signal reports.
 - Run `pnpm run db:apply-0204` before deploying. Facilities added by hand before this change are not flagged retroactively.
+
+## PR U: licence onboarding and follow-up
+
+- Migration 0205 adds `licenceDeadlineAt` to `institutionalAccounts`.
+- Providers see an "Add your professional licence" card on the dashboard (also asks for their professional role when unset).
+- Institution admins, credential managers and department heads see a "Professional licences" panel under People and access > Directory: counts, deadline (admins only), weekly-capped "Remind" button.
+- Due date per person = later of the institution deadline and 30 days after joining. Enforcement is visibility plus existing role gates; learning is never blocked.

@@ -1105,6 +1105,9 @@ export const institutionalAccounts = mysqlTable("institutionalAccounts", {
   verifiedByUserId: int("verifiedByUserId"),
   verificationReviewNote: text("verificationReviewNote"),
   /** Set when a platform administrator archives a duplicate or mistaken institution (migration 0201). Archived institutions are hidden and cannot be verified or linked to. */
+  /** Date by which licensed staff must hold a verified regulatory licence (migration 0205). Null means no requirement is set. */
+  licenceDeadlineAt: timestamp("licenceDeadlineAt"),
+  licenceDeadlineSetByUserId: int("licenceDeadlineSetByUserId"),
   archivedAt: timestamp("archivedAt"),
   archivedByUserId: int("archivedByUserId"),
   archiveReason: varchar("archiveReason", { length: 500 }),
