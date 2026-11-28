@@ -3,6 +3,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { AhaHubProviderCourseCard } from "./AhaHubProviderCourseCard";
 
+vi.mock("@/hooks/useLivePrices", () => ({
+  useLivePrices: () => ({
+    priceFor: (_id: string, fallback: number) => ({ price: fallback, standard: fallback, offerLabel: null, offerEndsAt: null }),
+    isLoading: false,
+  }),
+}));
+
 const noop = () => {};
 
 describe("AhaHubProviderCourseCard", () => {
