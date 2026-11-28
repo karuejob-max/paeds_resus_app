@@ -95,3 +95,25 @@ describe("buildProviderTodayAttention", () => {
     });
   });
 });
+
+describe("licence task in the provider action queue", () => {
+  const licenceTask = { institutionName: "CHM", identityMissing: false, overdue: false, dueAt: null, state: "no_licence" };
+  it("asks for the licence when nothing more urgent is waiting", () => {
+    expect(buildProviderTodayAttention({ ...baseSignals, licenceTask })).toMatchObject({
+      action: "Add my licence",
+      destination: "/provider-profile#professional-credentials",
+      tone: "amber",
+    });
+  });
+  it("turns red once it is overdue", () => {
+    expect(buildProviderTodayAttention({ ...baseSignals, licenceTask: { ...licenceTask, overdue: true } })).toMatchObject({ eyebrow: "Overdue", tone: "red" });
+  });
+  it("asks for the professional role first when it is not set", () => {
+    expect(buildProviderTodayAttention({ ...baseSignals, licenceTask: { ...licenceTask, identityMissing: true } })).toMatchObject({ action: "Set my role", destination: "/provider-profile#identity" });
+  });
+  it("never outranks a live activation or a scheduled readiness check", () => {
+    expect(buildProviderTodayAttention({ ...baseSignals, licenceTask, activeActivation: { location: "Ward 3" } }).tone).toBe("red");
+    expect(buildProviderTodayAttention({ ...baseSignals, licenceTask, pendingReadiness: true }).eyebrow).toBe("Readiness");
+  });
+});
+
