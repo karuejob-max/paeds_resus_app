@@ -72,6 +72,8 @@ export type ProviderTodaySignals = {
   pendingReadiness: boolean;
   nextUtl: DutySummary | null;
   nextErtl: DutySummary | null;
+  /** The signed-in provider's own licence to-do, when their institution needs one. */
+  licenceTask?: { institutionName: string; identityMissing: boolean; overdue: boolean; dueAt: Date | string | null; state: string } | null;
 };
 
 export function buildProviderTodayUnverifiedAttention(): Attention {
@@ -86,7 +88,7 @@ export function buildProviderTodayUnverifiedAttention(): Attention {
 }
 
 export function buildProviderTodayAttention(signals: ProviderTodaySignals): Attention {
-  const { activeActivation, pendingMembership, currentPendingRole, pendingReadiness, nextUtl, nextErtl } = signals;
+  const { activeActivation, pendingMembership, currentPendingRole, pendingReadiness, nextUtl, nextErtl, licenceTask } = signals;
   const nextDuty = nextUtl ?? nextErtl;
 
   if (activeActivation) {
@@ -127,6 +129,27 @@ export function buildProviderTodayAttention(signals: ProviderTodaySignals): Atte
       action: "Open readiness",
       destination: "/my-shift?tab=readiness",
       tone: "blue",
+    };
+  }
+  if (licenceTask) {
+    const due = licenceTask.dueAt ? new Date(licenceTask.dueAt).toLocaleDateString() : null;
+    if (licenceTask.identityMissing) {
+      return {
+        eyebrow: "Your profile",
+        title: "Tell us your professional role",
+        detail: `${licenceTask.institutionName} needs to know your role to tell whether a licence applies to you.`,
+        action: "Set my role",
+        destination: "/provider-profile#identity",
+        tone: "amber",
+      };
+    }
+    return {
+      eyebrow: licenceTask.overdue ? "Overdue" : "Your licence",
+      title: licenceTask.state === "expired" ? "Your professional licence has expired" : licenceTask.state === "rejected" || licenceTask.state === "revoked" ? "Your licence needs to be submitted again" : "Add your professional licence",
+      detail: `${licenceTask.institutionName} tracks licences so renewals never lapse. A verified licence unlocks emergency-response roles and shows you as duty-ready.${due ? ` ${licenceTask.overdue ? "It was due" : "Please add it by"} ${due}.` : ""}`,
+      action: "Add my licence",
+      destination: "/provider-profile#professional-credentials",
+      tone: licenceTask.overdue ? "red" : "amber",
     };
   }
   if (nextDuty) {
@@ -232,6 +255,7 @@ export default function ProviderToday() {
     refetchOnReconnect: false,
     retry: 1,
   });
+  const licenceTasksQuery = trpc.institutionLicenceFollowup.myTasks.useQuery(undefined, { staleTime: 60_000, retry: 1 });
   const readinessQuery = trpc.iers.getMyShiftReadiness.useQuery(undefined, {
     enabled: isAuthenticated && hasActiveMembership && secondaryQueriesReady,
     staleTime: 30_000,
@@ -360,6 +384,7 @@ export default function ProviderToday() {
         pendingReadiness,
         nextUtl,
         nextErtl,
+        licenceTask: licenceTasksQuery.data?.[0] ?? null,
       });
 
   const ierpSummary = ierpSummaryQuery.data;
