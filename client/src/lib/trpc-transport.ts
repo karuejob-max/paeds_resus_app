@@ -1,4 +1,4 @@
-import { httpBatchLink, httpLink, splitLink } from "@trpc/client";
+import { httpBatchLink, httpBatchStreamLink, httpLink, splitLink } from "@trpc/client";
 import type { AppRouter } from "../../../server/routers";
 import superjson from "superjson";
 
@@ -68,13 +68,28 @@ export function createTrpcHttpLink(
   fetch: ReturnType<typeof createTrpcFetch>
 ) {
   const sharedHttpOptions = { url, transformer: superjson, fetch };
+  // Reads are streamed: each result is delivered as soon as its own procedure
+  // finishes, so one slow query no longer holds up every other query in the
+  // same batch (pages showed "Loading…" until the slowest call returned).
+  // Streaming must not be wrapped by createTrpcFetch, which buffers the body.
+  const streamingFetch: typeof globalThis.fetch = (input, init) =>
+    globalThis.fetch(input, { ...init, credentials: "include" });
   return splitLink<AppRouter>({
     condition: (op) => isPaymentCriticalPath(op.path),
     true: httpLink(sharedHttpOptions),
-    false: httpBatchLink({
-      ...sharedHttpOptions,
-      // Bound concatenated procedure URLs without dropping any audit events.
-      maxURLLength: 2048,
+    false: splitLink<AppRouter>({
+      condition: (op) => op.type === "query",
+      true: httpBatchStreamLink({
+        url,
+        transformer: superjson,
+        fetch: streamingFetch,
+        maxURLLength: 2048,
+      }),
+      false: httpBatchLink({
+        ...sharedHttpOptions,
+        // Bound concatenated procedure URLs without dropping any audit events.
+        maxURLLength: 2048,
+      }),
     }),
   });
 }
