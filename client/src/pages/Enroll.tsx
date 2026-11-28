@@ -10,6 +10,7 @@ import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import { getLoginUrl } from "@/const";
 import { getIndividualCoursesByTrack } from "@/const/pricing";
+import { useLivePrices } from "@/hooks/useLivePrices";
 import { AhaCourseDurationLines } from "@/components/AhaCourseDurationLines";
 import { AhaEnrollCertificationPreview } from "@/components/AhaEnrollCertificationPreview";
 import { getAhaContinueRoute, isAhaProgramSlug, type AhaProgramType } from "@/lib/providerCourseRoutes";
@@ -70,11 +71,14 @@ export default function Enroll() {
   const ahaCourses = getIndividualCoursesByTrack("aha_certification");
   const paedsResusCourses = getIndividualCoursesByTrack("paeds_resus");
   const enrollableCourses = [...ahaCourses, ...paedsResusCourses];
+  const { priceFor } = useLivePrices();
   const courses = enrollableCourses.map((c) => ({
     id: c.id,
     name: c.name,
     description: c.description,
-    price: c.price,
+    price: priceFor(c.id, c.price).price,
+    standardPrice: priceFor(c.id, c.price).standard,
+    offerLabel: priceFor(c.id, c.price).offerLabel,
     duration: c.duration ?? "",
     features:
       c.id === "instructor"
@@ -176,6 +180,11 @@ export default function Enroll() {
                           <div className="text-4xl font-bold text-brand-orange tabular-nums">
                             KES {course.price.toLocaleString()}
                           </div>
+                            {course.offerLabel ? (
+                              <p className="mt-1 text-sm font-medium text-emerald-700">
+                                {course.offerLabel} · was <span className="line-through">KES {course.standardPrice.toLocaleString()}</span>
+                              </p>
+                            ) : null}
                           <AhaCourseDurationLines
                             programType={course.id as AhaProgramType}
                             className="mt-2"
@@ -237,6 +246,11 @@ export default function Enroll() {
                           <div className="text-4xl font-bold text-brand-orange tabular-nums">
                             KES {course.price.toLocaleString()}
                           </div>
+                            {course.offerLabel ? (
+                              <p className="mt-1 text-sm font-medium text-emerald-700">
+                                {course.offerLabel} · was <span className="line-through">KES {course.standardPrice.toLocaleString()}</span>
+                              </p>
+                            ) : null}
                           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
                             <Clock className="w-4 h-4 shrink-0" />
                             {course.duration}

@@ -10743,3 +10743,21 @@ export const professionalEvidenceConflicts = mysqlTable("professionalEvidenceCon
 }, table => ({ conflictUserStateIdx: index("professional_evidence_conflict_user_state_idx").on(table.userId, table.state), conflictTypeIdx: index("professional_evidence_conflict_type_idx").on(table.evidenceType, table.state) }));
 export type ProfessionalEvidenceConflict = typeof professionalEvidenceConflicts.$inferSelect;
 export type InsertProfessionalEvidenceConflict = typeof professionalEvidenceConflicts.$inferInsert;
+
+/**
+ * Admin-managed self-pay prices (migration 0206). A "standard" row sets the normal price from a date;
+ * an "offer" row overrides it between startsAt and endsAt. Nothing here is deleted, so past prices stay auditable.
+ */
+export const servicePrices = mysqlTable("servicePrices", {
+  id: int("id").autoincrement().primaryKey(),
+  programType: varchar("programType", { length: 32 }).notNull(),
+  kind: mysqlEnum("kind", ["standard", "offer"]).notNull(),
+  priceKes: int("priceKes").notNull(),
+  label: varchar("label", { length: 120 }),
+  startsAt: timestamp("startsAt").notNull(),
+  endsAt: timestamp("endsAt"),
+  cancelledAt: timestamp("cancelledAt"),
+  createdByUserId: int("createdByUserId").notNull(),
+  endedByUserId: int("endedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});

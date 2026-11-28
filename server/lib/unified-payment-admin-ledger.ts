@@ -1,3 +1,5 @@
+import { requiredKesForPayments } from "../../shared/service-pricing";
+import { loadPriceRows } from "./service-pricing";
 import { and, desc, eq, inArray, like, ne, or } from "drizzle-orm";
 import {
   courses,
@@ -12,7 +14,6 @@ import {
 } from "../../drizzle/schema";
 import {
   AHA_PROGRAM_LABELS,
-  getIndependentAhaPriceKes,
   isAhaProgramType,
 } from "../../shared/aha-pathways";
 import { formatIlsCredentialLabel } from "@shared/institutional-life-support";
@@ -196,6 +197,7 @@ export async function getAdminPaymentLedger(
   const ilspEnrollmentIds = new Set((ilsRequests as any[]).map((request) => Number(request.enrollmentId)));
   const genericSpecialPaymentIds = new Set((genericPayments as any[]).filter((payment) => payment.nerpOfferEnrollmentId || payment.ilsCredentialRequestId).map((payment) => Number(payment.id)));
 
+  const priceRows = await loadPriceRows(db);
   for (const item of learnerEnrollments as any[]) {
     const enrollment = item.enrollment;
     const enrollmentId = Number(enrollment.id);
@@ -204,7 +206,9 @@ export async function getAdminPaymentLedger(
     if (relatedPayments.length === 0 && numberOrZero(enrollment.amountPaid) <= 0) continue;
     const programType = String(enrollment.programType ?? "other");
     const independent = isAhaProgramType(programType);
-    const totalDueKes = independent ? getIndependentAhaPriceKes(programType) : null;
+    const totalDueKes = independent
+      ? requiredKesForPayments(programType, priceRows, relatedPayments.filter((payment) => payment.status === "completed"))
+      : null;
     const totalPaidKes = relatedPayments.filter((payment) => payment.status === "completed").reduce((sum, payment) => sum + (independent ? numberOrZero(payment.amount) : numberOrZero(payment.amount) / 100), 0);
     const user = userMap.get(Number(enrollment.userId));
     rows.push({

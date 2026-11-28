@@ -40,6 +40,7 @@ const CodeSignal = lazy(() => import("./pages/CodeSignal"));
 const Institutional = lazy(() => import("./pages/Institutional"));
 const AdminHub = lazy(() => import("./pages/AdminHub"));
 const AdminAccessGrants = lazy(() => import("./pages/AdminAccessGrants"));
+const AdminPricing = lazy(() => import("./pages/AdminPricing"));
 const AdminReports = lazy(() => import("./pages/AdminReports"));
 const AdminUser360 = lazy(() => import("./pages/AdminUser360"));
 const AdminMpesaReconciliation = lazy(() => import("./pages/AdminMpesaReconciliation"));
@@ -322,6 +323,11 @@ function Router() {
           <Route path="/admin">{() => (
             <AdminGate>
               <AdminHub />
+            </AdminGate>
+          )}</Route>
+          <Route path="/admin/pricing">{() => (
+            <AdminGate>
+              <AdminPricing />
             </AdminGate>
           )}</Route>
           <Route path="/admin/access-grants">{() => (

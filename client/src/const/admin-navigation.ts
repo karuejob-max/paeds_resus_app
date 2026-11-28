@@ -94,6 +94,14 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
         risk: "operational",
         badge: "New",
       },
+      {
+        label: "Pricing and offers",
+        href: "/admin/pricing",
+        description: "Change self-pay prices and run limited-time offers such as Black November.",
+        icon: KeyRound,
+        risk: "operational",
+        badge: "New",
+      },
     ],
   },
   {

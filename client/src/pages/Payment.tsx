@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MpesaPaymentForm } from "@/components/MpesaPaymentForm";
+import { useLivePrices } from "@/hooks/useLivePrices";
 import { CheckCircle2, Clock, AlertCircle, CreditCard, Smartphone, Building2 } from "lucide-react";
 import { getIndividualCoursesByTrack, individualCourses } from "@/const/pricing";
 import { AhaCourseDurationLines } from "@/components/AhaCourseDurationLines";
@@ -119,11 +120,14 @@ export default function Payment() {
     selectedTrack === "paeds_resus"
       ? [...availableBaseCourses, ...getIndividualCoursesByTrack("paeds_resus")]
       : availableBaseCourses;
+  const { priceFor } = useLivePrices();
   const courses = availableCourses.map((c) => ({
     id: c.id,
     name: c.name,
     description: c.description,
-    price: c.price,
+    price: priceFor(c.id, c.price).price,
+    standardPrice: priceFor(c.id, c.price).standard,
+    offerLabel: priceFor(c.id, c.price).offerLabel,
     duration: c.duration ?? "",
     icon: courseIcons[c.id] ?? "📋",
   }));
@@ -380,6 +384,11 @@ export default function Payment() {
                       <p className="text-3xl font-bold text-brand-orange tabular-nums">
                         KES {selectedCourseData.price.toLocaleString()}
                       </p>
+                      {selectedCourseData.offerLabel ? (
+                        <p className="mt-1 text-sm font-medium text-emerald-700">
+                          {selectedCourseData.offerLabel} · was <span className="line-through">KES {selectedCourseData.standardPrice.toLocaleString()}</span>
+                        </p>
+                      ) : null}
                     </div>
                   </>
                 ) : (
