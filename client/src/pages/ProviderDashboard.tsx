@@ -414,6 +414,47 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
     );
   }
 
+  // The next step for one enrolment: shown on the collapsed card too, so "continue" is never hidden behind a toggle.
+  const enrolmentAction = (enrol: (typeof sortedAndDeduplicatedEnrollments)[number]) => {
+    const cogPct = enrol.progressPercentage ?? 0;
+    const isCogDone = !!enrol.cognitiveModulesComplete || cogPct === 100;
+    const isPracDone = !!enrol.practicalSkillsSignedOff;
+    if (!isCogDone) {
+      return (
+        <Button
+          size="sm"
+          className="text-xs bg-brand-orange hover:bg-brand-orange/90 text-white"
+          onClick={() => {
+            track("provider_conversion", "aha_journey_continue_cog", { programType: enrol.programType, enrollmentId: enrol.id });
+            setLocation(getProviderCourseDestination(enrol.programType, enrol.id, "/aha-courses", enrol.courseId ?? undefined));
+          }}
+        >
+          {cogPct > 0 ? "Continue learning" : "Start learning"}
+        </Button>
+      );
+    }
+    if (!isPracDone) {
+      return (
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-xs border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100"
+          onClick={() => {
+            track("provider_conversion", "aha_journey_book_session", { programType: enrol.programType, enrollmentId: enrol.id });
+            setLocation("/aha-book-session");
+          }}
+        >
+          Book hands-on session
+        </Button>
+      );
+    }
+    return (
+      <Button size="sm" variant="ghost" className="text-xs text-emerald-800 hover:text-emerald-950" onClick={() => setLocation("/certificates")}>
+        View certificate
+      </Button>
+    );
+  };
+
   // ── Main render ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
@@ -426,80 +467,6 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
               Welcome back{user.name ? `, ${user.name.split(" ")[0]}` : ""}
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">Paeds Resus Provider Workspace</p>
-          </div>
-        </div>
-
-        {/* ── Identity strip — one part of a five-part system ─────────────────
-            North Star v2.0 §2.3/2.4: Paeds Resus is explicitly not a training
-            company, but this Hub's only content (Fellowship + AHA cards) makes
-            that easy to miss for anyone who lands for one specific course.
-            Permanent, not dismissible — and each item routes to the real
-            product, not just naming it. */}
-        <div className="bg-white border border-slate-200 rounded-xl px-4 py-3">
-          <p className="text-sm text-slate-900 mb-2">
-            You're using one part of a five-part learning system.
-          </p>
-          <div className="flex flex-wrap gap-x-4 gap-y-2">
-            <button
-              type="button"
-              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
-              onClick={() => {
-                track("provider_conversion", "identity_strip_click", { target: "resus" });
-                setLocation("/resus");
-              }}
-            >
-              <Siren className="h-3.5 w-3.5" /> ResusGPS
-            </button>
-            <button
-              type="button"
-              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
-              onClick={() => {
-                track("provider_conversion", "identity_strip_click", { target: "fellowship" });
-                setLocation("/fellowship");
-              }}
-            >
-              <GraduationCap className="h-3.5 w-3.5" /> Fellowship
-            </button>
-            <button
-              type="button"
-              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
-              onClick={() => {
-                track("provider_conversion", "identity_strip_click", { target: "care_signal" });
-                setLocation("/care-signal");
-              }}
-            >
-              <AlertTriangle className="h-3.5 w-3.5" /> Care Signal
-            </button>
-            <button
-              type="button"
-              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
-              onClick={() => {
-                track("provider_conversion", "identity_strip_click", { target: "safe_truth" });
-                setLocation("/safe-truth");
-              }}
-            >
-              <Users className="h-3.5 w-3.5" /> Safe-Truth
-            </button>
-            <button
-              type="button"
-              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
-              onClick={() => {
-                track("provider_conversion", "identity_strip_click", { target: "hospital_ers" });
-                setLocation("/for-institutions");
-              }}
-            >
-              <Building2 className="h-3.5 w-3.5" /> Hospital ERS
-            </button>
-            <button
-              type="button"
-              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
-              onClick={() => {
-                track("provider_conversion", "identity_strip_click", { target: "iers_orientation" });
-                setLocation("/iers/orientation");
-              }}
-            >
-              <BookOpen className="h-3.5 w-3.5" /> IERS guide
-            </button>
           </div>
         </div>
 
@@ -640,7 +607,7 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
                   className="text-white hover:bg-white/10 text-xs py-1 h-7 border border-white/20"
                   onClick={() => setShowAhaJourney(!showAhaJourney)}
                 >
-                  {showAhaJourney ? "Hide details" : "Show details"}
+                  {showAhaJourney ? "Hide steps" : "Show steps"}
                 </Button>
               )}
             </div>
@@ -649,33 +616,32 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
             {sortedAndDeduplicatedEnrollments.length > 0 ? (
               !showAhaJourney ? (
                 <div className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-2 p-2 border border-slate-200/60 rounded-lg bg-slate-50/50">
+                  <div className="space-y-2">
                     {sortedAndDeduplicatedEnrollments.map((enrol) => {
                       const programName = enrol.programType?.toUpperCase() || "";
                       const cogPct = enrol.progressPercentage ?? 0;
                       const isCogDone = !!enrol.cognitiveModulesComplete || cogPct === 100;
                       const isPracDone = !!enrol.practicalSkillsSignedOff;
                       const isCertified = isCogDone && isPracDone;
-
                       let badgeColor = "bg-amber-50 text-amber-800 border-amber-200";
-                      let label = `${programName}: Cognitive In Progress (${cogPct}%)`;
+                      let label = `Learning in progress (${cogPct}%)`;
                       if (isCertified) {
                         badgeColor = "bg-emerald-50 text-emerald-800 border-emerald-200";
-                        label = `${programName}: Certified`;
+                        label = "Certified";
                       } else if (isCogDone) {
                         badgeColor = "bg-blue-50 text-blue-800 border-blue-200";
-                        label = `${programName}: Cognitive Complete (Practical Pending)`;
+                        label = "Online learning done · hands-on session next";
                       }
-
                       return (
-                        <Badge key={enrol.id} variant="outline" className={`text-xs py-1 px-2 ${badgeColor}`}>
-                          {label}
-                        </Badge>
+                        <div key={enrol.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800">{enrol.courseTitle || `${programName} course`}</p>
+                            <Badge variant="outline" className={`mt-1 text-xs py-0.5 px-2 ${badgeColor}`}>{label}</Badge>
+                          </div>
+                          {enrolmentAction(enrol)}
+                        </div>
                       );
                     })}
-                  </div>
-                  <div className="text-center text-xs text-muted-foreground font-medium">
-                    Click <span className="font-semibold text-slate-800">Show details</span> above to continue modules or book hands-on practical sessions.
                   </div>
                 </div>
               ) : (
@@ -740,56 +706,7 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
                           </div>
                         </div>
 
-                        {/* Journey Actions */}
-                        <div className="pt-1 flex gap-2 justify-end">
-                          {!isCogDone ? (
-                            <Button
-                              size="sm"
-                              className="text-xs bg-brand-orange hover:bg-brand-orange/90 text-white"
-                              onClick={() => {
-                                track("provider_conversion", "aha_journey_continue_cog", {
-                                  programType: enrol.programType,
-                                  enrollmentId: enrol.id,
-                                });
-                                const dest = getProviderCourseDestination(
-                                  enrol.programType,
-                                  enrol.id,
-                                  "/aha-courses",
-                                  enrol.courseId ?? undefined
-                                );
-                                setLocation(dest);
-                              }}
-                            >
-                              Continue Cognitive Modules
-                            </Button>
-                          ) : !isPracDone ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100"
-                              onClick={() => {
-                                track("provider_conversion", "aha_journey_book_session", {
-                                  programType: enrol.programType,
-                                  enrollmentId: enrol.id,
-                                });
-                                setLocation("/aha-book-session");
-                              }}
-                            >
-                              Book Hands-on Session
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-xs text-emerald-800 hover:text-emerald-950"
-                              onClick={() => {
-                                setLocation("/certificates");
-                              }}
-                            >
-                              View Course Certificates
-                            </Button>
-                          )}
-                        </div>
+                        <div className="pt-1 flex gap-2 justify-end">{enrolmentAction(enrol)}</div>
                       </div>
                     );
                   })}
@@ -986,6 +903,82 @@ export default function ProviderDashboard({ defaultShowCertificates = false }: {
             </Button>
           </CardContent>
         </Card>
+
+        {/* ── Identity strip — one part of a five-part system ─────────────────
+            North Star v2.0 §2.3/2.4: Paeds Resus is explicitly not a training
+            company, but this Hub's only content (Fellowship + AHA cards) makes
+            that easy to miss for anyone who lands for one specific course.
+            Permanent, not dismissible — and each item routes to the real
+            product, not just naming it. */}
+        <details className="bg-white border border-slate-200 rounded-xl px-4 py-3">
+          <summary className="cursor-pointer text-sm font-medium text-slate-900">
+            Explore the rest of Paeds Resus
+          </summary>
+          <div className="mt-3">
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
+              onClick={() => {
+                track("provider_conversion", "identity_strip_click", { target: "resus" });
+                setLocation("/resus");
+              }}
+            >
+              <Siren className="h-3.5 w-3.5" /> ResusGPS
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
+              onClick={() => {
+                track("provider_conversion", "identity_strip_click", { target: "fellowship" });
+                setLocation("/fellowship");
+              }}
+            >
+              <GraduationCap className="h-3.5 w-3.5" /> Fellowship
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
+              onClick={() => {
+                track("provider_conversion", "identity_strip_click", { target: "care_signal" });
+                setLocation("/care-signal");
+              }}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" /> Care Signal
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
+              onClick={() => {
+                track("provider_conversion", "identity_strip_click", { target: "safe_truth" });
+                setLocation("/safe-truth");
+              }}
+            >
+              <Users className="h-3.5 w-3.5" /> Safe-Truth
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
+              onClick={() => {
+                track("provider_conversion", "identity_strip_click", { target: "hospital_ers" });
+                setLocation("/for-institutions");
+              }}
+            >
+              <Building2 className="h-3.5 w-3.5" /> Hospital ERS
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition"
+              onClick={() => {
+                track("provider_conversion", "identity_strip_click", { target: "iers_orientation" });
+                setLocation("/iers/orientation");
+              }}
+            >
+              <BookOpen className="h-3.5 w-3.5" /> IERS guide
+            </button>
+          </div>
+          </div>
+        </details>
 
         {/* PWA install banner */}
         <PWAInstallBanner variant="card" className="mb-2" />
